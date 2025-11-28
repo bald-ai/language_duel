@@ -9,6 +9,7 @@
  */
 
 import type * as users from "../users.js";
+import type * as vocabulary from "../vocabulary.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   users: typeof users;
+  vocabulary: typeof vocabulary;
 }>;
 
 /**
