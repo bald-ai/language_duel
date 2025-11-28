@@ -1,0 +1,2 @@
+*.js linguist-generated=true
+convex/_generated/* linguist-generated=true
