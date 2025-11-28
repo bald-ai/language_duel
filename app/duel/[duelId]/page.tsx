@@ -17,8 +17,11 @@ export default function ChallengePage() {
     { challengeId: challengeId as any }
   );
 
-  // Get vocabulary from database
-  const vocabulary = useQuery(api.vocabulary.getVocabulary);
+  // Get theme for this challenge
+  const theme = useQuery(
+    api.themes.getTheme,
+    challengeData?.challenge?.themeId ? { themeId: challengeData.challenge.themeId } : "skip"
+  );
   const answer = useMutation(api.duel.answerChallenge);
   const stopChallenge = useMutation(api.duel.stopChallenge);
 
@@ -34,7 +37,7 @@ export default function ChallengePage() {
 
   if (!user) return <div>Sign in first.</div>;
   if (!challengeData) return <div>Loading challenge…</div>;
-  if (!vocabulary) return <div>Loading vocabulary…</div>;
+  if (!theme) return <div>Loading theme…</div>;
 
   const { challenge, challenger, opponent } = challengeData;
   const index = challenge.currentWordIndex;
@@ -76,9 +79,10 @@ export default function ChallengePage() {
     );
   }
   
-  // Use words from your database, fallback to dummy if needed
-  const currentWord = vocabulary[index] || { spanish: "done", english: "done" };
-  const word = currentWord.spanish;
+  // Use words from theme
+  const words = theme.words || [];
+  const currentWord = words[index] || { word: "done", answer: "done", wrongAnswers: [] };
+  const word = currentWord.word;
 
   // Check if current user is challenger or opponent
   const isChallenger = challenger?.clerkId === user.id;
@@ -123,9 +127,9 @@ export default function ChallengePage() {
       </div>
 
       <div className="text-center">
-        <div className="text-lg mb-2">Word #{index + 1}</div>
+        <div className="text-lg mb-2">Word #{index + 1} of {words.length}</div>
         <div className="text-3xl font-bold mb-6">{word}</div>
-        <div className="text-sm text-gray-600 mb-4">({currentWord.english})</div>
+        <div className="text-sm text-gray-600 mb-4">({currentWord.answer})</div>
       </div>
 
       <button

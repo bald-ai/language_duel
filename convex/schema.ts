@@ -7,21 +7,29 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-  })
-    .index("by_clerk_id", ["clerkId"]),
-  vocabulary: defineTable({
-    spanish: v.string(),
-    english: v.string(),
-    category: v.optional(v.string()),
-  })
-    .index("by_spanish", ["spanish"]),
+  }).index("by_clerk_id", ["clerkId"]),
+
+  themes: defineTable({
+    name: v.string(),
+    description: v.string(),
+    words: v.array(
+      v.object({
+        word: v.string(), // English word
+        answer: v.string(), // Correct Spanish translation
+        wrongAnswers: v.array(v.string()), // 4 wrong Spanish options
+      })
+    ),
+    createdAt: v.number(),
+  }),
+
   challenges: defineTable({
     challengerId: v.id("users"),
     opponentId: v.id("users"),
+    themeId: v.id("themes"), // Reference to the theme used in this duel
     currentWordIndex: v.number(),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
-    status: v.optional(v.string()), // "pending", "accepted", "rejected", "completed", "stopped"
+    status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped"
     createdAt: v.number(),
   }),
 });

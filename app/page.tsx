@@ -12,6 +12,7 @@ export default function Home() {
   const { isSignedIn, user } = useUser();
   const router = useRouter();
   const users = useQuery(api.users.getUsers);
+  const themes = useQuery(api.themes.getThemes);
   const createChallenge = useMutation(api.duel.createChallenge);
   const acceptChallenge = useMutation(api.duel.acceptChallenge);
   const rejectChallenge = useMutation(api.duel.rejectChallenge);
@@ -19,20 +20,28 @@ export default function Home() {
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [showWaitingModal, setShowWaitingModal] = useState(false);
   const [waitingChallengeId, setWaitingChallengeId] = useState<string | null>(null);
+  const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
   const waitingChallenge = useQuery(api.duel.getChallenge, waitingChallengeId ? { challengeId: waitingChallengeId as any } : "skip");
   
   useSyncUser();
 
   const pendingCount = pendingChallenges?.length || 0;
 
-  const handleCreateChallenge = async (opponentId: string) => {
+  const handleSelectOpponent = (opponentId: string) => {
+    setSelectedOpponentId(opponentId);
+  };
+
+  const handleCreateChallenge = async (themeId: string) => {
+    if (!selectedOpponentId) return;
     try {
       const challengeId = await createChallenge({ 
-        opponentId: opponentId as any,
-        challengerClerkId: user!.id 
+        opponentId: selectedOpponentId as any,
+        challengerClerkId: user!.id,
+        themeId: themeId as any,
       });
       setWaitingChallengeId(challengeId);
       setShowChallengeModal(false);
+      setSelectedOpponentId(null);
       setShowWaitingModal(true);
     } catch (error) {
       console.error("Failed to create challenge:", error);
@@ -132,6 +141,7 @@ export default function Home() {
 
           {/* THEMES Button */}
           <button 
+            onClick={() => router.push("/themes")}
             className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
           >
             Themes
@@ -178,26 +188,63 @@ export default function Home() {
               </div>
             )}
 
-            {/* Challenge New Opponent */}
-            {otherUsers.length === 0 ? (
-              <p className="text-gray-600">No other users available to challenge</p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600 mb-2">Challenge someone:</p>
-                {otherUsers.map((otherUser) => (
-                  <button
-                    key={otherUser._id}
-                    onClick={() => handleCreateChallenge(otherUser._id)}
-                    className="w-full text-left p-3 border rounded hover:bg-gray-100"
-                  >
-                    <div className="font-semibold">{otherUser.name || otherUser.email}</div>
-                    <div className="text-sm text-gray-600">{otherUser.email}</div>
-                  </button>
-                ))}
-              </div>
+            {/* Step 1: Select Opponent */}
+            {!selectedOpponentId && (
+              <>
+                {otherUsers.length === 0 ? (
+                  <p className="text-gray-600">No other users available to challenge</p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 mb-2">Challenge someone:</p>
+                    {otherUsers.map((otherUser) => (
+                      <button
+                        key={otherUser._id}
+                        onClick={() => handleSelectOpponent(otherUser._id)}
+                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                      >
+                        <div className="font-semibold">{otherUser.name || otherUser.email}</div>
+                        <div className="text-sm text-gray-600">{otherUser.email}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
+
+            {/* Step 2: Select Theme */}
+            {selectedOpponentId && (
+              <>
+                <p className="text-sm text-gray-600 mb-2">Select a theme for the duel:</p>
+                {!themes || themes.length === 0 ? (
+                  <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {themes.map((theme) => (
+                      <button
+                        key={theme._id}
+                        onClick={() => handleCreateChallenge(theme._id)}
+                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                      >
+                        <div className="font-semibold">{theme.name}</div>
+                        <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setSelectedOpponentId(null)}
+                  className="mt-2 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                >
+                  Back
+                </button>
+              </>
+            )}
+
             <button
-              onClick={() => setShowChallengeModal(false)}
+              onClick={() => {
+                setShowChallengeModal(false);
+                setSelectedOpponentId(null);
+              }}
               className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
             >
               Cancel

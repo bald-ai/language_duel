@@ -5,8 +5,9 @@ export const createChallenge = mutation({
   args: {
     opponentId: v.id("users"),
     challengerClerkId: v.string(),
+    themeId: v.id("themes"),
   },
-  handler: async ({ db }, { opponentId, challengerClerkId }) => {
+  handler: async ({ db }, { opponentId, challengerClerkId, themeId }) => {
     // Get challenger by clerkId
     const challenger = await db
       .query("users")
@@ -15,9 +16,14 @@ export const createChallenge = mutation({
     
     if (!challenger) throw new Error("Challenger not found");
     
+    // Verify theme exists
+    const theme = await db.get(themeId);
+    if (!theme) throw new Error("Theme not found");
+    
     return await db.insert("challenges", {
       challengerId: challenger._id,
       opponentId,
+      themeId,
       currentWordIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
@@ -87,9 +93,12 @@ export const answerChallenge = mutation({
     const updatedChallenge = await db.get(challengeId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
       const nextWordIndex = updatedChallenge.currentWordIndex + 1;
-      const vocabulary = await db.query("vocabulary").collect();
       
-      if (nextWordIndex >= vocabulary.length) {
+      // Get theme to check word count
+      const theme = await db.get(updatedChallenge.themeId);
+      const wordCount = theme?.words.length || 0;
+      
+      if (nextWordIndex >= wordCount) {
         // Challenge completed
         await db.patch(challengeId, {
           status: "completed",

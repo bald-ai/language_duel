@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
+    "@google-cloud/translate": "^9.3.0",
     "convex": "^1.29.3",
     "next": "16.0.5",
+    "openai": "^6.9.1",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

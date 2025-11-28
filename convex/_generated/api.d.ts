@@ -9,8 +9,8 @@
  */
 
 import type * as duel from "../duel.js";
+import type * as themes from "../themes.js";
 import type * as users from "../users.js";
-import type * as vocabulary from "../vocabulary.js";
 
 import type {
   ApiFromModules,
@@ -20,8 +20,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   duel: typeof duel;
+  themes: typeof themes;
   users: typeof users;
-  vocabulary: typeof vocabulary;
 }>;
 
 /**
