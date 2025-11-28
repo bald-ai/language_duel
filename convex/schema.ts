@@ -15,4 +15,12 @@ export default defineSchema({
     category: v.optional(v.string()),
   })
     .index("by_spanish", ["spanish"]),
+  challenges: defineTable({
+    challengerId: v.id("users"),
+    opponentId: v.id("users"),
+    currentWordIndex: v.number(),
+    challengerAnswered: v.boolean(),
+    opponentAnswered: v.boolean(),
+    createdAt: v.number(),
+  }),
 });

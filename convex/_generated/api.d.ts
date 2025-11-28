@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as duel from "../duel.js";
 import type * as users from "../users.js";
 import type * as vocabulary from "../vocabulary.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  duel: typeof duel;
   users: typeof users;
   vocabulary: typeof vocabulary;
 }>;
