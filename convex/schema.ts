@@ -21,6 +21,7 @@ export default defineSchema({
     currentWordIndex: v.number(),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
+    status: v.optional(v.string()), // "pending", "accepted", "rejected", "completed", "stopped"
     createdAt: v.number(),
   }),
 });

@@ -21,6 +21,7 @@ export const createChallenge = mutation({
       currentWordIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
+      status: "pending",
       createdAt: Date.now(),
     });
   },
@@ -53,6 +54,12 @@ export const answerChallenge = mutation({
     const challenge = await db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
+    // Check if challenge is accepted (or handle old challenges without status)
+    const status = challenge.status || "accepted"; // Default old challenges to accepted
+    if (status !== "accepted") {
+      throw new Error("Challenge is not active");
+    }
+
     // Get user by clerkId
     const user = await db
       .query("users")
@@ -79,11 +86,142 @@ export const answerChallenge = mutation({
     // Check if both answered, then advance to next word
     const updatedChallenge = await db.get(challengeId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
-      await db.patch(challengeId, {
-        currentWordIndex: updatedChallenge.currentWordIndex + 1,
-        challengerAnswered: false,
-        opponentAnswered: false,
+      const nextWordIndex = updatedChallenge.currentWordIndex + 1;
+      const vocabulary = await db.query("vocabulary").collect();
+      
+      if (nextWordIndex >= vocabulary.length) {
+        // Challenge completed
+        await db.patch(challengeId, {
+          status: "completed",
+          currentWordIndex: nextWordIndex,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        });
+      } else {
+        // Continue to next word
+        await db.patch(challengeId, {
+          currentWordIndex: nextWordIndex,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        });
+      }
+    }
+  },
+});
+
+export const getPendingChallenges = query({
+  args: { userId: v.string() },
+  handler: async ({ db }, { userId }) => {
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) return [];
+
+    // Get all challenges where user is opponent
+    const allChallenges = await db
+      .query("challenges")
+      .filter((q) => q.eq(q.field("opponentId"), user._id))
+      .collect();
+
+    // Filter for pending challenges (handle old challenges without status)
+    const pendingChallenges = allChallenges.filter(challenge => 
+      challenge.status === "pending" || (!challenge.status && challenge.currentWordIndex === 0 && !challenge.challengerAnswered && !challenge.opponentAnswered)
+    );
+
+    // Populate with challenger info
+    const result = [];
+    for (const challenge of pendingChallenges) {
+      const challenger = await db.get(challenge.challengerId);
+      result.push({
+        challenge,
+        challenger,
       });
     }
+
+    return result;
+  },
+});
+
+export const acceptChallenge = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) throw new Error("User not found");
+
+    // Only opponent can accept
+    if (challenge.opponentId !== user._id) {
+      throw new Error("Only opponent can accept challenge");
+    }
+
+    await db.patch(challengeId, { status: "accepted" });
+  },
+});
+
+export const rejectChallenge = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) throw new Error("User not found");
+
+    // Only opponent can reject
+    if (challenge.opponentId !== user._id) {
+      throw new Error("Only opponent can reject challenge");
+    }
+
+    await db.patch(challengeId, { status: "rejected" });
+  },
+});
+
+export const stopChallenge = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) throw new Error("User not found");
+
+    // Check if user is part of this challenge
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    
+    if (!isChallenger && !isOpponent) {
+      throw new Error("User not part of this challenge");
+    }
+
+    await db.patch(challengeId, { status: "stopped" });
   },
 });
