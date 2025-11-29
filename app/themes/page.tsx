@@ -663,6 +663,9 @@ export default function ThemesPage() {
               <p className="text-xs text-gray-500 mt-2">
                 Enter a theme name or description for word generation
               </p>
+              <p className="text-xs text-red-600 mt-2 font-medium">
+                ⚠️ Only nouns are supported for now
+              </p>
             </div>
 
             {generateError && (
