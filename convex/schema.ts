@@ -34,5 +34,9 @@ export default defineSchema({
     opponentScore: v.number(), // Points scored by opponent
     status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped"
     createdAt: v.number(),
+    // Hint system fields
+    hintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who requested a hint
+    hintAccepted: v.optional(v.boolean()), // Whether the hint provider accepted
+    eliminatedOptions: v.optional(v.array(v.string())), // Wrong answers eliminated (max 2)
   }),
 });

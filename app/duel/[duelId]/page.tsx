@@ -34,6 +34,9 @@ export default function ChallengePage() {
   );
   const answer = useMutation(api.duel.answerChallenge);
   const stopChallenge = useMutation(api.duel.stopChallenge);
+  const requestHint = useMutation(api.duel.requestHint);
+  const acceptHint = useMutation(api.duel.acceptHint);
+  const eliminateOption = useMutation(api.duel.eliminateOption);
   
   // Extract values safely for hooks (before any returns)
   const challenge = challengeData?.challenge;
@@ -118,6 +121,14 @@ export default function ChallengePage() {
     }
   }, [challengeData, router]);
 
+  // Clear selected answer if it becomes eliminated
+  useEffect(() => {
+    const eliminated = challengeData?.challenge?.eliminatedOptions || [];
+    if (selectedAnswer && eliminated.includes(selectedAnswer)) {
+      setSelectedAnswer(null);
+    }
+  }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
+
   // Shuffle answers (correct + wrong) - memoized per word (MUST be before any returns)
   const shuffledAnswers = useMemo(() => {
     if (word === "done" || !currentWord.wrongAnswers?.length) return [];
@@ -179,11 +190,11 @@ export default function ChallengePage() {
           <div className="text-center text-lg text-gray-400 mb-4">Final Score</div>
           <div className="flex justify-between items-center mb-3">
             <span className="text-lg font-medium">{challenger?.name || challenger?.email}</span>
-            <span className="text-3xl font-bold text-blue-400">{finalChallengerScore}</span>
+            <span className="text-3xl font-bold text-blue-400">{Number.isInteger(finalChallengerScore) ? finalChallengerScore : finalChallengerScore.toFixed(1)}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-lg font-medium">{opponent?.name || opponent?.email}</span>
-            <span className="text-3xl font-bold text-blue-400">{finalOpponentScore}</span>
+            <span className="text-3xl font-bold text-blue-400">{Number.isInteger(finalOpponentScore) ? finalOpponentScore : finalOpponentScore.toFixed(1)}</span>
           </div>
         </div>
         
@@ -214,6 +225,23 @@ export default function ChallengePage() {
 
   const hasAnswered = (isChallenger && challenge.challengerAnswered) || 
                      (isOpponent && challenge.opponentAnswered);
+  const opponentHasAnswered = (isChallenger && challenge.opponentAnswered) || 
+                              (isOpponent && challenge.challengerAnswered);
+
+  // Hint system state
+  const myRole = isChallenger ? "challenger" : "opponent";
+  const theirRole = isChallenger ? "opponent" : "challenger";
+  const hintRequestedBy = challenge.hintRequestedBy;
+  const hintAccepted = challenge.hintAccepted;
+  const eliminatedOptions = challenge.eliminatedOptions || [];
+  
+  // Hint UI states
+  const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
+  const iRequestedHint = hintRequestedBy === myRole;
+  const theyRequestedHint = hintRequestedBy === theirRole;
+  const canAcceptHint = hasAnswered && theyRequestedHint && !hintAccepted;
+  const isHintProvider = hasAnswered && theyRequestedHint && hintAccepted;
+  const canEliminate = isHintProvider && eliminatedOptions.length < 2;
 
   const handleStopChallenge = async () => {
     try {
@@ -242,6 +270,40 @@ export default function ChallengePage() {
     }
   };
 
+  const handleRequestHint = async () => {
+    try {
+      await requestHint({
+        challengeId: challenge._id,
+        userId: user.id,
+      });
+    } catch (error) {
+      console.error("Failed to request hint:", error);
+    }
+  };
+
+  const handleAcceptHint = async () => {
+    try {
+      await acceptHint({
+        challengeId: challenge._id,
+        userId: user.id,
+      });
+    } catch (error) {
+      console.error("Failed to accept hint:", error);
+    }
+  };
+
+  const handleEliminateOption = async (option: string) => {
+    try {
+      await eliminateOption({
+        challengeId: challenge._id,
+        userId: user.id,
+        option,
+      });
+    } catch (error) {
+      console.error("Failed to eliminate option:", error);
+    }
+  };
+
   // Scores
   const challengerScore = challenge.challengerScore || 0;
   const opponentScore = challenge.opponentScore || 0;
@@ -265,11 +327,11 @@ export default function ChallengePage() {
         <div className="text-sm text-gray-400 mb-2">Scoreboard</div>
         <div className="flex justify-between items-center mb-1">
           <span className="text-green-400 font-medium">You ({myName?.split(' ')[0] || 'You'})</span>
-          <span className="text-2xl font-bold text-green-400">{myScore}</span>
+          <span className="text-2xl font-bold text-green-400">{Number.isInteger(myScore) ? myScore : myScore.toFixed(1)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-blue-400 font-medium">{theirName?.split(' ')[0] || 'Opponent'}</span>
-          <span className="text-2xl font-bold text-blue-400">{theirScore}</span>
+          <span className="text-2xl font-bold text-blue-400">{Number.isInteger(theirScore) ? theirScore : theirScore.toFixed(1)}</span>
         </div>
       </div>
 
@@ -301,27 +363,49 @@ export default function ChallengePage() {
             const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
             const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
             const isShowingFeedback = hasAnswered || isLocked || frozenData;
+            const isEliminated = eliminatedOptions.includes(ans);
+            const isWrongAnswer = ans !== currentWord.answer;
+            const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+            
+            // Handle click - either select answer or eliminate option
+            const handleClick = () => {
+              if (frozenData) return;
+              if (canEliminateThis) {
+                handleEliminateOption(ans);
+              } else if (!hasAnswered && !isLocked && !isEliminated) {
+                setSelectedAnswer(ans);
+              }
+            };
             
             return (
               <button
                 key={i}
-                disabled={!!isShowingFeedback}
-                onClick={() => !hasAnswered && !isLocked && !frozenData && setSelectedAnswer(ans)}
-                className={`p-4 rounded-lg border-2 text-lg font-medium transition-all ${
-                  isShowingFeedback
-                    ? displaySelectedAnswer === ans
-                      ? ans === displayCorrectAnswer
-                        ? 'border-green-500 bg-green-500/20 text-green-400'
-                        : 'border-red-500 bg-red-500/20 text-red-400'
-                      : ans === displayCorrectAnswer
-                        ? 'border-green-500 bg-green-500/10 text-green-400'
-                        : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
-                    : selectedAnswer === ans
-                      ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                      : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
+                disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                onClick={handleClick}
+                className={`p-4 rounded-lg border-2 text-lg font-medium transition-all relative ${
+                  isEliminated
+                    ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                    : canEliminateThis
+                      ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                      : isShowingFeedback
+                        ? displaySelectedAnswer === ans
+                          ? ans === displayCorrectAnswer
+                            ? 'border-green-500 bg-green-500/20 text-green-400'
+                            : 'border-red-500 bg-red-500/20 text-red-400'
+                          : ans === displayCorrectAnswer
+                            ? 'border-green-500 bg-green-500/10 text-green-400'
+                            : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                        : selectedAnswer === ans
+                          ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                          : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
                 }`}
               >
                 {ans}
+                {canEliminateThis && (
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    ✕
+                  </span>
+                )}
               </button>
             );
           })}
@@ -339,8 +423,73 @@ export default function ChallengePage() {
         </button>
       )}
 
+      {/* Hint System UI */}
+      {!frozenData && word !== "done" && (
+        <div className="flex flex-col items-center gap-2 mt-2">
+          {/* Request Hint Button - for player who hasn't answered */}
+          {canRequestHint && (
+            <button
+              onClick={handleRequestHint}
+              className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+            >
+              💡 Request Hint
+            </button>
+          )}
+          
+          {/* Waiting for hint acceptance */}
+          {iRequestedHint && !hintAccepted && (
+            <div className="text-purple-400 font-medium animate-pulse">
+              Waiting for opponent to accept hint request...
+            </div>
+          )}
+          
+          {/* Hint received - show status */}
+          {iRequestedHint && hintAccepted && (
+            <div className="text-purple-400 font-medium">
+              💡 Hint received! {eliminatedOptions.length}/2 options eliminated
+            </div>
+          )}
+          
+          {/* Accept Hint Button - for player who answered */}
+          {canAcceptHint && (
+            <button
+              onClick={handleAcceptHint}
+              className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors animate-bounce"
+            >
+              ✓ Accept Hint Request
+            </button>
+          )}
+          
+          {/* Hint provider mode - show instructions */}
+          {isHintProvider && (
+            <div className="text-center">
+              <div className="text-orange-400 font-medium mb-1">
+                🎯 Click on {2 - eliminatedOptions.length} wrong option{2 - eliminatedOptions.length !== 1 ? 's' : ''} to eliminate
+              </div>
+              <div className="text-xs text-gray-400">
+                You'll get +0.5 points if they answer after your hint
+              </div>
+            </div>
+          )}
+          
+          {/* Hint provider done eliminating */}
+          {hasAnswered && theyRequestedHint && hintAccepted && eliminatedOptions.length >= 2 && (
+            <div className="text-green-400 font-medium">
+              ✓ Hint provided! Waiting for opponent...
+            </div>
+          )}
+          
+          {/* Opponent requested hint - show notification */}
+          {theyRequestedHint && !hintAccepted && !hasAnswered && (
+            <div className="text-purple-400 font-medium">
+              Opponent requested a hint
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Waiting message */}
-      {hasAnswered && !frozenData && word !== "done" && (
+      {hasAnswered && !frozenData && word !== "done" && !theyRequestedHint && (
         <div className="text-yellow-400 font-medium animate-pulse">
           Waiting for opponent to answer...
         </div>
