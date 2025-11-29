@@ -91,26 +91,6 @@ export default function Home() {
       {/* Main container - mobile-first centered layout */}
       <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
         
-        {/* DAILY THEMES Header Section */}
-        <header className="w-full mb-8">
-          {/* Daily Themes Title Bar */}
-          <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4 mb-3">
-            <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
-              Daily Themes
-            </h1>
-          </div>
-          
-          {/* Profile/Theme Buttons Row */}
-          <div className="flex justify-center gap-3">
-            <button className="bg-gray-200 border-2 border-gray-400 rounded-full py-2 px-4 text-sm font-medium text-gray-700">
-              Michal - Tech Terms
-            </button>
-            <button className="bg-gray-200 border-2 border-gray-400 rounded-full py-2 px-4 text-sm font-medium text-gray-700">
-              Wife - Spanish Basics
-            </button>
-          </div>
-        </header>
-
         {/* Main Menu Buttons */}
         <nav className="w-full flex flex-col gap-4">
           {/* STUDY Button */}
@@ -160,7 +140,7 @@ export default function Home() {
       {showChallengeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Select Opponent</h2>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Select Opponent</h2>
             
             {/* Pending Challenges Section */}
             {pendingChallenges && pendingChallenges.length > 0 && (
@@ -196,16 +176,23 @@ export default function Home() {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600 mb-2">Challenge someone:</p>
-                    {otherUsers.map((otherUser) => (
-                      <button
-                        key={otherUser._id}
-                        onClick={() => handleSelectOpponent(otherUser._id)}
-                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
-                      >
-                        <div className="font-semibold">{otherUser.name || otherUser.email}</div>
-                        <div className="text-sm text-gray-600">{otherUser.email}</div>
-                      </button>
-                    ))}
+                    {otherUsers.map((otherUser) => {
+                      const hasPendingChallenge = pendingCount > 0;
+                      return (
+                        <button
+                          key={otherUser._id}
+                          onClick={() => !hasPendingChallenge && handleSelectOpponent(otherUser._id)}
+                          disabled={hasPendingChallenge}
+                          className={`w-full text-left p-3 border rounded ${hasPendingChallenge ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'hover:bg-gray-100'}`}
+                        >
+                          <div className="font-semibold text-gray-800">{otherUser.name || otherUser.email}</div>
+                          <div className="text-sm text-gray-600">{otherUser.email}</div>
+                          {hasPendingChallenge && (
+                            <div className="text-xs text-red-500 mt-1">Respond to pending challenge first</div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -225,7 +212,7 @@ export default function Home() {
                         onClick={() => handleCreateChallenge(theme._id)}
                         className="w-full text-left p-3 border rounded hover:bg-gray-100"
                       >
-                        <div className="font-semibold">{theme.name}</div>
+                        <div className="font-semibold text-gray-800">{theme.name}</div>
                         <div className="text-sm text-gray-600">{theme.words.length} words</div>
                       </button>
                     ))}

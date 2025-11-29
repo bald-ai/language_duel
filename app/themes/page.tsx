@@ -90,7 +90,7 @@ TASK: Generate exactly 20 English vocabulary words for the theme "${themeName}" 
 REQUIREMENTS:
 - Each word must be an English noun related to "${themeName}"
 - The answer must be the correct Spanish translation
-- Each word needs exactly 4 wrong answers (Spanish)
+- Each word needs exactly 6 wrong answers (Spanish)
 - Wrong answers must be CHALLENGING and tricky (can include grammar mistakes)
 - All 20 words must be unique within this theme`;
   } else if (type === "word") {
@@ -102,7 +102,7 @@ REQUIREMENTS:
       ? `\n\nREJECTED SUGGESTIONS (DO NOT REPEAT): ${rejectedWords.join(", ")}`
       : "";
     
-    prompt = `SYSTEM: You generate vocabulary flashcards. Given a theme, you produce an English word with its correct Spanish translation and 4 challenging wrong Spanish answers.
+    prompt = `SYSTEM: You generate vocabulary flashcards. Given a theme, you produce an English word with its correct Spanish translation and 6 challenging wrong Spanish answers.
 
 TASK: Replace "${currentWord}" with a NEW English word for the theme "${themeName}".
 
@@ -112,7 +112,7 @@ REQUIREMENTS:
 - New word must be a different English noun fitting the theme
 - Must NOT duplicate any existing word or rejected suggestion
 - Include correct Spanish translation
-- Include 4 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)`;
+- Include 6 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)`;
   } else if (type === "answer") {
     prompt = `SYSTEM: You are a Spanish language tutor helping English speakers learn Spanish.
 
@@ -777,8 +777,8 @@ export default function ThemesPage() {
                       </button>
                     </div>
 
-                    {/* Wrong Answers Grid - Orange/Red tones */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Wrong Answers Grid - Orange/Red tones (3 columns for 6 answers) */}
+                    <div className="grid grid-cols-3 gap-2">
                       {word.wrongAnswers.map((wrongAnswer, wrongIdx) => (
                         <button
                           key={wrongIdx}

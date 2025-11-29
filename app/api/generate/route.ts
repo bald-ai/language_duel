@@ -25,7 +25,7 @@ interface RegenerateFieldRequest {
   currentWord: string;
   currentAnswer: string;
   currentWrongAnswers: string[];
-  fieldIndex?: number; // For wrong answers, which one (0-3)
+  fieldIndex?: number; // For wrong answers, which one (0-5)
   existingWords?: string[]; // All other words in the theme to avoid duplicates
   rejectedWords?: string[]; // Previously rejected suggestions to avoid repeating
   history?: { role: "user" | "assistant"; content: string }[];
@@ -48,21 +48,21 @@ TASK: Generate exactly 20 English vocabulary words for the theme "${themeName}" 
 REQUIREMENTS:
 - Each word must be an English noun related to "${themeName}"
 - The answer must be the correct Spanish translation
-- Each word needs exactly 4 wrong answers (Spanish)
+- Each word needs exactly 6 wrong answers (Spanish)
 - Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish words
   * Use words with subtle meaning differences
   * Include plausible Spanish alternatives that could fool a learner
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
-  * All 4 wrong answers for each word MUST be unique - NO DUPLICATES allowed
+  * All 6 wrong answers for each word MUST be unique - NO DUPLICATES allowed
 - All 20 words must be unique within this theme
 - Focus on practical, commonly used vocabulary
 
 OUTPUT FORMAT: JSON array of 20 objects, each with:
 - word: English word
 - answer: Correct Spanish translation
-- wrongAnswers: Array of exactly 4 challenging wrong Spanish translations`;
+- wrongAnswers: Array of exactly 6 challenging wrong Spanish translations`;
 }
 
 // Build system prompt for field regeneration
@@ -91,7 +91,7 @@ CURRENT WRONG ANSWERS (Spanish): ${currentWrongAnswers.join(", ")}`;
       ? `\n\nREJECTED SUGGESTIONS (DO NOT REPEAT): ${rejectedWords.join(", ")}`
       : "";
     
-    return `You generate vocabulary flashcards. Given a theme, you produce an English word with its correct Spanish translation and 4 challenging wrong Spanish answers.
+    return `You generate vocabulary flashcards. Given a theme, you produce an English word with its correct Spanish translation and 6 challenging wrong Spanish answers.
 
 TASK: Replace "${currentWord}" with a NEW English word for the theme "${themeName}".
 
@@ -101,13 +101,13 @@ REQUIREMENTS:
 - New word must be a different English noun fitting the theme
 - Must NOT duplicate any existing word or rejected suggestion
 - Include correct Spanish translation
-- Include 4 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)
-- All 4 wrong answers MUST be unique - NO DUPLICATES allowed
+- Include 6 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)
+- All 6 wrong answers MUST be unique - NO DUPLICATES allowed
 
 OUTPUT FORMAT: JSON object with:
 - word: New English word
 - answer: Correct Spanish translation
-- wrongAnswers: Array of exactly 4 unique challenging wrong Spanish translations`;
+- wrongAnswers: Array of exactly 6 unique challenging wrong Spanish translations`;
   }
 
   if (fieldType === "answer") {
@@ -159,8 +159,8 @@ const themeSchema = {
           wrongAnswers: {
             type: "array" as const,
             items: { type: "string" as const },
-            minItems: 4,
-            maxItems: 4,
+            minItems: 6,
+            maxItems: 6,
           },
         },
         required: ["word", "answer", "wrongAnswers"],
@@ -182,8 +182,8 @@ const wordSchema = {
     wrongAnswers: {
       type: "array" as const,
       items: { type: "string" as const },
-      minItems: 4,
-      maxItems: 4,
+      minItems: 6,
+      maxItems: 6,
     },
   },
   required: ["word", "answer", "wrongAnswers"],
@@ -216,8 +216,8 @@ const answerAndWrongsSchema = {
     wrongAnswers: {
       type: "array" as const,
       items: { type: "string" as const },
-      minItems: 4,
-      maxItems: 4,
+      minItems: 6,
+      maxItems: 6,
     },
   },
   required: ["answer", "wrongAnswers"],
@@ -228,22 +228,22 @@ const answerAndWrongsSchema = {
 function buildRegenerateForWordPrompt(themeName: string, newWord: string): string {
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
 
-TASK: Generate the correct Spanish translation and 4 challenging wrong answers for the English word "${newWord}" in the theme "${themeName}".
+TASK: Generate the correct Spanish translation and 6 challenging wrong answers for the English word "${newWord}" in the theme "${themeName}".
 
 REQUIREMENTS:
 - The answer must be the correct Spanish translation for "${newWord}"
-- Provide exactly 4 wrong answers (Spanish)
+- Provide exactly 6 wrong answers (Spanish)
 - Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish words
   * Use words with subtle meaning differences
   * Include plausible Spanish alternatives that could fool a learner
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
-  * All 4 wrong answers MUST be unique - NO DUPLICATES allowed
+  * All 6 wrong answers MUST be unique - NO DUPLICATES allowed
 
 OUTPUT FORMAT: JSON object with:
 - answer: Correct Spanish translation
-- wrongAnswers: Array of exactly 4 unique challenging wrong Spanish translations`;
+- wrongAnswers: Array of exactly 6 unique challenging wrong Spanish translations`;
 }
 
 export async function POST(request: NextRequest) {
@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Generate the Spanish translation and 4 wrong answers for "${newWord}".` },
+        { role: "user", content: `Generate the Spanish translation and 6 wrong answers for "${newWord}".` },
       ];
 
       const response = await openai.responses.create({

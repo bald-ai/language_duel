@@ -20,6 +20,8 @@ export default function ChallengePage() {
     shuffledAnswers: string[];
     selectedAnswer: string | null;
     wordIndex: number;
+    hasNoneOption: boolean;
+    difficulty: { level: "easy" | "medium" | "hard"; points: number };
   } | null>(null);
 
   const challengeData = useQuery(
@@ -61,19 +63,56 @@ export default function ChallengePage() {
         prevWordIndexRef.current !== currentWordIndex &&
         (isLocked || selectedAnswer)) {
       // Get PREVIOUS word data (before the index changed)
-      // Use shuffled word order if available
-      const prevActualIndex = wordOrder ? wordOrder[prevWordIndexRef.current] : prevWordIndexRef.current;
+      const prevIndex = prevWordIndexRef.current;
+      const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-      const prevAllAnswers = [prevWord.answer, ...prevWord.wrongAnswers];
       
-      // Compute shuffled answers for previous word
+      // Determine previous difficulty
+      const prevDifficulty = prevIndex < 8 
+        ? { level: "easy" as const, points: 1, wrongCount: 3 }
+        : prevIndex < 14 
+          ? { level: "medium" as const, points: 1.5, wrongCount: 4 }
+          : { level: "hard" as const, points: 2, wrongCount: 4 };
+      
+      // Compute shuffled answers for previous word with difficulty logic
       let seed = prevWord.word.split('').reduce((acc: number, char: string, idx: number) => 
         acc + char.charCodeAt(0) * (idx + 1), 0);
+      seed = seed + prevIndex * 7919;
       const random = () => {
         seed = (seed * 1103515245 + 12345) & 0x7fffffff;
         return seed / 0x7fffffff;
       };
-      const prevShuffled = [...prevAllAnswers];
+      
+      // Shuffle all wrong answers
+      const allWrong = [...prevWord.wrongAnswers];
+      for (let i = allWrong.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [allWrong[i], allWrong[j]] = [allWrong[j], allWrong[i]];
+      }
+      const selectedWrong = allWrong.slice(0, prevDifficulty.wrongCount);
+      
+      let prevShuffled: string[];
+      let prevHasNone = false;
+      
+      if (prevDifficulty.level === "hard") {
+        // Always show "None of the above" in hard mode
+        // Randomly decide if it's the correct answer or a trap
+        const noneIsCorrect = random() < 0.5;
+        if (noneIsCorrect) {
+          // "None" is correct - show 4 wrong answers + None
+          prevShuffled = [...selectedWrong, "None of the above"];
+          prevHasNone = true;
+        } else {
+          // "None" is a trap - show 3 wrong answers + correct + None
+          const fewerWrong = selectedWrong.slice(0, 3);
+          prevShuffled = [prevWord.answer, ...fewerWrong, "None of the above"];
+          prevHasNone = false; // None shown but not correct
+        }
+      } else {
+        prevShuffled = [prevWord.answer, ...selectedWrong];
+      }
+      
+      // Final shuffle
       for (let i = prevShuffled.length - 1; i > 0; i--) {
         const j = Math.floor(random() * (i + 1));
         [prevShuffled[i], prevShuffled[j]] = [prevShuffled[j], prevShuffled[i]];
@@ -85,7 +124,9 @@ export default function ChallengePage() {
         correctAnswer: prevWord.answer,
         shuffledAnswers: prevShuffled,
         selectedAnswer: selectedAnswer,
-        wordIndex: prevWordIndexRef.current,
+        wordIndex: prevIndex,
+        hasNoneOption: prevHasNone,
+        difficulty: prevDifficulty,
       });
       setCountdown(3);
     } else if (prevWordIndexRef.current !== currentWordIndex) {
@@ -129,27 +170,75 @@ export default function ChallengePage() {
     }
   }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
 
-  // Shuffle answers (correct + wrong) - memoized per word (MUST be before any returns)
-  const shuffledAnswers = useMemo(() => {
-    if (word === "done" || !currentWord.wrongAnswers?.length) return [];
-    const allAnswers = [currentWord.answer, ...currentWord.wrongAnswers];
+  // Difficulty scaling based on question index
+  // Easy (0-7): 4 options (1 correct + 3 random wrong), 1 point
+  // Medium (8-13): 5 options (1 correct + 4 random wrong), 1.5 points
+  // Hard (14-19): 5 options (4 wrong + either correct OR "None"), 2 points
+  const difficulty = useMemo(() => {
+    if (index < 8) return { level: "easy" as const, points: 1, wrongCount: 3, optionCount: 4 };
+    if (index < 14) return { level: "medium" as const, points: 1.5, wrongCount: 4, optionCount: 5 };
+    return { level: "hard" as const, points: 2, wrongCount: 4, optionCount: 5 };
+  }, [index]);
+
+  // Shuffle answers with difficulty-based option selection (MUST be before any returns)
+  const { shuffledAnswers, hasNoneOption, correctAnswerPresent } = useMemo(() => {
+    if (word === "done" || !currentWord.wrongAnswers?.length) {
+      return { shuffledAnswers: [], hasNoneOption: false, correctAnswerPresent: true };
+    }
     
     // Seeded PRNG (Linear Congruential Generator)
     let seed = currentWord.word.split('').reduce((acc, char, idx) => 
       acc + char.charCodeAt(0) * (idx + 1), 0);
+    // Add index to seed so different questions get different random selections
+    seed = seed + index * 7919;
     const random = () => {
       seed = (seed * 1103515245 + 12345) & 0x7fffffff;
       return seed / 0x7fffffff;
     };
     
-    // Fisher-Yates shuffle with seeded random
-    const shuffled = [...allAnswers];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+    // Shuffle all wrong answers first to pick random subset
+    const allWrong = [...currentWord.wrongAnswers];
+    for (let i = allWrong.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      [allWrong[i], allWrong[j]] = [allWrong[j], allWrong[i]];
     }
-    return shuffled;
-  }, [currentWord.word, currentWord.answer, currentWord.wrongAnswers, word]);
+    
+    // Pick the required number of wrong answers
+    const selectedWrong = allWrong.slice(0, difficulty.wrongCount);
+    
+    let answers: string[];
+    let hasNone = false;
+    let correctPresent = true;
+    
+    if (difficulty.level === "hard") {
+      // Always show "None of the above" in hard mode
+      // Randomly decide if it's the correct answer (correct answer hidden) or a trap
+      const noneIsCorrect = random() < 0.5;
+      if (noneIsCorrect) {
+        // "None" is correct - show 4 wrong answers + None (no correct answer)
+        answers = [...selectedWrong, "None of the above"];
+        hasNone = true;
+        correctPresent = false;
+      } else {
+        // "None" is a trap - show 3 wrong answers + correct + None
+        const fewerWrong = selectedWrong.slice(0, 3);
+        answers = [currentWord.answer, ...fewerWrong, "None of the above"];
+        hasNone = false; // None is shown but NOT correct
+        correctPresent = true;
+      }
+    } else {
+      // Easy/Medium: always include correct answer
+      answers = [currentWord.answer, ...selectedWrong];
+    }
+    
+    // Final shuffle of the options
+    for (let i = answers.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [answers[i], answers[j]] = [answers[j], answers[i]];
+    }
+    
+    return { shuffledAnswers: answers, hasNoneOption: hasNone, correctAnswerPresent: correctPresent };
+  }, [currentWord.word, currentWord.answer, currentWord.wrongAnswers, word, index, difficulty]);
 
   // Early returns AFTER all hooks
   if (!user) return <div>Sign in first.</div>;
@@ -346,6 +435,22 @@ export default function ChallengePage() {
 
       <div className="text-center">
         <div className="text-lg mb-2">Word #{(frozenData ? frozenData.wordIndex : index) + 1} of {words.length}</div>
+        {/* Difficulty indicator */}
+        <div className="mb-2">
+          {(() => {
+            const currentDifficulty = frozenData ? frozenData.difficulty : difficulty;
+            const levelColors = {
+              easy: "text-green-400 bg-green-500/20 border-green-500",
+              medium: "text-yellow-400 bg-yellow-500/20 border-yellow-500",
+              hard: "text-red-400 bg-red-500/20 border-red-500",
+            };
+            return (
+              <span className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${levelColors[currentDifficulty.level]}`}>
+                {currentDifficulty.level.toUpperCase()} (+{currentDifficulty.points === 1 ? "1" : currentDifficulty.points} pts)
+              </span>
+            );
+          })()}
+        </div>
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
       </div>
 
@@ -362,10 +467,18 @@ export default function ChallengePage() {
           {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
             const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
             const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+            const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
             const isShowingFeedback = hasAnswered || isLocked || frozenData;
             const isEliminated = eliminatedOptions.includes(ans);
-            const isWrongAnswer = ans !== currentWord.answer;
+            const isWrongAnswer = ans !== currentWord.answer && ans !== "None of the above";
             const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+            
+            // Determine if this answer is correct
+            // - If "None of the above" is present (hasNoneOption), then "None of the above" is correct
+            // - Otherwise, the correct answer from the word is correct
+            const isCorrectOption = displayHasNone 
+              ? ans === "None of the above"
+              : ans === displayCorrectAnswer;
             
             // Handle click - either select answer or eliminate option
             const handleClick = () => {
@@ -389,10 +502,10 @@ export default function ChallengePage() {
                       ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
                       : isShowingFeedback
                         ? displaySelectedAnswer === ans
-                          ? ans === displayCorrectAnswer
+                          ? isCorrectOption
                             ? 'border-green-500 bg-green-500/20 text-green-400'
                             : 'border-red-500 bg-red-500/20 text-red-400'
-                          : ans === displayCorrectAnswer
+                          : isCorrectOption
                             ? 'border-green-500 bg-green-500/10 text-green-400'
                             : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
                         : selectedAnswer === ans

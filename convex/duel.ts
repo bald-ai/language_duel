@@ -102,7 +102,43 @@ export const answerChallenge = mutation({
       ? challenge.wordOrder[challenge.currentWordIndex] 
       : challenge.currentWordIndex;
     const currentWord = theme.words[actualWordIndex];
-    const isCorrect = currentWord?.answer === selectedAnswer;
+    
+    // Determine difficulty and points based on question index
+    // Easy (0-7): 1 point, Medium (8-13): 1.5 points, Hard (14-19): 2 points
+    const questionIndex = challenge.currentWordIndex;
+    const pointsForCorrect = questionIndex < 8 ? 1 : questionIndex < 14 ? 1.5 : 2;
+    const isHardMode = questionIndex >= 14;
+    
+    // For hard mode, we need to determine if "None of the above" is correct
+    // using the same seeded PRNG as the client
+    let isCorrect = false;
+    if (isHardMode && currentWord) {
+      // Replicate seeded PRNG to determine if "None" is correct
+      let seed = currentWord.word.split('').reduce((acc: number, char: string, idx: number) => 
+        acc + char.charCodeAt(0) * (idx + 1), 0);
+      seed = seed + questionIndex * 7919;
+      
+      // Advance seed past wrong answer shuffling (6 wrong answers = 5 swaps)
+      for (let i = 5; i > 0; i--) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      }
+      
+      // This determines if "None of the above" is the correct answer
+      // (In hard mode, "None" is always shown - this just decides if it's correct or a trap)
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const noneIsCorrect = (seed / 0x7fffffff) < 0.5;
+      
+      if (noneIsCorrect) {
+        // "None of the above" is correct (real answer was hidden from options)
+        isCorrect = selectedAnswer === "None of the above";
+      } else {
+        // "None of the above" is a trap, real answer is correct
+        isCorrect = currentWord.answer === selectedAnswer;
+      }
+    } else {
+      // Easy/Medium: just check against the correct answer
+      isCorrect = currentWord?.answer === selectedAnswer;
+    }
     
     // Check if this player received a hint (they requested it and it was accepted with eliminations)
     const playerRole = isChallenger ? "challenger" : "opponent";
@@ -110,10 +146,10 @@ export const answerChallenge = mutation({
                          challenge.hintAccepted === true && 
                          (challenge.eliminatedOptions?.length || 0) > 0;
     
-    // Mark as answered and update score if correct
+    // Mark as answered and update score if correct (using difficulty-based points)
     // Also award +0.5 to hint provider if this player received a hint
     if (isChallenger && !challenge.challengerAnswered) {
-      const newScore = isCorrect ? (challenge.challengerScore || 0) + 1 : (challenge.challengerScore || 0);
+      const newScore = isCorrect ? (challenge.challengerScore || 0) + pointsForCorrect : (challenge.challengerScore || 0);
       const hintBonus = receivedHint ? 0.5 : 0; // Bonus goes to opponent (hint provider)
       await db.patch(challengeId, { 
         challengerAnswered: true, 
@@ -121,7 +157,7 @@ export const answerChallenge = mutation({
         opponentScore: (challenge.opponentScore || 0) + hintBonus,
       });
     } else if (isOpponent && !challenge.opponentAnswered) {
-      const newScore = isCorrect ? (challenge.opponentScore || 0) + 1 : (challenge.opponentScore || 0);
+      const newScore = isCorrect ? (challenge.opponentScore || 0) + pointsForCorrect : (challenge.opponentScore || 0);
       const hintBonus = receivedHint ? 0.5 : 0; // Bonus goes to challenger (hint provider)
       await db.patch(challengeId, { 
         opponentAnswered: true, 

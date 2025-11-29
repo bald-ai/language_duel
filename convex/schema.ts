@@ -16,7 +16,7 @@ export default defineSchema({
       v.object({
         word: v.string(), // English word
         answer: v.string(), // Correct Spanish translation
-        wrongAnswers: v.array(v.string()), // 4 wrong Spanish options
+        wrongAnswers: v.array(v.string()), // 6 wrong Spanish options
       })
     ),
     createdAt: v.number(),
