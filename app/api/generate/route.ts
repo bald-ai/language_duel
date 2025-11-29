@@ -251,10 +251,12 @@ export async function POST(request: NextRequest) {
   const openai = new OpenAI({
     apiKey: process.env.OPEN_AI_API_KEY,
   });
+  console.log("OpenAI baseURL:", openai.baseURL);
 
   try {
     const body: GenerateRequest = await request.json();
     console.log("Request type:", body.type);
+    console.log("Making OpenAI request...");
 
     if (body.type === "theme") {
       // Generate full theme
