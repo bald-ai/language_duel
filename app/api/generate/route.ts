@@ -243,12 +243,18 @@ OUTPUT FORMAT: JSON object with:
 }
 
 export async function POST(request: NextRequest) {
+  // Debug logging
+  console.log("POST /api/generate started");
+  console.log("OPEN_AI_API_KEY exists:", !!process.env.OPEN_AI_API_KEY);
+  console.log("OPEN_AI_API_KEY length:", process.env.OPEN_AI_API_KEY?.length);
+
   const openai = new OpenAI({
     apiKey: process.env.OPEN_AI_API_KEY,
   });
 
   try {
     const body: GenerateRequest = await request.json();
+    console.log("Request type:", body.type);
 
     if (body.type === "theme") {
       // Generate full theme
