@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPEN_AI_API_KEY,
-});
-
 // Types
 interface WordEntry {
   word: string;
@@ -247,6 +243,10 @@ OUTPUT FORMAT: JSON object with:
 }
 
 export async function POST(request: NextRequest) {
+  const openai = new OpenAI({
+    apiKey: process.env.OPEN_AI_API_KEY,
+  });
+
   try {
     const body: GenerateRequest = await request.json();
 
