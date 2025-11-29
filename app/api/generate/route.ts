@@ -250,6 +250,7 @@ export async function POST(request: NextRequest) {
 
   const openai = new OpenAI({
     apiKey: process.env.OPEN_AI_API_KEY,
+    baseURL: "https://api.openai.com/v1",
   });
   console.log("OpenAI baseURL:", openai.baseURL);
 
