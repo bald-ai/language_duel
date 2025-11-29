@@ -27,8 +27,11 @@ export default defineSchema({
     opponentId: v.id("users"),
     themeId: v.id("themes"), // Reference to the theme used in this duel
     currentWordIndex: v.number(),
+    wordOrder: v.optional(v.array(v.number())), // Shuffled indices for randomized question order
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
+    challengerScore: v.number(), // Points scored by challenger
+    opponentScore: v.number(), // Points scored by opponent
     status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped"
     createdAt: v.number(),
   }),

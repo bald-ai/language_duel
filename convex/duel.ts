@@ -20,13 +20,24 @@ export const createChallenge = mutation({
     const theme = await db.get(themeId);
     if (!theme) throw new Error("Theme not found");
     
+    // Create shuffled word order using Fisher-Yates algorithm
+    const wordCount = theme.words.length;
+    const wordOrder = Array.from({ length: wordCount }, (_, i) => i);
+    for (let i = wordOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [wordOrder[i], wordOrder[j]] = [wordOrder[j], wordOrder[i]];
+    }
+    
     return await db.insert("challenges", {
       challengerId: challenger._id,
       opponentId,
       themeId,
       currentWordIndex: 0,
+      wordOrder,
       challengerAnswered: false,
       opponentAnswered: false,
+      challengerScore: 0,
+      opponentScore: 0,
       status: "pending",
       createdAt: Date.now(),
     });
@@ -54,9 +65,9 @@ export const answerChallenge = mutation({
   args: {
     challengeId: v.id("challenges"),
     userId: v.string(),
-    isCorrect: v.boolean(),
+    selectedAnswer: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
+  handler: async ({ db }, { challengeId, userId, selectedAnswer }) => {
     const challenge = await db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
@@ -82,11 +93,24 @@ export const answerChallenge = mutation({
       throw new Error("User not part of this challenge");
     }
 
-    // Mark as answered
+    // Get theme to check correct answer
+    const theme = await db.get(challenge.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    // Use shuffled word order if available, otherwise fall back to sequential
+    const actualWordIndex = challenge.wordOrder 
+      ? challenge.wordOrder[challenge.currentWordIndex] 
+      : challenge.currentWordIndex;
+    const currentWord = theme.words[actualWordIndex];
+    const isCorrect = currentWord?.answer === selectedAnswer;
+    
+    // Mark as answered and update score if correct
     if (isChallenger && !challenge.challengerAnswered) {
-      await db.patch(challengeId, { challengerAnswered: true });
+      const newScore = isCorrect ? (challenge.challengerScore || 0) + 1 : (challenge.challengerScore || 0);
+      await db.patch(challengeId, { challengerAnswered: true, challengerScore: newScore });
     } else if (isOpponent && !challenge.opponentAnswered) {
-      await db.patch(challengeId, { opponentAnswered: true });
+      const newScore = isCorrect ? (challenge.opponentScore || 0) + 1 : (challenge.opponentScore || 0);
+      await db.patch(challengeId, { opponentAnswered: true, opponentScore: newScore });
     }
 
     // Check if both answered, then advance to next word
