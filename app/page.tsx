@@ -124,7 +124,7 @@ export default function Home() {
             onClick={() => router.push("/themes")}
             className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
           >
-            Themes
+            MANAGE THEMES
           </button>
 
           {/* EXIT Button */}
