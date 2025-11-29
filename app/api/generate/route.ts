@@ -31,7 +31,13 @@ interface RegenerateFieldRequest {
   history?: { role: "user" | "assistant"; content: string }[];
 }
 
-type GenerateRequest = GenerateThemeRequest | RegenerateFieldRequest;
+interface RegenerateForWordRequest {
+  type: "regenerate-for-word";
+  themeName: string;
+  newWord: string; // The manually edited English word
+}
+
+type GenerateRequest = GenerateThemeRequest | RegenerateFieldRequest | RegenerateForWordRequest;
 
 // Build system prompt for theme generation
 function buildThemeSystemPrompt(themeName: string): string {
@@ -49,6 +55,7 @@ REQUIREMENTS:
   * Include plausible Spanish alternatives that could fool a learner
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
+  * All 4 wrong answers for each word MUST be unique - NO DUPLICATES allowed
 - All 20 words must be unique within this theme
 - Focus on practical, commonly used vocabulary
 
@@ -95,11 +102,12 @@ REQUIREMENTS:
 - Must NOT duplicate any existing word or rejected suggestion
 - Include correct Spanish translation
 - Include 4 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)
+- All 4 wrong answers MUST be unique - NO DUPLICATES allowed
 
 OUTPUT FORMAT: JSON object with:
 - word: New English word
 - answer: Correct Spanish translation
-- wrongAnswers: Array of exactly 4 challenging wrong Spanish translations`;
+- wrongAnswers: Array of exactly 4 unique challenging wrong Spanish translations`;
   }
 
   if (fieldType === "answer") {
@@ -200,6 +208,44 @@ const wrongAnswerSchema = {
   additionalProperties: false,
 };
 
+// Schema for regenerating answer + wrong answers for a manually edited word
+const answerAndWrongsSchema = {
+  type: "object" as const,
+  properties: {
+    answer: { type: "string" as const },
+    wrongAnswers: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      minItems: 4,
+      maxItems: 4,
+    },
+  },
+  required: ["answer", "wrongAnswers"],
+  additionalProperties: false,
+};
+
+// Build system prompt for regenerating answer + wrong answers for a manually edited word
+function buildRegenerateForWordPrompt(themeName: string, newWord: string): string {
+  return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
+
+TASK: Generate the correct Spanish translation and 4 challenging wrong answers for the English word "${newWord}" in the theme "${themeName}".
+
+REQUIREMENTS:
+- The answer must be the correct Spanish translation for "${newWord}"
+- Provide exactly 4 wrong answers (Spanish)
+- Wrong answers must be CHALLENGING and tricky:
+  * Use similar-sounding Spanish words
+  * Use words with subtle meaning differences
+  * Include plausible Spanish alternatives that could fool a learner
+  * Can include intentional grammar mistakes or wrong gender articles
+  * NEVER use obviously wrong answers
+  * All 4 wrong answers MUST be unique - NO DUPLICATES allowed
+
+OUTPUT FORMAT: JSON object with:
+- answer: Correct Spanish translation
+- wrongAnswers: Array of exactly 4 unique challenging wrong Spanish translations`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
@@ -216,17 +262,21 @@ export async function POST(request: NextRequest) {
         { role: "user", content: `Generate 20 Spanish vocabulary words for the theme "${body.themeName}".` },
       ];
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-2024-08-06",
-        messages,
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "theme_words", schema: themeSchema, strict: true },
+      const response = await openai.responses.create({
+        model: "gpt-5.1-2025-11-13",
+        reasoning: { effort: "low" },
+        input: messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content as string })),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "theme_words",
+            schema: themeSchema,
+            strict: true,
+          },
         },
-        temperature: 0.7,
       });
 
-      const content = response.choices[0].message.content;
+      const content = response.output_text;
       if (!content) throw new Error("No content in response");
       
       const parsed = JSON.parse(content);
@@ -274,17 +324,21 @@ export async function POST(request: NextRequest) {
         { role: "user", content: `Generate the new ${fieldType === "wrong" ? "wrong answer" : fieldType}.` },
       ];
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-2024-08-06",
-        messages,
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: schemaName, schema, strict: true },
+      const response = await openai.responses.create({
+        model: "gpt-5.1-2025-11-13",
+        reasoning: { effort: "low" },
+        input: messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content as string })),
+        text: {
+          format: {
+            type: "json_schema",
+            name: schemaName,
+            schema,
+            strict: true,
+          },
         },
-        temperature: 0.7,
       });
 
-      const content = response.choices[0].message.content;
+      const content = response.output_text;
       if (!content) throw new Error("No content in response");
       
       const parsed = JSON.parse(content);
@@ -292,6 +346,41 @@ export async function POST(request: NextRequest) {
         success: true,
         data: parsed,
         prompt: systemPrompt, // Return for debugging
+      });
+    }
+
+    if (body.type === "regenerate-for-word") {
+      const { themeName, newWord } = body;
+      
+      const systemPrompt = buildRegenerateForWordPrompt(themeName, newWord);
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Generate the Spanish translation and 4 wrong answers for "${newWord}".` },
+      ];
+
+      const response = await openai.responses.create({
+        model: "gpt-5.1-2025-11-13",
+        reasoning: { effort: "low" },
+        input: messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content as string })),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "answer_and_wrongs",
+            schema: answerAndWrongsSchema,
+            strict: true,
+          },
+        },
+      });
+
+      const content = response.output_text;
+      if (!content) throw new Error("No content in response");
+      
+      const parsed = JSON.parse(content);
+      return NextResponse.json({
+        success: true,
+        data: parsed,
+        prompt: systemPrompt,
       });
     }
 

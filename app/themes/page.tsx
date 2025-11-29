@@ -24,6 +24,50 @@ interface Theme {
 type ViewMode = "list" | "detail" | "edit-word";
 type EditMode = "choice" | "generate" | "manual";
 
+// Helper to check if a theme has duplicate wrong answers
+function checkThemeForDuplicateWrongAnswers(words: WordEntry[]): boolean {
+  for (const word of words) {
+    const uniqueWrongs = new Set(word.wrongAnswers);
+    if (uniqueWrongs.size !== word.wrongAnswers.length) {
+      return true; // Has duplicates
+    }
+  }
+  return false;
+}
+
+// Helper to check if a theme has duplicate words (same English word appearing multiple times)
+function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
+  const wordSet = new Set<string>();
+  for (const word of words) {
+    const lowerWord = word.word.toLowerCase().trim();
+    if (wordSet.has(lowerWord)) {
+      return true; // Has duplicate word
+    }
+    wordSet.add(lowerWord);
+  }
+  return false;
+}
+
+// Helper to get indices of duplicate words in theme
+function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
+  const wordMap = new Map<string, number[]>();
+  words.forEach((word, index) => {
+    const lowerWord = word.word.toLowerCase().trim();
+    if (!wordMap.has(lowerWord)) {
+      wordMap.set(lowerWord, []);
+    }
+    wordMap.get(lowerWord)!.push(index);
+  });
+  
+  const duplicateIndices = new Set<number>();
+  for (const indices of wordMap.values()) {
+    if (indices.length > 1) {
+      indices.forEach(idx => duplicateIndices.add(idx));
+    }
+  }
+  return duplicateIndices;
+}
+
 // Helper to build the prompt that will be shown to user
 function buildPromptPreview(
   type: "theme" | "word" | "answer" | "wrong",
@@ -144,6 +188,11 @@ export default function ThemesPage() {
   const [conversationHistory, setConversationHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [rejectedWords, setRejectedWords] = useState<string[]>([]); // Track rejected word suggestions
+  
+  // Regenerate confirmation modal state (for manual word edits)
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const [pendingManualWord, setPendingManualWord] = useState<string>(""); // The new word to save
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Navigation
   const goBack = () => {
@@ -414,6 +463,14 @@ export default function ThemesPage() {
   const handleSaveManual = () => {
     if (editingWordIndex === null || !editingField) return;
     
+    // If editing word field and value changed, show regeneration prompt
+    if (editingField === "word" && manualValue.trim() !== oldValue.trim()) {
+      setPendingManualWord(manualValue);
+      setShowRegenerateModal(true);
+      return;
+    }
+    
+    // For other fields, save directly
     const updatedWords = [...localWords];
     const word = { ...updatedWords[editingWordIndex] };
     
@@ -430,10 +487,80 @@ export default function ThemesPage() {
     setLocalWords(updatedWords);
     goBack();
   };
+  
+  // Handle "No" - just save the word without regenerating answer/wrongs
+  const handleSaveWordOnly = () => {
+    if (editingWordIndex === null) return;
+    
+    const updatedWords = [...localWords];
+    const word = { ...updatedWords[editingWordIndex] };
+    word.word = pendingManualWord;
+    updatedWords[editingWordIndex] = word;
+    setLocalWords(updatedWords);
+    
+    setShowRegenerateModal(false);
+    setPendingManualWord("");
+    goBack();
+  };
+  
+  // Handle "Yes" - regenerate answer and wrong answers for the new word
+  const handleRegenerateForWord = async () => {
+    if (editingWordIndex === null || !selectedTheme) return;
+    
+    setIsRegenerating(true);
+    
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "regenerate-for-word",
+          themeName: selectedTheme.name,
+          newWord: pendingManualWord,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Regeneration failed");
+      }
+      
+      // Update localWords with new word, answer, and wrong answers
+      const updatedWords = [...localWords];
+      updatedWords[editingWordIndex] = {
+        word: pendingManualWord,
+        answer: data.data.answer,
+        wrongAnswers: data.data.wrongAnswers,
+      };
+      setLocalWords(updatedWords);
+      
+      setShowRegenerateModal(false);
+      setPendingManualWord("");
+      goBack();
+    } catch (error) {
+      console.error("Regenerate error:", error);
+      alert(error instanceof Error ? error.message : "Regeneration failed");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   // Save entire theme
   const handleSaveTheme = async () => {
     if (!selectedTheme) return;
+    
+    // Check for duplicate words in theme
+    if (checkThemeForDuplicateWords(localWords)) {
+      alert("Cannot save: This theme has duplicate words. Please fix the duplicate words (marked with red !) before saving.");
+      return;
+    }
+    
+    // Check for duplicate wrong answers
+    if (checkThemeForDuplicateWrongAnswers(localWords)) {
+      alert("Cannot save: This theme has duplicate wrong answers. Please fix the duplicate wrong answers (marked with orange ⚠) before saving.");
+      return;
+    }
     
     try {
       await updateTheme({
@@ -487,7 +614,15 @@ export default function ThemesPage() {
                   onClick={() => openTheme(theme as Theme)}
                   className="text-left flex-1"
                 >
-                  <div className="font-bold text-lg text-gray-800">{theme.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg text-gray-800">{theme.name}</span>
+                    {checkThemeForDuplicateWords(theme.words) && (
+                      <span className="text-red-500 text-xl font-bold" title="This theme has duplicate words">!</span>
+                    )}
+                    {checkThemeForDuplicateWrongAnswers(theme.words) && (
+                      <span className="text-orange-500 text-xl font-bold" title="This theme has duplicate wrong answers">⚠</span>
+                    )}
+                  </div>
                   <div className="text-sm text-gray-600">{theme.words.length} words</div>
                 </button>
                 <button
@@ -594,11 +729,34 @@ export default function ThemesPage() {
                     key={index}
                     className="bg-white border-2 border-gray-300 rounded-xl p-4"
                   >
-                    {/* Word number */}
+                    {/* Word number - red if duplicate word, orange if duplicate wrong answers */}
                     <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-full border-2 border-gray-400 flex items-center justify-center text-xs font-bold text-gray-600">
-                        {index + 1}
-                      </div>
+                      {(() => {
+                        const duplicateWordIndices = getDuplicateWordIndices(localWords);
+                        const isDuplicateWord = duplicateWordIndices.has(index);
+                        const hasDuplicateWrongAnswers = new Set(word.wrongAnswers).size !== word.wrongAnswers.length;
+                        
+                        let badgeClass = "border-gray-400 text-gray-600";
+                        if (isDuplicateWord) {
+                          badgeClass = "border-red-500 text-red-500 bg-red-50";
+                        } else if (hasDuplicateWrongAnswers) {
+                          badgeClass = "border-orange-500 text-orange-500 bg-orange-50";
+                        }
+                        
+                        return (
+                          <>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold ${badgeClass}`}>
+                              {index + 1}
+                            </div>
+                            {isDuplicateWord && (
+                              <span className="text-red-500 text-sm font-bold" title="Duplicate word in theme">!</span>
+                            )}
+                            {hasDuplicateWrongAnswers && (
+                              <span className="text-orange-500 text-sm font-bold" title="Duplicate wrong answers">⚠</span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Word & Answer Row - Blue/Green tones */}
@@ -801,6 +959,58 @@ export default function ThemesPage() {
             </>
           )}
         </div>
+
+        {/* Regenerate Confirmation Modal */}
+        {showRegenerateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Regenerate Answers?</h2>
+              
+              <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                <div className="text-xs text-blue-500 mb-1">New Word</div>
+                <div className="text-lg font-bold text-blue-900">{pendingManualWord}</div>
+              </div>
+              
+              <p className="text-gray-600 text-sm mb-6 text-center">
+                You changed the word. Would you like to regenerate the correct answer and wrong answers to match the new word?
+              </p>
+
+              {isRegenerating && (
+                <div className="mb-4 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Generating new answers...</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRegenerateForWord}
+                  disabled={isRegenerating}
+                  className="flex-1 bg-green-600 text-white rounded-xl py-3 font-bold uppercase hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isRegenerating ? "..." : "Yes"}
+                </button>
+                <button
+                  onClick={handleSaveWordOnly}
+                  disabled={isRegenerating}
+                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  No
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRegenerateModal(false);
+                    setPendingManualWord("");
+                  }}
+                  disabled={isRegenerating}
+                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   };
