@@ -41,5 +41,7 @@ export default defineSchema({
     // Last answer tracking (for showing opponent's pick during countdown)
     challengerLastAnswer: v.optional(v.string()),
     opponentLastAnswer: v.optional(v.string()),
+    // Timer - shared timestamp when current question started
+    questionStartTime: v.optional(v.number()),
   }),
 });

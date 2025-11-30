@@ -243,9 +243,10 @@ export const answerChallenge = mutation({
           hintRequestedBy: undefined,
           hintAccepted: undefined,
           eliminatedOptions: undefined,
+          questionStartTime: undefined,
         });
       } else {
-        // Continue to next word - reset hint state
+        // Continue to next word - reset hint state and timer
         await db.patch(challengeId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -253,6 +254,7 @@ export const answerChallenge = mutation({
           hintRequestedBy: undefined,
           hintAccepted: undefined,
           eliminatedOptions: undefined,
+          questionStartTime: Date.now(),
         });
       }
     }
@@ -317,7 +319,10 @@ export const acceptChallenge = mutation({
       throw new Error("Only opponent can accept challenge");
     }
 
-    await db.patch(challengeId, { status: "accepted" });
+    await db.patch(challengeId, { 
+      status: "accepted",
+      questionStartTime: Date.now(),
+    });
   },
 });
 
@@ -522,5 +527,82 @@ export const eliminateOption = mutation({
     await db.patch(challengeId, { 
       eliminatedOptions: [...currentEliminated, option] 
     });
+  },
+});
+
+// Handle timeout - player gets 0 points for not answering in time
+export const timeoutAnswer = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const status = challenge.status || "accepted";
+    if (status !== "accepted") {
+      throw new Error("Challenge is not active");
+    }
+
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    
+    if (!isChallenger && !isOpponent) {
+      throw new Error("User not part of this challenge");
+    }
+
+    // Mark as answered with 0 points (timeout)
+    if (isChallenger && !challenge.challengerAnswered) {
+      await db.patch(challengeId, { 
+        challengerAnswered: true,
+        challengerLastAnswer: "__TIMEOUT__",
+      });
+    } else if (isOpponent && !challenge.opponentAnswered) {
+      await db.patch(challengeId, { 
+        opponentAnswered: true,
+        opponentLastAnswer: "__TIMEOUT__",
+      });
+    }
+
+    // Check if both answered, then advance to next word
+    const updatedChallenge = await db.get(challengeId);
+    if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
+      const nextWordIndex = updatedChallenge.currentWordIndex + 1;
+      
+      const theme = await db.get(updatedChallenge.themeId);
+      const wordCount = theme?.words.length || 0;
+      
+      if (nextWordIndex >= wordCount) {
+        await db.patch(challengeId, {
+          status: "completed",
+          currentWordIndex: nextWordIndex,
+          challengerAnswered: false,
+          opponentAnswered: false,
+          hintRequestedBy: undefined,
+          hintAccepted: undefined,
+          eliminatedOptions: undefined,
+          questionStartTime: undefined,
+        });
+      } else {
+        await db.patch(challengeId, {
+          currentWordIndex: nextWordIndex,
+          challengerAnswered: false,
+          opponentAnswered: false,
+          hintRequestedBy: undefined,
+          hintAccepted: undefined,
+          eliminatedOptions: undefined,
+          questionStartTime: Date.now(),
+        });
+      }
+    }
   },
 });

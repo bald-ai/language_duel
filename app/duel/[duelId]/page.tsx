@@ -46,6 +46,14 @@ export default function ChallengePage() {
   const requestHint = useMutation(api.duel.requestHint);
   const acceptHint = useMutation(api.duel.acceptHint);
   const eliminateOption = useMutation(api.duel.eliminateOption);
+  const timeoutAnswer = useMutation(api.duel.timeoutAnswer);
+  
+  // Question timer state (16 seconds total, but display shows 15)
+  const TIMER_DURATION = 16; // 16 seconds total (1 hidden + 15 shown)
+  const TRANSITION_DURATION = 3; // 3 seconds for showing correct answer between questions
+  const [questionTimer, setQuestionTimer] = useState<number | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTimedOutRef = useRef(false);
   
   // Extract values safely for hooks (before any returns)
   const challenge = challengeData?.challenge;
@@ -74,10 +82,11 @@ export default function ChallengePage() {
   
   useEffect(() => {
     // Detect when word index actually changed (not initial load)
+    // Show transition if player answered OR if they timed out
     if (prevWordIndexRef.current !== undefined && 
         currentWordIndex !== undefined && 
         prevWordIndexRef.current !== currentWordIndex &&
-        (isLocked || selectedAnswer)) {
+        (isLocked || selectedAnswer || hasTimedOutRef.current)) {
       // Get PREVIOUS word data (before the index changed)
       const prevIndex = prevWordIndexRef.current;
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
@@ -242,6 +251,68 @@ export default function ChallengePage() {
       setSelectedAnswer(null);
     }
   }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
+
+  // Question timer - synced from server questionStartTime
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    
+    const questionStartTime = challenge?.questionStartTime;
+    const status = challenge?.status;
+    
+    // Only run timer during active challenge with a start time
+    if (!questionStartTime || status !== "accepted" || frozenData || countdown !== null) {
+      setQuestionTimer(null);
+      return;
+    }
+    
+    // Reset timeout flag when question changes
+    hasTimedOutRef.current = false;
+    
+    // Calculate remaining time based on server timestamp
+    // Account for the 3-second transition period (server sets time when both answer,
+    // but we show transition before starting the next question timer)
+    const updateTimer = () => {
+      const effectiveStartTime = questionStartTime + (TRANSITION_DURATION * 1000);
+      const elapsed = (Date.now() - effectiveStartTime) / 1000;
+      const remaining = Math.max(0, TIMER_DURATION - elapsed);
+      setQuestionTimer(remaining);
+      
+      // Check if time is up and player hasn't answered
+      if (remaining <= 0 && !hasTimedOutRef.current) {
+        hasTimedOutRef.current = true;
+        // Check if current user has answered
+        const userIsChallenger = challenger?.clerkId === user?.id;
+        const hasAnswered = userIsChallenger 
+          ? challenge?.challengerAnswered 
+          : challenge?.opponentAnswered;
+        
+        if (!hasAnswered && challenge?._id && user?.id) {
+          // Auto-submit timeout
+          timeoutAnswer({
+            challengeId: challenge._id,
+            userId: user.id,
+          }).catch(console.error);
+        }
+      }
+    };
+    
+    // Initial update
+    updateTimer();
+    
+    // Update every 100ms for smooth countdown
+    timerIntervalRef.current = setInterval(updateTimer, 100);
+    
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [challenge?.questionStartTime, challenge?.status, challenge?._id, challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id, frozenData, countdown, timeoutAnswer]);
 
   // Difficulty scaling based on question index using dynamic distribution
   // Easy: 4 options (1 correct + 3 random wrong), 1 point
@@ -483,6 +554,19 @@ export default function ChallengePage() {
             );
           })()}
         </div>
+        {/* Question Timer - show 15 seconds max (hide the extra 1 second) */}
+        {questionTimer !== null && !frozenData && countdown === null && (
+          <div className="mb-3">
+            <div className={`text-4xl font-bold tabular-nums ${
+              questionTimer <= 4 ? 'text-red-500 animate-pulse' : 
+              questionTimer <= 8 ? 'text-yellow-400' : 
+              'text-white'
+            }`}>
+              {Math.max(0, Math.min(15, Math.ceil(questionTimer - 1)))}
+            </div>
+            <div className="text-xs text-gray-400 mt-1">seconds remaining</div>
+          </div>
+        )}
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
       </div>
 
