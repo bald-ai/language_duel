@@ -625,7 +625,7 @@ export default function ChallengePage() {
       // Only start countdown if challenge is not completed (more questions to come)
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
-        setCountdown(3);
+        setCountdown(5);
       }
     } else if (prevWordIndexRef.current !== currentWordIndex) {
       // No answer locked, just reset
@@ -1038,14 +1038,15 @@ export default function ChallengePage() {
 
   // Play TTS for the correct answer
   const handlePlayAudio = async () => {
-    if (isPlayingAudio || !frozenData) return;
+    const correctAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+    if (isPlayingAudio || !correctAnswer || correctAnswer === "done") return;
     
     setIsPlayingAudio(true);
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: frozenData.correctAnswer }),
+        body: JSON.stringify({ text: correctAnswer }),
       });
       
       if (!response.ok) {
@@ -1164,25 +1165,27 @@ export default function ChallengePage() {
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
       </div>
 
-      {/* Countdown indicator with Listen button */}
+      {/* Countdown indicator */}
       {countdown !== null && frozenData && (
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <div className="text-2xl font-bold text-yellow-400">
-            Next question in {countdown}...
-          </div>
-          <button
-            onClick={handlePlayAudio}
-            disabled={isPlayingAudio}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              isPlayingAudio
-                ? 'bg-green-600 text-white cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            <span className="text-xl">{isPlayingAudio ? '🔊' : '🔈'}</span>
-            <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
-          </button>
+        <div className="text-2xl font-bold text-yellow-400 mb-2">
+          Next question in {countdown}...
         </div>
+      )}
+
+      {/* TTS Listen button - show when player has locked in their answer */}
+      {(hasAnswered || isLocked) && word !== "done" && (
+        <button
+          onClick={handlePlayAudio}
+          disabled={isPlayingAudio}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all mb-2 ${
+            isPlayingAudio
+              ? 'bg-green-600 text-white cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          <span className="text-xl">{isPlayingAudio ? '🔊' : '🔈'}</span>
+          <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
+        </button>
       )}
 
       {/* Answer Options */}

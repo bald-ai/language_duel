@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const VOICE_ID = 'pqHfZKP75CvOlQylNhV4';
+const VOICE_ID = 'f3XsLDh5aCfxnrMmuR19';
 const MODEL_ID = 'eleven_flash_v2_5';
 
 export async function POST(request: NextRequest) {
@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           text,
           model_id: MODEL_ID,
+          voice_settings: {
+            speed: 0.8,
+          },
         }),
       }
     );
