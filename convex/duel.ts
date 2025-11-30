@@ -698,9 +698,8 @@ export const confirmUnpauseCountdown = mutation({
 
     // Calculate how long we were paused and adjust questionStartTime
     // This ensures the next question timer starts fresh after unpause
-    // Add extra 2 seconds to compensate for the 5-second countdown (vs 3-second TRANSITION_DURATION in client)
     const pauseDuration = challenge.countdownPausedAt 
-      ? Date.now() - challenge.countdownPausedAt + 2000
+      ? Date.now() - challenge.countdownPausedAt
       : 0;
     
     const newQuestionStartTime = challenge.questionStartTime 

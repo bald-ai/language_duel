@@ -512,11 +512,16 @@ export default function ChallengePage() {
   
   // Question timer state (16 seconds total, but display shows 15)
   const TIMER_DURATION = 16; // 16 seconds total (1 hidden + 15 shown)
-  const TRANSITION_DURATION = 3; // 3 seconds for showing correct answer between questions
+  const TRANSITION_DURATION = 5; // 5 seconds for showing correct answer between questions (matches countdown)
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTimedOutRef = useRef(false);
-  const prevHasAnsweredRef = useRef(false);
+  
+  // Phase-based state machine for question flow
+  // 'idle' = initial/loading, 'answering' = active question, 'transition' = showing feedback
+  const [phase, setPhase] = useState<'idle' | 'answering' | 'transition'>('idle');
+  const activeQuestionIndexRef = useRef<number | null>(null);
+  const lockedAnswerRef = useRef<string | null>(null);
   
   // Extract values safely for hooks (before any returns)
   const challenge = challengeData?.challenge;
@@ -539,19 +544,29 @@ export default function ChallengePage() {
     [words.length]
   );
 
-  // Track word index changes and handle countdown transition
+  // Track word index from server for transition detection
   const currentWordIndex = challenge?.currentWordIndex;
-  const prevWordIndexRef = useRef(currentWordIndex);
   
+  // Unified transition effect - handles all question phase changes
   useEffect(() => {
-    // Detect when word index actually changed (not initial load)
-    // Show transition if player answered OR if they timed out
-    if (prevWordIndexRef.current !== undefined && 
-        currentWordIndex !== undefined && 
-        prevWordIndexRef.current !== currentWordIndex &&
-        (isLocked || selectedAnswer || hasTimedOutRef.current)) {
+    if (currentWordIndex === undefined || !words.length) return;
+    
+    // Initial load - start answering phase
+    if (activeQuestionIndexRef.current === null) {
+      activeQuestionIndexRef.current = currentWordIndex;
+      setPhase('answering');
+      return;
+    }
+    
+    // No change in question index
+    if (activeQuestionIndexRef.current === currentWordIndex) return;
+    
+    // Question changed! Determine if we should show transition
+    const prevIndex = activeQuestionIndexRef.current;
+    const shouldShowTransition = isLocked || lockedAnswerRef.current || hasTimedOutRef.current;
+    
+    if (shouldShowTransition) {
       // Get PREVIOUS word data (before the index changed)
-      const prevIndex = prevWordIndexRef.current;
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
       
@@ -614,36 +629,44 @@ export default function ChallengePage() {
         ? challenge?.opponentLastAnswer 
         : challenge?.challengerLastAnswer;
       
-      // Freeze previous question data and start countdown
+      // Enter transition phase with frozen data
+      // Use lockedAnswerRef for the selected answer (captures what was CONFIRMED, not current state)
+      setPhase('transition');
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
         shuffledAnswers: prevShuffled,
-        selectedAnswer: selectedAnswer,
+        selectedAnswer: lockedAnswerRef.current,
         opponentAnswer: opponentLastAnswer || null,
         wordIndex: prevIndex,
         hasNoneOption: prevHasNone,
         difficulty: prevDifficulty,
       });
+      
       // Only start countdown if challenge is not completed (more questions to come)
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
         setCountdown(5);
       }
-    } else if (prevWordIndexRef.current !== currentWordIndex) {
-      // No answer locked, just reset
+    } else {
+      // No answer was locked, go straight to next question
+      setPhase('answering');
       setSelectedAnswer(null);
       setIsLocked(false);
+      lockedAnswerRef.current = null;
+      hasTimedOutRef.current = false;
     }
-    prevWordIndexRef.current = currentWordIndex;
-  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, challenge?.opponentLastAnswer, challenge?.challengerLastAnswer, selectedAnswer, isLocked]);
+    
+    // Update the tracked index
+    activeQuestionIndexRef.current = currentWordIndex;
+  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, challenge?.opponentLastAnswer, challenge?.challengerLastAnswer, isLocked]);
   
   // Countdown timer - respects pause state from server
   const countdownPausedBy = challenge?.countdownPausedBy;
   const countdownUnpauseRequestedBy = challenge?.countdownUnpauseRequestedBy;
   
   useEffect(() => {
-    if (countdown === null) return;
+    if (countdown === null || phase !== 'transition') return;
     // Don't tick if paused
     if (countdownPausedBy) return;
     
@@ -651,12 +674,16 @@ export default function ChallengePage() {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else {
-      // Countdown finished, clear frozen data and reset (only if not completed)
+      // Countdown finished - transition to answering phase
       // When completed, we want to keep showing the last question's feedback
       if (challenge?.status !== "completed") {
+        // Reset ALL state for the new question
+        setPhase('answering');
         setFrozenData(null);
         setSelectedAnswer(null);
         setIsLocked(false);
+        lockedAnswerRef.current = null;
+        hasTimedOutRef.current = false;
         // Reset reveal state for next question
         setIsRevealing(false);
         setTypedText("");
@@ -664,7 +691,7 @@ export default function ChallengePage() {
       }
       setCountdown(null);
     }
-  }, [countdown, challenge?.status, countdownPausedBy]);
+  }, [countdown, challenge?.status, countdownPausedBy, phase]);
 
   // Type reveal effect for "None of the above" correct answer
   // Triggers when frozenData exists and hasNoneOption is true (meaning "None" was correct)
@@ -758,29 +785,12 @@ export default function ChallengePage() {
     }
   }, [isLocked, clearSabotageEffect]);
 
-  // Clear sabotage effect when question changes (countdown starts or word index changes)
+  // Clear sabotage effect when entering transition phase
   useEffect(() => {
-    if (frozenData || countdown !== null) {
+    if (phase === 'transition') {
       clearSabotageEffect();
     }
-  }, [frozenData, countdown, clearSabotageEffect]);
-
-  // Reset selected answer when the server's answer state resets (new question started)
-  // This catches the transition when hasAnswered goes from true to false
-  useEffect(() => {
-    const userIsChallenger = challenger?.clerkId === user?.id;
-    const serverHasAnswered = userIsChallenger 
-      ? challenge?.challengerAnswered 
-      : challenge?.opponentAnswered;
-    
-    // When server says we haven't answered (new question) but we had previously answered
-    if (prevHasAnsweredRef.current && serverHasAnswered === false) {
-      setSelectedAnswer(null);
-      setIsLocked(false);
-    }
-    
-    prevHasAnsweredRef.current = serverHasAnswered ?? false;
-  }, [challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id]);
+  }, [phase, clearSabotageEffect]);
 
   // Clear selected answer if it becomes eliminated
   useEffect(() => {
@@ -790,7 +800,7 @@ export default function ChallengePage() {
     }
   }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
 
-  // Question timer - synced from server questionStartTime
+  // Question timer - synced from server questionStartTime, gated by phase
   useEffect(() => {
     // Clear any existing timer
     if (timerIntervalRef.current) {
@@ -801,20 +811,20 @@ export default function ChallengePage() {
     const questionStartTime = challenge?.questionStartTime;
     const status = challenge?.status;
     
-    // Only run timer during active challenge with a start time
-    if (!questionStartTime || status !== "accepted" || frozenData || countdown !== null) {
+    // Only run timer during answering phase with active challenge
+    if (phase !== 'answering' || !questionStartTime || status !== "accepted") {
       setQuestionTimer(null);
       return;
     }
     
-    // Reset timeout flag when question changes
-    hasTimedOutRef.current = false;
-    
     // Calculate remaining time based on server timestamp
     // Account for the 3-second transition period (server sets time when both answer,
     // but we show transition before starting the next question timer)
+    // Only apply this offset after the first question, since no transition precedes the first one
     const updateTimer = () => {
-      const effectiveStartTime = questionStartTime + (TRANSITION_DURATION * 1000);
+      const isFirstQuestion = (challenge?.currentWordIndex ?? 0) === 0;
+      const transitionOffset = isFirstQuestion ? 0 : TRANSITION_DURATION * 1000;
+      const effectiveStartTime = questionStartTime + transitionOffset;
       const elapsed = (Date.now() - effectiveStartTime) / 1000;
       const remaining = Math.max(0, TIMER_DURATION - elapsed);
       setQuestionTimer(remaining);
@@ -850,7 +860,7 @@ export default function ChallengePage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [challenge?.questionStartTime, challenge?.status, challenge?._id, challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id, frozenData, countdown, timeoutAnswer]);
+  }, [phase, challenge?.questionStartTime, challenge?.status, challenge?._id, challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id, timeoutAnswer]);
 
   // Difficulty scaling based on question index using dynamic distribution
   // Easy: 4 options (1 correct + 3 random wrong), 1 point
@@ -971,6 +981,10 @@ export default function ChallengePage() {
   const isHintProvider = hasAnswered && theyRequestedHint && hintAccepted;
   const canEliminate = isHintProvider && eliminatedOptions.length < 2;
 
+  // TTS button visibility - show during transition phase (including when paused)
+  const inTransition = phase === 'transition' && !!frozenData;
+  const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
+
   const handleStopChallenge = async () => {
     try {
       await stopChallenge({
@@ -985,6 +999,9 @@ export default function ChallengePage() {
 
   const handleConfirmAnswer = async () => {
     if (!selectedAnswer) return;
+    // Capture the answer in ref BEFORE any async operations or state changes
+    // This ensures the correct answer is preserved even if user taps something else
+    lockedAnswerRef.current = selectedAnswer;
     setIsLocked(true);
     try {
       await answer({
@@ -995,6 +1012,7 @@ export default function ChallengePage() {
     } catch (error) {
       console.error("Failed to submit answer:", error);
       setIsLocked(false);
+      lockedAnswerRef.current = null;
     }
   };
 
@@ -1159,7 +1177,7 @@ export default function ChallengePage() {
           })()}
         </div>
         {/* Question Timer - show 15 seconds max (hide the extra 1 second) */}
-        {questionTimer !== null && !frozenData && countdown === null && (
+        {questionTimer !== null && phase === 'answering' && (
           <div className="mb-3">
             <div className={`text-4xl font-bold tabular-nums ${
               questionTimer <= 4 ? 'text-red-500 animate-pulse' : 
@@ -1255,8 +1273,8 @@ export default function ChallengePage() {
         </div>
       )}
 
-      {/* TTS Listen button - show when player has locked in their answer */}
-      {(hasAnswered || isLocked) && word !== "done" && (
+      {/* TTS Listen button - show when player has locked in their answer or during transition */}
+      {showListenButton && (
         <button
           onClick={handlePlayAudio}
           disabled={isPlayingAudio}
@@ -1296,8 +1314,8 @@ export default function ChallengePage() {
             
             // Handle click - either select answer or eliminate option
             const handleClick = () => {
-              // Block all interaction during frozen/countdown states
-              if (frozenData || countdown !== null) return;
+              // Block all interaction when not in answering phase
+              if (phase !== 'answering') return;
               if (canEliminateThis) {
                 handleEliminateOption(ans);
               } else if (!hasAnswered && !isLocked && !isEliminated) {
@@ -1367,7 +1385,7 @@ export default function ChallengePage() {
       )}
 
       {/* Confirm Button */}
-      {!hasAnswered && !frozenData && word !== "done" && (
+      {!hasAnswered && phase === 'answering' && word !== "done" && (
         <button
           className="rounded-lg px-8 py-3 font-bold text-lg disabled:opacity-50 bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
           disabled={!selectedAnswer || isLocked}
@@ -1378,7 +1396,7 @@ export default function ChallengePage() {
       )}
 
       {/* Hint System UI */}
-      {!frozenData && word !== "done" && (
+      {phase === 'answering' && word !== "done" && (
         <div className="flex flex-col items-center gap-2 mt-2">
           {/* Request Hint Button - for player who hasn't answered */}
           {canRequestHint && (
@@ -1443,7 +1461,7 @@ export default function ChallengePage() {
       )}
 
       {/* Sabotage System UI */}
-      {status === "accepted" && !frozenData && word !== "done" && (
+      {status === "accepted" && phase === 'answering' && word !== "done" && (
         <div className="fixed bottom-4 right-4 z-30">
           {/* Sabotage Menu */}
           {showSabotageMenu && sabotagesRemaining > 0 && (
@@ -1487,7 +1505,7 @@ export default function ChallengePage() {
       )}
 
       {/* Waiting message */}
-      {hasAnswered && !frozenData && word !== "done" && !theyRequestedHint && (
+      {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
         <div className="text-yellow-400 font-medium animate-pulse">
           Waiting for opponent to answer...
         </div>
