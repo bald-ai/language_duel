@@ -144,27 +144,45 @@ export default function StudyPage() {
           </div>
           
           {/* Theme Selection and Mode Toggle */}
-          <div className="flex items-center gap-4">
-            {/* Theme Selection Dropdown - 50% width */}
-            <select
-              value={selectedTheme?._id || ""}
-              onChange={(e) => {
-                setSelectedThemeId(e.target.value);
-                setHintStates({});
-              }}
-              className="flex-1 px-4 py-3 rounded-2xl font-medium text-base border-2 border-gray-400 bg-gray-200 text-gray-800 cursor-pointer"
-            >
-              {themes.map((theme) => (
-                <option key={theme._id} value={theme._id}>
-                  {theme.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center justify-center gap-4">
+            {/* Theme Selection - Custom Trigger that sizes to content */}
+            <div className="relative">
+              {/* Visual Trigger - Sizes to text */}
+              <div className="px-6 py-3 rounded-2xl font-medium text-base border-2 border-gray-400 bg-gray-200 text-gray-800 flex items-center justify-center gap-2 min-w-[120px]">
+                <span className="uppercase tracking-wide">{selectedTheme?.name}</span>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  strokeWidth={2.5} 
+                  stroke="currentColor" 
+                  className="w-4 h-4 text-gray-600"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
 
-            {/* Mode Toggle - 50% width */}
+              {/* Hidden Select - Captures clicks */}
+              <select
+                value={selectedTheme?._id || ""}
+                onChange={(e) => {
+                  setSelectedThemeId(e.target.value);
+                  setHintStates({});
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+              >
+                {themes.map((theme) => (
+                  <option key={theme._id} value={theme._id}>
+                    {theme.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Mode Toggle Button */}
             <button
               onClick={() => setIsRevealed(!isRevealed)}
-              className={`flex-1 px-4 py-3 rounded-2xl font-medium text-base border-2 transition-colors ${
+              className={`px-6 py-3 rounded-2xl font-medium text-base border-2 transition-colors uppercase tracking-wide min-w-[120px] ${
                 isRevealed
                   ? 'bg-green-500 border-green-600 text-white'
                   : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
