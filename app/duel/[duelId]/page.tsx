@@ -7,6 +7,516 @@ import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 
+// Sabotage Effect Type
+type SabotageEffect = "confetti" | "ink" | "bubbles" | "emojis" | "sticky" | "cards";
+
+const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
+const MAX_SABOTAGES = 5;
+
+// Sabotage Effect Components
+function ConfettiStorm({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const confetti = useMemo(
+    () =>
+      Array.from({ length: 200 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 1,
+        duration: 0.8 + Math.random() * 0.8,
+        color: ["#ff6b6b", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#ff0000", "#00ff00"][
+          Math.floor(Math.random() * 9)
+        ],
+        size: 35 + Math.random() * 50,
+        rotate: Math.random() * 360,
+        wobble: Math.random() * 100 - 50,
+      })),
+    [],
+  );
+
+  const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
+  const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.7 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-all duration-500"
+      style={{ opacity, transform: `scale(${scale})` }}
+    >
+      {confetti.map((piece) => (
+        <div
+          key={piece.id}
+          className="absolute"
+          style={{
+            left: `${piece.left}%`,
+            top: "-60px",
+            width: piece.size,
+            height: piece.size * 0.6,
+            backgroundColor: piece.color,
+            animationDelay: `${piece.delay}s`,
+            animation: `confetti-fall-${piece.id % 3} ${piece.duration}s linear infinite`,
+            boxShadow: `0 0 10px ${piece.color}`,
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes confetti-fall-0 {
+          0% { transform: translateY(0) rotate(0deg) translateX(0); }
+          25% { transform: translateY(25vh) rotate(180deg) translateX(30px); }
+          50% { transform: translateY(50vh) rotate(360deg) translateX(-20px); }
+          75% { transform: translateY(75vh) rotate(540deg) translateX(25px); }
+          100% { transform: translateY(105vh) rotate(720deg) translateX(0); }
+        }
+        @keyframes confetti-fall-1 {
+          0% { transform: translateY(0) rotate(0deg) translateX(0); }
+          25% { transform: translateY(25vh) rotate(-180deg) translateX(-40px); }
+          50% { transform: translateY(50vh) rotate(-360deg) translateX(30px); }
+          75% { transform: translateY(75vh) rotate(-540deg) translateX(-35px); }
+          100% { transform: translateY(105vh) rotate(-720deg) translateX(0); }
+        }
+        @keyframes confetti-fall-2 {
+          0% { transform: translateY(0) rotate(0deg) translateX(0) scale(1); }
+          25% { transform: translateY(25vh) rotate(90deg) translateX(50px) scale(1.2); }
+          50% { transform: translateY(50vh) rotate(180deg) translateX(-40px) scale(0.8); }
+          75% { transform: translateY(75vh) rotate(270deg) translateX(45px) scale(1.1); }
+          100% { transform: translateY(105vh) rotate(360deg) translateX(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const splatters = useMemo(
+    () =>
+      Array.from({ length: 25 }, (_, i) => ({
+        id: i,
+        top: 5 + Math.random() * 90,
+        left: 2 + Math.random() * 96,
+        scale: 1.5 + Math.random() * 2.5,
+        delay: Math.random() * 1.5,
+        rotation: Math.random() * 360,
+        pulseSpeed: 0.5 + Math.random() * 0.5,
+      })),
+    [],
+  );
+
+  const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.2 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none z-40 transition-opacity duration-700"
+      style={{ opacity }}
+    >
+      {splatters.map((splatter) => (
+        <div
+          key={splatter.id}
+          className="absolute"
+          style={{
+            top: `${splatter.top}%`,
+            left: `${splatter.left}%`,
+            transform: `scale(${splatter.scale}) rotate(${splatter.rotation}deg)`,
+            animationDelay: `${splatter.delay}s`,
+            animation: `splat 0.4s ease-out forwards, ink-pulse ${splatter.pulseSpeed}s ease-in-out infinite`,
+          }}
+        >
+          <svg width="200" height="200" viewBox="0 0 120 120">
+            <path
+              d="M60 10 Q80 30 90 60 Q85 90 60 100 Q30 95 20 60 Q25 25 60 10 M45 20 Q30 40 35 50 M75 25 Q90 35 85 55 M50 85 Q40 70 45 60"
+              fill="rgba(0,0,0,0.95)"
+              style={{ filter: 'blur(1px)' }}
+            />
+            <path
+              d="M30 30 Q45 20 50 40 Q40 55 30 30"
+              fill="rgba(0,0,0,0.9)"
+            />
+            <path
+              d="M80 70 Q95 65 90 85 Q75 90 80 70"
+              fill="rgba(0,0,0,0.9)"
+            />
+          </svg>
+        </div>
+      ))}
+      {/* Dripping ink from top */}
+      {Array.from({ length: 8 }, (_, i) => (
+        <div
+          key={`drip-${i}`}
+          className="absolute top-0"
+          style={{
+            left: `${10 + i * 12}%`,
+            width: '30px',
+            height: '200px',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)',
+            animation: `ink-drip 2s ease-in infinite`,
+            animationDelay: `${i * 0.2}s`,
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes splat {
+          0% { transform: scale(0) rotate(0deg); opacity: 0; }
+          60% { transform: scale(1.3) rotate(10deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes ink-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+        }
+        @keyframes ink-drip {
+          0% { transform: translateY(-100%); opacity: 0; }
+          20% { opacity: 1; }
+          100% { transform: translateY(100vh); opacity: 0.5; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function FloatingBubbles({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const bubbles = useMemo(
+    () =>
+      Array.from({ length: 60 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        size: 80 + Math.random() * 150,
+        duration: 1.5 + Math.random() * 1.5,
+        delay: Math.random() * 1,
+        wobbleAmount: 40 + Math.random() * 60,
+        hue: Math.floor(Math.random() * 60) + 180, // Blue-cyan range
+      })),
+    [],
+  );
+
+  const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.3 : 0.95;
+  const scale = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.6 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-all duration-500"
+      style={{ opacity, transform: `scale(${scale})` }}
+    >
+      {bubbles.map((bubble) => (
+        <div
+          key={bubble.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${bubble.left}%`,
+            bottom: "-200px",
+            width: bubble.size,
+            height: bubble.size,
+            background: `radial-gradient(circle at 30% 30%, 
+              rgba(255,255,255,0.9), 
+              hsla(${bubble.hue}, 80%, 60%, 0.6), 
+              hsla(${bubble.hue}, 70%, 50%, 0.3))`,
+            border: "3px solid rgba(255,255,255,0.6)",
+            boxShadow: `inset 0 0 30px rgba(255,255,255,0.4), 0 0 20px hsla(${bubble.hue}, 80%, 60%, 0.3)`,
+            animation: `bubble-float-${bubble.id % 3} ${bubble.duration}s ease-in-out infinite`,
+            animationDelay: `${bubble.delay}s`,
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes bubble-float-0 {
+          0% { transform: translateY(0) translateX(0) scale(1); }
+          25% { transform: translateY(-30vh) translateX(50px) scale(1.2); }
+          50% { transform: translateY(-55vh) translateX(-40px) scale(0.9); }
+          75% { transform: translateY(-80vh) translateX(60px) scale(1.1); }
+          100% { transform: translateY(-115vh) translateX(-30px) scale(1); }
+        }
+        @keyframes bubble-float-1 {
+          0% { transform: translateY(0) translateX(0) scale(1) rotate(0deg); }
+          25% { transform: translateY(-28vh) translateX(-60px) scale(1.3) rotate(5deg); }
+          50% { transform: translateY(-52vh) translateX(50px) scale(0.85) rotate(-5deg); }
+          75% { transform: translateY(-78vh) translateX(-55px) scale(1.15) rotate(3deg); }
+          100% { transform: translateY(-112vh) translateX(40px) scale(0.95) rotate(0deg); }
+        }
+        @keyframes bubble-float-2 {
+          0% { transform: translateY(0) translateX(0) scale(1); }
+          20% { transform: translateY(-22vh) translateX(70px) scale(1.25); }
+          40% { transform: translateY(-45vh) translateX(-50px) scale(0.8); }
+          60% { transform: translateY(-68vh) translateX(45px) scale(1.2); }
+          80% { transform: translateY(-90vh) translateX(-60px) scale(0.9); }
+          100% { transform: translateY(-115vh) translateX(20px) scale(1.05); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function FallingEmojis({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const emojis = useMemo(() => {
+    const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "🎭", "🤯", "😈", "💥", "🌪️", "☠️", "👹", "🤡", "💢"];
+    return Array.from({ length: 80 }, (_, i) => ({
+      id: i,
+      emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
+      left: Math.random() * 100,
+      duration: 0.8 + Math.random() * 1.2,
+      delay: Math.random() * 1,
+      size: 50 + Math.random() * 60,
+      spinDirection: Math.random() > 0.5 ? 1 : -1,
+      wobble: 30 + Math.random() * 50,
+    }));
+  }, []);
+
+  const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
+  const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-all duration-500"
+      style={{ opacity, transform: `scale(${scale})` }}
+    >
+      {emojis.map((item) => (
+        <div
+          key={item.id}
+          className="absolute"
+          style={{
+            left: `${item.left}%`,
+            top: "-80px",
+            fontSize: item.size,
+            animation: `emoji-fall-${item.id % 4} ${item.duration}s linear infinite`,
+            animationDelay: `${item.delay}s`,
+            filter: 'drop-shadow(0 0 10px rgba(255,100,0,0.5))',
+          }}
+        >
+          {item.emoji}
+        </div>
+      ))}
+      <style jsx>{`
+        @keyframes emoji-fall-0 {
+          0% { transform: translateY(0) rotate(0deg) scale(1); }
+          25% { transform: translateY(28vh) rotate(180deg) translateX(40px) scale(1.3); }
+          50% { transform: translateY(55vh) rotate(360deg) translateX(-30px) scale(0.8); }
+          75% { transform: translateY(82vh) rotate(540deg) translateX(35px) scale(1.2); }
+          100% { transform: translateY(110vh) rotate(720deg) translateX(0) scale(1); }
+        }
+        @keyframes emoji-fall-1 {
+          0% { transform: translateY(0) rotate(0deg) scale(1); }
+          25% { transform: translateY(28vh) rotate(-90deg) translateX(-50px) scale(1.4); }
+          50% { transform: translateY(55vh) rotate(-180deg) translateX(40px) scale(0.7); }
+          75% { transform: translateY(82vh) rotate(-270deg) translateX(-45px) scale(1.25); }
+          100% { transform: translateY(110vh) rotate(-360deg) translateX(0) scale(1); }
+        }
+        @keyframes emoji-fall-2 {
+          0% { transform: translateY(0) rotate(0deg) scale(1); }
+          20% { transform: translateY(22vh) rotate(144deg) translateX(60px) scale(1.5); }
+          40% { transform: translateY(44vh) rotate(288deg) translateX(-50px) scale(0.6); }
+          60% { transform: translateY(66vh) rotate(432deg) translateX(55px) scale(1.35); }
+          80% { transform: translateY(88vh) rotate(576deg) translateX(-40px) scale(0.85); }
+          100% { transform: translateY(110vh) rotate(720deg) translateX(0) scale(1); }
+        }
+        @keyframes emoji-fall-3 {
+          0% { transform: translateY(0) rotate(0deg) scale(1.2); }
+          33% { transform: translateY(37vh) rotate(-240deg) translateX(-70px) scale(0.6); }
+          66% { transform: translateY(73vh) rotate(-480deg) translateX(65px) scale(1.4); }
+          100% { transform: translateY(110vh) rotate(-720deg) translateX(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function StickyNotes({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const notes = useMemo(
+    () =>
+      Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        top: 2 + Math.random() * 85,
+        left: 2 + Math.random() * 85,
+        rotation: -25 + Math.random() * 50,
+        delay: Math.random() * 1,
+        wobbleSpeed: 0.3 + Math.random() * 0.4,
+        color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c", "#ff65a3", "#a8f0c6", "#ffb347", "#ff6961"][Math.floor(Math.random() * 8)],
+        text: [
+          "You buffoon!",
+          "LOL nice try",
+          "Too slow!",
+          "Really?!",
+          "Haha NOPE",
+          "Good luck!",
+          "Think faster!",
+          "Oopsie!",
+          "Clown move",
+          "Big brain?",
+          "Try harder",
+          "Yikes...",
+          "LMAOOO",
+          "Panic mode!",
+          "Uh oh...",
+          "RIP",
+        ][Math.floor(Math.random() * 16)],
+        size: 100 + Math.random() * 50,
+      })),
+    [],
+  );
+
+  const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none z-40 transition-opacity duration-700"
+      style={{ opacity }}
+    >
+      {notes.map((note) => (
+        <div
+          key={note.id}
+          className="absolute shadow-2xl"
+          style={{
+            top: `${note.top}%`,
+            left: `${note.left}%`,
+            width: `${note.size}px`,
+            height: `${note.size}px`,
+            backgroundColor: note.color,
+            animationDelay: `${note.delay}s`,
+            animation: `stick 0.5s ease-out forwards, note-wobble ${note.wobbleSpeed}s ease-in-out infinite`,
+            boxShadow: `5px 5px 15px rgba(0,0,0,0.4)`,
+          }}
+        >
+          <div className="w-full h-full flex items-center justify-center text-black font-extrabold text-base text-center p-3">
+            {note.text}
+          </div>
+        </div>
+      ))}
+      <style jsx>{`
+        @keyframes stick {
+          0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+          50% { transform: scale(1.3) rotate(10deg); opacity: 1; }
+          70% { transform: scale(0.9) rotate(-5deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes note-wobble {
+          0%, 100% { transform: rotate(-3deg) translateY(0); }
+          25% { transform: rotate(3deg) translateY(-5px); }
+          50% { transform: rotate(-2deg) translateY(3px); }
+          75% { transform: rotate(4deg) translateY(-3px); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function FlyingCards({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
+  const cards = useMemo(() => {
+    const suits = ["♠", "♥", "♦", "♣"];
+    const values = ["A", "K", "Q", "J", "10", "9", "8"];
+    return Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      suit: suits[Math.floor(Math.random() * 4)],
+      value: values[Math.floor(Math.random() * 7)],
+      startY: Math.random() * 100,
+      duration: 0.6 + Math.random() * 0.8,
+      delay: Math.random() * 1.5,
+      fromLeft: Math.random() > 0.5,
+      size: 0.8 + Math.random() * 0.6,
+      verticalWobble: 20 + Math.random() * 40,
+    }));
+  }, []);
+
+  const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
+  const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
+
+  return (
+    <div 
+      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-all duration-500"
+      style={{ opacity, transform: `scale(${scale})` }}
+    >
+      {cards.map((card) => (
+        <div
+          key={card.id}
+          className="absolute bg-white rounded-lg shadow-2xl flex flex-col items-center justify-center"
+          style={{
+            top: `${card.startY}%`,
+            left: card.fromLeft ? "-100px" : "auto",
+            right: card.fromLeft ? "auto" : "-100px",
+            width: `${70 * card.size}px`,
+            height: `${98 * card.size}px`,
+            animation: `card-fly-${card.fromLeft ? 'right' : 'left'}-${card.id % 3} ${card.duration}s linear infinite`,
+            animationDelay: `${card.delay}s`,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+          }}
+        >
+          <span className={`text-2xl font-bold ${card.suit === "♥" || card.suit === "♦" ? "text-red-600" : "text-black"}`}
+            style={{ fontSize: `${24 * card.size}px` }}>
+            {card.value}
+          </span>
+          <span className={`text-3xl ${card.suit === "♥" || card.suit === "♦" ? "text-red-600" : "text-black"}`}
+            style={{ fontSize: `${30 * card.size}px` }}>
+            {card.suit}
+          </span>
+        </div>
+      ))}
+      <style jsx>{`
+        @keyframes card-fly-right-0 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg); }
+          25% { transform: translateX(30vw) translateY(-30px) rotate(180deg); }
+          50% { transform: translateX(60vw) translateY(25px) rotate(360deg); }
+          75% { transform: translateX(90vw) translateY(-20px) rotate(540deg); }
+          100% { transform: translateX(120vw) translateY(0) rotate(720deg); }
+        }
+        @keyframes card-fly-right-1 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg) scale(1); }
+          25% { transform: translateX(30vw) translateY(40px) rotate(-90deg) scale(1.2); }
+          50% { transform: translateX(60vw) translateY(-35px) rotate(-180deg) scale(0.8); }
+          75% { transform: translateX(90vw) translateY(30px) rotate(-270deg) scale(1.1); }
+          100% { transform: translateX(120vw) translateY(0) rotate(-360deg) scale(1); }
+        }
+        @keyframes card-fly-right-2 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg); }
+          20% { transform: translateX(24vw) translateY(-50px) rotate(144deg); }
+          40% { transform: translateX(48vw) translateY(45px) rotate(288deg); }
+          60% { transform: translateX(72vw) translateY(-40px) rotate(432deg); }
+          80% { transform: translateX(96vw) translateY(35px) rotate(576deg); }
+          100% { transform: translateX(120vw) translateY(0) rotate(720deg); }
+        }
+        @keyframes card-fly-left-0 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg); }
+          25% { transform: translateX(-30vw) translateY(35px) rotate(-180deg); }
+          50% { transform: translateX(-60vw) translateY(-30px) rotate(-360deg); }
+          75% { transform: translateX(-90vw) translateY(25px) rotate(-540deg); }
+          100% { transform: translateX(-120vw) translateY(0) rotate(-720deg); }
+        }
+        @keyframes card-fly-left-1 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg) scale(1); }
+          25% { transform: translateX(-30vw) translateY(-45px) rotate(90deg) scale(1.15); }
+          50% { transform: translateX(-60vw) translateY(40px) rotate(180deg) scale(0.85); }
+          75% { transform: translateX(-90vw) translateY(-35px) rotate(270deg) scale(1.2); }
+          100% { transform: translateX(-120vw) translateY(0) rotate(360deg) scale(1); }
+        }
+        @keyframes card-fly-left-2 {
+          0% { transform: translateX(0) translateY(0) rotate(0deg); }
+          20% { transform: translateX(-24vw) translateY(50px) rotate(-144deg); }
+          40% { transform: translateX(-48vw) translateY(-45px) rotate(-288deg); }
+          60% { transform: translateX(-72vw) translateY(40px) rotate(-432deg); }
+          80% { transform: translateX(-96vw) translateY(-35px) rotate(-576deg); }
+          100% { transform: translateX(-120vw) translateY(0) rotate(-720deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Sabotage effect renderer with phase support
+function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; phase: 'wind-up' | 'full' | 'wind-down' }) {
+  if (!effect) return null;
+  
+  switch (effect) {
+    case "confetti": return <ConfettiStorm phase={phase} />;
+    case "ink": return <InkSplatter phase={phase} />;
+    case "bubbles": return <FloatingBubbles phase={phase} />;
+    case "emojis": return <FallingEmojis phase={phase} />;
+    case "sticky": return <StickyNotes phase={phase} />;
+    case "cards": return <FlyingCards phase={phase} />;
+    default: return null;
+  }
+}
+
+// Sabotage button data
+const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
+  { effect: "confetti", label: "Confetti", emoji: "🎊" },
+  { effect: "ink", label: "Ink", emoji: "🖤" },
+  { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
+  { effect: "emojis", label: "Emojis", emoji: "😈" },
+  { effect: "sticky", label: "Sticky", emoji: "📝" },
+  { effect: "cards", label: "Cards", emoji: "🃏" },
+];
+
 export default function ChallengePage() {
   const params = useParams();
   const router = useRouter();
@@ -31,6 +541,21 @@ export default function ChallengePage() {
   const [typedText, setTypedText] = useState("");
   const [revealComplete, setRevealComplete] = useState(false);
 
+  // Sabotage effect state
+  const [activeSabotage, setActiveSabotage] = useState<SabotageEffect | null>(null);
+  const [sabotagePhase, setSabotagePhase] = useState<'wind-up' | 'full' | 'wind-down'>('wind-up');
+  const [showSabotageMenu, setShowSabotageMenu] = useState(false);
+  const lastSabotageTimestampRef = useRef<number | null>(null);
+  const sabotageTimersRef = useRef<NodeJS.Timeout[]>([]);
+  
+  // Helper to clear all sabotage timers and effect
+  const clearSabotageEffect = useCallback(() => {
+    sabotageTimersRef.current.forEach(timer => clearTimeout(timer));
+    sabotageTimersRef.current = [];
+    setActiveSabotage(null);
+    setSabotagePhase('wind-up');
+  }, []);
+
   const challengeData = useQuery(
     api.duel.getChallenge,
     { challengeId: challengeId as any }
@@ -47,6 +572,7 @@ export default function ChallengePage() {
   const acceptHint = useMutation(api.duel.acceptHint);
   const eliminateOption = useMutation(api.duel.eliminateOption);
   const timeoutAnswer = useMutation(api.duel.timeoutAnswer);
+  const sendSabotage = useMutation(api.duel.sendSabotage);
   
   // Question timer state (16 seconds total, but display shows 15)
   const TIMER_DURATION = 16; // 16 seconds total (1 hidden + 15 shown)
@@ -54,6 +580,7 @@ export default function ChallengePage() {
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTimedOutRef = useRef(false);
+  const prevHasAnsweredRef = useRef(false);
   
   // Extract values safely for hooks (before any returns)
   const challenge = challengeData?.challenge;
@@ -243,6 +770,75 @@ export default function ChallengePage() {
       }
     }
   }, [challengeData, router]);
+
+  // Sabotage effect listener - watch for incoming sabotage from opponent
+  useEffect(() => {
+    if (!challengeData?.challenge || !challenger || !user) return;
+    
+    const isChallenger = challenger.clerkId === user.id;
+    const mySabotage = isChallenger 
+      ? challengeData.challenge.challengerSabotage 
+      : challengeData.challenge.opponentSabotage;
+    
+    if (mySabotage && mySabotage.timestamp !== lastSabotageTimestampRef.current) {
+      lastSabotageTimestampRef.current = mySabotage.timestamp;
+      
+      // Clear any existing sabotage timers
+      clearSabotageEffect();
+      
+      // Start with wind-up phase
+      setSabotagePhase('wind-up');
+      setActiveSabotage(mySabotage.effect as SabotageEffect);
+      
+      // Phase transitions: 2s wind-up → 3s full → 2s wind-down → clear
+      const fullTimer = setTimeout(() => {
+        setSabotagePhase('full');
+      }, 2000);
+      
+      const windDownTimer = setTimeout(() => {
+        setSabotagePhase('wind-down');
+      }, 5000); // 2s wind-up + 3s full
+      
+      const clearTimer = setTimeout(() => {
+        setActiveSabotage(null);
+        setSabotagePhase('wind-up'); // Reset for next sabotage
+      }, SABOTAGE_DURATION); // 7s total
+      
+      // Store timers for cleanup
+      sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
+    }
+  }, [challengeData?.challenge?.challengerSabotage, challengeData?.challenge?.opponentSabotage, challenger?.clerkId, user?.id, clearSabotageEffect]);
+
+  // Clear sabotage effect when answer is locked in
+  useEffect(() => {
+    if (isLocked) {
+      clearSabotageEffect();
+    }
+  }, [isLocked, clearSabotageEffect]);
+
+  // Clear sabotage effect when question changes (countdown starts or word index changes)
+  useEffect(() => {
+    if (frozenData || countdown !== null) {
+      clearSabotageEffect();
+    }
+  }, [frozenData, countdown, clearSabotageEffect]);
+
+  // Reset selected answer when the server's answer state resets (new question started)
+  // This catches the transition when hasAnswered goes from true to false
+  useEffect(() => {
+    const userIsChallenger = challenger?.clerkId === user?.id;
+    const serverHasAnswered = userIsChallenger 
+      ? challenge?.challengerAnswered 
+      : challenge?.opponentAnswered;
+    
+    // When server says we haven't answered (new question) but we had previously answered
+    if (prevHasAnsweredRef.current && serverHasAnswered === false) {
+      setSelectedAnswer(null);
+      setIsLocked(false);
+    }
+    
+    prevHasAnsweredRef.current = serverHasAnswered ?? false;
+  }, [challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id]);
 
   // Clear selected answer if it becomes eliminated
   useEffect(() => {
@@ -494,6 +1090,19 @@ export default function ChallengePage() {
     }
   };
 
+  const handleSendSabotage = async (effect: SabotageEffect) => {
+    try {
+      await sendSabotage({
+        challengeId: challenge._id,
+        userId: user.id,
+        effect,
+      });
+      setShowSabotageMenu(false);
+    } catch (error) {
+      console.error("Failed to send sabotage:", error);
+    }
+  };
+
   // Scores
   const challengerScore = challenge.challengerScore || 0;
   const opponentScore = challenge.opponentScore || 0;
@@ -502,8 +1111,17 @@ export default function ChallengePage() {
   const myName = isChallenger ? (challenger?.name || challenger?.email) : (opponent?.name || opponent?.email);
   const theirName = isChallenger ? (opponent?.name || opponent?.email) : (challenger?.name || challenger?.email);
 
+  // Sabotage remaining count
+  const mySabotagesUsed = isChallenger 
+    ? (challenge.challengerSabotagesUsed || 0) 
+    : (challenge.opponentSabotagesUsed || 0);
+  const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 relative p-4">
+      {/* Active Sabotage Effect Overlay */}
+      <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
+      
       {/* Exit Button - hide when completed */}
       {status !== "completed" && (
         <button
@@ -602,7 +1220,8 @@ export default function ChallengePage() {
             
             // Handle click - either select answer or eliminate option
             const handleClick = () => {
-              if (frozenData) return;
+              // Block all interaction during frozen/countdown states
+              if (frozenData || countdown !== null) return;
               if (canEliminateThis) {
                 handleEliminateOption(ans);
               } else if (!hasAnswered && !isLocked && !isEliminated) {
@@ -744,6 +1363,50 @@ export default function ChallengePage() {
               Opponent requested a hint
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sabotage System UI */}
+      {status === "accepted" && !frozenData && word !== "done" && (
+        <div className="fixed bottom-4 right-4 z-30">
+          {/* Sabotage Menu */}
+          {showSabotageMenu && sabotagesRemaining > 0 && (
+            <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
+              <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
+              <div className="grid grid-cols-3 gap-2">
+                {SABOTAGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.effect}
+                    onClick={() => handleSendSabotage(option.effect)}
+                    className="flex flex-col items-center p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+                    title={option.label}
+                  >
+                    <span className="text-2xl">{option.emoji}</span>
+                    <span className="text-xs text-gray-300 mt-1">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Sabotage Toggle Button */}
+          <button
+            onClick={() => setShowSabotageMenu(!showSabotageMenu)}
+            disabled={sabotagesRemaining <= 0}
+            className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              sabotagesRemaining > 0
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg'
+                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <span className="text-xl">💥</span>
+            <span>Sabotage</span>
+            <span className={`px-2 py-0.5 rounded-full text-sm ${
+              sabotagesRemaining > 0 ? 'bg-white/20' : 'bg-gray-600'
+            }`}>
+              {sabotagesRemaining}/{MAX_SABOTAGES}
+            </span>
+          </button>
         </div>
       )}
 

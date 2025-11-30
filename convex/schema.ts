@@ -43,5 +43,16 @@ export default defineSchema({
     opponentLastAnswer: v.optional(v.string()),
     // Timer - shared timestamp when current question started
     questionStartTime: v.optional(v.number()),
+    // Sabotage system - tracks active effects sent to each player
+    challengerSabotage: v.optional(v.object({
+      effect: v.string(), // "confetti" | "ink" | "bubbles" | "emojis" | "sticky" | "cards"
+      timestamp: v.number(),
+    })),
+    opponentSabotage: v.optional(v.object({
+      effect: v.string(),
+      timestamp: v.number(),
+    })),
+    challengerSabotagesUsed: v.optional(v.number()), // tracks how many sabotages challenger has used (max 5)
+    opponentSabotagesUsed: v.optional(v.number()),
   }),
 });

@@ -530,6 +530,70 @@ export const eliminateOption = mutation({
   },
 });
 
+// Sabotage system - send visual distraction to opponent
+const SABOTAGE_EFFECTS = ["confetti", "ink", "bubbles", "emojis", "sticky", "cards"] as const;
+const MAX_SABOTAGES_PER_DUEL = 5;
+
+export const sendSabotage = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+    effect: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId, effect }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const status = challenge.status || "accepted";
+    if (status !== "accepted") {
+      throw new Error("Challenge is not active");
+    }
+
+    // Validate effect type
+    if (!SABOTAGE_EFFECTS.includes(effect as any)) {
+      throw new Error("Invalid sabotage effect");
+    }
+
+    // Get user by clerkId
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    
+    if (!isChallenger && !isOpponent) {
+      throw new Error("User not part of this challenge");
+    }
+
+    // Check sabotage usage limit
+    const sabotagesUsed = isChallenger 
+      ? (challenge.challengerSabotagesUsed || 0)
+      : (challenge.opponentSabotagesUsed || 0);
+    
+    if (sabotagesUsed >= MAX_SABOTAGES_PER_DUEL) {
+      throw new Error("No sabotages remaining");
+    }
+
+    // Send sabotage to the OTHER player
+    const now = Date.now();
+    if (isChallenger) {
+      await db.patch(challengeId, {
+        opponentSabotage: { effect, timestamp: now },
+        challengerSabotagesUsed: sabotagesUsed + 1,
+      });
+    } else {
+      await db.patch(challengeId, {
+        challengerSabotage: { effect, timestamp: now },
+        opponentSabotagesUsed: sabotagesUsed + 1,
+      });
+    }
+  },
+});
+
 // Handle timeout - player gets 0 points for not answering in time
 export const timeoutAnswer = mutation({
   args: {
