@@ -8,81 +8,12 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 
 // Sabotage Effect Type
-type SabotageEffect = "confetti" | "ink" | "bubbles" | "emojis" | "sticky" | "cards";
+type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
 
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
 
 // Sabotage Effect Components
-function ConfettiStorm({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const confetti = useMemo(
-    () =>
-      Array.from({ length: 200 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 1,
-        duration: 0.8 + Math.random() * 0.8,
-        color: ["#ff6b6b", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#ff0000", "#00ff00"][
-          Math.floor(Math.random() * 9)
-        ],
-        size: 35 + Math.random() * 50,
-        rotate: Math.random() * 360,
-        wobble: Math.random() * 100 - 50,
-      })),
-    [],
-  );
-
-  const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
-  const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.7 : 1;
-
-  return (
-    <div 
-      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-all duration-500"
-      style={{ opacity, transform: `scale(${scale})` }}
-    >
-      {confetti.map((piece) => (
-        <div
-          key={piece.id}
-          className="absolute"
-          style={{
-            left: `${piece.left}%`,
-            top: "-60px",
-            width: piece.size,
-            height: piece.size * 0.6,
-            backgroundColor: piece.color,
-            animationDelay: `${piece.delay}s`,
-            animation: `confetti-fall-${piece.id % 3} ${piece.duration}s linear infinite`,
-            boxShadow: `0 0 10px ${piece.color}`,
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes confetti-fall-0 {
-          0% { transform: translateY(0) rotate(0deg) translateX(0); }
-          25% { transform: translateY(25vh) rotate(180deg) translateX(30px); }
-          50% { transform: translateY(50vh) rotate(360deg) translateX(-20px); }
-          75% { transform: translateY(75vh) rotate(540deg) translateX(25px); }
-          100% { transform: translateY(105vh) rotate(720deg) translateX(0); }
-        }
-        @keyframes confetti-fall-1 {
-          0% { transform: translateY(0) rotate(0deg) translateX(0); }
-          25% { transform: translateY(25vh) rotate(-180deg) translateX(-40px); }
-          50% { transform: translateY(50vh) rotate(-360deg) translateX(30px); }
-          75% { transform: translateY(75vh) rotate(-540deg) translateX(-35px); }
-          100% { transform: translateY(105vh) rotate(-720deg) translateX(0); }
-        }
-        @keyframes confetti-fall-2 {
-          0% { transform: translateY(0) rotate(0deg) translateX(0) scale(1); }
-          25% { transform: translateY(25vh) rotate(90deg) translateX(50px) scale(1.2); }
-          50% { transform: translateY(50vh) rotate(180deg) translateX(-40px) scale(0.8); }
-          75% { transform: translateY(75vh) rotate(270deg) translateX(45px) scale(1.1); }
-          100% { transform: translateY(105vh) rotate(360deg) translateX(0) scale(1); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
   const splatters = useMemo(
     () =>
@@ -497,7 +428,6 @@ function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; ph
   if (!effect) return null;
   
   switch (effect) {
-    case "confetti": return <ConfettiStorm phase={phase} />;
     case "ink": return <InkSplatter phase={phase} />;
     case "bubbles": return <FloatingBubbles phase={phase} />;
     case "emojis": return <FallingEmojis phase={phase} />;
@@ -509,7 +439,6 @@ function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; ph
 
 // Sabotage button data
 const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
-  { effect: "confetti", label: "Confetti", emoji: "🎊" },
   { effect: "ink", label: "Ink", emoji: "🖤" },
   { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
   { effect: "emojis", label: "Emojis", emoji: "😈" },

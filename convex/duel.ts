@@ -531,7 +531,7 @@ export const eliminateOption = mutation({
 });
 
 // Sabotage system - send visual distraction to opponent
-const SABOTAGE_EFFECTS = ["confetti", "ink", "bubbles", "emojis", "sticky", "cards"] as const;
+const SABOTAGE_EFFECTS = ["ink", "bubbles", "emojis", "sticky", "cards"] as const;
 const MAX_SABOTAGES_PER_DUEL = 5;
 
 export const sendSabotage = mutation({
