@@ -234,7 +234,7 @@ export const answerChallenge = mutation({
       const wordCount = theme?.words.length || 0;
       
       if (nextWordIndex >= wordCount) {
-        // Challenge completed - reset hint state
+        // Challenge completed - reset hint state and pause state
         await db.patch(challengeId, {
           status: "completed",
           currentWordIndex: nextWordIndex,
@@ -244,9 +244,12 @@ export const answerChallenge = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: undefined,
+          countdownPausedBy: undefined,
+          countdownUnpauseRequestedBy: undefined,
+          countdownPausedAt: undefined,
         });
       } else {
-        // Continue to next word - reset hint state and timer
+        // Continue to next word - reset hint state, timer, and pause state
         await db.patch(challengeId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -255,6 +258,9 @@ export const answerChallenge = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: Date.now(),
+          countdownPausedBy: undefined,
+          countdownUnpauseRequestedBy: undefined,
+          countdownPausedAt: undefined,
         });
       }
     }
@@ -594,6 +600,123 @@ export const sendSabotage = mutation({
   },
 });
 
+// Countdown pause system - pause the between-rounds countdown timer
+export const pauseCountdown = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Can only pause if not already paused
+    if (challenge.countdownPausedBy) {
+      throw new Error("Countdown already paused");
+    }
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    await db.patch(challengeId, { 
+      countdownPausedBy: playerRole,
+      countdownUnpauseRequestedBy: undefined,
+      countdownPausedAt: Date.now(), // Track when we paused
+    });
+  },
+});
+
+// Request to unpause the countdown - requires confirmation from other player
+export const requestUnpauseCountdown = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Can only request unpause if countdown is paused
+    if (!challenge.countdownPausedBy) {
+      throw new Error("Countdown is not paused");
+    }
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    await db.patch(challengeId, { 
+      countdownUnpauseRequestedBy: playerRole,
+    });
+  },
+});
+
+// Confirm unpause - the OTHER player confirms the unpause request
+export const confirmUnpauseCountdown = mutation({
+  args: {
+    challengeId: v.id("challenges"),
+    userId: v.string(),
+  },
+  handler: async ({ db }, { challengeId, userId }) => {
+    const challenge = await db.get(challengeId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Can only confirm if there's an unpause request from the OTHER player
+    if (!challenge.countdownUnpauseRequestedBy) {
+      throw new Error("No unpause request pending");
+    }
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    if (challenge.countdownUnpauseRequestedBy === playerRole) {
+      throw new Error("Cannot confirm your own unpause request");
+    }
+
+    // Calculate how long we were paused and adjust questionStartTime
+    // This ensures the next question timer starts fresh after unpause
+    // Add extra 2 seconds to compensate for the 5-second countdown (vs 3-second TRANSITION_DURATION in client)
+    const pauseDuration = challenge.countdownPausedAt 
+      ? Date.now() - challenge.countdownPausedAt + 2000
+      : 0;
+    
+    const newQuestionStartTime = challenge.questionStartTime 
+      ? challenge.questionStartTime + pauseDuration 
+      : undefined;
+
+    // Clear pause state - countdown will resume
+    await db.patch(challengeId, { 
+      countdownPausedBy: undefined,
+      countdownUnpauseRequestedBy: undefined,
+      countdownPausedAt: undefined,
+      questionStartTime: newQuestionStartTime,
+    });
+  },
+});
+
 // Handle timeout - player gets 0 points for not answering in time
 export const timeoutAnswer = mutation({
   args: {
@@ -655,6 +778,9 @@ export const timeoutAnswer = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: undefined,
+          countdownPausedBy: undefined,
+          countdownUnpauseRequestedBy: undefined,
+          countdownPausedAt: undefined,
         });
       } else {
         await db.patch(challengeId, {
@@ -665,6 +791,9 @@ export const timeoutAnswer = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: Date.now(),
+          countdownPausedBy: undefined,
+          countdownUnpauseRequestedBy: undefined,
+          countdownPausedAt: undefined,
         });
       }
     }

@@ -54,5 +54,9 @@ export default defineSchema({
     })),
     challengerSabotagesUsed: v.optional(v.number()), // tracks how many sabotages challenger has used (max 5)
     opponentSabotagesUsed: v.optional(v.number()),
+    // Countdown pause system - for pausing the between-rounds countdown
+    countdownPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who paused the countdown
+    countdownUnpauseRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who requested to unpause
+    countdownPausedAt: v.optional(v.number()), // Timestamp when countdown was paused (to calculate pause duration)
   }),
 });

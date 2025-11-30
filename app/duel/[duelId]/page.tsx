@@ -506,6 +506,9 @@ export default function ChallengePage() {
   const eliminateOption = useMutation(api.duel.eliminateOption);
   const timeoutAnswer = useMutation(api.duel.timeoutAnswer);
   const sendSabotage = useMutation(api.duel.sendSabotage);
+  const pauseCountdown = useMutation(api.duel.pauseCountdown);
+  const requestUnpauseCountdown = useMutation(api.duel.requestUnpauseCountdown);
+  const confirmUnpauseCountdown = useMutation(api.duel.confirmUnpauseCountdown);
   
   // Question timer state (16 seconds total, but display shows 15)
   const TIMER_DURATION = 16; // 16 seconds total (1 hidden + 15 shown)
@@ -635,9 +638,15 @@ export default function ChallengePage() {
     prevWordIndexRef.current = currentWordIndex;
   }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, challenge?.opponentLastAnswer, challenge?.challengerLastAnswer, selectedAnswer, isLocked]);
   
-  // Countdown timer
+  // Countdown timer - respects pause state from server
+  const countdownPausedBy = challenge?.countdownPausedBy;
+  const countdownUnpauseRequestedBy = challenge?.countdownUnpauseRequestedBy;
+  
   useEffect(() => {
     if (countdown === null) return;
+    // Don't tick if paused
+    if (countdownPausedBy) return;
+    
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
@@ -655,7 +664,7 @@ export default function ChallengePage() {
       }
       setCountdown(null);
     }
-  }, [countdown, challenge?.status]);
+  }, [countdown, challenge?.status, countdownPausedBy]);
 
   // Type reveal effect for "None of the above" correct answer
   // Triggers when frozenData exists and hasNoneOption is true (meaning "None" was correct)
@@ -1165,10 +1174,84 @@ export default function ChallengePage() {
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
       </div>
 
-      {/* Countdown indicator */}
+      {/* Countdown indicator with pause/unpause controls */}
       {countdown !== null && frozenData && (
-        <div className="text-2xl font-bold text-yellow-400 mb-2">
-          Next question in {countdown}...
+        <div className="flex flex-col items-center gap-2 mb-2">
+          <div className={`text-2xl font-bold ${countdownPausedBy ? 'text-orange-400' : 'text-yellow-400'}`}>
+            {countdownPausedBy ? 'PAUSED' : `Next question in ${countdown}...`}
+          </div>
+          
+          {/* Pause/Unpause Button */}
+          {(() => {
+            const userRole = isChallenger ? "challenger" : "opponent";
+            const otherRole = isChallenger ? "opponent" : "challenger";
+            
+            // Not paused - show pause button
+            if (!countdownPausedBy) {
+              return (
+                <button
+                  onClick={() => {
+                    if (challenge?._id && user?.id) {
+                      pauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors"
+                >
+                  ⏸ Pause
+                </button>
+              );
+            }
+            
+            // Paused - check if there's an unpause request
+            if (countdownUnpauseRequestedBy) {
+              // Someone requested unpause
+              if (countdownUnpauseRequestedBy === userRole) {
+                // Current user requested - waiting for other player
+                return (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="text-sm text-gray-400">Waiting for opponent to confirm...</div>
+                    <button
+                      disabled
+                      className="px-4 py-2 rounded-lg bg-gray-600 text-gray-400 font-medium cursor-not-allowed"
+                    >
+                      ▶ Unpause Requested
+                    </button>
+                  </div>
+                );
+              } else {
+                // Other player requested - show confirm button
+                return (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="text-sm text-yellow-400">Opponent wants to resume!</div>
+                    <button
+                      onClick={() => {
+                        if (challenge?._id && user?.id) {
+                          confirmUnpauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors animate-pulse"
+                    >
+                      ✓ Confirm Unpause
+                    </button>
+                  </div>
+                );
+              }
+            }
+            
+            // Paused, no unpause request - show unpause button
+            return (
+              <button
+                onClick={() => {
+                  if (challenge?._id && user?.id) {
+                    requestUnpauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+              >
+                ▶ Unpause
+              </button>
+            );
+          })()}
         </div>
       )}
 
