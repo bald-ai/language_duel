@@ -541,6 +541,10 @@ export default function ChallengePage() {
   const [typedText, setTypedText] = useState("");
   const [revealComplete, setRevealComplete] = useState(false);
 
+  // TTS audio playback state
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   // Sabotage effect state
   const [activeSabotage, setActiveSabotage] = useState<SabotageEffect | null>(null);
   const [sabotagePhase, setSabotagePhase] = useState<'wind-up' | 'full' | 'wind-down'>('wind-up');
@@ -1103,6 +1107,49 @@ export default function ChallengePage() {
     }
   };
 
+  // Play TTS for the correct answer
+  const handlePlayAudio = async () => {
+    if (isPlayingAudio || !frozenData) return;
+    
+    setIsPlayingAudio(true);
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: frozenData.correctAnswer }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('TTS request failed');
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error('Failed to play audio:', error);
+      setIsPlayingAudio(false);
+    }
+  };
+
   // Scores
   const challengerScore = challenge.challengerScore || 0;
   const opponentScore = challenge.opponentScore || 0;
@@ -1188,10 +1235,24 @@ export default function ChallengePage() {
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
       </div>
 
-      {/* Countdown indicator */}
-      {countdown !== null && (
-        <div className="text-2xl font-bold text-yellow-400 mb-2">
-          Next question in {countdown}...
+      {/* Countdown indicator with Listen button */}
+      {countdown !== null && frozenData && (
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <div className="text-2xl font-bold text-yellow-400">
+            Next question in {countdown}...
+          </div>
+          <button
+            onClick={handlePlayAudio}
+            disabled={isPlayingAudio}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              isPlayingAudio
+                ? 'bg-green-600 text-white cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          >
+            <span className="text-xl">{isPlayingAudio ? '🔊' : '🔈'}</span>
+            <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
+          </button>
         </div>
       )}
 
