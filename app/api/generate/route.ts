@@ -11,6 +11,7 @@ interface WordEntry {
 interface GenerateThemeRequest {
   type: "theme";
   themeName: string;
+  themePrompt?: string; // Optional additional specification for word generation
   history?: { role: "user" | "assistant"; content: string }[];
 }
 
@@ -33,16 +34,34 @@ interface RegenerateForWordRequest {
   newWord: string; // The manually edited English word
 }
 
-type GenerateRequest = GenerateThemeRequest | RegenerateFieldRequest | RegenerateForWordRequest;
+interface AddWordRequest {
+  type: "add-word";
+  themeName: string;
+  newWord: string; // The English word to add
+  existingWords: string[]; // All existing words in the theme to avoid duplicates
+}
+
+interface GenerateRandomWordsRequest {
+  type: "generate-random-words";
+  themeName: string;
+  count: number; // Number of words to generate (1-10)
+  existingWords: string[]; // All existing words in the theme to avoid duplicates
+}
+
+type GenerateRequest = GenerateThemeRequest | RegenerateFieldRequest | RegenerateForWordRequest | AddWordRequest | GenerateRandomWordsRequest;
 
 // Build system prompt for theme generation
-function buildThemeSystemPrompt(themeName: string): string {
+function buildThemeSystemPrompt(themeName: string, themePrompt?: string): string {
+  const promptSpecification = themePrompt 
+    ? `\n- Focus specifically on: ${themePrompt}` 
+    : "";
+  
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
 
 TASK: Generate exactly 20 English vocabulary words for the theme "${themeName}" with Spanish translations.
 
 REQUIREMENTS:
-- Each word must be an English noun related to "${themeName}"
+- Each word must be an English noun related to "${themeName}"${promptSpecification}
 - The answer must be the correct Spanish translation
 - Each word needs exactly 6 wrong answers (Spanish)
 - Wrong answers must be CHALLENGING and tricky:
@@ -54,6 +73,7 @@ REQUIREMENTS:
   * All 6 wrong answers for each word MUST be unique - NO DUPLICATES allowed
 - All 20 words must be unique within this theme
 - Focus on practical, commonly used vocabulary
+- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
 
 OUTPUT FORMAT: JSON array of 20 objects, each with:
 - word: English word
@@ -99,6 +119,7 @@ REQUIREMENTS:
 - Include correct Spanish translation
 - Include 6 tricky wrong Spanish answers (similar-sounding, subtle differences, plausible mistakes)
 - All 6 wrong answers MUST be unique - NO DUPLICATES allowed
+- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
 
 OUTPUT FORMAT: JSON object with:
 - word: New English word
@@ -113,9 +134,10 @@ TASK: Provide a better Spanish translation for the English word.
 ${context}
 
 The current answer "${currentAnswer}" needs to be replaced. Provide the most accurate Spanish translation.
+ANSWER MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa").
 
 OUTPUT FORMAT: JSON object with:
-- answer: Better/corrected Spanish translation`;
+- answer: Better/corrected Spanish translation (with definite article)`;
   }
 
   // fieldType === "wrong"
@@ -136,9 +158,10 @@ REQUIREMENTS for the new wrong answer:
 - Can include intentional grammar mistakes or wrong gender articles
 - Must NOT be the correct answer "${currentAnswer}"
 - Must NOT duplicate any existing wrong answer
+- WRONG ANSWER MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
 
 OUTPUT FORMAT: JSON object with:
-- wrongAnswer: Single new challenging wrong Spanish translation`;
+- wrongAnswer: Single new challenging wrong Spanish translation (with definite article)`;
 }
 
 // JSON schemas for structured output
@@ -220,6 +243,37 @@ const answerAndWrongsSchema = {
   additionalProperties: false,
 };
 
+// Function to create schema for generating N random words
+function createRandomWordsSchema(count: number) {
+  return {
+    type: "object" as const,
+    properties: {
+      words: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          properties: {
+            word: { type: "string" as const },
+            answer: { type: "string" as const },
+            wrongAnswers: {
+              type: "array" as const,
+              items: { type: "string" as const },
+              minItems: 6,
+              maxItems: 6,
+            },
+          },
+          required: ["word", "answer", "wrongAnswers"],
+          additionalProperties: false,
+        },
+        minItems: count,
+        maxItems: count,
+      },
+    },
+    required: ["words"],
+    additionalProperties: false,
+  };
+}
+
 // Build system prompt for regenerating answer + wrong answers for a manually edited word
 function buildRegenerateForWordPrompt(themeName: string, newWord: string): string {
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
@@ -236,10 +290,69 @@ REQUIREMENTS:
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
   * All 6 wrong answers MUST be unique - NO DUPLICATES allowed
+- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
 
 OUTPUT FORMAT: JSON object with:
+- answer: Correct Spanish translation (with definite article)
+- wrongAnswers: Array of exactly 6 unique challenging wrong Spanish translations (each with definite article)`;
+}
+
+// Build system prompt for adding a new word to an existing theme
+function buildAddWordPrompt(themeName: string, newWord: string, existingWords: string[]): string {
+  const existingWordsList = existingWords.length > 0 ? existingWords.join(", ") : "(none)";
+  
+  return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
+
+TASK: Generate the correct Spanish translation and 6 challenging wrong answers for the English word "${newWord}" to add to the theme "${themeName}".
+
+EXISTING WORDS IN THEME (for context): ${existingWordsList}
+
+REQUIREMENTS:
+- The answer must be the correct Spanish translation for "${newWord}"
+- Provide exactly 6 wrong answers (Spanish)
+- Wrong answers must be CHALLENGING and tricky:
+  * Use similar-sounding Spanish words
+  * Use words with subtle meaning differences
+  * Include plausible Spanish alternatives that could fool a learner
+  * Can include intentional grammar mistakes or wrong gender articles
+  * NEVER use obviously wrong answers
+  * All 6 wrong answers MUST be unique - NO DUPLICATES allowed
+- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
+
+OUTPUT FORMAT: JSON object with:
+- answer: Correct Spanish translation (with definite article)
+- wrongAnswers: Array of exactly 6 unique challenging wrong Spanish translations (each with definite article)`;
+}
+
+// Build system prompt for generating random words for an existing theme
+function buildGenerateRandomWordsPrompt(themeName: string, count: number, existingWords: string[]): string {
+  const existingWordsList = existingWords.length > 0 ? existingWords.join(", ") : "(none)";
+  
+  return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
+
+TASK: Generate exactly ${count} NEW English vocabulary words for the theme "${themeName}" with Spanish translations.
+
+EXISTING WORDS IN THEME (DO NOT DUPLICATE): ${existingWordsList}
+
+REQUIREMENTS:
+- Each word must be an English noun related to "${themeName}"
+- The answer must be the correct Spanish translation
+- Each word needs exactly 6 wrong answers (Spanish)
+- Wrong answers must be CHALLENGING and tricky:
+  * Use similar-sounding Spanish words
+  * Use words with subtle meaning differences
+  * Include plausible Spanish alternatives that could fool a learner
+  * Can include intentional grammar mistakes or wrong gender articles
+  * NEVER use obviously wrong answers
+  * All 6 wrong answers for each word MUST be unique - NO DUPLICATES allowed
+- All ${count} new words must be unique and NOT duplicate any existing word
+- Focus on practical, commonly used vocabulary
+- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
+
+OUTPUT FORMAT: JSON object with "words" array containing ${count} objects, each with:
+- word: English word
 - answer: Correct Spanish translation
-- wrongAnswers: Array of exactly 6 unique challenging wrong Spanish translations`;
+- wrongAnswers: Array of exactly 6 challenging wrong Spanish translations`;
 }
 
 export async function POST(request: NextRequest) {
@@ -261,7 +374,7 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "theme") {
       // Generate full theme
-      const systemPrompt = buildThemeSystemPrompt(body.themeName);
+      const systemPrompt = buildThemeSystemPrompt(body.themeName, body.themePrompt);
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: "system", content: systemPrompt },
         ...(body.history || []).map((h) => ({
@@ -389,6 +502,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: parsed,
+        prompt: systemPrompt,
+      });
+    }
+
+    if (body.type === "add-word") {
+      const { themeName, newWord, existingWords } = body;
+      
+      const systemPrompt = buildAddWordPrompt(themeName, newWord, existingWords);
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Generate the Spanish translation and 6 wrong answers for "${newWord}".` },
+      ];
+
+      const response = await openai.responses.create({
+        model: "gpt-5.1-2025-11-13",
+        reasoning: { effort: "low" },
+        input: messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content as string })),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "answer_and_wrongs",
+            schema: answerAndWrongsSchema,
+            strict: true,
+          },
+        },
+      });
+
+      const content = response.output_text;
+      if (!content) throw new Error("No content in response");
+      
+      const parsed = JSON.parse(content);
+      return NextResponse.json({
+        success: true,
+        data: {
+          word: newWord,
+          answer: parsed.answer,
+          wrongAnswers: parsed.wrongAnswers,
+        },
+        prompt: systemPrompt,
+      });
+    }
+
+    if (body.type === "generate-random-words") {
+      const { themeName, count, existingWords } = body;
+      
+      // Validate count (1-10)
+      const validCount = Math.min(Math.max(Math.floor(count), 1), 10);
+      
+      const systemPrompt = buildGenerateRandomWordsPrompt(themeName, validCount, existingWords);
+
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Generate ${validCount} new Spanish vocabulary words for the theme "${themeName}".` },
+      ];
+
+      const response = await openai.responses.create({
+        model: "gpt-5.1-2025-11-13",
+        reasoning: { effort: "low" },
+        input: messages.map(m => ({ role: m.role as "user" | "assistant" | "system", content: m.content as string })),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "random_words",
+            schema: createRandomWordsSchema(validCount),
+            strict: true,
+          },
+        },
+      });
+
+      const content = response.output_text;
+      if (!content) throw new Error("No content in response");
+      
+      const parsed = JSON.parse(content);
+      return NextResponse.json({
+        success: true,
+        data: parsed.words,
         prompt: systemPrompt,
       });
     }

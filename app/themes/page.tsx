@@ -173,6 +173,7 @@ export default function ThemesPage() {
   // Generate new theme state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [newThemeName, setNewThemeName] = useState("");
+  const [newThemePrompt, setNewThemePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   
@@ -193,6 +194,32 @@ export default function ThemesPage() {
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
   const [pendingManualWord, setPendingManualWord] = useState<string>(""); // The new word to save
   const [isRegenerating, setIsRegenerating] = useState(false);
+  
+  // Theme name editing state
+  const [isEditingThemeName, setIsEditingThemeName] = useState(false);
+  const [editedThemeName, setEditedThemeName] = useState("");
+  
+  // Add new word state
+  const [showAddWordModal, setShowAddWordModal] = useState(false);
+  const [newWordInput, setNewWordInput] = useState("");
+  const [isAddingWord, setIsAddingWord] = useState(false);
+  const [addWordError, setAddWordError] = useState<string | null>(null);
+  
+  // Generate random words state
+  const [showGenerateRandomModal, setShowGenerateRandomModal] = useState(false);
+  const [randomWordCount, setRandomWordCount] = useState(5);
+  const [isGeneratingRandom, setIsGeneratingRandom] = useState(false);
+  const [generateRandomError, setGenerateRandomError] = useState<string | null>(null);
+
+  // Delete word actions
+  const deleteWord = (index: number) => {
+    const word = localWords[index];
+    if (confirm(`Delete word "${word.word}"?`)) {
+      // Remove the word from localWords
+      const updatedWords = localWords.filter((_, idx) => idx !== index);
+      setLocalWords(updatedWords);
+    }
+  };
 
   // Navigation
   const goBack = () => {
@@ -211,6 +238,8 @@ export default function ThemesPage() {
       setViewMode("list");
       setSelectedTheme(null);
       setLocalWords([]);
+      setIsEditingThemeName(false);
+      setEditedThemeName("");
     } else {
       router.push("/");
     }
@@ -246,6 +275,7 @@ export default function ThemesPage() {
         body: JSON.stringify({
           type: "theme",
           themeName: newThemeName,
+          themePrompt: newThemePrompt.trim() || undefined,
         }),
       });
       
@@ -264,6 +294,7 @@ export default function ThemesPage() {
       
       setShowGenerateModal(false);
       setNewThemeName("");
+      setNewThemePrompt("");
     } catch (error) {
       console.error("Generate error:", error);
       setGenerateError(error instanceof Error ? error.message : "Unknown error");
@@ -546,6 +577,102 @@ export default function ThemesPage() {
     }
   };
 
+  // Check if a word already exists in the theme (case-insensitive)
+  const isWordDuplicate = (word: string): boolean => {
+    const normalizedWord = word.toLowerCase().trim();
+    return localWords.some(w => w.word.toLowerCase().trim() === normalizedWord);
+  };
+
+  // Handle adding a new word to the theme
+  const handleAddWord = async () => {
+    if (!selectedTheme || !newWordInput.trim()) return;
+    
+    const trimmedWord = newWordInput.trim();
+    
+    // Check for duplicate
+    if (isWordDuplicate(trimmedWord)) {
+      setAddWordError(`"${trimmedWord}" already exists in this theme`);
+      return;
+    }
+    
+    setIsAddingWord(true);
+    setAddWordError(null);
+    
+    try {
+      const existingWords = localWords.map(w => w.word);
+      
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "add-word",
+          themeName: selectedTheme.name,
+          newWord: trimmedWord,
+          existingWords,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Failed to generate word");
+      }
+      
+      // Add the new word to localWords
+      setLocalWords([...localWords, data.data]);
+      
+      // Close modal and reset
+      setShowAddWordModal(false);
+      setNewWordInput("");
+    } catch (error) {
+      console.error("Add word error:", error);
+      setAddWordError(error instanceof Error ? error.message : "Failed to add word");
+    } finally {
+      setIsAddingWord(false);
+    }
+  };
+
+  // Handle generating random words for the theme
+  const handleGenerateRandomWords = async () => {
+    if (!selectedTheme) return;
+    
+    setIsGeneratingRandom(true);
+    setGenerateRandomError(null);
+    
+    try {
+      const existingWords = localWords.map(w => w.word);
+      
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "generate-random-words",
+          themeName: selectedTheme.name,
+          count: randomWordCount,
+          existingWords,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Failed to generate words");
+      }
+      
+      // Add all generated words to localWords
+      setLocalWords([...localWords, ...data.data]);
+      
+      // Close modal and reset
+      setShowGenerateRandomModal(false);
+      setRandomWordCount(5);
+    } catch (error) {
+      console.error("Generate random words error:", error);
+      setGenerateRandomError(error instanceof Error ? error.message : "Failed to generate words");
+    } finally {
+      setIsGeneratingRandom(false);
+    }
+  };
+
   // Save entire theme
   const handleSaveTheme = async () => {
     if (!selectedTheme) return;
@@ -565,6 +692,7 @@ export default function ThemesPage() {
     try {
       await updateTheme({
         themeId: selectedTheme._id,
+        name: selectedTheme.name.toUpperCase(),
         words: localWords,
       });
       setViewMode("list");
@@ -582,6 +710,7 @@ export default function ThemesPage() {
     setLocalWords([]);
   };
 
+  
   // Render theme list view
   const renderListView = () => (
     <>
@@ -651,19 +780,46 @@ export default function ThemesPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
             <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">New Theme</h2>
             
-            <div className="mb-6">
-              <input
-                type="text"
-                value={newThemeName}
-                onChange={(e) => setNewThemeName(e.target.value)}
-                placeholder="Example: Bathroom items"
-                className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
-                disabled={isGenerating}
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Enter a theme name or description for word generation
-              </p>
-              <p className="text-xs text-red-600 mt-2 font-medium">
+            <div className="mb-6 space-y-4">
+              <div>
+                <input
+                  type="text"
+                  value={newThemeName}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 25) {
+                      setNewThemeName(e.target.value);
+                    }
+                  }}
+                  placeholder="Theme name (e.g. Kitchen)"
+                  maxLength={25}
+                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
+                  disabled={isGenerating}
+                />
+                <p className="text-xs text-gray-500 mt-1 text-right">
+                  {newThemeName.length}/25
+                </p>
+              </div>
+              
+              <div>
+                <textarea
+                  value={newThemePrompt}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 250) {
+                      setNewThemePrompt(e.target.value);
+                    }
+                  }}
+                  placeholder="Optional: Specify details (e.g. small items)"
+                  maxLength={250}
+                  rows={2}
+                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none resize-none"
+                  disabled={isGenerating}
+                />
+                <p className="text-xs text-gray-500 mt-1 text-right">
+                  {newThemePrompt.length}/250
+                </p>
+              </div>
+              
+              <p className="text-xs text-red-600 font-medium">
                 ⚠️ Only nouns are supported for now
               </p>
             </div>
@@ -693,6 +849,7 @@ export default function ThemesPage() {
                 onClick={() => {
                   setShowGenerateModal(false);
                   setNewThemeName("");
+                  setNewThemePrompt("");
                   setGenerateError(null);
                 }}
                 disabled={isGenerating}
@@ -716,9 +873,47 @@ export default function ThemesPage() {
         {/* Fixed Header */}
         <header className="flex-shrink-0 w-full max-w-md mx-auto px-4 pt-6 pb-4">
           <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4">
-            <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
-              {selectedTheme.name}
-            </h1>
+            {isEditingThemeName ? (
+              <input
+                type="text"
+                value={editedThemeName}
+                onChange={(e) => {
+                  if (e.target.value.length <= 25) {
+                    setEditedThemeName(e.target.value.toUpperCase());
+                  }
+                }}
+                onBlur={() => {
+                  if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== selectedTheme.name) {
+                    setSelectedTheme({ ...selectedTheme, name: editedThemeName.trim().toUpperCase() });
+                  }
+                  setIsEditingThemeName(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== selectedTheme.name) {
+                      setSelectedTheme({ ...selectedTheme, name: editedThemeName.trim().toUpperCase() });
+                    }
+                    setIsEditingThemeName(false);
+                  } else if (e.key === "Escape") {
+                    setIsEditingThemeName(false);
+                  }
+                }}
+                maxLength={25}
+                className="w-full text-xl font-bold text-center text-gray-800 uppercase tracking-wide bg-transparent border-none outline-none focus:ring-0"
+                autoFocus
+              />
+            ) : (
+              <h1
+                onClick={() => {
+                  setEditedThemeName(selectedTheme.name);
+                  setIsEditingThemeName(true);
+                }}
+                className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide cursor-pointer hover:text-gray-600 transition-colors"
+                title="Click to edit theme name"
+              >
+                {selectedTheme.name}
+              </h1>
+            )}
           </div>
         </header>
 
@@ -793,32 +988,187 @@ export default function ThemesPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Delete Word Button */}
+                    <button
+                      onClick={() => deleteWord(index)}
+                      className="mt-3 w-full py-2 bg-red-50 border-2 border-red-200 rounded-lg text-sm font-medium text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors"
+                    >
+                      Delete Word
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
             {/* Bottom spacer for fixed footer */}
-            <div className="h-24"></div>
+            <div className="h-36"></div>
           </div>
         </div>
 
         {/* Fixed Bottom Buttons */}
         <div className="flex-shrink-0 w-full bg-gray-100 border-t border-gray-300 px-4 py-4">
-          <div className="w-full max-w-md mx-auto flex gap-3">
-            <button
-              onClick={handleSaveTheme}
-              className="flex-1 bg-gray-800 text-white rounded-2xl py-4 text-lg font-bold uppercase hover:bg-gray-700 transition-colors"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancelTheme}
-              className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-lg font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="w-full max-w-md mx-auto space-y-3">
+            {/* Add Word / Generate Random Row */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAddWordModal(true)}
+                className="flex-1 bg-blue-600 text-white rounded-2xl py-3 text-lg font-bold uppercase hover:bg-blue-700 transition-colors"
+              >
+                + Add Word
+              </button>
+              <button
+                onClick={() => setShowGenerateRandomModal(true)}
+                className="flex-1 bg-purple-600 text-white rounded-2xl py-3 text-lg font-bold uppercase hover:bg-purple-700 transition-colors"
+              >
+                + Generate
+              </button>
+            </div>
+            
+            {/* Save/Cancel Row */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveTheme}
+                className="flex-1 bg-gray-800 text-white rounded-2xl py-4 text-lg font-bold uppercase hover:bg-gray-700 transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={handleCancelTheme}
+                className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-lg font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Add Word Modal */}
+        {showAddWordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Add New Word</h2>
+              
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">English Word</label>
+                <input
+                  type="text"
+                  value={newWordInput}
+                  onChange={(e) => {
+                    setNewWordInput(e.target.value);
+                    setAddWordError(null); // Clear error on input change
+                  }}
+                  placeholder="Enter an English word..."
+                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
+                  disabled={isAddingWord}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newWordInput.trim()) {
+                      handleAddWord();
+                    }
+                  }}
+                />
+              </div>
+
+              {addWordError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-700 text-sm">
+                  {addWordError}
+                </div>
+              )}
+
+              {isAddingWord && (
+                <div className="mb-4 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Generating Spanish translation and wrong answers...</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAddWord}
+                  disabled={!newWordInput.trim() || isAddingWord}
+                  className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-bold uppercase disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                >
+                  {isAddingWord ? "Adding..." : "Add"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddWordModal(false);
+                    setNewWordInput("");
+                    setAddWordError(null);
+                  }}
+                  disabled={isAddingWord}
+                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Generate Random Words Modal */}
+        {showGenerateRandomModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Generate Random Words</h2>
+              
+              <div className="mb-4">
+                <label className="block text-sm text-gray-600 mb-2">Number of words to generate (1-10)</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={randomWordCount}
+                    onChange={(e) => setRandomWordCount(parseInt(e.target.value))}
+                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    disabled={isGeneratingRandom}
+                  />
+                  <span className="w-8 text-center text-xl font-bold text-gray-800">{randomWordCount}</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4 text-center">
+                This will generate {randomWordCount} new unique word{randomWordCount > 1 ? 's' : ''} for the theme &quot;{selectedTheme?.name}&quot;
+              </p>
+
+              {generateRandomError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-700 text-sm">
+                  {generateRandomError}
+                </div>
+              )}
+
+              {isGeneratingRandom && (
+                <div className="mb-4 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Generating {randomWordCount} words... This may take a moment.</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleGenerateRandomWords}
+                  disabled={isGeneratingRandom}
+                  className="flex-1 bg-purple-600 text-white rounded-xl py-3 font-bold uppercase disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-purple-700 transition-colors"
+                >
+                  {isGeneratingRandom ? "Generating..." : "Generate"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowGenerateRandomModal(false);
+                    setRandomWordCount(5);
+                    setGenerateRandomError(null);
+                  }}
+                  disabled={isGeneratingRandom}
+                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     );
   };

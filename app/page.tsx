@@ -21,6 +21,7 @@ export default function Home() {
   const [showWaitingModal, setShowWaitingModal] = useState(false);
   const [waitingChallengeId, setWaitingChallengeId] = useState<string | null>(null);
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
+  const [isAcceptingChallenge, setIsAcceptingChallenge] = useState(false);
   const waitingChallenge = useQuery(api.duel.getChallenge, waitingChallengeId ? { challengeId: waitingChallengeId as any } : "skip");
   
   useSyncUser();
@@ -50,10 +51,12 @@ export default function Home() {
 
   const handleAcceptChallenge = async (challengeId: string) => {
     try {
+      setIsAcceptingChallenge(true);
       await acceptChallenge({ challengeId: challengeId as any, userId: user!.id });
       router.push(`/duel/${challengeId}`);
     } catch (error) {
       console.error("Failed to accept challenge:", error);
+      setIsAcceptingChallenge(false);
     }
   };
 
@@ -152,13 +155,15 @@ export default function Home() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptChallenge(challenge._id)}
-                        className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                        disabled={isAcceptingChallenge}
+                        className="bg-green-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Accept
                       </button>
                       <button
                         onClick={() => handleRejectChallenge(challenge._id)}
-                        className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                        disabled={isAcceptingChallenge}
+                        className="bg-red-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Reject
                       </button>
@@ -256,6 +261,17 @@ export default function Home() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Accepting Challenge Loading Modal */}
+      {isAcceptingChallenge && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 text-center">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Joining Duel...</h2>
+            <p className="mb-4 text-gray-600">Preparing the challenge. Please wait.</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
           </div>
         </div>
       )}

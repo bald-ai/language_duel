@@ -38,5 +38,8 @@ export default defineSchema({
     hintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who requested a hint
     hintAccepted: v.optional(v.boolean()), // Whether the hint provider accepted
     eliminatedOptions: v.optional(v.array(v.string())), // Wrong answers eliminated (max 2)
+    // Last answer tracking (for showing opponent's pick during countdown)
+    challengerLastAnswer: v.optional(v.string()),
+    opponentLastAnswer: v.optional(v.string()),
   }),
 });

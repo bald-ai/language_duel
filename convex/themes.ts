@@ -83,3 +83,25 @@ export const updateWord = mutation({
     return await ctx.db.get(args.themeId);
   },
 });
+
+// Delete a word from a theme
+export const deleteWord = mutation({
+  args: {
+    themeId: v.id("themes"),
+    wordIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    if (args.wordIndex < 0 || args.wordIndex >= theme.words.length) {
+      throw new Error("Invalid word index");
+    }
+    
+    // Remove the word at the specified index
+    const updatedWords = theme.words.filter((_, index) => index !== args.wordIndex);
+    
+    await ctx.db.patch(args.themeId, { words: updatedWords });
+    return await ctx.db.get(args.themeId);
+  },
+});

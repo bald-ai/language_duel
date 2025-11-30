@@ -1,6 +1,60 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// Utility functions for dynamic difficulty distribution
+// Target ratio: 40% Easy, 30% Medium, 30% Hard (matching original 8:6:6 for 20 words)
+interface DifficultyDistribution {
+  easy: number;
+  medium: number;
+  hard: number;
+  easyEnd: number;
+  mediumEnd: number;
+  total: number;
+}
+
+function calculateDifficultyDistribution(wordCount: number): DifficultyDistribution {
+  if (wordCount <= 0) {
+    return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
+  }
+
+  const baseEasy = Math.floor(wordCount * 0.4);
+  const baseMedium = Math.floor(wordCount * 0.3);
+  const baseHard = Math.floor(wordCount * 0.3);
+  
+  const assigned = baseEasy + baseMedium + baseHard;
+  const remainder = wordCount - assigned;
+  
+  let easy = baseEasy;
+  let medium = baseMedium;
+  let hard = baseHard;
+  
+  if (remainder >= 1) easy++;
+  if (remainder >= 2) medium++;
+  if (remainder >= 3) hard++;
+  if (remainder >= 4) easy++;
+  if (remainder >= 5) medium++;
+  if (remainder >= 6) hard++;
+  
+  return {
+    easy,
+    medium,
+    hard,
+    easyEnd: easy,
+    mediumEnd: easy + medium,
+    total: wordCount,
+  };
+}
+
+function getPointsForIndex(index: number, distribution: DifficultyDistribution): number {
+  if (index < distribution.easyEnd) return 1;
+  if (index < distribution.mediumEnd) return 1.5;
+  return 2;
+}
+
+function isHardModeIndex(index: number, distribution: DifficultyDistribution): boolean {
+  return index >= distribution.mediumEnd;
+}
+
 export const createChallenge = mutation({
   args: {
     opponentId: v.id("users"),
@@ -103,11 +157,12 @@ export const answerChallenge = mutation({
       : challenge.currentWordIndex;
     const currentWord = theme.words[actualWordIndex];
     
-    // Determine difficulty and points based on question index
-    // Easy (0-7): 1 point, Medium (8-13): 1.5 points, Hard (14-19): 2 points
+    // Determine difficulty and points based on question index using dynamic distribution
     const questionIndex = challenge.currentWordIndex;
-    const pointsForCorrect = questionIndex < 8 ? 1 : questionIndex < 14 ? 1.5 : 2;
-    const isHardMode = questionIndex >= 14;
+    const wordCount = theme.words.length;
+    const distribution = calculateDifficultyDistribution(wordCount);
+    const pointsForCorrect = getPointsForIndex(questionIndex, distribution);
+    const isHardMode = isHardModeIndex(questionIndex, distribution);
     
     // For hard mode, we need to determine if "None of the above" is correct
     // using the same seeded PRNG as the client
@@ -147,22 +202,25 @@ export const answerChallenge = mutation({
                          (challenge.eliminatedOptions?.length || 0) > 0;
     
     // Mark as answered and update score if correct (using difficulty-based points)
-    // Also award +0.5 to hint provider if this player received a hint
+    // Also award +0.5 to hint provider if this player received a hint AND answered correctly
+    // Store the selected answer so opponent can see it during countdown
     if (isChallenger && !challenge.challengerAnswered) {
       const newScore = isCorrect ? (challenge.challengerScore || 0) + pointsForCorrect : (challenge.challengerScore || 0);
-      const hintBonus = receivedHint ? 0.5 : 0; // Bonus goes to opponent (hint provider)
+      const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to opponent (hint provider) only if correct
       await db.patch(challengeId, { 
         challengerAnswered: true, 
         challengerScore: newScore,
         opponentScore: (challenge.opponentScore || 0) + hintBonus,
+        challengerLastAnswer: selectedAnswer,
       });
     } else if (isOpponent && !challenge.opponentAnswered) {
       const newScore = isCorrect ? (challenge.opponentScore || 0) + pointsForCorrect : (challenge.opponentScore || 0);
-      const hintBonus = receivedHint ? 0.5 : 0; // Bonus goes to challenger (hint provider)
+      const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to challenger (hint provider) only if correct
       await db.patch(challengeId, { 
         opponentAnswered: true, 
         opponentScore: newScore,
         challengerScore: (challenge.challengerScore || 0) + hintBonus,
+        opponentLastAnswer: selectedAnswer,
       });
     }
 
@@ -422,11 +480,34 @@ export const eliminateOption = mutation({
       : challenge.currentWordIndex;
     const currentWord = theme.words[actualWordIndex];
     
+    // Check if this is a hard mode question
+    const wordCount = theme.words.length;
+    const distribution = calculateDifficultyDistribution(wordCount);
+    const isHardMode = isHardModeIndex(challenge.currentWordIndex, distribution);
+    
+    // For hard mode, "None of the above" is a valid option
+    const isNoneOfTheAbove = option === "None of the above";
+    
     if (option === currentWord.answer) {
       throw new Error("Cannot eliminate the correct answer");
     }
     
-    if (!currentWord.wrongAnswers.includes(option)) {
+    // In hard mode, we need to check if "None of the above" is the correct answer
+    // using the same seeded PRNG logic as submitAnswer
+    if (isHardMode && isNoneOfTheAbove) {
+      // Replicate the PRNG logic to determine if "None of the above" is correct
+      let seed = (challenge._creationTime || 0) + challenge.currentWordIndex;
+      for (let i = 0; i < 4; i++) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      }
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const noneIsCorrect = (seed / 0x7fffffff) < 0.5;
+      
+      if (noneIsCorrect) {
+        throw new Error("Cannot eliminate the correct answer");
+      }
+      // If noneIsCorrect is false, "None of the above" is a valid wrong answer to eliminate
+    } else if (!currentWord.wrongAnswers.includes(option) && !isNoneOfTheAbove) {
       throw new Error("Invalid option");
     }
 

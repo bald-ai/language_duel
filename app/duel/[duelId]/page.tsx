@@ -4,7 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 
 export default function ChallengePage() {
   const params = useParams();
@@ -19,10 +20,16 @@ export default function ChallengePage() {
     correctAnswer: string;
     shuffledAnswers: string[];
     selectedAnswer: string | null;
+    opponentAnswer: string | null;
     wordIndex: number;
     hasNoneOption: boolean;
     difficulty: { level: "easy" | "medium" | "hard"; points: number };
   } | null>(null);
+
+  // Type reveal effect state for "None of the above" correct answer
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [typedText, setTypedText] = useState("");
+  const [revealComplete, setRevealComplete] = useState(false);
 
   const challengeData = useQuery(
     api.duel.getChallenge,
@@ -44,13 +51,22 @@ export default function ChallengePage() {
   const challenge = challengeData?.challenge;
   const challenger = challengeData?.challenger;
   const opponent = challengeData?.opponent;
-  const index = challenge?.currentWordIndex ?? 0;
   const wordOrder = challenge?.wordOrder;
   const words = theme?.words || [];
+  // When completed, show the last word; otherwise show current word
+  const isCompleted = challenge?.status === "completed";
+  const rawIndex = challenge?.currentWordIndex ?? 0;
+  const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
   // Use shuffled word order if available, otherwise fall back to sequential
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
   const currentWord = words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] };
   const word = currentWord.word;
+  
+  // Calculate dynamic difficulty distribution based on total word count
+  const difficultyDistribution = useMemo(() => 
+    calculateDifficultyDistribution(words.length), 
+    [words.length]
+  );
 
   // Track word index changes and handle countdown transition
   const currentWordIndex = challenge?.currentWordIndex;
@@ -67,12 +83,14 @@ export default function ChallengePage() {
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
       
-      // Determine previous difficulty
-      const prevDifficulty = prevIndex < 8 
-        ? { level: "easy" as const, points: 1, wrongCount: 3 }
-        : prevIndex < 14 
-          ? { level: "medium" as const, points: 1.5, wrongCount: 4 }
-          : { level: "hard" as const, points: 2, wrongCount: 4 };
+      // Determine previous difficulty using dynamic distribution
+      const prevDistribution = calculateDifficultyDistribution(words.length);
+      const prevDifficultyData = getDifficultyForIndex(prevIndex, prevDistribution);
+      const prevDifficulty = {
+        level: prevDifficultyData.level,
+        points: prevDifficultyData.points,
+        wrongCount: prevDifficultyData.wrongCount,
+      };
       
       // Compute shuffled answers for previous word with difficulty logic
       let seed = prevWord.word.split('').reduce((acc: number, char: string, idx: number) => 
@@ -118,24 +136,35 @@ export default function ChallengePage() {
         [prevShuffled[i], prevShuffled[j]] = [prevShuffled[j], prevShuffled[i]];
       }
       
+      // Get opponent's answer from challenge data
+      const userIsChallenger = challenger?.clerkId === user?.id;
+      const opponentLastAnswer = userIsChallenger 
+        ? challenge?.opponentLastAnswer 
+        : challenge?.challengerLastAnswer;
+      
       // Freeze previous question data and start countdown
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
         shuffledAnswers: prevShuffled,
         selectedAnswer: selectedAnswer,
+        opponentAnswer: opponentLastAnswer || null,
         wordIndex: prevIndex,
         hasNoneOption: prevHasNone,
         difficulty: prevDifficulty,
       });
-      setCountdown(3);
+      // Only start countdown if challenge is not completed (more questions to come)
+      const isLastQuestion = prevIndex >= words.length - 1;
+      if (!isLastQuestion) {
+        setCountdown(3);
+      }
     } else if (prevWordIndexRef.current !== currentWordIndex) {
       // No answer locked, just reset
       setSelectedAnswer(null);
       setIsLocked(false);
     }
     prevWordIndexRef.current = currentWordIndex;
-  }, [currentWordIndex, words, wordOrder]);
+  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, challenge?.opponentLastAnswer, challenge?.challengerLastAnswer, selectedAnswer, isLocked]);
   
   // Countdown timer
   useEffect(() => {
@@ -144,13 +173,57 @@ export default function ChallengePage() {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else {
-      // Countdown finished, clear frozen data and reset
-      setFrozenData(null);
-      setSelectedAnswer(null);
-      setIsLocked(false);
+      // Countdown finished, clear frozen data and reset (only if not completed)
+      // When completed, we want to keep showing the last question's feedback
+      if (challenge?.status !== "completed") {
+        setFrozenData(null);
+        setSelectedAnswer(null);
+        setIsLocked(false);
+        // Reset reveal state for next question
+        setIsRevealing(false);
+        setTypedText("");
+        setRevealComplete(false);
+      }
       setCountdown(null);
     }
-  }, [countdown]);
+  }, [countdown, challenge?.status]);
+
+  // Type reveal effect for "None of the above" correct answer
+  // Triggers when frozenData exists and hasNoneOption is true (meaning "None" was correct)
+  useEffect(() => {
+    if (!frozenData || !frozenData.hasNoneOption) {
+      return;
+    }
+    
+    // Start revealing after a short delay
+    const startDelay = setTimeout(() => {
+      setIsRevealing(true);
+    }, 300);
+    
+    return () => clearTimeout(startDelay);
+  }, [frozenData]);
+
+  // Typing animation effect
+  useEffect(() => {
+    if (!isRevealing || !frozenData) return;
+    
+    const correctAnswer = frozenData.correctAnswer;
+    setTypedText("");
+    setRevealComplete(false);
+    
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < correctAnswer.length) {
+        setTypedText(correctAnswer.slice(0, i + 1));
+        i++;
+      } else {
+        setRevealComplete(true);
+        clearInterval(interval);
+      }
+    }, 50); // 50ms per character
+    
+    return () => clearInterval(interval);
+  }, [isRevealing, frozenData]);
 
   // Monitor challenge status for real-time updates
   useEffect(() => {
@@ -170,15 +243,14 @@ export default function ChallengePage() {
     }
   }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
 
-  // Difficulty scaling based on question index
-  // Easy (0-7): 4 options (1 correct + 3 random wrong), 1 point
-  // Medium (8-13): 5 options (1 correct + 4 random wrong), 1.5 points
-  // Hard (14-19): 5 options (4 wrong + either correct OR "None"), 2 points
-  const difficulty = useMemo(() => {
-    if (index < 8) return { level: "easy" as const, points: 1, wrongCount: 3, optionCount: 4 };
-    if (index < 14) return { level: "medium" as const, points: 1.5, wrongCount: 4, optionCount: 5 };
-    return { level: "hard" as const, points: 2, wrongCount: 4, optionCount: 5 };
-  }, [index]);
+  // Difficulty scaling based on question index using dynamic distribution
+  // Easy: 4 options (1 correct + 3 random wrong), 1 point
+  // Medium: 5 options (1 correct + 4 random wrong), 1.5 points
+  // Hard: 5 options (4 wrong + either correct OR "None"), 2 points
+  const difficulty = useMemo(() => 
+    getDifficultyForIndex(index, difficultyDistribution),
+    [index, difficultyDistribution]
+  );
 
   // Shuffle answers with difficulty-based option selection (MUST be before any returns)
   const { shuffledAnswers, hasNoneOption, correctAnswerPresent } = useMemo(() => {
@@ -256,50 +328,8 @@ export default function ChallengePage() {
   if (status === "stopped") {
     return <div>Challenge was stopped</div>;
   }
-  if (status === "completed") {
-    const finalChallengerScore = challenge?.challengerScore || 0;
-    const finalOpponentScore = challenge?.opponentScore || 0;
-    const isWinner = (challenger?.clerkId === user.id && finalChallengerScore > finalOpponentScore) ||
-                     (opponent?.clerkId === user.id && finalOpponentScore > finalChallengerScore);
-    const isTie = finalChallengerScore === finalOpponentScore;
-    
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-2">Challenge Complete!</h1>
-          <div className="mb-4">
-            <div className="text-sm text-gray-400">
-              {challenger?.name || challenger?.email} vs {opponent?.name || opponent?.email}
-            </div>
-          </div>
-        </div>
-        
-        {/* Final Scores */}
-        <div className="bg-gray-800 rounded-xl p-6 min-w-[300px]">
-          <div className="text-center text-lg text-gray-400 mb-4">Final Score</div>
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-lg font-medium">{challenger?.name || challenger?.email}</span>
-            <span className="text-3xl font-bold text-blue-400">{Number.isInteger(finalChallengerScore) ? finalChallengerScore : finalChallengerScore.toFixed(1)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-medium">{opponent?.name || opponent?.email}</span>
-            <span className="text-3xl font-bold text-blue-400">{Number.isInteger(finalOpponentScore) ? finalOpponentScore : finalOpponentScore.toFixed(1)}</span>
-          </div>
-        </div>
-        
-        <div className={`text-center font-bold text-2xl ${isTie ? 'text-yellow-400' : isWinner ? 'text-green-400' : 'text-red-400'}`}>
-          {isTie ? "It's a tie!" : isWinner ? "You won! 🎉" : "You lost!"}
-        </div>
-        
-        <button
-          onClick={() => router.push('/')}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg"
-        >
-          Back to Home
-        </button>
-      </main>
-    );
-  }
+  // For completed status, we'll show the last question with results overlay
+  // (handled below in the main render)
 
   // At this point, challenge is guaranteed to exist
   if (!challenge) return <div>Loading...</div>;
@@ -403,13 +433,15 @@ export default function ChallengePage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 relative p-4">
-      {/* Exit Button */}
-      <button
-        onClick={handleStopChallenge}
-        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
-      >
-        Exit Challenge
-      </button>
+      {/* Exit Button - hide when completed */}
+      {status !== "completed" && (
+        <button
+          onClick={handleStopChallenge}
+          className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+        >
+          Exit Challenge
+        </button>
+      )}
       
       {/* Scoreboard */}
       <div className="absolute top-4 left-4 bg-gray-800 rounded-lg p-4 min-w-[200px]">
@@ -468,9 +500,13 @@ export default function ChallengePage() {
             const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
             const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
             const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
-            const isShowingFeedback = hasAnswered || isLocked || frozenData;
+            const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
             const isEliminated = eliminatedOptions.includes(ans);
-            const isWrongAnswer = ans !== currentWord.answer && ans !== "None of the above";
+            // "None of the above" is wrong when the correct answer IS present (hasNoneOption = false)
+            const isNoneOfAbove = ans === "None of the above";
+            const isWrongAnswer = isNoneOfAbove 
+              ? !displayHasNone  // "None" is wrong when correct answer IS present
+              : ans !== displayCorrectAnswer;
             const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
             
             // Determine if this answer is correct
@@ -489,6 +525,14 @@ export default function ChallengePage() {
                 setSelectedAnswer(ans);
               }
             };
+            
+            // Check if opponent picked this answer (show during countdown OR when completed)
+            const opponentLastAnswer = isChallenger 
+              ? challenge?.opponentLastAnswer 
+              : challenge?.challengerLastAnswer;
+            const opponentPickedThis = frozenData 
+              ? frozenData.opponentAnswer === ans
+              : (status === "completed" && opponentLastAnswer === ans);
             
             return (
               <button
@@ -513,11 +557,29 @@ export default function ChallengePage() {
                           : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
                 }`}
               >
-                {ans}
+                {/* Type reveal effect for "None of the above" when it's the correct answer */}
+                {isNoneOfAbove && displayHasNone && isRevealing && frozenData ? (
+                  <span className="font-medium">
+                    {typedText}
+                    {!revealComplete && <span className="animate-pulse">|</span>}
+                  </span>
+                ) : (
+                  ans
+                )}
                 {canEliminateThis && (
                   <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                     ✕
                   </span>
+                )}
+                {/* Show opponent's pick during countdown */}
+                {opponentPickedThis && (
+                  <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    👤
+                  </span>
+                )}
+                {/* Show checkmark when "None of the above" is correct and revealed */}
+                {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                  <span className="absolute top-2 right-2 text-green-400">✓</span>
                 )}
               </button>
             );
@@ -608,9 +670,53 @@ export default function ChallengePage() {
         </div>
       )}
 
-      {word === "done" && (
-        <div className="text-center text-green-600 font-bold">
-          Challenge Complete!
+      {/* Final Results Panel - shown when challenge is completed */}
+      {status === "completed" && (
+        <div className="w-full max-w-md mt-4">
+          <div className="bg-gray-800 rounded-xl p-6 border-2 border-yellow-500">
+            <div className="text-center text-xl font-bold text-yellow-400 mb-4">
+              Challenge Complete!
+            </div>
+            
+            {/* Winner announcement */}
+            <div className={`text-center font-bold text-2xl mb-4 ${
+              myScore === theirScore 
+                ? 'text-yellow-400' 
+                : myScore > theirScore 
+                  ? 'text-green-400' 
+                  : 'text-red-400'
+            }`}>
+              {myScore === theirScore 
+                ? "It's a tie!" 
+                : myScore > theirScore 
+                  ? "You won! 🎉" 
+                  : "You lost!"}
+            </div>
+            
+            {/* Final Scores */}
+            <div className="bg-gray-900 rounded-lg p-4 mb-4">
+              <div className="text-center text-sm text-gray-400 mb-3">Final Score</div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-green-400 font-medium">You ({myName?.split(' ')[0] || 'You'})</span>
+                <span className="text-2xl font-bold text-green-400">
+                  {Number.isInteger(myScore) ? myScore : myScore.toFixed(1)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-blue-400 font-medium">{theirName?.split(' ')[0] || 'Opponent'}</span>
+                <span className="text-2xl font-bold text-blue-400">
+                  {Number.isInteger(theirScore) ? theirScore : theirScore.toFixed(1)}
+                </span>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors"
+            >
+              Back to Home
+            </button>
+          </div>
         </div>
       )}
     </main>
