@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 
 // Utility functions for dynamic difficulty distribution
 // Target ratio: 40% Easy, 30% Medium, 30% Hard (matching original 8:6:6 for 20 words)
@@ -58,12 +59,15 @@ function isHardModeIndex(index: number, distribution: DifficultyDistribution): b
 export const createChallenge = mutation({
   args: {
     opponentId: v.id("users"),
-    challengerClerkId: v.string(),
     themeId: v.id("themes"),
   },
-  handler: async ({ db }, { opponentId, challengerClerkId, themeId }) => {
+  handler: async (ctx, { opponentId, themeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
+    const challengerClerkId = identity.subject;
     // Get challenger by clerkId
-    const challenger = await db
+    const challenger = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", challengerClerkId))
       .first();
@@ -71,7 +75,7 @@ export const createChallenge = mutation({
     if (!challenger) throw new Error("Challenger not found");
     
     // Verify theme exists
-    const theme = await db.get(themeId);
+    const theme = await ctx.db.get(themeId);
     if (!theme) throw new Error("Theme not found");
     
     // Create shuffled word order using Fisher-Yates algorithm
@@ -82,7 +86,7 @@ export const createChallenge = mutation({
       [wordOrder[i], wordOrder[j]] = [wordOrder[j], wordOrder[i]];
     }
     
-    return await db.insert("challenges", {
+    return await ctx.db.insert("challenges", {
       challengerId: challenger._id,
       opponentId,
       themeId,
@@ -118,11 +122,14 @@ export const getChallenge = query({
 export const answerChallenge = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
     selectedAnswer: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId, selectedAnswer }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId, selectedAnswer }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Check if challenge is accepted (or handle old challenges without status)
@@ -132,7 +139,7 @@ export const answerChallenge = mutation({
     }
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -148,7 +155,7 @@ export const answerChallenge = mutation({
     }
 
     // Get theme to check correct answer
-    const theme = await db.get(challenge.themeId);
+    const theme = await ctx.db.get(challenge.themeId);
     if (!theme) throw new Error("Theme not found");
     
     // Use shuffled word order if available, otherwise fall back to sequential
@@ -207,7 +214,7 @@ export const answerChallenge = mutation({
     if (isChallenger && !challenge.challengerAnswered) {
       const newScore = isCorrect ? (challenge.challengerScore || 0) + pointsForCorrect : (challenge.challengerScore || 0);
       const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to opponent (hint provider) only if correct
-      await db.patch(challengeId, { 
+      await ctx.db.patch(challengeId, { 
         challengerAnswered: true, 
         challengerScore: newScore,
         opponentScore: (challenge.opponentScore || 0) + hintBonus,
@@ -216,7 +223,7 @@ export const answerChallenge = mutation({
     } else if (isOpponent && !challenge.opponentAnswered) {
       const newScore = isCorrect ? (challenge.opponentScore || 0) + pointsForCorrect : (challenge.opponentScore || 0);
       const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to challenger (hint provider) only if correct
-      await db.patch(challengeId, { 
+      await ctx.db.patch(challengeId, { 
         opponentAnswered: true, 
         opponentScore: newScore,
         challengerScore: (challenge.challengerScore || 0) + hintBonus,
@@ -225,17 +232,17 @@ export const answerChallenge = mutation({
     }
 
     // Check if both answered, then advance to next word
-    const updatedChallenge = await db.get(challengeId);
+    const updatedChallenge = await ctx.db.get(challengeId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
       const nextWordIndex = updatedChallenge.currentWordIndex + 1;
       
       // Get theme to check word count
-      const theme = await db.get(updatedChallenge.themeId);
+      const theme = await ctx.db.get(updatedChallenge.themeId);
       const wordCount = theme?.words.length || 0;
       
       if (nextWordIndex >= wordCount) {
         // Challenge completed - reset hint state and pause state
-        await db.patch(challengeId, {
+        await ctx.db.patch(challengeId, {
           status: "completed",
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -250,7 +257,7 @@ export const answerChallenge = mutation({
         });
       } else {
         // Continue to next word - reset hint state, timer, and pause state
-        await db.patch(challengeId, {
+        await ctx.db.patch(challengeId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -268,20 +275,24 @@ export const answerChallenge = mutation({
 });
 
 export const getPendingChallenges = query({
-  args: { userId: v.string() },
-  handler: async ({ db }, { userId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const userId = identity.subject;
+    
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
     
     if (!user) return [];
 
-    // Get all challenges where user is opponent
-    const allChallenges = await db
+    // Get all challenges where user is opponent using index
+    const allChallenges = await ctx.db
       .query("challenges")
-      .filter((q) => q.eq(q.field("opponentId"), user._id))
+      .withIndex("by_opponent", (q) => q.eq("opponentId", user._id))
       .collect();
 
     // Filter for pending challenges (handle old challenges without status)
@@ -292,7 +303,7 @@ export const getPendingChallenges = query({
     // Populate with challenger info
     const result = [];
     for (const challenge of pendingChallenges) {
-      const challenger = await db.get(challenge.challengerId);
+      const challenger = await ctx.db.get(challenge.challengerId);
       result.push({
         challenge,
         challenger,
@@ -306,14 +317,17 @@ export const getPendingChallenges = query({
 export const acceptChallenge = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -325,7 +339,7 @@ export const acceptChallenge = mutation({
       throw new Error("Only opponent can accept challenge");
     }
 
-    await db.patch(challengeId, { 
+    await ctx.db.patch(challengeId, { 
       status: "accepted",
       questionStartTime: Date.now(),
     });
@@ -335,14 +349,17 @@ export const acceptChallenge = mutation({
 export const rejectChallenge = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -354,21 +371,24 @@ export const rejectChallenge = mutation({
       throw new Error("Only opponent can reject challenge");
     }
 
-    await db.patch(challengeId, { status: "rejected" });
+    await ctx.db.patch(challengeId, { status: "rejected" });
   },
 });
 
 export const stopChallenge = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -383,7 +403,7 @@ export const stopChallenge = mutation({
       throw new Error("User not part of this challenge");
     }
 
-    await db.patch(challengeId, { status: "stopped" });
+    await ctx.db.patch(challengeId, { status: "stopped" });
   },
 });
 
@@ -391,13 +411,16 @@ export const stopChallenge = mutation({
 export const requestHint = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -416,20 +439,23 @@ export const requestHint = mutation({
     if (!opponentHasAnswered) throw new Error("Opponent hasn't answered yet");
     if (challenge.hintRequestedBy) throw new Error("Hint already requested");
 
-    await db.patch(challengeId, { hintRequestedBy: playerRole });
+    await ctx.db.patch(challengeId, { hintRequestedBy: playerRole });
   },
 });
 
 export const acceptHint = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -450,21 +476,24 @@ export const acceptHint = mutation({
     if (challenge.hintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
     if (challenge.hintAccepted) throw new Error("Hint already accepted");
 
-    await db.patch(challengeId, { hintAccepted: true, eliminatedOptions: [] });
+    await ctx.db.patch(challengeId, { hintAccepted: true, eliminatedOptions: [] });
   },
 });
 
 export const eliminateOption = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
     option: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId, option }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId, option }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -483,7 +512,7 @@ export const eliminateOption = mutation({
     if (!challenge.hintAccepted) throw new Error("Hint not accepted yet");
 
     // Verify the option is a wrong answer (not the correct one)
-    const theme = await db.get(challenge.themeId);
+    const theme = await ctx.db.get(challenge.themeId);
     if (!theme) throw new Error("Theme not found");
     
     const actualWordIndex = challenge.wordOrder 
@@ -530,7 +559,7 @@ export const eliminateOption = mutation({
       throw new Error("Maximum 2 options can be eliminated");
     }
 
-    await db.patch(challengeId, { 
+    await ctx.db.patch(challengeId, { 
       eliminatedOptions: [...currentEliminated, option] 
     });
   },
@@ -543,11 +572,14 @@ const MAX_SABOTAGES_PER_DUEL = 5;
 export const sendSabotage = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
     effect: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId, effect }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId, effect }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     const status = challenge.status || "accepted";
@@ -561,7 +593,7 @@ export const sendSabotage = mutation({
     }
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -587,12 +619,12 @@ export const sendSabotage = mutation({
     // Send sabotage to the OTHER player
     const now = Date.now();
     if (isChallenger) {
-      await db.patch(challengeId, {
+      await ctx.db.patch(challengeId, {
         opponentSabotage: { effect, timestamp: now },
         challengerSabotagesUsed: sabotagesUsed + 1,
       });
     } else {
-      await db.patch(challengeId, {
+      await ctx.db.patch(challengeId, {
         challengerSabotage: { effect, timestamp: now },
         opponentSabotagesUsed: sabotagesUsed + 1,
       });
@@ -604,13 +636,16 @@ export const sendSabotage = mutation({
 export const pauseCountdown = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -626,7 +661,7 @@ export const pauseCountdown = mutation({
     }
 
     const playerRole = isChallenger ? "challenger" : "opponent";
-    await db.patch(challengeId, { 
+    await ctx.db.patch(challengeId, { 
       countdownPausedBy: playerRole,
       countdownUnpauseRequestedBy: undefined,
       countdownPausedAt: Date.now(), // Track when we paused
@@ -638,13 +673,16 @@ export const pauseCountdown = mutation({
 export const requestUnpauseCountdown = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -660,7 +698,7 @@ export const requestUnpauseCountdown = mutation({
     }
 
     const playerRole = isChallenger ? "challenger" : "opponent";
-    await db.patch(challengeId, { 
+    await ctx.db.patch(challengeId, { 
       countdownUnpauseRequestedBy: playerRole,
     });
   },
@@ -670,13 +708,16 @@ export const requestUnpauseCountdown = mutation({
 export const confirmUnpauseCountdown = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -707,7 +748,7 @@ export const confirmUnpauseCountdown = mutation({
       : undefined;
 
     // Clear pause state - countdown will resume
-    await db.patch(challengeId, { 
+    await ctx.db.patch(challengeId, { 
       countdownPausedBy: undefined,
       countdownUnpauseRequestedBy: undefined,
       countdownPausedAt: undefined,
@@ -720,10 +761,13 @@ export const confirmUnpauseCountdown = mutation({
 export const timeoutAnswer = mutation({
   args: {
     challengeId: v.id("challenges"),
-    userId: v.string(),
   },
-  handler: async ({ db }, { challengeId, userId }) => {
-    const challenge = await db.get(challengeId);
+  handler: async (ctx, { challengeId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(challengeId);
     if (!challenge) throw new Error("Challenge not found");
 
     const status = challenge.status || "accepted";
@@ -732,7 +776,7 @@ export const timeoutAnswer = mutation({
     }
 
     // Get user by clerkId
-    const user = await db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
       .first();
@@ -748,27 +792,27 @@ export const timeoutAnswer = mutation({
 
     // Mark as answered with 0 points (timeout)
     if (isChallenger && !challenge.challengerAnswered) {
-      await db.patch(challengeId, { 
+      await ctx.db.patch(challengeId, { 
         challengerAnswered: true,
         challengerLastAnswer: "__TIMEOUT__",
       });
     } else if (isOpponent && !challenge.opponentAnswered) {
-      await db.patch(challengeId, { 
+      await ctx.db.patch(challengeId, { 
         opponentAnswered: true,
         opponentLastAnswer: "__TIMEOUT__",
       });
     }
 
     // Check if both answered, then advance to next word
-    const updatedChallenge = await db.get(challengeId);
+    const updatedChallenge = await ctx.db.get(challengeId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
       const nextWordIndex = updatedChallenge.currentWordIndex + 1;
       
-      const theme = await db.get(updatedChallenge.themeId);
+      const theme = await ctx.db.get(updatedChallenge.themeId);
       const wordCount = theme?.words.length || 0;
       
       if (nextWordIndex >= wordCount) {
-        await db.patch(challengeId, {
+        await ctx.db.patch(challengeId, {
           status: "completed",
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -782,7 +826,7 @@ export const timeoutAnswer = mutation({
           countdownPausedAt: undefined,
         });
       } else {
-        await db.patch(challengeId, {
+        await ctx.db.patch(challengeId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
           opponentAnswered: false,

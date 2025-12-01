@@ -842,7 +842,6 @@ export default function ChallengePage() {
           // Auto-submit timeout
           timeoutAnswer({
             challengeId: challenge._id,
-            userId: user.id,
           }).catch(console.error);
         }
       }
@@ -989,7 +988,6 @@ export default function ChallengePage() {
     try {
       await stopChallenge({
         challengeId: challenge._id,
-        userId: user.id,
       });
       router.push('/');
     } catch (error) {
@@ -1006,7 +1004,6 @@ export default function ChallengePage() {
     try {
       await answer({
         challengeId: challenge._id,
-        userId: user.id,
         selectedAnswer,
       });
     } catch (error) {
@@ -1020,7 +1017,6 @@ export default function ChallengePage() {
     try {
       await requestHint({
         challengeId: challenge._id,
-        userId: user.id,
       });
     } catch (error) {
       console.error("Failed to request hint:", error);
@@ -1031,7 +1027,6 @@ export default function ChallengePage() {
     try {
       await acceptHint({
         challengeId: challenge._id,
-        userId: user.id,
       });
     } catch (error) {
       console.error("Failed to accept hint:", error);
@@ -1042,7 +1037,6 @@ export default function ChallengePage() {
     try {
       await eliminateOption({
         challengeId: challenge._id,
-        userId: user.id,
         option,
       });
     } catch (error) {
@@ -1054,7 +1048,6 @@ export default function ChallengePage() {
     try {
       await sendSabotage({
         challengeId: challenge._id,
-        userId: user.id,
         effect,
       });
       setShowSabotageMenu(false);
@@ -1210,7 +1203,7 @@ export default function ChallengePage() {
                 <button
                   onClick={() => {
                     if (challenge?._id && user?.id) {
-                      pauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                      pauseCountdown({ challengeId: challenge._id }).catch(console.error);
                     }
                   }}
                   className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors"
@@ -1244,7 +1237,7 @@ export default function ChallengePage() {
                     <button
                       onClick={() => {
                         if (challenge?._id && user?.id) {
-                          confirmUnpauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                          confirmUnpauseCountdown({ challengeId: challenge._id }).catch(console.error);
                         }
                       }}
                       className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors animate-pulse"
@@ -1261,7 +1254,7 @@ export default function ChallengePage() {
               <button
                 onClick={() => {
                   if (challenge?._id && user?.id) {
-                    requestUnpauseCountdown({ challengeId: challenge._id, userId: user.id }).catch(console.error);
+                    requestUnpauseCountdown({ challengeId: challenge._id }).catch(console.error);
                   }
                 }}
                 className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"

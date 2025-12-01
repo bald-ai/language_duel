@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
 
 // Word structure for validation
 const wordValidator = v.object({
@@ -8,16 +9,19 @@ const wordValidator = v.object({
   wrongAnswers: v.array(v.string()),
 });
 
+// Limit themes to prevent unbounded queries - adjust limit as needed
+const MAX_THEMES = 100;
+
 export const getThemes = query({
   args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("themes").collect();
+  handler: async (ctx): Promise<Doc<"themes">[]> => {
+    return await ctx.db.query("themes").take(MAX_THEMES);
   },
 });
 
 export const getTheme = query({
   args: { themeId: v.id("themes") },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
     return await ctx.db.get(args.themeId);
   },
 });
@@ -28,7 +32,10 @@ export const createTheme = mutation({
     description: v.string(),
     words: v.array(wordValidator),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Id<"themes">> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
     return await ctx.db.insert("themes", {
       name: args.name,
       description: args.description,
@@ -46,6 +53,9 @@ export const updateTheme = mutation({
     words: v.optional(v.array(wordValidator)),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
     const { themeId, ...updates } = args;
     const filteredUpdates: Record<string, unknown> = {};
     
@@ -61,6 +71,9 @@ export const updateTheme = mutation({
 export const deleteTheme = mutation({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
     await ctx.db.delete(args.themeId);
   },
 });
@@ -73,6 +86,9 @@ export const updateWord = mutation({
     word: wordValidator,
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
     
@@ -91,6 +107,9 @@ export const deleteWord = mutation({
     wordIndex: v.number(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
     

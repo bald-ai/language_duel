@@ -16,7 +16,7 @@ export default function Home() {
   const createChallenge = useMutation(api.duel.createChallenge);
   const acceptChallenge = useMutation(api.duel.acceptChallenge);
   const rejectChallenge = useMutation(api.duel.rejectChallenge);
-  const pendingChallenges = useQuery(api.duel.getPendingChallenges, user ? { userId: user.id } : "skip");
+  const pendingChallenges = useQuery(api.duel.getPendingChallenges);
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [showWaitingModal, setShowWaitingModal] = useState(false);
   const [waitingChallengeId, setWaitingChallengeId] = useState<string | null>(null);
@@ -37,7 +37,6 @@ export default function Home() {
     try {
       const challengeId = await createChallenge({ 
         opponentId: selectedOpponentId as any,
-        challengerClerkId: user!.id,
         themeId: themeId as any,
       });
       setWaitingChallengeId(challengeId);
@@ -52,7 +51,7 @@ export default function Home() {
   const handleAcceptChallenge = async (challengeId: string) => {
     try {
       setIsAcceptingChallenge(true);
-      await acceptChallenge({ challengeId: challengeId as any, userId: user!.id });
+      await acceptChallenge({ challengeId: challengeId as any });
       router.push(`/duel/${challengeId}`);
     } catch (error) {
       console.error("Failed to accept challenge:", error);
@@ -62,7 +61,7 @@ export default function Home() {
 
   const handleRejectChallenge = async (challengeId: string) => {
     try {
-      await rejectChallenge({ challengeId: challengeId as any, userId: user!.id });
+      await rejectChallenge({ challengeId: challengeId as any });
     } catch (error) {
       console.error("Failed to reject challenge:", error);
     }

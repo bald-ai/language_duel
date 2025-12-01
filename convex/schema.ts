@@ -58,5 +58,8 @@ export default defineSchema({
     countdownPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who paused the countdown
     countdownUnpauseRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))), // Who requested to unpause
     countdownPausedAt: v.optional(v.number()), // Timestamp when countdown was paused (to calculate pause duration)
-  }),
+  })
+    .index("by_challenger", ["challengerId"])
+    .index("by_opponent", ["opponentId"])
+    .index("by_status", ["status"]),
 });
