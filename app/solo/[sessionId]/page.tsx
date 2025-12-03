@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { JSX } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 
 // Normalize accented characters for comparison (í→i, ü→u, ñ→n, etc.)
