@@ -47,33 +47,34 @@ export default function StudyPage() {
     return hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
   };
 
-  const pressHint = (wordKey: string, answer: string) => {
+  const revealLetter = (wordKey: string, position: number) => {
     setHintStates(prev => {
       const current = prev[wordKey] || { hintCount: 0, revealedPositions: [] };
       
-      // Find all non-space letter positions
-      const letterPositions = answer.split('').map((char, idx) => char !== ' ' ? idx : -1).filter(idx => idx !== -1);
-      
-      // If all letters revealed, do nothing
-      if (current.hintCount >= letterPositions.length) {
+      // If already revealed, do nothing
+      if (current.revealedPositions.includes(position)) {
         return prev;
       }
-
-      // Find letter positions not yet revealed (excluding spaces)
-      const availablePositions = letterPositions.filter(p => !current.revealedPositions.includes(p));
-      
-      // Pick a random position to reveal
-      const randomIndex = Math.floor(Math.random() * availablePositions.length);
-      const newPosition = availablePositions[randomIndex];
 
       return {
         ...prev,
         [wordKey]: {
           hintCount: current.hintCount + 1,
-          revealedPositions: [...current.revealedPositions, newPosition]
+          revealedPositions: [...current.revealedPositions, position]
         }
       };
     });
+  };
+
+  const revealFullWord = (wordKey: string, answer: string) => {
+    const allPositions = answer.split('').map((char, idx) => char !== ' ' ? idx : -1).filter(idx => idx !== -1);
+    setHintStates(prev => ({
+      ...prev,
+      [wordKey]: {
+        hintCount: allPositions.length,
+        revealedPositions: allPositions
+      }
+    }));
   };
 
   const resetWord = (wordKey: string) => {
@@ -228,11 +229,11 @@ export default function StudyPage() {
               onClick={() => setIsRevealed(!isRevealed)}
               className={`px-6 py-3 rounded-2xl font-medium text-base border-2 transition-colors uppercase tracking-wide min-w-[120px] ${
                 isRevealed
-                  ? 'bg-green-500 border-green-600 text-white'
-                  : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+                  ? 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+                  : 'bg-green-500 border-green-600 text-white hover:bg-green-600'
               }`}
             >
-              {isRevealed ? 'Revealed' : 'Testing'}
+              {isRevealed ? 'Testing' : 'Reveal'}
             </button>
           </div>
         </header>
@@ -245,7 +246,9 @@ export default function StudyPage() {
               const state = getHintState(wordKey);
               const { hintCount, revealedPositions } = state;
               const letters = word.answer.split('');
-              const isHintActive = hintCount > 0;
+              const totalLetters = letters.filter(l => l !== ' ').length;
+              const maxHints = Math.ceil(totalLetters / 3);
+              const hintsRemaining = maxHints - hintCount;
               
               return (
                 <div key={wordKey} className={`flex items-center gap-4 ${isRevealed ? 'justify-center' : 'justify-between'}`}>
@@ -255,12 +258,12 @@ export default function StudyPage() {
                       {word.word}
                     </div>
                     <div className="flex items-center justify-center">
-                      {/* Letter slots - revealed mode, hint mode, or solid line */}
+                      {/* Letter slots - revealed mode or clickable hints */}
                       {isRevealed ? (
                         <span className="text-lg font-bold text-green-600">
                           {word.answer}
                         </span>
-                      ) : isHintActive ? (
+                      ) : (
                         <div className="flex gap-1 flex-wrap justify-center">
                           {letters.map((letter, idx) => (
                             letter === ' ' ? (
@@ -268,7 +271,11 @@ export default function StudyPage() {
                             ) : (
                               <div 
                                 key={idx}
-                                className="w-5 h-6 flex items-end justify-center border-b-2 border-gray-500"
+                                onClick={() => !revealedPositions.includes(idx) && hintsRemaining > 0 && revealLetter(wordKey, idx)}
+                                className={`w-5 h-6 flex items-end justify-center border-b-2 border-gray-500 ${
+                                  !revealedPositions.includes(idx) && hintsRemaining > 0 ? 'cursor-pointer hover:border-green-500' : ''
+                                }`}
+                                title={!revealedPositions.includes(idx) && hintsRemaining > 0 ? 'Click to reveal this letter' : undefined}
                               >
                                 {revealedPositions.includes(idx) && (
                                   <span className="text-lg font-bold text-gray-800">
@@ -279,36 +286,23 @@ export default function StudyPage() {
                             )
                           ))}
                         </div>
-                      ) : (
-                        <div 
-                          className="border-b-2 border-solid border-gray-700"
-                          style={{ width: `${word.word.length * 0.6}rem` }}
-                        />
                       )}
                     </div>
                   </div>
 
                   {/* Buttons Section - Hidden in revealed mode */}
                   {!isRevealed && (
-                    <div className="flex gap-2">
-                      {/* Hint Button with badge */}
-                      <div className="relative">
-                        <button
-                          onClick={() => pressHint(wordKey, word.answer)}
-                          className={`px-4 py-2 rounded-lg font-bold text-sm uppercase border-2 transition-colors ${
-                            isHintActive 
-                              ? 'bg-gray-400 border-gray-500 text-gray-600' 
-                              : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
-                          }`}
-                        >
-                          Hint
-                        </button>
-                        {/* Hint count badge */}
-                        {hintCount > 0 && (
-                          <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                            {hintCount}
-                          </div>
-                        )}
+                    <div className="flex gap-2 items-center">
+                      {/* Hints Remaining Indicator */}
+                      <div 
+                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
+                          hintsRemaining > 0 
+                            ? 'border-gray-400 bg-gray-100 text-gray-700' 
+                            : 'border-gray-300 bg-gray-200 text-gray-400'
+                        }`}
+                        title={hintsRemaining > 0 ? "Hints remaining - click empty letter slots to reveal" : "No hints remaining"}
+                      >
+                        {hintsRemaining > 0 ? hintsRemaining : '–'}
                       </div>
 
                       {/* Reset Button - Icon only */}
@@ -319,6 +313,18 @@ export default function StudyPage() {
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                      </button>
+
+                      {/* Reveal Full Word Button */}
+                      <button
+                        onClick={() => revealFullWord(wordKey, word.answer)}
+                        className="bg-gray-200 border-2 border-gray-400 rounded-lg w-10 h-10 flex items-center justify-center text-gray-800 hover:bg-gray-300"
+                        title="Reveal full word"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                       </button>
 
