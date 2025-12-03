@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
           text,
           model_id: MODEL_ID,
           voice_settings: {
-            speed: 0.8,
+            speed: 0.7,
           },
         }),
       }

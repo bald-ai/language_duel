@@ -22,6 +22,7 @@ export default function Home() {
   const [waitingChallengeId, setWaitingChallengeId] = useState<string | null>(null);
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
   const [isAcceptingChallenge, setIsAcceptingChallenge] = useState(false);
+  const [showSoloModal, setShowSoloModal] = useState(false);
   const waitingChallenge = useQuery(api.duel.getChallenge, waitingChallengeId ? { challengeId: waitingChallengeId as any } : "skip");
   
   useSyncUser();
@@ -101,6 +102,14 @@ export default function Home() {
             className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
           >
             Study
+          </button>
+
+          {/* SOLO CHALLENGE Button */}
+          <button 
+            onClick={() => setShowSoloModal(true)}
+            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+          >
+            Solo Challenge
           </button>
 
           {/* CHALLENGE Button with Badge */}
@@ -271,6 +280,44 @@ export default function Home() {
             <h2 className="text-xl font-bold mb-4 text-gray-800">Joining Duel...</h2>
             <p className="mb-4 text-gray-600">Preparing the challenge. Please wait.</p>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+          </div>
+        </div>
+      )}
+
+      {/* Solo Challenge Modal - Select Theme */}
+      {showSoloModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Solo Challenge</h2>
+            <p className="text-sm text-gray-600 mb-4">Select a theme to practice:</p>
+            
+            {!themes || themes.length === 0 ? (
+              <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {themes.map((theme) => (
+                  <button
+                    key={theme._id}
+                    onClick={() => {
+                      const sessionId = crypto.randomUUID();
+                      router.push(`/solo/${sessionId}?themeId=${theme._id}`);
+                      setShowSoloModal(false);
+                    }}
+                    className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                  >
+                    <div className="font-semibold text-gray-800">{theme.name}</div>
+                    <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowSoloModal(false)}
+              className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
