@@ -57,6 +57,7 @@ function Level1Input({
   const [typedLetters, setTypedLetters] = useState<string[]>([]);
   const [revealedPositions, setRevealedPositions] = useState<Set<number>>(new Set());
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [hasCompleted, setHasCompleted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -72,19 +73,28 @@ function Level1Input({
   }, [answer]);
 
   // Check if all letters are filled correctly (with or without hints = success)
-  // Use accent-normalized comparison
+  // Use accent-normalized comparison - debounced to let state settle
   useEffect(() => {
-    const allFilled = letterSlots.every((slot, idx) => {
-      const typedChar = normalizeAccents(typedLetters[idx] || "");
-      const expectedChar = normalizeAccents(slot.char);
-      return typedChar === expectedChar;
-    });
+    if (hasCompleted) return; // Already triggered completion
     
-    if (allFilled && typedLetters.length >= letterSlots.length) {
-      // All letters correct - count as success regardless of hints used
-      onCorrect();
-    }
-  }, [typedLetters, letterSlots, onCorrect]);
+    const checkCompletion = () => {
+      const allFilled = letterSlots.every((slot, idx) => {
+        const typedChar = normalizeAccents(typedLetters[idx] || "");
+        const expectedChar = normalizeAccents(slot.char);
+        return typedChar === expectedChar;
+      });
+      
+      if (allFilled && typedLetters.length >= letterSlots.length) {
+        // All letters correct - count as success regardless of hints used
+        setHasCompleted(true);
+        onCorrect();
+      }
+    };
+    
+    // Small delay to let rapid hint clicks settle
+    const timeout = setTimeout(checkCompletion, 150);
+    return () => clearTimeout(timeout);
+  }, [typedLetters, letterSlots, onCorrect, hasCompleted]);
 
   // Focus on container click
   const handleContainerClick = () => {
@@ -133,35 +143,44 @@ function Level1Input({
     inputRef.current?.focus();
   };
 
-  // Reveal hint for a specific position
+  // Reveal hint for a specific position - uses functional setters to avoid stale state
   const revealHint = (slotIndex: number) => {
-    if (!revealedPositions.has(slotIndex)) {
-      const newRevealed = new Set([...revealedPositions, slotIndex]);
-      setRevealedPositions(newRevealed);
-      
-      // Also set the typed letter to the correct one
-      const newTyped = [...typedLetters];
+    setRevealedPositions((prevRevealed) => {
+      if (prevRevealed.has(slotIndex)) return prevRevealed;
+      return new Set([...prevRevealed, slotIndex]);
+    });
+    
+    // Use functional setter to always get latest typedLetters
+    setTypedLetters((prevTyped) => {
+      const newTyped = [...prevTyped];
       while (newTyped.length <= slotIndex) {
         newTyped.push("");
       }
       newTyped[slotIndex] = letterSlots[slotIndex].char;
-      setTypedLetters(newTyped);
-      
-      // Move cursor to next unfilled position
-      let nextUnfilled = -1;
-      for (let i = 0; i < letterSlots.length; i++) {
-        const isRevealed = newRevealed.has(i);
-        const hasTyped = newTyped[i] && newTyped[i].toLowerCase() === letterSlots[i].char;
-        if (!isRevealed && !hasTyped) {
-          nextUnfilled = i;
-          break;
-        }
-      }
-      
-      if (nextUnfilled !== -1) {
-        setCursorPosition(nextUnfilled);
-      }
-    }
+      return newTyped;
+    });
+    
+    // Move cursor to next unfilled position (use timeout to let state settle)
+    setTimeout(() => {
+      setTypedLetters((currentTyped) => {
+        setRevealedPositions((currentRevealed) => {
+          let nextUnfilled = -1;
+          for (let i = 0; i < letterSlots.length; i++) {
+            const isRevealed = currentRevealed.has(i);
+            const hasTyped = currentTyped[i] && currentTyped[i].toLowerCase() === letterSlots[i].char;
+            if (!isRevealed && !hasTyped) {
+              nextUnfilled = i;
+              break;
+            }
+          }
+          if (nextUnfilled !== -1) {
+            setCursorPosition(nextUnfilled);
+          }
+          return currentRevealed; // Return unchanged
+        });
+        return currentTyped; // Return unchanged
+      });
+    }, 50);
   };
 
   // Render with word grouping (spaces between words) - visual gaps

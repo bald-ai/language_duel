@@ -23,6 +23,7 @@ export default function Home() {
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
   const [isAcceptingChallenge, setIsAcceptingChallenge] = useState(false);
   const [showSoloModal, setShowSoloModal] = useState(false);
+  const [selectedSoloThemeId, setSelectedSoloThemeId] = useState<string | null>(null);
   const waitingChallenge = useQuery(api.duel.getChallenge, waitingChallengeId ? { challengeId: waitingChallengeId as any } : "skip");
   
   useSyncUser();
@@ -284,36 +285,80 @@ export default function Home() {
         </div>
       )}
 
-      {/* Solo Challenge Modal - Select Theme */}
+      {/* Solo Challenge Modal - Select Theme then Mode */}
       {showSoloModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Solo Challenge</h2>
-            <p className="text-sm text-gray-600 mb-4">Select a theme to practice:</p>
             
-            {!themes || themes.length === 0 ? (
-              <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
-            ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {themes.map((theme) => (
+            {/* Step 1: Select Theme */}
+            {!selectedSoloThemeId && (
+              <>
+                <p className="text-sm text-gray-600 mb-4">Select a theme to practice:</p>
+                
+                {!themes || themes.length === 0 ? (
+                  <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {themes.map((theme) => (
+                      <button
+                        key={theme._id}
+                        onClick={() => setSelectedSoloThemeId(theme._id)}
+                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                      >
+                        <div className="font-semibold text-gray-800">{theme.name}</div>
+                        <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Step 2: Select Mode */}
+            {selectedSoloThemeId && (
+              <>
+                <p className="text-sm text-gray-600 mb-4">Choose your mode:</p>
+                <div className="space-y-3">
                   <button
-                    key={theme._id}
                     onClick={() => {
                       const sessionId = crypto.randomUUID();
-                      router.push(`/solo/${sessionId}?themeId=${theme._id}`);
+                      router.push(`/solo/${sessionId}?themeId=${selectedSoloThemeId}`);
                       setShowSoloModal(false);
+                      setSelectedSoloThemeId(null);
                     }}
-                    className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                    className="w-full text-left p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-colors"
                   >
-                    <div className="font-semibold text-gray-800">{theme.name}</div>
-                    <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                    <div className="font-bold text-gray-800 text-lg">Challenge Only</div>
+                    <div className="text-sm text-gray-600">Jump straight into the challenge</div>
                   </button>
-                ))}
-              </div>
+                  <button
+                    onClick={() => {
+                      const sessionId = crypto.randomUUID();
+                      router.push(`/solo/learn/${sessionId}?themeId=${selectedSoloThemeId}`);
+                      setShowSoloModal(false);
+                      setSelectedSoloThemeId(null);
+                    }}
+                    className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                  >
+                    <div className="font-bold text-blue-800 text-lg">Learn + Test</div>
+                    <div className="text-sm text-blue-600">5 minutes to study, then challenge</div>
+                  </button>
+                </div>
+                <button
+                  onClick={() => setSelectedSoloThemeId(null)}
+                  className="mt-3 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                >
+                  Back
+                </button>
+              </>
             )}
 
             <button
-              onClick={() => setShowSoloModal(false)}
+              onClick={() => {
+                setShowSoloModal(false);
+                setSelectedSoloThemeId(null);
+              }}
               className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
             >
               Cancel

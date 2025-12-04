@@ -261,7 +261,7 @@ export default function StudyPage() {
                       {/* Letter slots - revealed mode or clickable hints */}
                       {isRevealed ? (
                         <span className="text-lg font-bold text-green-600">
-                          {word.answer}
+                          {word.answer.toUpperCase()}
                         </span>
                       ) : (
                         <div className="flex gap-1 flex-wrap justify-center">
@@ -279,7 +279,7 @@ export default function StudyPage() {
                               >
                                 {revealedPositions.includes(idx) && (
                                   <span className="text-lg font-bold text-gray-800">
-                                    {letter}
+                                    {letter.toUpperCase()}
                                   </span>
                                 )}
                               </div>
