@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = 'f3XsLDh5aCfxnrMmuR19';
 const MODEL_ID = 'eleven_flash_v2_5';
