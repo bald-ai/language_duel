@@ -18,6 +18,36 @@ const normalizeAccents = (str: string): string => {
     .replace(/\s+/g, " ");
 };
 
+// Generate a shuffled anagram for a word/phrase (spaces are preserved by caller)
+const generateAnagramLetters = (answer: string): string[] => {
+  const letters = answer.replace(/\s+/g, "").split("");
+  if (letters.length <= 1) return letters;
+
+  const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
+  let shuffled = shuffle(letters);
+  let attempts = 0;
+  while (shuffled.join("") === letters.join("") && attempts < 5) {
+    shuffled = shuffle(letters);
+    attempts += 1;
+  }
+  return shuffled;
+};
+
+// Insert shuffled letters back into their spaced layout
+const buildAnagramWithSpaces = (answer: string, shuffledLetters: string[]): string => {
+  const withSpaces: string[] = [];
+  let idx = 0;
+  answer.split("").forEach((char) => {
+    if (char === " ") {
+      withSpaces.push(" ");
+    } else {
+      withSpaces.push(shuffledLetters[idx] || "");
+      idx += 1;
+    }
+  });
+  return withSpaces.join("");
+};
+
 // Types
 interface WordEntry {
   word: string;
@@ -279,14 +309,28 @@ type HintOption = {
   icon: string;
 };
 
-const L1_HINT_OPTIONS: HintOption[] = [
-  { id: "letters", label: "Reveal Letters", description: "Show up to 3 letters", icon: "🔤" },
+// Global hints available on all levels
+const GLOBAL_HINT_OPTIONS: HintOption[] = [
+  { id: "flash", label: "Flash Answer", description: "Brief glimpse (0.5s)", icon: "⚡" },
   { id: "tts", label: "Play Sound", description: "Pronounce the word", icon: "🔊" },
 ];
 
-const L2_HINT_OPTIONS: HintOption[] = [
+// L1-specific hints (letters reveal only makes sense for typing)
+const L1_HINT_OPTIONS: HintOption[] = [
+  { id: "letters", label: "Reveal Letters", description: "Show up to 3 letters", icon: "🔤" },
+  ...GLOBAL_HINT_OPTIONS,
+];
+
+// L2 multiple choice specific hints
+const L2_MC_HINT_OPTIONS: HintOption[] = [
   { id: "eliminate", label: "Eliminate Options", description: "Remove 2 wrong answers", icon: "❌" },
-  { id: "tts", label: "Play Sound", description: "Pronounce the word", icon: "🔊" },
+  ...GLOBAL_HINT_OPTIONS,
+];
+
+// L2 typing and L3 only get global hints
+const TYPING_HINT_OPTIONS: HintOption[] = [
+  { id: "anagram", label: "Anagram", description: "Scrambled letters to rearrange", icon: "🔀" },
+  ...GLOBAL_HINT_OPTIONS,
 ];
 
 function HintSelector({
@@ -370,6 +414,7 @@ function Level1Input({
   canRequestHint,
   hintRequested,
   hintAccepted,
+  hintType,
   hintRevealedPositions,
   onRequestHint,
   onCancelHint,
@@ -382,6 +427,7 @@ function Level1Input({
   canRequestHint?: boolean;
   hintRequested?: boolean;
   hintAccepted?: boolean;
+  hintType?: string;
   hintRevealedPositions?: number[];
   onRequestHint?: (typedLetters: string[], revealedPositions: number[]) => void;
   onCancelHint?: () => void;
@@ -420,7 +466,10 @@ function Level1Input({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Backspace") {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleConfirm();
+    } else if (e.key === "Backspace") {
       e.preventDefault();
       if (cursorPosition > 0) {
         const newTyped = [...typedLetters];
@@ -568,6 +617,14 @@ function Level1Input({
             <div className="text-purple-400 text-sm animate-pulse">
               Waiting for opponent to help...
             </div>
+            {onRequestHint && (
+              <button
+                onClick={handleRequestHint}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              >
+                Request another hint
+              </button>
+            )}
             <button
               onClick={onCancelHint}
               className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
@@ -577,10 +634,18 @@ function Level1Input({
           </div>
         )}
         
-        {/* Hint accepted - receiving hints */}
-        {hintRequested && hintAccepted && (
-          <div className="text-purple-400 text-sm">
-            🎯 Opponent is giving you hints ({hintRevealedPositions?.length || 0}/3)
+        {/* Hint accepted - receiving hints (only show for letters type) */}
+        {hintRequested && hintAccepted && hintType === "letters" && (
+          <div className="flex flex-col items-center gap-2 text-purple-400 text-sm">
+            <div>🎯 Opponent is giving you hints ({hintRevealedPositions?.length || 0}/3)</div>
+            {onRequestHint && (
+              <button
+                onClick={handleRequestHint}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              >
+                Request another hint
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -821,17 +886,55 @@ function Level2TypingInput({
   onCorrect,
   onWrong,
   onSkip,
+  // Hint system props
+  canRequestHint,
+  hintRequested,
+  hintAccepted,
+  hintType,
+  onRequestHint,
+  onCancelHint,
 }: {
   answer: string;
   onCorrect: () => void;
   onWrong: () => void;
   onSkip: () => void;
+  // Hint system props
+  canRequestHint?: boolean;
+  hintRequested?: boolean;
+  hintAccepted?: boolean;
+  hintType?: string;
+  onRequestHint?: () => void;
+  onCancelHint?: () => void;
 }) {
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [anagramLetters, setAnagramLetters] = useState<string[]>([]);
+  const [anagramResult, setAnagramResult] = useState<"correct" | "wrong" | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+
+  const hintIsAnagram = hintAccepted && hintType === "anagram";
+
+  const letterSlots = useMemo(() => {
+    const slots: { char: string; originalIndex: number }[] = [];
+    answer.split("").forEach((char, idx) => {
+      if (char !== " ") {
+        slots.push({ char: char.toLowerCase(), originalIndex: idx });
+      }
+    });
+    return slots;
+  }, [answer]);
+
+  useEffect(() => {
+    if (hintIsAnagram) {
+      setAnagramLetters(generateAnagramLetters(answer));
+    } else {
+      setAnagramLetters([]);
+    }
+  }, [answer, hintIsAnagram]);
 
   const handleSubmit = () => {
     setSubmitted(true);
+    setAnagramResult(null);
     if (normalizeAccents(inputValue) === normalizeAccents(answer)) {
       onCorrect();
     } else {
@@ -839,43 +942,236 @@ function Level2TypingInput({
     }
   };
 
+  const handleSubmitAnagram = () => {
+    const reconstructed = answer.split("");
+    anagramLetters.forEach((char, idx) => {
+      const slot = letterSlots[idx];
+      if (slot) {
+        reconstructed[slot.originalIndex] = char || "";
+      }
+    });
+    const candidate = reconstructed.join("");
+    const isCorrect = normalizeAccents(candidate) === normalizeAccents(answer);
+    setSubmitted(true);
+    setAnagramResult(isCorrect ? "correct" : "wrong");
+    if (isCorrect) {
+      onCorrect();
+    } else {
+      onWrong();
+    }
+  };
+
+  const handleDragStart = (idx: number) => {
+    if (submitted) return;
+    dragIndexRef.current = idx;
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (idx: number) => {
+    if (submitted) return;
+    const from = dragIndexRef.current;
+    if (from === null || from === idx) return;
+    setAnagramLetters((prev) => {
+      const next = [...prev];
+      [next[from], next[idx]] = [next[idx], next[from]];
+      return next;
+    });
+    dragIndexRef.current = null;
+  };
+
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
+  };
+
+  const handleShuffleAnagram = () => {
+    if (submitted) return;
+    setAnagramLetters(generateAnagramLetters(answer));
+  };
+
   const words = answer.split(" ");
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="text-2xl font-mono tracking-widest flex flex-wrap justify-center">
-        {words.map((word, wordIdx) => (
-          <span key={wordIdx} className="inline-flex gap-1">
-            {word.split("").map((_, charIdx) => (
-              <span key={charIdx} className="text-gray-400">_</span>
+      {hintIsAnagram ? (
+        <>
+          <div className="text-sm text-purple-300 text-center">
+            Anagram hint: drag letters to rearrange them into the answer.
+          </div>
+          <div className="text-2xl font-mono tracking-widest flex flex-wrap justify-center">
+            {words.map((word, wordIdx) => (
+              <span key={wordIdx} className="inline-flex gap-1">
+                {word.split("").map((_, charIdx) => (
+                  <span key={charIdx} className="text-gray-400">_</span>
+                ))}
+                {wordIdx < words.length - 1 && <span className="mx-3 text-gray-600">•</span>}
+              </span>
             ))}
-            {wordIdx < words.length - 1 && <span className="mx-3 text-gray-600">•</span>}
-          </span>
-        ))}
-      </div>
-      <div className="text-sm text-gray-500">({answer.length} characters)</div>
-      <input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
-        disabled={submitted}
-        className="w-full max-w-xs px-4 py-3 text-lg text-center bg-gray-800 border-2 border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
-        placeholder="Type your answer..."
-        autoFocus
-      />
-      {!submitted && (
-        <div className="flex gap-3">
-          <button onClick={handleSubmit} disabled={!inputValue.trim()} className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-medium">
-            Submit
-          </button>
-          <button onClick={onSkip} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
-            Don't Know
-          </button>
-        </div>
+          </div>
+          <div className="flex flex-wrap gap-3 justify-center w-full">
+            {anagramLetters.length === letterSlots.length ? (
+              (() => {
+                const elements: JSX.Element[] = [];
+                let currentWord: JSX.Element[] = [];
+                let lastIdx = -1;
+
+                letterSlots.forEach((slot, idx) => {
+                  const isNewWord = lastIdx >= 0 && slot.originalIndex > lastIdx + 1;
+                  if (isNewWord && currentWord.length > 0) {
+                    elements.push(
+                      <div key={`word-${elements.length}`} className="flex gap-2">
+                        {currentWord}
+                      </div>
+                    );
+                    currentWord = [];
+                  }
+
+                  currentWord.push(
+                    <div
+                      key={`slot-${idx}`}
+                      draggable={!submitted}
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDrop(idx);
+                      }}
+                      onDragEnd={handleDragEnd}
+                      className={`w-12 h-14 flex items-center justify-center rounded-lg border-2 bg-gray-800 text-white text-xl font-bold select-none ${
+                        submitted ? "opacity-70" : "hover:border-blue-500 cursor-move"
+                      }`}
+                    >
+                      {anagramLetters[idx]?.toUpperCase()}
+                    </div>
+                  );
+                  lastIdx = slot.originalIndex;
+                });
+
+                if (currentWord.length > 0) {
+                  elements.push(
+                    <div key={`word-${elements.length}`} className="flex gap-2">
+                      {currentWord}
+                    </div>
+                  );
+                }
+
+                return elements;
+              })()
+            ) : (
+              <div className="text-gray-400 text-sm">Preparing anagram...</div>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleShuffleAnagram}
+              disabled={submitted}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-sm disabled:opacity-50"
+            >
+              Shuffle again
+            </button>
+            <button
+              onClick={handleSubmitAnagram}
+              disabled={submitted}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-medium"
+            >
+              Submit
+            </button>
+            <button
+              onClick={onSkip}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm"
+            >
+              Don't Know
+            </button>
+          </div>
+          {submitted && anagramResult === "wrong" && (
+            <div className="text-red-400">
+              Wrong! The answer was: <span className="font-bold">{answer}</span>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="text-2xl font-mono tracking-widest flex flex-wrap justify-center">
+            {words.map((word, wordIdx) => (
+              <span key={wordIdx} className="inline-flex gap-1">
+                {word.split("").map((_, charIdx) => (
+                  <span key={charIdx} className="text-gray-400">_</span>
+                ))}
+                {wordIdx < words.length - 1 && <span className="mx-3 text-gray-600">•</span>}
+              </span>
+            ))}
+          </div>
+          <div className="text-sm text-gray-500">({answer.length} characters)</div>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
+            disabled={submitted}
+            className="w-full max-w-xs px-4 py-3 text-lg text-center bg-gray-800 border-2 border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
+            placeholder="Type your answer..."
+            autoFocus
+          />
+          {!submitted && (
+            <div className="flex gap-3">
+              <button onClick={handleSubmit} disabled={!inputValue.trim()} className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-medium">
+                Submit
+              </button>
+              <button onClick={onSkip} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
+                Don't Know
+              </button>
+            </div>
+          )}
+          {submitted && normalizeAccents(inputValue) !== normalizeAccents(answer) && (
+            <div className="text-red-400">Wrong! The answer was: <span className="font-bold">{answer}</span></div>
+          )}
+        </>
       )}
-      {submitted && normalizeAccents(inputValue) !== normalizeAccents(answer) && (
-        <div className="text-red-400">Wrong! The answer was: <span className="font-bold">{answer}</span></div>
+      
+      {/* Hint System UI */}
+      {!hintIsAnagram && (
+        <div className="flex flex-col items-center gap-2">
+          {canRequestHint && !hintRequested && !submitted && (
+            <button
+              onClick={onRequestHint}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+            >
+              <span>🆘</span> Ask for Help
+            </button>
+          )}
+          
+          {hintRequested && !hintAccepted && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-purple-400 text-sm animate-pulse">
+                Waiting for opponent to help...
+              </div>
+            {onRequestHint && (
+              <button
+                onClick={onRequestHint}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              >
+                Request another hint
+              </button>
+            )}
+              <button
+                onClick={onCancelHint}
+                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        {hintRequested && hintAccepted && onRequestHint && (
+          <button
+            onClick={onRequestHint}
+            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+          >
+            Request another hint
+          </button>
+        )}
+        </div>
       )}
     </div>
   );
@@ -1049,15 +1345,35 @@ function Level3Input({
   onCorrect,
   onWrong,
   onSkip,
+  // Hint system props
+  canRequestHint,
+  hintRequested,
+  hintAccepted,
+  hintType,
+  onRequestHint,
+  onCancelHint,
 }: {
   answer: string;
   onCorrect: () => void;
   onWrong: () => void;
   onSkip: () => void;
+  // Hint system props
+  canRequestHint?: boolean;
+  hintRequested?: boolean;
+  hintAccepted?: boolean;
+  hintType?: string;
+  onRequestHint?: () => void;
+  onCancelHint?: () => void;
 }) {
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isCorrectAnswer, setIsCorrectAnswer] = useState(false);
+  const showAnagramHint = hintAccepted && hintType === "anagram";
+  const anagramHint = useMemo(() => {
+    if (!showAnagramHint) return "";
+    const shuffled = generateAnagramLetters(answer);
+    return buildAnagramWithSpaces(answer, shuffled);
+  }, [answer, showAnagramHint]);
 
   const handleSubmit = () => {
     setSubmitted(true);
@@ -1078,9 +1394,56 @@ function Level3Input({
         onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
         disabled={submitted}
         className="w-full max-w-xs px-4 py-3 text-lg text-center bg-gray-800 border-2 border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
-        placeholder="Type your answer..."
+      placeholder={showAnagramHint ? `Anagram: ${anagramHint}` : "Type your answer..."}
         autoFocus
       />
+      {showAnagramHint && (
+        <div className="text-sm text-purple-300">Hint (anagram): {anagramHint}</div>
+      )}
+      
+      {/* Hint System UI */}
+      <div className="flex flex-col items-center gap-2">
+        {canRequestHint && !hintRequested && !submitted && (
+          <button
+            onClick={onRequestHint}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+          >
+            <span>🆘</span> Ask for Help
+          </button>
+        )}
+        
+        {hintRequested && !hintAccepted && (
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-purple-400 text-sm animate-pulse">
+              Waiting for opponent to help...
+            </div>
+            {onRequestHint && (
+              <button
+                onClick={onRequestHint}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              >
+                Request another hint
+              </button>
+            )}
+            <button
+              onClick={onCancelHint}
+              className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {hintRequested && hintAccepted && onRequestHint && (
+          <button
+            onClick={onRequestHint}
+            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+          >
+            Request another hint
+          </button>
+        )}
+      </div>
+      
       {!submitted && (
         <div className="flex gap-3">
           <button onClick={handleSubmit} disabled={!inputValue.trim()} className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-medium">
@@ -1168,6 +1531,14 @@ export default function SoloStyleChallenge({
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPlayedForHintRef = useRef<string | null>(null); // Track which hint we already played TTS for
   const isPlayingTTSRef = useRef(false); // Ref version for stable callback
+  
+  // Flash hint state
+  const [showFlashHint, setShowFlashHint] = useState(false);
+  const [flashHintAnswer, setFlashHintAnswer] = useState<string | null>(null);
+  const flashHintShownRef = useRef<string | null>(null); // Track which flash hint we already showed
+  // Temporary "hint sent" banners
+  const [showHintSentBanner, setShowHintSentBanner] = useState(false);
+  const [showHintSentBannerL2, setShowHintSentBannerL2] = useState(false);
 
   // Determine if current user is challenger or opponent
   const isChallenger = challenger?.clerkId === user?.id;
@@ -1206,10 +1577,11 @@ export default function SoloStyleChallenge({
   const hintAccepted = duel.soloHintAccepted;
   const hintRequesterState = duel.soloHintRequesterState;
   const hintRevealedPositions = duel.soloHintRevealedPositions || [];
-  const hintType = duel.soloHintType; // "letters" or "tts"
+  const hintType = duel.soloHintType; // "letters" | "tts" | "flash"
+  const hintRequesterLevel = hintRequesterState?.level;
   
-  // Can I request a hint? (I'm on Level 1 and no hint is currently requested)
-  const canRequestHint = myCurrentLevel === 1 && !hintRequestedBy;
+  // Can I request a hint? (available on all levels now, no hint currently requested)
+  const canRequestHint = !hintRequestedBy;
   
   // Did I request a hint?
   const iRequestedHint = hintRequestedBy === myRole;
@@ -1372,6 +1744,28 @@ export default function SoloStyleChallenge({
     }
   }, [hintL2RequestedBy]);
 
+  // Auto-hide hint sent banners (L1/L2 typing/Level 3)
+  useEffect(() => {
+    const shouldShow = isHintGiver && hintAccepted && ["tts", "flash", "anagram"].includes(hintType || "");
+    if (shouldShow) {
+      setShowHintSentBanner(true);
+      const timer = setTimeout(() => setShowHintSentBanner(false), 3000);
+      return () => clearTimeout(timer);
+    }
+    setShowHintSentBanner(false);
+  }, [isHintGiver, hintAccepted, hintType]);
+
+  // Auto-hide hint sent banners for L2 multiple choice
+  useEffect(() => {
+    const shouldShowL2 = isHintGiverL2 && hintL2Accepted && ["tts", "flash"].includes(hintL2Type || "");
+    if (shouldShowL2) {
+      setShowHintSentBannerL2(true);
+      const timer = setTimeout(() => setShowHintSentBannerL2(false), 3000);
+      return () => clearTimeout(timer);
+    }
+    setShowHintSentBannerL2(false);
+  }, [isHintGiverL2, hintL2Accepted, hintL2Type]);
+
   // Handle answer submission
   const handleCorrect = useCallback(() => {
     setFeedbackCorrect(true);
@@ -1413,6 +1807,15 @@ export default function SoloStyleChallenge({
   const handleRequestHint = useCallback(async (typedLetters: string[], revealedPositions: number[]) => {
     try {
       await requestSoloHint({ duelId: duel._id, typedLetters, revealedPositions });
+    } catch (error) {
+      console.error("Failed to request hint:", error);
+    }
+  }, [duel._id, requestSoloHint]);
+
+  // Simple hint request for L2 typing and L3 (no typed state needed)
+  const handleRequestSimpleHint = useCallback(async () => {
+    try {
+      await requestSoloHint({ duelId: duel._id, typedLetters: [], revealedPositions: [] });
     } catch (error) {
       console.error("Failed to request hint:", error);
     }
@@ -1547,6 +1950,44 @@ export default function SoloStyleChallenge({
     }
   }, [iRequestedHintL2, hintL2Accepted, hintL2Type, hintL2RequesterWord?.answer, hintL2WordIndex]);
 
+  // Show flash hint when I requested a hint and helper chose flash type
+  useEffect(() => {
+    const hintKey = `flash-${myCurrentWordIndex}`;
+    if (iRequestedHint && hintAccepted && hintType === "flash" && currentWord && flashHintShownRef.current !== hintKey) {
+      flashHintShownRef.current = hintKey;
+      setFlashHintAnswer(currentWord.answer);
+      setShowFlashHint(true);
+      // Auto-hide after 0.5 seconds
+      setTimeout(() => {
+        setShowFlashHint(false);
+        setFlashHintAnswer(null);
+      }, 500);
+    }
+    // Reset ref when hint is cleared
+    if (!iRequestedHint) {
+      flashHintShownRef.current = null;
+    }
+  }, [iRequestedHint, hintAccepted, hintType, currentWord?.answer, myCurrentWordIndex]);
+
+  // Show flash hint for L2 hints
+  useEffect(() => {
+    const hintKey = `flash-L2-${hintL2WordIndex}`;
+    if (iRequestedHintL2 && hintL2Accepted && hintL2Type === "flash" && hintL2RequesterWord && flashHintShownRef.current !== hintKey) {
+      flashHintShownRef.current = hintKey;
+      setFlashHintAnswer(hintL2RequesterWord.answer);
+      setShowFlashHint(true);
+      // Auto-hide after 0.5 seconds
+      setTimeout(() => {
+        setShowFlashHint(false);
+        setFlashHintAnswer(null);
+      }, 500);
+    }
+    // Reset ref when hint is cleared
+    if (!iRequestedHintL2) {
+      flashHintShownRef.current = null;
+    }
+  }, [iRequestedHintL2, hintL2Accepted, hintL2Type, hintL2RequesterWord?.answer, hintL2WordIndex]);
+
   // Handle sabotage
   const handleSendSabotage = async (effect: SabotageEffect) => {
     setShowSabotageMenu(false);
@@ -1678,19 +2119,35 @@ export default function SoloStyleChallenge({
       )}
       
       {/* TTS hint sent confirmation - shows when giver chose TTS for L1 */}
-      {isHintGiver && hintType === "tts" && (
+      {showHintSentBanner && isHintGiver && hintType === "tts" && (
         <div className="fixed bottom-20 left-4 z-40 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
           <span>🔊</span>
           <span>Sound sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
       )}
+      
+      {/* Anagram hint sent confirmation */}
+      {showHintSentBanner && isHintGiver && hintType === "anagram" && (
+        <div className="fixed bottom-20 left-4 z-40 bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <span>🔀</span>
+          <span>Anagram sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
+        </div>
+      )}
 
-      {/* Hint Type Selector - shows when opponent requests help (L1) */}
+      {/* Flash hint sent confirmation - shows when giver chose flash */}
+      {showHintSentBanner && isHintGiver && hintType === "flash" && (
+        <div className="fixed bottom-20 left-4 z-40 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <span>⚡</span>
+          <span>Answer flashed to {theirName?.split(" ")[0] || "Opponent"}!</span>
+        </div>
+      )}
+
+      {/* Hint Type Selector - shows when opponent requests help */}
       {canAcceptHint && hintRequesterWord && !hintSelectorDismissed && (
         <HintSelector
           requesterName={theirName?.split(" ")[0] || "Opponent"}
           word={hintRequesterWord.word}
-          hintOptions={L1_HINT_OPTIONS}
+          hintOptions={hintRequesterLevel === 1 ? L1_HINT_OPTIONS : TYPING_HINT_OPTIONS}
           onSelectHint={handleAcceptHint}
           onDismiss={() => setHintSelectorDismissed(true)}
         />
@@ -1733,19 +2190,27 @@ export default function SoloStyleChallenge({
       )}
       
       {/* TTS hint sent confirmation - shows when giver chose TTS for L2 */}
-      {isHintGiverL2 && hintL2Type === "tts" && (
+      {showHintSentBannerL2 && isHintGiverL2 && hintL2Type === "tts" && (
         <div className="fixed bottom-20 left-4 z-40 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
           <span>🔊</span>
           <span>Sound sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
       )}
+      
+      {/* Flash hint sent confirmation - shows when giver chose flash for L2 */}
+      {showHintSentBannerL2 && isHintGiverL2 && hintL2Type === "flash" && (
+        <div className="fixed bottom-20 left-4 z-40 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <span>⚡</span>
+          <span>Answer flashed to {theirName?.split(" ")[0] || "Opponent"}!</span>
+        </div>
+      )}
 
-      {/* Hint Type Selector - shows when opponent requests help (L2) */}
+      {/* Hint Type Selector - shows when opponent requests help (L2 multiple choice) */}
       {canAcceptHintL2 && hintL2RequesterWord && !hintL2SelectorDismissed && (
         <HintSelector
           requesterName={theirName?.split(" ")[0] || "Opponent"}
           word={hintL2RequesterWord.word}
-          hintOptions={L2_HINT_OPTIONS}
+          hintOptions={L2_MC_HINT_OPTIONS}
           onSelectHint={handleAcceptHintL2}
           onDismiss={() => setHintL2SelectorDismissed(true)}
         />
@@ -1888,6 +2353,16 @@ export default function SoloStyleChallenge({
             </div>
           )}
 
+          {/* Flash hint overlay - brief neutral answer flash */}
+          {showFlashHint && flashHintAnswer && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none animate-pulse">
+              <div className="bg-purple-600/90 backdrop-blur-sm text-white px-8 py-6 rounded-2xl shadow-2xl border-2 border-purple-400">
+                <div className="text-sm text-purple-200 mb-1 text-center">⚡ Hint</div>
+                <div className="text-4xl font-bold text-center">{flashHintAnswer}</div>
+              </div>
+            </div>
+          )}
+
           {/* Input based on level */}
           {!showFeedback && (
             <>
@@ -1901,6 +2376,7 @@ export default function SoloStyleChallenge({
                   canRequestHint={canRequestHint}
                   hintRequested={iRequestedHint}
                   hintAccepted={hintAccepted}
+                  hintType={hintType}
                   hintRevealedPositions={hintRevealedPositions}
                   onRequestHint={handleRequestHint}
                   onCancelHint={handleCancelHint}
@@ -1915,6 +2391,13 @@ export default function SoloStyleChallenge({
                   onCorrect={handleCorrect}
                   onWrong={handleWrong}
                   onSkip={handleSkip}
+                  // Hint system props
+                  canRequestHint={canRequestHint}
+                  hintRequested={iRequestedHint}
+                  hintAccepted={hintAccepted}
+                  hintType={hintType}
+                  onRequestHint={handleRequestSimpleHint}
+                  onCancelHint={handleCancelHint}
                 />
               )}
 
@@ -1943,6 +2426,13 @@ export default function SoloStyleChallenge({
                   onCorrect={handleCorrect}
                   onWrong={handleWrong}
                   onSkip={handleSkip}
+                  // Hint system props
+                  canRequestHint={canRequestHint}
+                  hintRequested={iRequestedHint}
+                  hintAccepted={hintAccepted}
+                  hintType={hintType}
+                  onRequestHint={handleRequestSimpleHint}
+                  onCancelHint={handleCancelHint}
                 />
               )}
             </>

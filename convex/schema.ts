@@ -113,8 +113,8 @@ export default defineSchema({
       correctAnswers: v.number(),
     })),
     
-    // === Solo-style hint system ===
-    // Who requested a hint (only for Level 1 questions)
+    // === Solo-style hint system (available on all levels) ===
+    // Who requested a hint
     soloHintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
     // Whether the other player accepted the hint request
     soloHintAccepted: v.optional(v.boolean()),
@@ -123,10 +123,11 @@ export default defineSchema({
       wordIndex: v.number(),
       typedLetters: v.array(v.string()), // what they've typed so far
       revealedPositions: v.array(v.number()), // positions already revealed
+      level: v.optional(v.number()), // level of the question
     })),
     // Letters revealed by the hint giver (up to 3)
     soloHintRevealedPositions: v.optional(v.array(v.number())),
-    // Selected hint type: "letters" (reveal letters) or "tts" (play pronunciation)
+    // Selected hint type: "letters" | "tts" | "flash" (brief answer flash)
     soloHintType: v.optional(v.string()),
     
     // === Solo-style L2 Multiple Choice hint system ===

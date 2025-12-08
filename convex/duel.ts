@@ -1256,10 +1256,10 @@ export const submitSoloAnswer = mutation({
 });
 
 // ============================================
-// Solo-style hint system mutations
+// Solo-style hint system mutations (available on all levels)
 // ============================================
 
-// Request a hint from opponent (only for Level 1 questions)
+// Request a hint from opponent (available on all levels)
 export const requestSoloHint = mutation({
   args: {
     duelId: v.id("challenges"),
@@ -1289,11 +1289,12 @@ export const requestSoloHint = mutation({
     const currentLevel = isChallenger ? challenge.challengerCurrentLevel : challenge.opponentCurrentLevel;
     const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
 
-    // Can only request hint on Level 1 questions
-    if (currentLevel !== 1) throw new Error("Hints only available on Level 1 questions");
+    // Hints available on all levels now
     
-    // Can't request if already requested
-    if (challenge.soloHintRequestedBy) throw new Error("Hint already requested");
+    // Allow re-requesting if same player; block if opponent already requested
+    if (challenge.soloHintRequestedBy && challenge.soloHintRequestedBy !== playerRole) {
+      throw new Error("Opponent already requested a hint");
+    }
 
     await ctx.db.patch(duelId, {
       soloHintRequestedBy: playerRole,
@@ -1302,8 +1303,10 @@ export const requestSoloHint = mutation({
         wordIndex: currentWordIndex!,
         typedLetters,
         revealedPositions,
+        level: currentLevel!, // Track level for hint giver
       },
       soloHintRevealedPositions: [],
+      soloHintType: undefined,
     });
   },
 });
@@ -1335,6 +1338,7 @@ export const updateSoloHintState = mutation({
 
     const playerRole = isChallenger ? "challenger" : "opponent";
     const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
+    const currentLevel = isChallenger ? challenge.challengerCurrentLevel : challenge.opponentCurrentLevel;
 
     // Can only update if this player requested the hint
     if (challenge.soloHintRequestedBy !== playerRole) return;
@@ -1344,6 +1348,7 @@ export const updateSoloHintState = mutation({
         wordIndex: currentWordIndex!,
         typedLetters,
         revealedPositions,
+        level: currentLevel,
       },
     });
   },
@@ -1353,7 +1358,7 @@ export const updateSoloHintState = mutation({
 export const acceptSoloHint = mutation({
   args: {
     duelId: v.id("challenges"),
-    hintType: v.string(), // "letters" or "tts"
+    hintType: v.string(), // "letters" | "tts" | "flash"
   },
   handler: async (ctx, { duelId, hintType }) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -1379,6 +1384,9 @@ export const acceptSoloHint = mutation({
     // Can only accept if the OTHER player requested
     if (challenge.soloHintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
     if (challenge.soloHintAccepted) throw new Error("Hint already accepted");
+
+    const allowedHintTypes = ["letters", "tts", "flash", "anagram"];
+    if (!allowedHintTypes.includes(hintType)) throw new Error("Invalid hint type");
 
     await ctx.db.patch(duelId, { 
       soloHintAccepted: true,
@@ -1515,8 +1523,10 @@ export const requestSoloHintL2 = mutation({
       throw new Error("Hints only available on Level 2 multiple choice questions");
     }
     
-    // Can't request if already requested
-    if (challenge.soloHintL2RequestedBy) throw new Error("Hint already requested");
+    // Allow re-requesting if same player; block if opponent already requested
+    if (challenge.soloHintL2RequestedBy && challenge.soloHintL2RequestedBy !== playerRole) {
+      throw new Error("Opponent already requested a hint");
+    }
 
     await ctx.db.patch(duelId, {
       soloHintL2RequestedBy: playerRole,
@@ -1524,6 +1534,7 @@ export const requestSoloHintL2 = mutation({
       soloHintL2WordIndex: currentWordIndex!,
       soloHintL2Options: options,
       soloHintL2EliminatedOptions: [],
+      soloHintL2Type: undefined,
     });
   },
 });
