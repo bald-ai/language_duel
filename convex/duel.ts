@@ -56,7 +56,7 @@ function isHardModeIndex(index: number, distribution: DifficultyDistribution): b
   return index >= distribution.mediumEnd;
 }
 
-export const createChallenge = mutation({
+export const createDuel = mutation({
   args: {
     opponentId: v.id("users"),
     themeId: v.id("themes"),
@@ -102,34 +102,34 @@ export const createChallenge = mutation({
   },
 });
 
-export const getChallenge = query({
-  args: { challengeId: v.id("challenges") },
-  handler: async ({ db }, { challengeId }) => {
-    const challenge = await db.get(challengeId);
-    if (!challenge) return null;
+export const getDuel = query({
+  args: { duelId: v.id("challenges") },
+  handler: async ({ db }, { duelId }) => {
+    const duel = await db.get(duelId);
+    if (!duel) return null;
 
-    const challenger = await db.get(challenge.challengerId);
-    const opponent = await db.get(challenge.opponentId);
+    const challenger = await db.get(duel.challengerId);
+    const opponent = await db.get(duel.opponentId);
 
     return {
-      challenge,
+      duel,
       challenger,
       opponent,
     };
   },
 });
 
-export const answerChallenge = mutation({
+export const answerDuel = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
     selectedAnswer: v.string(),
   },
-  handler: async (ctx, { challengeId, selectedAnswer }) => {
+  handler: async (ctx, { duelId, selectedAnswer }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Check if challenge is accepted (or handle old challenges without status)
@@ -214,7 +214,7 @@ export const answerChallenge = mutation({
     if (isChallenger && !challenge.challengerAnswered) {
       const newScore = isCorrect ? (challenge.challengerScore || 0) + pointsForCorrect : (challenge.challengerScore || 0);
       const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to opponent (hint provider) only if correct
-      await ctx.db.patch(challengeId, { 
+      await ctx.db.patch(duelId, { 
         challengerAnswered: true, 
         challengerScore: newScore,
         opponentScore: (challenge.opponentScore || 0) + hintBonus,
@@ -223,7 +223,7 @@ export const answerChallenge = mutation({
     } else if (isOpponent && !challenge.opponentAnswered) {
       const newScore = isCorrect ? (challenge.opponentScore || 0) + pointsForCorrect : (challenge.opponentScore || 0);
       const hintBonus = (receivedHint && isCorrect) ? 0.5 : 0; // Bonus goes to challenger (hint provider) only if correct
-      await ctx.db.patch(challengeId, { 
+      await ctx.db.patch(duelId, { 
         opponentAnswered: true, 
         opponentScore: newScore,
         challengerScore: (challenge.challengerScore || 0) + hintBonus,
@@ -232,7 +232,7 @@ export const answerChallenge = mutation({
     }
 
     // Check if both answered, then advance to next word
-    const updatedChallenge = await ctx.db.get(challengeId);
+    const updatedChallenge = await ctx.db.get(duelId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
       const nextWordIndex = updatedChallenge.currentWordIndex + 1;
       
@@ -242,7 +242,7 @@ export const answerChallenge = mutation({
       
       if (nextWordIndex >= wordCount) {
         // Challenge completed - reset hint state and pause state
-        await ctx.db.patch(challengeId, {
+        await ctx.db.patch(duelId, {
           status: "completed",
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -257,7 +257,7 @@ export const answerChallenge = mutation({
         });
       } else {
         // Continue to next word - reset hint state, timer, and pause state
-        await ctx.db.patch(challengeId, {
+        await ctx.db.patch(duelId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -274,7 +274,7 @@ export const answerChallenge = mutation({
   },
 });
 
-export const getPendingChallenges = query({
+export const getPendingDuels = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -314,16 +314,16 @@ export const getPendingChallenges = query({
   },
 });
 
-export const acceptChallenge = mutation({
+export const acceptDuel = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
@@ -339,23 +339,79 @@ export const acceptChallenge = mutation({
       throw new Error("Only opponent can accept challenge");
     }
 
-    await ctx.db.patch(challengeId, { 
-      status: "accepted",
-      questionStartTime: Date.now(),
+    // Get theme for word count
+    const theme = await ctx.db.get(challenge.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    const wordCount = theme.words.length;
+    
+    // Initialize word pools: 40% active, rest in remaining
+    const initialPoolSize = Math.max(1, Math.floor(wordCount * 0.4));
+    
+    // Create shuffled indices for both players (independent shuffles)
+    const allIndices = Array.from({ length: wordCount }, (_, i) => i);
+    
+    // Shuffle for challenger
+    const challengerShuffled = [...allIndices].sort(() => Math.random() - 0.5);
+    const challengerActive = challengerShuffled.slice(0, initialPoolSize);
+    const challengerRemaining = challengerShuffled.slice(initialPoolSize);
+    
+    // Shuffle for opponent (different order)
+    const opponentShuffled = [...allIndices].sort(() => Math.random() - 0.5);
+    const opponentActive = opponentShuffled.slice(0, initialPoolSize);
+    const opponentRemaining = opponentShuffled.slice(initialPoolSize);
+    
+    // Initialize word states for both players
+    const createWordStates = () => allIndices.map(idx => ({
+      wordIndex: idx,
+      currentLevel: 1,
+      completedLevel3: false,
+      answeredLevel2Plus: false,
+    }));
+    
+    // Pick first question for each player
+    const challengerFirstWord = challengerActive[Math.floor(Math.random() * challengerActive.length)];
+    const opponentFirstWord = opponentActive[Math.floor(Math.random() * opponentActive.length)];
+    
+    // Determine initial levels (66% L1, 33% L2)
+    const challengerFirstLevel = Math.random() < 0.66 ? 1 : 2;
+    const opponentFirstLevel = Math.random() < 0.66 ? 1 : 2;
+
+    // Skip learning phase - go directly to challenging
+    await ctx.db.patch(duelId, {
+      status: "challenging",
+      // Challenger state
+      challengerWordStates: createWordStates(),
+      challengerActivePool: challengerActive,
+      challengerRemainingPool: challengerRemaining,
+      challengerCurrentWordIndex: challengerFirstWord,
+      challengerCurrentLevel: challengerFirstLevel,
+      challengerLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+      challengerCompleted: false,
+      challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
+      // Opponent state
+      opponentWordStates: createWordStates(),
+      opponentActivePool: opponentActive,
+      opponentRemainingPool: opponentRemaining,
+      opponentCurrentWordIndex: opponentFirstWord,
+      opponentCurrentLevel: opponentFirstLevel,
+      opponentLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+      opponentCompleted: false,
+      opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
     });
   },
 });
 
-export const rejectChallenge = mutation({
+export const rejectDuel = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
@@ -371,20 +427,20 @@ export const rejectChallenge = mutation({
       throw new Error("Only opponent can reject challenge");
     }
 
-    await ctx.db.patch(challengeId, { status: "rejected" });
+    await ctx.db.patch(duelId, { status: "rejected" });
   },
 });
 
-export const stopChallenge = mutation({
+export const stopDuel = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     // Get user by clerkId
@@ -403,21 +459,21 @@ export const stopChallenge = mutation({
       throw new Error("User not part of this challenge");
     }
 
-    await ctx.db.patch(challengeId, { status: "stopped" });
+    await ctx.db.patch(duelId, { status: "stopped" });
   },
 });
 
 // Hint system mutations
 export const requestHint = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -439,20 +495,20 @@ export const requestHint = mutation({
     if (!opponentHasAnswered) throw new Error("Opponent hasn't answered yet");
     if (challenge.hintRequestedBy) throw new Error("Hint already requested");
 
-    await ctx.db.patch(challengeId, { hintRequestedBy: playerRole });
+    await ctx.db.patch(duelId, { hintRequestedBy: playerRole });
   },
 });
 
 export const acceptHint = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -476,21 +532,21 @@ export const acceptHint = mutation({
     if (challenge.hintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
     if (challenge.hintAccepted) throw new Error("Hint already accepted");
 
-    await ctx.db.patch(challengeId, { hintAccepted: true, eliminatedOptions: [] });
+    await ctx.db.patch(duelId, { hintAccepted: true, eliminatedOptions: [] });
   },
 });
 
 export const eliminateOption = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
     option: v.string(),
   },
-  handler: async (ctx, { challengeId, option }) => {
+  handler: async (ctx, { duelId, option }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -559,7 +615,7 @@ export const eliminateOption = mutation({
       throw new Error("Maximum 2 options can be eliminated");
     }
 
-    await ctx.db.patch(challengeId, { 
+    await ctx.db.patch(duelId, { 
       eliminatedOptions: [...currentEliminated, option] 
     });
   },
@@ -571,19 +627,19 @@ const MAX_SABOTAGES_PER_DUEL = 5;
 
 export const sendSabotage = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
     effect: v.string(),
   },
-  handler: async (ctx, { challengeId, effect }) => {
+  handler: async (ctx, { duelId, effect }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const status = challenge.status || "accepted";
-    if (status !== "accepted") {
+    if (status !== "accepted" && status !== "challenging") {
       throw new Error("Challenge is not active");
     }
 
@@ -619,12 +675,12 @@ export const sendSabotage = mutation({
     // Send sabotage to the OTHER player
     const now = Date.now();
     if (isChallenger) {
-      await ctx.db.patch(challengeId, {
+      await ctx.db.patch(duelId, {
         opponentSabotage: { effect, timestamp: now },
         challengerSabotagesUsed: sabotagesUsed + 1,
       });
     } else {
-      await ctx.db.patch(challengeId, {
+      await ctx.db.patch(duelId, {
         challengerSabotage: { effect, timestamp: now },
         opponentSabotagesUsed: sabotagesUsed + 1,
       });
@@ -635,14 +691,14 @@ export const sendSabotage = mutation({
 // Countdown pause system - pause the between-rounds countdown timer
 export const pauseCountdown = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -661,7 +717,7 @@ export const pauseCountdown = mutation({
     }
 
     const playerRole = isChallenger ? "challenger" : "opponent";
-    await ctx.db.patch(challengeId, { 
+    await ctx.db.patch(duelId, { 
       countdownPausedBy: playerRole,
       countdownUnpauseRequestedBy: undefined,
       countdownPausedAt: Date.now(), // Track when we paused
@@ -672,14 +728,14 @@ export const pauseCountdown = mutation({
 // Request to unpause the countdown - requires confirmation from other player
 export const requestUnpauseCountdown = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -698,7 +754,7 @@ export const requestUnpauseCountdown = mutation({
     }
 
     const playerRole = isChallenger ? "challenger" : "opponent";
-    await ctx.db.patch(challengeId, { 
+    await ctx.db.patch(duelId, { 
       countdownUnpauseRequestedBy: playerRole,
     });
   },
@@ -707,14 +763,14 @@ export const requestUnpauseCountdown = mutation({
 // Confirm unpause - the OTHER player confirms the unpause request
 export const confirmUnpauseCountdown = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const user = await ctx.db
@@ -748,7 +804,7 @@ export const confirmUnpauseCountdown = mutation({
       : undefined;
 
     // Clear pause state - countdown will resume
-    await ctx.db.patch(challengeId, { 
+    await ctx.db.patch(duelId, { 
       countdownPausedBy: undefined,
       countdownUnpauseRequestedBy: undefined,
       countdownPausedAt: undefined,
@@ -760,14 +816,14 @@ export const confirmUnpauseCountdown = mutation({
 // Handle timeout - player gets 0 points for not answering in time
 export const timeoutAnswer = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    duelId: v.id("challenges"),
   },
-  handler: async (ctx, { challengeId }) => {
+  handler: async (ctx, { duelId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     const userId = identity.subject;
     
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
     const status = challenge.status || "accepted";
@@ -792,19 +848,19 @@ export const timeoutAnswer = mutation({
 
     // Mark as answered with 0 points (timeout)
     if (isChallenger && !challenge.challengerAnswered) {
-      await ctx.db.patch(challengeId, { 
+      await ctx.db.patch(duelId, { 
         challengerAnswered: true,
         challengerLastAnswer: "__TIMEOUT__",
       });
     } else if (isOpponent && !challenge.opponentAnswered) {
-      await ctx.db.patch(challengeId, { 
+      await ctx.db.patch(duelId, { 
         opponentAnswered: true,
         opponentLastAnswer: "__TIMEOUT__",
       });
     }
 
     // Check if both answered, then advance to next word
-    const updatedChallenge = await ctx.db.get(challengeId);
+    const updatedChallenge = await ctx.db.get(duelId);
     if (updatedChallenge?.challengerAnswered && updatedChallenge?.opponentAnswered) {
       const nextWordIndex = updatedChallenge.currentWordIndex + 1;
       
@@ -812,7 +868,7 @@ export const timeoutAnswer = mutation({
       const wordCount = theme?.words.length || 0;
       
       if (nextWordIndex >= wordCount) {
-        await ctx.db.patch(challengeId, {
+        await ctx.db.patch(duelId, {
           status: "completed",
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
@@ -826,7 +882,7 @@ export const timeoutAnswer = mutation({
           countdownPausedAt: undefined,
         });
       } else {
-        await ctx.db.patch(challengeId, {
+        await ctx.db.patch(duelId, {
           currentWordIndex: nextWordIndex,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -840,5 +896,769 @@ export const timeoutAnswer = mutation({
         });
       }
     }
+  },
+});
+
+// ============================================
+// Solo-style duel mutations
+// ============================================
+
+// Timer options available for learn phase (in seconds)
+const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900]; // 1, 2, 3, 4, 5, 7, 10, 15 min
+
+// Select a timer option (highlight it)
+export const selectLearnTimer = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    duration: v.number(),
+  },
+  handler: async (ctx, { duelId, duration }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "learning") throw new Error("Not in learning phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Validate duration
+    if (!TIMER_OPTIONS.includes(duration)) throw new Error("Invalid timer duration");
+
+    // Can't change selection if already confirmed
+    const current = challenge.learnTimerSelection || {};
+    if (isChallenger && current.challengerConfirmed) throw new Error("Already confirmed");
+    if (isOpponent && current.opponentConfirmed) throw new Error("Already confirmed");
+
+    // Update selection
+    const update = isChallenger 
+      ? { ...current, challengerSelection: duration }
+      : { ...current, opponentSelection: duration };
+
+    await ctx.db.patch(duelId, { learnTimerSelection: update });
+  },
+});
+
+// Confirm timer selection
+export const confirmLearnTimer = mutation({
+  args: {
+    duelId: v.id("challenges"),
+  },
+  handler: async (ctx, { duelId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "learning") throw new Error("Not in learning phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const current = challenge.learnTimerSelection || {};
+    
+    // Mark as confirmed
+    const update = isChallenger 
+      ? { ...current, challengerConfirmed: true }
+      : { ...current, opponentConfirmed: true };
+
+    // Check if both confirmed after this update
+    const bothConfirmed = (isChallenger ? true : current.challengerConfirmed) && 
+                          (isOpponent ? true : current.opponentConfirmed);
+
+    if (bothConfirmed) {
+      // Use the higher of the two selections (more study time)
+      const challengerDuration = current.challengerSelection || 300;
+      const opponentDuration = current.opponentSelection || 300;
+      const confirmedDuration = Math.max(challengerDuration, opponentDuration);
+      
+      update.confirmedDuration = confirmedDuration;
+      update.learnStartTime = Date.now();
+    }
+
+    await ctx.db.patch(duelId, { learnTimerSelection: update });
+  },
+});
+
+// Initialize challenge phase (called when learn phase ends)
+export const initializeDuelChallenge = mutation({
+  args: {
+    duelId: v.id("challenges"),
+  },
+  handler: async (ctx, { duelId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "learning") throw new Error("Not in learning phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Re-read to handle race conditions (both players might call this)
+    const freshChallenge = await ctx.db.get(duelId);
+    if (!freshChallenge || freshChallenge.status === "challenging") return;
+
+    // Get theme for word count
+    const theme = await ctx.db.get(challenge.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    const wordCount = theme.words.length;
+    
+    // Initialize word pools: 40% active, rest in remaining
+    const initialPoolSize = Math.max(1, Math.floor(wordCount * 0.4));
+    
+    // Create shuffled indices for both players (independent shuffles)
+    const allIndices = Array.from({ length: wordCount }, (_, i) => i);
+    
+    // Shuffle for challenger
+    const challengerShuffled = [...allIndices].sort(() => Math.random() - 0.5);
+    const challengerActive = challengerShuffled.slice(0, initialPoolSize);
+    const challengerRemaining = challengerShuffled.slice(initialPoolSize);
+    
+    // Shuffle for opponent (different order)
+    const opponentShuffled = [...allIndices].sort(() => Math.random() - 0.5);
+    const opponentActive = opponentShuffled.slice(0, initialPoolSize);
+    const opponentRemaining = opponentShuffled.slice(initialPoolSize);
+    
+    // Initialize word states for both players
+    const createWordStates = () => allIndices.map(idx => ({
+      wordIndex: idx,
+      currentLevel: 1,
+      completedLevel3: false,
+      answeredLevel2Plus: false,
+    }));
+    
+    // Pick first question for each player
+    const challengerFirstWord = challengerActive[Math.floor(Math.random() * challengerActive.length)];
+    const opponentFirstWord = opponentActive[Math.floor(Math.random() * opponentActive.length)];
+    
+    // Determine initial levels (66% L1, 33% L2)
+    const challengerFirstLevel = Math.random() < 0.66 ? 1 : 2;
+    const opponentFirstLevel = Math.random() < 0.66 ? 1 : 2;
+    
+    await ctx.db.patch(duelId, {
+      status: "challenging",
+      // Challenger state
+      challengerWordStates: createWordStates(),
+      challengerActivePool: challengerActive,
+      challengerRemainingPool: challengerRemaining,
+      challengerCurrentWordIndex: challengerFirstWord,
+      challengerCurrentLevel: challengerFirstLevel,
+      challengerLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+      challengerCompleted: false,
+      challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
+      // Opponent state
+      opponentWordStates: createWordStates(),
+      opponentActivePool: opponentActive,
+      opponentRemainingPool: opponentRemaining,
+      opponentCurrentWordIndex: opponentFirstWord,
+      opponentCurrentLevel: opponentFirstLevel,
+      opponentLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+      opponentCompleted: false,
+      opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
+    });
+  },
+});
+
+// Submit answer in solo-style challenge
+export const submitSoloAnswer = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    isCorrect: v.boolean(),
+  },
+  handler: async (ctx, { duelId, isCorrect }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "challenging") throw new Error("Not in challenging phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Get player-specific state
+    const wordStates = isChallenger ? challenge.challengerWordStates : challenge.opponentWordStates;
+    const activePool = isChallenger ? challenge.challengerActivePool : challenge.opponentActivePool;
+    const remainingPool = isChallenger ? challenge.challengerRemainingPool : challenge.opponentRemainingPool;
+    const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
+    const currentLevel = isChallenger ? challenge.challengerCurrentLevel : challenge.opponentCurrentLevel;
+    const stats = isChallenger ? challenge.challengerStats : challenge.opponentStats;
+
+    if (!wordStates || !activePool || currentWordIndex === undefined || currentLevel === undefined || !stats) {
+      throw new Error("Player state not initialized");
+    }
+
+    // Find and update word state
+    const newWordStates = [...wordStates];
+    const wordStateIndex = newWordStates.findIndex(ws => ws.wordIndex === currentWordIndex);
+    if (wordStateIndex === -1) throw new Error("Word state not found");
+    
+    const wordState = { ...newWordStates[wordStateIndex] };
+    
+    // Update stats
+    const newStats = {
+      questionsAnswered: stats.questionsAnswered + 1,
+      correctAnswers: isCorrect ? stats.correctAnswers + 1 : stats.correctAnswers,
+    };
+
+    if (isCorrect) {
+      // Progress level
+      if (currentLevel === 1) {
+        wordState.currentLevel = Math.random() < 0.66 ? 2 : 3;
+      } else if (currentLevel === 2) {
+        wordState.currentLevel = 3;
+        wordState.answeredLevel2Plus = true;
+      } else if (currentLevel === 3) {
+        wordState.completedLevel3 = true;
+        wordState.answeredLevel2Plus = true;
+      }
+    } else {
+      // Drop level by 1 if possible
+      if (wordState.currentLevel > 1) {
+        wordState.currentLevel = wordState.currentLevel - 1;
+      }
+    }
+    
+    newWordStates[wordStateIndex] = wordState;
+
+    // Check pool expansion: 65%+ of active pool has answeredLevel2Plus
+    let newActivePool = [...activePool];
+    let newRemainingPool = [...(remainingPool || [])];
+    
+    const level2PlusCount = newActivePool.filter(idx => 
+      newWordStates.find(ws => ws.wordIndex === idx)?.answeredLevel2Plus
+    ).length;
+    const shouldExpand = level2PlusCount >= Math.ceil(newActivePool.length * 0.65) && newRemainingPool.length > 0;
+
+    if (shouldExpand) {
+      const toAdd = Math.min(2, newRemainingPool.length);
+      const shuffledRemaining = [...newRemainingPool].sort(() => Math.random() - 0.5);
+      const wordsToAdd = shuffledRemaining.slice(0, toAdd);
+      newActivePool = [...newActivePool, ...wordsToAdd];
+      newRemainingPool = shuffledRemaining.slice(toAdd);
+    }
+
+    // Find incomplete words (not completed Level 3)
+    const incompleteWords = newActivePool.filter(idx => 
+      !newWordStates.find(ws => ws.wordIndex === idx)?.completedLevel3
+    );
+
+    // Check if all complete
+    const isComplete = incompleteWords.length === 0;
+    
+    let nextWordIndex = currentWordIndex;
+    let nextLevel = currentLevel;
+    let nextLevel2Mode = isChallenger ? challenge.challengerLevel2Mode : challenge.opponentLevel2Mode;
+
+    if (!isComplete) {
+      // Pick next word, avoiding current if possible
+      let candidates = incompleteWords.filter(idx => idx !== currentWordIndex);
+      if (candidates.length === 0) candidates = incompleteWords;
+      nextWordIndex = candidates[Math.floor(Math.random() * candidates.length)];
+
+      // Determine next level based on word state
+      const nextWordState = newWordStates.find(ws => ws.wordIndex === nextWordIndex);
+      if (nextWordState) {
+        if (nextWordState.currentLevel === 1) {
+          nextLevel = Math.random() < 0.66 ? 1 : 2;
+        } else if (nextWordState.currentLevel === 2) {
+          nextLevel = Math.random() < 0.66 ? 2 : 3;
+        } else {
+          nextLevel = 3;
+        }
+      }
+      
+      nextLevel2Mode = Math.random() < 0.5 ? "typing" : "multiple_choice";
+    }
+
+    // Build update object
+    const update: Record<string, unknown> = {};
+    
+    if (isChallenger) {
+      update.challengerWordStates = newWordStates;
+      update.challengerActivePool = newActivePool;
+      update.challengerRemainingPool = newRemainingPool;
+      update.challengerCurrentWordIndex = nextWordIndex;
+      update.challengerCurrentLevel = nextLevel;
+      update.challengerLevel2Mode = nextLevel2Mode;
+      update.challengerCompleted = isComplete;
+      update.challengerStats = newStats;
+    } else {
+      update.opponentWordStates = newWordStates;
+      update.opponentActivePool = newActivePool;
+      update.opponentRemainingPool = newRemainingPool;
+      update.opponentCurrentWordIndex = nextWordIndex;
+      update.opponentCurrentLevel = nextLevel;
+      update.opponentLevel2Mode = nextLevel2Mode;
+      update.opponentCompleted = isComplete;
+      update.opponentStats = newStats;
+    }
+
+    // Check if both players completed
+    const otherCompleted = isChallenger ? challenge.opponentCompleted : challenge.challengerCompleted;
+    if (isComplete && otherCompleted) {
+      update.status = "completed";
+    }
+
+    // Clear hint state when player moves to next question
+    update.soloHintRequestedBy = undefined;
+    update.soloHintAccepted = undefined;
+    update.soloHintRequesterState = undefined;
+    update.soloHintRevealedPositions = undefined;
+    update.soloHintType = undefined;
+    
+    // Clear L2 hint state as well
+    update.soloHintL2RequestedBy = undefined;
+    update.soloHintL2Accepted = undefined;
+    update.soloHintL2WordIndex = undefined;
+    update.soloHintL2Options = undefined;
+    update.soloHintL2EliminatedOptions = undefined;
+    update.soloHintL2Type = undefined;
+
+    await ctx.db.patch(duelId, update);
+  },
+});
+
+// ============================================
+// Solo-style hint system mutations
+// ============================================
+
+// Request a hint from opponent (only for Level 1 questions)
+export const requestSoloHint = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    typedLetters: v.array(v.string()),
+    revealedPositions: v.array(v.number()),
+  },
+  handler: async (ctx, { duelId, typedLetters, revealedPositions }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "challenging") throw new Error("Not in challenging phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const currentLevel = isChallenger ? challenge.challengerCurrentLevel : challenge.opponentCurrentLevel;
+    const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
+
+    // Can only request hint on Level 1 questions
+    if (currentLevel !== 1) throw new Error("Hints only available on Level 1 questions");
+    
+    // Can't request if already requested
+    if (challenge.soloHintRequestedBy) throw new Error("Hint already requested");
+
+    await ctx.db.patch(duelId, {
+      soloHintRequestedBy: playerRole,
+      soloHintAccepted: false,
+      soloHintRequesterState: {
+        wordIndex: currentWordIndex!,
+        typedLetters,
+        revealedPositions,
+      },
+      soloHintRevealedPositions: [],
+    });
+  },
+});
+
+// Update the requester's state (so hint giver sees updated typing)
+export const updateSoloHintState = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    typedLetters: v.array(v.string()),
+    revealedPositions: v.array(v.number()),
+  },
+  handler: async (ctx, { duelId, typedLetters, revealedPositions }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
+
+    // Can only update if this player requested the hint
+    if (challenge.soloHintRequestedBy !== playerRole) return;
+
+    await ctx.db.patch(duelId, {
+      soloHintRequesterState: {
+        wordIndex: currentWordIndex!,
+        typedLetters,
+        revealedPositions,
+      },
+    });
+  },
+});
+
+// Accept hint request with selected hint type
+export const acceptSoloHint = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    hintType: v.string(), // "letters" or "tts"
+  },
+  handler: async (ctx, { duelId, hintType }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const otherRole = isChallenger ? "opponent" : "challenger";
+
+    // Can only accept if the OTHER player requested
+    if (challenge.soloHintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
+    if (challenge.soloHintAccepted) throw new Error("Hint already accepted");
+
+    await ctx.db.patch(duelId, { 
+      soloHintAccepted: true,
+      soloHintType: hintType,
+    });
+  },
+});
+
+// Provide a letter hint (click on a position to reveal)
+export const provideSoloHint = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    position: v.number(),
+  },
+  handler: async (ctx, { duelId, position }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const otherRole = isChallenger ? "opponent" : "challenger";
+
+    // Can only provide hint if the OTHER player requested and hint was accepted
+    if (challenge.soloHintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
+    if (!challenge.soloHintAccepted) throw new Error("Hint not accepted yet");
+
+    const currentRevealed = challenge.soloHintRevealedPositions || [];
+    
+    // Max 3 hints
+    if (currentRevealed.length >= 3) throw new Error("Maximum 3 hints already provided");
+    
+    // Can't reveal same position twice
+    if (currentRevealed.includes(position)) throw new Error("Position already revealed");
+
+    // Can't reveal a position that was already revealed by the requester
+    const requesterState = challenge.soloHintRequesterState;
+    if (requesterState?.revealedPositions.includes(position)) {
+      throw new Error("Position already revealed by requester");
+    }
+
+    await ctx.db.patch(duelId, {
+      soloHintRevealedPositions: [...currentRevealed, position],
+    });
+  },
+});
+
+// Cancel hint request (requester can cancel)
+export const cancelSoloHint = mutation({
+  args: {
+    duelId: v.id("challenges"),
+  },
+  handler: async (ctx, { duelId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+
+    // Can only cancel if this player requested
+    if (challenge.soloHintRequestedBy !== playerRole) throw new Error("You did not request a hint");
+
+    await ctx.db.patch(duelId, {
+      soloHintRequestedBy: undefined,
+      soloHintAccepted: undefined,
+      soloHintRequesterState: undefined,
+      soloHintRevealedPositions: undefined,
+      soloHintType: undefined,
+    });
+  },
+});
+
+// ============================================
+// Solo-style L2 Multiple Choice hint system mutations
+// ============================================
+
+// Request a hint for Level 2 Multiple Choice (removes 2 wrong options)
+export const requestSoloHintL2 = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    options: v.array(v.string()), // The shuffled options the requester sees
+  },
+  handler: async (ctx, { duelId, options }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+    if (challenge.status !== "challenging") throw new Error("Not in challenging phase");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const currentLevel = isChallenger ? challenge.challengerCurrentLevel : challenge.opponentCurrentLevel;
+    const currentWordIndex = isChallenger ? challenge.challengerCurrentWordIndex : challenge.opponentCurrentWordIndex;
+    const level2Mode = isChallenger ? challenge.challengerLevel2Mode : challenge.opponentLevel2Mode;
+
+    // Can only request hint on Level 2 multiple choice questions
+    if (currentLevel !== 2 || level2Mode !== "multiple_choice") {
+      throw new Error("Hints only available on Level 2 multiple choice questions");
+    }
+    
+    // Can't request if already requested
+    if (challenge.soloHintL2RequestedBy) throw new Error("Hint already requested");
+
+    await ctx.db.patch(duelId, {
+      soloHintL2RequestedBy: playerRole,
+      soloHintL2Accepted: false,
+      soloHintL2WordIndex: currentWordIndex!,
+      soloHintL2Options: options,
+      soloHintL2EliminatedOptions: [],
+    });
+  },
+});
+
+// Accept L2 hint request with selected hint type
+export const acceptSoloHintL2 = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    hintType: v.string(), // "eliminate" or "tts"
+  },
+  handler: async (ctx, { duelId, hintType }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const otherRole = isChallenger ? "opponent" : "challenger";
+
+    // Can only accept if the OTHER player requested
+    if (challenge.soloHintL2RequestedBy !== otherRole) throw new Error("No hint request from opponent");
+    if (challenge.soloHintL2Accepted) throw new Error("Hint already accepted");
+
+    await ctx.db.patch(duelId, { 
+      soloHintL2Accepted: true,
+      soloHintL2Type: hintType,
+    });
+  },
+});
+
+// Eliminate a wrong option (hint giver can eliminate up to 2)
+export const eliminateSoloHintL2Option = mutation({
+  args: {
+    duelId: v.id("challenges"),
+    option: v.string(),
+  },
+  handler: async (ctx, { duelId, option }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const otherRole = isChallenger ? "opponent" : "challenger";
+
+    // Can only eliminate if the OTHER player requested and hint was accepted
+    if (challenge.soloHintL2RequestedBy !== otherRole) throw new Error("No hint request from opponent");
+    if (!challenge.soloHintL2Accepted) throw new Error("Hint not accepted yet");
+
+    const currentEliminated = challenge.soloHintL2EliminatedOptions || [];
+    
+    // Max 2 eliminations
+    if (currentEliminated.length >= 2) throw new Error("Maximum 2 options already eliminated");
+    
+    // Can't eliminate same option twice
+    if (currentEliminated.includes(option)) throw new Error("Option already eliminated");
+
+    // Verify the option is in the list and is NOT the correct answer
+    const wordIndex = challenge.soloHintL2WordIndex;
+    if (wordIndex === undefined) throw new Error("No word index for hint");
+    
+    const theme = await ctx.db.get(challenge.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    const currentWord = theme.words[wordIndex];
+    if (!currentWord) throw new Error("Word not found");
+    
+    // Don't allow eliminating the correct answer
+    if (option === currentWord.answer) throw new Error("Cannot eliminate the correct answer");
+
+    await ctx.db.patch(duelId, {
+      soloHintL2EliminatedOptions: [...currentEliminated, option],
+    });
+  },
+});
+
+// Cancel L2 hint request (requester can cancel)
+export const cancelSoloHintL2 = mutation({
+  args: {
+    duelId: v.id("challenges"),
+  },
+  handler: async (ctx, { duelId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+
+    // Can only cancel if this player requested
+    if (challenge.soloHintL2RequestedBy !== playerRole) throw new Error("You did not request a hint");
+
+    await ctx.db.patch(duelId, {
+      soloHintL2RequestedBy: undefined,
+      soloHintL2Accepted: undefined,
+      soloHintL2WordIndex: undefined,
+      soloHintL2Options: undefined,
+      soloHintL2EliminatedOptions: undefined,
+      soloHintL2Type: undefined,
+    });
   },
 });

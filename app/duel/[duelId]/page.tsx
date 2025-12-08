@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
+import SoloStyleChallenge from "./SoloStyleChallenge";
 
 // Sabotage Effect Type
 type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
@@ -446,11 +447,11 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
   { effect: "cards", label: "Cards", emoji: "🃏" },
 ];
 
-export default function ChallengePage() {
+export default function DuelPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useUser();
-  const challengeId = params.duelId as string;
+  const duelId = params.duelId as string;
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -489,18 +490,18 @@ export default function ChallengePage() {
     setSabotagePhase('wind-up');
   }, []);
 
-  const challengeData = useQuery(
-    api.duel.getChallenge,
-    { challengeId: challengeId as any }
+  const duelData = useQuery(
+    api.duel.getDuel,
+    { duelId: duelId as any }
   );
 
-  // Get theme for this challenge
+  // Get theme for this duel
   const theme = useQuery(
     api.themes.getTheme,
-    challengeData?.challenge?.themeId ? { themeId: challengeData.challenge.themeId } : "skip"
+    duelData?.duel?.themeId ? { themeId: duelData.duel.themeId } : "skip"
   );
-  const answer = useMutation(api.duel.answerChallenge);
-  const stopChallenge = useMutation(api.duel.stopChallenge);
+  const answer = useMutation(api.duel.answerDuel);
+  const stopDuel = useMutation(api.duel.stopDuel);
   const requestHint = useMutation(api.duel.requestHint);
   const acceptHint = useMutation(api.duel.acceptHint);
   const eliminateOption = useMutation(api.duel.eliminateOption);
@@ -524,14 +525,14 @@ export default function ChallengePage() {
   const lockedAnswerRef = useRef<string | null>(null);
   
   // Extract values safely for hooks (before any returns)
-  const challenge = challengeData?.challenge;
-  const challenger = challengeData?.challenger;
-  const opponent = challengeData?.opponent;
-  const wordOrder = challenge?.wordOrder;
+  const duel = duelData?.duel;
+  const challenger = duelData?.challenger;
+  const opponent = duelData?.opponent;
+  const wordOrder = duel?.wordOrder;
   const words = theme?.words || [];
   // When completed, show the last word; otherwise show current word
-  const isCompleted = challenge?.status === "completed";
-  const rawIndex = challenge?.currentWordIndex ?? 0;
+  const isCompleted = duel?.status === "completed";
+  const rawIndex = duel?.currentWordIndex ?? 0;
   const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
   // Use shuffled word order if available, otherwise fall back to sequential
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
@@ -545,7 +546,7 @@ export default function ChallengePage() {
   );
 
   // Track word index from server for transition detection
-  const currentWordIndex = challenge?.currentWordIndex;
+  const currentWordIndex = duel?.currentWordIndex;
   
   // Unified transition effect - handles all question phase changes
   useEffect(() => {
@@ -623,11 +624,11 @@ export default function ChallengePage() {
         [prevShuffled[i], prevShuffled[j]] = [prevShuffled[j], prevShuffled[i]];
       }
       
-      // Get opponent's answer from challenge data
+      // Get opponent's answer from duel data
       const userIsChallenger = challenger?.clerkId === user?.id;
       const opponentLastAnswer = userIsChallenger 
-        ? challenge?.opponentLastAnswer 
-        : challenge?.challengerLastAnswer;
+        ? duel?.opponentLastAnswer 
+        : duel?.challengerLastAnswer;
       
       // Enter transition phase with frozen data
       // Use lockedAnswerRef for the selected answer (captures what was CONFIRMED, not current state)
@@ -643,7 +644,7 @@ export default function ChallengePage() {
         difficulty: prevDifficulty,
       });
       
-      // Only start countdown if challenge is not completed (more questions to come)
+      // Only start countdown if duel is not completed (more questions to come)
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
         setCountdown(5);
@@ -659,11 +660,11 @@ export default function ChallengePage() {
     
     // Update the tracked index
     activeQuestionIndexRef.current = currentWordIndex;
-  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, challenge?.opponentLastAnswer, challenge?.challengerLastAnswer, isLocked]);
+  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, duel?.opponentLastAnswer, duel?.challengerLastAnswer, isLocked]);
   
   // Countdown timer - respects pause state from server
-  const countdownPausedBy = challenge?.countdownPausedBy;
-  const countdownUnpauseRequestedBy = challenge?.countdownUnpauseRequestedBy;
+  const countdownPausedBy = duel?.countdownPausedBy;
+  const countdownUnpauseRequestedBy = duel?.countdownUnpauseRequestedBy;
   
   useEffect(() => {
     if (countdown === null || phase !== 'transition') return;
@@ -676,7 +677,7 @@ export default function ChallengePage() {
     } else {
       // Countdown finished - transition to answering phase
       // When completed, we want to keep showing the last question's feedback
-      if (challenge?.status !== "completed") {
+      if (duel?.status !== "completed") {
         // Reset ALL state for the new question
         setPhase('answering');
         setFrozenData(null);
@@ -691,7 +692,7 @@ export default function ChallengePage() {
       }
       setCountdown(null);
     }
-  }, [countdown, challenge?.status, countdownPausedBy, phase]);
+  }, [countdown, duel?.status, countdownPausedBy, phase]);
 
   // Type reveal effect for "None of the above" correct answer
   // Triggers when frozenData exists and hasNoneOption is true (meaning "None" was correct)
@@ -730,24 +731,24 @@ export default function ChallengePage() {
     return () => clearInterval(interval);
   }, [isRevealing, frozenData]);
 
-  // Monitor challenge status for real-time updates
+  // Monitor duel status for real-time updates
   useEffect(() => {
-    if (challengeData) {
-      const status = challengeData.challenge.status || "accepted";
+    if (duelData) {
+      const status = duelData.duel.status || "accepted";
       if (status === "stopped" || status === "rejected") {
         router.push('/');
       }
     }
-  }, [challengeData, router]);
+  }, [duelData, router]);
 
   // Sabotage effect listener - watch for incoming sabotage from opponent
   useEffect(() => {
-    if (!challengeData?.challenge || !challenger || !user) return;
+    if (!duelData?.duel || !challenger || !user) return;
     
     const isChallenger = challenger.clerkId === user.id;
     const mySabotage = isChallenger 
-      ? challengeData.challenge.challengerSabotage 
-      : challengeData.challenge.opponentSabotage;
+      ? duelData.duel.challengerSabotage 
+      : duelData.duel.opponentSabotage;
     
     if (mySabotage && mySabotage.timestamp !== lastSabotageTimestampRef.current) {
       lastSabotageTimestampRef.current = mySabotage.timestamp;
@@ -776,7 +777,7 @@ export default function ChallengePage() {
       // Store timers for cleanup
       sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
     }
-  }, [challengeData?.challenge?.challengerSabotage, challengeData?.challenge?.opponentSabotage, challenger?.clerkId, user?.id, clearSabotageEffect]);
+  }, [duelData?.duel?.challengerSabotage, duelData?.duel?.opponentSabotage, challenger?.clerkId, user?.id, clearSabotageEffect]);
 
   // Clear sabotage effect when answer is locked in
   useEffect(() => {
@@ -794,11 +795,11 @@ export default function ChallengePage() {
 
   // Clear selected answer if it becomes eliminated
   useEffect(() => {
-    const eliminated = challengeData?.challenge?.eliminatedOptions || [];
+    const eliminated = duelData?.duel?.eliminatedOptions || [];
     if (selectedAnswer && eliminated.includes(selectedAnswer)) {
       setSelectedAnswer(null);
     }
-  }, [challengeData?.challenge?.eliminatedOptions, selectedAnswer]);
+  }, [duelData?.duel?.eliminatedOptions, selectedAnswer]);
 
   // Question timer - synced from server questionStartTime, gated by phase
   useEffect(() => {
@@ -808,10 +809,10 @@ export default function ChallengePage() {
       timerIntervalRef.current = null;
     }
     
-    const questionStartTime = challenge?.questionStartTime;
-    const status = challenge?.status;
+    const questionStartTime = duel?.questionStartTime;
+    const status = duel?.status;
     
-    // Only run timer during answering phase with active challenge
+    // Only run timer during answering phase with active duel
     if (phase !== 'answering' || !questionStartTime || status !== "accepted") {
       setQuestionTimer(null);
       return;
@@ -822,7 +823,7 @@ export default function ChallengePage() {
     // but we show transition before starting the next question timer)
     // Only apply this offset after the first question, since no transition precedes the first one
     const updateTimer = () => {
-      const isFirstQuestion = (challenge?.currentWordIndex ?? 0) === 0;
+      const isFirstQuestion = (duel?.currentWordIndex ?? 0) === 0;
       const transitionOffset = isFirstQuestion ? 0 : TRANSITION_DURATION * 1000;
       const effectiveStartTime = questionStartTime + transitionOffset;
       const elapsed = (Date.now() - effectiveStartTime) / 1000;
@@ -835,13 +836,13 @@ export default function ChallengePage() {
         // Check if current user has answered
         const userIsChallenger = challenger?.clerkId === user?.id;
         const hasAnswered = userIsChallenger 
-          ? challenge?.challengerAnswered 
-          : challenge?.opponentAnswered;
+          ? duel?.challengerAnswered 
+          : duel?.opponentAnswered;
         
-        if (!hasAnswered && challenge?._id && user?.id) {
+        if (!hasAnswered && duel?._id && user?.id) {
           // Auto-submit timeout
           timeoutAnswer({
-            challengeId: challenge._id,
+            duelId: duel._id,
           }).catch(console.error);
         }
       }
@@ -859,7 +860,7 @@ export default function ChallengePage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [phase, challenge?.questionStartTime, challenge?.status, challenge?._id, challenge?.challengerAnswered, challenge?.opponentAnswered, challenger?.clerkId, user?.id, timeoutAnswer]);
+  }, [phase, duel?.questionStartTime, duel?.status, duel?._id, duel?.challengerAnswered, duel?.opponentAnswered, challenger?.clerkId, user?.id, timeoutAnswer]);
 
   // Difficulty scaling based on question index using dynamic distribution
   // Easy: 4 options (1 correct + 3 random wrong), 1 point
@@ -932,45 +933,73 @@ export default function ChallengePage() {
 
   // Early returns AFTER all hooks
   if (!user) return <div>Sign in first.</div>;
-  if (!challengeData) return <div>Loading challenge...</div>;
+  if (!duelData) return <div>Loading duel...</div>;
   if (!theme) return <div>Loading theme...</div>;
 
-  // Check challenge status
-  const status = challenge?.status || "accepted";
+  // Check duel status
+  const status = duel?.status || "accepted";
   if (status === "pending") {
-    return <div>Challenge not yet accepted...</div>;
+    return <div>Duel not yet accepted...</div>;
   }
   if (status === "rejected") {
-    return <div>Challenge was rejected</div>;
+    return <div>Duel was rejected</div>;
   }
   if (status === "stopped") {
-    return <div>Challenge was stopped</div>;
+    return <div>Duel was stopped</div>;
   }
-  // For completed status, we'll show the last question with results overlay
-  // (handled below in the main render)
+  // Redirect to learn phase for "learning" status
+  if (status === "learning") {
+    router.push(`/duel/learn/${duelId}`);
+    return <div>Redirecting to learn phase...</div>;
+  }
+  // Handle new solo-style "challenging" status
+  if (status === "challenging" && duel) {
+    return (
+      <SoloStyleChallenge
+        duelId={duelId}
+        duel={duel}
+        theme={theme}
+        challenger={challenger ?? null}
+        opponent={opponent ?? null}
+      />
+    );
+  }
+  // For completed status with solo-style data, use SoloStyleChallenge
+  if (status === "completed" && duel?.challengerWordStates) {
+    return (
+      <SoloStyleChallenge
+        duelId={duelId}
+        duel={duel}
+        theme={theme}
+        challenger={challenger ?? null}
+        opponent={opponent ?? null}
+      />
+    );
+  }
+  // For legacy "accepted" status and "completed" without solo data, continue with old UI below
 
-  // At this point, challenge is guaranteed to exist
-  if (!challenge) return <div>Loading...</div>;
+  // At this point, duel is guaranteed to exist
+  if (!duel) return <div>Loading...</div>;
 
   // Check if current user is challenger or opponent
   const isChallenger = challenger?.clerkId === user.id;
   const isOpponent = opponent?.clerkId === user.id;
   
   if (!isChallenger && !isOpponent) {
-    return <div>You're not part of this challenge</div>;
+    return <div>You're not part of this duel</div>;
   }
 
-  const hasAnswered = (isChallenger && challenge.challengerAnswered) || 
-                     (isOpponent && challenge.opponentAnswered);
-  const opponentHasAnswered = (isChallenger && challenge.opponentAnswered) || 
-                              (isOpponent && challenge.challengerAnswered);
+  const hasAnswered = (isChallenger && duel.challengerAnswered) || 
+                     (isOpponent && duel.opponentAnswered);
+  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) || 
+                              (isOpponent && duel.challengerAnswered);
 
   // Hint system state
   const myRole = isChallenger ? "challenger" : "opponent";
   const theirRole = isChallenger ? "opponent" : "challenger";
-  const hintRequestedBy = challenge.hintRequestedBy;
-  const hintAccepted = challenge.hintAccepted;
-  const eliminatedOptions = challenge.eliminatedOptions || [];
+  const hintRequestedBy = duel.hintRequestedBy;
+  const hintAccepted = duel.hintAccepted;
+  const eliminatedOptions = duel.eliminatedOptions || [];
   
   // Hint UI states
   const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
@@ -984,14 +1013,14 @@ export default function ChallengePage() {
   const inTransition = phase === 'transition' && !!frozenData;
   const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
 
-  const handleStopChallenge = async () => {
+  const handleStopDuel = async () => {
     try {
-      await stopChallenge({
-        challengeId: challenge._id,
+      await stopDuel({
+        duelId: duel._id,
       });
       router.push('/');
     } catch (error) {
-      console.error("Failed to stop challenge:", error);
+      console.error("Failed to stop duel:", error);
     }
   };
 
@@ -1003,7 +1032,7 @@ export default function ChallengePage() {
     setIsLocked(true);
     try {
       await answer({
-        challengeId: challenge._id,
+        duelId: duel._id,
         selectedAnswer,
       });
     } catch (error) {
@@ -1016,7 +1045,7 @@ export default function ChallengePage() {
   const handleRequestHint = async () => {
     try {
       await requestHint({
-        challengeId: challenge._id,
+        duelId: duel._id,
       });
     } catch (error) {
       console.error("Failed to request hint:", error);
@@ -1026,7 +1055,7 @@ export default function ChallengePage() {
   const handleAcceptHint = async () => {
     try {
       await acceptHint({
-        challengeId: challenge._id,
+        duelId: duel._id,
       });
     } catch (error) {
       console.error("Failed to accept hint:", error);
@@ -1036,7 +1065,7 @@ export default function ChallengePage() {
   const handleEliminateOption = async (option: string) => {
     try {
       await eliminateOption({
-        challengeId: challenge._id,
+        duelId: duel._id,
         option,
       });
     } catch (error) {
@@ -1047,7 +1076,7 @@ export default function ChallengePage() {
   const handleSendSabotage = async (effect: SabotageEffect) => {
     try {
       await sendSabotage({
-        challengeId: challenge._id,
+        duelId: duel._id,
         effect,
       });
       setShowSabotageMenu(false);
@@ -1101,8 +1130,8 @@ export default function ChallengePage() {
   };
 
   // Scores
-  const challengerScore = challenge.challengerScore || 0;
-  const opponentScore = challenge.opponentScore || 0;
+  const challengerScore = duel.challengerScore || 0;
+  const opponentScore = duel.opponentScore || 0;
   const myScore = isChallenger ? challengerScore : opponentScore;
   const theirScore = isChallenger ? opponentScore : challengerScore;
   const myName = isChallenger ? (challenger?.name || challenger?.email) : (opponent?.name || opponent?.email);
@@ -1110,8 +1139,8 @@ export default function ChallengePage() {
 
   // Sabotage remaining count
   const mySabotagesUsed = isChallenger 
-    ? (challenge.challengerSabotagesUsed || 0) 
-    : (challenge.opponentSabotagesUsed || 0);
+    ? (duel.challengerSabotagesUsed || 0) 
+    : (duel.opponentSabotagesUsed || 0);
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
 
   return (
@@ -1122,10 +1151,10 @@ export default function ChallengePage() {
       {/* Exit Button - hide when completed */}
       {status !== "completed" && (
         <button
-          onClick={handleStopChallenge}
+          onClick={handleStopDuel}
           className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
         >
-          Exit Challenge
+          Exit Duel
         </button>
       )}
       
@@ -1143,7 +1172,7 @@ export default function ChallengePage() {
       </div>
 
       <div className="text-center">
-        <h1 className="text-2xl font-bold mb-2">Language Challenge</h1>
+        <h1 className="text-2xl font-bold mb-2">Language Duel</h1>
         <div className="mb-4">
           <div className="text-sm text-gray-400">
             {challenger?.name || challenger?.email} vs {opponent?.name || opponent?.email}
@@ -1153,6 +1182,35 @@ export default function ChallengePage() {
 
       <div className="text-center">
         <div className="text-lg mb-2">Word #{(frozenData ? frozenData.wordIndex : index) + 1} of {words.length}</div>
+        
+        {/* Success rate stats for both players */}
+        {(() => {
+          const questionsAnswered = frozenData ? frozenData.wordIndex : index;
+          if (questionsAnswered === 0) return null;
+          
+          // Calculate max possible score based on difficulty distribution
+          const getMaxPossibleScore = (questionCount: number) => {
+            let total = 0;
+            for (let i = 0; i < questionCount; i++) {
+              const diff = getDifficultyForIndex(i, difficultyDistribution);
+              total += diff.points;
+            }
+            return total;
+          };
+          
+          const maxScore = getMaxPossibleScore(questionsAnswered);
+          const mySuccessRate = maxScore > 0 ? Math.round((myScore / maxScore) * 100) : 0;
+          const theirSuccessRate = maxScore > 0 ? Math.round((theirScore / maxScore) * 100) : 0;
+          
+          return (
+            <div className="text-sm text-gray-400 mb-2">
+              <span className="text-green-400">{myName?.split(' ')[0] || 'You'}: {mySuccessRate}%</span>
+              <span className="mx-2">|</span>
+              <span className="text-blue-400">{theirName?.split(' ')[0] || 'Opponent'}: {theirSuccessRate}%</span>
+            </div>
+          );
+        })()}
+        
         {/* Difficulty indicator */}
         <div className="mb-2">
           {(() => {
@@ -1202,8 +1260,8 @@ export default function ChallengePage() {
               return (
                 <button
                   onClick={() => {
-                    if (challenge?._id && user?.id) {
-                      pauseCountdown({ challengeId: challenge._id }).catch(console.error);
+                    if (duel?._id && user?.id) {
+                      pauseCountdown({ duelId: duel._id }).catch(console.error);
                     }
                   }}
                   className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors"
@@ -1236,8 +1294,8 @@ export default function ChallengePage() {
                     <div className="text-sm text-yellow-400">Opponent wants to resume!</div>
                     <button
                       onClick={() => {
-                        if (challenge?._id && user?.id) {
-                          confirmUnpauseCountdown({ challengeId: challenge._id }).catch(console.error);
+                        if (duel?._id && user?.id) {
+                          confirmUnpauseCountdown({ duelId: duel._id }).catch(console.error);
                         }
                       }}
                       className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors animate-pulse"
@@ -1253,8 +1311,8 @@ export default function ChallengePage() {
             return (
               <button
                 onClick={() => {
-                  if (challenge?._id && user?.id) {
-                    requestUnpauseCountdown({ challengeId: challenge._id }).catch(console.error);
+                  if (duel?._id && user?.id) {
+                    requestUnpauseCountdown({ duelId: duel._id }).catch(console.error);
                   }
                 }}
                 className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
@@ -1318,8 +1376,8 @@ export default function ChallengePage() {
             
             // Check if opponent picked this answer (show during countdown OR when completed)
             const opponentLastAnswer = isChallenger 
-              ? challenge?.opponentLastAnswer 
-              : challenge?.challengerLastAnswer;
+              ? duel?.opponentLastAnswer 
+              : duel?.challengerLastAnswer;
             const opponentPickedThis = frozenData 
               ? frozenData.opponentAnswer === ans
               : (status === "completed" && opponentLastAnswer === ans);
@@ -1504,12 +1562,12 @@ export default function ChallengePage() {
         </div>
       )}
 
-      {/* Final Results Panel - shown when challenge is completed */}
+      {/* Final Results Panel - shown when duel is completed */}
       {status === "completed" && (
         <div className="w-full max-w-md mt-4">
           <div className="bg-gray-800 rounded-xl p-6 border-2 border-yellow-500">
             <div className="text-center text-xl font-bold text-yellow-400 mb-4">
-              Challenge Complete!
+              Duel Complete!
             </div>
             
             {/* Winner announcement */}

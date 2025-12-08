@@ -124,3 +124,27 @@ export const deleteWord = mutation({
     return await ctx.db.get(args.themeId);
   },
 });
+
+// Duplicate a theme with "(DUPLICATE)" suffix
+export const duplicateTheme = mutation({
+  args: {
+    themeId: v.id("themes"),
+  },
+  handler: async (ctx, args): Promise<Id<"themes">> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    // Create new theme with "(DUPLICATE)" suffix, all in uppercase
+    const newName = `${theme.name.toUpperCase()}(DUPLICATE)`;
+    
+    return await ctx.db.insert("themes", {
+      name: newName,
+      description: theme.description,
+      words: theme.words,
+      createdAt: Date.now(),
+    });
+  },
+});

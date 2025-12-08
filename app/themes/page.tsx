@@ -164,6 +164,7 @@ export default function ThemesPage() {
   const createTheme = useMutation(api.themes.createTheme);
   const updateTheme = useMutation(api.themes.updateTheme);
   const deleteThemeMutation = useMutation(api.themes.deleteTheme);
+  const duplicateThemeMutation = useMutation(api.themes.duplicateTheme);
   
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -259,6 +260,15 @@ export default function ThemesPage() {
     } catch (error) {
       console.error("Failed to delete theme:", error);
       alert("Failed to delete theme");
+    }
+  };
+
+  const handleDuplicateTheme = async (themeId: Id<"themes">) => {
+    try {
+      await duplicateThemeMutation({ themeId });
+    } catch (error) {
+      console.error("Failed to duplicate theme:", error);
+      alert("Failed to duplicate theme");
     }
   };
 
@@ -754,12 +764,20 @@ export default function ThemesPage() {
                   </div>
                   <div className="text-sm text-gray-600">{theme.words.length} words</div>
                 </button>
-                <button
-                  onClick={() => handleDeleteTheme(theme._id)}
-                  className="ml-2 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
-                >
-                  Delete
-                </button>
+                <div className="flex gap-2 ml-2">
+                  <button
+                    onClick={() => handleDuplicateTheme(theme._id)}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTheme(theme._id)}
+                    className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

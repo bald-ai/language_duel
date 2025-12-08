@@ -6,17 +6,17 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { challengeId } = await request.json();
+    const { duelId } = await request.json();
     
-    const challenge = await convex.query(api.duel.getChallenge, { challengeId });
+    const duel = await convex.query(api.duel.getDuel, { duelId });
     
-    if (!challenge) {
-      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+    if (!duel) {
+      return NextResponse.json({ error: 'Duel not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ status: challenge.challenge.status });
+    return NextResponse.json({ status: duel.duel.status });
   } catch (error) {
-    console.error('Error checking challenge status:', error);
+    console.error('Error checking duel status:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
