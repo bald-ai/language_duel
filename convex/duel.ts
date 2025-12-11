@@ -60,8 +60,9 @@ export const createDuel = mutation({
   args: {
     opponentId: v.id("users"),
     themeId: v.id("themes"),
+    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
   },
-  handler: async (ctx, { opponentId, themeId }) => {
+  handler: async (ctx, { opponentId, themeId, mode }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     
@@ -97,6 +98,7 @@ export const createDuel = mutation({
       challengerScore: 0,
       opponentScore: 0,
       status: "pending",
+      mode: mode || "solo",
       createdAt: Date.now(),
     });
   },
@@ -132,9 +134,9 @@ export const answerDuel = mutation({
     const challenge = await ctx.db.get(duelId);
     if (!challenge) throw new Error("Challenge not found");
 
-    // Check if challenge is accepted (or handle old challenges without status)
+    // Check if challenge is accepted or challenging (or handle old challenges without status)
     const status = challenge.status || "accepted"; // Default old challenges to accepted
-    if (status !== "accepted") {
+    if (status !== "accepted" && status !== "challenging") {
       throw new Error("Challenge is not active");
     }
 
@@ -254,6 +256,7 @@ export const answerDuel = mutation({
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
+          countdownSkipRequestedBy: undefined,
         });
       } else {
         // Continue to next word - reset hint state, timer, and pause state
@@ -268,6 +271,7 @@ export const answerDuel = mutation({
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
+          countdownSkipRequestedBy: undefined,
         });
       }
     }
@@ -377,28 +381,38 @@ export const acceptDuel = mutation({
     const challengerFirstLevel = Math.random() < 0.66 ? 1 : 2;
     const opponentFirstLevel = Math.random() < 0.66 ? 1 : 2;
 
-    // Skip learning phase - go directly to challenging
-    await ctx.db.patch(duelId, {
-      status: "challenging",
-      // Challenger state
-      challengerWordStates: createWordStates(),
-      challengerActivePool: challengerActive,
-      challengerRemainingPool: challengerRemaining,
-      challengerCurrentWordIndex: challengerFirstWord,
-      challengerCurrentLevel: challengerFirstLevel,
-      challengerLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
-      challengerCompleted: false,
-      challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
-      // Opponent state
-      opponentWordStates: createWordStates(),
-      opponentActivePool: opponentActive,
-      opponentRemainingPool: opponentRemaining,
-      opponentCurrentWordIndex: opponentFirstWord,
-      opponentCurrentLevel: opponentFirstLevel,
-      opponentLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
-      opponentCompleted: false,
-      opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
-    });
+    // Check if this is a classic mode duel
+    if (challenge.mode === "classic") {
+      // Classic mode: set status to "accepted" and initialize timer
+      await ctx.db.patch(duelId, {
+        status: "accepted",
+        questionStartTime: Date.now(),
+      });
+    } else {
+      // Solo mode: skip learning phase - go directly to challenging
+      await ctx.db.patch(duelId, {
+        status: "challenging",
+        questionStartTime: Date.now(),
+        // Challenger state
+        challengerWordStates: createWordStates(),
+        challengerActivePool: challengerActive,
+        challengerRemainingPool: challengerRemaining,
+        challengerCurrentWordIndex: challengerFirstWord,
+        challengerCurrentLevel: challengerFirstLevel,
+        challengerLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+        challengerCompleted: false,
+        challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
+        // Opponent state
+        opponentWordStates: createWordStates(),
+        opponentActivePool: opponentActive,
+        opponentRemainingPool: opponentRemaining,
+        opponentCurrentWordIndex: opponentFirstWord,
+        opponentCurrentLevel: opponentFirstLevel,
+        opponentLevel2Mode: Math.random() < 0.5 ? "typing" : "multiple_choice",
+        opponentCompleted: false,
+        opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
+      });
+    }
   },
 });
 
@@ -813,6 +827,62 @@ export const confirmUnpauseCountdown = mutation({
   },
 });
 
+// Skip countdown - both players must agree to skip the transition countdown
+export const skipCountdown = mutation({
+  args: {
+    duelId: v.id("challenges"),
+  },
+  handler: async (ctx, { duelId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+    
+    const challenge = await ctx.db.get(duelId);
+    if (!challenge) throw new Error("Challenge not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const isChallenger = challenge.challengerId === user._id;
+    const isOpponent = challenge.opponentId === user._id;
+    if (!isChallenger && !isOpponent) throw new Error("User not part of this challenge");
+
+    // Can't skip if countdown is paused
+    if (challenge.countdownPausedBy) {
+      throw new Error("Cannot skip while countdown is paused");
+    }
+
+    const playerRole = isChallenger ? "challenger" : "opponent";
+    const currentSkips = challenge.countdownSkipRequestedBy || [];
+
+    // Already requested skip
+    if (currentSkips.includes(playerRole)) {
+      return { bothSkipped: false };
+    }
+
+    const newSkips = [...currentSkips, playerRole] as ("challenger" | "opponent")[];
+    
+    // Check if both players have now requested skip
+    const bothSkipped = newSkips.includes("challenger") && newSkips.includes("opponent");
+
+    if (bothSkipped) {
+      // Clear skip state - frontend will handle immediate transition
+      await ctx.db.patch(duelId, {
+        countdownSkipRequestedBy: newSkips,
+      });
+      return { bothSkipped: true };
+    } else {
+      await ctx.db.patch(duelId, {
+        countdownSkipRequestedBy: newSkips,
+      });
+      return { bothSkipped: false };
+    }
+  },
+});
+
 // Handle timeout - player gets 0 points for not answering in time
 export const timeoutAnswer = mutation({
   args: {
@@ -880,6 +950,7 @@ export const timeoutAnswer = mutation({
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
+          countdownSkipRequestedBy: undefined,
         });
       } else {
         await ctx.db.patch(duelId, {
@@ -893,6 +964,7 @@ export const timeoutAnswer = mutation({
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
+          countdownSkipRequestedBy: undefined,
         });
       }
     }

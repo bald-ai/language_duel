@@ -21,6 +21,7 @@ export default function Home() {
   const [showWaitingModal, setShowWaitingModal] = useState(false);
   const [waitingDuelId, setWaitingDuelId] = useState<string | null>(null);
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
+  const [selectedDuelThemeId, setSelectedDuelThemeId] = useState<string | null>(null);
   const [isJoiningDuel, setIsJoiningDuel] = useState(false);
   const [showSoloModal, setShowSoloModal] = useState(false);
   const [selectedSoloThemeId, setSelectedSoloThemeId] = useState<string | null>(null);
@@ -34,16 +35,22 @@ export default function Home() {
     setSelectedOpponentId(opponentId);
   };
 
-  const handleCreateDuel = async (themeId: string) => {
-    if (!selectedOpponentId) return;
+  const handleSelectTheme = (themeId: string) => {
+    setSelectedDuelThemeId(themeId);
+  };
+
+  const handleCreateDuel = async (mode: "solo" | "classic") => {
+    if (!selectedOpponentId || !selectedDuelThemeId) return;
     try {
       const duelId = await createDuel({ 
         opponentId: selectedOpponentId as any,
-        themeId: themeId as any,
+        themeId: selectedDuelThemeId as any,
+        mode: mode,
       });
       setWaitingDuelId(duelId);
       setShowDuelModal(false);
       setSelectedOpponentId(null);
+      setSelectedDuelThemeId(null);
       setShowWaitingModal(true);
     } catch (error) {
       console.error("Failed to create duel:", error);
@@ -215,7 +222,7 @@ export default function Home() {
             )}
 
             {/* Step 2: Select Theme */}
-            {selectedOpponentId && (
+            {selectedOpponentId && !selectedDuelThemeId && (
               <>
                 <p className="text-sm text-gray-600 mb-2">Select a theme for the duel:</p>
                 {!themes || themes.length === 0 ? (
@@ -225,7 +232,7 @@ export default function Home() {
                     {themes.map((theme) => (
                       <button
                         key={theme._id}
-                        onClick={() => handleCreateDuel(theme._id)}
+                        onClick={() => handleSelectTheme(theme._id)}
                         className="w-full text-left p-3 border rounded hover:bg-gray-100"
                       >
                         <div className="font-semibold text-gray-800">{theme.name}</div>
@@ -243,10 +250,41 @@ export default function Home() {
               </>
             )}
 
+            {/* Step 3: Select Mode */}
+            {selectedOpponentId && selectedDuelThemeId && (
+              <>
+                <p className="text-sm text-gray-600 mb-4">Choose duel mode:</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleCreateDuel("solo")}
+                    className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                  >
+                    <div className="font-bold text-blue-800 text-lg">Solo Style</div>
+                    <div className="text-sm text-blue-600">Independent progress, 3-level system, typing &amp; multiple choice</div>
+                  </button>
+                  <button
+                    onClick={() => handleCreateDuel("classic")}
+                    className="w-full text-left p-4 border-2 border-purple-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
+                  >
+                    <div className="font-bold text-purple-800 text-lg">Classic Mode</div>
+                    <div className="text-sm text-purple-600">Synced questions, timer, multiple choice only</div>
+                  </button>
+                </div>
+                
+                <button
+                  onClick={() => setSelectedDuelThemeId(null)}
+                  className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                >
+                  Back
+                </button>
+              </>
+            )}
+
             <button
               onClick={() => {
                 setShowDuelModal(false);
                 setSelectedOpponentId(null);
+                setSelectedDuelThemeId(null);
               }}
               className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
             >

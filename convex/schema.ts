@@ -33,6 +33,7 @@ export default defineSchema({
     challengerScore: v.number(), // Points scored by challenger
     opponentScore: v.number(), // Points scored by opponent
     status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped", "learning", "challenging"
+    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))), // Duel mode
     createdAt: v.number(),
     // Hint system fields (legacy - kept for compatibility)
     hintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
@@ -58,6 +59,8 @@ export default defineSchema({
     countdownPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
     countdownUnpauseRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
     countdownPausedAt: v.optional(v.number()),
+    // Countdown skip system - tracks who wants to skip the transition countdown
+    countdownSkipRequestedBy: v.optional(v.array(v.union(v.literal("challenger"), v.literal("opponent")))),
     
     // === NEW: Solo-style duel fields ===
     
