@@ -61,6 +61,18 @@ type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
 const SABOTAGE_DURATION = 7000;
 const MAX_SABOTAGES = 5;
 
+// Format duration as MM:SS or H:MM:SS
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
   { effect: "ink", label: "Ink", emoji: "🖤" },
   { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
@@ -1504,6 +1516,10 @@ export default function SoloStyleChallenge({
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
   const [feedbackAnswer, setFeedbackAnswer] = useState<string | null>(null);
 
+  // Duel duration tracking
+  const duelStartTimeRef = useRef<number | null>(null);
+  const [duelDuration, setDuelDuration] = useState<number>(0);
+
   // Sabotage state
   const [activeSabotage, setActiveSabotage] = useState<SabotageEffect | null>(null);
   const [sabotagePhase, setSabotagePhase] = useState<"wind-up" | "full" | "wind-down">("wind-up");
@@ -1640,6 +1656,20 @@ export default function SoloStyleChallenge({
     setActiveSabotage(null);
     setSabotagePhase("wind-up");
   }, []);
+
+  // Track duel start time and calculate duration
+  useEffect(() => {
+    // Capture start time when challenge begins
+    if (duel.status === "challenging" && duelStartTimeRef.current === null) {
+      duelStartTimeRef.current = Date.now();
+    }
+    
+    // Calculate duration when completed
+    if (duel.status === "completed" && duelStartTimeRef.current !== null) {
+      const duration = Math.floor((Date.now() - duelStartTimeRef.current) / 1000);
+      setDuelDuration(duration);
+    }
+  }, [duel.status]);
 
   // Sabotage effect listener
   useEffect(() => {
@@ -2025,6 +2055,14 @@ export default function SoloStyleChallenge({
         <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full text-center border-2 border-yellow-500">
           <div className="text-4xl mb-4">🎉</div>
           <h1 className="text-2xl font-bold text-yellow-400 mb-6">Duel Complete!</h1>
+
+          {/* Total Duration */}
+          {duelDuration > 0 && (
+            <div className="bg-gray-900 rounded-lg p-4 mb-6">
+              <div className="text-gray-400 text-sm mb-1">Total Time</div>
+              <div className="text-3xl font-bold font-mono text-white">{formatDuration(duelDuration)}</div>
+            </div>
+          )}
 
           {/* Comparison */}
           <div className="grid grid-cols-2 gap-4 mb-6">

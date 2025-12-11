@@ -41,6 +41,147 @@ export default function LearnPhasePage() {
   const [playingWordIndex, setPlayingWordIndex] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Session-only word order (array of original indices)
+  const [wordOrder, setWordOrder] = useState<number[] | null>(null);
+
+  // Initialize word order when theme loads
+  useEffect(() => {
+    if (theme && wordOrder === null) {
+      setWordOrder(theme.words.map((_, i) => i));
+    }
+  }, [theme, wordOrder]);
+
+  // Smooth gap drag-and-drop state
+  const [draggedOrderIdx, setDraggedOrderIdx] = useState<number | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  // Confidence level per word (0-3), keyed by wordKey
+  const [confidenceLevels, setConfidenceLevels] = useState<Record<string, number>>({});
+
+  const getConfidence = (wordKey: string): number => {
+    return confidenceLevels[wordKey] ?? 0;
+  };
+
+  const setConfidence = (wordKey: string, level: number) => {
+    setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
+  };
+
+  // Handle mouse down to start drag
+  const handleMouseDown = (e: React.MouseEvent, orderIdx: number) => {
+    // Don't start drag if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragOffset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+    setDraggedOrderIdx(orderIdx);
+    setMousePos({ x: e.clientX, y: e.clientY });
+  };
+
+  // Mouse move and mouse up handlers
+  useEffect(() => {
+    if (draggedOrderIdx === null || !wordOrder) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+
+      // Calculate drop position based on mouse Y (using actual element heights)
+      if (containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const relativeY = e.clientY - containerRect.top;
+        const gap = isRevealed ? 8 : 12; // space-y-2 = 8px, space-y-3 = 12px
+
+        let newDropIndex = 0;
+        let accumulatedHeight = 0;
+
+        wordOrder.forEach((originalIdx, index) => {
+          const itemEl = itemRefs.current.get(originalIdx);
+          if (itemEl && index !== draggedOrderIdx) {
+            const height = itemEl.offsetHeight + gap;
+            if (relativeY > accumulatedHeight + height / 2) {
+              newDropIndex = index + 1;
+            }
+            accumulatedHeight += height;
+          } else if (index === draggedOrderIdx) {
+            accumulatedHeight += gap; // Just the gap for dragged item
+          }
+        });
+
+        setDropIndex(newDropIndex);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (draggedOrderIdx !== null && dropIndex !== null && wordOrder) {
+        if (draggedOrderIdx !== dropIndex) {
+          const newOrder = [...wordOrder];
+          const [removed] = newOrder.splice(draggedOrderIdx, 1);
+          const adjustedIndex = dropIndex > draggedOrderIdx ? dropIndex - 1 : dropIndex;
+          newOrder.splice(adjustedIndex, 0, removed);
+          setWordOrder(newOrder);
+        }
+      }
+      setDraggedOrderIdx(null);
+      setDropIndex(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [draggedOrderIdx, dropIndex, wordOrder, isRevealed]);
+
+  // Calculate transform style for items during drag (matches reference exactly)
+  const getItemStyle = (orderIdx: number, originalIndex: number): React.CSSProperties => {
+    if (draggedOrderIdx === null || dropIndex === null || !wordOrder) return {};
+    if (orderIdx === draggedOrderIdx) return {};
+
+    // Get actual item height for accurate transforms
+    const itemEl = itemRefs.current.get(originalIndex);
+    const gap = isRevealed ? 8 : 12;
+    const itemHeight = itemEl ? itemEl.offsetHeight + gap : 64 + gap;
+
+    const adjustedDropIndex = dropIndex > draggedOrderIdx ? dropIndex - 1 : dropIndex;
+
+    // Exact logic from reference code
+    if (orderIdx >= adjustedDropIndex && draggedOrderIdx > orderIdx) {
+      return {
+        transform: `translateY(${itemHeight}px)`,
+        transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
+      };
+    }
+    if (orderIdx < adjustedDropIndex && draggedOrderIdx < orderIdx) {
+      return {
+        transform: `translateY(-${itemHeight}px)`,
+        transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
+      };
+    }
+    if (draggedOrderIdx < orderIdx && orderIdx <= adjustedDropIndex) {
+      return {
+        transform: `translateY(-${itemHeight}px)`,
+        transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
+      };
+    }
+    if (draggedOrderIdx > orderIdx && orderIdx >= adjustedDropIndex) {
+      return {
+        transform: `translateY(${itemHeight}px)`,
+        transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1)",
+      };
+    }
+
+    return { transition: "transform 200ms cubic-bezier(0.2, 0, 0, 1)" };
+  };
+
   // Hint functions
   const getHintState = (wordKey: string): HintState => {
     return hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
@@ -301,9 +442,13 @@ export default function LearnPhasePage() {
 
       {/* Words List */}
       <div className="flex-1 overflow-y-auto px-4 pb-24">
-        <div className="max-w-md mx-auto space-y-3">
-          {theme.words.map((word, index) => {
-            const wordKey = `${themeId}-${index}`;
+        <div
+          ref={containerRef}
+          className={`max-w-md mx-auto relative ${isRevealed ? "space-y-2" : "space-y-3"}`}
+        >
+          {(wordOrder ?? []).map((originalIndex, orderIdx) => {
+            const word = theme.words[originalIndex];
+            const wordKey = `${themeId}-${originalIndex}`;
             const state = getHintState(wordKey);
             const { revealedPositions } = state;
             const letters = word.answer.split("");
@@ -311,23 +456,37 @@ export default function LearnPhasePage() {
             const maxHints = Math.ceil(totalLetters / 3);
             const hintsRemaining = maxHints - state.hintCount;
             const isTTSDisabled = playingWordIndex !== null;
-            const isThisPlaying = playingWordIndex === index;
+            const isThisPlaying = playingWordIndex === originalIndex;
+            const isDragging = draggedOrderIdx === orderIdx;
 
             return (
               <div
-                key={index}
-                className="bg-gray-800 border border-gray-700 rounded-xl p-4"
+                key={originalIndex}
+                ref={(el) => {
+                  itemRefs.current.set(originalIndex, el);
+                }}
+                onMouseDown={(e) => handleMouseDown(e, orderIdx)}
+                style={getItemStyle(orderIdx, originalIndex)}
+                className={`bg-gray-800 border border-gray-700 rounded-xl ${
+                  isRevealed ? "p-2.5" : "p-4"
+                } cursor-grab active:cursor-grabbing select-none ${
+                  isDragging ? "opacity-0" : ""
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-stretch justify-between">
                   {/* Word & Answer Section */}
                   <div className="flex-1">
-                    <div className="text-lg font-medium text-white mb-1">
+                    <div
+                      className={`font-medium text-white ${
+                        isRevealed ? "text-base mb-0.5 leading-tight" : "text-lg mb-1"
+                      }`}
+                    >
                       {word.word}
                     </div>
 
                     {/* Answer - revealed or letter slots */}
                     {isRevealed ? (
-                      <div className="text-lg font-bold text-green-400">
+                      <div className="font-bold text-green-400 text-base leading-tight">
                         {word.answer}
                       </div>
                     ) : (
@@ -363,7 +522,29 @@ export default function LearnPhasePage() {
                   </div>
 
                   {/* Buttons Section */}
-                  <div className="flex gap-2 items-center ml-4">
+                  <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
+                    {/* Confidence Slider - only in revealed mode */}
+                    {isRevealed && (
+                      <div className="flex flex-col items-center h-12 mr-1.5">
+                        <input
+                          type="range"
+                          min={0}
+                          max={3}
+                          step={1}
+                          value={getConfidence(wordKey)}
+                          onChange={(e) => setConfidence(wordKey, Number(e.target.value))}
+                          className={`${isRevealed ? "h-10" : "h-12"} w-4 appearance-none bg-gray-700 rounded-full cursor-pointer`}
+                          style={{
+                            writingMode: "vertical-lr",
+                            direction: "rtl",
+                          }}
+                        />
+                        <span className="text-xs text-gray-400 mt-1">
+                          {getConfidence(wordKey)}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Testing mode buttons */}
                     {!isRevealed && (
                       <>
@@ -429,9 +610,9 @@ export default function LearnPhasePage() {
 
                     {/* TTS Button - disabled when any TTS is playing */}
                     <button
-                      onClick={() => playTTS(index, word.answer)}
+                      onClick={() => playTTS(originalIndex, word.answer)}
                       disabled={isTTSDisabled}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                      className={`${isRevealed ? "w-10 h-10" : "w-12 h-12"} rounded-full flex items-center justify-center transition-colors ${
                         isThisPlaying
                           ? "bg-green-500 text-white"
                           : isTTSDisabled
@@ -445,7 +626,7 @@ export default function LearnPhasePage() {
                         viewBox="0 0 24 24"
                         strokeWidth={2}
                         stroke="currentColor"
-                        className="w-6 h-6"
+                        className={isRevealed ? "w-5 h-5" : "w-6 h-6"}
                       >
                         <path
                           strokeLinecap="round"
@@ -461,6 +642,100 @@ export default function LearnPhasePage() {
           })}
         </div>
       </div>
+
+      {/* Floating dragged card */}
+      {draggedOrderIdx !== null && wordOrder && theme && (
+        <div
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: mousePos.x - dragOffset.current.x,
+            top: mousePos.y - dragOffset.current.y,
+            width: containerRef.current?.offsetWidth,
+          }}
+        >
+          {(() => {
+            const originalIndex = wordOrder[draggedOrderIdx];
+            const word = theme.words[originalIndex];
+            const wordKey = `${themeId}-${originalIndex}`;
+            const isTTSDisabled = playingWordIndex !== null;
+            const isThisPlaying = playingWordIndex === originalIndex;
+
+            return (
+              <div
+                className={`bg-gray-800 border-2 border-blue-500 rounded-xl ${
+                  isRevealed ? "p-2.5" : "p-4"
+                } shadow-2xl shadow-blue-500/20`}
+              >
+                <div className="flex items-stretch justify-between">
+                  {/* Word & Answer Section */}
+                  <div className="flex-1">
+                    <div
+                      className={`font-medium text-white ${
+                        isRevealed ? "text-base mb-0.5 leading-tight" : "text-lg mb-1"
+                      }`}
+                    >
+                      {word.word}
+                    </div>
+                    {isRevealed && (
+                      <div className="font-bold text-green-400 text-base leading-tight">
+                        {word.answer}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Buttons Section (simplified for drag preview) */}
+                  <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
+                    {isRevealed && (
+                      <div className="flex flex-col items-center h-12 mr-1.5">
+                        <input
+                          type="range"
+                          min={0}
+                          max={3}
+                          step={1}
+                          value={getConfidence(wordKey)}
+                          readOnly
+                          className={`${isRevealed ? "h-10" : "h-12"} w-4 appearance-none bg-gray-700 rounded-full`}
+                          style={{
+                            writingMode: "vertical-lr",
+                            direction: "rtl",
+                          }}
+                        />
+                        <span className="text-xs text-gray-400 mt-1">
+                          {getConfidence(wordKey)}
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className={`${isRevealed ? "w-10 h-10" : "w-12 h-12"} rounded-full flex items-center justify-center ${
+                        isThisPlaying
+                          ? "bg-green-500 text-white"
+                          : isTTSDisabled
+                          ? "bg-gray-800 text-gray-600"
+                          : "bg-gray-700 text-gray-300"
+                      }`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className={isRevealed ? "w-5 h-5" : "w-6 h-6"}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Fixed Bottom Button */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-4">

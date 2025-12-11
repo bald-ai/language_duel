@@ -14,6 +14,18 @@ type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
 
+// Format duration as MM:SS or H:MM:SS
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 // Sabotage Effect Components
 function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
   const splatters = useMemo(
@@ -522,6 +534,10 @@ export default function ClassicDuelChallenge({
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTimedOutRef = useRef(false);
+
+  // Duel start time tracking for total duration
+  const duelStartTimeRef = useRef<number | null>(null);
+  const [duelDuration, setDuelDuration] = useState<number>(0);
   
   // Phase-based state machine for question flow
   const [phase, setPhase] = useState<'idle' | 'answering' | 'transition'>('idle');
@@ -788,8 +804,21 @@ export default function ClassicDuelChallenge({
       // Just entered answering phase - start fresh timer
       questionStartedAtRef.current = Date.now();
       hasTimedOutRef.current = false;
+      
+      // Capture duel start time on first question
+      if (duelStartTimeRef.current === null) {
+        duelStartTimeRef.current = Date.now();
+      }
     }
   }, [phase]);
+
+  // Calculate duel duration when completed
+  useEffect(() => {
+    if (duel.status === "completed" && duelStartTimeRef.current !== null) {
+      const duration = Math.floor((Date.now() - duelStartTimeRef.current) / 1000);
+      setDuelDuration(duration);
+    }
+  }, [duel.status]);
   
   // Timer countdown effect
   useEffect(() => {
@@ -1381,6 +1410,14 @@ export default function ClassicDuelChallenge({
             }`}>
               {myScore === theirScore ? "It's a tie!" : myScore > theirScore ? "You won! 🎉" : "You lost!"}
             </div>
+
+            {/* Total Duration */}
+            {duelDuration > 0 && (
+              <div className="bg-gray-900 rounded-lg p-4 mb-4">
+                <div className="text-center text-sm text-gray-400 mb-1">Total Time</div>
+                <div className="text-center text-2xl font-bold font-mono text-white">{formatDuration(duelDuration)}</div>
+              </div>
+            )}
             
             <div className="bg-gray-900 rounded-lg p-4 mb-4">
               <div className="text-center text-sm text-gray-400 mb-3">Final Score</div>

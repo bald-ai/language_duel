@@ -708,16 +708,30 @@ function Level3Input({
   );
 }
 
+// Format duration as MM:SS or H:MM:SS
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 // Completion Screen Component
 function CompletionScreen({
   questionsAnswered,
   correctAnswers,
   totalWords,
+  totalDuration,
   onExit,
 }: {
   questionsAnswered: number;
   correctAnswers: number;
   totalWords: number;
+  totalDuration: number;
   onExit: () => void;
 }) {
   const accuracy = questionsAnswered > 0 ? Math.round((correctAnswers / questionsAnswered) * 100) : 0;
@@ -729,6 +743,11 @@ function CompletionScreen({
         <h1 className="text-2xl font-bold text-green-400 mb-6">Challenge Complete!</h1>
         
         <div className="space-y-4 mb-8">
+          <div className="bg-gray-900 rounded-lg p-4">
+            <div className="text-gray-400 text-sm">Total Time</div>
+            <div className="text-3xl font-bold font-mono text-white">{formatDuration(totalDuration)}</div>
+          </div>
+
           <div className="bg-gray-900 rounded-lg p-4">
             <div className="text-gray-400 text-sm">Words Mastered</div>
             <div className="text-3xl font-bold text-white">{totalWords}</div>
@@ -790,6 +809,10 @@ export default function SoloChallengePage() {
   const [feedbackAnswer, setFeedbackAnswer] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
+  // Timer state
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
   // Initialize session when theme loads
   useEffect(() => {
     if (theme && !session.initialized) {
@@ -834,8 +857,34 @@ export default function SoloChallengePage() {
         questionsAnswered: 0,
         correctAnswers: 0,
       });
+
+      // Start the timer
+      setStartTime(Date.now());
     }
   }, [theme, session.initialized]);
+
+  // Live elapsed timer update
+  useEffect(() => {
+    if (!startTime || isComplete) return;
+
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [startTime, isComplete]);
+
+  // Format elapsed time as MM:SS or H:MM:SS
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Select next question - uses setSession callback to always read latest state
   const selectNextQuestion = useCallback(() => {
@@ -1069,6 +1118,7 @@ export default function SoloChallengePage() {
         questionsAnswered={session.questionsAnswered}
         correctAnswers={session.correctAnswers}
         totalWords={theme.words.length}
+        totalDuration={elapsedTime}
         onExit={handleExit}
       />
     );
@@ -1100,6 +1150,10 @@ export default function SoloChallengePage() {
       <div className="w-full max-w-md mb-8 mt-16">
         <div className="text-center mb-4">
           <h1 className="text-xl font-bold text-gray-300">{theme.name}</h1>
+          {/* Live Timer */}
+          <div className="text-2xl font-mono text-gray-400 mt-2">
+            {formatElapsedTime(elapsedTime)}
+          </div>
         </div>
         
         {/* Progress bar */}

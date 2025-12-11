@@ -637,7 +637,12 @@ export const eliminateOption = mutation({
 
 // Sabotage system - send visual distraction to opponent
 const SABOTAGE_EFFECTS = ["ink", "bubbles", "emojis", "sticky", "cards"] as const;
+type SabotageEffect = (typeof SABOTAGE_EFFECTS)[number];
 const MAX_SABOTAGES_PER_DUEL = 5;
+
+function isValidSabotageEffect(effect: string): effect is SabotageEffect {
+  return (SABOTAGE_EFFECTS as readonly string[]).includes(effect);
+}
 
 export const sendSabotage = mutation({
   args: {
@@ -658,7 +663,7 @@ export const sendSabotage = mutation({
     }
 
     // Validate effect type
-    if (!SABOTAGE_EFFECTS.includes(effect as any)) {
+    if (!isValidSabotageEffect(effect)) {
       throw new Error("Invalid sabotage effect");
     }
 
