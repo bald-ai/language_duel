@@ -450,7 +450,7 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
 // Props interface
 interface ClassicDuelChallengeProps {
   duelId: string;
-  duel: Doc<"duels">;
+  duel: Doc<"challenges">;
   theme: Doc<"themes">;
   challenger: Doc<"users"> | null;
   opponent: Doc<"users"> | null;

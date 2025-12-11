@@ -20,7 +20,7 @@ export default function OldDuelPage() {
   );
 
   // Cast to proper types - the query returns these but TS struggles with inference
-  const duel = duelData?.duel as Doc<"duels"> | undefined;
+  const duel = duelData?.duel as Doc<"challenges"> | undefined;
   const challenger = duelData?.challenger as Doc<"users"> | null | undefined;
   const opponent = duelData?.opponent as Doc<"users"> | null | undefined;
 

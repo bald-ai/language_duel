@@ -1468,7 +1468,7 @@ function Level3Input({
 
 interface SoloStyleChallengeProps {
   duelId: string;
-  duel: Doc<"duels">;
+  duel: Doc<"challenges">;
   theme: Doc<"themes">;
   challenger: Doc<"users"> | null;
   opponent: Doc<"users"> | null;
