@@ -31,6 +31,7 @@ export const createTheme = mutation({
     name: v.string(),
     description: v.string(),
     words: v.array(wordValidator),
+    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -39,6 +40,7 @@ export const createTheme = mutation({
     return await ctx.db.insert("themes", {
       name: args.name,
       description: args.description,
+      wordType: args.wordType || "nouns",
       words: args.words,
       createdAt: Date.now(),
     });
@@ -125,6 +127,27 @@ export const deleteWord = mutation({
   },
 });
 
+// Migration: Set wordType to "nouns" for all themes that don't have it
+export const migrateWordType = mutation({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
+    const themes = await ctx.db.query("themes").collect();
+    let updated = 0;
+    
+    for (const theme of themes) {
+      if (!theme.wordType) {
+        await ctx.db.patch(theme._id, { wordType: "nouns" });
+        updated++;
+      }
+    }
+    
+    return updated;
+  },
+});
+
 // Duplicate a theme with "(DUPLICATE)" suffix
 export const duplicateTheme = mutation({
   args: {
@@ -143,6 +166,7 @@ export const duplicateTheme = mutation({
     return await ctx.db.insert("themes", {
       name: newName,
       description: theme.description,
+      wordType: theme.wordType || "nouns",
       words: theme.words,
       createdAt: Date.now(),
     });

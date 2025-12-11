@@ -17,6 +17,7 @@ interface Theme {
   _id: Id<"themes">;
   name: string;
   description: string;
+  wordType?: "nouns" | "verbs";
   words: WordEntry[];
   createdAt: number;
 }
@@ -175,6 +176,7 @@ export default function ThemesPage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [newThemeName, setNewThemeName] = useState("");
   const [newThemePrompt, setNewThemePrompt] = useState("");
+  const [wordType, setWordType] = useState<"nouns" | "verbs">("nouns");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   
@@ -286,6 +288,7 @@ export default function ThemesPage() {
           type: "theme",
           themeName: newThemeName,
           themePrompt: newThemePrompt.trim() || undefined,
+          wordType,
         }),
       });
       
@@ -300,11 +303,13 @@ export default function ThemesPage() {
         name: newThemeName,
         description: `Generated theme for: ${newThemeName}`,
         words: data.data,
+        wordType,
       });
       
       setShowGenerateModal(false);
       setNewThemeName("");
       setNewThemePrompt("");
+      setWordType("nouns");
     } catch (error) {
       console.error("Generate error:", error);
       setGenerateError(error instanceof Error ? error.message : "Unknown error");
@@ -377,6 +382,7 @@ export default function ThemesPage() {
           type: "field",
           fieldType: editingField,
           themeName: selectedTheme.name,
+          wordType: selectedTheme.wordType || "nouns",
           currentWord: word.word,
           currentAnswer: word.answer,
           currentWrongAnswers: word.wrongAnswers,
@@ -557,6 +563,7 @@ export default function ThemesPage() {
         body: JSON.stringify({
           type: "regenerate-for-word",
           themeName: selectedTheme.name,
+          wordType: selectedTheme.wordType || "nouns",
           newWord: pendingManualWord,
         }),
       });
@@ -617,6 +624,7 @@ export default function ThemesPage() {
         body: JSON.stringify({
           type: "add-word",
           themeName: selectedTheme.name,
+          wordType: selectedTheme.wordType || "nouns",
           newWord: trimmedWord,
           existingWords,
         }),
@@ -658,6 +666,7 @@ export default function ThemesPage() {
         body: JSON.stringify({
           type: "generate-random-words",
           themeName: selectedTheme.name,
+          wordType: selectedTheme.wordType || "nouns",
           count: randomWordCount,
           existingWords,
         }),
@@ -798,6 +807,32 @@ export default function ThemesPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
             <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">New Theme</h2>
             
+            {/* Word Type Toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setWordType("nouns")}
+                disabled={isGenerating}
+                className={`flex-1 py-3 rounded-xl font-bold uppercase transition-colors ${
+                  wordType === "nouns"
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300"
+                }`}
+              >
+                Nouns
+              </button>
+              <button
+                onClick={() => setWordType("verbs")}
+                disabled={isGenerating}
+                className={`flex-1 py-3 rounded-xl font-bold uppercase transition-colors ${
+                  wordType === "verbs"
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300"
+                }`}
+              >
+                Verbs
+              </button>
+            </div>
+            
             <div className="mb-6 space-y-4">
               <div>
                 <input
@@ -837,9 +872,6 @@ export default function ThemesPage() {
                 </p>
               </div>
               
-              <p className="text-xs text-red-600 font-medium">
-                ⚠️ Only nouns are supported for now
-              </p>
             </div>
 
             {generateError && (
@@ -868,6 +900,7 @@ export default function ThemesPage() {
                   setShowGenerateModal(false);
                   setNewThemeName("");
                   setNewThemePrompt("");
+                  setWordType("nouns");
                   setGenerateError(null);
                 }}
                 disabled={isGenerating}

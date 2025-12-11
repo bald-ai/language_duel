@@ -12,6 +12,7 @@ export default defineSchema({
   themes: defineTable({
     name: v.string(),
     description: v.string(),
+    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))), // Type of words in theme (defaults to "nouns" for legacy)
     words: v.array(
       v.object({
         word: v.string(), // English word
