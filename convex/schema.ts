@@ -38,6 +38,15 @@ export default defineSchema({
     opponentScore: v.number(), // Points scored by opponent
     status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped", "learning", "challenging"
     mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))), // Duel mode
+    classicDifficultyPreset: v.optional(
+      v.union(
+        v.literal("easy_only"),
+        v.literal("easy_medium"),
+        v.literal("progressive"),
+        v.literal("medium_hard"),
+        v.literal("hard_only")
+      )
+    ),
     createdAt: v.number(),
     // Hint system fields (legacy - kept for compatibility)
     hintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),

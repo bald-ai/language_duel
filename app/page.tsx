@@ -7,6 +7,7 @@ import { AuthButtons } from "@/components/auth";
 import { useSyncUser } from "@/hooks/useSyncUser";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
 
 export default function Home() {
   const { isSignedIn, user } = useUser();
@@ -22,6 +23,7 @@ export default function Home() {
   const [waitingDuelId, setWaitingDuelId] = useState<string | null>(null);
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
   const [selectedDuelThemeId, setSelectedDuelThemeId] = useState<string | null>(null);
+  const [selectedDuelMode, setSelectedDuelMode] = useState<"solo" | "classic" | null>(null);
   const [isJoiningDuel, setIsJoiningDuel] = useState(false);
   const [showSoloModal, setShowSoloModal] = useState(false);
   const [selectedSoloThemeId, setSelectedSoloThemeId] = useState<string | null>(null);
@@ -39,18 +41,23 @@ export default function Home() {
     setSelectedDuelThemeId(themeId);
   };
 
-  const handleCreateDuel = async (mode: "solo" | "classic") => {
+  const handleCreateDuel = async (
+    mode: "solo" | "classic",
+    classicDifficultyPreset?: ClassicDifficultyPreset
+  ) => {
     if (!selectedOpponentId || !selectedDuelThemeId) return;
     try {
-      const duelId = await createDuel({ 
+      const duelId = await createDuel({
         opponentId: selectedOpponentId as any,
         themeId: selectedDuelThemeId as any,
-        mode: mode,
-      });
+        mode,
+        classicDifficultyPreset,
+      } as any);
       setWaitingDuelId(duelId);
       setShowDuelModal(false);
       setSelectedOpponentId(null);
       setSelectedDuelThemeId(null);
+      setSelectedDuelMode(null);
       setShowWaitingModal(true);
     } catch (error) {
       console.error("Failed to create duel:", error);
@@ -93,6 +100,39 @@ export default function Home() {
   }, [waitingDuel, waitingDuelId, router]);
 
   const otherUsers = users?.filter(u => u.clerkId !== user?.id) || [];
+  const classicDifficultyOptions: Array<{
+    preset: ClassicDifficultyPreset;
+    label: string;
+    description: string;
+    isDefault?: boolean;
+  }> = [
+    {
+      preset: "easy_only",
+      label: "Lv 1 questions only",
+      description: "All easy questions (1 pt each).",
+    },
+    {
+      preset: "easy_medium",
+      label: "Mix of Lv 1 and Lv 2",
+      description: "Half easy, half medium.",
+    },
+    {
+      preset: "progressive",
+      label: "Mix of Lv 1, Lv 2 and Lv 3",
+      description: "Current progressive mix (default).",
+      isDefault: true,
+    },
+    {
+      preset: "medium_hard",
+      label: "Mix of Lv 2 and Lv 3",
+      description: "Half medium, half hard.",
+    },
+    {
+      preset: "hard_only",
+      label: "Only Lv 3 questions",
+      description: "All hard questions (2 pts each).",
+    },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -256,7 +296,7 @@ export default function Home() {
               )}
 
               {/* Step 3: Select Mode */}
-              {selectedOpponentId && selectedDuelThemeId && (
+              {selectedOpponentId && selectedDuelThemeId && selectedDuelMode === null && (
                 <>
                   <p className="text-sm text-gray-600 mb-4">Choose duel mode:</p>
                   <div className="space-y-3">
@@ -268,7 +308,7 @@ export default function Home() {
                       <div className="text-sm text-blue-600">Independent progress, 3-level system, typing &amp; multiple choice</div>
                     </button>
                     <button
-                      onClick={() => handleCreateDuel("classic")}
+                      onClick={() => setSelectedDuelMode("classic")}
                       className="w-full text-left p-4 border-2 border-purple-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
                     >
                       <div className="font-bold text-purple-800 text-lg">Classic Mode</div>
@@ -284,6 +324,41 @@ export default function Home() {
                   </button>
                 </>
               )}
+
+              {/* Step 4: Classic Difficulty Preset */}
+              {selectedOpponentId && selectedDuelThemeId && selectedDuelMode === "classic" && (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">Choose Classic difficulty:</p>
+                  <div className="space-y-2">
+                    {classicDifficultyOptions.map((opt) => (
+                      <button
+                        key={opt.preset}
+                        onClick={() => handleCreateDuel("classic", opt.preset)}
+                        className={`w-full text-left p-4 border-2 rounded-lg transition-colors ${
+                          opt.isDefault
+                            ? "border-purple-500 bg-purple-50"
+                            : "border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                        }`}
+                      >
+                        <div className="font-bold text-gray-800 text-base flex items-center justify-between">
+                          <span>{opt.label}</span>
+                          {opt.isDefault && (
+                            <span className="text-xs text-purple-700 font-semibold">Default</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">{opt.description}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedDuelMode(null)}
+                    className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                  >
+                    Back
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Fixed footer */}
@@ -292,6 +367,7 @@ export default function Home() {
                 setShowDuelModal(false);
                 setSelectedOpponentId(null);
                 setSelectedDuelThemeId(null);
+                setSelectedDuelMode(null);
               }}
               className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
             >

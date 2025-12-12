@@ -5,7 +5,11 @@ import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
+import {
+  calculateClassicDifficultyDistribution,
+  getDifficultyForIndex,
+  type ClassicDifficultyPreset,
+} from "@/lib/difficultyUtils";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
@@ -556,9 +560,10 @@ export default function ClassicDuelChallenge({
   const word = currentWord.word;
   
   // Calculate dynamic difficulty distribution
+  const classicPreset = (duel.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
   const difficultyDistribution = useMemo(() => 
-    calculateDifficultyDistribution(words.length), 
-    [words.length]
+    calculateClassicDifficultyDistribution(words.length, classicPreset), 
+    [words.length, classicPreset]
   );
 
   const currentWordIndex = duel.currentWordIndex;
@@ -582,7 +587,7 @@ export default function ClassicDuelChallenge({
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
       
-      const prevDistribution = calculateDifficultyDistribution(words.length);
+      const prevDistribution = calculateClassicDifficultyDistribution(words.length, classicPreset);
       const prevDifficultyData = getDifficultyForIndex(prevIndex, prevDistribution);
       const prevDifficulty = {
         level: prevDifficultyData.level,
@@ -657,7 +662,7 @@ export default function ClassicDuelChallenge({
     }
     
     activeQuestionIndexRef.current = currentWordIndex;
-  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked]);
+  }, [currentWordIndex, words, wordOrder, challenger?.clerkId, user?.id, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, classicPreset]);
   
   // Countdown timer
   const countdownPausedBy = duel.countdownPausedBy;

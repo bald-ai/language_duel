@@ -13,7 +13,14 @@ interface DifficultyDistribution {
   total: number;
 }
 
-function calculateDifficultyDistribution(wordCount: number): DifficultyDistribution {
+type ClassicDifficultyPreset =
+  | "easy_only"
+  | "easy_medium"
+  | "progressive"
+  | "medium_hard"
+  | "hard_only";
+
+function calculateProgressiveClassicDistribution(wordCount: number): DifficultyDistribution {
   if (wordCount <= 0) {
     return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
   }
@@ -46,6 +53,39 @@ function calculateDifficultyDistribution(wordCount: number): DifficultyDistribut
   };
 }
 
+function calculateClassicDifficultyDistribution(
+  wordCount: number,
+  preset: ClassicDifficultyPreset = "progressive"
+): DifficultyDistribution {
+  if (wordCount <= 0) {
+    return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
+  }
+
+  switch (preset) {
+    case "easy_only": {
+      const easy = wordCount;
+      return { easy, medium: 0, hard: 0, easyEnd: easy, mediumEnd: easy, total: wordCount };
+    }
+    case "easy_medium": {
+      const easy = Math.ceil(wordCount / 2);
+      const medium = wordCount - easy;
+      return { easy, medium, hard: 0, easyEnd: easy, mediumEnd: easy + medium, total: wordCount };
+    }
+    case "medium_hard": {
+      const medium = Math.ceil(wordCount / 2);
+      const hard = wordCount - medium;
+      return { easy: 0, medium, hard, easyEnd: 0, mediumEnd: medium, total: wordCount };
+    }
+    case "hard_only": {
+      const hard = wordCount;
+      return { easy: 0, medium: 0, hard, easyEnd: 0, mediumEnd: 0, total: wordCount };
+    }
+    case "progressive":
+    default:
+      return calculateProgressiveClassicDistribution(wordCount);
+  }
+}
+
 function getPointsForIndex(index: number, distribution: DifficultyDistribution): number {
   if (index < distribution.easyEnd) return 1;
   if (index < distribution.mediumEnd) return 1.5;
@@ -61,8 +101,17 @@ export const createDuel = mutation({
     opponentId: v.id("users"),
     themeId: v.id("themes"),
     mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
+    classicDifficultyPreset: v.optional(
+      v.union(
+        v.literal("easy_only"),
+        v.literal("easy_medium"),
+        v.literal("progressive"),
+        v.literal("medium_hard"),
+        v.literal("hard_only")
+      )
+    ),
   },
-  handler: async (ctx, { opponentId, themeId, mode }) => {
+  handler: async (ctx, { opponentId, themeId, mode, classicDifficultyPreset }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     
@@ -87,6 +136,8 @@ export const createDuel = mutation({
       [wordOrder[i], wordOrder[j]] = [wordOrder[j], wordOrder[i]];
     }
     
+    const duelMode = mode || "solo";
+
     return await ctx.db.insert("challenges", {
       challengerId: challenger._id,
       opponentId,
@@ -98,7 +149,9 @@ export const createDuel = mutation({
       challengerScore: 0,
       opponentScore: 0,
       status: "pending",
-      mode: mode || "solo",
+      mode: duelMode,
+      classicDifficultyPreset:
+        duelMode === "classic" ? classicDifficultyPreset || "progressive" : undefined,
       createdAt: Date.now(),
     });
   },
@@ -169,7 +222,8 @@ export const answerDuel = mutation({
     // Determine difficulty and points based on question index using dynamic distribution
     const questionIndex = challenge.currentWordIndex;
     const wordCount = theme.words.length;
-    const distribution = calculateDifficultyDistribution(wordCount);
+    const classicPreset = (challenge.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
+    const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const pointsForCorrect = getPointsForIndex(questionIndex, distribution);
     const isHardMode = isHardModeIndex(questionIndex, distribution);
     
@@ -609,7 +663,8 @@ export const eliminateOption = mutation({
     
     // Check if this is a hard mode question
     const wordCount = theme.words.length;
-    const distribution = calculateDifficultyDistribution(wordCount);
+    const classicPreset = (challenge.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
+    const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const isHardMode = isHardModeIndex(challenge.currentWordIndex, distribution);
     
     // For hard mode, "None of the above" is a valid option
