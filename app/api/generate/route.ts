@@ -3,13 +3,6 @@ import OpenAI from "openai";
 
 export const runtime = 'nodejs';
 
-// Types
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
-
 interface GenerateThemeRequest {
   type: "theme";
   themeName: string;

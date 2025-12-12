@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import ThemeColorPicker from "../components/ThemeColorPicker";
 
 // Types matching Convex schema
 interface WordEntry {
@@ -18,6 +19,8 @@ interface Theme {
   name: string;
   description: string;
   wordType?: "nouns" | "verbs";
+  bgColor?: string;
+  titleColor?: string;
   words: WordEntry[];
   createdAt: number;
 }
@@ -201,6 +204,38 @@ export default function ThemesPage() {
   // Theme name editing state
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
   const [editedThemeName, setEditedThemeName] = useState("");
+
+  // Theme style picker state (detail view)
+  const [isThemeStyleOpen, setIsThemeStyleOpen] = useState(false);
+  const [draftBgColor, setDraftBgColor] = useState<string | undefined>(undefined);
+  const [draftTitleColor, setDraftTitleColor] = useState<string | undefined>(undefined);
+  const [themeStyleTab, setThemeStyleTab] = useState<"bg" | "title">("bg");
+  const stylePopoverRef = useRef<HTMLDivElement | null>(null);
+  const styleButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Close popover on outside click / Escape
+  useEffect(() => {
+    if (!isThemeStyleOpen) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (stylePopoverRef.current?.contains(t)) return;
+      if (styleButtonRef.current?.contains(t)) return;
+      setIsThemeStyleOpen(false);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsThemeStyleOpen(false);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isThemeStyleOpen]);
   
   // Add new word state
   const [showAddWordModal, setShowAddWordModal] = useState(false);
@@ -243,6 +278,9 @@ export default function ThemesPage() {
       setLocalWords([]);
       setIsEditingThemeName(false);
       setEditedThemeName("");
+      setIsThemeStyleOpen(false);
+      setDraftBgColor(undefined);
+      setDraftTitleColor(undefined);
     } else {
       router.push("/");
     }
@@ -252,6 +290,10 @@ export default function ThemesPage() {
   const openTheme = (theme: Theme) => {
     setSelectedTheme(theme);
     setLocalWords([...theme.words]);
+    setDraftBgColor(theme.bgColor);
+    setDraftTitleColor(theme.titleColor);
+    setIsThemeStyleOpen(false);
+    setThemeStyleTab("bg");
     setViewMode("detail");
   };
 
@@ -712,11 +754,16 @@ export default function ThemesPage() {
       await updateTheme({
         themeId: selectedTheme._id,
         name: selectedTheme.name.toUpperCase(),
+        bgColor: draftBgColor ?? selectedTheme.bgColor,
+        titleColor: draftTitleColor ?? selectedTheme.titleColor,
         words: localWords,
       });
       setViewMode("list");
       setSelectedTheme(null);
       setLocalWords([]);
+      setIsThemeStyleOpen(false);
+      setDraftBgColor(undefined);
+      setDraftTitleColor(undefined);
     } catch (error) {
       console.error("Failed to save theme:", error);
       alert("Failed to save theme");
@@ -727,6 +774,9 @@ export default function ThemesPage() {
     setViewMode("list");
     setSelectedTheme(null);
     setLocalWords([]);
+    setIsThemeStyleOpen(false);
+    setDraftBgColor(undefined);
+    setDraftTitleColor(undefined);
   };
 
   
@@ -755,37 +805,55 @@ export default function ThemesPage() {
           {themes.map((theme) => (
             <div
               key={theme._id}
-              className="w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-colors"
+              className="w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:border-gray-400 transition-colors overflow-hidden"
+              style={{ backgroundColor: (theme as Theme).bgColor ?? undefined }}
             >
-              <div className="flex justify-between items-start">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <button
                   onClick={() => openTheme(theme as Theme)}
-                  className="text-left flex-1"
+                  className="text-left flex-1 min-w-0"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-lg text-gray-800">{theme.name}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="font-bold text-lg truncate"
+                      style={{ color: (theme as Theme).titleColor ?? "#1f2937" }}
+                      title={theme.name}
+                    >
+                      {theme.name}
+                    </span>
                     {checkThemeForDuplicateWords(theme.words) && (
-                      <span className="text-red-500 text-xl font-bold" title="This theme has duplicate words">!</span>
+                      <span className="text-red-500 text-xl font-bold shrink-0" title="This theme has duplicate words">!</span>
                     )}
                     {checkThemeForDuplicateWrongAnswers(theme.words) && (
-                      <span className="text-orange-500 text-xl font-bold" title="This theme has duplicate wrong answers">⚠</span>
+                      <span className="text-orange-500 text-xl font-bold shrink-0" title="This theme has duplicate wrong answers">⚠</span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                  <div className="text-sm text-gray-600 truncate" title={`${theme.words.length} words`}>
+                    {theme.words.length} words
+                  </div>
                 </button>
-                <div className="flex gap-2 ml-2">
-                  <button
-                    onClick={() => handleDuplicateTheme(theme._id)}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                <div className="flex flex-col items-end gap-2 ml-auto">
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <button
+                      onClick={() => handleDuplicateTheme(theme._id)}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors whitespace-nowrap"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTheme(theme._id)}
+                      className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors whitespace-nowrap"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div
+                    className="px-2 py-1 rounded-md border border-gray-200 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-600 uppercase leading-none whitespace-nowrap"
+                    title="Word type"
                   >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTheme(theme._id)}
-                    className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
-                  >
-                    Delete
-                  </button>
+                    {(theme as Theme).wordType === "verbs" ? "Verbs" : "Nouns"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -919,11 +987,13 @@ export default function ThemesPage() {
   const renderDetailView = () => {
     if (!selectedTheme) return null;
 
+    const effectiveTitleColor = draftTitleColor ?? selectedTheme.titleColor;
+
     return (
       <div className="fixed inset-0 flex flex-col bg-gray-100">
         {/* Fixed Header */}
         <header className="flex-shrink-0 w-full max-w-md mx-auto px-4 pt-6 pb-4">
-          <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4">
+          <div className="relative w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 pl-4 pr-12">
             {isEditingThemeName ? (
               <input
                 type="text"
@@ -951,6 +1021,7 @@ export default function ThemesPage() {
                 }}
                 maxLength={25}
                 className="w-full text-xl font-bold text-center text-gray-800 uppercase tracking-wide bg-transparent border-none outline-none focus:ring-0"
+                style={{ color: effectiveTitleColor ?? undefined }}
                 autoFocus
               />
             ) : (
@@ -959,11 +1030,115 @@ export default function ThemesPage() {
                   setEditedThemeName(selectedTheme.name);
                   setIsEditingThemeName(true);
                 }}
-                className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide cursor-pointer hover:text-gray-600 transition-colors"
+                className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide cursor-pointer transition-colors"
+                style={{ color: effectiveTitleColor ?? undefined }}
                 title="Click to edit theme name"
               >
                 {selectedTheme.name}
               </h1>
+            )}
+
+            {/* Settings wheel */}
+            <button
+              ref={styleButtonRef}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsThemeStyleOpen((v) => !v);
+              }}
+              className="absolute right-2 top-2 rounded-lg border-2 border-gray-400 bg-gray-200 p-2 text-gray-700 hover:bg-gray-300"
+              aria-label="Theme settings"
+              title="Theme settings"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M19.4 15a7.97 7.97 0 0 0 .1-1 7.97 7.97 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.7-1L15 2h-6l-.9 3a8.3 8.3 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7.97 7.97 0 0 0-.1 1c0 .34.03.67.1 1l-2 1.5 2 3.5 2.4-1a8.3 8.3 0 0 0 1.7 1l.9 3h6l.9-3a8.3 8.3 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {/* Popover */}
+            {isThemeStyleOpen && (
+              <div
+                ref={stylePopoverRef}
+                className="absolute right-2 top-full z-50 mt-2 w-[280px] max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-gray-400 bg-gray-100 p-2 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                    Theme style
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsThemeStyleOpen(false)}
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-[11px] font-bold text-gray-700 hover:bg-gray-50"
+                    title="Close"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mb-2 grid grid-cols-2 gap-2 px-1">
+                  <button
+                    type="button"
+                    onClick={() => setThemeStyleTab("bg")}
+                    className={`rounded-xl border-2 py-2 text-xs font-bold uppercase ${
+                      themeStyleTab === "bg"
+                        ? "border-gray-800 bg-gray-800 text-white"
+                        : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                    }`}
+                  >
+                    Background
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemeStyleTab("title")}
+                    className={`rounded-xl border-2 py-2 text-xs font-bold uppercase ${
+                      themeStyleTab === "title"
+                        ? "border-gray-800 bg-gray-800 text-white"
+                        : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                    }`}
+                  >
+                    Font
+                  </button>
+                </div>
+
+                <div className="max-h-[65vh] overflow-y-auto px-1 pb-1">
+                  {themeStyleTab === "bg" ? (
+                    <ThemeColorPicker
+                      compact
+                      label="Background (list card)"
+                      value={draftBgColor ?? selectedTheme.bgColor}
+                      onChange={(hex) => setDraftBgColor(hex)}
+                    />
+                  ) : (
+                    <ThemeColorPicker
+                      compact
+                      label="Font (theme title)"
+                      value={draftTitleColor ?? selectedTheme.titleColor}
+                      onChange={(hex) => setDraftTitleColor(hex)}
+                    />
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </header>

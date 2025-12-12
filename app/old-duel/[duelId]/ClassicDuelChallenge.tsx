@@ -14,6 +14,88 @@ type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
 
+// Pre-generate random layouts at module scope so we don't call Math.random in render
+const INK_SPLATTERS = Array.from({ length: 25 }, (_, i) => ({
+  id: i,
+  top: 5 + Math.random() * 90,
+  left: 2 + Math.random() * 96,
+  scale: 1.5 + Math.random() * 2.5,
+  delay: Math.random() * 1.5,
+  rotation: Math.random() * 360,
+  pulseSpeed: 0.5 + Math.random() * 0.5,
+}));
+
+const FLOATING_BUBBLES = Array.from({ length: 60 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  size: 80 + Math.random() * 150,
+  duration: 1.5 + Math.random() * 1.5,
+  delay: Math.random() * 1,
+  wobbleAmount: 40 + Math.random() * 60,
+  hue: Math.floor(Math.random() * 60) + 180,
+}));
+
+const FALLING_EMOJIS = (() => {
+  const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "🎭", "🤯", "😈", "💥", "🌪️", "☠️", "👹", "🤡", "💢"];
+  return Array.from({ length: 80 }, (_, i) => ({
+    id: i,
+    emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
+    left: Math.random() * 100,
+    duration: 0.8 + Math.random() * 1.2,
+    delay: Math.random() * 1,
+    size: 50 + Math.random() * 60,
+    spinDirection: Math.random() > 0.5 ? 1 : -1,
+    wobble: 30 + Math.random() * 50,
+  }));
+})();
+
+const STICKY_NOTES = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  top: 2 + Math.random() * 85,
+  left: 2 + Math.random() * 85,
+  rotation: -25 + Math.random() * 50,
+  delay: Math.random() * 1,
+  wobbleSpeed: 0.3 + Math.random() * 0.4,
+  color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c", "#ff65a3", "#a8f0c6", "#ffb347", "#ff6961"][
+    Math.floor(Math.random() * 8)
+  ],
+  text: [
+    "You buffoon!",
+    "LOL nice try",
+    "Too slow!",
+    "Really?!",
+    "Haha NOPE",
+    "Good luck!",
+    "Think faster!",
+    "Oopsie!",
+    "Clown move",
+    "Big brain?",
+    "Try harder",
+    "Yikes...",
+    "LMAOOO",
+    "Panic mode!",
+    "Uh oh...",
+    "RIP",
+  ][Math.floor(Math.random() * 16)],
+  size: 100 + Math.random() * 50,
+}));
+
+const FLYING_CARDS = (() => {
+  const suits = ["♠", "♥", "♦", "♣"] as const;
+  const values = ["A", "K", "Q", "J", "10", "9", "8"] as const;
+  return Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    suit: suits[Math.floor(Math.random() * 4)],
+    value: values[Math.floor(Math.random() * 7)],
+    startY: Math.random() * 100,
+    duration: 0.6 + Math.random() * 0.8,
+    delay: Math.random() * 1.5,
+    fromLeft: Math.random() > 0.5,
+    size: 0.8 + Math.random() * 0.6,
+    verticalWobble: 20 + Math.random() * 40,
+  }));
+})();
+
 // Format duration as MM:SS or H:MM:SS
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -28,19 +110,7 @@ function formatDuration(seconds: number): string {
 
 // Sabotage Effect Components
 function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const splatters = useMemo(
-    () =>
-      Array.from({ length: 25 }, (_, i) => ({
-        id: i,
-        top: 5 + Math.random() * 90,
-        left: 2 + Math.random() * 96,
-        scale: 1.5 + Math.random() * 2.5,
-        delay: Math.random() * 1.5,
-        rotation: Math.random() * 360,
-        pulseSpeed: 0.5 + Math.random() * 0.5,
-      })),
-    [],
-  );
+  const splatters = INK_SPLATTERS;
 
   const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.2 : 1;
 
@@ -114,19 +184,7 @@ function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function FloatingBubbles({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const bubbles = useMemo(
-    () =>
-      Array.from({ length: 60 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        size: 80 + Math.random() * 150,
-        duration: 1.5 + Math.random() * 1.5,
-        delay: Math.random() * 1,
-        wobbleAmount: 40 + Math.random() * 60,
-        hue: Math.floor(Math.random() * 60) + 180,
-      })),
-    [],
-  );
+  const bubbles = FLOATING_BUBBLES;
 
   const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.3 : 0.95;
   const scale = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.6 : 1;
@@ -185,19 +243,7 @@ function FloatingBubbles({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' })
 }
 
 function FallingEmojis({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const emojis = useMemo(() => {
-    const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "🎭", "🤯", "😈", "💥", "🌪️", "☠️", "👹", "🤡", "💢"];
-    return Array.from({ length: 80 }, (_, i) => ({
-      id: i,
-      emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
-      left: Math.random() * 100,
-      duration: 0.8 + Math.random() * 1.2,
-      delay: Math.random() * 1,
-      size: 50 + Math.random() * 60,
-      spinDirection: Math.random() > 0.5 ? 1 : -1,
-      wobble: 30 + Math.random() * 50,
-    }));
-  }, []);
+  const emojis = FALLING_EMOJIS;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
   const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
@@ -258,38 +304,7 @@ function FallingEmojis({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function StickyNotes({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const notes = useMemo(
-    () =>
-      Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        top: 2 + Math.random() * 85,
-        left: 2 + Math.random() * 85,
-        rotation: -25 + Math.random() * 50,
-        delay: Math.random() * 1,
-        wobbleSpeed: 0.3 + Math.random() * 0.4,
-        color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c", "#ff65a3", "#a8f0c6", "#ffb347", "#ff6961"][Math.floor(Math.random() * 8)],
-        text: [
-          "You buffoon!",
-          "LOL nice try",
-          "Too slow!",
-          "Really?!",
-          "Haha NOPE",
-          "Good luck!",
-          "Think faster!",
-          "Oopsie!",
-          "Clown move",
-          "Big brain?",
-          "Try harder",
-          "Yikes...",
-          "LMAOOO",
-          "Panic mode!",
-          "Uh oh...",
-          "RIP",
-        ][Math.floor(Math.random() * 16)],
-        size: 100 + Math.random() * 50,
-      })),
-    [],
-  );
+  const notes = STICKY_NOTES;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
 
@@ -337,21 +352,7 @@ function StickyNotes({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function FlyingCards({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const cards = useMemo(() => {
-    const suits = ["♠", "♥", "♦", "♣"];
-    const values = ["A", "K", "Q", "J", "10", "9", "8"];
-    return Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      suit: suits[Math.floor(Math.random() * 4)],
-      value: values[Math.floor(Math.random() * 7)],
-      startY: Math.random() * 100,
-      duration: 0.6 + Math.random() * 0.8,
-      delay: Math.random() * 1.5,
-      fromLeft: Math.random() > 0.5,
-      size: 0.8 + Math.random() * 0.6,
-      verticalWobble: 20 + Math.random() * 40,
-    }));
-  }, []);
+  const cards = FLYING_CARDS;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
   const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
@@ -504,7 +505,6 @@ export default function ClassicDuelChallenge({
   // Sabotage effect state
   const [activeSabotage, setActiveSabotage] = useState<SabotageEffect | null>(null);
   const [sabotagePhase, setSabotagePhase] = useState<'wind-up' | 'full' | 'wind-down'>('wind-up');
-  const [showSabotageMenu, setShowSabotageMenu] = useState(false);
   const lastSabotageTimestampRef = useRef<number | null>(null);
   const sabotageTimersRef = useRef<NodeJS.Timeout[]>([]);
   
@@ -531,6 +531,7 @@ export default function ClassicDuelChallenge({
   
   // Question timer state (21 seconds total, display shows 20)
   const TIMER_DURATION = 21;
+  const TRANSITION_DURATION = 5; // seconds; matches between-rounds countdown
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasTimedOutRef = useRef(false);
@@ -790,19 +791,16 @@ export default function ClassicDuelChallenge({
     }
   }, [duel.eliminatedOptions, selectedAnswer]);
 
-  // Question timer - starts fresh when entering 'answering' phase, decoupled from transition/pause
-  const questionStartedAtRef = useRef<number | null>(null);
+  // Question timer - synced from server questionStartTime; can be paused during hints
   const prevPhaseRef = useRef<typeof phase | null>(null);
-  
-  // Reset timer ONLY when transitioning into 'answering' phase
+
+  // Reset timeout flag ONLY when transitioning into 'answering' phase
   useEffect(() => {
     const wasNotAnswering = prevPhaseRef.current !== 'answering';
     const isNowAnswering = phase === 'answering';
     prevPhaseRef.current = phase;
     
     if (wasNotAnswering && isNowAnswering) {
-      // Just entered answering phase - start fresh timer
-      questionStartedAtRef.current = Date.now();
       hasTimedOutRef.current = false;
       
       // Capture duel start time on first question
@@ -820,7 +818,7 @@ export default function ClassicDuelChallenge({
     }
   }, [duel.status]);
   
-  // Timer countdown effect
+  // Timer countdown effect (uses server start time; freezes when paused)
   useEffect(() => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -828,15 +826,19 @@ export default function ClassicDuelChallenge({
     }
     
     const status = duel.status;
+    const questionStartTime = duel.questionStartTime;
     
-    if (phase !== 'answering' || status !== "accepted" || !questionStartedAtRef.current) {
+    if (phase !== 'answering' || status !== "accepted" || !questionStartTime) {
       setQuestionTimer(null);
       return;
     }
     
     const updateTimer = () => {
-      const timerStart = questionStartedAtRef.current!;
-      const elapsed = (Date.now() - timerStart) / 1000;
+      const isFirstQuestion = (duel.currentWordIndex ?? 0) === 0;
+      const transitionOffset = isFirstQuestion ? 0 : TRANSITION_DURATION * 1000;
+      const effectiveStartTime = questionStartTime + transitionOffset;
+      const now = duel.questionTimerPausedAt ?? Date.now();
+      const elapsed = (now - effectiveStartTime) / 1000;
       const remaining = Math.max(0, TIMER_DURATION - elapsed);
       setQuestionTimer(remaining);
       
@@ -862,7 +864,19 @@ export default function ClassicDuelChallenge({
         timerIntervalRef.current = null;
       }
     };
-  }, [phase, duel.status, duel._id, duel.challengerAnswered, duel.opponentAnswered, challenger?.clerkId, user?.id, timeoutAnswer]);
+  }, [
+    phase,
+    duel.status,
+    duel._id,
+    duel.questionStartTime,
+    duel.questionTimerPausedAt,
+    duel.currentWordIndex,
+    duel.challengerAnswered,
+    duel.opponentAnswered,
+    challenger?.clerkId,
+    user?.id,
+    timeoutAnswer,
+  ]);
 
   // Difficulty
   const difficulty = useMemo(() => 
@@ -1000,7 +1014,6 @@ export default function ClassicDuelChallenge({
   const handleSendSabotage = async (effect: SabotageEffect) => {
     try {
       await sendSabotage({ duelId: duel._id as any, effect });
-      setShowSabotageMenu(false);
     } catch (error) {
       console.error("Failed to send sabotage:", error);
     }
@@ -1059,7 +1072,7 @@ export default function ClassicDuelChallenge({
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 relative p-4 bg-gray-900 text-white">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 relative p-4 pb-28 bg-gray-900 text-white">
       <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
       
       {status !== "completed" && (
@@ -1123,7 +1136,12 @@ export default function ClassicDuelChallenge({
             }`}>
               {Math.max(0, Math.min(20, Math.ceil(questionTimer - 1)))}
             </div>
-            <div className="text-xs text-gray-400 mt-1">seconds remaining</div>
+            <div className="text-xs text-gray-400 mt-1">
+              seconds remaining
+              {duel.questionTimerPausedAt && (
+                <span className="ml-2 text-purple-400">Paused (hint)</span>
+              )}
+            </div>
           </div>
         )}
         <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
@@ -1316,8 +1334,8 @@ export default function ClassicDuelChallenge({
       {phase === 'answering' && word !== "done" && (
         <div className="flex flex-col items-center gap-2 mt-2">
           {canRequestHint && (
-            <button onClick={handleRequestHint} className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors">
-              💡 Request Hint
+            <button onClick={handleRequestHint} className="rounded-lg px-8 py-3 font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors">
+              HELP ME!
             </button>
           )}
           
@@ -1330,8 +1348,8 @@ export default function ClassicDuelChallenge({
           )}
           
           {canAcceptHint && (
-            <button onClick={handleAcceptHint} className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors animate-bounce">
-              ✓ Accept Hint Request
+            <button onClick={handleAcceptHint} className="rounded-lg px-8 py-3 font-medium bg-teal-500 text-white hover:bg-teal-600 transition-colors animate-bounce">
+              Bafoon is begging
             </button>
           )}
           
@@ -1356,41 +1374,35 @@ export default function ClassicDuelChallenge({
 
       {/* Sabotage System UI */}
       {status === "accepted" && phase === 'answering' && word !== "done" && (
-        <div className="fixed bottom-4 right-4 z-30">
-          {showSabotageMenu && sabotagesRemaining > 0 && (
-            <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
-              <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
-              <div className="grid grid-cols-3 gap-2">
-                {SABOTAGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.effect}
-                    onClick={() => handleSendSabotage(option.effect)}
-                    className="flex flex-col items-center p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-                    title={option.label}
-                  >
-                    <span className="text-2xl">{option.emoji}</span>
-                    <span className="text-xs text-gray-300 mt-1">{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <button
-            onClick={() => setShowSabotageMenu(!showSabotageMenu)}
-            disabled={sabotagesRemaining <= 0}
-            className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-              sabotagesRemaining > 0
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <span className="text-xl">💥</span>
-            <span>Sabotage</span>
-            <span className={`px-2 py-0.5 rounded-full text-sm ${sabotagesRemaining > 0 ? 'bg-white/20' : 'bg-gray-600'}`}>
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+          <div className="text-sm font-medium text-gray-200">
+            Sabotage{" "}
+            <span className="text-gray-300 tabular-nums">
               {sabotagesRemaining}/{MAX_SABOTAGES}
             </span>
-          </button>
+          </div>
+
+          {/* Always-visible sabotage buttons (center bottom) */}
+          <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border border-gray-700 bg-gray-900/80 backdrop-blur-md shadow-xl">
+            {SABOTAGE_OPTIONS.map((option) => {
+              const disabled = sabotagesRemaining <= 0 || hasAnswered || isLocked || phase !== 'answering';
+              return (
+                <button
+                  key={option.effect}
+                  onClick={() => handleSendSabotage(option.effect)}
+                  disabled={disabled}
+                  className={`h-11 w-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
+                    disabled
+                      ? 'border-gray-700 bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
+                      : 'border-gray-600 bg-gray-800 hover:bg-gray-700 hover:border-gray-500 active:scale-95'
+                  }`}
+                  title={option.label}
+                >
+                  {option.emoji}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

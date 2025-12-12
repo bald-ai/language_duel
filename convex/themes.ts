@@ -32,6 +32,8 @@ export const createTheme = mutation({
     description: v.string(),
     words: v.array(wordValidator),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    bgColor: v.optional(v.string()),
+    titleColor: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -41,6 +43,8 @@ export const createTheme = mutation({
       name: args.name,
       description: args.description,
       wordType: args.wordType || "nouns",
+      bgColor: args.bgColor,
+      titleColor: args.titleColor,
       words: args.words,
       createdAt: Date.now(),
     });
@@ -53,6 +57,8 @@ export const updateTheme = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     words: v.optional(v.array(wordValidator)),
+    bgColor: v.optional(v.string()),
+    titleColor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -64,6 +70,8 @@ export const updateTheme = mutation({
     if (updates.name !== undefined) filteredUpdates.name = updates.name;
     if (updates.description !== undefined) filteredUpdates.description = updates.description;
     if (updates.words !== undefined) filteredUpdates.words = updates.words;
+    if (updates.bgColor !== undefined) filteredUpdates.bgColor = updates.bgColor;
+    if (updates.titleColor !== undefined) filteredUpdates.titleColor = updates.titleColor;
     
     await ctx.db.patch(themeId, filteredUpdates);
     return await ctx.db.get(themeId);

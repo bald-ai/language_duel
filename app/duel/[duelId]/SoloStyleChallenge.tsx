@@ -18,17 +18,47 @@ const normalizeAccents = (str: string): string => {
     .replace(/\s+/g, " ");
 };
 
+// Deterministic (pure) PRNG utilities to avoid Math.random during render
+const hashSeed = (input: string): number => {
+  // FNV-1a 32-bit
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
+const mulberry32 = (seed: number) => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const seededShuffle = <T,>(arr: T[], seed: number): T[] => {
+  const a = [...arr];
+  const rand = mulberry32(seed);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
 // Generate a shuffled anagram for a word/phrase (spaces are preserved by caller)
-const generateAnagramLetters = (answer: string): string[] => {
+const generateAnagramLetters = (answer: string, nonce = 0): string[] => {
   const letters = answer.replace(/\s+/g, "").split("");
   if (letters.length <= 1) return letters;
 
-  const shuffle = (arr: string[]) => [...arr].sort(() => Math.random() - 0.5);
-  let shuffled = shuffle(letters);
-  let attempts = 0;
-  while (shuffled.join("") === letters.join("") && attempts < 5) {
-    shuffled = shuffle(letters);
-    attempts += 1;
+  const seed = hashSeed(`${answer}::${nonce}`);
+  let shuffled = seededShuffle(letters, seed);
+  if (shuffled.join("") === letters.join("")) {
+    shuffled = seededShuffle(letters, seed + 1);
   }
   return shuffled;
 };
@@ -81,20 +111,62 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
   { effect: "cards", label: "Cards", emoji: "🃏" },
 ];
 
+// Pre-generate random layouts at module scope so we don't call Math.random in render
+const INK_SPLATTERS = Array.from({ length: 25 }, (_, i) => ({
+  id: i,
+  top: 5 + Math.random() * 90,
+  left: 2 + Math.random() * 96,
+  scale: 1.5 + Math.random() * 2.5,
+  delay: Math.random() * 1.5,
+  rotation: Math.random() * 360,
+}));
+
+const FLOATING_BUBBLES = Array.from({ length: 40 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  size: 40 + Math.random() * 80,
+  duration: 2 + Math.random() * 2,
+  delay: Math.random() * 2,
+}));
+
+const FALLING_EMOJIS = (() => {
+  const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "😈"];
+  return Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
+    left: Math.random() * 100,
+    duration: 1.5 + Math.random() * 1.5,
+    delay: Math.random() * 2,
+    size: 30 + Math.random() * 40,
+  }));
+})();
+
+const STICKY_NOTES = Array.from({ length: 15 }, (_, i) => ({
+  id: i,
+  top: 5 + Math.random() * 80,
+  left: 5 + Math.random() * 80,
+  rotation: -20 + Math.random() * 40,
+  color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c"][Math.floor(Math.random() * 4)],
+  text: ["LOL", "Oops!", "Nope!", "Ha!", "???", "RIP"][Math.floor(Math.random() * 6)],
+}));
+
+const FLYING_CARDS = (() => {
+  const suits = ["♠", "♥", "♦", "♣"] as const;
+  const values = ["A", "K", "Q", "J"] as const;
+  return Array.from({ length: 30 }, (_, i) => ({
+    id: i,
+    suit: suits[Math.floor(Math.random() * 4)],
+    value: values[Math.floor(Math.random() * 4)],
+    startY: Math.random() * 100,
+    duration: 1 + Math.random() * 1,
+    delay: Math.random() * 2,
+    fromLeft: Math.random() > 0.5,
+  }));
+})();
+
 // ============= Sabotage Effect Components =============
 function InkSplatter({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const splatters = useMemo(
-    () =>
-      Array.from({ length: 25 }, (_, i) => ({
-        id: i,
-        top: 5 + Math.random() * 90,
-        left: 2 + Math.random() * 96,
-        scale: 1.5 + Math.random() * 2.5,
-        delay: Math.random() * 1.5,
-        rotation: Math.random() * 360,
-      })),
-    []
-  );
+  const splatters = INK_SPLATTERS;
 
   const opacity = phase === "wind-up" ? 0.4 : phase === "wind-down" ? 0.2 : 1;
 
@@ -120,17 +192,7 @@ function InkSplatter({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
 }
 
 function FloatingBubbles({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const bubbles = useMemo(
-    () =>
-      Array.from({ length: 40 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        size: 40 + Math.random() * 80,
-        duration: 2 + Math.random() * 2,
-        delay: Math.random() * 2,
-      })),
-    []
-  );
+  const bubbles = FLOATING_BUBBLES;
 
   const opacity = phase === "wind-up" ? 0.4 : phase === "wind-down" ? 0.3 : 0.9;
 
@@ -164,17 +226,7 @@ function FloatingBubbles({ phase }: { phase: "wind-up" | "full" | "wind-down" })
 }
 
 function FallingEmojis({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const emojis = useMemo(() => {
-    const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "😈"];
-    return Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
-      left: Math.random() * 100,
-      duration: 1.5 + Math.random() * 1.5,
-      delay: Math.random() * 2,
-      size: 30 + Math.random() * 40,
-    }));
-  }, []);
+  const emojis = FALLING_EMOJIS;
 
   const opacity = phase === "wind-up" ? 0.5 : phase === "wind-down" ? 0.3 : 1;
 
@@ -209,18 +261,7 @@ function FallingEmojis({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
 }
 
 function StickyNotes({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const notes = useMemo(
-    () =>
-      Array.from({ length: 15 }, (_, i) => ({
-        id: i,
-        top: 5 + Math.random() * 80,
-        left: 5 + Math.random() * 80,
-        rotation: -20 + Math.random() * 40,
-        color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c"][Math.floor(Math.random() * 4)],
-        text: ["LOL", "Oops!", "Nope!", "Ha!", "???", "RIP"][Math.floor(Math.random() * 6)],
-      })),
-    []
-  );
+  const notes = STICKY_NOTES;
 
   const opacity = phase === "wind-up" ? 0.5 : phase === "wind-down" ? 0.3 : 1;
 
@@ -248,19 +289,7 @@ function StickyNotes({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
 }
 
 function FlyingCards({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const cards = useMemo(() => {
-    const suits = ["♠", "♥", "♦", "♣"];
-    const values = ["A", "K", "Q", "J"];
-    return Array.from({ length: 30 }, (_, i) => ({
-      id: i,
-      suit: suits[Math.floor(Math.random() * 4)],
-      value: values[Math.floor(Math.random() * 4)],
-      startY: Math.random() * 100,
-      duration: 1 + Math.random() * 1,
-      delay: Math.random() * 2,
-      fromLeft: Math.random() > 0.5,
-    }));
-  }, []);
+  const cards = FLYING_CARDS;
 
   const opacity = phase === "wind-up" ? 0.5 : phase === "wind-down" ? 0.3 : 1;
 
@@ -617,7 +646,7 @@ function Level1Input({
         {canRequestHint && !hintRequested && (
           <button
             onClick={handleRequestHint}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+            className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
           >
             <span>🆘</span> Ask for Help
           </button>
@@ -676,7 +705,7 @@ function Level1Input({
       </button>
       
       <button onClick={onSkip} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
-        Don't Know
+        Don&apos;t Know
       </button>
     </div>
   );
@@ -921,6 +950,7 @@ function Level2TypingInput({
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [anagramLetters, setAnagramLetters] = useState<string[]>([]);
+  const [anagramNonce, setAnagramNonce] = useState(0);
   const [anagramResult, setAnagramResult] = useState<"correct" | "wrong" | null>(null);
   const dragIndexRef = useRef<number | null>(null);
 
@@ -936,13 +966,12 @@ function Level2TypingInput({
     return slots;
   }, [answer]);
 
-  useEffect(() => {
-    if (hintIsAnagram) {
-      setAnagramLetters(generateAnagramLetters(answer));
-    } else {
-      setAnagramLetters([]);
-    }
-  }, [answer, hintIsAnagram]);
+  const anagramBase = useMemo(
+    () => (hintIsAnagram ? generateAnagramLetters(answer, 0) : []),
+    [answer, hintIsAnagram]
+  );
+
+  const effectiveAnagramLetters = anagramLetters.length ? anagramLetters : anagramBase;
 
   const handleSubmit = () => {
     setSubmitted(true);
@@ -956,7 +985,7 @@ function Level2TypingInput({
 
   const handleSubmitAnagram = () => {
     const reconstructed = answer.split("");
-    anagramLetters.forEach((char, idx) => {
+    effectiveAnagramLetters.forEach((char, idx) => {
       const slot = letterSlots[idx];
       if (slot) {
         reconstructed[slot.originalIndex] = char || "";
@@ -987,7 +1016,8 @@ function Level2TypingInput({
     const from = dragIndexRef.current;
     if (from === null || from === idx) return;
     setAnagramLetters((prev) => {
-      const next = [...prev];
+      const base = prev.length ? prev : effectiveAnagramLetters;
+      const next = [...base];
       [next[from], next[idx]] = [next[idx], next[from]];
       return next;
     });
@@ -1000,7 +1030,11 @@ function Level2TypingInput({
 
   const handleShuffleAnagram = () => {
     if (submitted) return;
-    setAnagramLetters(generateAnagramLetters(answer));
+    setAnagramNonce((n) => {
+      const next = n + 1;
+      setAnagramLetters(generateAnagramLetters(answer, next));
+      return next;
+    });
   };
 
   const words = answer.split(" ");
@@ -1094,7 +1128,7 @@ function Level2TypingInput({
               onClick={onSkip}
               className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm"
             >
-              Don't Know
+              Don&apos;t Know
             </button>
           </div>
           {submitted && anagramResult === "wrong" && (
@@ -1132,7 +1166,7 @@ function Level2TypingInput({
                 Submit
               </button>
               <button onClick={onSkip} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
-                Don't Know
+                Don&apos;t Know
               </button>
             </div>
           )}
@@ -1148,7 +1182,7 @@ function Level2TypingInput({
           {canRequestHint && !hintRequested && !submitted && (
             <button
               onClick={onRequestHint}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -1221,8 +1255,9 @@ function Level2MultipleChoice({
   const [submitted, setSubmitted] = useState(false);
 
   const options = useMemo(() => {
-    const shuffledWrong = [...wrongAnswers].sort(() => Math.random() - 0.5).slice(0, 4);
-    return [answer, ...shuffledWrong].sort(() => Math.random() - 0.5);
+    const seed = hashSeed(`${answer}::${wrongAnswers.join("|")}`);
+    const shuffledWrong = seededShuffle([...wrongAnswers], seed).slice(0, 4);
+    return seededShuffle([answer, ...shuffledWrong], seed + 1);
   }, [answer, wrongAnswers]);
 
   // Handle option click - immediately submit
@@ -1313,7 +1348,7 @@ function Level2MultipleChoice({
         {canRequestHint && !hintRequested && !submitted && (
           <button
             onClick={handleRequestHint}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+            className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
           >
             <span>🆘</span> Ask for Help
           </button>
@@ -1344,7 +1379,7 @@ function Level2MultipleChoice({
       
       {!submitted && (
         <button onClick={handleDontKnow} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
-          Don't Know
+          Don&apos;t Know
         </button>
       )}
     </div>
@@ -1462,7 +1497,7 @@ function Level3Input({
             Submit
           </button>
           <button onClick={onSkip} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm">
-            Don't Know
+            Don&apos;t Know
           </button>
         </div>
       )}

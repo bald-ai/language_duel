@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
@@ -21,7 +22,7 @@ export default function DuelLearnPage() {
   const duelId = params.duelId as string;
 
   // Fetch duel data
-  const duelData = useQuery(api.duel.getDuel, { duelId: duelId as any });
+  const duelData = useQuery(api.duel.getDuel, { duelId: duelId as Id<"challenges"> });
   const theme = useQuery(
     api.themes.getTheme,
     duelData?.duel?.themeId ? { themeId: duelData.duel.themeId } : "skip"
@@ -86,7 +87,7 @@ export default function DuelLearnPage() {
   useEffect(() => {
     if (timeRemaining === 0 && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
-      initializeChallenge({ duelId: duel?._id as any })
+      initializeChallenge({ duelId: duel?._id as Id<"challenges"> })
         .then(() => {
           router.push(`/duel/${duelId}`);
         })

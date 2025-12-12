@@ -13,6 +13,9 @@ export default defineSchema({
     name: v.string(),
     description: v.string(),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))), // Type of words in theme (defaults to "nouns" for legacy)
+    // Optional per-theme styling
+    bgColor: v.optional(v.string()), // hex, e.g. "#1971c2"
+    titleColor: v.optional(v.string()), // hex, e.g. "#ffffff"
     words: v.array(
       v.object({
         word: v.string(), // English word
@@ -45,6 +48,9 @@ export default defineSchema({
     opponentLastAnswer: v.optional(v.string()),
     // Timer (legacy)
     questionStartTime: v.optional(v.number()),
+    // Question timer pause system (legacy classic hints)
+    questionTimerPausedAt: v.optional(v.number()),
+    questionTimerPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
     // Sabotage system - tracks active effects sent to each player
     challengerSabotage: v.optional(v.object({
       effect: v.string(), // "ink" | "bubbles" | "emojis" | "sticky" | "cards"

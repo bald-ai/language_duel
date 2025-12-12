@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 import SoloStyleChallenge from "./SoloStyleChallenge";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
 type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
@@ -14,21 +15,91 @@ type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
 
+// Pre-generate random layouts at module scope so we don't call Math.random in render
+const INK_SPLATTERS = Array.from({ length: 25 }, (_, i) => ({
+  id: i,
+  top: 5 + Math.random() * 90,
+  left: 2 + Math.random() * 96,
+  scale: 1.5 + Math.random() * 2.5,
+  delay: Math.random() * 1.5,
+  rotation: Math.random() * 360,
+  pulseSpeed: 0.5 + Math.random() * 0.5,
+}));
+
+const FLOATING_BUBBLES = Array.from({ length: 60 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  size: 80 + Math.random() * 150,
+  duration: 1.5 + Math.random() * 1.5,
+  delay: Math.random() * 1,
+  wobbleAmount: 40 + Math.random() * 60,
+  hue: Math.floor(Math.random() * 60) + 180, // Blue-cyan range
+}));
+
+const FALLING_EMOJIS = (() => {
+  const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "🎭", "🤯", "😈", "💥", "🌪️", "☠️", "👹", "🤡", "💢"];
+  return Array.from({ length: 80 }, (_, i) => ({
+    id: i,
+    emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
+    left: Math.random() * 100,
+    duration: 0.8 + Math.random() * 1.2,
+    delay: Math.random() * 1,
+    size: 50 + Math.random() * 60,
+    spinDirection: Math.random() > 0.5 ? 1 : -1,
+    wobble: 30 + Math.random() * 50,
+  }));
+})();
+
+const STICKY_NOTES = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  top: 2 + Math.random() * 85,
+  left: 2 + Math.random() * 85,
+  rotation: -25 + Math.random() * 50,
+  delay: Math.random() * 1,
+  wobbleSpeed: 0.3 + Math.random() * 0.4,
+  color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c", "#ff65a3", "#a8f0c6", "#ffb347", "#ff6961"][
+    Math.floor(Math.random() * 8)
+  ],
+  text: [
+    "You buffoon!",
+    "LOL nice try",
+    "Too slow!",
+    "Really?!",
+    "Haha NOPE",
+    "Good luck!",
+    "Think faster!",
+    "Oopsie!",
+    "Clown move",
+    "Big brain?",
+    "Try harder",
+    "Yikes...",
+    "LMAOOO",
+    "Panic mode!",
+    "Uh oh...",
+    "RIP",
+  ][Math.floor(Math.random() * 16)],
+  size: 100 + Math.random() * 50,
+}));
+
+const FLYING_CARDS = (() => {
+  const suits = ["♠", "♥", "♦", "♣"] as const;
+  const values = ["A", "K", "Q", "J", "10", "9", "8"] as const;
+  return Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    suit: suits[Math.floor(Math.random() * 4)],
+    value: values[Math.floor(Math.random() * 7)],
+    startY: Math.random() * 100,
+    duration: 0.6 + Math.random() * 0.8,
+    delay: Math.random() * 1.5,
+    fromLeft: Math.random() > 0.5,
+    size: 0.8 + Math.random() * 0.6,
+    verticalWobble: 20 + Math.random() * 40,
+  }));
+})();
+
 // Sabotage Effect Components
 function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const splatters = useMemo(
-    () =>
-      Array.from({ length: 25 }, (_, i) => ({
-        id: i,
-        top: 5 + Math.random() * 90,
-        left: 2 + Math.random() * 96,
-        scale: 1.5 + Math.random() * 2.5,
-        delay: Math.random() * 1.5,
-        rotation: Math.random() * 360,
-        pulseSpeed: 0.5 + Math.random() * 0.5,
-      })),
-    [],
-  );
+  const splatters = INK_SPLATTERS;
 
   const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.2 : 1;
 
@@ -102,19 +173,7 @@ function InkSplatter({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function FloatingBubbles({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const bubbles = useMemo(
-    () =>
-      Array.from({ length: 60 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        size: 80 + Math.random() * 150,
-        duration: 1.5 + Math.random() * 1.5,
-        delay: Math.random() * 1,
-        wobbleAmount: 40 + Math.random() * 60,
-        hue: Math.floor(Math.random() * 60) + 180, // Blue-cyan range
-      })),
-    [],
-  );
+  const bubbles = FLOATING_BUBBLES;
 
   const opacity = phase === 'wind-up' ? 0.4 : phase === 'wind-down' ? 0.3 : 0.95;
   const scale = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.6 : 1;
@@ -173,19 +232,7 @@ function FloatingBubbles({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' })
 }
 
 function FallingEmojis({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const emojis = useMemo(() => {
-    const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "🎭", "🤯", "😈", "💥", "🌪️", "☠️", "👹", "🤡", "💢"];
-    return Array.from({ length: 80 }, (_, i) => ({
-      id: i,
-      emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
-      left: Math.random() * 100,
-      duration: 0.8 + Math.random() * 1.2,
-      delay: Math.random() * 1,
-      size: 50 + Math.random() * 60,
-      spinDirection: Math.random() > 0.5 ? 1 : -1,
-      wobble: 30 + Math.random() * 50,
-    }));
-  }, []);
+  const emojis = FALLING_EMOJIS;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
   const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
@@ -246,38 +293,7 @@ function FallingEmojis({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function StickyNotes({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const notes = useMemo(
-    () =>
-      Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        top: 2 + Math.random() * 85,
-        left: 2 + Math.random() * 85,
-        rotation: -25 + Math.random() * 50,
-        delay: Math.random() * 1,
-        wobbleSpeed: 0.3 + Math.random() * 0.4,
-        color: ["#fff740", "#ff7eb9", "#7afcff", "#feff9c", "#ff65a3", "#a8f0c6", "#ffb347", "#ff6961"][Math.floor(Math.random() * 8)],
-        text: [
-          "You buffoon!",
-          "LOL nice try",
-          "Too slow!",
-          "Really?!",
-          "Haha NOPE",
-          "Good luck!",
-          "Think faster!",
-          "Oopsie!",
-          "Clown move",
-          "Big brain?",
-          "Try harder",
-          "Yikes...",
-          "LMAOOO",
-          "Panic mode!",
-          "Uh oh...",
-          "RIP",
-        ][Math.floor(Math.random() * 16)],
-        size: 100 + Math.random() * 50,
-      })),
-    [],
-  );
+  const notes = STICKY_NOTES;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
 
@@ -325,21 +341,7 @@ function StickyNotes({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
 }
 
 function FlyingCards({ phase }: { phase: 'wind-up' | 'full' | 'wind-down' }) {
-  const cards = useMemo(() => {
-    const suits = ["♠", "♥", "♦", "♣"];
-    const values = ["A", "K", "Q", "J", "10", "9", "8"];
-    return Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      suit: suits[Math.floor(Math.random() * 4)],
-      value: values[Math.floor(Math.random() * 7)],
-      startY: Math.random() * 100,
-      duration: 0.6 + Math.random() * 0.8,
-      delay: Math.random() * 1.5,
-      fromLeft: Math.random() > 0.5,
-      size: 0.8 + Math.random() * 0.6,
-      verticalWobble: 20 + Math.random() * 40,
-    }));
-  }, []);
+  const cards = FLYING_CARDS;
 
   const opacity = phase === 'wind-up' ? 0.5 : phase === 'wind-down' ? 0.3 : 1;
   const scale = phase === 'wind-up' ? 0.6 : phase === 'wind-down' ? 0.5 : 1;
@@ -492,7 +494,7 @@ export default function DuelPage() {
 
   const duelData = useQuery(
     api.duel.getDuel,
-    { duelId: duelId as any }
+    { duelId: duelId as Id<"challenges"> }
   );
 
   // Get theme for this duel
@@ -839,7 +841,8 @@ export default function DuelPage() {
       const isFirstQuestion = (duel?.currentWordIndex ?? 0) === 0;
       const transitionOffset = isFirstQuestion ? 0 : TRANSITION_DURATION * 1000;
       const effectiveStartTime = questionStartTime + transitionOffset;
-      const elapsed = (Date.now() - effectiveStartTime) / 1000;
+      const now = duel?.questionTimerPausedAt ?? Date.now();
+      const elapsed = (now - effectiveStartTime) / 1000;
       const remaining = Math.max(0, TIMER_DURATION - elapsed);
       setQuestionTimer(remaining);
       
@@ -873,7 +876,19 @@ export default function DuelPage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [phase, duel?.questionStartTime, duel?.status, duel?._id, duel?.challengerAnswered, duel?.opponentAnswered, challenger?.clerkId, user?.id, timeoutAnswer]);
+  }, [
+    phase,
+    duel?.questionStartTime,
+    duel?.questionTimerPausedAt,
+    duel?.currentWordIndex,
+    duel?.status,
+    duel?._id,
+    duel?.challengerAnswered,
+    duel?.opponentAnswered,
+    challenger?.clerkId,
+    user?.id,
+    timeoutAnswer,
+  ]);
 
   // Difficulty scaling based on question index using dynamic distribution
   // Easy: 4 options (1 correct + 3 random wrong), 1 point
@@ -1003,7 +1018,7 @@ export default function DuelPage() {
   const isOpponent = opponent?.clerkId === user.id;
   
   if (!isChallenger && !isOpponent) {
-    return <div>You're not part of this duel</div>;
+    return <div>You&apos;re not part of this duel</div>;
   }
 
   const hasAnswered = (isChallenger && duel.challengerAnswered) || 
@@ -1507,7 +1522,7 @@ export default function DuelPage() {
                 🎯 Click on {2 - eliminatedOptions.length} wrong option{2 - eliminatedOptions.length !== 1 ? 's' : ''} to eliminate
               </div>
               <div className="text-xs text-gray-400">
-                You'll get +0.5 points if they answer after your hint
+                You&apos;ll get +0.5 points if they answer after your hint
               </div>
             </div>
           )}

@@ -160,126 +160,133 @@ export default function Home() {
       {/* Duel Modal - Select Opponent */}
       {showDuelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Select Opponent</h2>
             
-            {/* Pending Duels Section */}
-            {pendingDuels && pendingDuels.length > 0 && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="font-bold text-yellow-800 mb-2">Pending Duels:</p>
-                {pendingDuels.map(({ challenge: duel, challenger }) => (
-                  <div key={duel._id} className="flex items-center justify-between py-2">
-                    <span className="text-sm">{challenger?.name || challenger?.email}</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAcceptDuel(duel._id)}
-                        disabled={isJoiningDuel}
-                        className="bg-green-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Accept Duel
-                      </button>
-                      <button
-                        onClick={() => handleRejectDuel(duel._id)}
-                        disabled={isJoiningDuel}
-                        className="bg-red-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Reject Duel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Step 1: Select Opponent */}
-            {!selectedOpponentId && (
-              <>
-                {otherUsers.length === 0 ? (
-                  <p className="text-gray-600">No other users available to duel</p>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600 mb-2">Challenge someone to a duel:</p>
-                    {otherUsers.map((otherUser) => {
-                      const hasPendingDuel = pendingCount > 0;
-                      return (
+            {/* Scrollable content area (prevents busted UI on long lists) */}
+            <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+              {/* Pending Duels Section */}
+              {pendingDuels && pendingDuels.length > 0 && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="font-bold text-yellow-800 mb-2">Pending Duels:</p>
+                  {pendingDuels.map(({ challenge: duel, challenger }) => (
+                    <div key={duel._id} className="flex items-center justify-between py-2">
+                      <span className="text-sm">{challenger?.name || challenger?.email}</span>
+                      <div className="flex gap-2">
                         <button
-                          key={otherUser._id}
-                          onClick={() => !hasPendingDuel && handleSelectOpponent(otherUser._id)}
-                          disabled={hasPendingDuel}
-                          className={`w-full text-left p-3 border rounded ${hasPendingDuel ? 'opacity-50 cursor-not-allowed bg-gray-100' : 'hover:bg-gray-100'}`}
+                          onClick={() => handleAcceptDuel(duel._id)}
+                          disabled={isJoiningDuel}
+                          className="bg-green-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <div className="font-semibold text-gray-800">{otherUser.name || otherUser.email}</div>
-                          <div className="text-sm text-gray-600">{otherUser.email}</div>
-                          {hasPendingDuel && (
-                            <div className="text-xs text-red-500 mt-1">Respond to pending duel first</div>
-                          )}
+                          Accept Duel
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Step 2: Select Theme */}
-            {selectedOpponentId && !selectedDuelThemeId && (
-              <>
-                <p className="text-sm text-gray-600 mb-2">Select a theme for the duel:</p>
-                {!themes || themes.length === 0 ? (
-                  <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {themes.map((theme) => (
-                      <button
-                        key={theme._id}
-                        onClick={() => handleSelectTheme(theme._id)}
-                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
-                      >
-                        <div className="font-semibold text-gray-800">{theme.name}</div>
-                        <div className="text-sm text-gray-600">{theme.words.length} words</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => setSelectedOpponentId(null)}
-                  className="mt-2 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
-                >
-                  Back
-                </button>
-              </>
-            )}
-
-            {/* Step 3: Select Mode */}
-            {selectedOpponentId && selectedDuelThemeId && (
-              <>
-                <p className="text-sm text-gray-600 mb-4">Choose duel mode:</p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => handleCreateDuel("solo")}
-                    className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
-                  >
-                    <div className="font-bold text-blue-800 text-lg">Solo Style</div>
-                    <div className="text-sm text-blue-600">Independent progress, 3-level system, typing &amp; multiple choice</div>
-                  </button>
-                  <button
-                    onClick={() => handleCreateDuel("classic")}
-                    className="w-full text-left p-4 border-2 border-purple-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
-                  >
-                    <div className="font-bold text-purple-800 text-lg">Classic Mode</div>
-                    <div className="text-sm text-purple-600">Synced questions, timer, multiple choice only</div>
-                  </button>
+                        <button
+                          onClick={() => handleRejectDuel(duel._id)}
+                          disabled={isJoiningDuel}
+                          className="bg-red-500 text-white px-3 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Reject Duel
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                
-                <button
-                  onClick={() => setSelectedDuelThemeId(null)}
-                  className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
-                >
-                  Back
-                </button>
-              </>
-            )}
+              )}
 
+              {/* Step 1: Select Opponent */}
+              {!selectedOpponentId && (
+                <>
+                  {otherUsers.length === 0 ? (
+                    <p className="text-gray-600">No other users available to duel</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600 mb-2">Challenge someone to a duel:</p>
+                      {otherUsers.map((otherUser) => {
+                        const hasPendingDuel = pendingCount > 0;
+                        return (
+                          <button
+                            key={otherUser._id}
+                            onClick={() => !hasPendingDuel && handleSelectOpponent(otherUser._id)}
+                            disabled={hasPendingDuel}
+                            className={`w-full text-left p-3 border rounded ${hasPendingDuel ? "opacity-50 cursor-not-allowed bg-gray-100" : "hover:bg-gray-100"}`}
+                          >
+                            <div className="font-semibold text-gray-800">{otherUser.name || otherUser.email}</div>
+                            <div className="text-sm text-gray-600">{otherUser.email}</div>
+                            {hasPendingDuel && (
+                              <div className="text-xs text-red-500 mt-1">Respond to pending duel first</div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Step 2: Select Theme (sub-screen style with sticky Back) */}
+              {selectedOpponentId && !selectedDuelThemeId && (
+                <div className="flex flex-col min-h-full">
+                  <p className="text-sm text-gray-600 mb-2">Select a theme for the duel:</p>
+                  {!themes || themes.length === 0 ? (
+                    <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
+                  ) : (
+                    <div className="space-y-2 pb-2">
+                      {themes.map((theme) => (
+                        <button
+                          key={theme._id}
+                          onClick={() => handleSelectTheme(theme._id)}
+                          className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                        >
+                          <div className="font-semibold text-gray-800">{theme.name}</div>
+                          <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="sticky bottom-0 bg-white pt-2">
+                    <button
+                      onClick={() => setSelectedOpponentId(null)}
+                      className="w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Select Mode */}
+              {selectedOpponentId && selectedDuelThemeId && (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">Choose duel mode:</p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => handleCreateDuel("solo")}
+                      className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                    >
+                      <div className="font-bold text-blue-800 text-lg">Solo Style</div>
+                      <div className="text-sm text-blue-600">Independent progress, 3-level system, typing &amp; multiple choice</div>
+                    </button>
+                    <button
+                      onClick={() => handleCreateDuel("classic")}
+                      className="w-full text-left p-4 border-2 border-purple-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
+                    >
+                      <div className="font-bold text-purple-800 text-lg">Classic Mode</div>
+                      <div className="text-sm text-purple-600">Synced questions, timer, multiple choice only</div>
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={() => setSelectedDuelThemeId(null)}
+                    className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                  >
+                    Back
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Fixed footer */}
             <button
               onClick={() => {
                 setShowDuelModal(false);

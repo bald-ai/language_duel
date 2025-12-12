@@ -253,6 +253,8 @@ export const answerDuel = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: undefined,
+          questionTimerPausedAt: undefined,
+          questionTimerPausedBy: undefined,
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
@@ -268,6 +270,8 @@ export const answerDuel = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: Date.now(),
+          questionTimerPausedAt: undefined,
+          questionTimerPausedBy: undefined,
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
@@ -546,7 +550,20 @@ export const acceptHint = mutation({
     if (challenge.hintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
     if (challenge.hintAccepted) throw new Error("Hint already accepted");
 
-    await ctx.db.patch(duelId, { hintAccepted: true, eliminatedOptions: [] });
+    const now = Date.now();
+    const currentStart = typeof challenge.questionStartTime === "number" ? challenge.questionStartTime : now;
+    // Add +3 seconds by shifting start time forward.
+    const bumpedStart = currentStart + 3000;
+
+    await ctx.db.patch(duelId, {
+      hintAccepted: true,
+      eliminatedOptions: [],
+      // Pause the question timer while hint is being provided
+      questionTimerPausedAt: now,
+      questionTimerPausedBy: playerRole,
+      // Give requester +3 seconds
+      questionStartTime: bumpedStart,
+    });
   },
 });
 
@@ -629,9 +646,23 @@ export const eliminateOption = mutation({
       throw new Error("Maximum 2 options can be eliminated");
     }
 
-    await ctx.db.patch(duelId, { 
-      eliminatedOptions: [...currentEliminated, option] 
-    });
+    const nextEliminated = [...currentEliminated, option];
+    const update: Record<string, unknown> = {
+      eliminatedOptions: nextEliminated,
+    };
+
+    // When both eliminations are provided, resume the question timer.
+    if (nextEliminated.length >= 2) {
+      const pausedAt = typeof challenge.questionTimerPausedAt === "number" ? challenge.questionTimerPausedAt : undefined;
+      const pauseDuration = pausedAt ? Date.now() - pausedAt : 0;
+      if (typeof challenge.questionStartTime === "number") {
+        update.questionStartTime = challenge.questionStartTime + pauseDuration;
+      }
+      update.questionTimerPausedAt = undefined;
+      update.questionTimerPausedBy = undefined;
+    }
+
+    await ctx.db.patch(duelId, update);
   },
 });
 
@@ -952,6 +983,8 @@ export const timeoutAnswer = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: undefined,
+          questionTimerPausedAt: undefined,
+          questionTimerPausedBy: undefined,
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
@@ -966,6 +999,8 @@ export const timeoutAnswer = mutation({
           hintAccepted: undefined,
           eliminatedOptions: undefined,
           questionStartTime: Date.now(),
+          questionTimerPausedAt: undefined,
+          questionTimerPausedBy: undefined,
           countdownPausedBy: undefined,
           countdownUnpauseRequestedBy: undefined,
           countdownPausedAt: undefined,
