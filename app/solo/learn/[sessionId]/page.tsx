@@ -70,6 +70,22 @@ export default function LearnPhasePage() {
     setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
   };
 
+  // Get color for confidence level slider
+  const getConfidenceColor = (level: number) => {
+    switch (level) {
+      case 0:
+        return { bg: "bg-white", track: "#ffffff", thumb: "#ffffff" };
+      case 1:
+        return { bg: "bg-green-500", track: "#22c55e", thumb: "#22c55e" };
+      case 2:
+        return { bg: "bg-orange-500", track: "#f97316", thumb: "#f97316" };
+      case 3:
+        return { bg: "bg-red-500", track: "#ef4444", thumb: "#ef4444" };
+      default:
+        return { bg: "bg-white", track: "#ffffff", thumb: "#ffffff" };
+    }
+  };
+
   // Handle mouse down to start drag
   const handleMouseDown = (e: React.MouseEvent, orderIdx: number) => {
     // Don't start drag if clicking on interactive elements
@@ -307,7 +323,17 @@ export default function LearnPhasePage() {
 
   // Skip to challenge
   const handleSkip = () => {
-    router.push(`/solo/${sessionId}?themeId=${themeId}`);
+    const confidenceByWordIndex: Record<number, number> = {};
+    theme?.words.forEach((_, wordIndex) => {
+      const wordKey = `${themeId}-${wordIndex}`;
+      confidenceByWordIndex[wordIndex] = getConfidence(wordKey);
+    });
+
+    const params = new URLSearchParams();
+    if (themeId) params.set("themeId", themeId);
+    params.set("confidence", JSON.stringify(confidenceByWordIndex));
+
+    router.push(`/solo/${sessionId}?${params.toString()}`);
   };
 
   // Exit back to home
@@ -422,11 +448,11 @@ export default function LearnPhasePage() {
               onClick={() => setIsRevealed(!isRevealed)}
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                 isRevealed
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  : "bg-green-600 text-white"
               }`}
             >
-              {isRevealed ? "Revealed" : "Testing"}
+              {isRevealed ? "Testing" : "Reveal"}
             </button>
             {!isRevealed && (
               <button
@@ -524,26 +550,33 @@ export default function LearnPhasePage() {
                   {/* Buttons Section */}
                   <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
                     {/* Confidence Slider - only in revealed mode */}
-                    {isRevealed && (
-                      <div className="flex flex-col items-center h-12 mr-1.5">
-                        <input
-                          type="range"
-                          min={0}
-                          max={3}
-                          step={1}
-                          value={getConfidence(wordKey)}
-                          onChange={(e) => setConfidence(wordKey, Number(e.target.value))}
-                          className={`${isRevealed ? "h-10" : "h-12"} w-4 appearance-none bg-gray-700 rounded-full cursor-pointer`}
-                          style={{
-                            writingMode: "vertical-lr",
-                            direction: "rtl",
-                          }}
-                        />
-                        <span className="text-xs text-gray-400 mt-1">
-                          {getConfidence(wordKey)}
-                        </span>
-                      </div>
-                    )}
+                    {isRevealed && (() => {
+                      const confidence = getConfidence(wordKey);
+                      const colors = getConfidenceColor(confidence);
+                      return (
+                        <div className="flex flex-col items-center h-12 mr-1.5">
+                          <input
+                            type="range"
+                            min={0}
+                            max={3}
+                            step={1}
+                            value={confidence}
+                            onChange={(e) => setConfidence(wordKey, Number(e.target.value))}
+                            className="h-10 w-4 appearance-none rounded-full cursor-pointer confidence-slider"
+                            style={{
+                              writingMode: "vertical-lr",
+                              direction: "rtl",
+                              background: `linear-gradient(to top, ${colors.track} ${(confidence / 3) * 100}%, #374151 ${(confidence / 3) * 100}%)`,
+                              // @ts-expect-error CSS custom property
+                              "--thumb-color": colors.thumb,
+                            }}
+                          />
+                          <span className={`text-xs font-bold mt-1 ${confidence === 0 ? "text-gray-400" : confidence === 1 ? "text-green-400" : confidence === 2 ? "text-orange-400" : "text-red-400"}`}>
+                            {confidence}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Testing mode buttons */}
                     {!isRevealed && (
@@ -685,26 +718,33 @@ export default function LearnPhasePage() {
 
                   {/* Buttons Section (simplified for drag preview) */}
                   <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
-                    {isRevealed && (
-                      <div className="flex flex-col items-center h-12 mr-1.5">
-                        <input
-                          type="range"
-                          min={0}
-                          max={3}
-                          step={1}
-                          value={getConfidence(wordKey)}
-                          readOnly
-                          className={`${isRevealed ? "h-10" : "h-12"} w-4 appearance-none bg-gray-700 rounded-full`}
-                          style={{
-                            writingMode: "vertical-lr",
-                            direction: "rtl",
-                          }}
-                        />
-                        <span className="text-xs text-gray-400 mt-1">
-                          {getConfidence(wordKey)}
-                        </span>
-                      </div>
-                    )}
+                    {isRevealed && (() => {
+                      const confidence = getConfidence(wordKey);
+                      const colors = getConfidenceColor(confidence);
+                      return (
+                        <div className="flex flex-col items-center h-12 mr-1.5">
+                          <input
+                            type="range"
+                            min={0}
+                            max={3}
+                            step={1}
+                            value={confidence}
+                            readOnly
+                            className="h-10 w-4 appearance-none rounded-full confidence-slider"
+                            style={{
+                              writingMode: "vertical-lr",
+                              direction: "rtl",
+                              background: `linear-gradient(to top, ${colors.track} ${(confidence / 3) * 100}%, #374151 ${(confidence / 3) * 100}%)`,
+                              // @ts-expect-error CSS custom property
+                              "--thumb-color": colors.thumb,
+                            }}
+                          />
+                          <span className={`text-xs font-bold mt-1 ${confidence === 0 ? "text-gray-400" : confidence === 1 ? "text-green-400" : confidence === 2 ? "text-orange-400" : "text-red-400"}`}>
+                            {confidence}
+                          </span>
+                        </div>
+                      );
+                    })()}
                     <div
                       className={`${isRevealed ? "w-10 h-10" : "w-12 h-12"} rounded-full flex items-center justify-center ${
                         isThisPlaying

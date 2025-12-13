@@ -784,8 +784,8 @@ export default function ThemesPage() {
   const renderListView = () => (
     <>
       <header className="w-full mb-6">
-        <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4 mb-4">
-          <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
+        <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4 mb-4">
+          <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide">
             Themes
           </h1>
         </div>
@@ -793,19 +793,19 @@ export default function ThemesPage() {
         {/* Generate New Button */}
         <button
           onClick={() => setShowGenerateModal(true)}
-          className="w-full bg-gray-200 border-2 border-gray-400 rounded-xl py-3 text-lg font-bold text-gray-800 uppercase tracking-wide hover:bg-gray-300 transition-colors"
+          className="w-full bg-gray-800 border-2 border-gray-700 rounded-xl py-3 text-lg font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
         >
           Generate New
         </button>
       </header>
 
       {/* Themes List */}
-      <div className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl p-4 mb-4 flex-1 overflow-y-auto">
+      <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl p-4 mb-4 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3">
           {themes.map((theme) => (
             <div
               key={theme._id}
-              className="w-full p-4 bg-white border-2 border-gray-300 rounded-xl hover:border-gray-400 transition-colors overflow-hidden"
+              className="w-full p-4 bg-gray-800/50 border-2 border-gray-700 rounded-xl hover:border-gray-600 transition-colors overflow-hidden"
               style={{ backgroundColor: (theme as Theme).bgColor ?? undefined }}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -816,7 +816,7 @@ export default function ThemesPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       className="font-bold text-lg truncate"
-                      style={{ color: (theme as Theme).titleColor ?? "#1f2937" }}
+                      style={{ color: (theme as Theme).titleColor ?? "#e5e7eb" }}
                       title={theme.name}
                     >
                       {theme.name}
@@ -828,7 +828,7 @@ export default function ThemesPage() {
                       <span className="text-orange-500 text-xl font-bold shrink-0" title="This theme has duplicate wrong answers">⚠</span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-600 truncate" title={`${theme.words.length} words`}>
+                  <div className="text-sm text-gray-400 truncate" title={`${theme.words.length} words`}>
                     {theme.words.length} words
                   </div>
                 </button>
@@ -836,20 +836,20 @@ export default function ThemesPage() {
                   <div className="flex flex-wrap gap-2 justify-end">
                     <button
                       onClick={() => handleDuplicateTheme(theme._id)}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors whitespace-nowrap"
+                      className="px-3 py-1 bg-blue-500/15 text-blue-200 rounded-lg text-sm font-medium hover:bg-blue-500/25 transition-colors whitespace-nowrap"
                     >
                       Duplicate
                     </button>
                     <button
                       onClick={() => handleDeleteTheme(theme._id)}
-                      className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors whitespace-nowrap"
+                      className="px-3 py-1 bg-red-500/15 text-red-200 rounded-lg text-sm font-medium hover:bg-red-500/25 transition-colors whitespace-nowrap"
                     >
                       Delete
                     </button>
                   </div>
 
                   <div
-                    className="px-2 py-1 rounded-md border border-gray-200 bg-gray-50 text-[11px] font-semibold tracking-wide text-gray-600 uppercase leading-none whitespace-nowrap"
+                    className="px-2 py-1 rounded-md border border-gray-700 bg-gray-800 text-[11px] font-semibold tracking-wide text-gray-300 uppercase leading-none whitespace-nowrap"
                     title="Word type"
                   >
                     {(theme as Theme).wordType === "verbs" ? "Verbs" : "Nouns"}
@@ -864,7 +864,7 @@ export default function ThemesPage() {
       {/* Back Button */}
       <button
         onClick={goBack}
-        className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-xl font-bold text-gray-800 uppercase tracking-wide hover:bg-gray-300"
+        className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl py-4 text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
       >
         Back
       </button>
@@ -872,8 +872,8 @@ export default function ThemesPage() {
       {/* Generate New Theme Modal */}
       {showGenerateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">New Theme</h2>
+          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700">
+            <h2 className="text-xl font-bold text-white mb-4 text-center">New Theme</h2>
             
             {/* Word Type Toggle */}
             <div className="flex gap-2 mb-4">
@@ -882,8 +882,8 @@ export default function ThemesPage() {
                 disabled={isGenerating}
                 className={`flex-1 py-3 rounded-xl font-bold uppercase transition-colors ${
                   wordType === "nouns"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300"
+                    ? "bg-gray-700 text-white"
+                    : "bg-gray-800 border-2 border-gray-700 text-gray-200 hover:bg-gray-700"
                 }`}
               >
                 Nouns
@@ -893,8 +893,8 @@ export default function ThemesPage() {
                 disabled={isGenerating}
                 className={`flex-1 py-3 rounded-xl font-bold uppercase transition-colors ${
                   wordType === "verbs"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300"
+                    ? "bg-gray-700 text-white"
+                    : "bg-gray-800 border-2 border-gray-700 text-gray-200 hover:bg-gray-700"
                 }`}
               >
                 Verbs
@@ -913,10 +913,10 @@ export default function ThemesPage() {
                   }}
                   placeholder="Theme name (e.g. Kitchen)"
                   maxLength={25}
-                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
+                  className="w-full p-4 border-2 border-gray-700 bg-gray-900 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                   disabled={isGenerating}
                 />
-                <p className="text-xs text-gray-500 mt-1 text-right">
+                <p className="text-xs text-gray-400 mt-1 text-right">
                   {newThemeName.length}/25
                 </p>
               </div>
@@ -932,10 +932,10 @@ export default function ThemesPage() {
                   placeholder="Optional: Specify details (e.g. small items)"
                   maxLength={250}
                   rows={2}
-                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none resize-none"
+                  className="w-full p-4 border-2 border-gray-700 bg-gray-900 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
                   disabled={isGenerating}
                 />
-                <p className="text-xs text-gray-500 mt-1 text-right">
+                <p className="text-xs text-gray-400 mt-1 text-right">
                   {newThemePrompt.length}/250
                 </p>
               </div>
@@ -943,15 +943,15 @@ export default function ThemesPage() {
             </div>
 
             {generateError && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-700 text-sm">
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
                 {generateError}
               </div>
             )}
 
             {isGenerating && (
               <div className="mb-4 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
-                <p className="text-sm text-gray-600">Generating 20 words... This may take a moment.</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                <p className="text-sm text-gray-300">Generating 20 words... This may take a moment.</p>
               </div>
             )}
 
@@ -972,7 +972,7 @@ export default function ThemesPage() {
                   setGenerateError(null);
                 }}
                 disabled={isGenerating}
-                className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -990,10 +990,10 @@ export default function ThemesPage() {
     const effectiveTitleColor = draftTitleColor ?? selectedTheme.titleColor;
 
     return (
-      <div className="fixed inset-0 flex flex-col bg-gray-100">
+      <div className="fixed inset-0 flex flex-col bg-gray-900">
         {/* Fixed Header */}
         <header className="flex-shrink-0 w-full max-w-md mx-auto px-4 pt-6 pb-4">
-          <div className="relative w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 pl-4 pr-12">
+          <div className="relative w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 pl-4 pr-12">
             {isEditingThemeName ? (
               <input
                 type="text"
@@ -1020,7 +1020,7 @@ export default function ThemesPage() {
                   }
                 }}
                 maxLength={25}
-                className="w-full text-xl font-bold text-center text-gray-800 uppercase tracking-wide bg-transparent border-none outline-none focus:ring-0"
+                className="w-full text-xl font-bold text-center text-gray-300 uppercase tracking-wide bg-transparent border-none outline-none focus:ring-0"
                 style={{ color: effectiveTitleColor ?? undefined }}
                 autoFocus
               />
@@ -1030,7 +1030,7 @@ export default function ThemesPage() {
                   setEditedThemeName(selectedTheme.name);
                   setIsEditingThemeName(true);
                 }}
-                className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide cursor-pointer transition-colors"
+                className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide cursor-pointer transition-colors"
                 style={{ color: effectiveTitleColor ?? undefined }}
                 title="Click to edit theme name"
               >
@@ -1046,7 +1046,7 @@ export default function ThemesPage() {
                 e.stopPropagation();
                 setIsThemeStyleOpen((v) => !v);
               }}
-              className="absolute right-2 top-2 rounded-lg border-2 border-gray-400 bg-gray-200 p-2 text-gray-700 hover:bg-gray-300"
+              className="absolute right-2 top-2 rounded-lg border-2 border-gray-700 bg-gray-800 p-2 text-gray-300 hover:bg-gray-700 transition-colors"
               aria-label="Theme settings"
               title="Theme settings"
             >
@@ -1079,17 +1079,17 @@ export default function ThemesPage() {
             {isThemeStyleOpen && (
               <div
                 ref={stylePopoverRef}
-                className="absolute right-2 top-full z-50 mt-2 w-[280px] max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-gray-400 bg-gray-100 p-2 shadow-xl"
+                className="absolute right-2 top-full z-50 mt-2 w-[280px] max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-gray-700 bg-gray-800 p-2 shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-300">
                     Theme style
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsThemeStyleOpen(false)}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-[11px] font-bold text-gray-700 hover:bg-gray-50"
+                    className="rounded-lg border border-gray-600 bg-gray-700 px-2 py-1 text-[11px] font-bold text-white hover:bg-gray-600 transition-colors"
                     title="Close"
                   >
                     Close
@@ -1102,8 +1102,8 @@ export default function ThemesPage() {
                     onClick={() => setThemeStyleTab("bg")}
                     className={`rounded-xl border-2 py-2 text-xs font-bold uppercase ${
                       themeStyleTab === "bg"
-                        ? "border-gray-800 bg-gray-800 text-white"
-                        : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                        ? "border-gray-700 bg-gray-900 text-white"
+                        : "border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600"
                     }`}
                   >
                     Background
@@ -1113,8 +1113,8 @@ export default function ThemesPage() {
                     onClick={() => setThemeStyleTab("title")}
                     className={`rounded-xl border-2 py-2 text-xs font-bold uppercase ${
                       themeStyleTab === "title"
-                        ? "border-gray-800 bg-gray-800 text-white"
-                        : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50"
+                        ? "border-gray-700 bg-gray-900 text-white"
+                        : "border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600"
                     }`}
                   >
                     Font
@@ -1146,12 +1146,12 @@ export default function ThemesPage() {
         {/* Scrollable Words List */}
         <div className="flex-1 overflow-y-auto px-4">
           <div className="w-full max-w-md mx-auto">
-            <div className="bg-gray-200 border-2 border-gray-400 rounded-2xl p-4">
+            <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-4">
               <div className="flex flex-col gap-4">
                 {localWords.map((word, index) => (
                   <div
                     key={index}
-                    className="bg-white border-2 border-gray-300 rounded-xl p-4"
+                    className="bg-gray-800/50 border-2 border-gray-700 rounded-xl p-4"
                   >
                     {/* Word number - red if duplicate word, orange if duplicate wrong answers */}
                     <div className="flex items-center gap-2 mb-3">
@@ -1160,11 +1160,11 @@ export default function ThemesPage() {
                         const isDuplicateWord = duplicateWordIndices.has(index);
                         const hasDuplicateWrongAnswers = new Set(word.wrongAnswers).size !== word.wrongAnswers.length;
                         
-                        let badgeClass = "border-gray-400 text-gray-600";
+                        let badgeClass = "border-gray-600 text-gray-300 bg-gray-800";
                         if (isDuplicateWord) {
-                          badgeClass = "border-red-500 text-red-500 bg-red-50";
+                          badgeClass = "border-red-500 text-red-200 bg-red-500/10";
                         } else if (hasDuplicateWrongAnswers) {
-                          badgeClass = "border-orange-500 text-orange-500 bg-orange-50";
+                          badgeClass = "border-orange-500 text-orange-200 bg-orange-500/10";
                         }
                         
                         return (
@@ -1187,16 +1187,16 @@ export default function ThemesPage() {
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       <button
                         onClick={() => startEditWord(index, "word")}
-                        className="p-2 bg-blue-50 border-2 border-blue-200 rounded-lg text-sm font-medium text-blue-900 hover:bg-blue-100 hover:border-blue-300 transition-colors text-center"
+                        className="p-2 bg-blue-500/10 border-2 border-blue-500/30 rounded-lg text-sm font-medium text-blue-200 hover:bg-blue-500/20 hover:border-blue-400/50 transition-colors text-center"
                       >
-                        <div className="text-xs text-blue-500 mb-1">Word</div>
+                        <div className="text-xs text-blue-300 mb-1">Word</div>
                         {word.word}
                       </button>
                       <button
                         onClick={() => startEditWord(index, "answer")}
-                        className="p-2 bg-green-50 border-2 border-green-200 rounded-lg text-sm font-medium text-green-900 hover:bg-green-100 hover:border-green-300 transition-colors text-center"
+                        className="p-2 bg-green-500/10 border-2 border-green-500/30 rounded-lg text-sm font-medium text-green-200 hover:bg-green-500/20 hover:border-green-400/50 transition-colors text-center"
                       >
-                        <div className="text-xs text-green-500 mb-1">Answer</div>
+                        <div className="text-xs text-green-300 mb-1">Answer</div>
                         {word.answer}
                       </button>
                     </div>
@@ -1207,9 +1207,9 @@ export default function ThemesPage() {
                         <button
                           key={wrongIdx}
                           onClick={() => startEditWord(index, "wrong", wrongIdx)}
-                          className="p-2 bg-orange-50 border-2 border-orange-200 rounded-lg text-sm font-medium text-orange-900 hover:bg-orange-100 hover:border-orange-300 transition-colors text-center"
+                          className="p-2 bg-orange-500/10 border-2 border-orange-500/30 rounded-lg text-sm font-medium text-orange-200 hover:bg-orange-500/20 hover:border-orange-400/50 transition-colors text-center"
                         >
-                          <div className="text-xs text-orange-500 mb-1">Wrong {wrongIdx + 1}</div>
+                          <div className="text-xs text-orange-300 mb-1">Wrong {wrongIdx + 1}</div>
                           {wrongAnswer}
                         </button>
                       ))}
@@ -1218,7 +1218,7 @@ export default function ThemesPage() {
                     {/* Delete Word Button */}
                     <button
                       onClick={() => deleteWord(index)}
-                      className="mt-3 w-full py-2 bg-red-50 border-2 border-red-200 rounded-lg text-sm font-medium text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors"
+                      className="mt-3 w-full py-2 bg-red-500/10 border-2 border-red-500/30 rounded-lg text-sm font-medium text-red-200 hover:bg-red-500/20 hover:border-red-400/50 transition-colors"
                     >
                       Delete Word
                     </button>
@@ -1232,7 +1232,7 @@ export default function ThemesPage() {
         </div>
 
         {/* Fixed Bottom Buttons */}
-        <div className="flex-shrink-0 w-full bg-gray-100 border-t border-gray-300 px-4 py-4">
+        <div className="flex-shrink-0 w-full bg-gray-900 border-t border-gray-800 px-4 py-4">
           <div className="w-full max-w-md mx-auto space-y-3">
             {/* Add Word / Generate Random Row */}
             <div className="flex gap-3">
@@ -1260,7 +1260,7 @@ export default function ThemesPage() {
               </button>
               <button
                 onClick={handleCancelTheme}
-                className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-lg font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+                className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-2xl py-4 text-lg font-bold text-white uppercase hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
@@ -1271,11 +1271,11 @@ export default function ThemesPage() {
         {/* Add Word Modal */}
         {showAddWordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Add New Word</h2>
+            <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700">
+              <h2 className="text-xl font-bold text-white mb-4 text-center">Add New Word</h2>
               
               <div className="mb-4">
-                <label className="block text-sm text-gray-600 mb-2">English Word</label>
+                <label className="block text-sm text-gray-300 mb-2">English Word</label>
                 <input
                   type="text"
                   value={newWordInput}
@@ -1284,7 +1284,7 @@ export default function ThemesPage() {
                     setAddWordError(null); // Clear error on input change
                   }}
                   placeholder="Enter an English word..."
-                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:border-gray-500 focus:outline-none"
+                  className="w-full p-4 border-2 border-gray-700 bg-gray-900 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                   disabled={isAddingWord}
                   autoFocus
                   onKeyDown={(e) => {
@@ -1296,15 +1296,15 @@ export default function ThemesPage() {
               </div>
 
               {addWordError && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-700 text-sm">
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
                   {addWordError}
                 </div>
               )}
 
               {isAddingWord && (
                 <div className="mb-4 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Generating Spanish translation and wrong answers...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-300">Generating Spanish translation and wrong answers...</p>
                 </div>
               )}
 
@@ -1323,7 +1323,7 @@ export default function ThemesPage() {
                     setAddWordError(null);
                   }}
                   disabled={isAddingWord}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1335,11 +1335,11 @@ export default function ThemesPage() {
         {/* Generate Random Words Modal */}
         {showGenerateRandomModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Generate Random Words</h2>
+            <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700">
+              <h2 className="text-xl font-bold text-white mb-4 text-center">Generate Random Words</h2>
               
               <div className="mb-4">
-                <label className="block text-sm text-gray-600 mb-2">Number of words to generate (1-10)</label>
+                <label className="block text-sm text-gray-300 mb-2">Number of words to generate (1-10)</label>
                 <div className="flex items-center gap-4">
                   <input
                     type="range"
@@ -1347,27 +1347,27 @@ export default function ThemesPage() {
                     max="10"
                     value={randomWordCount}
                     onChange={(e) => setRandomWordCount(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     disabled={isGeneratingRandom}
                   />
-                  <span className="w-8 text-center text-xl font-bold text-gray-800">{randomWordCount}</span>
+                  <span className="w-8 text-center text-xl font-bold text-white">{randomWordCount}</span>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4 text-center">
+              <p className="text-sm text-gray-300 mb-4 text-center">
                 This will generate {randomWordCount} new unique word{randomWordCount > 1 ? 's' : ''} for the theme &quot;{selectedTheme?.name}&quot;
               </p>
 
               {generateRandomError && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-xl text-red-700 text-sm">
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
                   {generateRandomError}
                 </div>
               )}
 
               {isGeneratingRandom && (
                 <div className="mb-4 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Generating {randomWordCount} words... This may take a moment.</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-300">Generating {randomWordCount} words... This may take a moment.</p>
                 </div>
               )}
 
@@ -1386,7 +1386,7 @@ export default function ThemesPage() {
                     setGenerateRandomError(null);
                   }}
                   disabled={isGeneratingRandom}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1412,28 +1412,28 @@ export default function ThemesPage() {
     return (
       <>
         <header className="w-full mb-4">
-          <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4">
-            <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
+          <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4">
+            <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide">
               Edit {fieldLabel}
             </h1>
           </div>
         </header>
 
-        <div className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl p-4 mb-4 flex-1 overflow-auto">
+        <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl p-4 mb-4 flex-1 overflow-auto">
           {/* Current Value Display */}
-          <div className="mb-4 p-3 bg-white border-2 border-gray-300 rounded-xl">
-            <div className="text-xs text-gray-500 mb-1">Current Value</div>
-            <div className="text-lg font-bold text-gray-800">{oldValue}</div>
+          <div className="mb-4 p-3 bg-gray-900 border-2 border-gray-700 rounded-xl">
+            <div className="text-xs text-gray-400 mb-1">Current Value</div>
+            <div className="text-lg font-bold text-white">{oldValue}</div>
           </div>
 
           {/* Raw Prompt Display - hide for answer manual edit */}
           {!(editingField === "answer" && editMode === "manual") && (
             <div className="mb-4">
-              <div className="text-xs text-gray-500 mb-1">Prompt (editable for feedback)</div>
+              <div className="text-xs text-gray-400 mb-1">Prompt (editable for feedback)</div>
               <textarea
                 value={currentPrompt}
                 onChange={(e) => setCurrentPrompt(e.target.value)}
-                className="w-full p-3 border-2 border-gray-300 rounded-xl text-gray-800 font-mono text-xs focus:border-gray-500 focus:outline-none resize-none"
+                className="w-full p-3 border-2 border-gray-700 bg-gray-900 rounded-xl text-gray-200 font-mono text-xs focus:border-blue-500 focus:outline-none resize-none"
                 rows={12}
               />
             </div>
@@ -1451,13 +1451,13 @@ export default function ThemesPage() {
               </button>
               <button
                 onClick={handleManual}
-                className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+                className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors"
               >
                 Manually
               </button>
               <button
                 onClick={goBack}
-                className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+                className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
@@ -1469,13 +1469,13 @@ export default function ThemesPage() {
             <>
               {/* Old vs New Comparison */}
               <div className="mb-4 grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white border-2 border-gray-300 rounded-xl">
-                  <div className="text-xs text-gray-500 mb-1">Old {fieldLabel}</div>
-                  <div className="text-lg font-bold text-gray-800">{oldValue}</div>
+                <div className="p-3 bg-gray-900 border-2 border-gray-700 rounded-xl">
+                  <div className="text-xs text-gray-400 mb-1">Old {fieldLabel}</div>
+                  <div className="text-lg font-bold text-white">{oldValue}</div>
                 </div>
-                <div className="p-3 bg-green-50 border-2 border-green-300 rounded-xl">
-                  <div className="text-xs text-green-600 mb-1">New {fieldLabel}</div>
-                  <div className="text-lg font-bold text-green-800">{generatedValue}</div>
+                <div className="p-3 bg-green-500/10 border-2 border-green-500/30 rounded-xl">
+                  <div className="text-xs text-green-300 mb-1">New {fieldLabel}</div>
+                  <div className="text-lg font-bold text-green-200">{generatedValue}</div>
                 </div>
               </div>
 
@@ -1496,7 +1496,7 @@ export default function ThemesPage() {
                 </button>
                 <button
                   onClick={goBack}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1509,12 +1509,12 @@ export default function ThemesPage() {
             <>
               {/* Manual Input */}
               <div className="mb-4">
-                <div className="text-sm text-gray-600 mb-2">Enter new value:</div>
+                <div className="text-sm text-gray-300 mb-2">Enter new value:</div>
                 <input
                   type="text"
                   value={manualValue}
                   onChange={(e) => setManualValue(e.target.value)}
-                  className="w-full p-4 border-2 border-gray-300 rounded-xl text-gray-800 focus:border-gray-500 focus:outline-none text-lg"
+                  className="w-full p-4 border-2 border-gray-700 bg-gray-900 rounded-xl text-white focus:border-blue-500 focus:outline-none text-lg"
                   autoFocus
                 />
               </div>
@@ -1530,7 +1530,7 @@ export default function ThemesPage() {
                 </button>
                 <button
                   onClick={goBack}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1542,22 +1542,22 @@ export default function ThemesPage() {
         {/* Regenerate Confirmation Modal */}
         {showRegenerateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-gray-400">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Regenerate Answers?</h2>
+            <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700">
+              <h2 className="text-xl font-bold text-white mb-4 text-center">Regenerate Answers?</h2>
               
-              <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                <div className="text-xs text-blue-500 mb-1">New Word</div>
-                <div className="text-lg font-bold text-blue-900">{pendingManualWord}</div>
+              <div className="mb-4 p-3 bg-blue-500/10 border-2 border-blue-500/30 rounded-xl">
+                <div className="text-xs text-blue-300 mb-1">New Word</div>
+                <div className="text-lg font-bold text-blue-200">{pendingManualWord}</div>
               </div>
               
-              <p className="text-gray-600 text-sm mb-6 text-center">
+              <p className="text-gray-300 text-sm mb-6 text-center">
                 You changed the word. Would you like to regenerate the correct answer and wrong answers to match the new word?
               </p>
 
               {isRegenerating && (
                 <div className="mb-4 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Generating new answers...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-300">Generating new answers...</p>
                 </div>
               )}
 
@@ -1572,7 +1572,7 @@ export default function ThemesPage() {
                 <button
                   onClick={handleSaveWordOnly}
                   disabled={isRegenerating}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
                   No
                 </button>
@@ -1582,7 +1582,7 @@ export default function ThemesPage() {
                     setPendingManualWord("");
                   }}
                   disabled={isRegenerating}
-                  className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-xl py-3 font-bold text-gray-800 uppercase hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1595,7 +1595,7 @@ export default function ThemesPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-gray-900">
       <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
         {viewMode === "list" && renderListView()}
         {viewMode === "detail" && renderDetailView()}

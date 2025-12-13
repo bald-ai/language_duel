@@ -26,7 +26,7 @@ interface WordEntry {
 
 interface WordState {
   wordIndex: number;
-  currentLevel: 1 | 2 | 3;
+  currentLevel: 0 | 1 | 2 | 3;
   completedLevel3: boolean;
   answeredLevel2Plus: boolean;
 }
@@ -38,10 +38,47 @@ interface SessionState {
   wordStates: Map<number, WordState>;
   lastQuestionIndex: number | null;
   currentWordIndex: number | null;
-  currentLevel: 1 | 2 | 3;
+  currentLevel: 0 | 1 | 2 | 3;
   level2Mode: "typing" | "multiple_choice";
   questionsAnswered: number;
   correctAnswers: number;
+}
+
+function Level0Input({
+  word,
+  answer,
+  onGotIt,
+  onNotYet,
+}: {
+  word: string;
+  answer: string;
+  onGotIt: () => void;
+  onNotYet: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-6">
+      <div className="text-center">
+        <div className="text-3xl font-bold text-white mb-2">{word}</div>
+        <div className="text-sm text-gray-400 mb-3">Answer</div>
+        <div className="text-2xl font-bold text-green-400">{answer}</div>
+      </div>
+
+      <div className="flex gap-3 w-full">
+        <button
+          onClick={onGotIt}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors"
+        >
+          Got it!
+        </button>
+        <button
+          onClick={onNotYet}
+          className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition-colors"
+        >
+          Not yet
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // Level 1 Component - Guided Typing with letter slots
@@ -783,6 +820,28 @@ export default function SoloChallengePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const themeId = searchParams.get("themeId");
+  const confidenceParam = searchParams.get("confidence");
+
+  const initialConfidenceByWordIndex = useMemo(() => {
+    if (!confidenceParam) return null;
+    try {
+      const parsed = JSON.parse(confidenceParam) as unknown;
+      if (!parsed || typeof parsed !== "object") return null;
+
+      const record = parsed as Record<string, unknown>;
+      const levels: Record<number, 0 | 1 | 2 | 3> = {};
+      for (const [key, value] of Object.entries(record)) {
+        const wordIndex = Number(key);
+        if (!Number.isFinite(wordIndex)) continue;
+        if (typeof value !== "number") continue;
+        if (![0, 1, 2, 3].includes(value)) continue;
+        levels[wordIndex] = value as 0 | 1 | 2 | 3;
+      }
+      return levels;
+    } catch {
+      return null;
+    }
+  }, [confidenceParam]);
 
   // Fetch theme data
   const theme = useQuery(
@@ -813,6 +872,13 @@ export default function SoloChallengePage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
 
+  const pickQuestionLevel = useCallback((baseLevel: 0 | 1 | 2 | 3): 0 | 1 | 2 | 3 => {
+    if (baseLevel === 0) return 0;
+    if (baseLevel === 1) return Math.random() < 0.66 ? 1 : 2;
+    if (baseLevel === 2) return Math.random() < 0.66 ? 2 : 3;
+    return 3;
+  }, []);
+
   // Initialize session when theme loads
   useEffect(() => {
     if (theme && !session.initialized) {
@@ -832,9 +898,10 @@ export default function SoloChallengePage() {
       // Initialize word states
       const wordStates = new Map<number, WordState>();
       allIndices.forEach((idx) => {
+        const initialLevel = initialConfidenceByWordIndex?.[idx] ?? 1;
         wordStates.set(idx, {
           wordIndex: idx,
-          currentLevel: 1,
+          currentLevel: initialLevel,
           completedLevel3: false,
           answeredLevel2Plus: false,
         });
@@ -842,7 +909,8 @@ export default function SoloChallengePage() {
 
       // Pick first question
       const firstWordIndex = activePool[Math.floor(Math.random() * activePool.length)];
-      const firstLevel = Math.random() < 0.66 ? 1 : 2;
+      const firstBaseLevel = wordStates.get(firstWordIndex)?.currentLevel ?? 1;
+      const firstLevel = pickQuestionLevel(firstBaseLevel);
       const firstLevel2Mode = Math.random() < 0.5 ? "typing" : "multiple_choice";
 
       setSession({
@@ -852,7 +920,7 @@ export default function SoloChallengePage() {
         wordStates,
         lastQuestionIndex: null,
         currentWordIndex: firstWordIndex,
-        currentLevel: firstLevel as 1 | 2 | 3,
+        currentLevel: firstLevel,
         level2Mode: firstLevel2Mode,
         questionsAnswered: 0,
         correctAnswers: 0,
@@ -861,7 +929,7 @@ export default function SoloChallengePage() {
       // Start the timer
       setStartTime(Date.now());
     }
-  }, [theme, session.initialized]);
+  }, [theme, session.initialized, initialConfidenceByWordIndex, pickQuestionLevel]);
 
   // Live elapsed timer update
   useEffect(() => {
@@ -930,18 +998,7 @@ export default function SoloChallengePage() {
 
       // Determine level based on word state
       const wordState = wordStates.get(nextWordIndex)!;
-      let nextLevel: 1 | 2 | 3;
-
-      if (wordState.currentLevel === 1) {
-        // First time or still at level 1: 66% level 1, 33% level 2
-        nextLevel = Math.random() < 0.66 ? 1 : 2;
-      } else if (wordState.currentLevel === 2) {
-        // At level 2: 66% level 2, 33% level 3
-        nextLevel = Math.random() < 0.66 ? 2 : 3;
-      } else {
-        // At level 3
-        nextLevel = 3;
-      }
+      const nextLevel = pickQuestionLevel(wordState.currentLevel);
 
       const nextLevel2Mode = Math.random() < 0.5 ? "typing" : "multiple_choice";
 
@@ -957,7 +1014,7 @@ export default function SoloChallengePage() {
     });
     setShowFeedback(false);
     setFeedbackAnswer(null);
-  }, []);
+  }, [pickQuestionLevel]);
 
   // Handle correct answer
   const handleCorrect = useCallback(() => {
@@ -987,7 +1044,7 @@ export default function SoloChallengePage() {
 
       newWordStates.set(prev.currentWordIndex!, {
         ...wordState,
-        currentLevel: newLevel as 1 | 2 | 3,
+        currentLevel: newLevel,
         completedLevel3,
         answeredLevel2Plus,
       });
@@ -1021,8 +1078,8 @@ export default function SoloChallengePage() {
 
       // Lower level by 1 if possible
       let newLevel = wordState.currentLevel;
-      if (newLevel > 1) {
-        newLevel = (newLevel - 1) as 1 | 2 | 3;
+      if (newLevel > 0) {
+        newLevel = (newLevel - 1) as 0 | 1 | 2 | 3;
       }
 
       newWordStates.set(prev.currentWordIndex!, {
@@ -1058,10 +1115,10 @@ export default function SoloChallengePage() {
 
       // Lower level by 1 if possible
       let newLevel = wordState.currentLevel;
-      if (newLevel > 1) {
-        newLevel = (newLevel - 1) as 1 | 2 | 3;
+      if (newLevel > 0) {
+        newLevel = (newLevel - 1) as 0 | 1 | 2 | 3;
       }
-      // If already level 1, stay at level 1 (will be shown answer and returned to pool)
+      // If already level 0, stay at level 0
 
       newWordStates.set(prev.currentWordIndex!, {
         ...wordState,
@@ -1080,6 +1137,49 @@ export default function SoloChallengePage() {
       selectNextQuestion();
     }, 2500);
   }, [selectNextQuestion, theme, session.currentWordIndex]);
+
+  const handleLevel0GotIt = useCallback(() => {
+    setSession((prev) => {
+      if (prev.currentWordIndex === null) return prev;
+      const newWordStates = new Map(prev.wordStates);
+      const wordState = newWordStates.get(prev.currentWordIndex);
+      if (!wordState) return prev;
+
+      newWordStates.set(prev.currentWordIndex, {
+        ...wordState,
+        currentLevel: 1,
+      });
+
+      return {
+        ...prev,
+        wordStates: newWordStates,
+        questionsAnswered: prev.questionsAnswered + 1,
+        correctAnswers: prev.correctAnswers + 1,
+      };
+    });
+    selectNextQuestion();
+  }, [selectNextQuestion]);
+
+  const handleLevel0NotYet = useCallback(() => {
+    setSession((prev) => {
+      if (prev.currentWordIndex === null) return prev;
+      const newWordStates = new Map(prev.wordStates);
+      const wordState = newWordStates.get(prev.currentWordIndex);
+      if (!wordState) return prev;
+
+      newWordStates.set(prev.currentWordIndex, {
+        ...wordState,
+        currentLevel: 0,
+      });
+
+      return {
+        ...prev,
+        wordStates: newWordStates,
+        questionsAnswered: prev.questionsAnswered + 1,
+      };
+    });
+    selectNextQuestion();
+  }, [selectNextQuestion]);
 
   // Handle exit
   const handleExit = () => {
@@ -1130,7 +1230,8 @@ export default function SoloChallengePage() {
   ).length;
 
   // Level indicator colors
-  const levelColors = {
+  const levelColors: Record<0 | 1 | 2 | 3, string> = {
+    0: "text-gray-300 bg-gray-500/20 border-gray-500",
     1: "text-green-400 bg-green-500/20 border-green-500",
     2: "text-yellow-400 bg-yellow-500/20 border-yellow-500",
     3: "text-red-400 bg-red-500/20 border-red-500",
@@ -1179,10 +1280,12 @@ export default function SoloChallengePage() {
         </div>
 
         {/* Word to translate */}
-        <div className="text-center mb-6">
-          <div className="text-3xl font-bold text-white mb-2">{currentWord.word}</div>
-          <div className="text-sm text-gray-400">Translate to Spanish</div>
-        </div>
+        {session.currentLevel !== 0 && (
+          <div className="text-center mb-6">
+            <div className="text-3xl font-bold text-white mb-2">{currentWord.word}</div>
+            <div className="text-sm text-gray-400">Translate to Spanish</div>
+          </div>
+        )}
 
         {/* Feedback overlay */}
         {showFeedback && (
@@ -1201,6 +1304,15 @@ export default function SoloChallengePage() {
         {/* Input based on level */}
         {!showFeedback && (
           <>
+            {session.currentLevel === 0 && (
+              <Level0Input
+                word={currentWord.word}
+                answer={currentWord.answer}
+                onGotIt={handleLevel0GotIt}
+                onNotYet={handleLevel0NotYet}
+              />
+            )}
+
             {session.currentLevel === 1 && (
               <Level1Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}

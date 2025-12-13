@@ -25,8 +25,12 @@ export default function Home() {
   const [selectedDuelThemeId, setSelectedDuelThemeId] = useState<string | null>(null);
   const [selectedDuelMode, setSelectedDuelMode] = useState<"solo" | "classic" | null>(null);
   const [isJoiningDuel, setIsJoiningDuel] = useState(false);
+  const [isPickingClassicDifficulty, setIsPickingClassicDifficulty] = useState(false);
   const [showSoloModal, setShowSoloModal] = useState(false);
   const [selectedSoloThemeId, setSelectedSoloThemeId] = useState<string | null>(null);
+  const [selectedSoloMode, setSelectedSoloMode] = useState<"challenge_only" | "learn_test" | null>(
+    null
+  );
   const waitingDuel = useQuery(api.duel.getDuel, waitingDuelId ? { duelId: waitingDuelId as any } : "skip");
   
   useSyncUser();
@@ -39,6 +43,8 @@ export default function Home() {
 
   const handleSelectTheme = (themeId: string) => {
     setSelectedDuelThemeId(themeId);
+    setSelectedDuelMode("classic");
+    setIsPickingClassicDifficulty(false);
   };
 
   const handleCreateDuel = async (
@@ -58,6 +64,7 @@ export default function Home() {
       setSelectedOpponentId(null);
       setSelectedDuelThemeId(null);
       setSelectedDuelMode(null);
+      setIsPickingClassicDifficulty(false);
       setShowWaitingModal(true);
     } catch (error) {
       console.error("Failed to create duel:", error);
@@ -99,6 +106,21 @@ export default function Home() {
     }
   }, [waitingDuel, waitingDuelId, router]);
 
+  const resetSoloModal = () => {
+    setShowSoloModal(false);
+    setSelectedSoloThemeId(null);
+    setSelectedSoloMode(null);
+  };
+
+  const handleContinueSolo = () => {
+    if (!selectedSoloThemeId || !selectedSoloMode) return;
+    const sessionId = crypto.randomUUID();
+    const base =
+      selectedSoloMode === "challenge_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
+    router.push(`${base}?themeId=${selectedSoloThemeId}`);
+    resetSoloModal();
+  };
+
   const otherUsers = users?.filter(u => u.clerkId !== user?.id) || [];
   const classicDifficultyOptions: Array<{
     preset: ClassicDifficultyPreset;
@@ -135,29 +157,42 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div 
+      className="h-screen overflow-hidden flex flex-col"
+      style={{
+        backgroundImage: 'url(/background_image_2.jpg)',
+        backgroundSize: 'auto 100%',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#111827',
+      }}
+    >
       {/* Auth button - top right */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 z-10">
         <AuthButtons />
       </div>
 
-      {/* Main container - mobile-first centered layout */}
-      <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
+      {/* Main container - fixed position menu at bottom half */}
+      <div className="flex-1 flex flex-col items-center justify-end w-full max-w-xs mx-auto px-6 pb-8">
         
         {/* Main Menu Buttons */}
-        <nav className="w-full flex flex-col gap-4">
+        <nav className="w-full flex flex-col gap-2">
           {/* STUDY Button */}
           <button 
             onClick={() => router.push("/study")}
-            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
           >
             Study
           </button>
 
           {/* SOLO CHALLENGE Button */}
           <button 
-            onClick={() => setShowSoloModal(true)}
-            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+            onClick={() => {
+              setSelectedSoloThemeId(null);
+              setSelectedSoloMode(null);
+              setShowSoloModal(true);
+            }}
+            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
           >
             Solo Challenge
           </button>
@@ -166,16 +201,14 @@ export default function Home() {
           <div className="relative">
             <button 
               onClick={() => setShowDuelModal(true)}
-              className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+              className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
             >
               Duel
             </button>
             {/* Pending Duel Badge */}
             {pendingCount > 0 && (
-              <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold">
-                <span className="text-lg leading-none">{pendingCount}</span>
-                <span className="text-[8px] leading-none">PENDING</span>
-                <span className="text-[8px] leading-none">DUEL</span>
+              <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex flex-col items-center justify-center text-xs font-bold">
+                <span className="text-sm leading-none">{pendingCount}</span>
               </div>
             )}
           </div>
@@ -183,14 +216,14 @@ export default function Home() {
           {/* THEMES Button */}
           <button 
             onClick={() => router.push("/themes")}
-            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
           >
-            MANAGE THEMES
+            Manage Themes
           </button>
 
           {/* EXIT Button */}
           <button 
-            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-5 text-2xl font-bold text-gray-800 uppercase tracking-wide"
+            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
           >
             Exit
           </button>
@@ -200,18 +233,18 @@ export default function Home() {
       {/* Duel Modal - Select Opponent */}
       {showDuelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Select Opponent</h2>
+          <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg max-w-md w-full mx-4 max-h-[85vh] flex flex-col overflow-hidden">
+            <h2 className="text-xl font-bold mb-4 text-white">Select Opponent</h2>
             
             {/* Scrollable content area (prevents busted UI on long lists) */}
             <div className="flex-1 overflow-y-auto pr-1 -mr-1">
               {/* Pending Duels Section */}
               {pendingDuels && pendingDuels.length > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="font-bold text-yellow-800 mb-2">Pending Duels:</p>
+                <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="font-bold text-yellow-200 mb-2">Pending Duels:</p>
                   {pendingDuels.map(({ challenge: duel, challenger }) => (
                     <div key={duel._id} className="flex items-center justify-between py-2">
-                      <span className="text-sm">{challenger?.name || challenger?.email}</span>
+                      <span className="text-sm text-gray-200">{challenger?.name || challenger?.email}</span>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAcceptDuel(duel._id)}
@@ -237,10 +270,10 @@ export default function Home() {
               {!selectedOpponentId && (
                 <>
                   {otherUsers.length === 0 ? (
-                    <p className="text-gray-600">No other users available to duel</p>
+                    <p className="text-gray-300">No other users available to duel</p>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-600 mb-2">Challenge someone to a duel:</p>
+                      <p className="text-sm text-gray-300 mb-2">Challenge someone to a duel:</p>
                       {otherUsers.map((otherUser) => {
                         const hasPendingDuel = pendingCount > 0;
                         return (
@@ -248,10 +281,14 @@ export default function Home() {
                             key={otherUser._id}
                             onClick={() => !hasPendingDuel && handleSelectOpponent(otherUser._id)}
                             disabled={hasPendingDuel}
-                            className={`w-full text-left p-3 border rounded ${hasPendingDuel ? "opacity-50 cursor-not-allowed bg-gray-100" : "hover:bg-gray-100"}`}
+                            className={`w-full text-left p-3 border border-gray-700 rounded transition-colors ${
+                              hasPendingDuel
+                                ? "opacity-50 cursor-not-allowed bg-gray-800/50"
+                                : "hover:bg-gray-700"
+                            }`}
                           >
-                            <div className="font-semibold text-gray-800">{otherUser.name || otherUser.email}</div>
-                            <div className="text-sm text-gray-600">{otherUser.email}</div>
+                            <div className="font-semibold text-white">{otherUser.name || otherUser.email}</div>
+                            <div className="text-sm text-gray-300">{otherUser.email}</div>
                             {hasPendingDuel && (
                               <div className="text-xs text-red-500 mt-1">Respond to pending duel first</div>
                             )}
@@ -266,7 +303,7 @@ export default function Home() {
               {/* Step 2: Select Theme (sub-screen style with sticky Back) */}
               {selectedOpponentId && !selectedDuelThemeId && (
                 <div className="flex flex-col min-h-full">
-                  <p className="text-sm text-gray-600 mb-2">Select a theme for the duel:</p>
+                  <p className="text-sm text-gray-300 mb-2">Select a theme for the duel:</p>
                   {!themes || themes.length === 0 ? (
                     <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
                   ) : (
@@ -275,19 +312,19 @@ export default function Home() {
                         <button
                           key={theme._id}
                           onClick={() => handleSelectTheme(theme._id)}
-                          className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                          className="w-full text-left p-3 border border-gray-700 rounded hover:bg-gray-700 transition-colors"
                         >
-                          <div className="font-semibold text-gray-800">{theme.name}</div>
-                          <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                          <div className="font-semibold text-white">{theme.name}</div>
+                          <div className="text-sm text-gray-300">{theme.words.length} words</div>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  <div className="sticky bottom-0 bg-white pt-2">
+                  <div className="sticky bottom-0 bg-gray-800 pt-2">
                     <button
                       onClick={() => setSelectedOpponentId(null)}
-                      className="w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                      className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
                     >
                       Back
                     </button>
@@ -296,39 +333,175 @@ export default function Home() {
               )}
 
               {/* Step 3: Select Mode */}
-              {selectedOpponentId && selectedDuelThemeId && selectedDuelMode === null && (
+              {selectedOpponentId && selectedDuelThemeId && !isPickingClassicDifficulty && (
                 <>
-                  <p className="text-sm text-gray-600 mb-4">Choose duel mode:</p>
+                  <p className="text-sm text-gray-300 mb-4">Choose duel mode:</p>
                   <div className="space-y-3">
                     <button
-                      onClick={() => handleCreateDuel("solo")}
-                      className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                      type="button"
+                      onClick={() => setSelectedDuelMode("solo")}
+                      aria-pressed={selectedDuelMode === "solo"}
+                      className={[
+                        "w-full text-left p-5 rounded-2xl border-2 transition-colors",
+                        "flex items-center justify-between gap-4",
+                        selectedDuelMode === "solo"
+                          ? "border-blue-500/80 bg-blue-500/10"
+                          : "border-gray-700 hover:bg-gray-700 hover:border-gray-600",
+                      ].join(" ")}
                     >
-                      <div className="font-bold text-blue-800 text-lg">Solo Style</div>
-                      <div className="text-sm text-blue-600">Independent progress, 3-level system, typing &amp; multiple choice</div>
+                      <div>
+                        <div
+                          className={[
+                            "font-bold text-2xl",
+                            selectedDuelMode === "solo" ? "text-blue-300" : "text-white",
+                          ].join(" ")}
+                        >
+                          Solo Style
+                        </div>
+                        <div className="text-sm text-gray-300">
+                          Independent progress, 3-level system, typing &amp; multiple choice
+                        </div>
+                      </div>
+                      <div
+                        className={[
+                          "w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0",
+                          selectedDuelMode === "solo"
+                            ? "border-blue-400 bg-blue-500"
+                            : "border-gray-500/80 bg-transparent",
+                        ].join(" ")}
+                      >
+                        {selectedDuelMode === "solo" ? (
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M16.5 5.5L8.25 13.75L3.5 9"
+                              stroke="white"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        ) : null}
+                      </div>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSelectedDuelMode("classic")}
-                      className="w-full text-left p-4 border-2 border-purple-300 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition-colors"
+                      aria-pressed={selectedDuelMode === "classic"}
+                      className={[
+                        "w-full text-left p-5 rounded-2xl border-2 transition-colors",
+                        "flex items-center justify-between gap-4",
+                        selectedDuelMode === "classic"
+                          ? "border-purple-500/80 bg-purple-500/10"
+                          : "border-gray-700 hover:bg-gray-700 hover:border-gray-600",
+                      ].join(" ")}
                     >
-                      <div className="font-bold text-purple-800 text-lg">Classic Mode</div>
-                      <div className="text-sm text-purple-600">Synced questions, timer, multiple choice only</div>
+                      <div>
+                        <div
+                          className={[
+                            "font-bold text-2xl",
+                            selectedDuelMode === "classic" ? "text-purple-300" : "text-white",
+                          ].join(" ")}
+                        >
+                          Classic Mode
+                        </div>
+                        <div className="text-sm text-gray-300">
+                          Synced questions, timer, multiple choice only
+                        </div>
+                      </div>
+                      <div
+                        className={[
+                          "w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0",
+                          selectedDuelMode === "classic"
+                            ? "border-purple-400 bg-purple-500"
+                            : "border-gray-500/80 bg-transparent",
+                        ].join(" ")}
+                      >
+                        {selectedDuelMode === "classic" ? (
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M16.5 5.5L8.25 13.75L3.5 9"
+                              stroke="white"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        ) : null}
+                      </div>
                     </button>
                   </div>
-                  
+
                   <button
-                    onClick={() => setSelectedDuelThemeId(null)}
-                    className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                    type="button"
+                    onClick={() => {
+                      if (!selectedDuelMode) return;
+                      if (selectedDuelMode === "solo") {
+                        handleCreateDuel("solo");
+                        return;
+                      }
+                      setIsPickingClassicDifficulty(true);
+                    }}
+                    disabled={!selectedDuelMode}
+                    className={[
+                      "mt-6 w-full font-bold py-3 px-4 rounded-xl text-lg transition-colors",
+                      selectedDuelMode
+                        ? "bg-blue-500 hover:bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-400 cursor-not-allowed",
+                    ].join(" ")}
                   >
-                    Back
+                    Continue
                   </button>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDuelThemeId(null);
+                        setSelectedDuelMode(null);
+                        setIsPickingClassicDifficulty(false);
+                      }}
+                      className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDuelModal(false);
+                        setSelectedOpponentId(null);
+                        setSelectedDuelThemeId(null);
+                        setSelectedDuelMode(null);
+                        setIsPickingClassicDifficulty(false);
+                      }}
+                      className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </>
               )}
 
               {/* Step 4: Classic Difficulty Preset */}
-              {selectedOpponentId && selectedDuelThemeId && selectedDuelMode === "classic" && (
+              {selectedOpponentId &&
+                selectedDuelThemeId &&
+                selectedDuelMode === "classic" &&
+                isPickingClassicDifficulty && (
                 <>
-                  <p className="text-sm text-gray-600 mb-4">Choose Classic difficulty:</p>
+                  <p className="text-sm text-gray-300 mb-4">Choose Classic difficulty:</p>
                   <div className="space-y-2">
                     {classicDifficultyOptions.map((opt) => (
                       <button
@@ -336,24 +509,24 @@ export default function Home() {
                         onClick={() => handleCreateDuel("classic", opt.preset)}
                         className={`w-full text-left p-4 border-2 rounded-lg transition-colors ${
                           opt.isDefault
-                            ? "border-purple-500 bg-purple-50"
-                            : "border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                            ? "border-purple-500 bg-purple-500/10"
+                            : "border-gray-700 hover:bg-gray-700 hover:border-gray-600"
                         }`}
                       >
-                        <div className="font-bold text-gray-800 text-base flex items-center justify-between">
+                        <div className="font-bold text-white text-base flex items-center justify-between">
                           <span>{opt.label}</span>
                           {opt.isDefault && (
-                            <span className="text-xs text-purple-700 font-semibold">Default</span>
+                            <span className="text-xs text-purple-300 font-semibold">Default</span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600">{opt.description}</div>
+                        <div className="text-sm text-gray-300">{opt.description}</div>
                       </button>
                     ))}
                   </div>
 
                   <button
-                    onClick={() => setSelectedDuelMode(null)}
-                    className="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                    onClick={() => setIsPickingClassicDifficulty(false)}
+                    className="mt-4 w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
                   >
                     Back
                   </button>
@@ -362,17 +535,20 @@ export default function Home() {
             </div>
 
             {/* Fixed footer */}
-            <button
-              onClick={() => {
-                setShowDuelModal(false);
-                setSelectedOpponentId(null);
-                setSelectedDuelThemeId(null);
-                setSelectedDuelMode(null);
-              }}
-              className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
-            >
-              Cancel
-            </button>
+            {!(selectedOpponentId && selectedDuelThemeId && !isPickingClassicDifficulty) && (
+              <button
+                onClick={() => {
+                  setShowDuelModal(false);
+                  setSelectedOpponentId(null);
+                  setSelectedDuelThemeId(null);
+                  setSelectedDuelMode(null);
+                  setIsPickingClassicDifficulty(false);
+                }}
+                className="mt-4 w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -380,16 +556,16 @@ export default function Home() {
       {/* Waiting Modal */}
       {showWaitingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Waiting for opponent...</h2>
-            <p className="mb-4">Your duel invite has been sent. Waiting for the other player to accept.</p>
+          <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4 text-white">Waiting for opponent...</h2>
+            <p className="mb-4 text-gray-300">Your duel invite has been sent. Waiting for the other player to accept.</p>
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
             <button
               onClick={() => {
                 setShowWaitingModal(false);
                 setWaitingDuelId(null);
               }}
-              className="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
+              className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
@@ -400,9 +576,9 @@ export default function Home() {
       {/* Joining Duel Loading Modal */}
       {isJoiningDuel && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 text-center">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Joining Duel...</h2>
-            <p className="mb-4 text-gray-600">Preparing the duel. Please wait.</p>
+          <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg max-w-md w-full mx-4 text-center">
+            <h2 className="text-xl font-bold mb-4 text-white">Joining Duel...</h2>
+            <p className="mb-4 text-gray-300">Preparing the duel. Please wait.</p>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
           </div>
         </div>
@@ -411,13 +587,13 @@ export default function Home() {
       {/* Solo Challenge Modal - Select Theme then Mode */}
       {showSoloModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Solo Challenge</h2>
+          <div className="bg-gray-800 border border-gray-700 p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4 text-white">Solo Challenge</h2>
             
             {/* Step 1: Select Theme */}
             {!selectedSoloThemeId && (
               <>
-                <p className="text-sm text-gray-600 mb-4">Select a theme to practice:</p>
+                <p className="text-sm text-gray-300 mb-4">Select a theme to practice:</p>
                 
                 {!themes || themes.length === 0 ? (
                   <p className="text-gray-500 italic">No themes available. Create one in Themes first.</p>
@@ -426,11 +602,14 @@ export default function Home() {
                     {themes.map((theme) => (
                       <button
                         key={theme._id}
-                        onClick={() => setSelectedSoloThemeId(theme._id)}
-                        className="w-full text-left p-3 border rounded hover:bg-gray-100"
+                        onClick={() => {
+                          setSelectedSoloThemeId(theme._id);
+                          setSelectedSoloMode("learn_test");
+                        }}
+                        className="w-full text-left p-3 border border-gray-700 rounded hover:bg-gray-700 transition-colors"
                       >
-                        <div className="font-semibold text-gray-800">{theme.name}</div>
-                        <div className="text-sm text-gray-600">{theme.words.length} words</div>
+                        <div className="font-semibold text-white">{theme.name}</div>
+                        <div className="text-sm text-gray-300">{theme.words.length} words</div>
                       </button>
                     ))}
                   </div>
@@ -441,51 +620,156 @@ export default function Home() {
             {/* Step 2: Select Mode */}
             {selectedSoloThemeId && (
               <>
-                <p className="text-sm text-gray-600 mb-4">Choose your mode:</p>
+                <p className="text-sm text-gray-300 mb-4">Choose your mode:</p>
                 <div className="space-y-3">
                   <button
-                    onClick={() => {
-                      const sessionId = crypto.randomUUID();
-                      router.push(`/solo/${sessionId}?themeId=${selectedSoloThemeId}`);
-                      setShowSoloModal(false);
-                      setSelectedSoloThemeId(null);
-                    }}
-                    className="w-full text-left p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition-colors"
+                    type="button"
+                    onClick={() => setSelectedSoloMode("challenge_only")}
+                    aria-pressed={selectedSoloMode === "challenge_only"}
+                    className={[
+                      "w-full text-left p-5 rounded-2xl border-2 transition-colors",
+                      "flex items-center justify-between gap-4",
+                      selectedSoloMode === "challenge_only"
+                        ? "border-blue-500/80 bg-blue-500/10"
+                        : "border-gray-700 hover:bg-gray-700 hover:border-gray-600",
+                    ].join(" ")}
                   >
-                    <div className="font-bold text-gray-800 text-lg">Challenge Only</div>
-                    <div className="text-sm text-gray-600">Jump straight into the challenge</div>
+                    <div>
+                      <div
+                        className={[
+                          "font-bold text-2xl",
+                          selectedSoloMode === "challenge_only" ? "text-blue-300" : "text-white",
+                        ].join(" ")}
+                      >
+                        Challenge Only
+                      </div>
+                      <div className="text-sm text-gray-300">Jump straight into the challenge</div>
+                    </div>
+                    <div
+                      className={[
+                        "w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0",
+                        selectedSoloMode === "challenge_only"
+                          ? "border-blue-400 bg-blue-500"
+                          : "border-gray-500/80 bg-transparent",
+                      ].join(" ")}
+                    >
+                      {selectedSoloMode === "challenge_only" ? (
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M16.5 5.5L8.25 13.75L3.5 9"
+                            stroke="white"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : null}
+                    </div>
                   </button>
+
                   <button
-                    onClick={() => {
-                      const sessionId = crypto.randomUUID();
-                      router.push(`/solo/learn/${sessionId}?themeId=${selectedSoloThemeId}`);
-                      setShowSoloModal(false);
-                      setSelectedSoloThemeId(null);
-                    }}
-                    className="w-full text-left p-4 border-2 border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                    type="button"
+                    onClick={() => setSelectedSoloMode("learn_test")}
+                    aria-pressed={selectedSoloMode === "learn_test"}
+                    className={[
+                      "w-full text-left p-5 rounded-2xl border-2 transition-colors",
+                      "flex items-center justify-between gap-4",
+                      selectedSoloMode === "learn_test"
+                        ? "border-blue-500/80 bg-blue-500/10"
+                        : "border-gray-700 hover:bg-gray-700 hover:border-gray-600",
+                    ].join(" ")}
                   >
-                    <div className="font-bold text-blue-800 text-lg">Learn + Test</div>
-                    <div className="text-sm text-blue-600">5 minutes to study, then challenge</div>
+                    <div>
+                      <div
+                        className={[
+                          "font-bold text-2xl",
+                          selectedSoloMode === "learn_test" ? "text-blue-300" : "text-white",
+                        ].join(" ")}
+                      >
+                        Learn + Test
+                      </div>
+                      <div className="text-sm text-gray-300">5 minutes to study, then challenge</div>
+                    </div>
+                    <div
+                      className={[
+                        "w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0",
+                        selectedSoloMode === "learn_test"
+                          ? "border-blue-400 bg-blue-500"
+                          : "border-gray-500/80 bg-transparent",
+                      ].join(" ")}
+                    >
+                      {selectedSoloMode === "learn_test" ? (
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M16.5 5.5L8.25 13.75L3.5 9"
+                            stroke="white"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : null}
+                    </div>
                   </button>
                 </div>
+
                 <button
-                  onClick={() => setSelectedSoloThemeId(null)}
-                  className="mt-3 w-full bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded"
+                  type="button"
+                  onClick={handleContinueSolo}
+                  disabled={!selectedSoloMode}
+                  className={[
+                    "mt-6 w-full font-bold py-3 px-4 rounded-xl text-lg transition-colors",
+                    selectedSoloMode ? "bg-blue-500 hover:bg-blue-600 text-white" : "bg-gray-700 text-gray-400 cursor-not-allowed",
+                  ].join(" ")}
                 >
-                  Back
+                  Continue
                 </button>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSoloThemeId(null);
+                      setSelectedSoloMode(null);
+                    }}
+                    className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetSoloModal}
+                    className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </>
             )}
 
-            <button
-              onClick={() => {
-                setShowSoloModal(false);
-                setSelectedSoloThemeId(null);
-              }}
-              className="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded"
-            >
-              Cancel
-            </button>
+            {!selectedSoloThemeId && (
+              <button
+                type="button"
+                onClick={resetSoloModal}
+                className="mt-4 w-full bg-gray-700 text-white font-bold py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -138,10 +138,10 @@ export default function StudyPage() {
   // Loading state
   if (themes === undefined) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-100">
+      <div className="min-h-screen flex flex-col bg-gray-900">
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-4 py-6">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800"></div>
-          <p className="mt-4 text-gray-600">Loading themes...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <p className="mt-4 text-gray-300">Loading themes...</p>
         </div>
       </div>
     );
@@ -150,22 +150,22 @@ export default function StudyPage() {
   // Empty state - no themes created yet
   if (themes.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-100">
+      <div className="min-h-screen flex flex-col bg-gray-900">
         <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
           <header className="w-full mb-4">
-            <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4 mb-3">
-              <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
+            <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4 mb-3">
+              <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide">
                 Study Room
               </h1>
             </div>
           </header>
-          <div className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl p-6 mb-4 text-center">
-            <p className="text-gray-600 mb-4">No themes available yet.</p>
+          <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl p-6 mb-4 text-center">
+            <p className="text-gray-300 mb-4">No themes available yet.</p>
             <p className="text-sm text-gray-500">Go to the Themes section to generate vocabulary themes first.</p>
           </div>
           <button
             onClick={goBack}
-            className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-xl font-bold text-gray-800 uppercase tracking-wide hover:bg-gray-300"
+            className="w-full bg-gray-700 border-2 border-gray-600 rounded-2xl py-4 text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-600 transition-colors"
           >
             Back
           </button>
@@ -175,15 +175,15 @@ export default function StudyPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-gray-900">
       {/* Main container - mobile-first centered layout */}
-      <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 pt-6 pb-0">
         
         {/* STUDY Header Section */}
-        <header className="w-full mb-4">
+        <header className="w-full mb-4 flex-shrink-0">
           {/* Study Room Title Bar */}
-          <div className="w-full bg-gray-300 border-2 border-gray-400 rounded-lg py-3 px-4 mb-3">
-            <h1 className="text-xl font-bold text-center text-gray-800 uppercase tracking-wide">
+          <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4 mb-3">
+            <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide">
               Study Room
             </h1>
           </div>
@@ -193,7 +193,7 @@ export default function StudyPage() {
             {/* Theme Selection - Custom Trigger that sizes to content */}
             <div className="relative">
               {/* Visual Trigger - Sizes to text */}
-              <div className="px-6 py-3 rounded-2xl font-medium text-base border-2 border-gray-400 bg-gray-200 text-gray-800 flex items-center justify-center gap-2 min-w-[120px]">
+              <div className="px-6 py-3 rounded-2xl font-medium text-base border-2 border-gray-700 bg-gray-800 text-gray-200 flex items-center justify-center gap-2 min-w-[120px]">
                 <span className="uppercase tracking-wide">{selectedTheme?.name}</span>
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -201,7 +201,7 @@ export default function StudyPage() {
                   viewBox="0 0 24 24" 
                   strokeWidth={2.5} 
                   stroke="currentColor" 
-                  className="w-4 h-4 text-gray-600"
+                  className="w-4 h-4 text-gray-400"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>
@@ -229,7 +229,7 @@ export default function StudyPage() {
               onClick={() => setIsRevealed(!isRevealed)}
               className={`px-6 py-3 rounded-2xl font-medium text-base border-2 transition-colors uppercase tracking-wide min-w-[120px] ${
                 isRevealed
-                  ? 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+                  ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
                   : 'bg-green-500 border-green-600 text-white hover:bg-green-600'
               }`}
             >
@@ -239,7 +239,7 @@ export default function StudyPage() {
         </header>
 
         {/* Vocabulary List */}
-        <div className="w-full bg-gray-200 border-2 border-gray-400 rounded-2xl p-4 pt-6 mb-4 max-h-96 overflow-y-auto">
+        <div className="w-full flex-1 min-h-0 bg-gray-800 border-2 border-gray-700 rounded-2xl p-4 pt-6 mb-4 overflow-y-auto">
           <div className="flex flex-col gap-4">
             {currentVocabulary.map((word, index) => {
               const wordKey = `${selectedTheme?._id}-${index}`;
@@ -254,13 +254,13 @@ export default function StudyPage() {
                 <div key={wordKey} className={`flex items-center gap-4 ${isRevealed ? 'justify-center' : 'justify-between'}`}>
                   {/* Word and Answer Section */}
                   <div className={`text-center ${isRevealed ? '' : 'flex-1'}`}>
-                    <div className="text-lg font-medium text-gray-800 mb-1">
+                    <div className="text-lg font-medium text-white mb-1">
                       {word.word}
                     </div>
                     <div className="flex items-center justify-center">
                       {/* Letter slots - revealed mode or clickable hints */}
                       {isRevealed ? (
-                        <span className="text-lg font-bold text-green-600">
+                        <span className="text-lg font-bold text-green-400">
                           {word.answer.toUpperCase()}
                         </span>
                       ) : (
@@ -278,7 +278,7 @@ export default function StudyPage() {
                                 title={!revealedPositions.includes(idx) && hintsRemaining > 0 ? 'Click to reveal this letter' : undefined}
                               >
                                 {revealedPositions.includes(idx) && (
-                                  <span className="text-lg font-bold text-gray-800">
+                                  <span className="text-lg font-bold text-white">
                                     {letter.toUpperCase()}
                                   </span>
                                 )}
@@ -297,8 +297,8 @@ export default function StudyPage() {
                       <div 
                         className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
                           hintsRemaining > 0 
-                            ? 'border-gray-400 bg-gray-100 text-gray-700' 
-                            : 'border-gray-300 bg-gray-200 text-gray-400'
+                            ? 'border-gray-600 bg-gray-800 text-gray-200' 
+                            : 'border-gray-700 bg-gray-800/50 text-gray-500'
                         }`}
                         title={hintsRemaining > 0 ? "Hints remaining - click empty letter slots to reveal" : "No hints remaining"}
                       >
@@ -308,7 +308,7 @@ export default function StudyPage() {
                       {/* Reset Button - Icon only */}
                       <button
                         onClick={() => resetWord(wordKey)}
-                        className="bg-gray-200 border-2 border-gray-400 rounded-lg w-10 h-10 flex items-center justify-center text-gray-800 hover:bg-gray-300"
+                        className="bg-gray-700 border-2 border-gray-600 rounded-lg w-10 h-10 flex items-center justify-center text-white hover:bg-gray-600 transition-colors"
                         title="Reset"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -319,7 +319,7 @@ export default function StudyPage() {
                       {/* Reveal Full Word Button */}
                       <button
                         onClick={() => revealFullWord(wordKey, word.answer)}
-                        className="bg-gray-200 border-2 border-gray-400 rounded-lg w-10 h-10 flex items-center justify-center text-gray-800 hover:bg-gray-300"
+                        className="bg-gray-700 border-2 border-gray-600 rounded-lg w-10 h-10 flex items-center justify-center text-white hover:bg-gray-600 transition-colors"
                         title="Reveal full word"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -335,7 +335,7 @@ export default function StudyPage() {
                         className={`border-2 rounded-lg w-10 h-10 flex items-center justify-center transition-colors ${
                           playingWordKey === wordKey
                             ? 'bg-green-500 border-green-600 text-white'
-                            : 'bg-gray-200 border-gray-400 text-gray-800 hover:bg-gray-300'
+                            : 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
                         }`}
                         title="Listen"
                       >
@@ -358,16 +358,16 @@ export default function StudyPage() {
         </div>
 
         {/* Bottom Buttons */}
-        <div className="w-full flex gap-4">
+        <div className="w-full flex gap-4 flex-shrink-0 mt-auto pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
           <button
             onClick={goBack}
-            className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-xl font-bold text-gray-800 uppercase tracking-wide hover:bg-gray-300"
+            className="flex-1 bg-gray-800 border-2 border-gray-700 rounded-2xl py-4 text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
           >
             Back
           </button>
           <button
             onClick={resetAll}
-            className="flex-1 bg-gray-200 border-2 border-gray-400 rounded-2xl py-4 text-xl font-bold text-gray-800 uppercase tracking-wide hover:bg-gray-300"
+            className="flex-1 bg-gray-800 border-2 border-gray-700 rounded-2xl py-4 text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
           >
             Reset All
           </button>
