@@ -172,6 +172,27 @@ export default function Home() {
         <AuthButtons />
       </div>
 
+      {/* Title Section - Top */}
+      <div className="flex flex-col items-center pt-6 pb-4">
+        <h1 
+          className="text-7xl font-black tracking-tight"
+          style={{
+            color: '#FFD700',
+            textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5)',
+          }}
+        >
+          Language-Duel
+        </h1>
+        <p 
+          className="mt-2 text-lg text-center max-w-[320px] italic"
+          style={{
+            color: '#d4a574',
+          }}
+        >
+          Achieve oral mastery and find out which one of you sucks more
+        </p>
+      </div>
+
       {/* Main container - fixed position menu at bottom half */}
       <div className="flex-1 flex flex-col items-center justify-end w-full max-w-xs mx-auto px-6 pb-8">
         
@@ -180,7 +201,8 @@ export default function Home() {
           {/* STUDY Button */}
           <button 
             onClick={() => router.push("/study")}
-            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
+            className="w-full bg-gradient-to-b from-amber-600 to-amber-800 border-t-2 border-t-amber-400/60 border-b-4 border-b-amber-900 border-x-2 border-x-amber-700 rounded-lg py-3 text-lg font-bold text-amber-100 uppercase tracking-wide hover:from-amber-500 hover:to-amber-700 hover:translate-y-0.5 hover:border-b-2 active:translate-y-1 active:border-b-0 transition-all shadow-lg"
+            style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
           >
             Study
           </button>
@@ -192,7 +214,8 @@ export default function Home() {
               setSelectedSoloMode(null);
               setShowSoloModal(true);
             }}
-            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
+            className="w-full bg-gradient-to-b from-amber-600 to-amber-800 border-t-2 border-t-amber-400/60 border-b-4 border-b-amber-900 border-x-2 border-x-amber-700 rounded-lg py-3 text-lg font-bold text-amber-100 uppercase tracking-wide hover:from-amber-500 hover:to-amber-700 hover:translate-y-0.5 hover:border-b-2 active:translate-y-1 active:border-b-0 transition-all shadow-lg"
+            style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
           >
             Solo Challenge
           </button>
@@ -201,7 +224,8 @@ export default function Home() {
           <div className="relative">
             <button 
               onClick={() => setShowDuelModal(true)}
-              className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
+              className="w-full bg-gradient-to-b from-amber-600 to-amber-800 border-t-2 border-t-amber-400/60 border-b-4 border-b-amber-900 border-x-2 border-x-amber-700 rounded-lg py-3 text-lg font-bold text-amber-100 uppercase tracking-wide hover:from-amber-500 hover:to-amber-700 hover:translate-y-0.5 hover:border-b-2 active:translate-y-1 active:border-b-0 transition-all shadow-lg"
+              style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
             >
               Duel
             </button>
@@ -216,14 +240,16 @@ export default function Home() {
           {/* THEMES Button */}
           <button 
             onClick={() => router.push("/themes")}
-            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
+            className="w-full bg-gradient-to-b from-amber-600 to-amber-800 border-t-2 border-t-amber-400/60 border-b-4 border-b-amber-900 border-x-2 border-x-amber-700 rounded-lg py-3 text-lg font-bold text-amber-100 uppercase tracking-wide hover:from-amber-500 hover:to-amber-700 hover:translate-y-0.5 hover:border-b-2 active:translate-y-1 active:border-b-0 transition-all shadow-lg"
+            style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
           >
             Manage Themes
           </button>
 
           {/* EXIT Button */}
           <button 
-            className="w-full bg-amber-700/90 border-2 border-amber-600/50 rounded-lg py-3 text-lg font-bold text-amber-200 uppercase tracking-wide hover:bg-amber-600/90 transition-colors shadow-lg"
+            className="w-full bg-gradient-to-b from-amber-600 to-amber-800 border-t-2 border-t-amber-400/60 border-b-4 border-b-amber-900 border-x-2 border-x-amber-700 rounded-lg py-3 text-lg font-bold text-amber-100 uppercase tracking-wide hover:from-amber-500 hover:to-amber-700 hover:translate-y-0.5 hover:border-b-2 active:translate-y-1 active:border-b-0 transition-all shadow-lg"
+            style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
           >
             Exit
           </button>

@@ -13,7 +13,7 @@ import {
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
+type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
 
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
@@ -110,6 +110,21 @@ function formatDuration(seconds: number): string {
     return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function reverseText(text: string): string {
+  return Array.from(text).reverse().join("");
+}
+
+function scrambleTextKeepSpaces(text: string): string {
+  const chars = Array.from(text);
+  const letters = chars.filter((c) => c !== " ");
+  for (let i = letters.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [letters[i], letters[j]] = [letters[j], letters[i]];
+  }
+  let letterIndex = 0;
+  return chars.map((c) => (c === " " ? " " : (letters[letterIndex++] ?? ""))).join("");
 }
 
 // Sabotage Effect Components
@@ -462,6 +477,8 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
   { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
   { effect: "cards", label: "Cards", emoji: "🃏" },
+  { effect: "bounce", label: "Bounce", emoji: "🏓" },
+  { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
 
 // Props interface
@@ -511,6 +528,16 @@ export default function ClassicDuelChallenge({
   const [sabotagePhase, setSabotagePhase] = useState<'wind-up' | 'full' | 'wind-down'>('wind-up');
   const lastSabotageTimestampRef = useRef<number | null>(null);
   const sabotageTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const reverseAnimationTimersRef = useRef<NodeJS.Timeout[]>([]);
+  const [reverseAnimatedAnswers, setReverseAnimatedAnswers] = useState<string[] | null>(null);
+
+  // Bouncing options state for "bounce" sabotage
+  type BouncingOption = { id: number; x: number; y: number; vx: number; vy: number };
+  const [bouncingOptions, setBouncingOptions] = useState<BouncingOption[]>([]);
+  const bouncingPositionsRef = useRef<BouncingOption[]>([]);
+  const bounceAnimationRef = useRef<number | null>(null);
+  const BUTTON_WIDTH = 180;
+  const BUTTON_HEIGHT = 60;
   
   // Helper to clear all sabotage timers and effect
   const clearSabotageEffect = useCallback(() => {
@@ -518,6 +545,19 @@ export default function ClassicDuelChallenge({
     sabotageTimersRef.current = [];
     setActiveSabotage(null);
     setSabotagePhase('wind-up');
+    // Clear bouncing animation
+    if (bounceAnimationRef.current) {
+      cancelAnimationFrame(bounceAnimationRef.current);
+      bounceAnimationRef.current = null;
+    }
+    setBouncingOptions([]);
+    bouncingPositionsRef.current = [];
+  }, []);
+
+  const clearReverseAnimation = useCallback(() => {
+    reverseAnimationTimersRef.current.forEach((timer) => clearTimeout(timer));
+    reverseAnimationTimersRef.current = [];
+    setReverseAnimatedAnswers(null);
   }, []);
 
   // Mutations
@@ -768,21 +808,33 @@ export default function ClassicDuelChallenge({
       setSabotagePhase('wind-up');
       setActiveSabotage(mySabotage.effect as SabotageEffect);
       
-      const fullTimer = setTimeout(() => setSabotagePhase('full'), 2000);
-      const windDownTimer = setTimeout(() => setSabotagePhase('wind-down'), 5000);
-      const clearTimer = setTimeout(() => {
-        setActiveSabotage(null);
-        setSabotagePhase('wind-up');
-      }, SABOTAGE_DURATION);
+      const sabotageEffect = mySabotage.effect as SabotageEffect;
       
-      sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
+      // Bounce + reverse last until question ends, not just 7 seconds
+      if (sabotageEffect === 'bounce' || sabotageEffect === 'reverse') {
+        // For bounce/reverse, skip phase transitions and duration timer - it will clear when question ends
+        setSabotagePhase('full');
+        sabotageTimersRef.current = [];
+      } else {
+        // Other effects follow the standard 7-second duration with phases
+        const fullTimer = setTimeout(() => setSabotagePhase('full'), 2000);
+        const windDownTimer = setTimeout(() => setSabotagePhase('wind-down'), 5000);
+        const clearTimer = setTimeout(() => {
+          setActiveSabotage(null);
+          setSabotagePhase('wind-up');
+        }, SABOTAGE_DURATION);
+        
+        sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
+      }
     }
   }, [duel.challengerSabotage, duel.opponentSabotage, challenger?.clerkId, user?.id, clearSabotageEffect]);
 
   // Clear sabotage when locked
   useEffect(() => {
-    if (isLocked) clearSabotageEffect();
-  }, [isLocked, clearSabotageEffect]);
+    if (isLocked && activeSabotage !== 'bounce' && activeSabotage !== 'reverse') {
+      clearSabotageEffect();
+    }
+  }, [isLocked, activeSabotage, clearSabotageEffect]);
 
   useEffect(() => {
     if (phase === 'transition') clearSabotageEffect();
@@ -935,6 +987,131 @@ export default function ClassicDuelChallenge({
     
     return { shuffledAnswers: answers, hasNoneOption: hasNone };
   }, [currentWord.word, currentWord.answer, currentWord.wrongAnswers, word, index, difficulty]);
+
+  // Reverse sabotage animation: scramble then settle into reversed text (wrong options only)
+  useEffect(() => {
+    if (activeSabotage !== "reverse") {
+      clearReverseAnimation();
+      return;
+    }
+
+    const displayAnswers = frozenData ? frozenData.shuffledAnswers : shuffledAnswers;
+    if (!displayAnswers.length) {
+      clearReverseAnimation();
+      return;
+    }
+
+    clearReverseAnimation();
+    setReverseAnimatedAnswers([...displayAnswers]);
+
+    const HOLD_MS = 140;
+    const SCRAMBLE_MS = 420;
+    const SCRAMBLE_TICK_MS = 50;
+
+    let scrambleStartedAt: number | null = null;
+    const tick = () => {
+      if (scrambleStartedAt === null) scrambleStartedAt = Date.now();
+      const elapsed = Date.now() - scrambleStartedAt;
+      if (elapsed >= SCRAMBLE_MS) {
+        setReverseAnimatedAnswers(displayAnswers.map((ans) => reverseText(ans)));
+        return;
+      }
+
+      setReverseAnimatedAnswers(displayAnswers.map((ans) => scrambleTextKeepSpaces(ans)));
+      const t = setTimeout(tick, SCRAMBLE_TICK_MS);
+      reverseAnimationTimersRef.current.push(t);
+    };
+
+    const startScramble = setTimeout(tick, HOLD_MS);
+    reverseAnimationTimersRef.current.push(startScramble);
+
+    return () => clearReverseAnimation();
+  }, [
+    activeSabotage,
+    frozenData,
+    shuffledAnswers,
+    clearReverseAnimation,
+  ]);
+
+  // Bounce animation effect - initialize and animate when bounce sabotage is active
+  useEffect(() => {
+    if (activeSabotage !== 'bounce') {
+      // Clean up when bounce ends - only if there's something to clean
+      if (bounceAnimationRef.current) {
+        cancelAnimationFrame(bounceAnimationRef.current);
+        bounceAnimationRef.current = null;
+      }
+      if (bouncingPositionsRef.current.length > 0) {
+        setBouncingOptions([]);
+        bouncingPositionsRef.current = [];
+      }
+      return;
+    }
+
+    // Initialize bouncing positions for each option
+    const optionCount = (frozenData ? frozenData.shuffledAnswers : shuffledAnswers).length;
+    if (optionCount === 0) return;
+
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+    // Initialize with random positions and velocities
+    const initialPositions: BouncingOption[] = Array.from({ length: optionCount }, (_, i) => ({
+      id: i,
+      x: Math.random() * (screenWidth - BUTTON_WIDTH),
+      y: 100 + Math.random() * (screenHeight - BUTTON_HEIGHT - 200),
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+    }));
+
+    bouncingPositionsRef.current = initialPositions;
+    setBouncingOptions(initialPositions);
+
+    const animate = () => {
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+
+      bouncingPositionsRef.current = bouncingPositionsRef.current.map((opt) => {
+        let { x, y, vx, vy } = opt;
+
+        // Move by velocity each frame
+        x += vx;
+        y += vy;
+
+        // Bounce off left/right edges
+        if (x <= 0) {
+          x = 0;
+          vx = Math.abs(vx);
+        } else if (x >= sw - BUTTON_WIDTH) {
+          x = sw - BUTTON_WIDTH;
+          vx = -Math.abs(vx);
+        }
+
+        // Bounce off top/bottom edges
+        if (y <= 0) {
+          y = 0;
+          vy = Math.abs(vy);
+        } else if (y >= sh - BUTTON_HEIGHT) {
+          y = sh - BUTTON_HEIGHT;
+          vy = -Math.abs(vy);
+        }
+
+        return { ...opt, x, y, vx, vy };
+      });
+
+      setBouncingOptions([...bouncingPositionsRef.current]);
+      bounceAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    bounceAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (bounceAnimationRef.current) {
+        cancelAnimationFrame(bounceAnimationRef.current);
+        bounceAnimationRef.current = null;
+      }
+    };
+  }, [activeSabotage, frozenData, shuffledAnswers]);
 
   if (!user) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Sign in first.</div>;
 
@@ -1149,7 +1326,10 @@ export default function ClassicDuelChallenge({
             </div>
           </div>
         )}
-        <div className="text-3xl font-bold mb-6">{frozenData ? frozenData.word : word}</div>
+        <div className="text-3xl font-bold mb-2">{frozenData ? frozenData.word : word}</div>
+        {phase === "answering" && activeSabotage === "reverse" && (
+          <div className="mb-4 text-sm font-medium text-purple-300 tracking-wide">🔄 REVERSED</div>
+        )}
       </div>
 
       {/* Countdown with pause and skip controls */}
@@ -1252,76 +1432,163 @@ export default function ClassicDuelChallenge({
 
       {/* Answer Options */}
       {(frozenData ? frozenData.word : word) !== "done" && (
-        <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
-          {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
-            const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
-            const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
-            const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
-            const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
-            const isEliminated = eliminatedOptions.includes(ans);
-            const isNoneOfAbove = ans === "None of the above";
-            const isWrongAnswer = isNoneOfAbove ? !displayHasNone : ans !== displayCorrectAnswer;
-            const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
-            const isCorrectOption = displayHasNone ? ans === "None of the above" : ans === displayCorrectAnswer;
-            
-            const handleClick = () => {
-              if (phase !== 'answering') return;
-              if (canEliminateThis) {
-                handleEliminateOption(ans);
-              } else if (!hasAnswered && !isLocked && !isEliminated) {
-                setSelectedAnswer(ans);
-              }
-            };
-            
-            const opponentLastAnswer = isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer;
-            const opponentPickedThis = frozenData 
-              ? frozenData.opponentAnswer === ans
-              : (status === "completed" && opponentLastAnswer === ans);
-            
-            return (
-              <button
-                key={i}
-                disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
-                onClick={handleClick}
-                className={`p-4 rounded-lg border-2 text-lg font-medium transition-all relative ${
-                  isEliminated
-                    ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
-                    : canEliminateThis
-                      ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
-                      : isShowingFeedback
-                        ? displaySelectedAnswer === ans
-                          ? isCorrectOption
-                            ? 'border-green-500 bg-green-500/20 text-green-400'
-                            : 'border-red-500 bg-red-500/20 text-red-400'
-                          : isCorrectOption
-                            ? 'border-green-500 bg-green-500/10 text-green-400'
-                            : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
-                        : selectedAnswer === ans
-                          ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                          : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
-                }`}
-              >
-                {isNoneOfAbove && displayHasNone && isRevealing && frozenData ? (
-                  <span className="font-medium">
-                    {typedText}
-                    {!revealComplete && <span className="animate-pulse">|</span>}
-                  </span>
-                ) : (
-                  ans
-                )}
-                {canEliminateThis && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</span>
-                )}
-                {opponentPickedThis && (
-                  <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">👤</span>
-                )}
-                {isNoneOfAbove && displayHasNone && isShowingFeedback && (
-                  <span className="absolute top-2 right-2 text-green-400">✓</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {/* Normal grid layout when NOT bouncing */}
+          {activeSabotage !== 'bounce' && (
+            <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
+              {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
+                const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+                const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+                const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
+                const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
+                const isEliminated = eliminatedOptions.includes(ans);
+                const isNoneOfAbove = ans === "None of the above";
+                const isWrongAnswer = isNoneOfAbove ? !displayHasNone : ans !== displayCorrectAnswer;
+                const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+                const isCorrectOption = displayHasNone ? ans === "None of the above" : ans === displayCorrectAnswer;
+                const displayedAnswer =
+                  activeSabotage === "reverse"
+                    ? reverseAnimatedAnswers?.[i] ?? reverseText(ans)
+                    : ans;
+                
+                const handleClick = () => {
+                  if (phase !== 'answering') return;
+                  if (canEliminateThis) {
+                    handleEliminateOption(ans);
+                  } else if (!hasAnswered && !isLocked && !isEliminated) {
+                    setSelectedAnswer(ans);
+                  }
+                };
+                
+                const opponentLastAnswer = isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer;
+                const opponentPickedThis = frozenData 
+                  ? frozenData.opponentAnswer === ans
+                  : (status === "completed" && opponentLastAnswer === ans);
+                
+                return (
+                  <button
+                    key={i}
+                    disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                    onClick={handleClick}
+                    className={`p-4 rounded-lg border-2 text-lg font-medium transition-all relative ${
+                      isEliminated
+                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                        : canEliminateThis
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                          : isShowingFeedback
+                            ? displaySelectedAnswer === ans
+                              ? isCorrectOption
+                                ? 'border-green-500 bg-green-500/20 text-green-400'
+                                : 'border-red-500 bg-red-500/20 text-red-400'
+                              : isCorrectOption
+                                ? 'border-green-500 bg-green-500/10 text-green-400'
+                                : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                            : selectedAnswer === ans
+                              ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                              : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
+                    }`}
+                  >
+                    {isNoneOfAbove && displayHasNone && isRevealing && frozenData ? (
+                      <span className="font-medium">
+                        {typedText}
+                        {!revealComplete && <span className="animate-pulse">|</span>}
+                      </span>
+                    ) : (
+                      displayedAnswer
+                    )}
+                    {canEliminateThis && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</span>
+                    )}
+                    {opponentPickedThis && (
+                      <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">👤</span>
+                    )}
+                    {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                      <span className="absolute top-2 right-2 text-green-400">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bouncing options when bounce sabotage is active */}
+          {activeSabotage === 'bounce' && bouncingOptions.length > 0 && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+              {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
+                const bouncePos = bouncingOptions[i];
+                if (!bouncePos) return null;
+
+                const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+                const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+                const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
+                const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
+                const isEliminated = eliminatedOptions.includes(ans);
+                const isNoneOfAbove = ans === "None of the above";
+                const isWrongAnswer = isNoneOfAbove ? !displayHasNone : ans !== displayCorrectAnswer;
+                const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+                const isCorrectOption = displayHasNone ? ans === "None of the above" : ans === displayCorrectAnswer;
+                
+                const handleClick = () => {
+                  if (phase !== 'answering') return;
+                  if (canEliminateThis) {
+                    handleEliminateOption(ans);
+                  } else if (!hasAnswered && !isLocked && !isEliminated) {
+                    setSelectedAnswer(ans);
+                  }
+                };
+                
+                const opponentLastAnswer = isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer;
+                const opponentPickedThis = frozenData 
+                  ? frozenData.opponentAnswer === ans
+                  : (status === "completed" && opponentLastAnswer === ans);
+                
+                return (
+                  <button
+                    key={i}
+                    disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                    onClick={handleClick}
+                    style={{
+                      position: 'absolute',
+                      left: bouncePos.x,
+                      top: bouncePos.y,
+                      width: BUTTON_WIDTH,
+                      height: BUTTON_HEIGHT,
+                      pointerEvents: 'auto',
+                    }}
+                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors relative shadow-lg ${
+                      isEliminated
+                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                        : canEliminateThis
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                          : isShowingFeedback
+                            ? displaySelectedAnswer === ans
+                              ? isCorrectOption
+                                ? 'border-green-500 bg-green-500/20 text-green-400'
+                                : 'border-red-500 bg-red-500/20 text-red-400'
+                              : isCorrectOption
+                                ? 'border-green-500 bg-green-500/10 text-green-400'
+                                : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                            : selectedAnswer === ans
+                              ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                              : 'border-gray-600 bg-gray-800/95 hover:border-gray-500 text-white'
+                    }`}
+                  >
+                    <span className="truncate block">{ans}</span>
+                    {canEliminateThis && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</span>
+                    )}
+                    {opponentPickedThis && (
+                      <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">👤</span>
+                    )}
+                    {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                      <span className="absolute top-2 right-2 text-green-400">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Confirm Button */}

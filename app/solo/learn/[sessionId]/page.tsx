@@ -61,6 +61,17 @@ export default function LearnPhasePage() {
 
   // Confidence level per word (0-3), keyed by wordKey
   const [confidenceLevels, setConfidenceLevels] = useState<Record<string, number>>({});
+  const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
+
+  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${themeId ?? "no-theme"}`;
+
+  useEffect(() => {
+    try {
+      setIsConfidenceLegendDismissed(sessionStorage.getItem(confidenceLegendStorageKey) === "1");
+    } catch {
+      // ignore
+    }
+  }, [confidenceLegendStorageKey]);
 
   const getConfidence = (wordKey: string): number => {
     return confidenceLevels[wordKey] ?? 0;
@@ -472,6 +483,40 @@ export default function LearnPhasePage() {
           ref={containerRef}
           className={`max-w-md mx-auto relative ${isRevealed ? "space-y-2" : "space-y-3"}`}
         >
+          {/* Confidence legend */}
+          {!isConfidenceLegendDismissed && (
+            <div className="sticky top-2 z-10 w-fit">
+              <div className="rounded-xl border border-gray-700 bg-gray-900/80 px-3 py-2 backdrop-blur">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-2 w-20 overflow-hidden rounded-full">
+                    <div className="flex-1 bg-gray-600" />
+                    <div className="flex-1 bg-green-500" />
+                    <div className="flex-1 bg-orange-400" />
+                    <div className="flex-1 bg-red-500" />
+                  </div>
+                  <div className="text-[11px] leading-tight text-gray-300">
+                    Confidence sets the starting challenge level (0 quick check → 3 no hints).
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Dismiss confidence legend"
+                    onClick={() => {
+                      setIsConfidenceLegendDismissed(true);
+                      try {
+                        sessionStorage.setItem(confidenceLegendStorageKey, "1");
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-colors"
+                  >
+                    <span className="text-base leading-none">×</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {(wordOrder ?? []).map((originalIndex, orderIdx) => {
             const word = theme.words[originalIndex];
             const wordKey = `${themeId}-${originalIndex}`;
@@ -494,7 +539,7 @@ export default function LearnPhasePage() {
                 onMouseDown={(e) => handleMouseDown(e, orderIdx)}
                 style={getItemStyle(orderIdx, originalIndex)}
                 className={`bg-gray-800 border border-gray-700 rounded-xl ${
-                  isRevealed ? "p-2.5" : "p-4"
+                  isRevealed ? "py-3 px-2.5" : "p-4"
                 } cursor-grab active:cursor-grabbing select-none ${
                   isDragging ? "opacity-0" : ""
                 }`}
@@ -516,45 +561,72 @@ export default function LearnPhasePage() {
                         {word.answer}
                       </div>
                     ) : (
-                      <div className="flex gap-1 flex-wrap">
-                        {letters.map((letter, idx) =>
-                          letter === " " ? (
-                            <div key={idx} className="w-2" />
-                          ) : (
-                            <div
-                              key={idx}
-                              onClick={() =>
-                                !revealedPositions.includes(idx) &&
-                                hintsRemaining > 0 &&
-                                revealLetter(wordKey, idx)
+                      <div
+                        className="flex flex-wrap gap-x-3 gap-y-2 cursor-default"
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        {(() => {
+                          const wordGroups: Array<Array<{ idx: number; letter: string }>> = [];
+                          let currentGroup: Array<{ idx: number; letter: string }> = [];
+
+                          letters.forEach((letter, idx) => {
+                            if (letter === " ") {
+                              if (currentGroup.length > 0) {
+                                wordGroups.push(currentGroup);
+                                currentGroup = [];
                               }
-                              className={`w-5 h-6 flex items-end justify-center border-b-2 border-gray-500 ${
-                                !revealedPositions.includes(idx) &&
-                                hintsRemaining > 0
-                                  ? "cursor-pointer hover:border-green-500"
-                                  : ""
-                              }`}
-                            >
-                              {revealedPositions.includes(idx) && (
-                                <span className="text-base font-bold text-green-400">
-                                  {letter.toUpperCase()}
-                                </span>
-                              )}
+                              return;
+                            }
+                            currentGroup.push({ idx, letter });
+                          });
+
+                          if (currentGroup.length > 0) wordGroups.push(currentGroup);
+
+                          return wordGroups.map((group, groupIdx) => (
+                            <div key={groupIdx} className="inline-flex gap-1 flex-nowrap">
+                              {group.map(({ idx, letter }) => (
+                                <div
+                                  key={idx}
+                                  onClick={() =>
+                                    !revealedPositions.includes(idx) &&
+                                    hintsRemaining > 0 &&
+                                    revealLetter(wordKey, idx)
+                                  }
+                                  className={`w-5 h-6 flex items-end justify-center rounded bg-white/5 border-b-2 border-gray-500 transition-colors cursor-default ${
+                                    !revealedPositions.includes(idx) &&
+                                    hintsRemaining > 0
+                                      ? "cursor-pointer hover:border-green-500 hover:bg-white/10"
+                                      : revealedPositions.includes(idx)
+                                      ? ""
+                                      : "cursor-not-allowed opacity-50"
+                                  }`}
+                                >
+                                  {revealedPositions.includes(idx) && (
+                                    <span className="text-base font-bold text-green-400">
+                                      {letter.toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
                             </div>
-                          )
-                        )}
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>
 
                   {/* Buttons Section */}
                   <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
-                    {/* Confidence Slider - only in revealed mode */}
-                    {isRevealed && (() => {
+                    {/* Confidence Slider */}
+                    {(() => {
                       const confidence = getConfidence(wordKey);
                       const colors = getConfidenceColor(confidence);
                       return (
-                        <div className="flex flex-col items-center h-12 mr-1.5">
+                        <div
+                          className={`flex flex-col items-center ${
+                            isRevealed ? "h-14" : "h-12"
+                          } mr-1.5`}
+                        >
                           <input
                             type="range"
                             min={0}
@@ -562,7 +634,9 @@ export default function LearnPhasePage() {
                             step={1}
                             value={confidence}
                             onChange={(e) => setConfidence(wordKey, Number(e.target.value))}
-                            className="h-10 w-4 appearance-none rounded-full cursor-pointer confidence-slider"
+                            className={`${
+                              isRevealed ? "h-12" : "h-10"
+                            } w-4 appearance-none rounded-full cursor-pointer confidence-slider`}
                             style={{
                               writingMode: "vertical-lr",
                               direction: "rtl",
@@ -571,19 +645,57 @@ export default function LearnPhasePage() {
                               "--thumb-color": colors.thumb,
                             }}
                           />
-                          <span className={`text-xs font-bold mt-1 ${confidence === 0 ? "text-gray-400" : confidence === 1 ? "text-green-400" : confidence === 2 ? "text-orange-400" : "text-red-400"}`}>
+                          <span
+                            className={`mt-1 inline-flex items-center justify-center px-1 text-xs font-bold leading-none ${
+                              isRevealed ? "h-5 min-w-5" : "h-4 min-w-4"
+                            } ${
+                              confidence === 0
+                                ? "text-gray-400"
+                                : confidence === 1
+                                ? "text-green-400"
+                                : confidence === 2
+                                ? "text-orange-400"
+                                : "text-red-400"
+                            }`}
+                          >
                             {confidence}
                           </span>
                         </div>
                       );
                     })()}
 
-                    {/* Testing mode buttons */}
-                    {!isRevealed && (
-                      <>
+                    {isRevealed ? (
+                      <button
+                        onClick={() => playTTS(originalIndex, word.answer)}
+                        disabled={isTTSDisabled}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                          isThisPlaying
+                            ? "bg-green-500 text-white"
+                            : isTTSDisabled
+                            ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-6 h-6"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+                          />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5">
                         {/* Hints Remaining */}
                         <div
-                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
+                          className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
                             hintsRemaining > 0
                               ? "border-gray-500 text-gray-400"
                               : "border-gray-700 text-gray-600"
@@ -595,7 +707,7 @@ export default function LearnPhasePage() {
                         {/* Reset Button */}
                         <button
                           onClick={() => resetWord(wordKey)}
-                          className="w-10 h-10 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
+                          className="w-9 h-9 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -603,7 +715,7 @@ export default function LearnPhasePage() {
                             viewBox="0 0 24 24"
                             strokeWidth={2}
                             stroke="currentColor"
-                            className="w-5 h-5"
+                            className="w-4 h-4"
                           >
                             <path
                               strokeLinecap="round"
@@ -616,7 +728,7 @@ export default function LearnPhasePage() {
                         {/* Reveal Full Word Button */}
                         <button
                           onClick={() => revealFullWord(wordKey, word.answer)}
-                          className="w-10 h-10 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
+                          className="w-9 h-9 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -624,7 +736,7 @@ export default function LearnPhasePage() {
                             viewBox="0 0 24 24"
                             strokeWidth={2}
                             stroke="currentColor"
-                            className="w-5 h-5"
+                            className="w-4 h-4"
                           >
                             <path
                               strokeLinecap="round"
@@ -638,36 +750,36 @@ export default function LearnPhasePage() {
                             />
                           </svg>
                         </button>
-                      </>
-                    )}
 
-                    {/* TTS Button - disabled when any TTS is playing */}
-                    <button
-                      onClick={() => playTTS(originalIndex, word.answer)}
-                      disabled={isTTSDisabled}
-                      className={`${isRevealed ? "w-10 h-10" : "w-12 h-12"} rounded-full flex items-center justify-center transition-colors ${
-                        isThisPlaying
-                          ? "bg-green-500 text-white"
-                          : isTTSDisabled
-                          ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                      }`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className={isRevealed ? "w-5 h-5" : "w-6 h-6"}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-                        />
-                      </svg>
-                    </button>
+                        {/* TTS Button - disabled when any TTS is playing */}
+                        <button
+                          onClick={() => playTTS(originalIndex, word.answer)}
+                          disabled={isTTSDisabled}
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                            isThisPlaying
+                              ? "bg-green-500 text-white"
+                              : isTTSDisabled
+                              ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-4 h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -696,7 +808,7 @@ export default function LearnPhasePage() {
             return (
               <div
                 className={`bg-gray-800 border-2 border-blue-500 rounded-xl ${
-                  isRevealed ? "p-2.5" : "p-4"
+                  isRevealed ? "py-3 px-2.5" : "p-4"
                 } shadow-2xl shadow-blue-500/20`}
               >
                 <div className="flex items-stretch justify-between">
@@ -718,11 +830,11 @@ export default function LearnPhasePage() {
 
                   {/* Buttons Section (simplified for drag preview) */}
                   <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
-                    {isRevealed && (() => {
+                    {(() => {
                       const confidence = getConfidence(wordKey);
                       const colors = getConfidenceColor(confidence);
                       return (
-                        <div className="flex flex-col items-center h-12 mr-1.5">
+                        <div className="flex flex-col items-center h-14 mr-1.5">
                           <input
                             type="range"
                             min={0}
@@ -730,7 +842,7 @@ export default function LearnPhasePage() {
                             step={1}
                             value={confidence}
                             readOnly
-                            className="h-10 w-4 appearance-none rounded-full confidence-slider"
+                            className="h-12 w-4 appearance-none rounded-full confidence-slider"
                             style={{
                               writingMode: "vertical-lr",
                               direction: "rtl",
@@ -739,14 +851,24 @@ export default function LearnPhasePage() {
                               "--thumb-color": colors.thumb,
                             }}
                           />
-                          <span className={`text-xs font-bold mt-1 ${confidence === 0 ? "text-gray-400" : confidence === 1 ? "text-green-400" : confidence === 2 ? "text-orange-400" : "text-red-400"}`}>
+                          <span
+                            className={`mt-1 inline-flex items-center justify-center h-5 min-w-5 px-1 text-xs font-bold leading-none ${
+                              confidence === 0
+                                ? "text-gray-400"
+                                : confidence === 1
+                                ? "text-green-400"
+                                : confidence === 2
+                                ? "text-orange-400"
+                                : "text-red-400"
+                            }`}
+                          >
                             {confidence}
                           </span>
                         </div>
                       );
                     })()}
                     <div
-                      className={`${isRevealed ? "w-10 h-10" : "w-12 h-12"} rounded-full flex items-center justify-center ${
+                      className={`${isRevealed ? "w-12 h-12" : "w-12 h-12"} rounded-full flex items-center justify-center ${
                         isThisPlaying
                           ? "bg-green-500 text-white"
                           : isTTSDisabled
@@ -760,7 +882,7 @@ export default function LearnPhasePage() {
                         viewBox="0 0 24 24"
                         strokeWidth={2}
                         stroke="currentColor"
-                        className={isRevealed ? "w-5 h-5" : "w-6 h-6"}
+                        className={isRevealed ? "w-6 h-6" : "w-6 h-6"}
                       >
                         <path
                           strokeLinecap="round"

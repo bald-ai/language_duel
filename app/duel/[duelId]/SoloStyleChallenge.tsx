@@ -86,7 +86,7 @@ interface WordEntry {
 }
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
+type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
 
 const SABOTAGE_DURATION = 7000;
 const MAX_SABOTAGES = 5;
@@ -109,6 +109,8 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
   { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
   { effect: "cards", label: "Cards", emoji: "🃏" },
+  { effect: "bounce", label: "Bounce", emoji: "🏓" },
+  { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
 
 // Pre-generate random layouts at module scope so we don't call Math.random in render

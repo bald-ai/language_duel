@@ -10,7 +10,7 @@ import SoloStyleChallenge from "./SoloStyleChallenge";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards";
+type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
 
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
@@ -447,6 +447,8 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
   { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
   { effect: "cards", label: "Cards", emoji: "🃏" },
+  { effect: "bounce", label: "Bounce", emoji: "🏓" },
+  { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
 
 export default function DuelPage() {
@@ -483,6 +485,14 @@ export default function DuelPage() {
   const [showSabotageMenu, setShowSabotageMenu] = useState(false);
   const lastSabotageTimestampRef = useRef<number | null>(null);
   const sabotageTimersRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Bouncing options state for "bounce" sabotage
+  type BouncingOption = { id: number; x: number; y: number; vx: number; vy: number };
+  const [bouncingOptions, setBouncingOptions] = useState<BouncingOption[]>([]);
+  const bouncingPositionsRef = useRef<BouncingOption[]>([]);
+  const bounceAnimationRef = useRef<number | null>(null);
+  const BUTTON_WIDTH = 180;
+  const BUTTON_HEIGHT = 60;
   
   // Helper to clear all sabotage timers and effect
   const clearSabotageEffect = useCallback(() => {
@@ -490,6 +500,13 @@ export default function DuelPage() {
     sabotageTimersRef.current = [];
     setActiveSabotage(null);
     setSabotagePhase('wind-up');
+    // Clear bouncing animation
+    if (bounceAnimationRef.current) {
+      cancelAnimationFrame(bounceAnimationRef.current);
+      bounceAnimationRef.current = null;
+    }
+    setBouncingOptions([]);
+    bouncingPositionsRef.current = [];
   }, []);
 
   const duelData = useQuery(
@@ -775,31 +792,41 @@ export default function DuelPage() {
       setSabotagePhase('wind-up');
       setActiveSabotage(mySabotage.effect as SabotageEffect);
       
-      // Phase transitions: 2s wind-up → 3s full → 2s wind-down → clear
-      const fullTimer = setTimeout(() => {
+      const sabotageEffect = mySabotage.effect as SabotageEffect;
+      
+      // Bounce + reverse last until question ends, not just 7 seconds
+      if (sabotageEffect === 'bounce' || sabotageEffect === 'reverse') {
+        // For bounce/reverse, skip phase transitions and duration timer - it will clear when question ends
         setSabotagePhase('full');
-      }, 2000);
-      
-      const windDownTimer = setTimeout(() => {
-        setSabotagePhase('wind-down');
-      }, 5000); // 2s wind-up + 3s full
-      
-      const clearTimer = setTimeout(() => {
-        setActiveSabotage(null);
-        setSabotagePhase('wind-up'); // Reset for next sabotage
-      }, SABOTAGE_DURATION); // 7s total
-      
-      // Store timers for cleanup
-      sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
+        sabotageTimersRef.current = [];
+      } else {
+        // Other effects follow the standard 7-second duration with phases
+        // Phase transitions: 2s wind-up → 3s full → 2s wind-down → clear
+        const fullTimer = setTimeout(() => {
+          setSabotagePhase('full');
+        }, 2000);
+        
+        const windDownTimer = setTimeout(() => {
+          setSabotagePhase('wind-down');
+        }, 5000); // 2s wind-up + 3s full
+        
+        const clearTimer = setTimeout(() => {
+          setActiveSabotage(null);
+          setSabotagePhase('wind-up'); // Reset for next sabotage
+        }, SABOTAGE_DURATION); // 7s total
+        
+        // Store timers for cleanup
+        sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
+      }
     }
   }, [duelData?.duel?.challengerSabotage, duelData?.duel?.opponentSabotage, challenger?.clerkId, user?.id, clearSabotageEffect]);
 
   // Clear sabotage effect when answer is locked in
   useEffect(() => {
-    if (isLocked) {
+    if (isLocked && activeSabotage !== 'bounce' && activeSabotage !== 'reverse') {
       clearSabotageEffect();
     }
-  }, [isLocked, clearSabotageEffect]);
+  }, [isLocked, activeSabotage, clearSabotageEffect]);
 
   // Clear sabotage effect when entering transition phase
   useEffect(() => {
@@ -958,6 +985,86 @@ export default function DuelPage() {
     
     return { shuffledAnswers: answers, hasNoneOption: hasNone, correctAnswerPresent: correctPresent };
   }, [currentWord.word, currentWord.answer, currentWord.wrongAnswers, word, index, difficulty]);
+
+  // Bounce animation effect - initialize and animate when bounce sabotage is active
+  useEffect(() => {
+    if (activeSabotage !== 'bounce') {
+      // Clean up when bounce ends - only if there's something to clean
+      if (bounceAnimationRef.current) {
+        cancelAnimationFrame(bounceAnimationRef.current);
+        bounceAnimationRef.current = null;
+      }
+      if (bouncingPositionsRef.current.length > 0) {
+        setBouncingOptions([]);
+        bouncingPositionsRef.current = [];
+      }
+      return;
+    }
+
+    // Initialize bouncing positions for each option
+    const optionCount = (frozenData ? frozenData.shuffledAnswers : shuffledAnswers).length;
+    if (optionCount === 0) return;
+
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+    // Initialize with random positions and velocities
+    const initialPositions: BouncingOption[] = Array.from({ length: optionCount }, (_, i) => ({
+      id: i,
+      x: Math.random() * (screenWidth - BUTTON_WIDTH),
+      y: 100 + Math.random() * (screenHeight - BUTTON_HEIGHT - 200),
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+    }));
+
+    bouncingPositionsRef.current = initialPositions;
+    setBouncingOptions(initialPositions);
+
+    const animate = () => {
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+
+      bouncingPositionsRef.current = bouncingPositionsRef.current.map((opt) => {
+        let { x, y, vx, vy } = opt;
+
+        // Move by velocity each frame
+        x += vx;
+        y += vy;
+
+        // Bounce off left/right edges
+        if (x <= 0) {
+          x = 0;
+          vx = Math.abs(vx);
+        } else if (x >= sw - BUTTON_WIDTH) {
+          x = sw - BUTTON_WIDTH;
+          vx = -Math.abs(vx);
+        }
+
+        // Bounce off top/bottom edges
+        if (y <= 0) {
+          y = 0;
+          vy = Math.abs(vy);
+        } else if (y >= sh - BUTTON_HEIGHT) {
+          y = sh - BUTTON_HEIGHT;
+          vy = -Math.abs(vy);
+        }
+
+        return { ...opt, x, y, vx, vy };
+      });
+
+      setBouncingOptions([...bouncingPositionsRef.current]);
+      bounceAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    bounceAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (bounceAnimationRef.current) {
+        cancelAnimationFrame(bounceAnimationRef.current);
+        bounceAnimationRef.current = null;
+      }
+    };
+  }, [activeSabotage, frozenData, shuffledAnswers]);
 
   // Early returns AFTER all hooks
   if (!user) return <div>Sign in first.</div>;
@@ -1374,97 +1481,175 @@ export default function DuelPage() {
 
       {/* Answer Options */}
       {(frozenData ? frozenData.word : word) !== "done" && (
-        <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
-          {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
-            const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
-            const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
-            const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
-            const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
-            const isEliminated = eliminatedOptions.includes(ans);
-            // "None of the above" is wrong when the correct answer IS present (hasNoneOption = false)
-            const isNoneOfAbove = ans === "None of the above";
-            const isWrongAnswer = isNoneOfAbove 
-              ? !displayHasNone  // "None" is wrong when correct answer IS present
-              : ans !== displayCorrectAnswer;
-            const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
-            
-            // Determine if this answer is correct
-            // - If "None of the above" is present (hasNoneOption), then "None of the above" is correct
-            // - Otherwise, the correct answer from the word is correct
-            const isCorrectOption = displayHasNone 
-              ? ans === "None of the above"
-              : ans === displayCorrectAnswer;
-            
-            // Handle click - either select answer or eliminate option
-            const handleClick = () => {
-              // Block all interaction when not in answering phase
-              if (phase !== 'answering') return;
-              if (canEliminateThis) {
-                handleEliminateOption(ans);
-              } else if (!hasAnswered && !isLocked && !isEliminated) {
-                setSelectedAnswer(ans);
-              }
-            };
-            
-            // Check if opponent picked this answer (show during countdown OR when completed)
-            const opponentLastAnswer = isChallenger 
-              ? duel?.opponentLastAnswer 
-              : duel?.challengerLastAnswer;
-            const opponentPickedThis = frozenData 
-              ? frozenData.opponentAnswer === ans
-              : (status === "completed" && opponentLastAnswer === ans);
-            
-            return (
-              <button
-                key={i}
-                disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
-                onClick={handleClick}
-                className={`p-4 rounded-lg border-2 text-lg font-medium transition-all relative ${
-                  isEliminated
-                    ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
-                    : canEliminateThis
-                      ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
-                      : isShowingFeedback
-                        ? displaySelectedAnswer === ans
-                          ? isCorrectOption
-                            ? 'border-green-500 bg-green-500/20 text-green-400'
-                            : 'border-red-500 bg-red-500/20 text-red-400'
-                          : isCorrectOption
-                            ? 'border-green-500 bg-green-500/10 text-green-400'
-                            : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
-                        : selectedAnswer === ans
-                          ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                          : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
-                }`}
-              >
-                {/* Type reveal effect for "None of the above" when it's the correct answer */}
-                {isNoneOfAbove && displayHasNone && isRevealing && frozenData ? (
-                  <span className="font-medium">
-                    {typedText}
-                    {!revealComplete && <span className="animate-pulse">|</span>}
-                  </span>
-                ) : (
-                  ans
-                )}
-                {canEliminateThis && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    ✕
-                  </span>
-                )}
-                {/* Show opponent's pick during countdown */}
-                {opponentPickedThis && (
-                  <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    👤
-                  </span>
-                )}
-                {/* Show checkmark when "None of the above" is correct and revealed */}
-                {isNoneOfAbove && displayHasNone && isShowingFeedback && (
-                  <span className="absolute top-2 right-2 text-green-400">✓</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {/* Normal grid layout when NOT bouncing */}
+          {activeSabotage !== 'bounce' && (
+            <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
+              {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
+                const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+                const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+                const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
+                const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
+                const isEliminated = eliminatedOptions.includes(ans);
+                const isNoneOfAbove = ans === "None of the above";
+                const isWrongAnswer = isNoneOfAbove 
+                  ? !displayHasNone
+                  : ans !== displayCorrectAnswer;
+                const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+                const isCorrectOption = displayHasNone 
+                  ? ans === "None of the above"
+                  : ans === displayCorrectAnswer;
+                
+                const handleClick = () => {
+                  if (phase !== 'answering') return;
+                  if (canEliminateThis) {
+                    handleEliminateOption(ans);
+                  } else if (!hasAnswered && !isLocked && !isEliminated) {
+                    setSelectedAnswer(ans);
+                  }
+                };
+                
+                const opponentLastAnswer = isChallenger 
+                  ? duel?.opponentLastAnswer 
+                  : duel?.challengerLastAnswer;
+                const opponentPickedThis = frozenData 
+                  ? frozenData.opponentAnswer === ans
+                  : (status === "completed" && opponentLastAnswer === ans);
+                
+                return (
+                  <button
+                    key={i}
+                    disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                    onClick={handleClick}
+                    className={`p-4 rounded-lg border-2 text-lg font-medium transition-all relative ${
+                      isEliminated
+                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                        : canEliminateThis
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                          : isShowingFeedback
+                            ? displaySelectedAnswer === ans
+                              ? isCorrectOption
+                                ? 'border-green-500 bg-green-500/20 text-green-400'
+                                : 'border-red-500 bg-red-500/20 text-red-400'
+                              : isCorrectOption
+                                ? 'border-green-500 bg-green-500/10 text-green-400'
+                                : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                            : selectedAnswer === ans
+                              ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                              : 'border-gray-600 bg-gray-800 hover:border-gray-500 text-white'
+                    }`}
+                  >
+                    {isNoneOfAbove && displayHasNone && isRevealing && frozenData ? (
+                      <span className="font-medium">
+                        {typedText}
+                        {!revealComplete && <span className="animate-pulse">|</span>}
+                      </span>
+                    ) : (
+                      ans
+                    )}
+                    {canEliminateThis && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        ✕
+                      </span>
+                    )}
+                    {opponentPickedThis && (
+                      <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        👤
+                      </span>
+                    )}
+                    {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                      <span className="absolute top-2 right-2 text-green-400">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bouncing options when bounce sabotage is active */}
+          {activeSabotage === 'bounce' && bouncingOptions.length > 0 && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+              {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
+                const bouncePos = bouncingOptions[i];
+                if (!bouncePos) return null;
+
+                const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+                const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+                const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
+                const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
+                const isEliminated = eliminatedOptions.includes(ans);
+                const isNoneOfAbove = ans === "None of the above";
+                const isWrongAnswer = isNoneOfAbove 
+                  ? !displayHasNone
+                  : ans !== displayCorrectAnswer;
+                const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+                const isCorrectOption = displayHasNone 
+                  ? ans === "None of the above"
+                  : ans === displayCorrectAnswer;
+                
+                const handleClick = () => {
+                  if (phase !== 'answering') return;
+                  if (canEliminateThis) {
+                    handleEliminateOption(ans);
+                  } else if (!hasAnswered && !isLocked && !isEliminated) {
+                    setSelectedAnswer(ans);
+                  }
+                };
+                
+                const opponentLastAnswer = isChallenger 
+                  ? duel?.opponentLastAnswer 
+                  : duel?.challengerLastAnswer;
+                const opponentPickedThis = frozenData 
+                  ? frozenData.opponentAnswer === ans
+                  : (status === "completed" && opponentLastAnswer === ans);
+                
+                return (
+                  <button
+                    key={i}
+                    disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                    onClick={handleClick}
+                    style={{
+                      position: 'absolute',
+                      left: bouncePos.x,
+                      top: bouncePos.y,
+                      width: BUTTON_WIDTH,
+                      height: BUTTON_HEIGHT,
+                      pointerEvents: 'auto',
+                    }}
+                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors relative shadow-lg ${
+                      isEliminated
+                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                        : canEliminateThis
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                          : isShowingFeedback
+                            ? displaySelectedAnswer === ans
+                              ? isCorrectOption
+                                ? 'border-green-500 bg-green-500/20 text-green-400'
+                                : 'border-red-500 bg-red-500/20 text-red-400'
+                              : isCorrectOption
+                                ? 'border-green-500 bg-green-500/10 text-green-400'
+                                : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                            : selectedAnswer === ans
+                              ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                              : 'border-gray-600 bg-gray-800/95 hover:border-gray-500 text-white'
+                    }`}
+                  >
+                    <span className="truncate block">{ans}</span>
+                    {canEliminateThis && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</span>
+                    )}
+                    {opponentPickedThis && (
+                      <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">👤</span>
+                    )}
+                    {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                      <span className="absolute top-2 right-2 text-green-400">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Confirm Button */}
