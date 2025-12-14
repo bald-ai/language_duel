@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const VOICE_ID = 'f3XsLDh5aCfxnrMmuR19';
-const MODEL_ID = 'eleven_flash_v2_5';
+const VOICE_ID = 'zl1Ut8dvwcVSuQSB9XkG';
+const MODEL_ID = 'eleven_multilingual_v2';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
           model_id: MODEL_ID,
           voice_settings: {
             speed: 0.7,
+            stability: 1,
           },
         }),
       }
