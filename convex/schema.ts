@@ -62,7 +62,7 @@ export default defineSchema({
     questionTimerPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
     // Sabotage system - tracks active effects sent to each player
     challengerSabotage: v.optional(v.object({
-      effect: v.string(), // "ink" | "bubbles" | "emojis" | "sticky" | "cards"
+      effect: v.string(), // e.g. "sticky" | "bounce" | "trampoline" | "reverse"
       timestamp: v.number(),
     })),
     opponentSabotage: v.optional(v.object({

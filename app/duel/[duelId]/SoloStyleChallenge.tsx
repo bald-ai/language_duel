@@ -86,7 +86,7 @@ interface WordEntry {
 }
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
+type SabotageEffect = "sticky" | "bounce" | "reverse";
 
 const SABOTAGE_DURATION = 7000;
 const MAX_SABOTAGES = 5;
@@ -104,11 +104,7 @@ function formatDuration(seconds: number): string {
 }
 
 const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
-  { effect: "ink", label: "Ink", emoji: "🖤" },
-  { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
-  { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
-  { effect: "cards", label: "Cards", emoji: "🃏" },
   { effect: "bounce", label: "Bounce", emoji: "🏓" },
   { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
@@ -335,11 +331,7 @@ function FlyingCards({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
 function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; phase: "wind-up" | "full" | "wind-down" }) {
   if (!effect) return null;
   switch (effect) {
-    case "ink": return <InkSplatter phase={phase} />;
-    case "bubbles": return <FloatingBubbles phase={phase} />;
-    case "emojis": return <FallingEmojis phase={phase} />;
     case "sticky": return <StickyNotes phase={phase} />;
-    case "cards": return <FlyingCards phase={phase} />;
     default: return null;
   }
 }
@@ -1617,6 +1609,19 @@ export default function SoloStyleChallenge({
   // Sabotage usage
   const mySabotagesUsed = isChallenger ? (duel.challengerSabotagesUsed || 0) : (duel.opponentSabotagesUsed || 0);
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
+  const outgoingSabotage = isChallenger ? duel.opponentSabotage : duel.challengerSabotage;
+  const isOutgoingSabotageActive = (() => {
+    if (!outgoingSabotage) return false;
+    if (outgoingSabotage.effect === "sticky") {
+      return Date.now() - outgoingSabotage.timestamp < SABOTAGE_DURATION;
+    }
+    if (outgoingSabotage.effect === "bounce" || outgoingSabotage.effect === "reverse") {
+      return typeof duel.questionStartTime === "number"
+        ? outgoingSabotage.timestamp >= duel.questionStartTime
+        : Date.now() - outgoingSabotage.timestamp < 25000;
+    }
+    return false;
+  })();
 
   // Current word
   const currentWord = myCurrentWordIndex !== undefined ? theme.words[myCurrentWordIndex] : null;
@@ -2517,33 +2522,43 @@ export default function SoloStyleChallenge({
 
       {/* Sabotage Button */}
       <div className="fixed bottom-4 right-4 z-30">
-        {showSabotageMenu && sabotagesRemaining > 0 && (
-          <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
-            <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
-            <div className="grid grid-cols-3 gap-2">
-              {SABOTAGE_OPTIONS.map((option) => (
-                <button
-                  key={option.effect}
-                  onClick={() => handleSendSabotage(option.effect)}
-                  className="flex flex-col items-center p-2 rounded-lg bg-gray-700 hover:bg-gray-600"
-                >
-                  <span className="text-2xl">{option.emoji}</span>
-                  <span className="text-xs text-gray-300 mt-1">{option.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+	        {showSabotageMenu && sabotagesRemaining > 0 && (
+	          <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
+	            <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
+	            <div className="grid grid-cols-3 gap-2">
+	              {SABOTAGE_OPTIONS.map((option) => (
+	                <button
+	                  key={option.effect}
+	                  onClick={() => handleSendSabotage(option.effect)}
+	                  disabled={isOutgoingSabotageActive}
+	                  className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+	                    isOutgoingSabotageActive
+	                      ? "bg-gray-700/60 text-gray-500 cursor-not-allowed"
+	                      : "bg-gray-700 hover:bg-gray-600"
+	                  }`}
+	                >
+	                  <span className="text-2xl">{option.emoji}</span>
+	                  <span className="text-xs text-gray-300 mt-1">{option.label}</span>
+	                </button>
+	              ))}
+	            </div>
+	            {isOutgoingSabotageActive && (
+	              <div className="mt-2 text-[11px] text-gray-400 text-center">
+	                Wait for current sabotage to end
+	              </div>
+	            )}
+	          </div>
+	        )}
 
-        <button
-          onClick={() => setShowSabotageMenu(!showSabotageMenu)}
-          disabled={sabotagesRemaining <= 0}
-          className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-            sabotagesRemaining > 0
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
-              : "bg-gray-700 text-gray-500 cursor-not-allowed"
-          }`}
-        >
+	        <button
+	          onClick={() => setShowSabotageMenu(!showSabotageMenu)}
+	          disabled={sabotagesRemaining <= 0 || isOutgoingSabotageActive}
+	          className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+	            sabotagesRemaining > 0 && !isOutgoingSabotageActive
+	              ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+	              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+	          }`}
+	        >
           <span className="text-xl">💥</span>
           <span>Sabotage</span>
           <span className={`px-2 py-0.5 rounded-full text-sm ${sabotagesRemaining > 0 ? "bg-white/20" : "bg-gray-600"}`}>

@@ -722,12 +722,36 @@ export const eliminateOption = mutation({
 });
 
 // Sabotage system - send a distraction/handicap to opponent
-const SABOTAGE_EFFECTS = ["ink", "bubbles", "emojis", "sticky", "cards", "bounce", "reverse"] as const;
+const SABOTAGE_EFFECTS = ["sticky", "bounce", "trampoline", "reverse"] as const;
 type SabotageEffect = (typeof SABOTAGE_EFFECTS)[number];
 const MAX_SABOTAGES_PER_DUEL = 5;
+const SABOTAGE_STANDARD_DURATION_MS = 7000;
+const SABOTAGE_FALLBACK_LONG_DURATION_MS = 25000;
 
 function isValidSabotageEffect(effect: string): effect is SabotageEffect {
   return (SABOTAGE_EFFECTS as readonly string[]).includes(effect);
+}
+
+function isSabotageActive(params: {
+  sabotage?: { effect: string; timestamp: number };
+  now: number;
+  questionStartTime?: number;
+}): boolean {
+  const { sabotage, now, questionStartTime } = params;
+  if (!sabotage) return false;
+
+  if (sabotage.effect === "sticky") {
+    return now - sabotage.timestamp < SABOTAGE_STANDARD_DURATION_MS;
+  }
+
+  if (sabotage.effect === "bounce" || sabotage.effect === "trampoline" || sabotage.effect === "reverse") {
+    if (typeof questionStartTime === "number") {
+      return sabotage.timestamp >= questionStartTime;
+    }
+    return now - sabotage.timestamp < SABOTAGE_FALLBACK_LONG_DURATION_MS;
+  }
+
+  return false;
 }
 
 export const sendSabotage = mutation({
@@ -779,6 +803,17 @@ export const sendSabotage = mutation({
 
     // Send sabotage to the OTHER player
     const now = Date.now();
+    const targetSabotage = isChallenger ? challenge.opponentSabotage : challenge.challengerSabotage;
+    if (
+      isSabotageActive({
+        sabotage: targetSabotage,
+        now,
+        questionStartTime: typeof challenge.questionStartTime === "number" ? challenge.questionStartTime : undefined,
+      })
+    ) {
+      throw new Error("A sabotage is already active");
+    }
+
     if (isChallenger) {
       await ctx.db.patch(duelId, {
         opponentSabotage: { effect, timestamp: now },

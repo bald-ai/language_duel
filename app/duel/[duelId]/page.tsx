@@ -10,7 +10,7 @@ import SoloStyleChallenge from "./SoloStyleChallenge";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
+type SabotageEffect = "sticky" | "bounce" | "reverse";
 
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
@@ -431,22 +431,14 @@ function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; ph
   if (!effect) return null;
   
   switch (effect) {
-    case "ink": return <InkSplatter phase={phase} />;
-    case "bubbles": return <FloatingBubbles phase={phase} />;
-    case "emojis": return <FallingEmojis phase={phase} />;
     case "sticky": return <StickyNotes phase={phase} />;
-    case "cards": return <FlyingCards phase={phase} />;
     default: return null;
   }
 }
 
 // Sabotage button data
 const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
-  { effect: "ink", label: "Ink", emoji: "🖤" },
-  { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
-  { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
-  { effect: "cards", label: "Cards", emoji: "🃏" },
   { effect: "bounce", label: "Bounce", emoji: "🏓" },
   { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
@@ -491,8 +483,8 @@ export default function DuelPage() {
   const [bouncingOptions, setBouncingOptions] = useState<BouncingOption[]>([]);
   const bouncingPositionsRef = useRef<BouncingOption[]>([]);
   const bounceAnimationRef = useRef<number | null>(null);
-  const BUTTON_WIDTH = 180;
-  const BUTTON_HEIGHT = 60;
+  const BUTTON_WIDTH = 240;
+  const BUTTON_HEIGHT = 80;
   
   // Helper to clear all sabotage timers and effect
   const clearSabotageEffect = useCallback(() => {
@@ -1151,6 +1143,19 @@ export default function DuelPage() {
   // TTS button visibility - show during transition phase (including when paused)
   const inTransition = phase === 'transition' && !!frozenData;
   const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
+  const outgoingSabotage = isChallenger ? duel.opponentSabotage : duel.challengerSabotage;
+  const isOutgoingSabotageActive = (() => {
+    if (!outgoingSabotage) return false;
+    if (outgoingSabotage.effect === "sticky") {
+      return Date.now() - outgoingSabotage.timestamp < SABOTAGE_DURATION;
+    }
+    if (outgoingSabotage.effect === "bounce" || outgoingSabotage.effect === "reverse") {
+      return typeof duel.questionStartTime === "number"
+        ? outgoingSabotage.timestamp >= duel.questionStartTime
+        : Date.now() - outgoingSabotage.timestamp < 25000;
+    }
+    return false;
+  })();
 
   const handleStopDuel = async () => {
     try {
@@ -1608,19 +1613,19 @@ export default function DuelPage() {
                     key={i}
                     disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
                     onClick={handleClick}
-                    style={{
-                      position: 'absolute',
-                      left: bouncePos.x,
-                      top: bouncePos.y,
-                      width: BUTTON_WIDTH,
-                      height: BUTTON_HEIGHT,
-                      pointerEvents: 'auto',
-                    }}
-                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors relative shadow-lg ${
-                      isEliminated
-                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
-                        : canEliminateThis
-                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+	                    style={{
+	                      position: 'absolute',
+	                      left: bouncePos.x,
+	                      top: bouncePos.y,
+	                      width: BUTTON_WIDTH,
+	                      height: BUTTON_HEIGHT,
+	                      pointerEvents: 'auto',
+	                    }}
+	                    className={`p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg ${
+	                      isEliminated
+	                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+	                        : canEliminateThis
+	                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
                           : isShowingFeedback
                             ? displaySelectedAnswer === ans
                               ? isCorrectOption
@@ -1729,38 +1734,48 @@ export default function DuelPage() {
       )}
 
       {/* Sabotage System UI */}
-      {status === "accepted" && phase === 'answering' && word !== "done" && (
-        <div className="fixed bottom-4 right-4 z-30">
-          {/* Sabotage Menu */}
-          {showSabotageMenu && sabotagesRemaining > 0 && (
-            <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
-              <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
-              <div className="grid grid-cols-3 gap-2">
-                {SABOTAGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.effect}
-                    onClick={() => handleSendSabotage(option.effect)}
-                    className="flex flex-col items-center p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-                    title={option.label}
-                  >
-                    <span className="text-2xl">{option.emoji}</span>
-                    <span className="text-xs text-gray-300 mt-1">{option.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Sabotage Toggle Button */}
-          <button
-            onClick={() => setShowSabotageMenu(!showSabotageMenu)}
-            disabled={sabotagesRemaining <= 0}
-            className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
-              sabotagesRemaining > 0
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            }`}
-          >
+	      {status === "accepted" && phase === 'answering' && word !== "done" && (
+	        <div className="fixed bottom-4 right-4 z-30">
+	          {/* Sabotage Menu */}
+	          {showSabotageMenu && sabotagesRemaining > 0 && (
+	            <div className="absolute bottom-16 right-0 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700 mb-2">
+	              <div className="text-xs text-gray-400 mb-2 text-center">Send to opponent</div>
+	              <div className="grid grid-cols-3 gap-2">
+	                {SABOTAGE_OPTIONS.map((option) => (
+	                  <button
+	                    key={option.effect}
+	                    onClick={() => handleSendSabotage(option.effect)}
+	                    disabled={isOutgoingSabotageActive}
+	                    className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+	                      isOutgoingSabotageActive
+	                        ? 'bg-gray-700/60 text-gray-500 cursor-not-allowed'
+	                        : 'bg-gray-700 hover:bg-gray-600'
+	                    }`}
+	                    title={option.label}
+	                  >
+	                    <span className="text-2xl">{option.emoji}</span>
+	                    <span className="text-xs text-gray-300 mt-1">{option.label}</span>
+	                  </button>
+	                ))}
+	              </div>
+	              {isOutgoingSabotageActive && (
+	                <div className="mt-2 text-[11px] text-gray-400 text-center">
+	                  Wait for current sabotage to end
+	                </div>
+	              )}
+	            </div>
+	          )}
+	          
+	          {/* Sabotage Toggle Button */}
+	          <button
+	            onClick={() => setShowSabotageMenu(!showSabotageMenu)}
+	            disabled={sabotagesRemaining <= 0 || isOutgoingSabotageActive}
+	            className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+	              sabotagesRemaining > 0 && !isOutgoingSabotageActive
+	                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg'
+	                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+	            }`}
+	          >
             <span className="text-xl">💥</span>
             <span>Sabotage</span>
             <span className={`px-2 py-0.5 rounded-full text-sm ${

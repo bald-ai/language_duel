@@ -13,7 +13,7 @@ import {
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
 // Sabotage Effect Type
-type SabotageEffect = "ink" | "bubbles" | "emojis" | "sticky" | "cards" | "bounce" | "reverse";
+type SabotageEffect = "sticky" | "bounce" | "trampoline" | "reverse";
 
 const SABOTAGE_DURATION = 7000; // 7 seconds total (2s wind-up, 3s full, 2s wind-down)
 const MAX_SABOTAGES = 5;
@@ -461,23 +461,16 @@ function SabotageRenderer({ effect, phase }: { effect: SabotageEffect | null; ph
   if (!effect) return null;
   
   switch (effect) {
-    case "ink": return <InkSplatter phase={phase} />;
-    case "bubbles": return <FloatingBubbles phase={phase} />;
-    case "emojis": return <FallingEmojis phase={phase} />;
     case "sticky": return <StickyNotes phase={phase} />;
-    case "cards": return <FlyingCards phase={phase} />;
     default: return null;
   }
 }
 
 // Sabotage button data
 const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }[] = [
-  { effect: "ink", label: "Ink", emoji: "🖤" },
-  { effect: "bubbles", label: "Bubbles", emoji: "🫧" },
-  { effect: "emojis", label: "Emojis", emoji: "😈" },
   { effect: "sticky", label: "Sticky", emoji: "📝" },
-  { effect: "cards", label: "Cards", emoji: "🃏" },
   { effect: "bounce", label: "Bounce", emoji: "🏓" },
+  { effect: "trampoline", label: "Trampoline", emoji: "🤸" },
   { effect: "reverse", label: "Reverse", emoji: "🔄" },
 ];
 
@@ -536,8 +529,25 @@ export default function ClassicDuelChallenge({
   const [bouncingOptions, setBouncingOptions] = useState<BouncingOption[]>([]);
   const bouncingPositionsRef = useRef<BouncingOption[]>([]);
   const bounceAnimationRef = useRef<number | null>(null);
-  const BUTTON_WIDTH = 180;
-  const BUTTON_HEIGHT = 60;
+  const BUTTON_WIDTH = 240;
+  const BUTTON_HEIGHT = 80;
+  const TRAMPOLINE_BUTTON_WIDTH = 240;
+  const TRAMPOLINE_BUTTON_HEIGHT = 80;
+  const TRAMPOLINE_FLY_SCALE = 1.2;
+
+  // Trampoline options state for "trampoline" sabotage
+  type TrampolineOption = {
+    id: number;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    shakeOffset: { x: number; y: number };
+    phase: 'shaking' | 'flying';
+  };
+  const [trampolineOptions, setTrampolineOptions] = useState<TrampolineOption[]>([]);
+  const trampolinePositionsRef = useRef<TrampolineOption[]>([]);
+  const trampolineAnimationRef = useRef<number | null>(null);
   
   // Helper to clear all sabotage timers and effect
   const clearSabotageEffect = useCallback(() => {
@@ -552,6 +562,13 @@ export default function ClassicDuelChallenge({
     }
     setBouncingOptions([]);
     bouncingPositionsRef.current = [];
+
+    if (trampolineAnimationRef.current) {
+      cancelAnimationFrame(trampolineAnimationRef.current);
+      trampolineAnimationRef.current = null;
+    }
+    setTrampolineOptions([]);
+    trampolinePositionsRef.current = [];
   }, []);
 
   const clearReverseAnimation = useCallback(() => {
@@ -810,9 +827,9 @@ export default function ClassicDuelChallenge({
       
       const sabotageEffect = mySabotage.effect as SabotageEffect;
       
-      // Bounce + reverse last until question ends, not just 7 seconds
-      if (sabotageEffect === 'bounce' || sabotageEffect === 'reverse') {
-        // For bounce/reverse, skip phase transitions and duration timer - it will clear when question ends
+      // Bounce + trampoline + reverse last until question ends, not just 7 seconds
+      if (sabotageEffect === 'bounce' || sabotageEffect === 'trampoline' || sabotageEffect === 'reverse') {
+        // For bounce/trampoline/reverse, skip phase transitions and duration timer - it will clear when question ends
         setSabotagePhase('full');
         sabotageTimersRef.current = [];
       } else {
@@ -831,7 +848,7 @@ export default function ClassicDuelChallenge({
 
   // Clear sabotage when locked
   useEffect(() => {
-    if (isLocked && activeSabotage !== 'bounce' && activeSabotage !== 'reverse') {
+    if (isLocked && activeSabotage !== 'bounce' && activeSabotage !== 'trampoline' && activeSabotage !== 'reverse') {
       clearSabotageEffect();
     }
   }, [isLocked, activeSabotage, clearSabotageEffect]);
@@ -1113,6 +1130,138 @@ export default function ClassicDuelChallenge({
     };
   }, [activeSabotage, frozenData, shuffledAnswers]);
 
+  // Trampoline animation effect - shake, then gravity + bottom impulse bounce
+  useEffect(() => {
+    if (activeSabotage !== 'trampoline') {
+      if (trampolineAnimationRef.current) {
+        cancelAnimationFrame(trampolineAnimationRef.current);
+        trampolineAnimationRef.current = null;
+      }
+      if (trampolinePositionsRef.current.length > 0) {
+        setTrampolineOptions([]);
+        trampolinePositionsRef.current = [];
+      }
+      return;
+    }
+
+    const optionCount = (frozenData ? frozenData.shuffledAnswers : shuffledAnswers).length;
+    if (optionCount === 0) return;
+
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+    const cols = 2;
+    const gapX = 12;
+    const gapY = 12;
+    const rows = Math.ceil(optionCount / cols);
+    const gridWidth = cols * TRAMPOLINE_BUTTON_WIDTH + (cols - 1) * gapX;
+    const gridHeight = rows * TRAMPOLINE_BUTTON_HEIGHT + (rows - 1) * gapY;
+    const baseX = Math.max(10, (screenWidth - gridWidth) / 2);
+    const baseY = Math.max(120, (screenHeight - gridHeight) / 2);
+
+    const initialPositions: TrampolineOption[] = Array.from({ length: optionCount }, (_, i) => {
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+      return {
+        id: i,
+        x: baseX + col * (TRAMPOLINE_BUTTON_WIDTH + gapX),
+        y: baseY + row * (TRAMPOLINE_BUTTON_HEIGHT + gapY),
+        vx: 0,
+        vy: 0,
+        shakeOffset: { x: 0, y: 0 },
+        phase: 'shaking',
+      };
+    });
+
+    trampolinePositionsRef.current = initialPositions;
+    setTrampolineOptions(initialPositions);
+
+    const SHAKE_MS = 1000;
+    const SHAKE_FREQ_HZ = 2.25;
+    const SHAKE_AMPLITUDE_PX = 4;
+    const GRAVITY = 0.35;
+    const TIME_SCALE = 0.7;
+    const AIR_DRAG = 0.99;
+    const WALL_BOUNCE_DAMPING = 0.9;
+    const shakeStartedAt = performance.now();
+    let lastFrameAt = shakeStartedAt;
+
+    const animate = (now: number) => {
+      const sw = window.innerWidth;
+      const sh = window.innerHeight;
+      const elapsed = now - shakeStartedAt;
+      const dt = Math.min(2, Math.max(0.5, (now - lastFrameAt) / 16.67));
+      const simDt = dt * TIME_SCALE;
+      lastFrameAt = now;
+
+      trampolinePositionsRef.current = trampolinePositionsRef.current.map((opt) => {
+        let { x, y, vx, vy, shakeOffset, phase } = opt;
+
+        const effectiveWidth = TRAMPOLINE_BUTTON_WIDTH * (phase === 'flying' ? TRAMPOLINE_FLY_SCALE : 1);
+        const effectiveHeight = TRAMPOLINE_BUTTON_HEIGHT * (phase === 'flying' ? TRAMPOLINE_FLY_SCALE : 1);
+
+        if (phase === 'shaking') {
+          const t = elapsed / 1000;
+          const amp = SHAKE_AMPLITUDE_PX * Math.min(1, elapsed / SHAKE_MS);
+          shakeOffset = {
+            x: amp * Math.sin(2 * Math.PI * SHAKE_FREQ_HZ * t + opt.id * 0.9),
+            y: amp * Math.cos(2 * Math.PI * SHAKE_FREQ_HZ * t + opt.id * 1.3),
+          };
+
+          if (elapsed >= SHAKE_MS) {
+            phase = 'flying';
+            shakeOffset = { x: 0, y: 0 };
+            {
+              const bigKick = Math.random() < 0.3;
+              const mag = bigKick ? (6 + Math.random() * 8) : (2 + Math.random() * 5);
+              vx = (Math.random() < 0.5 ? -1 : 1) * mag;
+            }
+            vy = -(7 + Math.random() * 8);
+          }
+        } else {
+          vy += GRAVITY * simDt;
+          x += vx * simDt;
+          y += vy * simDt;
+          vx *= Math.pow(AIR_DRAG, simDt);
+
+          if (x <= 0) {
+            x = 0;
+            vx = Math.abs(vx) * WALL_BOUNCE_DAMPING;
+          } else if (x >= sw - effectiveWidth) {
+            x = sw - effectiveWidth;
+            vx = -Math.abs(vx) * WALL_BOUNCE_DAMPING;
+          }
+
+          if (y >= sh - effectiveHeight) {
+            y = sh - effectiveHeight;
+            const targetHeight = sh * (0.55 + Math.random() * 0.35);
+            const impulse = Math.sqrt(2 * GRAVITY * targetHeight) * (0.9 + Math.random() * 0.25);
+            vy = -impulse;
+            {
+              const bigKick = Math.random() < 0.25;
+              const mag = bigKick ? (5 + Math.random() * 9) : (1.5 + Math.random() * 4.5);
+              vx += (Math.random() < 0.5 ? -1 : 1) * mag;
+            }
+          }
+        }
+
+        return { ...opt, x, y, vx, vy, shakeOffset, phase };
+      });
+
+      setTrampolineOptions([...trampolinePositionsRef.current]);
+      trampolineAnimationRef.current = requestAnimationFrame(animate);
+    };
+
+    trampolineAnimationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (trampolineAnimationRef.current) {
+        cancelAnimationFrame(trampolineAnimationRef.current);
+        trampolineAnimationRef.current = null;
+      }
+    };
+  }, [activeSabotage, frozenData, shuffledAnswers]);
+
   if (!user) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Sign in first.</div>;
 
   const status = duel.status || "accepted";
@@ -1146,6 +1295,23 @@ export default function ClassicDuelChallenge({
 
   const inTransition = phase === 'transition' && !!frozenData;
   const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
+  const outgoingSabotage = isChallenger ? duel.opponentSabotage : duel.challengerSabotage;
+  const isOutgoingSabotageActive = (() => {
+    if (!outgoingSabotage) return false;
+    if (outgoingSabotage.effect === "sticky") {
+      return Date.now() - outgoingSabotage.timestamp < SABOTAGE_DURATION;
+    }
+    if (
+      outgoingSabotage.effect === "bounce" ||
+      outgoingSabotage.effect === "trampoline" ||
+      outgoingSabotage.effect === "reverse"
+    ) {
+      return typeof duel.questionStartTime === "number"
+        ? outgoingSabotage.timestamp >= duel.questionStartTime
+        : Date.now() - outgoingSabotage.timestamp < 25000;
+    }
+    return false;
+  })();
 
   const handleStopDuel = async () => {
     try {
@@ -1434,7 +1600,7 @@ export default function ClassicDuelChallenge({
       {(frozenData ? frozenData.word : word) !== "done" && (
         <>
           {/* Normal grid layout when NOT bouncing */}
-          {activeSabotage !== 'bounce' && (
+          {activeSabotage !== 'bounce' && activeSabotage !== 'trampoline' && (
             <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
               {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
                 const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
@@ -1555,7 +1721,88 @@ export default function ClassicDuelChallenge({
                       height: BUTTON_HEIGHT,
                       pointerEvents: 'auto',
                     }}
-                    className={`p-2 rounded-lg border-2 text-sm font-medium transition-colors relative shadow-lg ${
+                    className={`p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg ${
+                      isEliminated
+                        ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
+                        : canEliminateThis
+                          ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
+                          : isShowingFeedback
+                            ? displaySelectedAnswer === ans
+                              ? isCorrectOption
+                                ? 'border-green-500 bg-green-500/20 text-green-400'
+                                : 'border-red-500 bg-red-500/20 text-red-400'
+                              : isCorrectOption
+                                ? 'border-green-500 bg-green-500/10 text-green-400'
+                                : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
+                            : selectedAnswer === ans
+                              ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                              : 'border-gray-600 bg-gray-800/95 hover:border-gray-500 text-white'
+                    }`}
+                  >
+                    <span className="truncate block">{ans}</span>
+                    {canEliminateThis && (
+                      <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">✕</span>
+                    )}
+                    {opponentPickedThis && (
+                      <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">👤</span>
+                    )}
+                    {isNoneOfAbove && displayHasNone && isShowingFeedback && (
+                      <span className="absolute top-2 right-2 text-green-400">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Trampoline options when trampoline sabotage is active */}
+          {activeSabotage === 'trampoline' && trampolineOptions.length > 0 && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+              {(frozenData ? frozenData.shuffledAnswers : shuffledAnswers).map((ans, i) => {
+                const trampPos = trampolineOptions[i];
+                if (!trampPos) return null;
+
+                const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+                const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+                const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
+                const isShowingFeedback = hasAnswered || isLocked || frozenData || status === "completed";
+                const isEliminated = eliminatedOptions.includes(ans);
+                const isNoneOfAbove = ans === "None of the above";
+                const isWrongAnswer = isNoneOfAbove ? !displayHasNone : ans !== displayCorrectAnswer;
+                const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
+                const isCorrectOption = displayHasNone ? ans === "None of the above" : ans === displayCorrectAnswer;
+
+                const handleClick = () => {
+                  if (phase !== 'answering') return;
+                  if (canEliminateThis) {
+                    handleEliminateOption(ans);
+                  } else if (!hasAnswered && !isLocked && !isEliminated) {
+                    setSelectedAnswer(ans);
+                  }
+                };
+
+                const opponentLastAnswer = isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer;
+                const opponentPickedThis = frozenData
+                  ? frozenData.opponentAnswer === ans
+                  : (status === "completed" && opponentLastAnswer === ans);
+
+                return (
+                  <button
+                    key={i}
+                    disabled={!!isShowingFeedback && !canEliminateThis || isEliminated}
+                    onClick={handleClick}
+                    data-phase={trampPos.phase}
+                    style={{
+                      position: 'absolute',
+                      left: trampPos.x + trampPos.shakeOffset.x,
+                      top: trampPos.y + trampPos.shakeOffset.y,
+                      width: TRAMPOLINE_BUTTON_WIDTH,
+                      height: TRAMPOLINE_BUTTON_HEIGHT,
+                      pointerEvents: 'auto',
+                      transform: trampPos.phase === 'flying' ? `scale(${TRAMPOLINE_FLY_SCALE})` : 'scale(1)',
+                      transformOrigin: 'top left',
+                    }}
+                    className={`p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg ${
                       isEliminated
                         ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
                         : canEliminateThis
@@ -1657,7 +1904,11 @@ export default function ClassicDuelChallenge({
           {/* Always-visible sabotage buttons (center bottom) */}
           <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border border-gray-700 bg-gray-900/80 backdrop-blur-md shadow-xl">
             {SABOTAGE_OPTIONS.map((option) => {
-              const disabled = sabotagesRemaining <= 0 || hasAnswered || isLocked || phase !== 'answering';
+              const disabled =
+                sabotagesRemaining <= 0 ||
+                phase !== 'answering' ||
+                (!hasAnswered && isLocked) ||
+                isOutgoingSabotageActive;
               return (
                 <button
                   key={option.effect}
