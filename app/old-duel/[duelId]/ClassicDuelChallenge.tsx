@@ -493,8 +493,20 @@ export default function ClassicDuelChallenge({
   const router = useRouter();
   const { user } = useUser();
   
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
+  const [selectedAnswerRaw, setSelectedAnswerRaw] = useState<string | null>(null);
+  // Track which question index the selectedAnswer belongs to
+  const selectedAnswerIndexRef = useRef<number | null>(null);
+  const setSelectedAnswer = useCallback((val: string | null, forIndex?: number) => {
+    selectedAnswerIndexRef.current = val === null ? null : (forIndex ?? activeQuestionIndexRef.current);
+    setSelectedAnswerRaw(val);
+  }, []);
+  const [isLockedRaw, setIsLockedRaw] = useState(false);
+  // Track which question index isLocked belongs to (same pattern as selectedAnswer)
+  const isLockedIndexRef = useRef<number | null>(null);
+  const setIsLocked = useCallback((val: boolean) => {
+    isLockedIndexRef.current = val ? activeQuestionIndexRef.current : null;
+    setIsLockedRaw(val);
+  }, []);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [frozenData, setFrozenData] = useState<{
     word: string;
@@ -612,6 +624,10 @@ export default function ClassicDuelChallenge({
   const isCompleted = duel.status === "completed";
   const rawIndex = duel.currentWordIndex ?? 0;
   const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
+  // Computed selectedAnswer that's only valid for the current question (prevents race condition)
+  const selectedAnswer = (selectedAnswerIndexRef.current === index) ? selectedAnswerRaw : null;
+  // Computed isLocked that's only valid for the current question (prevents race condition)
+  const isLocked = (isLockedIndexRef.current === index) ? isLockedRaw : false;
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
   const currentWord = words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] };
   const word = currentWord.word;
@@ -1274,8 +1290,13 @@ export default function ClassicDuelChallenge({
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">You&apos;re not part of this duel</div>;
   }
 
-  const hasAnswered = (isChallenger && duel.challengerAnswered) || 
+  // Raw hasAnswered from server (may be stale during question transitions)
+  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) || 
                      (isOpponent && duel.opponentAnswered);
+  // Computed hasAnswered that's only valid for the current question (prevents race condition)
+  // We already set isLockedIndexRef when user confirms answer, so hasAnswered should only be true
+  // if the lock was set for the current question
+  const hasAnswered = hasAnsweredRaw && (isLockedIndexRef.current === index);
   const opponentHasAnswered = (isChallenger && duel.opponentAnswered) || 
                               (isOpponent && duel.challengerAnswered);
 
@@ -1622,7 +1643,7 @@ export default function ClassicDuelChallenge({
                   if (canEliminateThis) {
                     handleEliminateOption(ans);
                   } else if (!hasAnswered && !isLocked && !isEliminated) {
-                    setSelectedAnswer(ans);
+                    setSelectedAnswer(ans, index);
                   }
                 };
                 
@@ -1699,7 +1720,7 @@ export default function ClassicDuelChallenge({
                   if (canEliminateThis) {
                     handleEliminateOption(ans);
                   } else if (!hasAnswered && !isLocked && !isEliminated) {
-                    setSelectedAnswer(ans);
+                    setSelectedAnswer(ans, index);
                   }
                 };
                 
@@ -1777,7 +1798,7 @@ export default function ClassicDuelChallenge({
                   if (canEliminateThis) {
                     handleEliminateOption(ans);
                   } else if (!hasAnswered && !isLocked && !isEliminated) {
-                    setSelectedAnswer(ans);
+                    setSelectedAnswer(ans, index);
                   }
                 };
 
