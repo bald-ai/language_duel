@@ -6,13 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ThemeColorPicker from "../components/ThemeColorPicker";
-
-// Types matching Convex schema
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
+import type { WordEntry } from "@/lib/types";
 
 interface Theme {
   _id: Id<"themes">;

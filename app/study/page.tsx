@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-
-// Types matching Convex schema
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
+import type { WordEntry } from "@/lib/types";
 
 interface Theme {
   _id: Id<"themes">;

@@ -6,14 +6,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
+import { TIMER_OPTIONS } from "@/lib/constants";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
   hintCount: number;
   revealedPositions: number[];
 }
-
-const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900]; // 1, 2, 3, 4, 5, 7, 10, 15 min
 
 export default function DuelLearnPage() {
   const params = useParams();
@@ -49,15 +48,11 @@ export default function DuelLearnPage() {
 
   // Determine if current user is challenger or opponent
   const isChallenger = challenger?.clerkId === user?.id;
-  const isOpponent = opponent?.clerkId === user?.id;
-  const myName = isChallenger ? challenger?.name : opponent?.name;
   const theirName = isChallenger ? opponent?.name : challenger?.name;
 
   // Get selections and confirmations
   const mySelection = isChallenger ? timerSelection?.challengerSelection : timerSelection?.opponentSelection;
-  const theirSelection = isChallenger ? timerSelection?.opponentSelection : timerSelection?.challengerSelection;
   const myConfirmed = isChallenger ? timerSelection?.challengerConfirmed : timerSelection?.opponentConfirmed;
-  const theirConfirmed = isChallenger ? timerSelection?.opponentConfirmed : timerSelection?.challengerConfirmed;
   const bothConfirmed = timerSelection?.challengerConfirmed && timerSelection?.opponentConfirmed;
   const confirmedDuration = timerSelection?.confirmedDuration;
   const learnStartTime = timerSelection?.learnStartTime;

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
 
 export default function Home() {
-  const { isSignedIn, user } = useUser();
+  const { user } = useUser();
   const router = useRouter();
   const users = useQuery(api.users.getUsers);
   const themes = useQuery(api.themes.getThemes);

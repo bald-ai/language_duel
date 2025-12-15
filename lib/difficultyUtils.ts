@@ -107,17 +107,3 @@ export function getDifficultyForIndex(index: number, distribution: DifficultyDis
   }
   return { level: "hard", points: 2, wrongCount: 4, optionCount: 5 };
 }
-
-/**
- * Get points for correct answer at a specific question index
- */
-export function getPointsForIndex(index: number, distribution: DifficultyDistribution): number {
-  return getDifficultyForIndex(index, distribution).points;
-}
-
-/**
- * Check if a question index is in hard mode
- */
-export function isHardMode(index: number, distribution: DifficultyDistribution): boolean {
-  return index >= distribution.mediumEnd;
-}

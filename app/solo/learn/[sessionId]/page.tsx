@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
+import { TIMER_OPTIONS } from "@/lib/constants";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
@@ -13,7 +14,6 @@ interface HintState {
 }
 
 const DEFAULT_DURATION = 300; // 5 minutes default
-const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900]; // 1, 2, 3, 4, 5, 7, 10, 15 min
 
 export default function LearnPhasePage() {
   const params = useParams();

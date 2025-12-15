@@ -2,16 +2,6 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 
-export const getUser = query({
-  args: { clerkId: v.string() },
-  handler: async (ctx, args): Promise<Doc<"users"> | null> => {
-    return await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-  },
-});
-
 // Limit users to prevent unbounded queries - adjust limit as needed
 const MAX_USERS = 100;
 

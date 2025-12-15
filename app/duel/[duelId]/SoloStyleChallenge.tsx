@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { JSX } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
+import type { WordEntry } from "@/lib/types";
 
 // Normalize accented characters for comparison
 const normalizeAccents = (str: string): string => {
@@ -78,13 +79,6 @@ const buildAnagramWithSpaces = (answer: string, shuffledLetters: string[]): stri
   return withSpaces.join("");
 };
 
-// Types
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
-
 // Sabotage Effect Type
 type SabotageEffect = "sticky" | "bounce" | "reverse";
 
@@ -110,35 +104,6 @@ const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: string }
 ];
 
 // Pre-generate random layouts at module scope so we don't call Math.random in render
-const INK_SPLATTERS = Array.from({ length: 25 }, (_, i) => ({
-  id: i,
-  top: 5 + Math.random() * 90,
-  left: 2 + Math.random() * 96,
-  scale: 1.5 + Math.random() * 2.5,
-  delay: Math.random() * 1.5,
-  rotation: Math.random() * 360,
-}));
-
-const FLOATING_BUBBLES = Array.from({ length: 40 }, (_, i) => ({
-  id: i,
-  left: Math.random() * 100,
-  size: 40 + Math.random() * 80,
-  duration: 2 + Math.random() * 2,
-  delay: Math.random() * 2,
-}));
-
-const FALLING_EMOJIS = (() => {
-  const emojiList = ["💀", "👻", "🔥", "💣", "⚡", "🌀", "👀", "😈"];
-  return Array.from({ length: 50 }, (_, i) => ({
-    id: i,
-    emoji: emojiList[Math.floor(Math.random() * emojiList.length)],
-    left: Math.random() * 100,
-    duration: 1.5 + Math.random() * 1.5,
-    delay: Math.random() * 2,
-    size: 30 + Math.random() * 40,
-  }));
-})();
-
 const STICKY_NOTES = Array.from({ length: 15 }, (_, i) => ({
   id: i,
   top: 5 + Math.random() * 80,
@@ -148,116 +113,7 @@ const STICKY_NOTES = Array.from({ length: 15 }, (_, i) => ({
   text: ["LOL", "Oops!", "Nope!", "Ha!", "???", "RIP"][Math.floor(Math.random() * 6)],
 }));
 
-const FLYING_CARDS = (() => {
-  const suits = ["♠", "♥", "♦", "♣"] as const;
-  const values = ["A", "K", "Q", "J"] as const;
-  return Array.from({ length: 30 }, (_, i) => ({
-    id: i,
-    suit: suits[Math.floor(Math.random() * 4)],
-    value: values[Math.floor(Math.random() * 4)],
-    startY: Math.random() * 100,
-    duration: 1 + Math.random() * 1,
-    delay: Math.random() * 2,
-    fromLeft: Math.random() > 0.5,
-  }));
-})();
-
 // ============= Sabotage Effect Components =============
-function InkSplatter({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const splatters = INK_SPLATTERS;
-
-  const opacity = phase === "wind-up" ? 0.4 : phase === "wind-down" ? 0.2 : 1;
-
-  return (
-    <div
-      className="fixed inset-0 pointer-events-none z-40 transition-opacity duration-700"
-      style={{ opacity }}
-    >
-      {splatters.map((splatter) => (
-        <div
-          key={splatter.id}
-          className="absolute w-20 h-20 bg-black rounded-full"
-          style={{
-            top: `${splatter.top}%`,
-            left: `${splatter.left}%`,
-            transform: `scale(${splatter.scale}) rotate(${splatter.rotation}deg)`,
-            filter: "blur(2px)",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function FloatingBubbles({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const bubbles = FLOATING_BUBBLES;
-
-  const opacity = phase === "wind-up" ? 0.4 : phase === "wind-down" ? 0.3 : 0.9;
-
-  return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-opacity duration-500"
-      style={{ opacity }}
-    >
-      {bubbles.map((bubble) => (
-        <div
-          key={bubble.id}
-          className="absolute rounded-full border-2 border-blue-300 bg-blue-200/30"
-          style={{
-            left: `${bubble.left}%`,
-            bottom: "-100px",
-            width: bubble.size,
-            height: bubble.size,
-            animation: `float-up ${bubble.duration}s linear infinite`,
-            animationDelay: `${bubble.delay}s`,
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes float-up {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-120vh); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function FallingEmojis({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const emojis = FALLING_EMOJIS;
-
-  const opacity = phase === "wind-up" ? 0.5 : phase === "wind-down" ? 0.3 : 1;
-
-  return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-opacity duration-500"
-      style={{ opacity }}
-    >
-      {emojis.map((item) => (
-        <div
-          key={item.id}
-          className="absolute"
-          style={{
-            left: `${item.left}%`,
-            top: "-50px",
-            fontSize: item.size,
-            animation: `fall-down ${item.duration}s linear infinite`,
-            animationDelay: `${item.delay}s`,
-          }}
-        >
-          {item.emoji}
-        </div>
-      ))}
-      <style jsx>{`
-        @keyframes fall-down {
-          0% { transform: translateY(0) rotate(0deg); }
-          100% { transform: translateY(120vh) rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 function StickyNotes({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
   const notes = STICKY_NOTES;
 
@@ -282,48 +138,6 @@ function StickyNotes({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
           {note.text}
         </div>
       ))}
-    </div>
-  );
-}
-
-function FlyingCards({ phase }: { phase: "wind-up" | "full" | "wind-down" }) {
-  const cards = FLYING_CARDS;
-
-  const opacity = phase === "wind-up" ? 0.5 : phase === "wind-down" ? 0.3 : 1;
-
-  return (
-    <div
-      className="fixed inset-0 pointer-events-none overflow-hidden z-40 transition-opacity duration-500"
-      style={{ opacity }}
-    >
-      {cards.map((card) => (
-        <div
-          key={card.id}
-          className="absolute bg-white rounded-lg shadow-xl w-12 h-16 flex flex-col items-center justify-center"
-          style={{
-            top: `${card.startY}%`,
-            left: card.fromLeft ? "-50px" : "auto",
-            right: card.fromLeft ? "auto" : "-50px",
-            animation: `fly-${card.fromLeft ? "right" : "left"} ${card.duration}s linear infinite`,
-            animationDelay: `${card.delay}s`,
-          }}
-        >
-          <span className={card.suit === "♥" || card.suit === "♦" ? "text-red-600" : "text-black"}>
-            {card.value}
-            {card.suit}
-          </span>
-        </div>
-      ))}
-      <style jsx>{`
-        @keyframes fly-right {
-          0% { transform: translateX(0) rotate(0deg); }
-          100% { transform: translateX(120vw) rotate(360deg); }
-        }
-        @keyframes fly-left {
-          0% { transform: translateX(0) rotate(0deg); }
-          100% { transform: translateX(-120vw) rotate(-360deg); }
-        }
-      `}</style>
     </div>
   );
 }

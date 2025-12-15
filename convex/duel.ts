@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 
 // Utility functions for dynamic difficulty distribution
 // Target ratio: 40% Easy, 30% Medium, 30% Hard (matching original 8:6:6 for 20 words)
+// NOTE: Duplicated from lib/difficultyUtils.ts - Convex cannot import from outside convex/ folder
 interface DifficultyDistribution {
   easy: number;
   medium: number;
@@ -1106,6 +1107,7 @@ export const timeoutAnswer = mutation({
 // ============================================
 
 // Timer options available for learn phase (in seconds)
+// NOTE: Duplicated from lib/constants.ts - Convex cannot import from outside convex/ folder
 const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900]; // 1, 2, 3, 4, 5, 7, 10, 15 min
 
 // Select a timer option (highlight it)

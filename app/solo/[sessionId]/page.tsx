@@ -17,12 +17,7 @@ const normalizeAccents = (str: string): string => {
     .replace(/\s+/g, ' ');
 };
 
-// Types
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
+import type { WordEntry } from "@/lib/types";
 
 interface WordState {
   wordIndex: number;
