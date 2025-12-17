@@ -26,7 +26,7 @@ interface TimerSelectionViewProps {
   opponentName: string | undefined;
   onSelectTimer: (duration: number) => void;
   onConfirm: () => void;
-  onExit: () => void;
+  onExit: () => Promise<void>;
 }
 
 /**
