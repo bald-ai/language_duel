@@ -272,8 +272,8 @@ export default function DuelLearnPage() {
       <TimerSelectionView
         themeName={theme.name}
         wordCount={theme.words.length}
-        challenger={challenger}
-        opponent={opponent}
+        challenger={challenger ?? undefined}
+        opponent={opponent ?? undefined}
         timerSelection={timerSelection}
         mySelection={mySelection}
         myConfirmed={myConfirmed}
