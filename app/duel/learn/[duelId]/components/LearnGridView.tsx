@@ -32,7 +32,7 @@ interface LearnGridViewProps {
   onResetWord: (wordKey: string) => void;
   onPlayTTS: (index: number, answer: string) => void;
   onSkip: () => void;
-  onExit: () => void;
+  onExit: () => Promise<void>;
 }
 
 /**
