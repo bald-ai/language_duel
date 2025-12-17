@@ -1,7 +1,80 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// ===========================================
+// Shared Validators
+// ===========================================
+
+const wordValidator = v.object({
+  word: v.string(),
+  answer: v.string(),
+  wrongAnswers: v.array(v.string()),
+});
+
+const playerRoleValidator = v.union(v.literal("challenger"), v.literal("opponent"));
+
+const duelStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("accepted"),
+  v.literal("rejected"),
+  v.literal("completed"),
+  v.literal("stopped"),
+  v.literal("cancelled"),
+  v.literal("learning"),
+  v.literal("challenging")
+);
+
+const duelModeValidator = v.union(v.literal("solo"), v.literal("classic"));
+
+const classicDifficultyPresetValidator = v.union(
+  v.literal("easy_only"),
+  v.literal("easy_medium"),
+  v.literal("progressive"),
+  v.literal("medium_hard"),
+  v.literal("hard_only")
+);
+
+const wordStateValidator = v.object({
+  wordIndex: v.number(),
+  currentLevel: v.number(),
+  completedLevel3: v.boolean(),
+  answeredLevel2Plus: v.boolean(),
+});
+
+const playerStatsValidator = v.object({
+  questionsAnswered: v.number(),
+  correctAnswers: v.number(),
+});
+
+const sabotageValidator = v.object({
+  effect: v.string(),
+  timestamp: v.number(),
+});
+
+const learnTimerSelectionValidator = v.object({
+  challengerSelection: v.optional(v.number()),
+  opponentSelection: v.optional(v.number()),
+  challengerConfirmed: v.optional(v.boolean()),
+  opponentConfirmed: v.optional(v.boolean()),
+  confirmedDuration: v.optional(v.number()),
+  learnStartTime: v.optional(v.number()),
+});
+
+const soloHintRequesterStateValidator = v.object({
+  wordIndex: v.number(),
+  typedLetters: v.array(v.string()),
+  revealedPositions: v.array(v.number()),
+  level: v.optional(v.number()),
+});
+
+// ===========================================
+// Schema Definition
+// ===========================================
+
 export default defineSchema({
+  // -------------------------------------------
+  // Users Table
+  // -------------------------------------------
   users: defineTable({
     clerkId: v.string(),
     email: v.string(),
@@ -9,159 +82,108 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
+  // -------------------------------------------
+  // Themes Table
+  // -------------------------------------------
   themes: defineTable({
     name: v.string(),
     description: v.string(),
-    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))), // Type of words in theme (defaults to "nouns" for legacy)
-    // Optional per-theme styling
-    bgColor: v.optional(v.string()), // hex, e.g. "#1971c2"
-    titleColor: v.optional(v.string()), // hex, e.g. "#ffffff"
-    words: v.array(
-      v.object({
-        word: v.string(), // English word
-        answer: v.string(), // Correct Spanish translation
-        wrongAnswers: v.array(v.string()), // 6 wrong Spanish options
-      })
-    ),
+    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    words: v.array(wordValidator),
     createdAt: v.number(),
   }),
 
+  // -------------------------------------------
+  // Challenges (Duels) Table
+  // -------------------------------------------
   challenges: defineTable({
+    // === Core Fields ===
     challengerId: v.id("users"),
     opponentId: v.id("users"),
-    themeId: v.id("themes"), // Reference to the theme used in this duel
+    themeId: v.id("themes"),
+    status: duelStatusValidator,
+    mode: v.optional(duelModeValidator),
+    createdAt: v.number(),
+
+    // === Classic Mode: Shared Game State ===
     currentWordIndex: v.number(),
-    wordOrder: v.optional(v.array(v.number())), // Shuffled indices for randomized question order
+    wordOrder: v.optional(v.array(v.number())),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
-    challengerScore: v.number(), // Points scored by challenger
-    opponentScore: v.number(), // Points scored by opponent
-    status: v.string(), // "pending", "accepted", "rejected", "completed", "stopped", "learning", "challenging"
-    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))), // Duel mode
-    classicDifficultyPreset: v.optional(
-      v.union(
-        v.literal("easy_only"),
-        v.literal("easy_medium"),
-        v.literal("progressive"),
-        v.literal("medium_hard"),
-        v.literal("hard_only")
-      )
-    ),
-    createdAt: v.number(),
-    // Hint system fields (legacy - kept for compatibility)
-    hintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
-    hintAccepted: v.optional(v.boolean()),
-    eliminatedOptions: v.optional(v.array(v.string())),
-    // Last answer tracking (legacy)
+    challengerScore: v.number(),
+    opponentScore: v.number(),
+    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
+
+    // === Classic Mode: Timer State ===
+    questionStartTime: v.optional(v.number()),
+    questionTimerPausedAt: v.optional(v.number()),
+    questionTimerPausedBy: v.optional(playerRoleValidator),
+
+    // === Classic Mode: Last Answers (for review screen) ===
     challengerLastAnswer: v.optional(v.string()),
     opponentLastAnswer: v.optional(v.string()),
-    // Timer (legacy)
-    questionStartTime: v.optional(v.number()),
-    // Question timer pause system (legacy classic hints)
-    questionTimerPausedAt: v.optional(v.number()),
-    questionTimerPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
-    // Sabotage system - tracks active effects sent to each player
-    challengerSabotage: v.optional(v.object({
-      effect: v.string(), // e.g. "sticky" | "bounce" | "trampoline" | "reverse"
-      timestamp: v.number(),
-    })),
-    opponentSabotage: v.optional(v.object({
-      effect: v.string(),
-      timestamp: v.number(),
-    })),
-    challengerSabotagesUsed: v.optional(v.number()), // tracks how many sabotages used (max 5)
-    opponentSabotagesUsed: v.optional(v.number()),
-    // Countdown pause system (legacy)
-    countdownPausedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
-    countdownUnpauseRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
+
+    // === Classic Mode: Hint System ===
+    hintRequestedBy: v.optional(playerRoleValidator),
+    hintAccepted: v.optional(v.boolean()),
+    eliminatedOptions: v.optional(v.array(v.string())),
+
+    // === Classic Mode: Countdown Pause/Skip ===
+    countdownPausedBy: v.optional(playerRoleValidator),
+    countdownUnpauseRequestedBy: v.optional(playerRoleValidator),
     countdownPausedAt: v.optional(v.number()),
-    // Countdown skip system - tracks who wants to skip the transition countdown
-    countdownSkipRequestedBy: v.optional(v.array(v.union(v.literal("challenger"), v.literal("opponent")))),
-    
-    // === NEW: Solo-style duel fields ===
-    
-    // Learn phase timer voting
-    learnTimerSelection: v.optional(v.object({
-      challengerSelection: v.optional(v.number()), // selected duration in seconds
-      opponentSelection: v.optional(v.number()),
-      challengerConfirmed: v.optional(v.boolean()),
-      opponentConfirmed: v.optional(v.boolean()),
-      confirmedDuration: v.optional(v.number()), // locked-in duration
-      learnStartTime: v.optional(v.number()), // when learn phase started
-    })),
-    
-    // Per-player word states for 3-level system
-    challengerWordStates: v.optional(v.array(v.object({
-      wordIndex: v.number(),
-      currentLevel: v.number(), // 1, 2, or 3
-      completedLevel3: v.boolean(),
-      answeredLevel2Plus: v.boolean(),
-    }))),
-    opponentWordStates: v.optional(v.array(v.object({
-      wordIndex: v.number(),
-      currentLevel: v.number(),
-      completedLevel3: v.boolean(),
-      answeredLevel2Plus: v.boolean(),
-    }))),
-    
-    // Per-player word pools
+    countdownSkipRequestedBy: v.optional(v.array(playerRoleValidator)),
+
+    // === Classic Mode: Sabotage System ===
+    challengerSabotage: v.optional(sabotageValidator),
+    opponentSabotage: v.optional(sabotageValidator),
+    challengerSabotagesUsed: v.optional(v.number()),
+    opponentSabotagesUsed: v.optional(v.number()),
+
+    // === Solo Mode: Learn Phase Timer ===
+    learnTimerSelection: v.optional(learnTimerSelectionValidator),
+
+    // === Solo Mode: Per-Player Word States ===
+    challengerWordStates: v.optional(v.array(wordStateValidator)),
+    opponentWordStates: v.optional(v.array(wordStateValidator)),
+
+    // === Solo Mode: Per-Player Word Pools ===
     challengerActivePool: v.optional(v.array(v.number())),
     challengerRemainingPool: v.optional(v.array(v.number())),
     opponentActivePool: v.optional(v.array(v.number())),
     opponentRemainingPool: v.optional(v.array(v.number())),
-    
-    // Per-player current question state
+
+    // === Solo Mode: Per-Player Current Question ===
     challengerCurrentWordIndex: v.optional(v.number()),
-    challengerCurrentLevel: v.optional(v.number()), // 1, 2, or 3
-    challengerLevel2Mode: v.optional(v.string()), // "typing" | "multiple_choice"
+    challengerCurrentLevel: v.optional(v.number()),
+    challengerLevel2Mode: v.optional(v.string()),
     opponentCurrentWordIndex: v.optional(v.number()),
     opponentCurrentLevel: v.optional(v.number()),
     opponentLevel2Mode: v.optional(v.string()),
-    
-    // Completion tracking
+
+    // === Solo Mode: Completion & Stats ===
     challengerCompleted: v.optional(v.boolean()),
     opponentCompleted: v.optional(v.boolean()),
-    
-    // Per-player stats
-    challengerStats: v.optional(v.object({
-      questionsAnswered: v.number(),
-      correctAnswers: v.number(),
-    })),
-    opponentStats: v.optional(v.object({
-      questionsAnswered: v.number(),
-      correctAnswers: v.number(),
-    })),
-    
-    // === Solo-style hint system (available on all levels) ===
-    // Who requested a hint
-    soloHintRequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
-    // Whether the other player accepted the hint request
+    challengerStats: v.optional(playerStatsValidator),
+    opponentStats: v.optional(playerStatsValidator),
+
+    // === Solo Mode: Typing Hint System ===
+    soloHintRequestedBy: v.optional(playerRoleValidator),
     soloHintAccepted: v.optional(v.boolean()),
-    // Snapshot of requester's state for hint giver to see
-    soloHintRequesterState: v.optional(v.object({
-      wordIndex: v.number(),
-      typedLetters: v.array(v.string()), // what they've typed so far
-      revealedPositions: v.array(v.number()), // positions already revealed
-      level: v.optional(v.number()), // level of the question
-    })),
-    // Letters revealed by the hint giver (up to 3)
+    soloHintRequesterState: v.optional(soloHintRequesterStateValidator),
     soloHintRevealedPositions: v.optional(v.array(v.number())),
-    // Selected hint type: "letters" | "tts" | "flash" (brief answer flash)
     soloHintType: v.optional(v.string()),
-    
-    // === Solo-style L2 Multiple Choice hint system ===
-    // Who requested a hint for L2 Multiple Choice
-    soloHintL2RequestedBy: v.optional(v.union(v.literal("challenger"), v.literal("opponent"))),
-    // Whether the other player accepted the hint request
+
+    // === Solo Mode: L2 Multiple Choice Hint System ===
+    soloHintL2RequestedBy: v.optional(playerRoleValidator),
     soloHintL2Accepted: v.optional(v.boolean()),
-    // Word index for the hint (to track which question)
     soloHintL2WordIndex: v.optional(v.number()),
-    // Options to show to hint giver (shuffled order from requester's view)
     soloHintL2Options: v.optional(v.array(v.string())),
-    // Wrong options eliminated by the hint giver (up to 2)
     soloHintL2EliminatedOptions: v.optional(v.array(v.string())),
-    // Selected hint type: "eliminate" (remove wrong options) or "tts" (play pronunciation)
     soloHintL2Type: v.optional(v.string()),
+
+    // === Seeded PRNG for Deterministic Random ===
+    seed: v.optional(v.number()),
   })
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])

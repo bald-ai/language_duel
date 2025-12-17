@@ -1,4 +1,4 @@
-export default {
+const authConfig = {
   providers: [
     {
       domain: "https://polite-calf-97.clerk.accounts.dev",
@@ -6,6 +6,13 @@ export default {
     },
   ],
 };
+
+export default authConfig;
+
+
+
+
+
 
 
 

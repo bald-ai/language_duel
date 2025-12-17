@@ -1,0 +1,2 @@
+export { useTTS } from './useTTS';
+

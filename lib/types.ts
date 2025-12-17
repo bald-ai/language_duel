@@ -10,3 +10,25 @@ export interface WordEntry {
   answer: string;
   wrongAnswers: string[];
 }
+
+/**
+ * Difficulty levels for questions.
+ */
+export type DifficultyLevel = "easy" | "medium" | "hard";
+
+/**
+ * Minimal difficulty info needed for answer shuffling.
+ */
+export interface ShuffleDifficultyInfo {
+  level: DifficultyLevel;
+  wrongCount: number;
+}
+
+/**
+ * Full difficulty information for a question (includes scoring data).
+ * Extends ShuffleDifficultyInfo so it can be used anywhere the minimal type is accepted.
+ */
+export interface DifficultyInfo extends ShuffleDifficultyInfo {
+  points: number;
+  optionCount: number;
+}

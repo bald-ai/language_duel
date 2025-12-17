@@ -1,6 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
+import { getAuthenticatedUser } from "./helpers/auth";
+import { MAX_THEMES_QUERY } from "./constants";
 
 // Word structure for validation
 const wordValidator = v.object({
@@ -9,13 +11,10 @@ const wordValidator = v.object({
   wrongAnswers: v.array(v.string()),
 });
 
-// Limit themes to prevent unbounded queries - adjust limit as needed
-const MAX_THEMES = 100;
-
 export const getThemes = query({
   args: {},
   handler: async (ctx): Promise<Doc<"themes">[]> => {
-    return await ctx.db.query("themes").take(MAX_THEMES);
+    return await ctx.db.query("themes").take(MAX_THEMES_QUERY);
   },
 });
 
@@ -32,19 +31,14 @@ export const createTheme = mutation({
     description: v.string(),
     words: v.array(wordValidator),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
-    bgColor: v.optional(v.string()),
-    titleColor: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-    
+    await getAuthenticatedUser(ctx);
+
     return await ctx.db.insert("themes", {
       name: args.name,
       description: args.description,
       wordType: args.wordType || "nouns",
-      bgColor: args.bgColor,
-      titleColor: args.titleColor,
       words: args.words,
       createdAt: Date.now(),
     });
@@ -57,22 +51,17 @@ export const updateTheme = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     words: v.optional(v.array(wordValidator)),
-    bgColor: v.optional(v.string()),
-    titleColor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-    
+    await getAuthenticatedUser(ctx);
+
     const { themeId, ...updates } = args;
     const filteredUpdates: Record<string, unknown> = {};
-    
+
     if (updates.name !== undefined) filteredUpdates.name = updates.name;
     if (updates.description !== undefined) filteredUpdates.description = updates.description;
     if (updates.words !== undefined) filteredUpdates.words = updates.words;
-    if (updates.bgColor !== undefined) filteredUpdates.bgColor = updates.bgColor;
-    if (updates.titleColor !== undefined) filteredUpdates.titleColor = updates.titleColor;
-    
+
     await ctx.db.patch(themeId, filteredUpdates);
     return await ctx.db.get(themeId);
   },
@@ -81,28 +70,21 @@ export const updateTheme = mutation({
 export const deleteTheme = mutation({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-    
+    await getAuthenticatedUser(ctx);
     await ctx.db.delete(args.themeId);
   },
 });
 
-// Duplicate a theme with "(DUPLICATE)" suffix
 export const duplicateTheme = mutation({
-  args: {
-    themeId: v.id("themes"),
-  },
+  args: { themeId: v.id("themes") },
   handler: async (ctx, args): Promise<Id<"themes">> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-    
+    await getAuthenticatedUser(ctx);
+
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
-    
-    // Create new theme with "(DUPLICATE)" suffix, all in uppercase
+
     const newName = `${theme.name.toUpperCase()}(DUPLICATE)`;
-    
+
     return await ctx.db.insert("themes", {
       name: newName,
       description: theme.description,
