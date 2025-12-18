@@ -21,7 +21,7 @@ export default function StudyPage() {
   const router = useRouter();
 
   // Fetch themes from Convex
-  const themes = useQuery(api.themes.getThemes) as Theme[] | undefined;
+  const themes = useQuery(api.themes.getThemes, {}) as Theme[] | undefined;
 
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);

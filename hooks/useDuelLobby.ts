@@ -27,7 +27,7 @@ export interface CreateDuelOptions {
 
 export function useDuelData() {
   const users = useQuery(api.users.getUsers);
-  const themes = useQuery(api.themes.getThemes);
+  const themes = useQuery(api.themes.getThemes, {});
   const pendingDuels = useQuery(api.duel.getPendingDuels);
 
   return {
