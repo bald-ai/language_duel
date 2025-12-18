@@ -3,6 +3,7 @@
 import { formatDuration } from "@/lib/stringUtils";
 import { ExitButton } from "@/app/components/ExitButton";
 import { WordCard } from "./WordCard";
+import { LETTERS_PER_HINT } from "@/app/game/constants";
 
 interface Word {
   word: string;
@@ -107,7 +108,7 @@ export function LearnGridView({
             const wordKey = `${duelId}-${index}`;
             const state = getHintState(wordKey);
             const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / 3);
+            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
             const hintsRemaining = maxHints - state.hintCount;
 
             return (

@@ -31,11 +31,5 @@ export const ACCURACY_THRESHOLDS = {
   // Below MEDIUM = Red
 } as const;
 
-/** Level indicator styling */
-export const LEVEL_COLORS: Record<0 | 1 | 2 | 3, string> = {
-  0: "text-gray-300 bg-gray-500/20 border-gray-500",
-  1: "text-green-400 bg-green-500/20 border-green-500",
-  2: "text-yellow-400 bg-yellow-500/20 border-yellow-500",
-  3: "text-red-400 bg-red-500/20 border-red-500",
-};
+// LEVEL_COLORS moved to @/app/game/constants for shared use across features
 

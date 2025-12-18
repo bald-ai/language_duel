@@ -10,6 +10,7 @@ import { formatDuration } from "@/lib/stringUtils";
 import { WordCard } from "./components";
 import { useDraggableList } from "./hooks/useDraggableList";
 import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
+import { LETTERS_PER_HINT } from "@/app/game/constants";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
@@ -361,7 +362,7 @@ export default function LearnPhasePage() {
             const wordKey = `${themeId}-${originalIndex}`;
             const state = getHintState(wordKey);
             const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / 3);
+            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
             const hintsRemaining = maxHints - state.hintCount;
 
             return (
@@ -405,7 +406,7 @@ export default function LearnPhasePage() {
             const wordKey = `${themeId}-${originalIndex}`;
             const state = getHintState(wordKey);
             const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / 3);
+            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
             const hintsRemaining = maxHints - state.hintCount;
 
             return (

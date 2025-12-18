@@ -10,7 +10,7 @@ import { formatDuration } from "@/lib/stringUtils";
 // Feature-local imports
 import { useSoloSession } from "./hooks";
 import { CompletionScreen } from "./components";
-import { LEVEL_COLORS } from "./constants";
+import { LEVEL_COLORS } from "@/app/game/constants";
 
 // Shared Level components
 import {

@@ -23,13 +23,7 @@ import {
   Level3Input,
 } from "@/app/game/levels";
 import { calculateAccuracy } from "@/lib/scoring";
-
-// Level colors constant
-const levelColors: Record<number, string> = {
-  1: "text-green-400 bg-green-500/20 border-green-500",
-  2: "text-yellow-400 bg-yellow-500/20 border-yellow-500",
-  3: "text-red-400 bg-red-500/20 border-red-500",
-};
+import { LEVEL_COLORS, MAX_L1_LETTER_HINTS, MAX_L2_ELIMINATIONS } from "@/app/game/constants";
 
 interface SoloStyleChallengeProps {
   duel: Doc<"challenges">;
@@ -98,7 +92,7 @@ export default function SoloStyleChallenge({
           typedLetters={game.hintRequesterState.typedLetters}
           requesterRevealedPositions={game.hintRequesterState.revealedPositions}
           hintRevealedPositions={game.hintRevealedPositions}
-          hintsRemaining={3 - game.hintRevealedPositions.length}
+          hintsRemaining={MAX_L1_LETTER_HINTS - game.hintRevealedPositions.length}
           onProvideHint={game.handleProvideHint}
           requesterName={theirName?.split(" ")[0] || "Opponent"}
           onDismiss={() => game.setShowHintGiverView(false)}
@@ -113,7 +107,7 @@ export default function SoloStyleChallenge({
         >
           <span>🆘</span>
           <span>Help {theirName?.split(" ")[0] || "Opponent"}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{3 - game.hintRevealedPositions.length}/3</span>
+          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{MAX_L1_LETTER_HINTS - game.hintRevealedPositions.length}/{MAX_L1_LETTER_HINTS}</span>
         </button>
       )}
 
@@ -184,7 +178,7 @@ export default function SoloStyleChallenge({
         >
           <span>🆘</span>
           <span>Help {theirName?.split(" ")[0] || "Opponent"}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{2 - game.hintL2EliminatedOptions.length}/2</span>
+          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{MAX_L2_ELIMINATIONS - game.hintL2EliminatedOptions.length}/{MAX_L2_ELIMINATIONS}</span>
         </button>
       )}
 
@@ -339,7 +333,7 @@ export default function SoloStyleChallenge({
         <div className="w-full max-w-md bg-gray-800/50 rounded-xl p-6 border border-gray-700">
           {/* Level indicator */}
           <div className="flex justify-center mb-4">
-            <span className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${levelColors[game.myCurrentLevel || 1]}`}>
+            <span className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${LEVEL_COLORS[(game.myCurrentLevel || 1) as 0 | 1 | 2 | 3]}`}>
               Level {game.myCurrentLevel || 1}
             </span>
           </div>

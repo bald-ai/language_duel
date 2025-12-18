@@ -7,16 +7,13 @@ import { useState, useEffect, useRef } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { TimerSelectionView, LearnGridView } from "./components";
+import { TIMER_GREEN_THRESHOLD, TIMER_YELLOW_THRESHOLD } from "@/app/game/constants";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
   hintCount: number;
   revealedPositions: number[];
 }
-
-// Timer color thresholds
-const TIMER_GREEN_THRESHOLD = 0.5;   // >50% time remaining
-const TIMER_YELLOW_THRESHOLD = 0.17; // >17% time remaining
 
 export default function DuelLearnPage() {
   const params = useParams();
