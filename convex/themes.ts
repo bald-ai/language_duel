@@ -1,8 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getAuthenticatedUser } from "./helpers/auth";
-import { MAX_THEMES_QUERY } from "./constants";
+import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 
 // Word structure for validation
 const wordValidator = v.object({
@@ -11,10 +10,166 @@ const wordValidator = v.object({
   wrongAnswers: v.array(v.string()),
 });
 
+// Theme with owner details
+export type ThemeWithOwner = Doc<"themes"> & {
+  ownerNickname?: string;
+  ownerDiscriminator?: number;
+  isOwner: boolean;
+};
+
 export const getThemes = query({
+  args: {
+    filterByFriendId: v.optional(v.id("users")),
+    myThemesOnly: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<ThemeWithOwner[]> => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    
+    // If not authenticated, return empty (themes require auth now)
+    if (!auth) return [];
+
+    const currentUserId = auth.user._id;
+
+    // Use targeted indexed queries instead of blanket take() to avoid missing themes
+    let themes: Doc<"themes">[] = [];
+
+    if (args.myThemesOnly) {
+      // Query 1: User's own themes via by_owner index
+      const ownedThemes = await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", currentUserId))
+        .collect();
+
+      // Query 2: Legacy themes without owner (ownerId is undefined)
+      const legacyThemes = await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", undefined))
+        .collect();
+
+      themes = [...ownedThemes, ...legacyThemes];
+    } else if (args.filterByFriendId) {
+      // Verify they are friends first
+      const friendship = await ctx.db
+        .query("friends")
+        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
+        .filter((q) => q.eq(q.field("friendId"), args.filterByFriendId))
+        .first();
+
+      if (!friendship) {
+        themes = [];
+      } else {
+        // Query friend's themes via by_owner index, then filter for shared
+        const friendThemes = await ctx.db
+          .query("themes")
+          .withIndex("by_owner", (q) => q.eq("ownerId", args.filterByFriendId))
+          .collect();
+        themes = friendThemes.filter((t) => t.visibility === "shared");
+      }
+    } else {
+      // Default view: own themes + legacy themes + friend's shared themes
+
+      // Query 1: User's own themes
+      const ownedThemes = await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", currentUserId))
+        .collect();
+
+      // Query 2: Legacy themes without owner
+      const legacyThemes = await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", undefined))
+        .collect();
+
+      // Query 3: Friend's shared themes
+      const friendships = await ctx.db
+        .query("friends")
+        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
+        .collect();
+      const friendIds = friendships.map((f) => f.friendId);
+
+      // Fetch each friend's shared themes
+      const friendSharedThemesPromises = friendIds.map(async (friendId) => {
+        const friendThemes = await ctx.db
+          .query("themes")
+          .withIndex("by_owner", (q) => q.eq("ownerId", friendId))
+          .collect();
+        return friendThemes.filter((t) => t.visibility === "shared");
+      });
+      const friendSharedThemesArrays = await Promise.all(friendSharedThemesPromises);
+      const friendSharedThemes = friendSharedThemesArrays.flat();
+
+      // Merge all results (no duplicates since queries target different owners)
+      themes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes];
+    }
+
+    // Enrich with owner details
+    const themesWithOwner: ThemeWithOwner[] = [];
+    for (const theme of themes) {
+      let ownerNickname: string | undefined;
+      let ownerDiscriminator: number | undefined;
+
+      if (theme.ownerId) {
+        const owner = await ctx.db.get(theme.ownerId);
+        if (owner) {
+          ownerNickname = owner.nickname;
+          ownerDiscriminator = owner.discriminator;
+        }
+      }
+
+      themesWithOwner.push({
+        ...theme,
+        ownerNickname,
+        ownerDiscriminator,
+        isOwner: theme.ownerId?.toString() === currentUserId.toString() || !theme.ownerId,
+      });
+    }
+
+    return themesWithOwner;
+  },
+});
+
+/**
+ * Get only themes owned by current user
+ */
+export const getMyThemes = query({
   args: {},
   handler: async (ctx): Promise<Doc<"themes">[]> => {
-    return await ctx.db.query("themes").take(MAX_THEMES_QUERY);
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return [];
+
+    return await ctx.db
+      .query("themes")
+      .withIndex("by_owner", (q) => q.eq("ownerId", auth.user._id))
+      .collect();
+  },
+});
+
+/**
+ * Get shared themes from a specific friend
+ */
+export const getFriendThemes = query({
+  args: {
+    friendId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<Doc<"themes">[]> => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return [];
+
+    // Verify they are friends
+    const friendship = await ctx.db
+      .query("friends")
+      .withIndex("by_user", (q) => q.eq("userId", auth.user._id))
+      .filter((q) => q.eq(q.field("friendId"), args.friendId))
+      .first();
+
+    if (!friendship) return [];
+
+    const themes = await ctx.db
+      .query("themes")
+      .withIndex("by_owner", (q) => q.eq("ownerId", args.friendId))
+      .collect();
+
+    return themes.filter((t) => t.visibility === "shared");
   },
 });
 
@@ -31,9 +186,10 @@ export const createTheme = mutation({
     description: v.string(),
     words: v.array(wordValidator),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
-    await getAuthenticatedUser(ctx);
+    const { user } = await getAuthenticatedUser(ctx);
 
     return await ctx.db.insert("themes", {
       name: args.name,
@@ -41,6 +197,8 @@ export const createTheme = mutation({
       wordType: args.wordType || "nouns",
       words: args.words,
       createdAt: Date.now(),
+      ownerId: user._id,
+      visibility: args.visibility || "private",
     });
   },
 });
@@ -53,7 +211,16 @@ export const updateTheme = mutation({
     words: v.optional(v.array(wordValidator)),
   },
   handler: async (ctx, args) => {
-    await getAuthenticatedUser(ctx);
+    const { user } = await getAuthenticatedUser(ctx);
+
+    // Verify ownership
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+    
+    // Allow update if user is owner OR theme has no owner (legacy)
+    if (theme.ownerId && theme.ownerId !== user._id) {
+      throw new Error("You can only edit your own themes");
+    }
 
     const { themeId, ...updates } = args;
     const filteredUpdates: Record<string, unknown> = {};
@@ -67,10 +234,44 @@ export const updateTheme = mutation({
   },
 });
 
+/**
+ * Update theme visibility (owner only)
+ */
+export const updateThemeVisibility = mutation({
+  args: {
+    themeId: v.id("themes"),
+    visibility: v.union(v.literal("private"), v.literal("shared")),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+
+    // Allow update if user is owner OR theme has no owner (legacy)
+    if (theme.ownerId && theme.ownerId !== user._id) {
+      throw new Error("You can only change visibility of your own themes");
+    }
+
+    await ctx.db.patch(args.themeId, { visibility: args.visibility });
+    return await ctx.db.get(args.themeId);
+  },
+});
+
 export const deleteTheme = mutation({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args) => {
-    await getAuthenticatedUser(ctx);
+    const { user } = await getAuthenticatedUser(ctx);
+
+    // Verify ownership
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+
+    // Allow delete if user is owner OR theme has no owner (legacy)
+    if (theme.ownerId && theme.ownerId !== user._id) {
+      throw new Error("You can only delete your own themes");
+    }
+
     await ctx.db.delete(args.themeId);
   },
 });
@@ -78,19 +279,22 @@ export const deleteTheme = mutation({
 export const duplicateTheme = mutation({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args): Promise<Id<"themes">> => {
-    await getAuthenticatedUser(ctx);
+    const { user } = await getAuthenticatedUser(ctx);
 
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
 
     const newName = `${theme.name.toUpperCase()}(DUPLICATE)`;
 
+    // Duplicated theme belongs to current user, starts as private
     return await ctx.db.insert("themes", {
       name: newName,
       description: theme.description,
       wordType: theme.wordType || "nouns",
       words: theme.words,
       createdAt: Date.now(),
+      ownerId: user._id,
+      visibility: "private",
     });
   },
 });

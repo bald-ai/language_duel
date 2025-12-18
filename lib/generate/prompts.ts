@@ -14,7 +14,8 @@ const WRONG_ANSWER_REQUIREMENTS = `- Wrong answers must be CHALLENGING and trick
   * Include plausible Spanish alternatives that could fool a learner
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
-  * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed`;
+  * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed
+  * Every wrong answer must be strictly incorrect; ensure no wrong answer is identical to the correct Spanish translation provided in the 'answer' field`;
 
 const WRONG_ANSWER_REQUIREMENTS_VERBS = `- Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish verbs
@@ -23,6 +24,7 @@ const WRONG_ANSWER_REQUIREMENTS_VERBS = `- Wrong answers must be CHALLENGING and
   * Can include intentional grammar mistakes
   * NEVER use obviously wrong answers
   * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed
+  * Every wrong answer must be strictly incorrect; ensure no wrong answer is identical to the correct Spanish infinitive provided in the 'answer' field
   * Wrong answers must NOT include the "(Irr)" or "*" markers, even if they are irregular verbs`;
 
 const ARTICLE_REQUIREMENT = `- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")`;
@@ -265,7 +267,7 @@ REQUIREMENTS for the new wrong answer:
 - Must be a Spanish infinitive (ending in -ar, -er, -ir)
 - NO articles (el/la) - verbs don't use articles
 - Must NOT include the "(Irr)" or "*" markers
-- Must NOT be the correct answer "${currentAnswer}"
+- The new wrong answer MUST be strictly incorrect and different from the correct answer "${currentAnswer}"
 - Must NOT duplicate any existing wrong answer
 
 ${OUTPUT_FORMAT_WRONG_VERBS}`;
@@ -283,7 +285,7 @@ REQUIREMENTS for the new wrong answer:
 - Must be CHALLENGING and tricky
 - Use similar-sounding Spanish words, subtle meaning differences, or plausible alternatives
 - Can include intentional grammar mistakes or wrong gender articles
-- Must NOT be the correct answer "${currentAnswer}"
+- The new wrong answer MUST be strictly incorrect and different from the correct answer "${currentAnswer}"
 - Must NOT duplicate any existing wrong answer
 - WRONG ANSWER MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")
 

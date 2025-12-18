@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
+import type { ThemeWithOwner } from "@/convex/themes";
 import {
   checkThemeForDuplicateWrongAnswers,
   checkThemeForDuplicateWords,
@@ -20,6 +21,7 @@ import {
   useWordEditor,
   useThemeActions,
 } from "./index";
+import { toast } from "sonner";
 
 interface DeleteConfirmState {
   type: "theme" | "word";
@@ -29,7 +31,7 @@ interface DeleteConfirmState {
   wordName?: string;
 }
 
-interface ThemeWithStatus extends Doc<"themes"> {
+interface ThemeWithStatus extends ThemeWithOwner {
   hasDuplicateWords: boolean;
   hasDuplicateWrongAnswers: boolean;
 }
@@ -37,8 +39,23 @@ interface ThemeWithStatus extends Doc<"themes"> {
 export function useThemesController() {
   const router = useRouter();
 
-  // Convex queries
-  const rawThemesQuery = useQuery(api.themes.getThemes);
+  // Friend filter state
+  const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
+  const [myThemesOnly, setMyThemesOnly] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+
+  // Convex queries - build query args based on filter state
+  const queryArgs = useMemo(() => {
+    if (myThemesOnly) return { myThemesOnly: true };
+    if (selectedFriendFilter) return { filterByFriendId: selectedFriendFilter };
+    return {};
+  }, [myThemesOnly, selectedFriendFilter]);
+
+  const rawThemesQuery = useQuery(api.themes.getThemes, queryArgs);
+  const friends = useQuery(api.friends.getFriends);
+
+  // Mutations
+  const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
 
   // Custom hooks
   const themeGenerator = useThemeGenerator();
@@ -49,13 +66,14 @@ export function useThemesController() {
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
-  const [selectedTheme, setSelectedTheme] = useState<Doc<"themes"> | null>(null);
+  const [selectedTheme, setSelectedTheme] = useState<ThemeWithOwner | null>(null);
   const [localWords, setLocalWords] = useState<WordEntry[]>([]);
 
   // Modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showAddWordModal, setShowAddWordModal] = useState(false);
   const [showGenerateRandomModal, setShowGenerateRandomModal] = useState(false);
+  const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
 
   // Pre-compute validation flags for themes
@@ -67,6 +85,54 @@ export function useThemesController() {
       hasDuplicateWrongAnswers: checkThemeForDuplicateWrongAnswers(t.words),
     }));
   }, [rawThemesQuery]);
+
+  // Get selected friend details for display
+  const selectedFriend = useMemo(() => {
+    if (!selectedFriendFilter || !friends) return null;
+    return friends.find((f) => f.friendId === selectedFriendFilter) || null;
+  }, [selectedFriendFilter, friends]);
+
+  // Visibility change handler
+  const handleVisibilityChange = useCallback(
+    async (visibility: "private" | "shared") => {
+      if (!selectedTheme || selectedTheme.isOwner === false) return;
+
+      setIsUpdatingVisibility(true);
+      try {
+        await updateVisibilityMutation({
+          themeId: selectedTheme._id,
+          visibility,
+        });
+        setSelectedTheme((prev) => (prev ? { ...prev, visibility } : null));
+        toast.success(`Theme is now ${visibility}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update visibility";
+        toast.error(message);
+      } finally {
+        setIsUpdatingVisibility(false);
+      }
+    },
+    [selectedTheme, updateVisibilityMutation]
+  );
+
+  // Friend filter handlers
+  const handleSetFriendFilter = useCallback((friendId: Id<"users">) => {
+    setSelectedFriendFilter(friendId);
+    setMyThemesOnly(false);
+    setShowFriendFilterModal(false);
+  }, []);
+
+  const handleClearFriendFilter = useCallback(() => {
+    setSelectedFriendFilter(null);
+    setMyThemesOnly(false);
+    setShowFriendFilterModal(false);
+  }, []);
+
+  const handleShowMyThemes = useCallback(() => {
+    setSelectedFriendFilter(null);
+    setMyThemesOnly(true);
+    setShowFriendFilterModal(false);
+  }, []);
 
   // Navigation
   const goBack = useCallback(() => {
@@ -83,7 +149,7 @@ export function useThemesController() {
   }, [viewMode, wordEditor, router]);
 
   // Theme actions
-  const openTheme = useCallback((theme: Doc<"themes">) => {
+  const openTheme = useCallback((theme: ThemeWithOwner) => {
     setSelectedTheme(theme);
     setLocalWords([...theme.words]);
     setViewMode(VIEW_MODES.DETAIL);
@@ -142,10 +208,12 @@ export function useThemesController() {
 
   const handleDeleteWord = useCallback(
     (index: number) => {
+      if (selectedTheme && selectedTheme.isOwner === false) return;
+
       const word = localWords[index];
       setDeleteConfirm({ type: "word", wordIndex: index, wordName: word.word });
     },
-    [localWords]
+    [selectedTheme, localWords]
   );
 
   const confirmDeleteWord = useCallback(() => {
@@ -156,6 +224,9 @@ export function useThemesController() {
 
   const handleEditWord = useCallback(
     (wordIndex: number, field: FieldType, wrongIndex?: number) => {
+      // Only allow editing if user is the owner
+      if (selectedTheme && selectedTheme.isOwner === false) return;
+
       const word = localWords[wordIndex];
       let value = "";
       if (field === FIELD_TYPES.WORD) value = word.word;
@@ -169,7 +240,7 @@ export function useThemesController() {
   );
 
   const handleSaveTheme = useCallback(async () => {
-    if (!selectedTheme) return;
+    if (!selectedTheme || selectedTheme.isOwner === false) return;
 
     if (checkThemeForDuplicateWords(localWords)) {
       alert(
@@ -423,6 +494,21 @@ export function useThemesController() {
       onDuplicateTheme: handleDuplicateTheme,
       onGenerateNew: () => setShowGenerateModal(true),
       onBack: goBack,
+      // Friend filter props
+      selectedFriend,
+      myThemesOnly,
+      onOpenFriendFilter: () => setShowFriendFilterModal(true),
+      onClearFriendFilter: handleClearFriendFilter,
+    },
+
+    // Friend filter modal props
+    friendFilterModalProps: {
+      isOpen: showFriendFilterModal,
+      friends: friends ?? [],
+      onSelectFriend: handleSetFriendFilter,
+      onShowAll: handleClearFriendFilter,
+      onShowMyThemes: handleShowMyThemes,
+      onClose: () => setShowFriendFilterModal(false),
     },
 
     // Generate modal props
@@ -469,6 +555,10 @@ export function useThemesController() {
       onRandomCountChange: generateRandomHook.setCount,
       onGenerateRandom: handleGenerateRandom,
       onGenerateRandomReset: generateRandomHook.reset,
+      // Visibility props
+      visibility: selectedTheme?.visibility || "private",
+      isUpdatingVisibility,
+      onVisibilityChange: handleVisibilityChange,
     },
 
     // Word editor props

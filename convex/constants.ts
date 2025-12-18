@@ -117,3 +117,18 @@ export const NONE_OF_THE_ABOVE = "None of the above";
 /** Special marker for timeout answers */
 export const TIMEOUT_ANSWER = "__TIMEOUT__";
 
+// ===========================================
+// Nickname & Discriminator System
+// ===========================================
+/** Minimum discriminator value (inclusive) */
+export const DISCRIMINATOR_MIN = 1000;
+
+/** Maximum discriminator value (inclusive) */
+export const DISCRIMINATOR_MAX = 9999;
+
+/** Maximum friend requests a user can have */
+export const MAX_FRIEND_REQUESTS = 100;
+
+/** Default nickname for new users */
+export const DEFAULT_NICKNAME = "NewPlayer";
+

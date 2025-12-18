@@ -2,6 +2,8 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { AuthButtons } from "@/app/components/auth";
 import { useSyncUser } from "@/hooks/useSyncUser";
 import { useDuelLobby } from "@/hooks/useDuelLobby";
@@ -14,6 +16,8 @@ export default function Home() {
 
   const router = useRouter();
   const lobby = useDuelLobby();
+  const friendRequests = useQuery(api.friends.getFriendRequests);
+  const friendRequestCount = friendRequests?.length ?? 0;
 
   return (
     <div 
@@ -58,6 +62,9 @@ export default function Home() {
           <MenuButton onClick={lobby.openSoloModal}>Solo Challenge</MenuButton>
           <MenuButton onClick={lobby.openDuelModal} badge={lobby.pendingCount}>
             Duel
+          </MenuButton>
+          <MenuButton onClick={() => router.push("/friends")} badge={friendRequestCount}>
+            Friends
           </MenuButton>
           <MenuButton onClick={() => router.push("/themes")}>Manage Themes</MenuButton>
         </nav>

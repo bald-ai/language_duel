@@ -80,7 +80,11 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-  }).index("by_clerk_id", ["clerkId"]),
+    nickname: v.optional(v.string()),
+    discriminator: v.optional(v.number()),
+  })
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_nickname_discriminator", ["nickname", "discriminator"]),
 
   // -------------------------------------------
   // Themes Table
@@ -91,7 +95,34 @@ export default defineSchema({
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
     words: v.array(wordValidator),
     createdAt: v.number(),
-  }),
+    ownerId: v.optional(v.id("users")),
+    visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_visibility", ["visibility"]),
+
+  // -------------------------------------------
+  // Friend Requests Table
+  // -------------------------------------------
+  friendRequests: defineTable({
+    senderId: v.id("users"),
+    receiverId: v.id("users"),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("rejected")),
+    createdAt: v.number(),
+  })
+    .index("by_receiver", ["receiverId", "status"])
+    .index("by_sender", ["senderId"]),
+
+  // -------------------------------------------
+  // Friends Table (bidirectional)
+  // -------------------------------------------
+  friends: defineTable({
+    userId: v.id("users"),
+    friendId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_friend", ["friendId"]),
 
   // -------------------------------------------
   // Challenges (Duels) Table
