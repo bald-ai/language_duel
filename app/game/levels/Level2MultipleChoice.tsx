@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { hashSeed, seededShuffle } from "@/lib/prng";
 import { DONT_KNOW_REVEAL_MS } from "./constants";
+import { stripIrr } from "@/lib/stringUtils";
 import type { Level2MultipleChoiceProps } from "./types";
 
 /**
@@ -185,7 +186,7 @@ export function Level2MultipleChoice({
               className={`p-4 rounded-lg border-2 text-lg font-medium transition-all ${buttonClass}`}
             >
               {isDuelMode && <span className="text-gray-500 mr-2">{idx + 1}.</span>}
-              {option}
+              {stripIrr(option)}
             </button>
           );
         })}
@@ -220,7 +221,7 @@ export function Level2MultipleChoice({
       {/* Wrong answer feedback */}
       {submitted && selectedAnswer !== answer && (
         <div className="text-center text-gray-400 mt-2">
-          Correct answer: <span className="font-bold text-green-400">{answer}</span>
+          Correct answer: <span className="font-bold text-green-400">{stripIrr(answer)}</span>
         </div>
       )}
 

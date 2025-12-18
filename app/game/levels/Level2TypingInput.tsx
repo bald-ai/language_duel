@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import type { JSX } from "react";
-import { normalizeAccents } from "@/lib/stringUtils";
+import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters } from "@/lib/prng";
 import type { Level2TypingProps } from "./types";
 
@@ -37,19 +37,21 @@ export function Level2TypingInput({
   const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
   const hintIsAnagram = hintAccepted && hintType === "anagram";
 
+  const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
+
   const letterSlots = useMemo(() => {
     const slots: { char: string; originalIndex: number }[] = [];
-    answer.split("").forEach((char, idx) => {
+    cleanAnswer.split("").forEach((char, idx) => {
       if (char !== " ") {
         slots.push({ char: char.toLowerCase(), originalIndex: idx });
       }
     });
     return slots;
-  }, [answer]);
+  }, [cleanAnswer]);
 
   const anagramBase = useMemo(
-    () => (hintIsAnagram ? generateAnagramLetters(answer, 0) : []),
-    [answer, hintIsAnagram]
+    () => (hintIsAnagram ? generateAnagramLetters(cleanAnswer, 0) : []),
+    [cleanAnswer, hintIsAnagram]
   );
 
   const effectiveAnagramLetters = anagramLetters.length ? anagramLetters : anagramBase;
@@ -65,7 +67,7 @@ export function Level2TypingInput({
   };
 
   const handleSubmitAnagram = () => {
-    const reconstructed = answer.split("");
+    const reconstructed = cleanAnswer.split("");
     effectiveAnagramLetters.forEach((char, idx) => {
       const slot = letterSlots[idx];
       if (slot) {
@@ -73,7 +75,7 @@ export function Level2TypingInput({
       }
     });
     const candidate = reconstructed.join("");
-    const isCorrect = normalizeAccents(candidate) === normalizeAccents(answer);
+    const isCorrect = normalizeAccents(candidate) === normalizeAccents(cleanAnswer);
     setSubmitted(true);
     setAnagramResult(isCorrect ? "correct" : "wrong");
     if (isCorrect) {
@@ -113,12 +115,12 @@ export function Level2TypingInput({
     if (submitted) return;
     setAnagramNonce((n) => {
       const next = n + 1;
-      setAnagramLetters(generateAnagramLetters(answer, next));
+      setAnagramLetters(generateAnagramLetters(cleanAnswer, next));
       return next;
     });
   };
 
-  const words = answer.split(" ");
+  const words = cleanAnswer.split(" ");
   const hasMultipleWords = words.length > 1;
 
   // Render dashes grouped by words
@@ -224,7 +226,7 @@ export function Level2TypingInput({
           </div>
           {submitted && anagramResult === "wrong" && (
             <div className="text-red-400">
-              Wrong! The answer was: <span className="font-bold">{answer}</span>
+              Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>
           )}
         </>
@@ -235,7 +237,7 @@ export function Level2TypingInput({
             {renderDashes()}
           </div>
           <div className="text-sm text-gray-500">
-            ({answer.length} characters{hasMultipleWords ? " including spaces" : ""})
+            ({cleanAnswer.length} characters{hasMultipleWords ? " including spaces" : ""})
           </div>
           {hasMultipleWords && (
             <div className="text-xs text-yellow-500/80">
@@ -269,9 +271,9 @@ export function Level2TypingInput({
               </button>
             </div>
           )}
-          {submitted && normalizeAccents(inputValue) !== normalizeAccents(answer) && (
+          {submitted && normalizeAccents(inputValue) !== normalizeAccents(cleanAnswer) && (
             <div className="text-red-400">
-              Wrong! The answer was: <span className="font-bold">{answer}</span>
+              Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>
           )}
         </>

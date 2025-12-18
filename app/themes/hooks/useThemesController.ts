@@ -10,6 +10,7 @@ import {
   checkThemeForDuplicateWrongAnswers,
   checkThemeForDuplicateWords,
   isWordDuplicate,
+  checkThemeForWrongMatchingAnswer,
 } from "@/lib/themes";
 import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
 import {
@@ -180,6 +181,13 @@ export function useThemesController() {
     if (checkThemeForDuplicateWrongAnswers(localWords)) {
       alert(
         "Cannot save: This theme has duplicate wrong answers. Please fix the duplicate wrong answers (marked with orange ⚠) before saving."
+      );
+      return;
+    }
+
+    if (checkThemeForWrongMatchingAnswer(localWords)) {
+      alert(
+        "Cannot save: One or more wrong answers match the correct answer. Please ensure all choices are unique (marked with orange ⚠)."
       );
       return;
     }

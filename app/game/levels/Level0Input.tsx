@@ -1,6 +1,7 @@
 "use client";
 
 import type { Level0Props } from "./types";
+import { stripIrr } from "@/lib/stringUtils";
 
 /**
  * Level 0 - Introduction/Reveal mode
@@ -13,7 +14,7 @@ export function Level0Input({ word, answer, onGotIt, onNotYet }: Level0Props) {
       <div className="text-center">
         <div className="text-3xl font-bold text-white mb-2">{word}</div>
         <div className="text-sm text-gray-400 mb-3">Answer</div>
-        <div className="text-2xl font-bold text-green-400">{answer}</div>
+        <div className="text-2xl font-bold text-green-400">{stripIrr(answer)}</div>
       </div>
 
       <div className="flex gap-3 w-full">

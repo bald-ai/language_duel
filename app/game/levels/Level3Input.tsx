@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { normalizeAccents } from "@/lib/stringUtils";
+import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters, buildAnagramWithSpaces } from "@/lib/prng";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { DUEL_CORRECT_DELAY_MS, NAVIGATE_ENABLE_DELAY_MS } from "./constants";
@@ -44,18 +44,19 @@ export function Level3Input({
   // Determine if we're in duel mode (explicit prop or inferred from hint system)
   const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
   
-  const hasMultipleWords = answer.split(" ").length > 1;
+  const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
+  const hasMultipleWords = cleanAnswer.split(" ").length > 1;
   const showAnagramHint = hintAccepted && hintType === "anagram";
   
   const anagramHint = useMemo(() => {
     if (!showAnagramHint) return "";
-    const shuffled = generateAnagramLetters(answer);
-    return buildAnagramWithSpaces(answer, shuffled);
-  }, [answer, showAnagramHint]);
+    const shuffled = generateAnagramLetters(cleanAnswer);
+    return buildAnagramWithSpaces(cleanAnswer, shuffled);
+  }, [cleanAnswer, showAnagramHint]);
 
   const handleSubmit = () => {
     setSubmitted(true);
-    if (normalizeAccents(inputValue) === normalizeAccents(answer)) {
+    if (normalizeAccents(inputValue) === normalizeAccents(cleanAnswer)) {
       setIsCorrectAnswer(true);
       if (isDuelMode) {
         // Duel mode: auto-continue after delay
@@ -72,11 +73,11 @@ export function Level3Input({
   // Play TTS for the answer (solo mode)
   const handlePlayAudio = () => {
     if (isPlayingAudio) return;
-    playTTS(`level3-${answer}`, answer);
+    playTTS(`level3-${cleanAnswer}`, cleanAnswer);
   };
 
   const handleContinue = () => {
-    onCorrect(answer);
+    onCorrect(cleanAnswer);
   };
 
   // Keyboard navigation for Listen/Continue selection (solo mode)
@@ -235,7 +236,7 @@ export function Level3Input({
       {/* Wrong answer feedback */}
       {submitted && !isCorrectAnswer && (
         <div className="text-red-400">
-          Wrong! The answer was: <span className="font-bold">{answer}</span>
+          Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
         </div>
       )}
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { stripIrr } from "@/lib/stringUtils";
+
 type AnswerButtonProps = {
   answer: string;
   selectedAnswer: string | null;
@@ -71,9 +73,9 @@ export function AnswerButton({
           {!revealComplete && <span className="animate-pulse">|</span>}
         </span>
       ) : truncateText ? (
-        <span className="truncate block">{answer}</span>
+        <span className="truncate block">{stripIrr(answer)}</span>
       ) : (
-        answer
+        stripIrr(answer)
       )}
       {canEliminateThis && (
         <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">

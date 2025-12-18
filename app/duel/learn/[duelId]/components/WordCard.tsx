@@ -1,6 +1,7 @@
 "use client";
 
 import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
+import { stripIrr } from "@/lib/stringUtils";
 
 interface Word {
   word: string;
@@ -36,7 +37,8 @@ export function WordCard({
   isTTSDisabled,
   onPlayTTS,
 }: WordCardProps) {
-  const letters = word.answer.split("");
+  const cleanAnswer = stripIrr(word.answer);
+  const letters = cleanAnswer.split("");
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-4">
@@ -50,7 +52,7 @@ export function WordCard({
           {/* Answer - revealed or letter slots */}
           {isRevealed ? (
             <div className="text-lg font-bold text-green-400">
-              {word.answer}
+              {cleanAnswer}
             </div>
           ) : (
             <div className="flex gap-1 flex-wrap">

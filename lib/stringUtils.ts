@@ -3,11 +3,21 @@
  */
 
 /**
+ * Strips the (Irr) marker and legacy * marker from verbs
+ */
+export const stripIrr = (str: string): string => {
+  return str
+    .replace(/\(irr\)$/i, "") // Strip (Irr) marker (case-insensitive)
+    .replace(/\*$/, "")      // Still strip * for backward compatibility
+    .trim();
+};
+
+/**
  * Normalize accented characters for comparison
  * Removes diacritics, converts to lowercase, trims, and normalizes spaces
  */
 export const normalizeAccents = (str: string): string => {
-  return str
+  return stripIrr(str)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()

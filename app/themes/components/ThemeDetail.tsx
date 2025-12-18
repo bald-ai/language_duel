@@ -3,7 +3,11 @@
 import { useState, useMemo } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
-import { getDuplicateWordIndices } from "@/lib/themes";
+import { 
+  getDuplicateWordIndices, 
+  hasDuplicateWrongAnswersInWord, 
+  doesWrongAnswerMatchCorrect 
+} from "@/lib/themes";
 import type { FieldType } from "../constants";
 import { THEME_NAME_MAX_LENGTH } from "../constants";
 import { AddWordModal } from "./AddWordModal";
@@ -148,15 +152,22 @@ export function ThemeDetail({
       <div className="flex-1 overflow-y-auto px-4">
         <div className="w-full max-w-md mx-auto">
           <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-4">
+            {/* Legend */}
+            <div className="text-xs text-gray-300 mb-4 px-1">
+              <span className="text-amber-400 font-medium">(Irr)</span> = Irregular verb
+            </div>
+
             <div className="flex flex-col gap-4">
               {localWords.map((word, index) => {
                 const isDuplicateWord = duplicateWordIndices.has(index);
-                const hasDuplicateWrongAnswers = new Set(word.wrongAnswers).size !== word.wrongAnswers.length;
+                const hasDuplicateWrongAnswers = hasDuplicateWrongAnswersInWord(word);
+                const wrongMatchesAnswer = doesWrongAnswerMatchCorrect(word);
+                const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
 
                 let badgeClass = "border-gray-600 text-gray-300 bg-gray-800";
                 if (isDuplicateWord) {
                   badgeClass = "border-red-500 text-red-200 bg-red-500/10";
-                } else if (hasDuplicateWrongAnswers) {
+                } else if (hasInvalidChoices) {
                   badgeClass = "border-orange-500 text-orange-200 bg-orange-500/10";
                 }
 
@@ -174,8 +185,15 @@ export function ThemeDetail({
                           !
                         </span>
                       )}
-                      {hasDuplicateWrongAnswers && (
-                        <span className="text-orange-500 text-sm font-bold" title="Duplicate wrong answers">
+                      {hasInvalidChoices && (
+                        <span
+                          className="text-orange-500 text-sm font-bold"
+                          title={
+                            wrongMatchesAnswer
+                              ? "Wrong answer matches correct answer"
+                              : "Duplicate wrong answers"
+                          }
+                        >
                           ⚠
                         </span>
                       )}

@@ -1,16 +1,45 @@
 import type { WordEntry } from "@/lib/types";
+import { stripIrr } from "@/lib/stringUtils";
+
+/**
+ * Simple normalization that preserves accents but handles casing and spacing.
+ */
+export function relaxedNormalize(str: string): string {
+  return str.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Check if a word entry has duplicate wrong answers (relaxed: accents matter).
+ */
+export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
+  const normalizedWrongs = word.wrongAnswers.map((wa) => relaxedNormalize(wa));
+  const uniqueWrongs = new Set(normalizedWrongs);
+  return uniqueWrongs.size !== word.wrongAnswers.length;
+}
+
+/**
+ * Check if any wrong answer matches the correct answer (relaxed: accents matter).
+ * Also strips (Irr) markers before comparison to prevent indistinguishable options.
+ */
+export function doesWrongAnswerMatchCorrect(word: WordEntry): boolean {
+  const normalizedAnswer = relaxedNormalize(stripIrr(word.answer));
+  return word.wrongAnswers.some(
+    (wa) => relaxedNormalize(stripIrr(wa)) === normalizedAnswer
+  );
+}
 
 /**
  * Check if a theme has duplicate wrong answers within any word.
  */
 export function checkThemeForDuplicateWrongAnswers(words: WordEntry[]): boolean {
-  for (const word of words) {
-    const uniqueWrongs = new Set(word.wrongAnswers);
-    if (uniqueWrongs.size !== word.wrongAnswers.length) {
-      return true;
-    }
-  }
-  return false;
+  return words.some((word) => hasDuplicateWrongAnswersInWord(word));
+}
+
+/**
+ * Check if a theme has any wrong answers that match the correct answer.
+ */
+export function checkThemeForWrongMatchingAnswer(words: WordEntry[]): boolean {
+  return words.some((word) => doesWrongAnswerMatchCorrect(word));
 }
 
 /**

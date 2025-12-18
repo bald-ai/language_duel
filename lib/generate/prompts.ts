@@ -23,14 +23,14 @@ const WRONG_ANSWER_REQUIREMENTS_VERBS = `- Wrong answers must be CHALLENGING and
   * Can include intentional grammar mistakes
   * NEVER use obviously wrong answers
   * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed
-  * Wrong answers should also follow the irregular "*" convention if applicable`;
+  * Wrong answers must NOT include the "(Irr)" or "*" markers, even if they are irregular verbs`;
 
 const ARTICLE_REQUIREMENT = `- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")`;
 
 const VERB_FORMAT_REQUIREMENT = `- The answer must be the Spanish INFINITIVE form (e.g., hablar, comer, vivir)
 - NO articles (el/la) - verbs in infinitive form don't use articles
-- If a verb is IRREGULAR in Spanish, end the Spanish infinitive with "*" (e.g., "ir*", "ser*", "tener*")
-- Regular verbs should NOT have the "*" marker`;
+- If a verb is IRREGULAR in Spanish, end the Spanish infinitive with "(Irr)" (e.g., "ir(Irr)", "ser(Irr)", "tener(Irr)")
+- Regular verbs should NOT have the "(Irr)" marker`;
 
 const OUTPUT_FORMAT_WORD = `OUTPUT FORMAT: JSON object with:
 - word: English word
@@ -39,8 +39,8 @@ const OUTPUT_FORMAT_WORD = `OUTPUT FORMAT: JSON object with:
 
 const OUTPUT_FORMAT_WORD_VERBS = `OUTPUT FORMAT: JSON object with:
 - word: English verb (e.g., "speak", "eat", "go")
-- answer: Spanish infinitive (e.g., "hablar", "comer", "ir*")
-- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives`;
+- answer: Spanish infinitive (e.g., "hablar", "comer", "ir(Irr)")
+- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
 
 const OUTPUT_FORMAT_THEME = `OUTPUT FORMAT: JSON array of ${THEME_WORD_COUNT} objects, each with:
 - word: English word
@@ -49,28 +49,28 @@ const OUTPUT_FORMAT_THEME = `OUTPUT FORMAT: JSON array of ${THEME_WORD_COUNT} ob
 
 const OUTPUT_FORMAT_THEME_VERBS = `OUTPUT FORMAT: JSON array of ${THEME_WORD_COUNT} objects, each with:
 - word: English verb (e.g., "speak", "eat", "go")
-- answer: Spanish infinitive (e.g., "hablar", "comer", "ir*")
-- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives`;
+- answer: Spanish infinitive (e.g., "hablar", "comer", "ir(Irr)")
+- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
 
 const OUTPUT_FORMAT_ANSWER = `OUTPUT FORMAT: JSON object with:
 - answer: Better/corrected Spanish translation (with definite article)`;
 
 const OUTPUT_FORMAT_ANSWER_VERBS = `OUTPUT FORMAT: JSON object with:
-- answer: Better/corrected Spanish infinitive (with * if irregular)`;
+- answer: Better/corrected Spanish infinitive (with (Irr) if irregular)`;
 
 const OUTPUT_FORMAT_WRONG = `OUTPUT FORMAT: JSON object with:
 - wrongAnswer: Single new challenging wrong Spanish translation (with definite article)`;
 
 const OUTPUT_FORMAT_WRONG_VERBS = `OUTPUT FORMAT: JSON object with:
-- wrongAnswer: Single new challenging wrong Spanish infinitive`;
+- wrongAnswer: Single new challenging wrong Spanish infinitive (WITHOUT ANY MARKERS)`;
 
 const OUTPUT_FORMAT_ANSWER_AND_WRONGS = `OUTPUT FORMAT: JSON object with:
 - answer: Correct Spanish translation (with definite article)
 - wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} unique challenging wrong Spanish translations (each with definite article)`;
 
 const OUTPUT_FORMAT_ANSWER_AND_WRONGS_VERBS = `OUTPUT FORMAT: JSON object with:
-- answer: Correct Spanish infinitive (with * if irregular)
-- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} unique challenging wrong Spanish infinitives`;
+- answer: Correct Spanish infinitive (with (Irr) if irregular)
+- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} unique challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
 
 // ============================================================================
 // Theme Generation Prompts
@@ -186,8 +186,9 @@ REQUIREMENTS:
 - Must NOT duplicate any existing word or rejected suggestion
 - Include correct Spanish infinitive translation (e.g., hablar, comer, vivir)
 - NO articles (el/la) - verbs in infinitive form don't use articles
-- If the verb is IRREGULAR in Spanish, end with "*" (e.g., "ir*", "ser*", "tener*")
+- If the verb is IRREGULAR in Spanish, end with "(Irr)" (e.g., "ir(Irr)", "ser(Irr)", "tener(Irr)")
 - Include ${WRONG_ANSWER_COUNT} tricky wrong Spanish infinitives (similar-sounding, subtle differences)
+- Wrong answers must NOT include the "(Irr)" or "*" markers
 - All ${WRONG_ANSWER_COUNT} wrong answers MUST be unique - NO DUPLICATES allowed
 
 ${OUTPUT_FORMAT_WORD_VERBS}`;
@@ -223,7 +224,7 @@ ${context}
 
 The current answer "${currentAnswer}" needs to be replaced. Provide the most accurate Spanish infinitive.
 NO articles (el/la) - verbs in infinitive form don't use articles.
-If the verb is IRREGULAR in Spanish, end with "*" (e.g., "ir*", "ser*", "tener*").
+If the verb is IRREGULAR in Spanish, end with "(Irr)" (e.g., "ir(Irr)", "ser(Irr)", "tener(Irr)").
 
 ${OUTPUT_FORMAT_ANSWER_VERBS}`;
   }
@@ -263,7 +264,7 @@ REQUIREMENTS for the new wrong answer:
 - Can include intentional grammar mistakes
 - Must be a Spanish infinitive (ending in -ar, -er, -ir)
 - NO articles (el/la) - verbs don't use articles
-- If irregular, end with "*"
+- Must NOT include the "(Irr)" or "*" markers
 - Must NOT be the correct answer "${currentAnswer}"
 - Must NOT duplicate any existing wrong answer
 
@@ -307,8 +308,9 @@ TASK: Generate the correct Spanish infinitive translation and ${WRONG_ANSWER_COU
 REQUIREMENTS:
 - The answer must be the correct Spanish infinitive for "${newWord}" (e.g., hablar, comer, vivir)
 - NO articles (el/la) - verbs in infinitive form don't use articles
-- If the verb is IRREGULAR in Spanish, end with "*" (e.g., "ir*", "ser*", "tener*")
+- If the verb is IRREGULAR in Spanish, end with "(Irr)" (e.g., "ir(Irr)", "ser(Irr)", "tener(Irr)")
 - Provide exactly ${WRONG_ANSWER_COUNT} wrong answers (Spanish infinitives)
+- Wrong answers must NOT include the "(Irr)" or "*" markers
 ${WRONG_ANSWER_REQUIREMENTS_VERBS}
 
 ${OUTPUT_FORMAT_ANSWER_AND_WRONGS_VERBS}`;
@@ -350,8 +352,9 @@ EXISTING WORDS IN THEME (for context): ${existingWordsList}
 REQUIREMENTS:
 - The answer must be the correct Spanish infinitive for "${newWord}" (e.g., hablar, comer, vivir)
 - NO articles (el/la) - verbs in infinitive form don't use articles
-- If the verb is IRREGULAR in Spanish, end with "*" (e.g., "ir*", "ser*", "tener*")
+- If the verb is IRREGULAR in Spanish, end with "(Irr)" (e.g., "ir(Irr)", "ser(Irr)", "tener(Irr)")
 - Provide exactly ${WRONG_ANSWER_COUNT} wrong answers (Spanish infinitives)
+- Wrong answers must NOT include the "(Irr)" or "*" markers
 ${WRONG_ANSWER_REQUIREMENTS_VERBS}
 
 ${OUTPUT_FORMAT_ANSWER_AND_WRONGS_VERBS}`;
@@ -396,14 +399,15 @@ REQUIREMENTS:
 - Each word must be an English verb related to "${themeName}"
 ${VERB_FORMAT_REQUIREMENT}
 - Each word needs exactly ${WRONG_ANSWER_COUNT} wrong answers (Spanish infinitives)
+- Wrong answers must NOT include the "(Irr)" or "*" markers
 ${WRONG_ANSWER_REQUIREMENTS_VERBS}
 - All ${count} new verbs must be unique and NOT duplicate any existing word
 - Focus on practical, commonly used verbs
 
 OUTPUT FORMAT: JSON object with "words" array containing ${count} objects, each with:
 - word: English verb (e.g., "speak", "eat", "go")
-- answer: Spanish infinitive (e.g., "hablar", "comer", "ir*")
-- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives`;
+- answer: Spanish infinitive (e.g., "hablar", "comer", "ir(Irr)")
+- wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
   }
 
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.

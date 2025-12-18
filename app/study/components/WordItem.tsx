@@ -2,6 +2,7 @@
 
 import type { WordEntry } from "@/lib/types";
 import { HintState, HINT_RATIO } from "../hooks";
+import { stripIrr } from "@/lib/stringUtils";
 
 interface WordItemProps {
   word: WordEntry;
@@ -25,7 +26,8 @@ export function WordItem({
   onPlayTTS,
 }: WordItemProps) {
   const { hintCount, revealedPositions } = hintState;
-  const letters = word.answer.split("");
+  const cleanAnswer = stripIrr(word.answer);
+  const letters = cleanAnswer.split("");
   const totalLetters = letters.filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / HINT_RATIO);
   const hintsRemaining = maxHints - hintCount;
@@ -40,7 +42,7 @@ export function WordItem({
         <div className="flex items-center justify-center">
           {isRevealed ? (
             <span className="text-lg font-bold text-green-400">
-              {word.answer.toUpperCase()}
+              {cleanAnswer.toUpperCase()}
             </span>
           ) : (
             <div className="flex gap-1 flex-wrap justify-center">

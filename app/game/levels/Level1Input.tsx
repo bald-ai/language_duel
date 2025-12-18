@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { JSX } from "react";
-import { normalizeAccents } from "@/lib/stringUtils";
+import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { AUTO_COMPLETE_DELAY_MS, CURSOR_MOVE_DELAY_MS } from "./constants";
 import type { Level1Props } from "./types";
 
@@ -37,15 +37,17 @@ export function Level1Input({
   // Determine if we're in duel mode (explicit prop or inferred from hint system)
   const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
 
+  const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
+
   const letterSlots = useMemo(() => {
     const slots: { char: string; originalIndex: number }[] = [];
-    answer.split("").forEach((char, idx) => {
+    cleanAnswer.split("").forEach((char, idx) => {
       if (char !== " ") {
         slots.push({ char: char.toLowerCase(), originalIndex: idx });
       }
     });
     return slots;
-  }, [answer]);
+  }, [cleanAnswer]);
 
   // Check if answer is all filled and correct
   const isAnswerCorrect = letterSlots.every((slot, idx) => {
@@ -61,20 +63,20 @@ export function Level1Input({
     const checkCompletion = () => {
       if (isAnswerCorrect) {
         setHasCompleted(true);
-        onCorrect(answer);
+        onCorrect(cleanAnswer);
       }
     };
     
     const timeout = setTimeout(checkCompletion, AUTO_COMPLETE_DELAY_MS);
     return () => clearTimeout(timeout);
-  }, [typedLetters, letterSlots, isAnswerCorrect, onCorrect, hasCompleted, isDuelMode, answer]);
+  }, [typedLetters, letterSlots, isAnswerCorrect, onCorrect, hasCompleted, isDuelMode, cleanAnswer]);
 
   // Manual confirm handler (duel mode)
   const handleConfirm = () => {
     if (hasCompleted) return;
     if (isAnswerCorrect) {
       setHasCompleted(true);
-      onCorrect(answer);
+      onCorrect(cleanAnswer);
     }
   };
 

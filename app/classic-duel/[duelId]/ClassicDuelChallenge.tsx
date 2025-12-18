@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { stripIrr } from "@/lib/stringUtils";
 import {
   calculateClassicDifficultyDistribution,
   getDifficultyForIndex,
@@ -16,7 +17,6 @@ import {
   SABOTAGE_DURATION_MS,
   MAX_SABOTAGES,
   SabotageRenderer,
-  SABOTAGE_OPTIONS,
   useReverseAnswers,
   useBounceOptions,
   useTrampolineOptions,
@@ -44,7 +44,8 @@ import {
   AnswerOptionButton,
   computeOptionState,
   type OptionContext,
-} from "./components/AnswerOptionButton";
+  SabotageSystemUI,
+} from "./components";
 import { useSabotageEffect } from "./hooks";
 import {
   Scoreboard,
@@ -807,10 +808,11 @@ export default function ClassicDuelChallenge({
             <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
               {displayAnswers.map((ans, i) => {
                 const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                const cleanAns = stripIrr(ans);
                 const displayedAnswer =
                   activeSabotage === "reverse"
-                    ? reverseAnimatedAnswers?.[i] ?? reverseText(ans)
-                    : ans;
+                    ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
+                    : cleanAns;
                 
                 return (
                   <AnswerOptionButton
@@ -838,12 +840,13 @@ export default function ClassicDuelChallenge({
                 if (!bouncePos) return null;
 
                 const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                const cleanAns = stripIrr(ans);
                 
                 return (
                   <AnswerOptionButton
                     key={i}
                     answer={ans}
-                    displayText={ans}
+                    displayText={cleanAns}
                     state={state}
                     onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
                     hasNoneOption={displayHasNone}
@@ -873,12 +876,13 @@ export default function ClassicDuelChallenge({
                 if (!trampPos) return null;
 
                 const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                const cleanAns = stripIrr(ans);
 
                 return (
                   <AnswerOptionButton
                     key={i}
                     answer={ans}
-                    displayText={ans}
+                    displayText={cleanAns}
                     state={state}
                     onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
                     hasNoneOption={displayHasNone}
@@ -932,42 +936,17 @@ export default function ClassicDuelChallenge({
       )}
 
       {/* Sabotage System UI */}
-      {status === "accepted" && phase === 'answering' && word !== "done" && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
-          <div className="text-sm font-medium text-gray-200">
-            Sabotage{" "}
-            <span className="text-gray-300 tabular-nums">
-              {sabotagesRemaining}/{MAX_SABOTAGES}
-            </span>
-          </div>
-
-          {/* Always-visible sabotage buttons (center bottom) */}
-          <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border border-gray-700 bg-gray-900/80 backdrop-blur-md shadow-xl">
-            {SABOTAGE_OPTIONS.map((option) => {
-              const disabled =
-                sabotagesRemaining <= 0 ||
-                phase !== 'answering' ||
-                (!hasAnswered && isLocked) ||
-                isOutgoingSabotageActive;
-              return (
-                <button
-                  key={option.effect}
-                  onClick={() => handleSendSabotage(option.effect)}
-                  disabled={disabled}
-                  className={`h-11 w-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
-                    disabled
-                      ? 'border-gray-700 bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
-                      : 'border-gray-600 bg-gray-800 hover:bg-gray-700 hover:border-gray-500 active:scale-95'
-                  }`}
-                  title={option.label}
-                >
-                  {option.emoji}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <SabotageSystemUI
+        status={status}
+        phase={phase}
+        word={word}
+        sabotagesRemaining={sabotagesRemaining}
+        isLocked={isLocked}
+        hasAnswered={hasAnswered}
+        isOutgoingSabotageActive={isOutgoingSabotageActive}
+        opponentHasAnswered={opponentHasAnswered}
+        onSendSabotage={handleSendSabotage}
+      />
 
       {/* Waiting message */}
       {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (

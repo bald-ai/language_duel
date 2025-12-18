@@ -81,6 +81,14 @@ export const sendSabotage = mutation({
       ? duel.opponentSabotage
       : duel.challengerSabotage;
 
+    const targetHasAnswered = isChallenger
+      ? duel.opponentAnswered
+      : duel.challengerAnswered;
+
+    if (targetHasAnswered) {
+      throw new Error("Opponent has already answered this question");
+    }
+
     if (
       isSabotageActive({
         sabotage: targetSabotage,
