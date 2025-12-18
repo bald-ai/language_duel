@@ -97,6 +97,7 @@ export default defineSchema({
     createdAt: v.number(),
     ownerId: v.optional(v.id("users")),
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+    friendsCanEdit: v.optional(v.boolean()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_visibility", ["visibility"]),

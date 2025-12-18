@@ -18,6 +18,7 @@ interface ThemeDetailProps {
     ownerNickname?: string;
     ownerDiscriminator?: number;
     isOwner?: boolean;
+    canEdit?: boolean;
   };
   localWords: WordEntry[];
   onThemeNameChange: (name: string) => void;
@@ -51,6 +52,10 @@ interface ThemeDetailProps {
   visibility?: "private" | "shared";
   isUpdatingVisibility?: boolean;
   onVisibilityChange?: (visibility: "private" | "shared") => void;
+  // Friends can edit
+  friendsCanEdit?: boolean;
+  isUpdatingFriendsCanEdit?: boolean;
+  onFriendsCanEditChange?: (canEdit: boolean) => void;
 }
 
 export function ThemeDetail({
@@ -76,11 +81,15 @@ export function ThemeDetail({
   visibility,
   isUpdatingVisibility,
   onVisibilityChange,
+  friendsCanEdit,
+  isUpdatingFriendsCanEdit,
+  onFriendsCanEditChange,
 }: ThemeDetailProps) {
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
   const [editedThemeName, setEditedThemeName] = useState("");
 
   const isOwner = theme.isOwner !== false; // Default to true for backward compatibility
+  const canEdit = theme.canEdit !== false; // Default to true for backward compatibility
   const ownerDisplay = theme.ownerNickname && theme.ownerDiscriminator
     ? `${theme.ownerNickname}#${theme.ownerDiscriminator}`
     : null;
@@ -134,7 +143,7 @@ export function ThemeDetail({
       {/* Fixed Header */}
       <header className="flex-shrink-0 w-full max-w-md mx-auto px-4 pt-6 pb-4">
         <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4">
-          {isEditingThemeName && isOwner ? (
+          {isEditingThemeName && canEdit ? (
             <input
               type="text"
               value={editedThemeName}
@@ -152,13 +161,13 @@ export function ThemeDetail({
           ) : (
             <h1
               onClick={() => {
-                if (isOwner) {
+                if (canEdit) {
                   setEditedThemeName(theme.name);
                   setIsEditingThemeName(true);
                 }
               }}
-              className={`text-xl font-bold text-center text-gray-300 uppercase tracking-wide transition-colors ${isOwner ? "cursor-pointer" : ""}`}
-              title={isOwner ? "Click to edit theme name" : ""}
+              className={`text-xl font-bold text-center text-gray-300 uppercase tracking-wide transition-colors ${canEdit ? "cursor-pointer" : ""}`}
+              title={canEdit ? "Click to edit theme name" : ""}
             >
               {theme.name}
             </h1>
@@ -173,7 +182,7 @@ export function ThemeDetail({
 
           {/* Visibility toggle for owner */}
           {isOwner && onVisibilityChange && (
-            <div className="flex justify-center mt-3">
+            <div className="flex justify-center items-center gap-2 mt-3">
               <div className="inline-flex rounded-lg overflow-hidden border-2 border-gray-600">
                 <button
                   onClick={() => onVisibilityChange("private")}
@@ -198,6 +207,30 @@ export function ThemeDetail({
                   Shared
                 </button>
               </div>
+              
+              {/* Lock/Unlock toggle - only shown when shared */}
+              {visibility === "shared" && onFriendsCanEditChange && (
+                <button
+                  onClick={() => onFriendsCanEditChange(!friendsCanEdit)}
+                  disabled={isUpdatingFriendsCanEdit}
+                  title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
+                  className={`p-1.5 rounded-lg border-2 transition-colors ${
+                    friendsCanEdit
+                      ? "bg-green-600/20 border-green-500 text-green-400 hover:bg-green-600/30"
+                      : "bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600"
+                  } disabled:opacity-50`}
+                >
+                  {friendsCanEdit ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -257,20 +290,20 @@ export function ThemeDetail({
                     {/* Word & Answer Row */}
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       <button
-                        onClick={() => isOwner && onEditWord(index, "word")}
-                        disabled={!isOwner}
+                        onClick={() => canEdit && onEditWord(index, "word")}
+                        disabled={!canEdit}
                         className={`p-2 bg-blue-500/10 border-2 border-blue-500/30 rounded-lg text-sm font-medium text-blue-200 transition-colors text-center ${
-                          isOwner ? "hover:bg-blue-500/20 hover:border-blue-400/50 cursor-pointer" : "cursor-default"
+                          canEdit ? "hover:bg-blue-500/20 hover:border-blue-400/50 cursor-pointer" : "cursor-default"
                         }`}
                       >
                         <div className="text-xs text-blue-300 mb-1">Word</div>
                         {word.word}
                       </button>
                       <button
-                        onClick={() => isOwner && onEditWord(index, "answer")}
-                        disabled={!isOwner}
+                        onClick={() => canEdit && onEditWord(index, "answer")}
+                        disabled={!canEdit}
                         className={`p-2 bg-green-500/10 border-2 border-green-500/30 rounded-lg text-sm font-medium text-green-200 transition-colors text-center ${
-                          isOwner ? "hover:bg-green-500/20 hover:border-green-400/50 cursor-pointer" : "cursor-default"
+                          canEdit ? "hover:bg-green-500/20 hover:border-green-400/50 cursor-pointer" : "cursor-default"
                         }`}
                       >
                         <div className="text-xs text-green-300 mb-1">Answer</div>
@@ -283,10 +316,10 @@ export function ThemeDetail({
                       {word.wrongAnswers.map((wrongAnswer, wrongIdx) => (
                         <button
                           key={wrongIdx}
-                          onClick={() => isOwner && onEditWord(index, "wrong", wrongIdx)}
-                          disabled={!isOwner}
+                          onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
+                          disabled={!canEdit}
                           className={`p-2 bg-orange-500/10 border-2 border-orange-500/30 rounded-lg text-sm font-medium text-orange-200 transition-colors text-center ${
-                            isOwner ? "hover:bg-orange-500/20 hover:border-orange-400/50 cursor-pointer" : "cursor-default"
+                            canEdit ? "hover:bg-orange-500/20 hover:border-orange-400/50 cursor-pointer" : "cursor-default"
                           }`}
                         >
                           <div className="text-xs text-orange-300 mb-1">Wrong {wrongIdx + 1}</div>
@@ -296,7 +329,7 @@ export function ThemeDetail({
                     </div>
 
                     {/* Delete Word Button */}
-                    {isOwner && (
+                    {canEdit && (
                       <button
                         onClick={() => onDeleteWord(index)}
                         className="mt-3 w-full py-2 bg-red-500/10 border-2 border-red-500/30 rounded-lg text-sm font-medium text-red-200 hover:bg-red-500/20 hover:border-red-400/50 transition-colors"
@@ -317,8 +350,8 @@ export function ThemeDetail({
       {/* Fixed Bottom Buttons */}
       <div className="flex-shrink-0 w-full bg-gray-900 border-t border-gray-800 px-4 py-4">
         <div className="w-full max-w-md mx-auto space-y-3">
-          {/* Add Word / Generate Random Row - only for owner */}
-          {isOwner && (
+          {/* Add Word / Generate Random Row - only for those with edit permission */}
+          {canEdit && (
             <div className="flex gap-3">
               <button
                 onClick={handleAddWordClick}
@@ -337,7 +370,7 @@ export function ThemeDetail({
 
           {/* Save/Cancel Row */}
           <div className="flex gap-3">
-            {isOwner ? (
+            {canEdit ? (
               <>
                 <button
                   onClick={onSave}

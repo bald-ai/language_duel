@@ -43,6 +43,7 @@ export function useThemesController() {
   const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
   const [myThemesOnly, setMyThemesOnly] = useState(false);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+  const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] = useState(false);
 
   // Convex queries - build query args based on filter state
   const queryArgs = useMemo(() => {
@@ -56,6 +57,7 @@ export function useThemesController() {
 
   // Mutations
   const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
+  const updateFriendsCanEditMutation = useMutation(api.themes.updateThemeFriendsCanEdit);
 
   // Custom hooks
   const themeGenerator = useThemeGenerator();
@@ -113,6 +115,29 @@ export function useThemesController() {
       }
     },
     [selectedTheme, updateVisibilityMutation]
+  );
+
+  // Friends can edit change handler
+  const handleFriendsCanEditChange = useCallback(
+    async (friendsCanEdit: boolean) => {
+      if (!selectedTheme || selectedTheme.isOwner === false) return;
+
+      setIsUpdatingFriendsCanEdit(true);
+      try {
+        await updateFriendsCanEditMutation({
+          themeId: selectedTheme._id,
+          friendsCanEdit,
+        });
+        setSelectedTheme((prev) => (prev ? { ...prev, friendsCanEdit } : null));
+        toast.success(friendsCanEdit ? "Friends can now edit this theme" : "Theme is now view-only for friends");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update edit permissions";
+        toast.error(message);
+      } finally {
+        setIsUpdatingFriendsCanEdit(false);
+      }
+    },
+    [selectedTheme, updateFriendsCanEditMutation]
   );
 
   // Friend filter handlers
@@ -208,7 +233,7 @@ export function useThemesController() {
 
   const handleDeleteWord = useCallback(
     (index: number) => {
-      if (selectedTheme && selectedTheme.isOwner === false) return;
+      if (selectedTheme && selectedTheme.canEdit === false) return;
 
       const word = localWords[index];
       setDeleteConfirm({ type: "word", wordIndex: index, wordName: word.word });
@@ -224,8 +249,8 @@ export function useThemesController() {
 
   const handleEditWord = useCallback(
     (wordIndex: number, field: FieldType, wrongIndex?: number) => {
-      // Only allow editing if user is the owner
-      if (selectedTheme && selectedTheme.isOwner === false) return;
+      // Only allow editing if user has edit permission
+      if (selectedTheme && selectedTheme.canEdit === false) return;
 
       const word = localWords[wordIndex];
       let value = "";
@@ -240,7 +265,7 @@ export function useThemesController() {
   );
 
   const handleSaveTheme = useCallback(async () => {
-    if (!selectedTheme || selectedTheme.isOwner === false) return;
+    if (!selectedTheme || selectedTheme.canEdit === false) return;
 
     if (checkThemeForDuplicateWords(localWords)) {
       alert(
@@ -559,6 +584,10 @@ export function useThemesController() {
       visibility: selectedTheme?.visibility || "private",
       isUpdatingVisibility,
       onVisibilityChange: handleVisibilityChange,
+      // Friends can edit props
+      friendsCanEdit: selectedTheme?.friendsCanEdit || false,
+      isUpdatingFriendsCanEdit,
+      onFriendsCanEditChange: handleFriendsCanEditChange,
     },
 
     // Word editor props

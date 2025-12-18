@@ -10,11 +10,12 @@ const wordValidator = v.object({
   wrongAnswers: v.array(v.string()),
 });
 
-// Theme with owner details
+// Theme with owner details and edit permissions
 export type ThemeWithOwner = Doc<"themes"> & {
   ownerNickname?: string;
   ownerDiscriminator?: number;
   isOwner: boolean;
+  canEdit: boolean;
 };
 
 export const getThemes = query({
@@ -102,7 +103,7 @@ export const getThemes = query({
       themes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes];
     }
 
-    // Enrich with owner details
+    // Enrich with owner details and edit permissions
     const themesWithOwner: ThemeWithOwner[] = [];
     for (const theme of themes) {
       let ownerNickname: string | undefined;
@@ -116,11 +117,16 @@ export const getThemes = query({
         }
       }
 
+      const isOwner = theme.ownerId?.toString() === currentUserId.toString() || !theme.ownerId;
+      // canEdit: owner can always edit, friends can edit if theme is shared AND friendsCanEdit is true
+      const canEdit = isOwner || (theme.visibility === "shared" && theme.friendsCanEdit === true);
+
       themesWithOwner.push({
         ...theme,
         ownerNickname,
         ownerDiscriminator,
-        isOwner: theme.ownerId?.toString() === currentUserId.toString() || !theme.ownerId,
+        isOwner,
+        canEdit,
       });
     }
 
@@ -213,13 +219,15 @@ export const updateTheme = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    // Verify ownership
+    // Verify ownership or edit permission
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
     
-    // Allow update if user is owner OR theme has no owner (legacy)
-    if (theme.ownerId && theme.ownerId !== user._id) {
-      throw new Error("You can only edit your own themes");
+    const isOwner = !theme.ownerId || theme.ownerId === user._id;
+    const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
+    
+    if (!isOwner && !canEditAsNonOwner) {
+      throw new Error("You don't have permission to edit this theme");
     }
 
     const { themeId, ...updates } = args;
@@ -254,6 +262,30 @@ export const updateThemeVisibility = mutation({
     }
 
     await ctx.db.patch(args.themeId, { visibility: args.visibility });
+    return await ctx.db.get(args.themeId);
+  },
+});
+
+/**
+ * Update whether friends can edit a shared theme (owner only)
+ */
+export const updateThemeFriendsCanEdit = mutation({
+  args: {
+    themeId: v.id("themes"),
+    friendsCanEdit: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) throw new Error("Theme not found");
+
+    // Only owner can change this setting
+    if (theme.ownerId && theme.ownerId !== user._id) {
+      throw new Error("You can only change edit permissions of your own themes");
+    }
+
+    await ctx.db.patch(args.themeId, { friendsCanEdit: args.friendsCanEdit });
     return await ctx.db.get(args.themeId);
   },
 });
