@@ -159,6 +159,7 @@ async function callOpenAIJson<T>(
     model: OPENAI_MODEL,
     reasoning: { effort: OPENAI_REASONING_EFFORT },
     input: toResponsesInput(params.messages),
+    max_output_tokens: 3000,
     text: {
       format: {
         type: "json_schema",
