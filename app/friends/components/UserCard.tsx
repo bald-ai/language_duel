@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface UserCardProps {
@@ -74,4 +75,3 @@ export function UserCard({
     </div>
   );
 }
-

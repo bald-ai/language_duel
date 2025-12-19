@@ -1,27 +1,5 @@
 import type { WordEntry } from "@/lib/types";
-
-/**
- * Extract error message from a failed fetch response.
- */
-export async function getResponseErrorMessage(response: Response): Promise<string> {
-  try {
-    const text = await response.text();
-    if (!text) return `Request failed (${response.status})`;
-    try {
-      const parsed = JSON.parse(text) as unknown;
-      if (parsed && typeof parsed === "object") {
-        const record = parsed as Record<string, unknown>;
-        const maybeError = record.error ?? record.message;
-        if (typeof maybeError === "string" && maybeError.trim()) return maybeError;
-      }
-    } catch {
-      // ignore JSON parse errors
-    }
-    return text;
-  } catch {
-    return `Request failed (${response.status})`;
-  }
-}
+import { getResponseErrorMessage } from "@/lib/api/errors";
 
 export type WordType = "nouns" | "verbs";
 export type FieldType = "word" | "answer" | "wrong";
@@ -256,4 +234,3 @@ export async function generateRandomWords(params: GenerateRandomWordsParams): Pr
 
   return { success: true, data: data.data };
 }
-

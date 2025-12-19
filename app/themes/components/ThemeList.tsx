@@ -1,16 +1,11 @@
 "use client";
 
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { FriendWithDetails } from "@/convex/friends";
 
-interface ThemeWithStatus extends ThemeWithOwner {
-  hasDuplicateWords: boolean;
-  hasDuplicateWrongAnswers: boolean;
-}
-
 interface ThemeListProps {
-  themes: ThemeWithStatus[];
+  themes: ThemeWithOwner[];
   deletingThemeId: Id<"themes"> | null;
   duplicatingThemeId: Id<"themes"> | null;
   onOpenTheme: (theme: ThemeWithOwner) => void;
@@ -123,22 +118,6 @@ export function ThemeList({
                       <span className="font-bold text-lg truncate" title={theme.name}>
                         {theme.name}
                       </span>
-                      {theme.hasDuplicateWords && (
-                        <span
-                          className="text-red-500 text-xl font-bold shrink-0"
-                          title="This theme has duplicate words"
-                        >
-                          !
-                        </span>
-                      )}
-                      {theme.hasDuplicateWrongAnswers && (
-                        <span
-                          className="text-orange-500 text-xl font-bold shrink-0"
-                          title="This theme has duplicate wrong answers"
-                        >
-                          ⚠
-                        </span>
-                      )}
                     </div>
                     <div className="text-sm text-gray-400 truncate" title={`${theme.words.length} words`}>
                       {theme.words.length} words
@@ -207,4 +186,3 @@ export function ThemeList({
     </>
   );
 }
-

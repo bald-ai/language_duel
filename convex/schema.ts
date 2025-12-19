@@ -82,6 +82,9 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     nickname: v.optional(v.string()),
     discriminator: v.optional(v.number()),
+    llmCreditsRemaining: v.optional(v.number()),
+    ttsGenerationsRemaining: v.optional(v.number()),
+    creditsMonth: v.optional(v.string()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_nickname_discriminator", ["nickname", "discriminator"]),

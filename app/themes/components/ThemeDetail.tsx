@@ -5,6 +5,8 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import { 
   getDuplicateWordIndices, 
+  checkThemeForDuplicateWrongAnswers,
+  checkThemeForWrongMatchingAnswer,
   hasDuplicateWrongAnswersInWord, 
   doesWrongAnswerMatchCorrect 
 } from "@/lib/themes";
@@ -99,6 +101,17 @@ export function ThemeDetail({
     () => getDuplicateWordIndices(localWords),
     [localWords]
   );
+  const hasDuplicateWords = duplicateWordIndices.size > 0;
+  const hasThemeDuplicateWrongAnswers = useMemo(
+    () => checkThemeForDuplicateWrongAnswers(localWords),
+    [localWords]
+  );
+  const hasThemeWrongMatchingAnswer = useMemo(
+    () => checkThemeForWrongMatchingAnswer(localWords),
+    [localWords]
+  );
+  const hasThemeIssues =
+    hasDuplicateWords || hasThemeDuplicateWrongAnswers || hasThemeWrongMatchingAnswer;
 
   const handleThemeNameBlur = () => {
     if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== theme.name) {
@@ -374,7 +387,8 @@ export function ThemeDetail({
               <>
                 <button
                   onClick={onSave}
-                  className="flex-1 bg-gray-800 text-white rounded-2xl py-4 text-lg font-bold uppercase hover:bg-gray-700 transition-colors"
+                  disabled={hasThemeIssues}
+                  className="flex-1 bg-gray-800 text-white rounded-2xl py-4 text-lg font-bold uppercase hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
                 >
                   Save
                 </button>
@@ -395,6 +409,11 @@ export function ThemeDetail({
             )}
           </div>
         </div>
+        {canEdit && hasThemeIssues && (
+          <div className="mt-3 w-full max-w-md mx-auto rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-200">
+            Theme contains issues. Fix the highlighted words to enable saving.
+          </div>
+        )}
       </div>
 
       {/* Add Word Modal */}
@@ -422,4 +441,3 @@ export function ThemeDetail({
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendRequestWithDetails } from "@/convex/friends";
 
@@ -85,4 +86,3 @@ export function RequestsList({
     </div>
   );
 }
-

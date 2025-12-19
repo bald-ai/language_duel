@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import type { ThemeWithOwner } from "@/convex/themes";
 import {
@@ -13,6 +13,7 @@ import {
   isWordDuplicate,
   checkThemeForWrongMatchingAnswer,
 } from "@/lib/themes";
+import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
 import {
   useThemeGenerator,
@@ -29,11 +30,6 @@ interface DeleteConfirmState {
   themeName?: string;
   wordIndex?: number;
   wordName?: string;
-}
-
-interface ThemeWithStatus extends ThemeWithOwner {
-  hasDuplicateWords: boolean;
-  hasDuplicateWrongAnswers: boolean;
 }
 
 export function useThemesController() {
@@ -54,6 +50,7 @@ export function useThemesController() {
 
   const rawThemesQuery = useQuery(api.themes.getThemes, queryArgs);
   const friends = useQuery(api.friends.getFriends);
+  const currentUser = useQuery(api.users.getCurrentUser);
 
   // Mutations
   const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
@@ -78,15 +75,7 @@ export function useThemesController() {
   const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
 
-  // Pre-compute validation flags for themes
-  const themes: ThemeWithStatus[] = useMemo(() => {
-    const rawThemes = rawThemesQuery || [];
-    return rawThemes.map((t) => ({
-      ...t,
-      hasDuplicateWords: checkThemeForDuplicateWords(t.words),
-      hasDuplicateWrongAnswers: checkThemeForDuplicateWrongAnswers(t.words),
-    }));
-  }, [rawThemesQuery]);
+  const themes = useMemo(() => rawThemesQuery || [], [rawThemesQuery]);
 
   // Get selected friend details for display
   const selectedFriend = useMemo(() => {
@@ -188,7 +177,7 @@ export function useThemesController() {
     if (!deleteConfirm?.themeId) return;
     const result = await themeActions.remove(deleteConfirm.themeId);
     if (!result.ok) {
-      alert(result.error || "Failed to delete theme");
+      toast.error(result.error || "Failed to delete theme");
     }
     setDeleteConfirm(null);
   }, [deleteConfirm, themeActions]);
@@ -197,29 +186,69 @@ export function useThemesController() {
     async (themeId: Id<"themes">) => {
       const result = await themeActions.duplicate(themeId);
       if (!result.ok) {
-        alert(result.error || "Failed to duplicate theme");
+        toast.error(result.error || "Failed to duplicate theme");
       }
     },
     [themeActions]
   );
 
+  const handleOpenGenerateModal = useCallback(() => {
+    if (currentUser === undefined) {
+      toast.error("Credits are still loading. Try again.");
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("Please sign in to generate themes.");
+      return;
+    }
+
+    if (currentUser.llmCreditsRemaining < LLM_THEME_CREDITS) {
+      toast.error("LLM credits exhausted");
+      return;
+    }
+
+    themeGenerator.reset();
+    setShowGenerateModal(true);
+  }, [currentUser, themeGenerator]);
+
   const handleGenerateNewTheme = useCallback(async () => {
-    const words = await themeGenerator.generate();
-    if (words) {
+    try {
+      const words = await themeGenerator.generate();
+      if (!words) return;
+
       const result = await themeActions.create(
         themeGenerator.themeName,
         `Generated theme for: ${themeGenerator.themeName}`,
         words,
         themeGenerator.wordType
       );
-      if (result.ok) {
+      if (result.ok && result.themeId) {
+        // Build theme object and open it for review
+        const newTheme: ThemeWithOwner = {
+          _id: result.themeId,
+          _creationTime: Date.now(),
+          name: themeGenerator.themeName.toUpperCase(),
+          description: `Generated theme for: ${themeGenerator.themeName}`,
+          words,
+          wordType: themeGenerator.wordType,
+          createdAt: Date.now(),
+          visibility: "private",
+          isOwner: true,
+          canEdit: true,
+        };
+        openTheme(newTheme);
         setShowGenerateModal(false);
         themeGenerator.reset();
-      } else {
-        alert(result.error || "Failed to create theme");
+      } else if (!result.ok) {
+        toast.error(result.error || "Failed to create theme");
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Generation failed";
+      toast.error(message);
+      themeGenerator.setError(null);
     }
-  }, [themeGenerator, themeActions]);
+  }, [themeGenerator, themeActions, openTheme]);
 
   const handleCloseGenerateModal = useCallback(() => {
     setShowGenerateModal(false);
@@ -261,28 +290,28 @@ export function useThemesController() {
       wordEditor.startEdit(wordIndex, field, value, wrongIndex);
       setViewMode(VIEW_MODES.EDIT_WORD);
     },
-    [localWords, wordEditor]
+    [localWords, selectedTheme, wordEditor]
   );
 
   const handleSaveTheme = useCallback(async () => {
     if (!selectedTheme || selectedTheme.canEdit === false) return;
 
     if (checkThemeForDuplicateWords(localWords)) {
-      alert(
+      toast.error(
         "Cannot save: This theme has duplicate words. Please fix the duplicate words (marked with red !) before saving."
       );
       return;
     }
 
     if (checkThemeForDuplicateWrongAnswers(localWords)) {
-      alert(
+      toast.error(
         "Cannot save: This theme has duplicate wrong answers. Please fix the duplicate wrong answers (marked with orange ⚠) before saving."
       );
       return;
     }
 
     if (checkThemeForWrongMatchingAnswer(localWords)) {
-      alert(
+      toast.error(
         "Cannot save: One or more wrong answers match the correct answer. Please ensure all choices are unique (marked with orange ⚠)."
       );
       return;
@@ -294,7 +323,7 @@ export function useThemesController() {
       setSelectedTheme(null);
       setLocalWords([]);
     } else {
-      alert(result.error || "Failed to save theme");
+      toast.error(result.error || "Failed to save theme");
     }
   }, [selectedTheme, localWords, themeActions]);
 
@@ -363,7 +392,7 @@ export function useThemesController() {
         existingWords
       );
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Generation failed");
+      toast.error(error instanceof Error ? error.message : "Generation failed");
     }
   }, [wordEditor, selectedTheme, localWords]);
 
@@ -383,7 +412,7 @@ export function useThemesController() {
         existingWords
       );
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Regeneration failed");
+      toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
   }, [wordEditor, selectedTheme, localWords]);
 
@@ -489,7 +518,7 @@ export function useThemesController() {
         wordEditor.reset();
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Regeneration failed");
+      toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
   }, [wordEditor, selectedTheme]);
 
@@ -517,7 +546,7 @@ export function useThemesController() {
       onOpenTheme: openTheme,
       onDeleteTheme: handleDeleteTheme,
       onDuplicateTheme: handleDuplicateTheme,
-      onGenerateNew: () => setShowGenerateModal(true),
+      onGenerateNew: handleOpenGenerateModal,
       onBack: goBack,
       // Friend filter props
       selectedFriend,
@@ -543,7 +572,6 @@ export function useThemesController() {
       themePrompt: themeGenerator.themePrompt,
       wordType: themeGenerator.wordType,
       isGenerating: themeGenerator.isGenerating,
-      error: themeGenerator.error,
       onThemeNameChange: themeGenerator.setThemeName,
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,
@@ -630,4 +658,3 @@ export function useThemesController() {
     wordEditorState: wordEditor,
   };
 }
-

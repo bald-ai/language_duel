@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
 
@@ -69,4 +70,3 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
     </div>
   );
 }
-

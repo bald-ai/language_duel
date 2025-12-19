@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
+import { getResponseErrorMessage } from "@/lib/api/errors";
 
 /**
  * Hook for Text-to-Speech audio playback with caching.
@@ -27,7 +29,8 @@ export function useTTS() {
         });
 
         if (!response.ok) {
-          throw new Error("TTS request failed");
+          const message = await getResponseErrorMessage(response);
+          throw new Error(message);
         }
 
         const audioBlob = await response.blob();
@@ -52,7 +55,8 @@ export function useTTS() {
 
       await audio.play();
     } catch (error) {
-      console.error("Failed to play audio:", error);
+      const message = error instanceof Error ? error.message : "Failed to play audio";
+      toast.error(message);
       setPlayingWordKey(null);
     }
   }, [playingWordKey]);
@@ -65,4 +69,3 @@ export function useTTS() {
     playTTS,
   };
 }
-

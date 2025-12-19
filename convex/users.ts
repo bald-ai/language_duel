@@ -1,8 +1,15 @@
 import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
 import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX, DEFAULT_NICKNAME } from "./constants";
+import {
+  LLM_MONTHLY_CREDITS,
+  TTS_MONTHLY_GENERATIONS,
+  LLM_THEME_CREDITS,
+  LLM_SMALL_ACTION_CREDITS,
+  TTS_GENERATION_COST,
+} from "../lib/credits/constants";
 
 // Public user profile (no sensitive fields)
 export type PublicUser = {
@@ -25,7 +32,32 @@ export type CurrentUser = {
   imageUrl?: string;
   nickname?: string;
   discriminator?: number;
+  llmCreditsRemaining: number;
+  ttsGenerationsRemaining: number;
+  creditsMonth: string;
 };
+
+function getCurrentMonthKey(now = Date.now()): string {
+  const date = new Date(now);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function normalizeCreditState(user: Doc<"users">, now = Date.now()) {
+  const creditsMonth = getCurrentMonthKey(now);
+  const shouldReset =
+    user.creditsMonth !== creditsMonth ||
+    user.llmCreditsRemaining === undefined ||
+    user.ttsGenerationsRemaining === undefined;
+
+  return {
+    creditsMonth,
+    llmCreditsRemaining: shouldReset ? LLM_MONTHLY_CREDITS : user.llmCreditsRemaining!,
+    ttsGenerationsRemaining: shouldReset ? TTS_MONTHLY_GENERATIONS : user.ttsGenerationsRemaining!,
+    shouldReset,
+  };
+}
 
 export const getUsers = query({
   args: {},
@@ -58,6 +90,8 @@ export const getCurrentUser = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
+    const normalizedCredits = normalizeCreditState(auth.user);
+
     return {
       _id: auth.user._id,
       clerkId: auth.user.clerkId,
@@ -66,6 +100,9 @@ export const getCurrentUser = query({
       imageUrl: auth.user.imageUrl,
       nickname: auth.user.nickname,
       discriminator: auth.user.discriminator,
+      llmCreditsRemaining: normalizedCredits.llmCreditsRemaining,
+      ttsGenerationsRemaining: normalizedCredits.ttsGenerationsRemaining,
+      creditsMonth: normalizedCredits.creditsMonth,
     };
   },
 });
@@ -245,11 +282,25 @@ export const syncUser = mutation({
 
     if (existingUser) {
       // If existing user doesn't have nickname, assign one (migration path)
+      const updates: Partial<Doc<"users">> = {};
+
       if (!existingUser.nickname) {
         const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
         const validNickname = nickname.length >= 3 ? nickname.slice(0, 20) : DEFAULT_NICKNAME;
         const discriminator = await generateDiscriminator(ctx, validNickname);
-        await ctx.db.patch(existingUser._id, { nickname: validNickname, discriminator });
+        updates.nickname = validNickname;
+        updates.discriminator = discriminator;
+      }
+
+      const normalizedCredits = normalizeCreditState(existingUser);
+      if (normalizedCredits.shouldReset) {
+        updates.llmCreditsRemaining = normalizedCredits.llmCreditsRemaining;
+        updates.ttsGenerationsRemaining = normalizedCredits.ttsGenerationsRemaining;
+        updates.creditsMonth = normalizedCredits.creditsMonth;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existingUser._id, updates);
       }
       return existingUser._id;
     }
@@ -258,11 +309,66 @@ export const syncUser = mutation({
     const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
     const validNickname = nickname.length >= 3 ? nickname.slice(0, 20) : DEFAULT_NICKNAME;
     const discriminator = await generateDiscriminator(ctx, validNickname);
+    const creditsMonth = getCurrentMonthKey();
 
     return await ctx.db.insert("users", {
       ...args,
       nickname: validNickname,
       discriminator,
+      llmCreditsRemaining: LLM_MONTHLY_CREDITS,
+      ttsGenerationsRemaining: TTS_MONTHLY_GENERATIONS,
+      creditsMonth,
     });
+  },
+});
+
+export const consumeCredits = mutation({
+  args: {
+    creditType: v.union(v.literal("llm"), v.literal("tts")),
+    cost: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const cost = Math.floor(args.cost);
+    if (!Number.isFinite(cost) || cost <= 0) {
+      throw new Error("Invalid credit cost");
+    }
+
+    if (args.creditType === "tts" && cost !== TTS_GENERATION_COST) {
+      throw new Error("Invalid TTS credit cost");
+    }
+
+    if (args.creditType === "llm" && (cost < LLM_SMALL_ACTION_CREDITS || cost > LLM_THEME_CREDITS)) {
+      throw new Error("Invalid LLM credit cost");
+    }
+
+    const normalized = normalizeCreditState(user);
+    let nextLlmCredits = normalized.llmCreditsRemaining;
+    let nextTtsGenerations = normalized.ttsGenerationsRemaining;
+
+    if (args.creditType === "llm") {
+      if (nextLlmCredits < cost) {
+        throw new Error("LLM credits exhausted");
+      }
+      nextLlmCredits -= cost;
+    } else {
+      if (nextTtsGenerations < cost) {
+        throw new Error("TTS credits exhausted");
+      }
+      nextTtsGenerations -= cost;
+    }
+
+    await ctx.db.patch(user._id, {
+      llmCreditsRemaining: nextLlmCredits,
+      ttsGenerationsRemaining: nextTtsGenerations,
+      creditsMonth: normalized.creditsMonth,
+    });
+
+    return {
+      llmCreditsRemaining: nextLlmCredits,
+      ttsGenerationsRemaining: nextTtsGenerations,
+      creditsMonth: normalized.creditsMonth,
+    };
   },
 });

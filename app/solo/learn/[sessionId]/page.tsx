@@ -6,6 +6,8 @@ import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { TIMER_OPTIONS } from "@/lib/constants";
+import { toast } from "sonner";
+import { getResponseErrorMessage } from "@/lib/api/errors";
 import { formatDuration } from "@/lib/stringUtils";
 import { WordCard } from "./components";
 import { useDraggableList } from "./hooks/useDraggableList";
@@ -162,7 +164,10 @@ export default function LearnPhasePage() {
         body: JSON.stringify({ text: spanishWord }),
       });
 
-      if (!response.ok) throw new Error("TTS request failed");
+      if (!response.ok) {
+        const message = await getResponseErrorMessage(response);
+        throw new Error(message);
+      }
 
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
@@ -183,7 +188,8 @@ export default function LearnPhasePage() {
 
       await audio.play();
     } catch (error) {
-      console.error("Failed to play audio:", error);
+      const message = error instanceof Error ? error.message : "Failed to play audio";
+      toast.error(message);
       setPlayingWordIndex(null);
     }
   };

@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
 
@@ -52,7 +53,7 @@ export function FriendFilterModal({
           >
             <span className="font-bold text-amber-400">Show All Themes</span>
             <p className="text-sm text-gray-500 mt-1">
-              View your themes and all friend's shared themes
+              View your themes and all friends&apos; shared themes
             </p>
           </button>
 
@@ -76,7 +77,7 @@ export function FriendFilterModal({
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-gray-500 mb-2 px-1">Friend's themes:</p>
+              <p className="text-sm text-gray-500 mb-2 px-1">Friends&apos; themes:</p>
               {friends.map((friend) => {
                 const displayName = friend.nickname && friend.discriminator
                   ? `${friend.nickname}#${friend.discriminator}`
@@ -130,4 +131,3 @@ export function FriendFilterModal({
     </div>
   );
 }
-

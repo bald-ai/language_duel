@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ConvexHttpClient } from 'convex/browser';
+import { auth } from '@clerk/nextjs/server';
+import { api } from '@/convex/_generated/api';
+import { TTS_GENERATION_COST } from '@/lib/credits/constants';
 
 export const runtime = 'nodejs';
 
@@ -6,6 +10,7 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = 'zl1Ut8dvwcVSuQSB9XkG';
 const MODEL_ID = 'eleven_multilingual_v2';
 const OUTPUT_FORMAT = 'mp3_44100_128';
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || '';
 
 const VOICE_SETTINGS = {
   speed: 0.7,
@@ -14,6 +19,45 @@ const VOICE_SETTINGS = {
 
 const MAX_TEXT_CHARS = 2000;
 const TTS_TIMEOUT_MS = 15_000;
+
+async function getAuthedConvexClient() {
+  if (!CONVEX_URL) {
+    throw new Error('Convex URL not configured');
+  }
+
+  const authResult = await auth();
+  if (!authResult.userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const token = await authResult.getToken({ template: 'convex' });
+  if (!token) {
+    throw new Error('Unauthorized');
+  }
+
+  const client = new ConvexHttpClient(CONVEX_URL);
+  client.setAuth(token);
+  return client;
+}
+
+async function ensureTtsCreditsAvailable() {
+  const client = await getAuthedConvexClient();
+  const currentUser = await client.query(api.users.getCurrentUser, {});
+  if (!currentUser) {
+    throw new Error('Unauthorized');
+  }
+  if (currentUser.ttsGenerationsRemaining < TTS_GENERATION_COST) {
+    throw new Error('TTS credits exhausted');
+  }
+  return client;
+}
+
+async function consumeTtsCredit(client: ConvexHttpClient) {
+  await client.mutation(api.users.consumeCredits, {
+    creditType: 'tts',
+    cost: TTS_GENERATION_COST,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +82,15 @@ export async function POST(request: NextRequest) {
 
     if (!ELEVENLABS_API_KEY) {
       return NextResponse.json({ error: 'ElevenLabs API key not configured' }, { status: 500 });
+    }
+
+    let convexClient: ConvexHttpClient;
+    try {
+      convexClient = await ensureTtsCreditsAvailable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Credit check failed';
+      const status = message === 'Unauthorized' ? 401 : message === 'Convex URL not configured' ? 500 : 402;
+      return NextResponse.json({ error: message }, { status });
     }
 
     const controller = new AbortController();
@@ -70,6 +123,14 @@ export async function POST(request: NextRequest) {
         },
         { status: response.status }
       );
+    }
+
+    try {
+      await consumeTtsCredit(convexClient);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Credit check failed';
+      const status = message === 'Unauthorized' ? 401 : message === 'Convex URL not configured' ? 500 : 402;
+      return NextResponse.json({ error: message }, { status });
     }
 
     const audioBuffer = await response.arrayBuffer();

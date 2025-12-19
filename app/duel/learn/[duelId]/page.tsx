@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getResponseErrorMessage } from "@/lib/api/errors";
 import { TimerSelectionView, LearnGridView } from "./components";
 import { TIMER_GREEN_THRESHOLD, TIMER_YELLOW_THRESHOLD } from "@/app/game/constants";
 
@@ -157,7 +158,10 @@ export default function DuelLearnPage() {
         body: JSON.stringify({ text: spanishWord }),
       });
 
-      if (!response.ok) throw new Error("TTS request failed");
+      if (!response.ok) {
+        const message = await getResponseErrorMessage(response);
+        throw new Error(message);
+      }
 
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
@@ -179,7 +183,8 @@ export default function DuelLearnPage() {
 
       await audio.play();
     } catch (error) {
-      console.error("Failed to play audio:", error);
+      const message = error instanceof Error ? error.message : "Failed to play audio";
+      toast.error(message);
       setPlayingWordIndex(null);
     }
   };

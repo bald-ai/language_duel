@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { stripIrr } from "@/lib/stringUtils";
 import {
   calculateClassicDifficultyDistribution,
@@ -53,6 +54,7 @@ import {
   HintSystemUI,
   FinalResultsPanel,
 } from "@/app/game/components/duel";
+import { getResponseErrorMessage } from "@/lib/api/errors";
 
 // Props interface
 interface ClassicDuelChallengeProps {
@@ -615,7 +617,10 @@ export default function ClassicDuelChallenge({
         body: JSON.stringify({ text: correctAnswer }),
       });
       
-      if (!response.ok) throw new Error('TTS request failed');
+      if (!response.ok) {
+        const message = await getResponseErrorMessage(response);
+        throw new Error(message);
+      }
       
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
@@ -646,7 +651,8 @@ export default function ClassicDuelChallenge({
       
       await audio.play();
     } catch (error) {
-      console.error('Failed to play audio:', error);
+      const message = error instanceof Error ? error.message : "Failed to play audio";
+      toast.error(message);
       setIsPlayingAudio(false);
     }
   };

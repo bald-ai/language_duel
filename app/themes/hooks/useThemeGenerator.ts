@@ -59,12 +59,13 @@ export function useThemeGenerator() {
       });
 
       if (!result.success || !result.data) {
+        const message = result.error || "Generation failed";
         setState((prev) => ({
           ...prev,
           isGenerating: false,
-          error: result.error || "Generation failed",
+          error: message,
         }));
-        return null;
+        throw new Error(message);
       }
 
       setState((prev) => ({ ...prev, isGenerating: false }));
@@ -72,7 +73,7 @@ export function useThemeGenerator() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
-      return null;
+      throw new Error(errorMsg);
     }
   }, [state.themeName, state.themePrompt, state.wordType]);
 
@@ -237,4 +238,3 @@ export function useGenerateRandom() {
     generate,
   };
 }
-

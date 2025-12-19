@@ -6,6 +6,8 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { HINT_BANNER_DURATION_MS, FEEDBACK_SHORT_MS, FEEDBACK_LONG_MS } from "@/lib/constants";
+import { toast } from "sonner";
+import { getResponseErrorMessage } from "@/lib/api/errors";
 
 interface Word {
   word: string;
@@ -273,7 +275,10 @@ export function useSoloStyleGame({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: word, lang: "es" }),
       });
-      if (!response.ok) throw new Error("TTS request failed");
+      if (!response.ok) {
+        const message = await getResponseErrorMessage(response);
+        throw new Error(message);
+      }
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       if (ttsAudioRef.current) {
@@ -294,7 +299,8 @@ export function useSoloStyleGame({
       };
       await audio.play();
     } catch (error) {
-      console.error("Failed to play TTS:", error);
+      const message = error instanceof Error ? error.message : "Failed to play audio";
+      toast.error(message);
       isPlayingTTSRef.current = false;
       setIsPlayingTTS(false);
     }
@@ -600,4 +606,3 @@ export function useSoloStyleGame({
     handleEliminateL2Option,
   };
 }
-

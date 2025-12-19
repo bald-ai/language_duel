@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { ConvexHttpClient } from "convex/browser";
+import { auth } from "@clerk/nextjs/server";
+import { api } from "@/convex/_generated/api";
 import {
   buildAddWordPrompt,
   buildFieldSystemPrompt,
@@ -16,6 +19,7 @@ import {
   wordSchema,
   wrongAnswerSchema,
 } from "@/lib/generate/schemas";
+import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
 
 export const runtime = 'nodejs';
 
@@ -24,6 +28,7 @@ const OPENAI_REASONING_EFFORT = "low" as const;
 
 const RANDOM_WORDS_MIN_COUNT = 1;
 const RANDOM_WORDS_MAX_COUNT = 10;
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 
 type WordWithChoices = { word: string; answer: string; wrongAnswers: string[] };
 type AnswerOnly = { answer: string };
@@ -103,6 +108,45 @@ function toResponsesInput(messages: ChatMessage[]) {
   }));
 }
 
+async function getAuthedConvexClient() {
+  if (!CONVEX_URL) {
+    throw new Error("Convex URL not configured");
+  }
+
+  const authResult = await auth();
+  if (!authResult.userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const token = await authResult.getToken({ template: "convex" });
+  if (!token) {
+    throw new Error("Unauthorized");
+  }
+
+  const client = new ConvexHttpClient(CONVEX_URL);
+  client.setAuth(token);
+  return client;
+}
+
+async function ensureLlmCreditsAvailable(cost: number) {
+  const client = await getAuthedConvexClient();
+  const currentUser = await client.query(api.users.getCurrentUser, {});
+  if (!currentUser) {
+    throw new Error("Unauthorized");
+  }
+  if (currentUser.llmCreditsRemaining < cost) {
+    throw new Error("LLM credits exhausted");
+  }
+  return client;
+}
+
+async function consumeLlmCredits(client: ConvexHttpClient, cost: number) {
+  await client.mutation(api.users.consumeCredits, {
+    creditType: "llm",
+    cost,
+  });
+}
+
 async function callOpenAIJson<T>(
   openai: OpenAI,
   params: {
@@ -131,21 +175,34 @@ async function callOpenAIJson<T>(
 }
 
 export async function POST(request: NextRequest) {
-  // Debug logging
-  console.log("POST /api/generate started");
-  console.log("OPEN_AI_API_KEY exists:", !!process.env.OPEN_AI_API_KEY);
-  console.log("OPEN_AI_API_KEY length:", process.env.OPEN_AI_API_KEY?.length);
-
   const openai = new OpenAI({
     apiKey: process.env.OPEN_AI_API_KEY,
     baseURL: "https://api.openai.com/v1",
   });
-  console.log("OpenAI baseURL:", openai.baseURL);
 
   try {
     const body: GenerateRequest = await request.json();
-    console.log("Request type:", body.type);
-    console.log("Making OpenAI request...");
+
+    const isKnownType =
+      body.type === "theme" ||
+      body.type === "field" ||
+      body.type === "regenerate-for-word" ||
+      body.type === "add-word" ||
+      body.type === "generate-random-words";
+
+    if (!isKnownType) {
+      return NextResponse.json({ success: false, error: "Invalid request type" }, { status: 400 });
+    }
+
+    const creditCost = body.type === "theme" ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
+    let convexClient: ConvexHttpClient;
+    try {
+      convexClient = await ensureLlmCreditsAvailable(creditCost);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Credit check failed";
+      const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+      return NextResponse.json({ success: false, error: message }, { status });
+    }
 
     if (body.type === "theme") {
       // Generate full theme - select prompt based on wordType
@@ -171,6 +228,13 @@ export async function POST(request: NextRequest) {
           schema: themeSchema,
         }
       );
+      try {
+        await consumeLlmCredits(convexClient, creditCost);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Credit check failed";
+        const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+        return NextResponse.json({ success: false, error: message }, { status });
+      }
       return NextResponse.json({
         success: true,
         data: parsed.words,
@@ -218,6 +282,13 @@ export async function POST(request: NextRequest) {
         schemaName,
         schema: schema as JsonSchema,
       });
+      try {
+        await consumeLlmCredits(convexClient, creditCost);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Credit check failed";
+        const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+        return NextResponse.json({ success: false, error: message }, { status });
+      }
       return NextResponse.json({
         success: true,
         data: parsed,
@@ -240,6 +311,13 @@ export async function POST(request: NextRequest) {
         schemaName: "answer_and_wrongs",
         schema: answerAndWrongsSchema,
       });
+      try {
+        await consumeLlmCredits(convexClient, creditCost);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Credit check failed";
+        const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+        return NextResponse.json({ success: false, error: message }, { status });
+      }
       return NextResponse.json({
         success: true,
         data: parsed,
@@ -262,6 +340,13 @@ export async function POST(request: NextRequest) {
         schemaName: "answer_and_wrongs",
         schema: answerAndWrongsSchema,
       });
+      try {
+        await consumeLlmCredits(convexClient, creditCost);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Credit check failed";
+        const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+        return NextResponse.json({ success: false, error: message }, { status });
+      }
       return NextResponse.json({
         success: true,
         data: {
@@ -301,6 +386,13 @@ export async function POST(request: NextRequest) {
           schema: createRandomWordsSchema(validCount),
         }
       );
+      try {
+        await consumeLlmCredits(convexClient, creditCost);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Credit check failed";
+        const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
+        return NextResponse.json({ success: false, error: message }, { status });
+      }
       return NextResponse.json({
         success: true,
         data: parsed.words,

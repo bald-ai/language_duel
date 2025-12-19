@@ -15,6 +15,7 @@ interface ThemeActionsState {
 interface ActionResult {
   ok: boolean;
   error?: string;
+  themeId?: Id<"themes">;
 }
 
 export function useThemeActions() {
@@ -43,9 +44,9 @@ export function useThemeActions() {
     ): Promise<ActionResult> => {
       setState((prev) => ({ ...prev, isCreating: true, error: null }));
       try {
-        await createTheme({ name, description, words, wordType });
+        const themeId = await createTheme({ name, description, words, wordType });
         setState((prev) => ({ ...prev, isCreating: false }));
-        return { ok: true };
+        return { ok: true, themeId };
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Failed to create theme";
         setState((prev) => ({ ...prev, isCreating: false, error: msg }));

@@ -13,7 +13,6 @@ interface GenerateThemeModalProps {
   themePrompt: string;
   wordType: WordType;
   isGenerating: boolean;
-  error: string | null;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
   onWordTypeChange: (wordType: WordType) => void;
@@ -27,7 +26,6 @@ export function GenerateThemeModal({
   themePrompt,
   wordType,
   isGenerating,
-  error,
   onThemeNameChange,
   onThemePromptChange,
   onWordTypeChange,
@@ -107,12 +105,6 @@ export function GenerateThemeModal({
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
-            {error}
-          </div>
-        )}
-
         {isGenerating && (
           <div className="mb-4 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
@@ -140,4 +132,3 @@ export function GenerateThemeModal({
     </div>
   );
 }
-
