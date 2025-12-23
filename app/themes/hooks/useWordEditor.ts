@@ -20,6 +20,7 @@ interface WordEditorState {
   conversationHistory: ConversationMessage[];
   currentPrompt: string;
   userFeedback: string;
+  customInstructions: string;
   rejectedWords: string[];
   isGenerating: boolean;
   isRegenerating: boolean;
@@ -39,6 +40,7 @@ const initialState: WordEditorState = {
   conversationHistory: [],
   currentPrompt: "Prompt will be generated...",
   userFeedback: "",
+  customInstructions: "",
   rejectedWords: [],
   isGenerating: false,
   isRegenerating: false,
@@ -84,6 +86,10 @@ export function useWordEditor() {
 
   const setUserFeedback = useCallback((feedback: string) => {
     setState((prev) => ({ ...prev, userFeedback: feedback }));
+  }, []);
+
+  const setCustomInstructions = useCallback((instructions: string) => {
+    setState((prev) => ({ ...prev, customInstructions: instructions }));
   }, []);
 
   const goToManual = useCallback(() => {
@@ -136,6 +142,7 @@ export function useWordEditor() {
           existingWords: state.editingField === "word" ? existingWords : undefined,
           rejectedWords: state.editingField === "word" ? currentRejectedWords : undefined,
           history: state.conversationHistory,
+          customInstructions: state.customInstructions,
         });
 
         if (!result.success || !result.data) {
@@ -178,7 +185,7 @@ export function useWordEditor() {
         throw error;
       }
     },
-    [state.editingWordIndex, state.editingField, state.editingWrongIndex, state.conversationHistory, state.rejectedWords]
+    [state.editingWordIndex, state.editingField, state.editingWrongIndex, state.conversationHistory, state.rejectedWords, state.customInstructions]
   );
 
   const regenerate = useCallback(
@@ -250,6 +257,7 @@ export function useWordEditor() {
     setEditMode,
     setManualValue,
     setUserFeedback,
+    setCustomInstructions,
     goToManual,
     showRegenerateConfirm,
     hideRegenerateConfirm,

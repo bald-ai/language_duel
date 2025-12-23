@@ -55,6 +55,7 @@ export interface GenerateFieldParams {
   existingWords?: string[];
   rejectedWords?: string[];
   history?: { role: "user" | "assistant"; content: string }[];
+  customInstructions?: string;
 }
 
 export interface GenerateFieldResult {
@@ -88,6 +89,7 @@ export async function generateField(params: GenerateFieldParams): Promise<Genera
       existingWords: params.existingWords,
       rejectedWords: params.rejectedWords,
       history: params.history,
+      customInstructions: params.customInstructions,
     }),
   });
 

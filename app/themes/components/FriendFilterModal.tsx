@@ -1,9 +1,9 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
 import { colors } from "@/lib/theme";
+import { Avatar } from "@/app/components/Avatar";
 
 interface FriendFilterModalProps {
   isOpen: boolean;
@@ -121,26 +121,12 @@ export function FriendFilterModal({
                       borderColor: colors.primary.dark,
                     }}
                   >
-                    {friend.imageUrl ? (
-                      <img
-                        src={friend.imageUrl}
-                        alt=""
-                        className="w-10 h-10 rounded-full border-2"
-                        style={{ borderColor: colors.primary.dark }}
-                      />
-                    ) : (
-                      <div
-                        className="w-10 h-10 rounded-full border-2 flex items-center justify-center"
-                        style={{
-                          backgroundColor: colors.background.elevated,
-                          borderColor: colors.primary.dark,
-                        }}
-                      >
-                        <span className="font-bold" style={{ color: colors.text.muted }}>
-                          {(friend.nickname || friend.email)[0].toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                    <Avatar
+                      src={friend.imageUrl}
+                      name={friend.nickname || friend.email}
+                      size={40}
+                      borderColor={colors.primary.dark}
+                    />
                     <div className="flex-1 text-left min-w-0">
                       <p className="font-medium truncate" style={{ color: colors.text.DEFAULT }}>
                         {displayName}

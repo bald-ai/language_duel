@@ -1,8 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { Avatar } from "@/app/components/Avatar";
 
 interface UserCardProps {
   userId: Id<"users">;
@@ -39,29 +39,12 @@ export function UserCard({
         borderColor: colors.primary.dark,
       }}
     >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt=""
-          className="w-12 h-12 rounded-full border-2"
-          style={{ borderColor: colors.neutral.dark }}
-        />
-      ) : (
-        <div 
-          className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
-          style={{ 
-            backgroundColor: colors.primary.dark,
-            borderColor: colors.neutral.dark,
-          }}
-        >
-          <span 
-            className="text-lg font-bold"
-            style={{ color: colors.neutral.DEFAULT }}
-          >
-            {(nickname || email)[0].toUpperCase()}
-          </span>
-        </div>
-      )}
+      <Avatar
+        src={imageUrl}
+        name={nickname || email}
+        size={48}
+        borderColor={colors.neutral.dark}
+      />
 
       <div className="flex-1 min-w-0">
         <p className="font-bold truncate" style={{ color: colors.text.DEFAULT }}>

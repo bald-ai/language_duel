@@ -1,6 +1,6 @@
 "use client";
 
-import { EDIT_MODES, type EditMode, type FieldType } from "../constants";
+import { EDIT_MODES, CUSTOM_INSTRUCTIONS_MAX_LENGTH, type EditMode, type FieldType } from "../constants";
 import { RegenerateConfirmModal } from "./RegenerateConfirmModal";
 import { buttonStyles, colors } from "@/lib/theme";
 
@@ -13,6 +13,8 @@ interface WordEditorProps {
   manualValue: string;
   currentPrompt: string;
   userFeedback: string;
+  promptSummary: string;
+  customInstructions: string;
   isGenerating: boolean;
   isRegenerating: boolean;
   showRegenerateModal: boolean;
@@ -21,6 +23,7 @@ interface WordEditorProps {
   onGoToManual: () => void;
   onManualValueChange: (value: string) => void;
   onUserFeedbackChange: (value: string) => void;
+  onCustomInstructionsChange: (value: string) => void;
   onAcceptGenerated: () => void;
   onRegenerate: () => void;
   onSaveManual: () => void;
@@ -61,6 +64,8 @@ export function WordEditor({
   manualValue,
   currentPrompt,
   userFeedback,
+  promptSummary,
+  customInstructions,
   isGenerating,
   isRegenerating,
   showRegenerateModal,
@@ -69,6 +74,7 @@ export function WordEditor({
   onGoToManual,
   onManualValueChange,
   onUserFeedbackChange,
+  onCustomInstructionsChange,
   onAcceptGenerated,
   onRegenerate,
   onSaveManual,
@@ -133,52 +139,77 @@ export function WordEditor({
           </div>
         </div>
 
-        {/* Raw Prompt Display - hide for answer manual edit */}
-        {!(editingField === "answer" && editMode === EDIT_MODES.MANUAL) && (
-          <div className="mb-4">
-            <div className="text-xs mb-1" style={{ color: colors.text.muted }}>
-              Prompt (from server)
-            </div>
-            <textarea
-              value={currentPrompt}
-              readOnly
-              className="w-full p-3 border-2 rounded-xl font-mono text-xs focus:outline-none resize-none"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-              rows={12}
-            />
-          </div>
-        )}
-
         {/* Choice Mode */}
         {editMode === EDIT_MODES.CHOICE && (
-          <div className="flex gap-3">
-            <button
-              onClick={onGenerate}
-              disabled={isGenerating}
-              className={rowActionButtonClassName}
-              style={primaryActionStyle}
+          <>
+            {/* Human-readable summary */}
+            <div
+              className="mb-4 p-3 border-2 rounded-xl"
+              style={{
+                backgroundColor: `${colors.secondary.DEFAULT}0D`,
+                borderColor: `${colors.secondary.DEFAULT}33`,
+              }}
             >
-              {isGenerating ? "Generating..." : "Generate"}
-            </button>
-            <button
-              onClick={onGoToManual}
-              className={outlineButtonClassName}
-              style={outlineButtonStyle}
-            >
-              Manually
-            </button>
-            <button
-              onClick={onBack}
-              className={outlineButtonClassName}
-              style={outlineButtonStyle}
-            >
-              Cancel
-            </button>
-          </div>
+              <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
+                What the AI will do
+              </div>
+              <div className="text-sm" style={{ color: colors.text.DEFAULT }}>
+                {promptSummary}
+              </div>
+            </div>
+
+            {/* Custom Instructions */}
+            <div className="mb-4">
+              <div className="text-xs mb-1" style={{ color: colors.text.muted }}>
+                Custom Instructions (optional)
+              </div>
+              <textarea
+                value={customInstructions}
+                onChange={(e) => {
+                  if (e.target.value.length <= CUSTOM_INSTRUCTIONS_MAX_LENGTH) {
+                    onCustomInstructionsChange(e.target.value);
+                  }
+                }}
+                placeholder="Add specifications (e.g., 'use formal language', 'make it more challenging', 'prefer Latin American Spanish')"
+                className="w-full p-3 border-2 rounded-xl text-sm focus:outline-none resize-none placeholder:opacity-60"
+                style={{
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.DEFAULT,
+                }}
+                rows={3}
+              />
+              <div className="text-xs text-right mt-1" style={{ color: colors.text.muted }}>
+                {customInstructions.length}/{CUSTOM_INSTRUCTIONS_MAX_LENGTH}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={onGenerate}
+                disabled={isGenerating}
+                className={rowActionButtonClassName}
+                style={primaryActionStyle}
+              >
+                {isGenerating ? "Generating..." : "Generate"}
+              </button>
+              <button
+                onClick={onGoToManual}
+                className={outlineButtonClassName}
+                style={outlineButtonStyle}
+              >
+                Manually
+              </button>
+              <button
+                onClick={onBack}
+                className={outlineButtonClassName}
+                style={outlineButtonStyle}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
         )}
 
         {/* Generate Mode */}

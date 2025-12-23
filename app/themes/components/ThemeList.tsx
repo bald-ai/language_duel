@@ -76,7 +76,7 @@ export function ThemeList({
     ? {
         backgroundColor: `${colors.secondary.DEFAULT}26`,
         borderColor: `${colors.secondary.DEFAULT}66`,
-        color: colors.secondary.light,
+        color: colors.cta.lighter,
       }
     : {
         backgroundColor: colors.background.DEFAULT,
@@ -135,7 +135,7 @@ export function ThemeList({
             <button
               onClick={onClearFriendFilter}
               className="mt-1 w-full py-1.5 text-xs sm:text-sm uppercase tracking-widest transition"
-              style={{ color: colors.secondary.light }}
+              style={{ color: colors.cta.lighter }}
             >
               Clear Filter
             </button>
@@ -166,7 +166,7 @@ export function ThemeList({
             return (
               <div
                 key={theme._id}
-                className="w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
+                className="relative w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
                 style={{
                   backgroundColor: colors.background.DEFAULT,
                   borderColor: colors.primary.dark,
@@ -179,15 +179,13 @@ export function ThemeList({
                       disabled={isMutating}
                       className="text-left flex-1 min-w-0 transition hover:brightness-110"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="font-bold text-lg leading-snug whitespace-normal break-words"
-                          title={theme.name}
-                          style={{ color: colors.text.DEFAULT }}
-                        >
-                          {theme.name}
-                        </span>
-                      </div>
+                      <span
+                        className="font-bold text-lg leading-snug whitespace-normal break-words"
+                        title={theme.name}
+                        style={{ color: colors.text.DEFAULT }}
+                      >
+                        {theme.name}
+                      </span>
                       <div
                         className="text-sm"
                         title={`${theme.words.length} words`}

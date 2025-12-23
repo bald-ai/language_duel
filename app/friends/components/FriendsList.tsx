@@ -1,9 +1,9 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
 import { colors } from "@/lib/theme";
+import { Avatar } from "@/app/components/Avatar";
 
 interface FriendsListProps {
   friends: FriendWithDetails[];
@@ -41,29 +41,12 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
               borderColor: colors.primary.dark,
             }}
           >
-            {friend.imageUrl ? (
-              <img
-                src={friend.imageUrl}
-                alt=""
-                className="w-12 h-12 rounded-full border-2"
-                style={{ borderColor: colors.neutral.DEFAULT }}
-              />
-            ) : (
-              <div 
-                className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
-                style={{ 
-                  backgroundColor: colors.primary.dark,
-                  borderColor: colors.neutral.DEFAULT,
-                }}
-              >
-                <span 
-                  className="text-lg font-bold"
-                  style={{ color: colors.neutral.DEFAULT }}
-                >
-                  {(friend.nickname || friend.email)[0].toUpperCase()}
-                </span>
-              </div>
-            )}
+            <Avatar
+              src={friend.imageUrl}
+              name={friend.nickname || friend.email}
+              size={48}
+              borderColor={colors.neutral.DEFAULT}
+            />
 
             <div className="flex-1 min-w-0">
               <p className="font-bold truncate" style={{ color: colors.text.DEFAULT }}>

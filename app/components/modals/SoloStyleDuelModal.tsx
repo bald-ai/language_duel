@@ -77,7 +77,7 @@ const dangerButtonStyle = {
   color: colors.status.danger.light,
 };
 
-const sectionLabelClassName = "text-xs uppercase tracking-widest mb-2";
+const sectionLabelClassName = "text-sm font-bold uppercase tracking-widest mb-3";
 
 export function SoloStyleDuelModal({
   users,
@@ -109,7 +109,11 @@ export function SoloStyleDuelModal({
   };
 
   return (
-    <ModalShell title="Create Solo Style Duel" maxHeight>
+    <ModalShell 
+      title="Create Solo Style Duel" 
+      maxHeight
+      infoTooltip="Solo Style: Independent progress, 3-level system with typing & multiple choice."
+    >
       <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4">
         {/* Pending Duels Section */}
         {pendingDuels === undefined ? (
@@ -165,7 +169,7 @@ export function SoloStyleDuelModal({
 
         {/* Section 1: Opponent Selector */}
         <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
+          <p className={sectionLabelClassName} style={{ color: colors.cta.light }}>
             Opponent
           </p>
           <OpponentSelector
@@ -178,7 +182,7 @@ export function SoloStyleDuelModal({
 
         {/* Section 2: Theme Selector */}
         <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
+          <p className={sectionLabelClassName} style={{ color: colors.cta.light }}>
             Theme
           </p>
           <CompactThemeSelector
@@ -188,19 +192,6 @@ export function SoloStyleDuelModal({
             onSelect={setSelectedThemeId}
             onCreateTheme={onNavigateToThemes}
           />
-        </div>
-
-        {/* Mode Info */}
-        <div
-          className="p-3 border-2 rounded-2xl"
-          style={{
-            backgroundColor: `${colors.primary.DEFAULT}1A`,
-            borderColor: `${colors.primary.DEFAULT}66`,
-          }}
-        >
-          <p className="text-xs text-center" style={{ color: colors.text.muted }}>
-            <strong style={{ color: colors.text.DEFAULT }}>Solo Style:</strong> Independent progress, 3-level system with typing & multiple choice.
-          </p>
         </div>
       </div>
 

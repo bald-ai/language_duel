@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import type { CurrentUser } from "@/convex/users";
 import {
   LLM_MONTHLY_CREDITS,
@@ -9,6 +8,7 @@ import {
   LLM_SMALL_ACTION_CREDITS,
 } from "@/lib/credits/constants";
 import { colors } from "@/lib/theme";
+import { Avatar } from "@/app/components/Avatar";
 
 interface ProfileCardProps {
   user: CurrentUser;
@@ -30,14 +30,12 @@ export function ProfileCard({ user }: ProfileCardProps) {
       }}
     >
       <div className="flex items-center gap-4">
-        {user.imageUrl && (
-          <img
-            src={user.imageUrl}
-            alt="Profile"
-            className="w-16 h-16 rounded-full border-2"
-            style={{ borderColor: colors.neutral.DEFAULT }}
-          />
-        )}
+        <Avatar
+          src={user.imageUrl}
+          name={user.nickname || user.email}
+          size={64}
+          borderColor={colors.neutral.DEFAULT}
+        />
         <div className="flex-1 min-w-0">
           <h2 
             className="text-2xl font-bold truncate"

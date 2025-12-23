@@ -55,6 +55,7 @@ interface RegenerateFieldRequest {
   existingWords?: string[]; // All other words in the theme to avoid duplicates
   rejectedWords?: string[]; // Previously rejected suggestions to avoid repeating
   history?: { role: "user" | "assistant"; content: string }[];
+  customInstructions?: string; // Optional user specifications for the generation
 }
 
 interface RegenerateForWordRequest {
@@ -244,7 +245,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.type === "field") {
-      const { fieldType, themeName, wordType, currentWord, currentAnswer, currentWrongAnswers, fieldIndex, existingWords, rejectedWords, history } = body;
+      const { fieldType, themeName, wordType, currentWord, currentAnswer, currentWrongAnswers, fieldIndex, existingWords, rejectedWords, history, customInstructions } = body;
       
       const systemPrompt = buildFieldSystemPrompt(
         fieldType,
@@ -255,7 +256,8 @@ export async function POST(request: NextRequest) {
         fieldIndex,
         existingWords,
         rejectedWords,
-        wordType || "nouns"
+        wordType || "nouns",
+        customInstructions
       );
 
       // Choose schema based on field type

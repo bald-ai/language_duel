@@ -13,6 +13,7 @@ import {
   isWordDuplicate,
   checkThemeForWrongMatchingAnswer,
 } from "@/lib/themes";
+import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
 import {
@@ -75,7 +76,9 @@ export function useThemesController() {
   const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
 
-  const themes = useMemo(() => rawThemesQuery || [], [rawThemesQuery]);
+  const rawThemes = useMemo(() => rawThemesQuery || [], [rawThemesQuery]);
+
+  const themes = rawThemes;
 
   // Get selected friend details for display
   const selectedFriend = useMemo(() => {
@@ -628,6 +631,17 @@ export function useThemesController() {
       manualValue: wordEditor.manualValue,
       currentPrompt: wordEditor.currentPrompt,
       userFeedback: wordEditor.userFeedback,
+      promptSummary:
+        wordEditor.editingField && selectedTheme && wordEditor.editingWordIndex !== null
+          ? buildFieldSummary(
+              wordEditor.editingField,
+              selectedTheme.name,
+              localWords[wordEditor.editingWordIndex]?.word || "",
+              selectedTheme.wordType || "nouns",
+              wordEditor.editingWrongIndex
+            )
+          : "",
+      customInstructions: wordEditor.customInstructions,
       isGenerating: wordEditor.isGenerating,
       isRegenerating: wordEditor.isRegenerating,
       showRegenerateModal: wordEditor.showRegenerateModal,
@@ -636,6 +650,7 @@ export function useThemesController() {
       onGoToManual: wordEditor.goToManual,
       onManualValueChange: wordEditor.setManualValue,
       onUserFeedbackChange: wordEditor.setUserFeedback,
+      onCustomInstructionsChange: wordEditor.setCustomInstructions,
       onAcceptGenerated: handleAcceptGenerated,
       onRegenerate: handleRegenerate,
       onSaveManual: handleSaveManual,

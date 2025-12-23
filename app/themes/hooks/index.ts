@@ -2,4 +2,3 @@ export { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGene
 export { useWordEditor } from "./useWordEditor";
 export { useThemeActions } from "./useThemeActions";
 export { useThemesController } from "./useThemesController";
-

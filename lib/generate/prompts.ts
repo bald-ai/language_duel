@@ -131,7 +131,8 @@ export function buildFieldSystemPrompt(
   fieldIndex?: number,
   existingWords?: string[],
   rejectedWords?: string[],
-  wordType: "nouns" | "verbs" = "nouns"
+  wordType: "nouns" | "verbs" = "nouns",
+  customInstructions?: string
 ): string {
   const isVerbs = wordType === "verbs";
   const context = `
@@ -140,28 +141,38 @@ CURRENT WORD (English): ${currentWord}
 CURRENT ANSWER (Spanish): ${currentAnswer}
 CURRENT WRONG ANSWERS (Spanish): ${currentWrongAnswers.join(", ")}`;
 
+  let basePrompt: string;
+
   if (fieldType === "word") {
-    return buildWordFieldPrompt(
+    basePrompt = buildWordFieldPrompt(
       themeName,
       currentWord,
       existingWords,
       rejectedWords,
       isVerbs
     );
+  } else if (fieldType === "answer") {
+    basePrompt = buildAnswerFieldPrompt(context, currentAnswer, isVerbs);
+  } else {
+    // fieldType === "wrong"
+    basePrompt = buildWrongFieldPrompt(
+      context,
+      currentAnswer,
+      currentWrongAnswers,
+      fieldIndex ?? 0,
+      isVerbs
+    );
   }
 
-  if (fieldType === "answer") {
-    return buildAnswerFieldPrompt(context, currentAnswer, isVerbs);
+  // Append custom instructions if provided
+  if (customInstructions?.trim()) {
+    return `${basePrompt}
+
+USER SPECIFICATIONS:
+${customInstructions.trim()}`;
   }
 
-  // fieldType === "wrong"
-  return buildWrongFieldPrompt(
-    context,
-    currentAnswer,
-    currentWrongAnswers,
-    fieldIndex ?? 0,
-    isVerbs
-  );
+  return basePrompt;
 }
 
 function buildWordFieldPrompt(
@@ -375,6 +386,53 @@ ${WRONG_ANSWER_REQUIREMENTS}
 ${ARTICLE_REQUIREMENT}
 
 ${OUTPUT_FORMAT_ANSWER_AND_WRONGS}`;
+}
+
+// ============================================================================
+// Human-Readable Summary Builders
+// ============================================================================
+
+/**
+ * Build a human-readable summary for word field generation.
+ */
+export function buildWordFieldSummary(themeName: string, wordType: "nouns" | "verbs"): string {
+  const wordLabel = wordType === "verbs" ? "verb" : "noun";
+  return `Generate a new English ${wordLabel} for your theme "${themeName}" with its Spanish translation and 6 challenging wrong answers.`;
+}
+
+/**
+ * Build a human-readable summary for answer field generation.
+ */
+export function buildAnswerFieldSummary(currentWord: string, wordType: "nouns" | "verbs"): string {
+  const translationType = wordType === "verbs" ? "infinitive" : "translation";
+  return `Provide a better Spanish ${translationType} for "${currentWord}".`;
+}
+
+/**
+ * Build a human-readable summary for wrong answer field generation.
+ */
+export function buildWrongFieldSummary(currentWord: string, wrongIndex: number, wordType: "nouns" | "verbs"): string {
+  const answerType = wordType === "verbs" ? "infinitive" : "translation";
+  return `Generate a new challenging wrong ${answerType} #${wrongIndex + 1} for "${currentWord}".`;
+}
+
+/**
+ * Wrapper function to build human-readable summaries for any field type.
+ */
+export function buildFieldSummary(
+  fieldType: "word" | "answer" | "wrong",
+  themeName: string,
+  currentWord: string,
+  wordType: "nouns" | "verbs",
+  wrongIndex?: number
+): string {
+  if (fieldType === "word") {
+    return buildWordFieldSummary(themeName, wordType);
+  }
+  if (fieldType === "answer") {
+    return buildAnswerFieldSummary(currentWord, wordType);
+  }
+  return buildWrongFieldSummary(currentWord, wrongIndex ?? 0, wordType);
 }
 
 // ============================================================================

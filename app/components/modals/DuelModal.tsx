@@ -80,7 +80,7 @@ const dangerButtonStyle = {
   color: colors.status.danger.light,
 };
 
-const sectionLabelClassName = "text-xs uppercase tracking-widest mb-2";
+const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semibold";
 
 export function DuelModal({
   users,
@@ -170,7 +170,7 @@ export function DuelModal({
 
         {/* Section 1: Opponent Selector */}
         <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
+          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
             Opponent
           </p>
           <OpponentSelector
@@ -183,7 +183,7 @@ export function DuelModal({
 
         {/* Section 2: Theme Selector */}
         <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
+          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
             Theme
           </p>
           <CompactThemeSelector
@@ -197,7 +197,7 @@ export function DuelModal({
 
         {/* Section 3: Difficulty Selector */}
         <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
+          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
             Difficulty
           </p>
           <DifficultySelector
