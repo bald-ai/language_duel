@@ -197,16 +197,17 @@ export const getTheme = query({
 
     // Allow access if theme is shared and caller is a confirmed friend of owner
     if (theme.visibility === "shared" && theme.ownerId) {
+      const ownerId = theme.ownerId;
       // Check friendship in either direction
       const friendshipFromCaller = await ctx.db
         .query("friends")
         .withIndex("by_user", (q) => q.eq("userId", currentUserId))
-        .filter((q) => q.eq(q.field("friendId"), theme.ownerId))
+        .filter((q) => q.eq(q.field("friendId"), ownerId))
         .first();
 
       const friendshipFromOwner = await ctx.db
         .query("friends")
-        .withIndex("by_user", (q) => q.eq("userId", theme.ownerId))
+        .withIndex("by_user", (q) => q.eq("userId", ownerId))
         .filter((q) => q.eq(q.field("friendId"), currentUserId))
         .first();
 

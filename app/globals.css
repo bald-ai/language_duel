@@ -15,6 +15,12 @@
 :root {
   color-scheme: dark;
   
+  /* Safe area insets for PWA/notch devices */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  
   /* ========================================
    * SEMANTIC COLOR ROLES (use these!)
    * ======================================== */
@@ -225,5 +231,37 @@ html {
 * {
   scrollbar-width: auto;
   scrollbar-color: var(--color-primary) var(--color-background-elevated);
+}
+
+/* ========================================
+ * PWA SAFE AREA UTILITIES
+ * ======================================== */
+
+/* Safe area padding utilities for PWA/notch devices */
+.pt-safe {
+  padding-top: var(--sat);
+}
+.pr-safe {
+  padding-right: var(--sar);
+}
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+.pl-safe {
+  padding-left: var(--sal);
+}
+.p-safe {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+}
+
+/* Dynamic viewport height - accounts for mobile browser chrome */
+.min-h-dvh {
+  min-height: 100dvh;
+}
+.h-dvh {
+  height: 100dvh;
 }
 
