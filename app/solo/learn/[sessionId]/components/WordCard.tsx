@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { ConfidenceSlider } from "./ConfidenceSlider";
 import { LetterGroups } from "./LetterGroups";
 import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
@@ -31,7 +32,48 @@ interface WordCardProps {
   refCallback?: (el: HTMLDivElement | null) => void;
 }
 
-export function WordCard({
+// Memoized static styles to avoid recreation on each render
+const cardStyleBase = {
+  backgroundColor: colors.background.DEFAULT,
+  borderColor: colors.primary.dark,
+} as const;
+
+const floatingStyleAdditions = {
+  borderColor: colors.primary.light,
+  boxShadow: `0 22px 50px ${colors.primary.glow}`,
+} as const;
+
+const iconButtonStyleConst = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+} as const;
+
+const disabledButtonStyleConst = {
+  backgroundColor: colors.background.DEFAULT,
+  borderColor: colors.neutral.dark,
+  color: colors.text.muted,
+} as const;
+
+const playingButtonStyleConst = {
+  backgroundColor: colors.secondary.DEFAULT,
+  borderColor: colors.secondary.dark,
+  color: colors.text.DEFAULT,
+} as const;
+
+const hintPillActiveStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+} as const;
+
+const hintPillInactiveStyle = {
+  backgroundColor: colors.background.DEFAULT,
+  borderColor: colors.neutral.dark,
+  color: colors.text.muted,
+} as const;
+
+export const WordCard = memo(function WordCard({
   word,
   isRevealed,
   confidence,
@@ -50,49 +92,24 @@ export function WordCard({
   style,
   refCallback,
 }: WordCardProps) {
+  // Memoize computed styles to avoid recreation
+  const computedStyle = useMemo(() => ({
+    ...style,
+    ...cardStyleBase,
+    ...(isFloating ? floatingStyleAdditions : null),
+  }), [style, isFloating]);
+
+  const hintPillStyle = hintsRemaining > 0 ? hintPillActiveStyle : hintPillInactiveStyle;
+
+  const ttsButtonStyle = isTTSPlaying
+    ? playingButtonStyleConst
+    : isTTSDisabled
+    ? disabledButtonStyleConst
+    : iconButtonStyleConst;
+
   const baseClasses = `rounded-2xl border-2 ${
     isRevealed ? "py-3 px-2.5" : "p-4"
   } select-none backdrop-blur-sm transition-all`;
-
-  const cardStyle = {
-    backgroundColor: colors.background.DEFAULT,
-    borderColor: colors.primary.dark,
-  };
-
-  const floatingStyle = {
-    borderColor: colors.primary.light,
-    boxShadow: `0 22px 50px ${colors.primary.glow}`,
-  };
-
-  const hintPillStyle = hintsRemaining > 0
-    ? {
-        backgroundColor: colors.background.elevated,
-        borderColor: colors.primary.dark,
-        color: colors.text.DEFAULT,
-      }
-    : {
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.neutral.dark,
-        color: colors.text.muted,
-      };
-
-  const iconButtonStyle = {
-    backgroundColor: colors.background.elevated,
-    borderColor: colors.primary.dark,
-    color: colors.text.DEFAULT,
-  };
-
-  const disabledButtonStyle = {
-    backgroundColor: colors.background.DEFAULT,
-    borderColor: colors.neutral.dark,
-    color: colors.text.muted,
-  };
-
-  const playingButtonStyle = {
-    backgroundColor: colors.secondary.DEFAULT,
-    borderColor: colors.secondary.dark,
-    color: colors.text.DEFAULT,
-  };
 
   const cursorClasses = isFloating ? "" : "cursor-grab active:cursor-grabbing";
   const visibilityClasses = isDragging ? "opacity-0" : "";
@@ -101,11 +118,7 @@ export function WordCard({
     <div
       ref={refCallback}
       onMouseDown={onMouseDown}
-      style={{
-        ...style,
-        ...cardStyle,
-        ...(isFloating ? floatingStyle : null),
-      }}
+      style={computedStyle}
       className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
     >
       <div className="flex items-stretch justify-between">
@@ -158,13 +171,7 @@ export function WordCard({
               className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition ${
                 isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
               }`}
-              style={
-                isTTSPlaying
-                  ? playingButtonStyle
-                  : isTTSDisabled
-                  ? disabledButtonStyle
-                  : iconButtonStyle
-              }
+              style={ttsButtonStyle}
             >
               <SpeakerIcon className="w-6 h-6" />
             </button>
@@ -183,7 +190,7 @@ export function WordCard({
               <button
                 onClick={onResetWord}
                 className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-                style={iconButtonStyle}
+                style={iconButtonStyleConst}
               >
                 <ResetIcon className="w-4 h-4" />
               </button>
@@ -192,7 +199,7 @@ export function WordCard({
               <button
                 onClick={onRevealFullWord}
                 className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-                style={iconButtonStyle}
+                style={iconButtonStyleConst}
               >
                 <EyeIcon className="w-4 h-4" />
               </button>
@@ -204,13 +211,7 @@ export function WordCard({
                 className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
                   isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
                 }`}
-                style={
-                  isTTSPlaying
-                    ? playingButtonStyle
-                    : isTTSDisabled
-                    ? disabledButtonStyle
-                    : iconButtonStyle
-                }
+                style={ttsButtonStyle}
               >
                 <SpeakerIcon className="w-4 h-4" />
               </button>
@@ -220,4 +221,7 @@ export function WordCard({
       </div>
     </div>
   );
-}
+});
+
+// Custom comparison function for React.memo to prevent unnecessary re-renders
+WordCard.displayName = "WordCard";

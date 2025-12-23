@@ -7,7 +7,7 @@ import { useSyncUser } from "@/hooks/useSyncUser";
 import { useDuelLobby } from "@/hooks/useDuelLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
-import { DuelModal, SoloModal, SoloStyleDuelModal, WaitingModal, JoiningModal } from "@/app/components/modals";
+import { SoloModal, WaitingModal, JoiningModal, UnifiedDuelModal } from "@/app/components/modals";
 import { colors } from "@/lib/theme";
 
 // Decorative icons for menu items
@@ -20,12 +20,6 @@ const StudyIcon = () => (
 const SoloIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-);
-
-const SoloStyleDuelIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
   </svg>
 );
 
@@ -119,20 +113,13 @@ export default function Home() {
           </div>
 
           <div className="animate-slide-up delay-500">
-            <MenuButton onClick={lobby.openSoloStyleDuelModal} badge={lobby.pendingSoloStyleCount}>
-              <SoloStyleDuelIcon />
-              Solo Style Duel
+            <MenuButton onClick={lobby.openUnifiedDuelModal} badge={lobby.pendingClassicCount + lobby.pendingSoloStyleCount}>
+              <DuelIcon />
+              Duel
             </MenuButton>
           </div>
           
           <div className="animate-slide-up delay-600">
-            <MenuButton onClick={lobby.openDuelModal} badge={lobby.pendingClassicCount}>
-              <DuelIcon />
-              Classic Duel
-            </MenuButton>
-          </div>
-          
-          <div className="animate-slide-up delay-700">
             <MenuButton onClick={() => router.push("/themes")}>
               <ThemesIcon />
               Manage Themes
@@ -142,32 +129,20 @@ export default function Home() {
       </main>
 
       {/* Modals */}
-      {lobby.showDuelModal && (
-        <DuelModal
+      {lobby.showUnifiedDuelModal && (
+        <UnifiedDuelModal
           users={lobby.users}
           themes={lobby.themes}
-          pendingDuels={lobby.pendingClassicDuels}
+          pendingDuels={[
+            ...(lobby.pendingClassicDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "classic" as const } })) || []),
+            ...(lobby.pendingSoloStyleDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "solo" as const } })) || []),
+          ]}
           isJoiningDuel={lobby.isJoiningDuel}
           isCreatingDuel={lobby.isCreatingDuel}
           onAcceptDuel={lobby.handleAcceptDuel}
           onRejectDuel={lobby.handleRejectDuel}
           onCreateDuel={lobby.handleCreateDuel}
-          onClose={lobby.closeDuelModal}
-          onNavigateToThemes={lobby.navigateToThemes}
-        />
-      )}
-
-      {lobby.showSoloStyleDuelModal && (
-        <SoloStyleDuelModal
-          users={lobby.users}
-          themes={lobby.themes}
-          pendingDuels={lobby.pendingSoloStyleDuels}
-          isJoiningDuel={lobby.isJoiningDuel}
-          isCreatingDuel={lobby.isCreatingDuel}
-          onAcceptDuel={lobby.handleAcceptDuel}
-          onRejectDuel={lobby.handleRejectDuel}
-          onCreateDuel={lobby.handleCreateDuel}
-          onClose={lobby.closeSoloStyleDuelModal}
+          onClose={lobby.closeUnifiedDuelModal}
           onNavigateToThemes={lobby.navigateToThemes}
         />
       )}

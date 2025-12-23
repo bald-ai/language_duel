@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo, useCallback } from "react";
 import { colors } from "@/lib/theme";
 
 interface LetterGroupsProps {
@@ -9,32 +10,51 @@ interface LetterGroupsProps {
   onRevealLetter: (position: number) => void;
 }
 
-export function LetterGroups({
+// Memoized static styles
+const letterSlotStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+} as const;
+
+const revealedLetterStyle = {
+  color: colors.secondary.light,
+} as const;
+
+export const LetterGroups = memo(function LetterGroups({
   answer,
   revealedPositions,
   hintsRemaining,
   onRevealLetter,
 }: LetterGroupsProps) {
-  const letters = answer.split("");
-  
-  // Group letters by words (split on spaces)
-  const wordGroups: Array<Array<{ idx: number; letter: string }>> = [];
-  let currentGroup: Array<{ idx: number; letter: string }> = [];
+  // Memoize word groups computation to avoid recalculating on every render
+  const wordGroups = useMemo(() => {
+    const letters = answer.split("");
+    const groups: Array<Array<{ idx: number; letter: string }>> = [];
+    let currentGroup: Array<{ idx: number; letter: string }> = [];
 
-  letters.forEach((letter, idx) => {
-    if (letter === " ") {
-      if (currentGroup.length > 0) {
-        wordGroups.push(currentGroup);
-        currentGroup = [];
+    letters.forEach((letter, idx) => {
+      if (letter === " ") {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        return;
       }
-      return;
-    }
-    currentGroup.push({ idx, letter });
-  });
+      currentGroup.push({ idx, letter });
+    });
 
-  if (currentGroup.length > 0) {
-    wordGroups.push(currentGroup);
-  }
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+    return groups;
+  }, [answer]);
+
+  // Create a stable click handler
+  const handleLetterClick = useCallback((idx: number, canReveal: boolean) => {
+    if (canReveal) {
+      onRevealLetter(idx);
+    }
+  }, [onRevealLetter]);
 
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-2 cursor-default">
@@ -47,7 +67,7 @@ export function LetterGroups({
             return (
               <div
                 key={idx}
-                onClick={() => canReveal && onRevealLetter(idx)}
+                onClick={() => handleLetterClick(idx, canReveal)}
                 className={`w-5 h-6 flex items-end justify-center rounded border-b-2 transition-colors cursor-default ${
                   canReveal
                     ? "cursor-pointer hover:brightness-110"
@@ -55,13 +75,10 @@ export function LetterGroups({
                     ? ""
                     : "cursor-not-allowed opacity-50"
                 }`}
-                style={{
-                  backgroundColor: colors.background.elevated,
-                  borderColor: colors.primary.dark,
-                }}
+                style={letterSlotStyle}
               >
                 {isRevealed && (
-                  <span className="text-base font-bold" style={{ color: colors.secondary.light }}>
+                  <span className="text-base font-bold" style={revealedLetterStyle}>
                     {letter.toUpperCase()}
                   </span>
                 )}
@@ -72,4 +89,6 @@ export function LetterGroups({
       ))}
     </div>
   );
-}
+});
+
+LetterGroups.displayName = "LetterGroups";

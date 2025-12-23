@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, RefObject } from "react";
+import { useState, useEffect, useRef, RefObject, useCallback, useMemo } from "react";
 
 const ANIMATION_TIMING = "200ms cubic-bezier(0.2, 0, 0, 1)";
+
+// Throttle interval in ms (16ms = ~60fps)
+const THROTTLE_MS = 16;
 
 interface UseDraggableListOptions {
   itemCount: number;
@@ -49,7 +52,7 @@ export function useDraggableList<T>(
     }
   }, [initialOrder, order.length]);
 
-  const handleMouseDown = (e: React.MouseEvent, orderIdx: number) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent, orderIdx: number) => {
     // Don't start drag if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest("input")) return;
@@ -61,13 +64,21 @@ export function useDraggableList<T>(
     };
     setDraggedIndex(orderIdx);
     setMousePos({ x: e.clientX, y: e.clientY });
-  };
+  }, []);
+
+  // Throttle ref for mousemove
+  const lastMoveTime = useRef<number>(0);
 
   // Mouse move and mouse up handlers
   useEffect(() => {
     if (draggedIndex === null || order.length === 0) return;
 
     const handleMouseMove = (e: MouseEvent) => {
+      // Throttle mousemove to 16ms (~60fps)
+      const now = performance.now();
+      if (now - lastMoveTime.current < THROTTLE_MS) return;
+      lastMoveTime.current = now;
+
       setMousePos({ x: e.clientX, y: e.clientY });
 
       // Calculate drop position based on mouse Y
@@ -78,7 +89,8 @@ export function useDraggableList<T>(
         let newDropIndex = 0;
         let accumulatedHeight = 0;
 
-        order.forEach((originalIdx, index) => {
+        for (let index = 0; index < order.length; index++) {
+          const originalIdx = order[index];
           const itemEl = itemRefs.current.get(originalIdx as number);
           if (itemEl && index !== draggedIndex) {
             const height = itemEl.offsetHeight + gap;
@@ -89,7 +101,7 @@ export function useDraggableList<T>(
           } else if (index === draggedIndex) {
             accumulatedHeight += gap;
           }
-        });
+        }
 
         setDropIndex(newDropIndex);
       }
@@ -118,7 +130,7 @@ export function useDraggableList<T>(
     };
   }, [draggedIndex, dropIndex, order, gap]);
 
-  const getItemStyle = (orderIdx: number, originalIndex: number): React.CSSProperties => {
+  const getItemStyle = useCallback((orderIdx: number, originalIndex: number): React.CSSProperties => {
     if (draggedIndex === null || dropIndex === null || order.length === 0) return {};
     if (orderIdx === draggedIndex) return {};
 
@@ -155,16 +167,19 @@ export function useDraggableList<T>(
     }
 
     return { transition: `transform ${ANIMATION_TIMING}` };
-  };
+  }, [draggedIndex, dropIndex, order.length, gap]);
+
+  // Memoize dragState to prevent unnecessary re-renders
+  const dragState = useMemo<DragState>(() => ({
+    draggedIndex,
+    dropIndex,
+    mousePos,
+  }), [draggedIndex, dropIndex, mousePos]);
 
   return {
     order,
     setOrder,
-    dragState: {
-      draggedIndex,
-      dropIndex,
-      mousePos,
-    },
+    dragState,
     containerRef,
     itemRefs,
     dragOffset,

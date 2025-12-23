@@ -12,7 +12,7 @@ import { toast } from "sonner";
 // Types
 // ============================================================================
 
-export type ModalState = "none" | "duel" | "solo" | "soloStyleDuel" | "waiting";
+export type ModalState = "none" | "duel" | "solo" | "soloStyleDuel" | "unifiedDuel" | "waiting";
 
 export interface CreateDuelOptions {
   opponentId: Id<"users">;
@@ -60,6 +60,7 @@ export function useDuelModals() {
   const openDuelModal = useCallback(() => setModalState("duel"), []);
   const openSoloModal = useCallback(() => setModalState("solo"), []);
   const openSoloStyleDuelModal = useCallback(() => setModalState("soloStyleDuel"), []);
+  const openUnifiedDuelModal = useCallback(() => setModalState("unifiedDuel"), []);
   const openWaitingModal = useCallback(() => setModalState("waiting"), []);
 
   const closeModal = useCallback(() => {
@@ -71,10 +72,12 @@ export function useDuelModals() {
     showDuelModal: modalState === "duel",
     showSoloModal: modalState === "solo",
     showSoloStyleDuelModal: modalState === "soloStyleDuel",
+    showUnifiedDuelModal: modalState === "unifiedDuel",
     showWaitingModal: modalState === "waiting",
     openDuelModal,
     openSoloModal,
     openSoloStyleDuelModal,
+    openUnifiedDuelModal,
     openWaitingModal,
     closeModal,
   };
@@ -90,7 +93,6 @@ interface UseDuelActionsOptions {
 }
 
 export function useDuelActions({ onDuelCreated, onWaitingCancelled }: UseDuelActionsOptions) {
-  const router = useRouter();
 
   const createDuelMutation = useMutation(api.duel.createDuel);
   const acceptDuelMutation = useMutation(api.duel.acceptDuel);
@@ -98,7 +100,6 @@ export function useDuelActions({ onDuelCreated, onWaitingCancelled }: UseDuelAct
   const cancelPendingDuelMutation = useMutation(api.duel.cancelPendingDuel);
 
   const [isCreatingDuel, setIsCreatingDuel] = useState(false);
-  const [isJoiningDuel, setIsJoiningDuel] = useState(false);
   const [isCancellingDuel, setIsCancellingDuel] = useState(false);
   const [waitingDuelId, setWaitingDuelId] = useState<Id<"challenges"> | null>(null);
 
@@ -127,18 +128,9 @@ export function useDuelActions({ onDuelCreated, onWaitingCancelled }: UseDuelAct
 
   const handleAcceptDuel = useCallback(
     async (duelId: Id<"challenges">) => {
-      setIsJoiningDuel(true);
-      try {
-        await acceptDuelMutation({ duelId });
-        router.push(`/duel/${duelId}`);
-      } catch (error) {
-        console.error("Failed to accept duel:", error);
-        toast.error("Failed to accept duel. Please try again.");
-      } finally {
-        setIsJoiningDuel(false);
-      }
+      await acceptDuelMutation({ duelId });
     },
-    [acceptDuelMutation, router]
+    [acceptDuelMutation]
   );
 
   const handleRejectDuel = useCallback(
@@ -177,7 +169,6 @@ export function useDuelActions({ onDuelCreated, onWaitingCancelled }: UseDuelAct
   return {
     waitingDuelId,
     isCreatingDuel,
-    isJoiningDuel,
     isCancellingDuel,
     handleCreateDuel,
     handleAcceptDuel,
@@ -211,8 +202,13 @@ export function useDuelStatusWatcher({
   useEffect(() => {
     if (waitingDuel) {
       const status = waitingDuel.duel.status;
+      const mode = waitingDuel.duel.mode;
+
       if (status === "challenging" || status === "accepted") {
-        router.push(`/duel/${waitingDuelId}`);
+        const route = mode === "classic"
+          ? `/classic-duel/${waitingDuelId}`
+          : `/duel/${waitingDuelId}`;
+        router.push(route);
         onAccepted();
       } else if (status === "rejected" || status === "stopped" || status === "cancelled") {
         onRejected();
@@ -247,6 +243,45 @@ export function useDuelLobby() {
     onRejected: modals.closeModal,
   });
 
+  // State for handling accepted duel routing
+  const [isJoiningDuel, setIsJoiningDuel] = useState(false);
+  const [acceptingDuelId, setAcceptingDuelId] = useState<Id<"challenges"> | null>(null);
+
+  const acceptedDuel = useQuery(
+    api.duel.getDuel,
+    acceptingDuelId ? { duelId: acceptingDuelId } : "skip"
+  );
+
+  useEffect(() => {
+    if (acceptedDuel && acceptingDuelId) {
+      const route = acceptedDuel.duel.mode === "classic"
+        ? `/classic-duel/${acceptingDuelId}`
+        : `/duel/${acceptingDuelId}`;
+      router.push(route);
+      // Defer state updates to avoid cascading renders
+      setTimeout(() => {
+        setIsJoiningDuel(false);
+        setAcceptingDuelId(null);
+      }, 0);
+    }
+  }, [acceptedDuel, acceptingDuelId, router]);
+
+  const handleAcceptDuelWithRouting = useCallback(
+    async (duelId: Id<"challenges">) => {
+      setAcceptingDuelId(duelId);
+      setIsJoiningDuel(true);
+      try {
+        await actions.handleAcceptDuel(duelId);
+      } catch (error) {
+        console.error("Failed to accept duel:", error);
+        toast.error("Failed to accept duel. Please try again.");
+        setIsJoiningDuel(false);
+        setAcceptingDuelId(null);
+      }
+    },
+    [actions]
+  );
+
   const handleContinueSolo = useCallback(
     (themeId: Id<"themes">, mode: "challenge_only" | "learn_test") => {
       const sessionId = crypto.randomUUID();
@@ -277,8 +312,9 @@ export function useDuelLobby() {
     showDuelModal: modals.showDuelModal,
     showSoloModal: modals.showSoloModal,
     showSoloStyleDuelModal: modals.showSoloStyleDuelModal,
+    showUnifiedDuelModal: modals.showUnifiedDuelModal,
     showWaitingModal: modals.showWaitingModal,
-    isJoiningDuel: actions.isJoiningDuel,
+    isJoiningDuel: isJoiningDuel,
 
     // Loading states
     isCreatingDuel: actions.isCreatingDuel,
@@ -291,10 +327,12 @@ export function useDuelLobby() {
     closeSoloModal: modals.closeModal,
     openSoloStyleDuelModal: modals.openSoloStyleDuelModal,
     closeSoloStyleDuelModal: modals.closeModal,
+    openUnifiedDuelModal: modals.openUnifiedDuelModal,
+    closeUnifiedDuelModal: modals.closeModal,
 
     // Actions
     handleCreateDuel: actions.handleCreateDuel,
-    handleAcceptDuel: actions.handleAcceptDuel,
+    handleAcceptDuel: handleAcceptDuelWithRouting,
     handleRejectDuel: actions.handleRejectDuel,
     handleCancelWaiting: actions.handleCancelWaiting,
     handleContinueSolo,

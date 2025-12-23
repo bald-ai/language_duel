@@ -1,5 +1,6 @@
 export { DuelModal } from "./DuelModal";
 export { SoloStyleDuelModal } from "./SoloStyleDuelModal";
+export { UnifiedDuelModal } from "./UnifiedDuelModal";
 export { SoloModal } from "./SoloModal";
 export { WaitingModal } from "./WaitingModal";
 export { JoiningModal } from "./JoiningModal";

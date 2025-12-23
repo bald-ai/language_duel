@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { colors } from "@/lib/theme";
 
 interface ConfidenceSliderProps {
@@ -16,7 +17,7 @@ const CONFIDENCE_COLORS = {
   3: { track: colors.status.danger.DEFAULT, thumb: colors.status.danger.light, text: colors.status.danger.DEFAULT },
 } as const;
 
-export function ConfidenceSlider({
+export const ConfidenceSlider = memo(function ConfidenceSlider({
   value,
   onChange,
   compact = false,
@@ -27,6 +28,14 @@ export function ConfidenceSlider({
   const sliderHeight = compact ? "h-10" : "h-12";
   const containerHeight = compact ? "h-12" : "h-14";
   const labelHeight = compact ? "h-4 min-w-4" : "h-5 min-w-5";
+
+  // Memoize the slider style to avoid recreation
+  const sliderStyle = useMemo(() => ({
+    writingMode: "vertical-lr" as const,
+    direction: "rtl" as const,
+    background: `linear-gradient(to top, ${confidenceColors.track} ${(value / 3) * 100}%, ${colors.background.elevated} ${(value / 3) * 100}%)`,
+    "--thumb-color": confidenceColors.thumb,
+  }), [confidenceColors.track, confidenceColors.thumb, value]);
 
   return (
     <div className={`flex flex-col items-center ${containerHeight} mr-1.5`}>
@@ -39,13 +48,7 @@ export function ConfidenceSlider({
         onChange={(e) => onChange(Number(e.target.value))}
         readOnly={readOnly}
         className={`${sliderHeight} w-4 appearance-none rounded-full cursor-pointer confidence-slider`}
-        style={{
-          writingMode: "vertical-lr",
-          direction: "rtl",
-          background: `linear-gradient(to top, ${confidenceColors.track} ${(value / 3) * 100}%, ${colors.background.elevated} ${(value / 3) * 100}%)`,
-          // @ts-expect-error CSS custom property
-          "--thumb-color": confidenceColors.thumb,
-        }}
+        style={sliderStyle}
       />
       <span
         className={`mt-1 inline-flex items-center justify-center px-1 text-xs font-bold leading-none ${labelHeight}`}
@@ -55,4 +58,6 @@ export function ConfidenceSlider({
       </span>
     </div>
   );
-}
+});
+
+ConfidenceSlider.displayName = "ConfidenceSlider";

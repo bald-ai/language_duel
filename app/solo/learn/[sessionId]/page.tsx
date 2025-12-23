@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { TIMER_OPTIONS } from "@/lib/constants";
 import { toast } from "sonner";
@@ -90,6 +90,113 @@ const listCardStyle = {
   boxShadow: `0 20px 55px ${colors.primary.glow}`,
 };
 
+// Memoized wrapper component to prevent unnecessary re-renders of WordCard
+interface MemoizedWordCardWrapperProps {
+  originalIndex: number;
+  orderIdx: number;
+  word: { word: string; answer: string };
+  themeId: string | null;
+  isRevealed: boolean;
+  hintStates: Record<string, HintState>;
+  confidenceLevels: Record<string, number>;
+  playingWordIndex: number | null;
+  draggedIndex: number | null;
+  setConfidence: (wordKey: string, level: number) => void;
+  revealLetter: (wordKey: string, position: number) => void;
+  revealFullWord: (wordKey: string, answer: string) => void;
+  resetWord: (wordKey: string) => void;
+  playTTS: (wordIndex: number, spanishWord: string) => void;
+  handleMouseDown: (e: React.MouseEvent, orderIdx: number) => void;
+  getItemStyle: (orderIdx: number, originalIndex: number) => React.CSSProperties;
+  itemRefs: React.RefObject<Map<number, HTMLDivElement | null>>;
+}
+
+const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
+  originalIndex,
+  orderIdx,
+  word,
+  themeId,
+  isRevealed,
+  hintStates,
+  confidenceLevels,
+  playingWordIndex,
+  draggedIndex,
+  setConfidence,
+  revealLetter,
+  revealFullWord,
+  resetWord,
+  playTTS,
+  handleMouseDown,
+  getItemStyle,
+  itemRefs,
+}: MemoizedWordCardWrapperProps) {
+  const wordKey = `${themeId}-${originalIndex}`;
+  const state = hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
+  const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+  const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
+  const hintsRemaining = maxHints - state.hintCount;
+  const confidence = confidenceLevels[wordKey] ?? 0;
+
+  // Memoize callbacks for this specific word
+  const handleConfidenceChange = useCallback(
+    (val: number) => setConfidence(wordKey, val),
+    [setConfidence, wordKey]
+  );
+
+  const handleRevealLetter = useCallback(
+    (pos: number) => revealLetter(wordKey, pos),
+    [revealLetter, wordKey]
+  );
+
+  const handleRevealFullWord = useCallback(
+    () => revealFullWord(wordKey, word.answer),
+    [revealFullWord, wordKey, word.answer]
+  );
+
+  const handleResetWord = useCallback(
+    () => resetWord(wordKey),
+    [resetWord, wordKey]
+  );
+
+  const handlePlayTTS = useCallback(
+    () => playTTS(originalIndex, word.answer),
+    [playTTS, originalIndex, word.answer]
+  );
+
+  const handleMouseDownWrapper = useCallback(
+    (e: React.MouseEvent) => handleMouseDown(e, orderIdx),
+    [handleMouseDown, orderIdx]
+  );
+
+  const refCallback = useCallback(
+    (el: HTMLDivElement | null) => itemRefs.current?.set(originalIndex, el),
+    [itemRefs, originalIndex]
+  );
+
+  const style = getItemStyle(orderIdx, originalIndex);
+
+  return (
+    <WordCard
+      word={word}
+      isRevealed={isRevealed}
+      confidence={confidence}
+      onConfidenceChange={handleConfidenceChange}
+      revealedPositions={state.revealedPositions}
+      hintsRemaining={hintsRemaining}
+      onRevealLetter={handleRevealLetter}
+      onRevealFullWord={handleRevealFullWord}
+      onResetWord={handleResetWord}
+      isTTSPlaying={playingWordIndex === originalIndex}
+      isTTSDisabled={playingWordIndex !== null}
+      onPlayTTS={handlePlayTTS}
+      isDragging={draggedIndex === orderIdx}
+      onMouseDown={handleMouseDownWrapper}
+      style={style}
+      refCallback={refCallback}
+    />
+  );
+});
+
 export default function LearnPhasePage() {
   const params = useParams();
   const router = useRouter();
@@ -120,8 +227,8 @@ export default function LearnPhasePage() {
   const [confidenceLevels, setConfidenceLevels] = useState<Record<string, number>>({});
   const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
 
-  // Initialize word order when theme loads
-  const initialOrder = theme?.words.map((_, i) => i) ?? null;
+  // Memoize initial order to avoid creating new array on every render
+  const initialOrder = useMemo(() => theme?.words.map((_, i) => i) ?? null, [theme?.words]);
   const gap = isRevealed ? LAYOUT.GAP_REVEALED : LAYOUT.GAP_TESTING;
 
   const {
@@ -147,18 +254,18 @@ export default function LearnPhasePage() {
     }
   }, [confidenceLegendStorageKey]);
 
-  // --- Helper functions ---
-  const getConfidence = (wordKey: string): number => confidenceLevels[wordKey] ?? 0;
+  // --- Helper functions (memoized) ---
+  const getConfidence = useCallback((wordKey: string): number => confidenceLevels[wordKey] ?? 0, [confidenceLevels]);
 
-  const setConfidence = (wordKey: string, level: number) => {
+  const setConfidence = useCallback((wordKey: string, level: number) => {
     setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
-  };
+  }, []);
 
-  const getHintState = (wordKey: string): HintState => {
+  const getHintState = useCallback((wordKey: string): HintState => {
     return hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
-  };
+  }, [hintStates]);
 
-  const revealLetter = (wordKey: string, position: number) => {
+  const revealLetter = useCallback((wordKey: string, position: number) => {
     setHintStates((prev) => {
       const current = prev[wordKey] || { hintCount: 0, revealedPositions: [] };
       if (current.revealedPositions.includes(position)) return prev;
@@ -170,9 +277,9 @@ export default function LearnPhasePage() {
         },
       };
     });
-  };
+  }, []);
 
-  const revealFullWord = (wordKey: string, answer: string) => {
+  const revealFullWord = useCallback((wordKey: string, answer: string) => {
     const allPositions = answer
       .split("")
       .map((char, idx) => (char !== " " ? idx : -1))
@@ -184,23 +291,23 @@ export default function LearnPhasePage() {
         revealedPositions: allPositions,
       },
     }));
-  };
+  }, []);
 
-  const resetWord = (wordKey: string) => {
+  const resetWord = useCallback((wordKey: string) => {
     setHintStates((prev) => {
       const newState = { ...prev };
       delete newState[wordKey];
       return newState;
     });
-  };
+  }, []);
 
-  const resetAll = () => setHintStates({});
+  const resetAll = useCallback(() => setHintStates({}), []);
 
   // --- Timer logic ---
-  const handleStart = () => {
+  const handleStart = useCallback(() => {
     setTimeRemaining(duration);
     setIsStarted(true);
-  };
+  }, [duration]);
 
   useEffect(() => {
     if (!isStarted) return;
@@ -223,7 +330,7 @@ export default function LearnPhasePage() {
   }, [timeRemaining, isStarted, router, sessionId, themeId]);
 
   // --- TTS ---
-  const playTTS = async (wordIndex: number, spanishWord: string) => {
+  const playTTS = useCallback(async (wordIndex: number, spanishWord: string) => {
     if (playingWordIndex !== null) return;
 
     setPlayingWordIndex(wordIndex);
@@ -262,10 +369,10 @@ export default function LearnPhasePage() {
       toast.error(message);
       setPlayingWordIndex(null);
     }
-  };
+  }, [playingWordIndex]);
 
   // --- Navigation ---
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     const confidenceByWordIndex: Record<number, number> = {};
     theme?.words.forEach((_, wordIndex) => {
       const wordKey = `${themeId}-${wordIndex}`;
@@ -277,17 +384,17 @@ export default function LearnPhasePage() {
     urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  };
+  }, [theme?.words, themeId, getConfidence, router, sessionId]);
 
-  const handleExit = () => router.push("/");
+  const handleExit = useCallback(() => router.push("/"), [router]);
 
-  // --- Timer display ---
-  const getTimerStyle = () => {
+  // --- Timer display (memoized) ---
+  const timerStyle = useMemo(() => {
     const percentage = timeRemaining / duration;
     if (percentage > TIMER_THRESHOLDS.GREEN) return { color: colors.status.success.DEFAULT };
     if (percentage > TIMER_THRESHOLDS.YELLOW) return { color: colors.status.warning.DEFAULT };
     return { color: colors.status.danger.DEFAULT };
-  };
+  }, [timeRemaining, duration]);
 
   const header = (
     <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up shrink-0">
@@ -501,7 +608,7 @@ export default function LearnPhasePage() {
           </div>
           <div
             className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
-            style={getTimerStyle()}
+            style={timerStyle}
           >
             {formatDuration(timeRemaining)}
           </div>
@@ -584,36 +691,28 @@ export default function LearnPhasePage() {
               </div>
             )}
 
-            {wordOrder.map((originalIndex, orderIdx) => {
-              const word = theme.words[originalIndex];
-              const wordKey = `${themeId}-${originalIndex}`;
-              const state = getHintState(wordKey);
-              const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-              const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-              const hintsRemaining = maxHints - state.hintCount;
-
-              return (
-                <WordCard
-                  key={originalIndex}
-                  word={word}
-                  isRevealed={isRevealed}
-                  confidence={getConfidence(wordKey)}
-                  onConfidenceChange={(val) => setConfidence(wordKey, val)}
-                  revealedPositions={state.revealedPositions}
-                  hintsRemaining={hintsRemaining}
-                  onRevealLetter={(pos) => revealLetter(wordKey, pos)}
-                  onRevealFullWord={() => revealFullWord(wordKey, word.answer)}
-                  onResetWord={() => resetWord(wordKey)}
-                  isTTSPlaying={playingWordIndex === originalIndex}
-                  isTTSDisabled={playingWordIndex !== null}
-                  onPlayTTS={() => playTTS(originalIndex, word.answer)}
-                  isDragging={dragState.draggedIndex === orderIdx}
-                  onMouseDown={(e) => handleMouseDown(e, orderIdx)}
-                  style={getItemStyle(orderIdx, originalIndex)}
-                  refCallback={(el) => itemRefs.current.set(originalIndex, el)}
-                />
-              );
-            })}
+            {wordOrder.map((originalIndex, orderIdx) => (
+              <MemoizedWordCardWrapper
+                key={originalIndex}
+                originalIndex={originalIndex}
+                orderIdx={orderIdx}
+                word={theme.words[originalIndex]}
+                themeId={themeId}
+                isRevealed={isRevealed}
+                hintStates={hintStates}
+                confidenceLevels={confidenceLevels}
+                playingWordIndex={playingWordIndex}
+                draggedIndex={dragState.draggedIndex}
+                setConfidence={setConfidence}
+                revealLetter={revealLetter}
+                revealFullWord={revealFullWord}
+                resetWord={resetWord}
+                playTTS={playTTS}
+                handleMouseDown={handleMouseDown}
+                getItemStyle={getItemStyle}
+                itemRefs={itemRefs}
+              />
+            ))}
           </div>
         </section>
 
