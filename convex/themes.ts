@@ -182,7 +182,41 @@ export const getFriendThemes = query({
 export const getTheme = query({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
-    return await ctx.db.get(args.themeId);
+    // Require authentication
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) return null;
+
+    const currentUserId = auth.user._id;
+
+    // Allow access if user is the owner or theme has no owner (legacy)
+    const isOwner = !theme.ownerId || theme.ownerId === currentUserId;
+    if (isOwner) return theme;
+
+    // Allow access if theme is shared and caller is a confirmed friend of owner
+    if (theme.visibility === "shared" && theme.ownerId) {
+      // Check friendship in either direction
+      const friendshipFromCaller = await ctx.db
+        .query("friends")
+        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
+        .filter((q) => q.eq(q.field("friendId"), theme.ownerId))
+        .first();
+
+      const friendshipFromOwner = await ctx.db
+        .query("friends")
+        .withIndex("by_user", (q) => q.eq("userId", theme.ownerId))
+        .filter((q) => q.eq(q.field("friendId"), currentUserId))
+        .first();
+
+      if (friendshipFromCaller || friendshipFromOwner) {
+        return theme;
+      }
+    }
+
+    // No access - theme is private or caller is not a friend
+    return null;
   },
 });
 
