@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDuration } from "@/lib/stringUtils";
+import { colors } from "@/lib/theme";
 
 interface FinalResultsPanelProps {
   myName: string;
@@ -28,10 +29,10 @@ export function FinalResultsPanel({
 
   const resultClass =
     myScore === theirScore
-      ? 'text-yellow-400'
+      ? colors.status.warning.light
       : myScore > theirScore
-        ? 'text-green-400'
-        : 'text-red-400';
+        ? colors.status.success.light
+        : colors.status.danger.light;
 
   const resultText =
     myScore === theirScore
@@ -40,44 +41,77 @@ export function FinalResultsPanel({
         ? "You won! 🎉"
         : "You lost!";
 
+  const panelStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    boxShadow: `0 18px 45px ${colors.primary.glow}`,
+  };
+
+  const sectionStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
+  };
+
+  const primaryButtonStyle = {
+    backgroundColor: colors.primary.DEFAULT,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const myColor = colors.status.success.light;
+  const theirColor = colors.secondary.light;
+
   return (
     <div className="w-full max-w-md mt-4">
-      <div className="bg-gray-800 rounded-xl p-6 border-2 border-yellow-500">
-        <div className="text-center text-xl font-bold text-yellow-400 mb-4">
+      <div className="rounded-xl p-6 border-2" style={panelStyle}>
+        <div className="text-center text-xl font-bold mb-4" style={{ color: colors.cta.light }}>
           Duel Complete!
         </div>
 
         {/* Winner announcement */}
-        <div className={`text-center font-bold text-2xl mb-4 ${resultClass}`}>
+        <div className="text-center font-bold text-2xl mb-4" style={{ color: resultClass }}>
           {resultText}
         </div>
 
         {/* Total Duration */}
         {duelDuration !== undefined && duelDuration > 0 && (
-          <div className="bg-gray-900 rounded-lg p-4 mb-4">
-            <div className="text-center text-sm text-gray-400 mb-1">Total Time</div>
-            <div className="text-center text-2xl font-bold font-mono text-white">
+          <div className="rounded-lg p-4 mb-4 border" style={sectionStyle}>
+            <div className="text-center text-sm mb-1" style={{ color: colors.text.muted }}>
+              Total Time
+            </div>
+            <div className="text-center text-2xl font-bold font-mono" style={{ color: colors.text.DEFAULT }}>
               {formatDuration(duelDuration)}
             </div>
           </div>
         )}
 
         {/* Final Scores */}
-        <div className="bg-gray-900 rounded-lg p-4 mb-4">
-          <div className="text-center text-sm text-gray-400 mb-3">Final Score</div>
+        <div className="rounded-lg p-4 mb-4 border" style={sectionStyle}>
+          <div className="text-center text-sm mb-3" style={{ color: colors.text.muted }}>
+            Final Score
+          </div>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-green-400 font-medium">You ({myName?.split(' ')[0] || 'You'})</span>
-            <span className="text-2xl font-bold text-green-400">{formatScore(myScore)}</span>
+            <span className="font-medium" style={{ color: myColor }}>
+              You ({myName?.split(' ')[0] || 'You'})
+            </span>
+            <span className="text-2xl font-bold" style={{ color: myColor }}>
+              {formatScore(myScore)}
+            </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-blue-400 font-medium">{theirName?.split(' ')[0] || 'Opponent'}</span>
-            <span className="text-2xl font-bold text-blue-400">{formatScore(theirScore)}</span>
+            <span className="font-medium" style={{ color: theirColor }}>
+              {theirName?.split(' ')[0] || 'Opponent'}
+            </span>
+            <span className="text-2xl font-bold" style={{ color: theirColor }}>
+              {formatScore(theirScore)}
+            </span>
           </div>
         </div>
 
         <button
           onClick={onBackToHome}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors"
+          className="w-full font-bold py-3 px-6 rounded-lg text-lg transition hover:brightness-110 border-2"
+          style={primaryButtonStyle}
         >
           Back to Home
         </button>
@@ -85,4 +119,3 @@ export function FinalResultsPanel({
     </div>
   );
 }
-

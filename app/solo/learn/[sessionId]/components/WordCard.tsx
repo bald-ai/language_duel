@@ -3,6 +3,7 @@
 import { ConfidenceSlider } from "./ConfidenceSlider";
 import { LetterGroups } from "./LetterGroups";
 import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
+import { colors } from "@/lib/theme";
 
 interface WordCardProps {
   word: {
@@ -49,13 +50,49 @@ export function WordCard({
   style,
   refCallback,
 }: WordCardProps) {
-  const baseClasses = `bg-gray-800 rounded-xl ${
+  const baseClasses = `rounded-2xl border-2 ${
     isRevealed ? "py-3 px-2.5" : "p-4"
-  } select-none`;
+  } select-none backdrop-blur-sm transition-all`;
 
-  const borderClasses = isFloating
-    ? "border-2 border-blue-500 shadow-2xl shadow-blue-500/20"
-    : "border border-gray-700";
+  const cardStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
+  };
+
+  const floatingStyle = {
+    borderColor: colors.primary.light,
+    boxShadow: `0 22px 50px ${colors.primary.glow}`,
+  };
+
+  const hintPillStyle = hintsRemaining > 0
+    ? {
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        color: colors.text.DEFAULT,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.neutral.dark,
+        color: colors.text.muted,
+      };
+
+  const iconButtonStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const disabledButtonStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.neutral.dark,
+    color: colors.text.muted,
+  };
+
+  const playingButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
 
   const cursorClasses = isFloating ? "" : "cursor-grab active:cursor-grabbing";
   const visibilityClasses = isDragging ? "opacity-0" : "";
@@ -64,23 +101,31 @@ export function WordCard({
     <div
       ref={refCallback}
       onMouseDown={onMouseDown}
-      style={style}
-      className={`${baseClasses} ${borderClasses} ${cursorClasses} ${visibilityClasses}`}
+      style={{
+        ...style,
+        ...cardStyle,
+        ...(isFloating ? floatingStyle : null),
+      }}
+      className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
     >
       <div className="flex items-stretch justify-between">
         {/* Word & Answer Section */}
         <div className="flex-1">
           <div
-            className={`font-medium text-white ${
+            className={`font-medium ${
               isRevealed ? "text-base mb-0.5 leading-tight" : "text-lg mb-1"
             }`}
+            style={{ color: colors.text.DEFAULT }}
           >
             {word.word}
           </div>
 
           {/* Answer - revealed or letter slots */}
           {isRevealed ? (
-            <div className="font-bold text-green-400 text-base leading-tight">
+            <div
+              className="font-bold text-base leading-tight"
+              style={{ color: colors.secondary.light }}
+            >
               {word.answer}
             </div>
           ) : (
@@ -110,13 +155,16 @@ export function WordCard({
             <button
               onClick={onPlayTTS}
               disabled={isTTSDisabled}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                isTTSPlaying
-                  ? "bg-green-500 text-white"
-                  : isTTSDisabled
-                  ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition ${
+                isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
               }`}
+              style={
+                isTTSPlaying
+                  ? playingButtonStyle
+                  : isTTSDisabled
+                  ? disabledButtonStyle
+                  : iconButtonStyle
+              }
             >
               <SpeakerIcon className="w-6 h-6" />
             </button>
@@ -125,19 +173,17 @@ export function WordCard({
             <div className="grid grid-cols-2 gap-1.5">
               {/* Hints Remaining */}
               <div
-                className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
-                  hintsRemaining > 0
-                    ? "border-gray-500 text-gray-400"
-                    : "border-gray-700 text-gray-600"
-                }`}
+                className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold"
+                style={hintPillStyle}
               >
-                {hintsRemaining > 0 ? hintsRemaining : "–"}
+                {hintsRemaining > 0 ? hintsRemaining : "-"}
               </div>
 
               {/* Reset Button */}
               <button
                 onClick={onResetWord}
-                className="w-9 h-9 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
+                style={iconButtonStyle}
               >
                 <ResetIcon className="w-4 h-4" />
               </button>
@@ -145,7 +191,8 @@ export function WordCard({
               {/* Reveal Full Word Button */}
               <button
                 onClick={onRevealFullWord}
-                className="w-9 h-9 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
+                style={iconButtonStyle}
               >
                 <EyeIcon className="w-4 h-4" />
               </button>
@@ -154,13 +201,16 @@ export function WordCard({
               <button
                 onClick={onPlayTTS}
                 disabled={isTTSDisabled}
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                  isTTSPlaying
-                    ? "bg-green-500 text-white"
-                    : isTTSDisabled
-                    ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
+                  isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
                 }`}
+                style={
+                  isTTSPlaying
+                    ? playingButtonStyle
+                    : isTTSDisabled
+                    ? disabledButtonStyle
+                    : iconButtonStyle
+                }
               >
                 <SpeakerIcon className="w-4 h-4" />
               </button>
@@ -171,4 +221,3 @@ export function WordCard({
     </div>
   );
 }
-

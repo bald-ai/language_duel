@@ -1,6 +1,7 @@
 "use client";
 
 import { stripIrr } from "@/lib/stringUtils";
+import { colors } from "@/lib/theme";
 
 type AnswerButtonProps = {
   answer: string;
@@ -43,29 +44,69 @@ export function AnswerButton({
   const isCorrectOption = hasNoneOption ? isNoneOfAbove : answer === correctAnswer;
 
   const baseClasses = `p-4 rounded-lg border-2 font-medium transition-all relative ${truncateText ? 'text-base' : 'text-lg'}`;
-  
-  const stateClasses = isEliminated
-    ? 'border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed'
-    : canEliminateThis
-      ? 'border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse'
-      : isShowingFeedback
-        ? selectedAnswer === answer
-          ? isCorrectOption
-            ? 'border-green-500 bg-green-500/20 text-green-400'
-            : 'border-red-500 bg-red-500/20 text-red-400'
-          : isCorrectOption
-            ? 'border-green-500 bg-green-500/10 text-green-400'
-            : 'border-gray-600 bg-gray-800 text-gray-400 opacity-50'
-        : selectedAnswer === answer
-          ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-          : `border-gray-600 ${truncateText ? 'bg-gray-800/95' : 'bg-gray-800'} hover:border-gray-500 text-white`;
+
+  let stateClasses = "";
+  let stateStyle: React.CSSProperties = {
+    borderColor: colors.primary.dark,
+    backgroundColor: truncateText ? `${colors.background.elevated}F2` : colors.background.elevated,
+    color: colors.text.DEFAULT,
+  };
+
+  if (isEliminated) {
+    stateClasses = "line-through opacity-40 cursor-not-allowed";
+    stateStyle = {
+      borderColor: colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
+  } else if (canEliminateThis) {
+    stateClasses = "cursor-pointer animate-pulse";
+    stateStyle = {
+      borderColor: colors.status.warning.DEFAULT,
+      backgroundColor: `${colors.status.warning.DEFAULT}26`,
+      color: colors.status.warning.light,
+    };
+  } else if (isShowingFeedback) {
+    if (selectedAnswer === answer) {
+      stateStyle = isCorrectOption
+        ? {
+            borderColor: colors.status.success.DEFAULT,
+            backgroundColor: `${colors.status.success.DEFAULT}26`,
+            color: colors.status.success.light,
+          }
+        : {
+            borderColor: colors.status.danger.DEFAULT,
+            backgroundColor: `${colors.status.danger.DEFAULT}26`,
+            color: colors.status.danger.light,
+          };
+    } else if (isCorrectOption) {
+      stateStyle = {
+        borderColor: colors.status.success.DEFAULT,
+        backgroundColor: `${colors.status.success.DEFAULT}1A`,
+        color: colors.status.success.light,
+      };
+    } else {
+      stateClasses = "opacity-50";
+      stateStyle = {
+        borderColor: colors.neutral.dark,
+        backgroundColor: colors.background.DEFAULT,
+        color: colors.text.muted,
+      };
+    }
+  } else if (selectedAnswer === answer) {
+    stateStyle = {
+      borderColor: colors.secondary.DEFAULT,
+      backgroundColor: `${colors.secondary.DEFAULT}26`,
+      color: colors.secondary.light,
+    };
+  }
 
   return (
     <button
       disabled={disabled}
       onClick={onClick}
-      style={style}
       className={`${baseClasses} ${stateClasses} ${truncateText ? 'shadow-lg' : ''}`}
+      style={{ ...stateStyle, ...style }}
     >
       {isNoneOfAbove && hasNoneOption && isRevealing ? (
         <span className="font-medium">
@@ -78,21 +119,28 @@ export function AnswerButton({
         stripIrr(answer)
       )}
       {canEliminateThis && (
-        <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span
+          className="absolute -top-2 -right-2 text-xs px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: colors.status.warning.DEFAULT, color: colors.text.DEFAULT }}
+        >
           ✕
         </span>
       )}
       {opponentPickedThis && (
-        <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span
+          className="absolute -top-2 -left-2 text-xs px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: colors.secondary.DEFAULT, color: colors.text.DEFAULT }}
+        >
           👤
         </span>
       )}
       {isNoneOfAbove && hasNoneOption && isShowingFeedback && (
-        <span className="absolute top-2 right-2 text-green-400">✓</span>
+        <span className="absolute top-2 right-2" style={{ color: colors.status.success.light }}>
+          ✓
+        </span>
       )}
     </button>
   );
 }
 
 export type { AnswerButtonProps };
-

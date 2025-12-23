@@ -1,6 +1,7 @@
 "use client";
 
 import { Id } from "@/convex/_generated/dataModel";
+import { buttonStyles, colors } from "@/lib/theme";
 
 interface Theme {
   _id: Id<"themes">;
@@ -22,29 +23,39 @@ export function StudyHeader({
   onThemeChange,
   onToggleReveal,
 }: StudyHeaderProps) {
-  return (
-    <header className="w-full mb-4 flex-shrink-0">
-      {/* Study Room Title Bar */}
-      <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4 mb-3">
-        <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide">
-          Study Room
-        </h1>
-      </div>
+  const toggleStyles = isRevealed ? buttonStyles.primary : buttonStyles.cta;
+  const selectedThemeName = selectedTheme?.name ?? "Select theme";
 
-      {/* Theme Selection and Mode Toggle */}
-      <div className="flex items-center justify-center gap-4">
-        {/* Theme Selection - Custom Trigger that sizes to content */}
-        <div className="relative">
-          {/* Visual Trigger - Sizes to text */}
-          <div className="px-6 py-3 rounded-2xl font-medium text-base border-2 border-gray-700 bg-gray-800 text-gray-200 flex items-center justify-center gap-2 min-w-[120px]">
-            <span className="uppercase tracking-wide">{selectedTheme?.name}</span>
+  return (
+    <header className="w-full flex-shrink-0">
+      <div
+        className="w-full rounded-3xl border-2 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-sm shadow-lg"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          boxShadow: `0 16px 40px ${colors.primary.glow}`,
+        }}
+      >
+        <div className="relative w-full sm:flex-1">
+          <div
+            className="px-5 py-3 rounded-2xl font-semibold text-sm uppercase tracking-widest border-2 flex items-center justify-center gap-2"
+            style={{
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }}
+          >
+            <span className="truncate max-w-[180px] sm:max-w-none" title={selectedThemeName}>
+              {selectedThemeName}
+            </span>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2.5}
               stroke="currentColor"
-              className="w-4 h-4 text-gray-400"
+              className="w-4 h-4"
+              style={{ color: colors.neutral.DEFAULT }}
             >
               <path
                 strokeLinecap="round"
@@ -54,7 +65,6 @@ export function StudyHeader({
             </svg>
           </div>
 
-          {/* Hidden Select - Captures clicks */}
           <select
             value={selectedTheme?._id || ""}
             onChange={(e) => onThemeChange(e.target.value)}
@@ -68,14 +78,18 @@ export function StudyHeader({
           </select>
         </div>
 
-        {/* Mode Toggle Button */}
         <button
           onClick={onToggleReveal}
-          className={`px-6 py-3 rounded-2xl font-medium text-base border-2 transition-colors uppercase tracking-wide min-w-[120px] ${
-            isRevealed
-              ? "bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
-              : "bg-green-500 border-green-600 text-white hover:bg-green-600"
-          }`}
+          className="w-full sm:w-auto px-6 py-3 rounded-2xl font-semibold text-sm uppercase tracking-widest border-t-2 border-b-4 border-x-2 transition-all duration-200 hover:translate-y-0.5 active:translate-y-1"
+          style={{
+            backgroundImage: `linear-gradient(to bottom, ${toggleStyles.gradient.from}, ${toggleStyles.gradient.to})`,
+            borderTopColor: toggleStyles.border.top,
+            borderBottomColor: toggleStyles.border.bottom,
+            borderLeftColor: toggleStyles.border.sides,
+            borderRightColor: toggleStyles.border.sides,
+            color: colors.text.DEFAULT,
+            textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+          }}
         >
           {isRevealed ? "Testing" : "Reveal"}
         </button>
@@ -83,4 +97,3 @@ export function StudyHeader({
     </header>
   );
 }
-

@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
 interface LetterGroupsProps {
   answer: string;
   revealedPositions: number[];
@@ -46,16 +48,20 @@ export function LetterGroups({
               <div
                 key={idx}
                 onClick={() => canReveal && onRevealLetter(idx)}
-                className={`w-5 h-6 flex items-end justify-center rounded bg-white/5 border-b-2 border-gray-500 transition-colors cursor-default ${
+                className={`w-5 h-6 flex items-end justify-center rounded border-b-2 transition-colors cursor-default ${
                   canReveal
-                    ? "cursor-pointer hover:border-green-500 hover:bg-white/10"
+                    ? "cursor-pointer hover:brightness-110"
                     : isRevealed
                     ? ""
                     : "cursor-not-allowed opacity-50"
                 }`}
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                }}
               >
                 {isRevealed && (
-                  <span className="text-base font-bold text-green-400">
+                  <span className="text-base font-bold" style={{ color: colors.secondary.light }}>
                     {letter.toUpperCase()}
                   </span>
                 )}
@@ -67,4 +73,3 @@ export function LetterGroups({
     </div>
   );
 }
-

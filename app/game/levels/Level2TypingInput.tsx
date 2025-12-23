@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import type { JSX } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters } from "@/lib/prng";
+import { buttonStyles, colors } from "@/lib/theme";
 import type { Level2TypingProps } from "./types";
 
 /**
@@ -122,15 +123,39 @@ export function Level2TypingInput({
 
   const words = cleanAnswer.split(" ");
   const hasMultipleWords = words.length > 1;
+  const dashStyle = { color: colors.text.muted };
+  const dotStyle = { color: colors.neutral.dark };
+
+  const actionButtonClassName =
+    "bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-2 px-5 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
+
+  const primaryActionStyle = {
+    backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+    borderTopColor: buttonStyles.primary.border.top,
+    borderBottomColor: buttonStyles.primary.border.bottom,
+    borderLeftColor: buttonStyles.primary.border.sides,
+    borderRightColor: buttonStyles.primary.border.sides,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
+
+  const ghostActionStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
 
   // Render dashes grouped by words
   const renderDashes = () => {
     return words.map((word, wordIdx) => (
       <span key={wordIdx} className="inline-flex gap-1">
         {word.split("").map((_, charIdx) => (
-          <span key={charIdx} className="text-gray-400">_</span>
+          <span key={charIdx} style={dashStyle}>_</span>
         ))}
-        {wordIdx < words.length - 1 && <span className="mx-3 text-gray-600">•</span>}
+        {wordIdx < words.length - 1 && (
+          <span className="mx-3" style={dotStyle}>•</span>
+        )}
       </span>
     ));
   };
@@ -138,7 +163,7 @@ export function Level2TypingInput({
   // Render anagram tiles (duel mode with anagram hint)
   const renderAnagramTiles = () => {
     if (anagramLetters.length !== letterSlots.length) {
-      return <div className="text-gray-400 text-sm">Preparing anagram...</div>;
+      return <div className="text-sm" style={{ color: colors.text.muted }}>Preparing anagram...</div>;
     }
 
     const elements: JSX.Element[] = [];
@@ -167,9 +192,14 @@ export function Level2TypingInput({
             handleDrop(idx);
           }}
           onDragEnd={handleDragEnd}
-          className={`w-12 h-14 flex items-center justify-center rounded-lg border-2 bg-gray-800 text-white text-xl font-bold select-none ${
-            submitted ? "opacity-70" : "hover:border-blue-500 cursor-move"
+          className={`w-12 h-14 flex items-center justify-center rounded-lg border-2 text-xl font-bold select-none transition ${
+            submitted ? "opacity-70" : "cursor-move hover:brightness-110"
           }`}
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: submitted ? colors.neutral.dark : colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
         >
           {anagramLetters[idx]?.toUpperCase()}
         </div>
@@ -193,7 +223,7 @@ export function Level2TypingInput({
       {hintIsAnagram ? (
         <>
           {/* Anagram mode (duel only) */}
-          <div className="text-sm text-purple-300 text-center">
+          <div className="text-sm text-center" style={{ color: colors.secondary.light }}>
             Anagram hint: drag letters to rearrange them into the answer.
           </div>
           <div className="text-2xl font-mono tracking-widest flex flex-wrap justify-center">
@@ -206,26 +236,41 @@ export function Level2TypingInput({
             <button
               onClick={handleShuffleAnagram}
               disabled={submitted}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-sm disabled:opacity-50"
+              className="px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              }}
             >
               Shuffle again
             </button>
             <button
               onClick={handleSubmitAnagram}
               disabled={submitted}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg font-medium"
+              className="px-6 py-2 rounded-lg font-medium border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: colors.cta.DEFAULT,
+                borderColor: colors.cta.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               Submit
             </button>
             <button
               onClick={onSkip}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm"
+              className="px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              }}
             >
               Don&apos;t Know
             </button>
           </div>
           {submitted && anagramResult === "wrong" && (
-            <div className="text-red-400">
+            <div style={{ color: colors.status.danger.light }}>
               Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>
           )}
@@ -236,11 +281,11 @@ export function Level2TypingInput({
           <div className="text-2xl font-mono tracking-widest flex flex-wrap justify-center">
             {renderDashes()}
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm" style={{ color: colors.text.muted }}>
             ({cleanAnswer.length} characters{hasMultipleWords ? " including spaces" : ""})
           </div>
           {hasMultipleWords && (
-            <div className="text-xs text-yellow-500/80">
+            <div className="text-xs" style={{ color: colors.status.warning.light }}>
               Include spaces between words
             </div>
           )}
@@ -250,7 +295,14 @@ export function Level2TypingInput({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
             disabled={submitted}
-            className="w-full max-w-xs px-4 py-3 text-lg text-center bg-gray-800 border-2 border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
+            className={`w-full max-w-xs px-4 py-3 text-lg text-center border-2 focus:outline-none ${
+              isDuelMode ? "rounded-lg" : "rounded-2xl"
+            }`}
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }}
             placeholder="Type your answer..."
             autoFocus
           />
@@ -259,20 +311,46 @@ export function Level2TypingInput({
               <button
                 onClick={handleSubmit}
                 disabled={!inputValue.trim()}
-                className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+                className={
+                  isDuelMode
+                    ? "px-6 py-2 rounded-lg font-medium border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                    : actionButtonClassName
+                }
+                style={
+                  !isDuelMode
+                    ? primaryActionStyle
+                    : {
+                        backgroundColor: colors.cta.DEFAULT,
+                        borderColor: colors.cta.dark,
+                        color: colors.text.DEFAULT,
+                      }
+                }
               >
                 Submit
               </button>
               <button
                 onClick={onSkip}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm font-medium transition-colors"
+                className={
+                  isDuelMode
+                    ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+                    : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+                }
+                style={
+                  !isDuelMode
+                    ? ghostActionStyle
+                    : {
+                        backgroundColor: colors.background.elevated,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.muted,
+                      }
+                }
               >
                 Don&apos;t Know
               </button>
             </div>
           )}
           {submitted && normalizeAccents(inputValue) !== normalizeAccents(cleanAnswer) && (
-            <div className="text-red-400">
+            <div style={{ color: colors.status.danger.light }}>
               Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>
           )}
@@ -285,7 +363,12 @@ export function Level2TypingInput({
           {canRequestHint && !hintRequested && !submitted && (
             <button
               onClick={onRequestHint}
-              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
+              className="px-5 py-3 rounded-lg text-base font-medium flex items-center gap-2 border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -293,20 +376,30 @@ export function Level2TypingInput({
           
           {hintRequested && !hintAccepted && (
             <div className="flex flex-col items-center gap-2">
-              <div className="text-purple-400 text-sm animate-pulse">
+              <div className="text-sm animate-pulse" style={{ color: colors.secondary.light }}>
                 Waiting for opponent to help...
               </div>
               {onRequestHint && (
                 <button
                   onClick={onRequestHint}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                  className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.secondary.DEFAULT,
+                    borderColor: colors.secondary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
                 >
                   Request another hint
                 </button>
               )}
               <button
                 onClick={onCancelHint}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+                className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.muted,
+                }}
               >
                 Cancel
               </button>
@@ -316,7 +409,12 @@ export function Level2TypingInput({
           {hintRequested && hintAccepted && onRequestHint && (
             <button
               onClick={onRequestHint}
-              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               Request another hint
             </button>
@@ -326,4 +424,3 @@ export function Level2TypingInput({
     </div>
   );
 }
-

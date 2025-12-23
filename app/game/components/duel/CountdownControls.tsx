@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
 interface CountdownControlsProps {
   countdown: number;
   countdownPausedBy: string | undefined;
@@ -31,17 +33,41 @@ export function CountdownControls({
   const iHaveSkipped = countdownSkipRequestedBy.includes(userRole);
   const opponentHasSkipped = countdownSkipRequestedBy.includes(opponentRole);
 
+  const baseButtonClass =
+    "px-4 py-2 rounded-lg font-medium transition hover:brightness-110 border-2";
+  const primaryButtonStyle = {
+    backgroundColor: colors.primary.DEFAULT,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+  const secondaryButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
+  const successButtonStyle = {
+    backgroundColor: colors.status.success.DEFAULT,
+    borderColor: colors.status.success.dark,
+    color: colors.text.DEFAULT,
+  };
+  const mutedButtonStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.neutral.dark,
+    color: colors.text.muted,
+  };
+
   // Not paused - show pause button (and optional skip)
   if (!countdownPausedBy) {
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold text-yellow-400">
+        <div className="text-2xl font-bold" style={{ color: colors.secondary.light }}>
           Next question in {countdown}...
         </div>
         <div className="flex gap-2">
           <button
             onClick={onPause}
-            className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors"
+            className={baseButtonClass}
+            style={primaryButtonStyle}
           >
             ⏸ Pause
           </button>
@@ -49,23 +75,28 @@ export function CountdownControls({
             <button
               onClick={onSkip}
               disabled={iHaveSkipped}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`${baseButtonClass} ${iHaveSkipped ? "cursor-not-allowed" : ""} ${opponentHasSkipped ? "animate-pulse" : ""}`}
+              style={
                 iHaveSkipped
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? mutedButtonStyle
                   : opponentHasSkipped
-                    ? 'bg-green-500 hover:bg-green-600 text-white animate-pulse'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
+                    ? successButtonStyle
+                    : secondaryButtonStyle
+              }
             >
               ⏭ Skip
             </button>
           )}
         </div>
         {opponentHasSkipped && !iHaveSkipped && (
-          <div className="text-sm text-green-400 animate-pulse">Opponent wants to skip!</div>
+          <div className="text-sm animate-pulse" style={{ color: colors.status.success.light }}>
+            Opponent wants to skip!
+          </div>
         )}
         {iHaveSkipped && !opponentHasSkipped && (
-          <div className="text-sm text-gray-400">Waiting for opponent to skip...</div>
+          <div className="text-sm" style={{ color: colors.text.muted }}>
+            Waiting for opponent to skip...
+          </div>
         )}
       </div>
     );
@@ -75,12 +106,17 @@ export function CountdownControls({
   if (countdownUnpauseRequestedBy === userRole) {
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold text-orange-400">PAUSED</div>
+        <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+          PAUSED
+        </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="text-sm text-gray-400">Waiting for opponent to confirm...</div>
+          <div className="text-sm" style={{ color: colors.text.muted }}>
+            Waiting for opponent to confirm...
+          </div>
           <button
             disabled
-            className="px-4 py-2 rounded-lg bg-gray-600 text-gray-400 font-medium cursor-not-allowed"
+            className={`${baseButtonClass} cursor-not-allowed`}
+            style={mutedButtonStyle}
           >
             ▶ Unpause Requested
           </button>
@@ -93,12 +129,17 @@ export function CountdownControls({
   if (countdownUnpauseRequestedBy) {
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold text-orange-400">PAUSED</div>
+        <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+          PAUSED
+        </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="text-sm text-yellow-400">Opponent wants to resume!</div>
+          <div className="text-sm" style={{ color: colors.status.warning.light }}>
+            Opponent wants to resume!
+          </div>
           <button
             onClick={onConfirmUnpause}
-            className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors animate-pulse"
+            className={`${baseButtonClass} animate-pulse`}
+            style={successButtonStyle}
           >
             ✓ Confirm Unpause
           </button>
@@ -110,14 +151,16 @@ export function CountdownControls({
   // Paused, no unpause request - show unpause button
   return (
     <div className="flex flex-col items-center gap-2 mb-2">
-      <div className="text-2xl font-bold text-orange-400">PAUSED</div>
+      <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+        PAUSED
+      </div>
       <button
         onClick={onRequestUnpause}
-        className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+        className={baseButtonClass}
+        style={secondaryButtonStyle}
       >
         ▶ Unpause
       </button>
     </div>
   );
 }
-

@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
 interface ConfidenceSliderProps {
   value: number;
   onChange: (value: number) => void;
@@ -8,10 +10,10 @@ interface ConfidenceSliderProps {
 }
 
 const CONFIDENCE_COLORS = {
-  0: { track: "#ffffff", thumb: "#ffffff", text: "text-gray-400" },
-  1: { track: "#22c55e", thumb: "#22c55e", text: "text-green-400" },
-  2: { track: "#f97316", thumb: "#f97316", text: "text-orange-400" },
-  3: { track: "#ef4444", thumb: "#ef4444", text: "text-red-400" },
+  0: { track: colors.neutral.dark, thumb: colors.neutral.light, text: colors.text.muted },
+  1: { track: colors.status.success.DEFAULT, thumb: colors.status.success.light, text: colors.status.success.DEFAULT },
+  2: { track: colors.status.warning.DEFAULT, thumb: colors.status.warning.light, text: colors.status.warning.DEFAULT },
+  3: { track: colors.status.danger.DEFAULT, thumb: colors.status.danger.light, text: colors.status.danger.DEFAULT },
 } as const;
 
 export function ConfidenceSlider({
@@ -20,7 +22,8 @@ export function ConfidenceSlider({
   compact = false,
   readOnly = false,
 }: ConfidenceSliderProps) {
-  const colors = CONFIDENCE_COLORS[value as keyof typeof CONFIDENCE_COLORS] ?? CONFIDENCE_COLORS[0];
+  const confidenceColors =
+    CONFIDENCE_COLORS[value as keyof typeof CONFIDENCE_COLORS] ?? CONFIDENCE_COLORS[0];
   const sliderHeight = compact ? "h-10" : "h-12";
   const containerHeight = compact ? "h-12" : "h-14";
   const labelHeight = compact ? "h-4 min-w-4" : "h-5 min-w-5";
@@ -39,17 +42,17 @@ export function ConfidenceSlider({
         style={{
           writingMode: "vertical-lr",
           direction: "rtl",
-          background: `linear-gradient(to top, ${colors.track} ${(value / 3) * 100}%, #374151 ${(value / 3) * 100}%)`,
+          background: `linear-gradient(to top, ${confidenceColors.track} ${(value / 3) * 100}%, ${colors.background.elevated} ${(value / 3) * 100}%)`,
           // @ts-expect-error CSS custom property
-          "--thumb-color": colors.thumb,
+          "--thumb-color": confidenceColors.thumb,
         }}
       />
       <span
-        className={`mt-1 inline-flex items-center justify-center px-1 text-xs font-bold leading-none ${labelHeight} ${colors.text}`}
+        className={`mt-1 inline-flex items-center justify-center px-1 text-xs font-bold leading-none ${labelHeight}`}
+        style={{ color: confidenceColors.text }}
       >
         {value}
       </span>
     </div>
   );
 }
-

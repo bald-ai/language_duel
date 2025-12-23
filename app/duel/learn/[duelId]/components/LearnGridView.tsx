@@ -4,6 +4,8 @@ import { formatDuration } from "@/lib/stringUtils";
 import { ExitButton } from "@/app/components/ExitButton";
 import { WordCard } from "./WordCard";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 interface Word {
   word: string;
@@ -61,87 +63,114 @@ export function LearnGridView({
   onExit,
 }: LearnGridViewProps) {
   return (
-    <main className="min-h-screen bg-gray-900 flex flex-col">
-      <ExitButton onExit={onExit} />
+    <ThemedPage>
+      <main className="relative z-10 flex-1 flex flex-col">
+        <ExitButton onExit={onExit} />
 
-      {/* Header with Timer */}
-      <header className="flex-shrink-0 pt-6 pb-4 px-4">
-        <div className="max-w-md mx-auto text-center">
-          <h1 className="text-xl font-bold text-gray-300 mb-2">{themeName}</h1>
-          <p className="text-gray-500 text-sm mb-2">
-            {challengerName} vs {opponentName}
-          </p>
+        {/* Header with Timer */}
+        <header className="flex-shrink-0 pt-6 pb-4 px-4">
+          <div className="max-w-md mx-auto text-center">
+            <h1 className="text-xl font-bold mb-2 title-font" style={{ color: colors.text.DEFAULT }}>
+              {themeName}
+            </h1>
+            <p className="text-sm mb-2" style={{ color: colors.text.muted }}>
+              {challengerName} vs {opponentName}
+            </p>
 
-          {/* Large Timer */}
-          <div className={`text-6xl font-bold ${timerColor} transition-colors`}>
-            {timeRemaining !== null ? formatDuration(timeRemaining) : "--:--"}
-          </div>
+            {/* Large Timer */}
+            <div className="text-6xl font-bold transition-colors" style={{ color: timerColor }}>
+              {timeRemaining !== null ? formatDuration(timeRemaining) : "--:--"}
+            </div>
 
-          {/* Mode Toggle and Reset */}
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <button
-              onClick={onToggleRevealed}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                isRevealed
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              {isRevealed ? "Revealed" : "Testing"}
-            </button>
-            {!isRevealed && (
+            {/* Mode Toggle and Reset */}
+            <div className="flex items-center justify-center gap-4 mt-4">
               <button
-                onClick={onResetAll}
-                className="px-4 py-2 rounded-lg font-medium text-sm bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                onClick={onToggleRevealed}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition border-2 ${
+                  isRevealed ? "hover:brightness-110" : ""
+                }`}
+                style={
+                  isRevealed
+                    ? {
+                        backgroundColor: colors.primary.DEFAULT,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.DEFAULT,
+                      }
+                    : {
+                        backgroundColor: colors.background.elevated,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.muted,
+                      }
+                }
               >
-                Reset All
+                {isRevealed ? "Revealed" : "Testing"}
               </button>
-            )}
+              {!isRevealed && (
+                <button
+                  onClick={onResetAll}
+                  className="px-4 py-2 rounded-lg font-medium text-sm transition border-2 hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.muted,
+                  }}
+                >
+                  Reset All
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Words List */}
+        <div className="flex-1 overflow-y-auto px-4 pb-24">
+          <div className="max-w-md mx-auto space-y-3">
+            {words.map((word, index) => {
+              const wordKey = `${duelId}-${index}`;
+              const state = getHintState(wordKey);
+              const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+              const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
+              const hintsRemaining = maxHints - state.hintCount;
+
+              return (
+                <WordCard
+                  key={index}
+                  word={word}
+                  isRevealed={isRevealed}
+                  revealedPositions={state.revealedPositions}
+                  hintsRemaining={hintsRemaining}
+                  onRevealLetter={(pos) => onRevealLetter(wordKey, pos)}
+                  onRevealFullWord={() => onRevealFullWord(wordKey, word.answer)}
+                  onResetWord={() => onResetWord(wordKey)}
+                  isTTSPlaying={playingWordIndex === index}
+                  isTTSDisabled={playingWordIndex !== null}
+                  onPlayTTS={() => onPlayTTS(index, word.answer)}
+                />
+              );
+            })}
           </div>
         </div>
-      </header>
 
-      {/* Words List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
-        <div className="max-w-md mx-auto space-y-3">
-          {words.map((word, index) => {
-            const wordKey = `${duelId}-${index}`;
-            const state = getHintState(wordKey);
-            const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-            const hintsRemaining = maxHints - state.hintCount;
-
-            return (
-              <WordCard
-                key={index}
-                word={word}
-                isRevealed={isRevealed}
-                revealedPositions={state.revealedPositions}
-                hintsRemaining={hintsRemaining}
-                onRevealLetter={(pos) => onRevealLetter(wordKey, pos)}
-                onRevealFullWord={() => onRevealFullWord(wordKey, word.answer)}
-                onResetWord={() => onResetWord(wordKey)}
-                isTTSPlaying={playingWordIndex === index}
-                isTTSDisabled={playingWordIndex !== null}
-                onPlayTTS={() => onPlayTTS(index, word.answer)}
-              />
-            );
-          })}
+        {/* Fixed Bottom Button */}
+        <div
+          className="fixed bottom-0 left-0 right-0 border-t p-4"
+          style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}
+        >
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={onSkip}
+              className="w-full font-bold py-4 rounded-xl text-lg transition border-2 hover:brightness-110"
+              style={{
+                backgroundColor: colors.cta.DEFAULT,
+                borderColor: colors.cta.dark,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              Skip to Challenge →
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Fixed Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-4">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={onSkip}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors"
-          >
-            Skip to Challenge →
-          </button>
-        </div>
-      </div>
-    </main>
+      </main>
+    </ThemedPage>
   );
 }
-

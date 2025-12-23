@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, type CSSProperties } from "react";
 import { hashSeed, seededShuffle } from "@/lib/prng";
 import { DONT_KNOW_REVEAL_MS } from "./constants";
 import { stripIrr } from "@/lib/stringUtils";
+import { buttonStyles, colors } from "@/lib/theme";
 import type { Level2MultipleChoiceProps } from "./types";
 
 /**
@@ -149,6 +150,26 @@ export function Level2MultipleChoice({
     }
   }, [isDuelMode]);
 
+  const actionButtonClassName =
+    "bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-2 px-5 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
+
+  const primaryActionStyle = {
+    backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+    borderTopColor: buttonStyles.primary.border.top,
+    borderBottomColor: buttonStyles.primary.border.bottom,
+    borderLeftColor: buttonStyles.primary.border.sides,
+    borderRightColor: buttonStyles.primary.border.sides,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
+
+  const ghostActionStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -162,20 +183,51 @@ export function Level2MultipleChoice({
           const showResult = submitted;
           const isEliminated = eliminatedOptions?.includes(option);
 
-          let buttonClass = "border-gray-600 bg-gray-800 hover:border-gray-500 cursor-pointer";
-          
+          let buttonClass = "border-2 font-medium transition-all";
+          let buttonStyle: CSSProperties = {
+            backgroundColor: colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          };
+
           if (isEliminated && !showResult) {
-            buttonClass = "border-gray-700 bg-gray-900 text-gray-600 line-through cursor-not-allowed opacity-50";
+            buttonClass += " line-through cursor-not-allowed opacity-50";
+            buttonStyle = {
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.neutral.dark,
+              color: colors.text.muted,
+            };
           } else if (showResult) {
             if (isCorrect) {
-              buttonClass = "border-green-500 bg-green-500/20 text-green-400";
+              buttonStyle = {
+                backgroundColor: `${colors.status.success.DEFAULT}26`,
+                borderColor: colors.status.success.DEFAULT,
+                color: colors.status.success.light,
+              };
             } else if (isSelected && !isCorrect) {
-              buttonClass = "border-red-500 bg-red-500/20 text-red-400";
+              buttonStyle = {
+                backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                borderColor: colors.status.danger.DEFAULT,
+                color: colors.status.danger.light,
+              };
             } else {
-              buttonClass = "border-gray-600 bg-gray-800 opacity-50";
+              buttonClass += " opacity-50";
+              buttonStyle = {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              };
             }
           } else if (isSelected) {
-            buttonClass = "border-blue-500 bg-blue-500/20 text-blue-400";
+            buttonStyle = {
+              backgroundColor: `${colors.secondary.DEFAULT}26`,
+              borderColor: colors.secondary.DEFAULT,
+              color: colors.secondary.light,
+            };
+          }
+
+          if (!submitted && !isEliminated) {
+            buttonClass += " hover:brightness-110 cursor-pointer";
           }
 
           return (
@@ -183,9 +235,14 @@ export function Level2MultipleChoice({
               key={idx}
               onClick={() => handleOptionClick(idx)}
               disabled={submitted || isEliminated}
-              className={`p-4 rounded-lg border-2 text-lg font-medium transition-all ${buttonClass}`}
+              className={`${isDuelMode ? "p-4 rounded-lg text-lg" : "p-4 rounded-2xl text-base sm:text-lg"} ${buttonClass}`}
+              style={buttonStyle}
             >
-              {isDuelMode && <span className="text-gray-500 mr-2">{idx + 1}.</span>}
+              {isDuelMode && (
+                <span className="mr-2" style={{ color: colors.text.muted }}>
+                  {idx + 1}.
+                </span>
+              )}
               {stripIrr(option)}
             </button>
           );
@@ -194,7 +251,9 @@ export function Level2MultipleChoice({
 
       {/* Navigation hint */}
       {!isDuelMode && (
-        <div className="text-xs text-gray-500">↑↓ to navigate, Enter to confirm</div>
+        <div className="text-xs" style={{ color: colors.text.muted }}>
+          Up and down to navigate, Enter to confirm
+        </div>
       )}
 
       {/* Submit buttons */}
@@ -204,14 +263,28 @@ export function Level2MultipleChoice({
             <button
               onClick={handleSubmit}
               disabled={selectedIndex === null}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+              className={actionButtonClassName}
+              style={primaryActionStyle}
             >
               Confirm
             </button>
           )}
           <button
             onClick={isDuelMode ? handleDontKnow : onSkip}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm font-medium transition-colors"
+            className={
+              isDuelMode
+                ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+                : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+            }
+            style={
+              !isDuelMode
+                ? ghostActionStyle
+                : {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.muted,
+                  }
+            }
           >
             Don&apos;t Know
           </button>
@@ -220,8 +293,17 @@ export function Level2MultipleChoice({
 
       {/* Wrong answer feedback */}
       {submitted && selectedAnswer !== answer && (
-        <div className="text-center text-gray-400 mt-2">
-          Correct answer: <span className="font-bold text-green-400">{stripIrr(answer)}</span>
+        <div
+          className="text-center mt-2"
+          style={{ color: colors.text.muted }}
+        >
+          Correct answer:{" "}
+          <span
+            className="font-bold"
+            style={{ color: colors.status.success.light }}
+          >
+            {stripIrr(answer)}
+          </span>
         </div>
       )}
 
@@ -231,7 +313,12 @@ export function Level2MultipleChoice({
           {canRequestHint && !hintRequested && (
             <button
               onClick={handleRequestHint}
-              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
+              className="px-5 py-3 rounded-lg text-base font-medium flex items-center gap-2 border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -239,20 +326,30 @@ export function Level2MultipleChoice({
           
           {hintRequested && !hintAccepted && (
             <div className="flex flex-col items-center gap-2">
-              <div className="text-purple-400 text-sm animate-pulse">
+              <div className="text-sm animate-pulse" style={{ color: colors.secondary.light }}>
                 Waiting for opponent to help...
               </div>
               {onRequestHint && (
                 <button
                   onClick={handleRequestHint}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                  className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.secondary.DEFAULT,
+                    borderColor: colors.secondary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
                 >
                   Request another hint
                 </button>
               )}
               <button
                 onClick={onCancelHint}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+                className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.muted,
+                }}
               >
                 Cancel
               </button>
@@ -262,7 +359,12 @@ export function Level2MultipleChoice({
           {hintRequested && hintAccepted && onRequestHint && (
             <button
               onClick={handleRequestHint}
-              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               Request another hint
             </button>
@@ -272,4 +374,3 @@ export function Level2MultipleChoice({
     </div>
   );
 }
-

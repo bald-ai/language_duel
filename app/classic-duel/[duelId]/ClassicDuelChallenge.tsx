@@ -717,7 +717,7 @@ export default function ClassicDuelChallenge({
   const userRole = isChallenger ? "challenger" : "opponent";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 relative p-4 pb-28 bg-gray-900 text-white">
+    <main className="flex min-h-screen flex-col items-center justify-start gap-4 relative p-4 pr-12 pt-8 pb-16 bg-gray-900 text-white">
       <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
       
       {status !== "completed" && (
@@ -737,15 +737,6 @@ export default function ClassicDuelChallenge({
       />
 
       <div className="text-center">
-        <h1 className="text-2xl font-bold mb-2">Classic Duel</h1>
-        <div className="mb-4">
-          <div className="text-sm text-gray-400">
-            {challenger?.name || "Challenger"} vs {opponent?.name || "Opponent"}
-          </div>
-        </div>
-      </div>
-
-      <div className="text-center">
         <div className="text-lg mb-2">Word #{(frozenData ? frozenData.wordIndex : index) + 1} of {words.length}</div>
         
         {/* Difficulty indicator */}
@@ -753,9 +744,9 @@ export default function ClassicDuelChallenge({
           {difficultyPill}
         </div>
         
-        {/* Question Timer */}
+        {/* Timer/Countdown area */}
         {questionTimer !== null && phase === 'answering' && (
-          <div className="mb-3">
+          <div className="mb-2">
             <div className={`text-4xl font-bold tabular-nums ${
               questionTimer <= TIMER_DANGER_THRESHOLD ? 'text-red-500 animate-pulse' : 
               questionTimer <= TIMER_WARNING_THRESHOLD ? 'text-yellow-400' : 
@@ -771,34 +762,39 @@ export default function ClassicDuelChallenge({
             </div>
           </div>
         )}
+
+        {/* Countdown controls during transition */}
+        {countdown !== null && frozenData && (
+          <div className="mb-2">
+            <CountdownControls
+              countdown={countdown}
+              countdownPausedBy={countdownPausedBy}
+              countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
+              userRole={userRole}
+              onPause={() => pauseCountdown({ duelId: duel._id }).catch(console.error)}
+              onRequestUnpause={() => requestUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
+              onConfirmUnpause={() => confirmUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
+              countdownSkipRequestedBy={countdownSkipRequestedBy}
+              onSkip={() => skipCountdown({ duelId: duel._id }).catch(console.error)}
+            />
+          </div>
+        )}
+
         <div className="text-3xl font-bold mb-2">{frozenData ? frozenData.word : word}</div>
+        
+        {/* Reversed indicator */}
         {phase === "answering" && activeSabotage === "reverse" && (
-          <div className="mb-4 text-sm font-medium text-purple-300 tracking-wide">🔄 REVERSED</div>
+          <div className="mb-2 text-sm font-medium text-purple-300 tracking-wide">🔄 REVERSED</div>
         )}
       </div>
-
-      {/* Countdown with pause and skip controls */}
-      {countdown !== null && frozenData && (
-        <CountdownControls
-          countdown={countdown}
-          countdownPausedBy={countdownPausedBy}
-          countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
-          userRole={userRole}
-          onPause={() => pauseCountdown({ duelId: duel._id }).catch(console.error)}
-          onRequestUnpause={() => requestUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
-          onConfirmUnpause={() => confirmUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
-          countdownSkipRequestedBy={countdownSkipRequestedBy}
-          onSkip={() => skipCountdown({ duelId: duel._id }).catch(console.error)}
-        />
-      )}
 
       {/* TTS Listen button */}
       {showListenButton && (
         <button
           onClick={handlePlayAudio}
           disabled={isPlayingAudio}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all mb-2 ${
-            isPlayingAudio ? 'bg-green-600 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'
+          className={`flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-2 ${
+            isPlayingAudio ? 'bg-green-600 border-green-700 text-white cursor-not-allowed' : 'bg-blue-600 border-blue-700 hover:bg-blue-500 text-white'
           }`}
         >
           <span className="text-xl">{isPlayingAudio ? '🔊' : '🔈'}</span>
@@ -806,37 +802,39 @@ export default function ClassicDuelChallenge({
         </button>
       )}
 
-      {/* Answer Options */}
+      {/* Answer Options - always render container for stable layout */}
       {(frozenData ? frozenData.word : word) !== "done" && (
         <>
-          {/* Normal grid layout when NOT bouncing */}
-          {activeSabotage !== 'bounce' && activeSabotage !== 'trampoline' && (
-            <div className="grid grid-cols-2 gap-3 w-full max-w-md mb-4">
-              {displayAnswers.map((ans, i) => {
-                const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                const cleanAns = stripIrr(ans);
-                const displayedAnswer =
-                  activeSabotage === "reverse"
-                    ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
-                    : cleanAns;
-                
-                return (
-                  <AnswerOptionButton
-                    key={i}
-                    answer={ans}
-                    displayText={displayedAnswer}
-                    state={state}
-                    onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                    showTypeReveal={isRevealing && !!frozenData}
-                    typedText={typedText}
-                    revealComplete={revealComplete}
-                    hasNoneOption={displayHasNone}
-                    isShowingFeedback={isShowingFeedback}
-                  />
-                );
-              })}
-            </div>
-          )}
+          {/* Normal grid layout - use visibility instead of unmounting to prevent layout shift */}
+          <div 
+            className={`grid grid-cols-2 gap-3 w-full max-w-md mb-8 ${
+              (activeSabotage === 'bounce' || activeSabotage === 'trampoline') ? 'invisible' : ''
+            }`}
+          >
+            {displayAnswers.map((ans, i) => {
+              const state = computeOptionState(ans, { ...optionContext, answer: ans });
+              const cleanAns = stripIrr(ans);
+              const displayedAnswer =
+                activeSabotage === "reverse"
+                  ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
+                  : cleanAns;
+              
+              return (
+                <AnswerOptionButton
+                  key={i}
+                  answer={ans}
+                  displayText={displayedAnswer}
+                  state={state}
+                  onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
+                  showTypeReveal={isRevealing && !!frozenData}
+                  typedText={typedText}
+                  revealComplete={revealComplete}
+                  hasNoneOption={displayHasNone}
+                  isShowingFeedback={isShowingFeedback}
+                />
+              );
+            })}
+          </div>
 
           {/* Bouncing options when bounce sabotage is active */}
           {activeSabotage === 'bounce' && bouncingOptions.length > 0 && (
@@ -912,52 +910,57 @@ export default function ClassicDuelChallenge({
         </>
       )}
 
-      {/* Confirm Button */}
-      {!hasAnswered && phase === 'answering' && word !== "done" && (
-        <button
-          className="rounded-lg px-8 py-3 font-bold text-lg disabled:opacity-50 bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-          disabled={!selectedAnswer || isLocked}
-          onClick={handleConfirmAnswer}
-        >
-          {isLocked ? "Submitting..." : "Confirm Answer"}
-        </button>
-      )}
+      {/* Bottom Controls Area - part of normal document flow */}
+      <div className="flex flex-col items-center gap-4 w-full max-w-md px-4 mb-8">
+        {/* Confirm Button */}
+        {!hasAnswered && phase === 'answering' && word !== "done" && (
+          <button
+            className="w-full sm:w-auto rounded-xl px-10 py-3 font-bold text-lg shadow-2xl disabled:opacity-50 bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 border-green-800"
+            disabled={!selectedAnswer || isLocked}
+            onClick={handleConfirmAnswer}
+          >
+            Confirm Answer
+          </button>
+        )}
 
-      {/* Hint System UI */}
-      {phase === 'answering' && word !== "done" && (
-        <HintSystemUI
-          canRequestHint={canRequestHint}
-          iRequestedHint={iRequestedHint}
-          theyRequestedHint={theyRequestedHint}
-          hintAccepted={!!hintAccepted}
-          canAcceptHint={canAcceptHint}
-          isHintProvider={isHintProvider}
+        {/* Hint System UI */}
+        {phase === 'answering' && word !== "done" && (
+          <HintSystemUI
+            canRequestHint={canRequestHint}
+            iRequestedHint={iRequestedHint}
+            theyRequestedHint={theyRequestedHint}
+            hintAccepted={!!hintAccepted}
+            canAcceptHint={canAcceptHint}
+            isHintProvider={isHintProvider}
+            hasAnswered={hasAnswered}
+            eliminatedOptionsCount={eliminatedOptions.length}
+            onRequestHint={handleRequestHint}
+            onAcceptHint={handleAcceptHint}
+            requestHintText="Begging for help!"
+            acceptHintText="Bafoon is begging"
+          />
+        )}
+
+        {/* Sabotage System UI */}
+        <SabotageSystemUI
+          status={status}
+          phase={phase}
+          word={word}
+          sabotagesRemaining={sabotagesRemaining}
+          isLocked={isLocked}
           hasAnswered={hasAnswered}
-          eliminatedOptionsCount={eliminatedOptions.length}
-          onRequestHint={handleRequestHint}
-          onAcceptHint={handleAcceptHint}
-          requestHintText="HELP ME!"
-          acceptHintText="Bafoon is begging"
+          isOutgoingSabotageActive={isOutgoingSabotageActive}
+          opponentHasAnswered={opponentHasAnswered}
+          onSendSabotage={handleSendSabotage}
         />
-      )}
 
-      {/* Sabotage System UI */}
-      <SabotageSystemUI
-        status={status}
-        phase={phase}
-        word={word}
-        sabotagesRemaining={sabotagesRemaining}
-        isLocked={isLocked}
-        hasAnswered={hasAnswered}
-        isOutgoingSabotageActive={isOutgoingSabotageActive}
-        opponentHasAnswered={opponentHasAnswered}
-        onSendSabotage={handleSendSabotage}
-      />
-
-      {/* Waiting message */}
-      {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
-        <div className="text-yellow-400 font-medium animate-pulse">Waiting for opponent to answer...</div>
-      )}
+        {/* Waiting message */}
+        {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
+          <div className="text-yellow-400 font-medium animate-pulse bg-gray-900/60 px-4 py-1 rounded-full backdrop-blur-sm border border-yellow-500/30">
+            Waiting for opponent...
+          </div>
+        )}
+      </div>
 
       {/* Final Results - shown at end, no separate screen */}
       {status === "completed" && (

@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
 interface SearchBarProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -14,12 +16,17 @@ export function SearchBar({ searchTerm, onSearchChange, isSearching }: SearchBar
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Email or Name#1234"
-        className="w-full px-4 py-3 pl-10 bg-gray-700 border-2 border-gray-600 rounded-xl text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none transition-colors"
+        className="w-full px-4 py-3 pl-10 rounded-xl border-2 focus:outline-none transition-colors"
+        style={{
+          backgroundColor: colors.primary.dark,
+          borderColor: colors.primary.DEFAULT,
+          color: colors.text.DEFAULT,
+        }}
       />
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
+        className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
         fill="none"
-        stroke="currentColor"
+        stroke={colors.text.muted}
         viewBox="0 0 24 24"
       >
         <path
@@ -31,10 +38,12 @@ export function SearchBar({ searchTerm, onSearchChange, isSearching }: SearchBar
       </svg>
       {isSearching && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div 
+            className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: colors.cta.DEFAULT, borderTopColor: "transparent" }}
+          />
         </div>
       )}
     </div>
   );
 }
-

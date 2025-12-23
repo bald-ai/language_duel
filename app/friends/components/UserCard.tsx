@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
+import { colors } from "@/lib/theme";
 
 interface UserCardProps {
   userId: Id<"users">;
@@ -31,44 +32,80 @@ export function UserCard({
     : email;
 
   return (
-    <div className="bg-gray-800/50 border-2 border-gray-700 rounded-xl p-4 flex items-center gap-4">
+    <div 
+      className="rounded-xl p-4 flex items-center gap-4 border-2"
+      style={{
+        backgroundColor: `${colors.primary.dark}40`,
+        borderColor: colors.primary.dark,
+      }}
+    >
       {imageUrl ? (
         <img
           src={imageUrl}
           alt=""
-          className="w-12 h-12 rounded-full border-2 border-gray-600"
+          className="w-12 h-12 rounded-full border-2"
+          style={{ borderColor: colors.neutral.dark }}
         />
       ) : (
-        <div className="w-12 h-12 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
-          <span className="text-gray-400 text-lg font-bold">
+        <div 
+          className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
+          style={{ 
+            backgroundColor: colors.primary.dark,
+            borderColor: colors.neutral.dark,
+          }}
+        >
+          <span 
+            className="text-lg font-bold"
+            style={{ color: colors.neutral.DEFAULT }}
+          >
             {(nickname || email)[0].toUpperCase()}
           </span>
         </div>
       )}
 
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-white truncate">{displayName}</p>
+        <p className="font-bold truncate" style={{ color: colors.text.DEFAULT }}>
+          {displayName}
+        </p>
         {nickname && (
-          <p className="text-sm text-gray-500 truncate">{email}</p>
+          <p className="text-sm truncate" style={{ color: colors.text.muted }}>
+            {email}
+          </p>
         )}
       </div>
 
       <div className="shrink-0">
         {isFriend ? (
-          <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium">
+          <span 
+            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: `${colors.primary.DEFAULT}30`,
+              color: colors.primary.light,
+            }}
+          >
             Friends
           </span>
         ) : isPending ? (
-          <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-sm font-medium">
+          <span 
+            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: `${colors.neutral.DEFAULT}30`,
+              color: colors.neutral.DEFAULT,
+            }}
+          >
             Pending
           </span>
         ) : (
           <button
             onClick={() => onAddFriend(userId)}
             disabled={isSending}
-            className="px-3 py-1 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: colors.primary.DEFAULT,
+              color: colors.text.DEFAULT,
+            }}
           >
-            {isSending ? "Sending..." : "+ Add"}
+            {isSending ? "..." : "+ Add"}
           </button>
         )}
       </div>

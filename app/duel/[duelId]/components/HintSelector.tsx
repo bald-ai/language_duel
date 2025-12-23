@@ -3,6 +3,7 @@
 /**
  * HintSelector - Modal component for choosing what type of hint to provide
  */
+import { colors } from "@/lib/theme";
 
 export type HintOption = {
   id: string;
@@ -50,26 +51,36 @@ export function HintSelector({
   onSelectHint,
   onDismiss,
 }: HintSelectorProps) {
+  const modalStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.secondary.dark,
+    boxShadow: `0 24px 60px ${colors.secondary.DEFAULT}33`,
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full border border-purple-500/50 shadow-2xl shadow-purple-500/20 relative">
+      <div className="rounded-2xl p-6 max-w-sm w-full border relative" style={modalStyle}>
         {/* Close button */}
         <button
           onClick={onDismiss}
-          className="absolute top-3 right-3 text-gray-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-700"
+          className="absolute top-3 right-3 text-xl w-8 h-8 flex items-center justify-center rounded-full transition hover:brightness-110"
+          style={{ color: colors.text.muted }}
         >
           ✕
         </button>
         
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/20 rounded-full mb-3">
+          <div
+            className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+            style={{ backgroundColor: `${colors.secondary.DEFAULT}26` }}
+          >
             <span className="text-2xl">🆘</span>
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">
+          <h3 className="text-lg font-bold mb-1" style={{ color: colors.text.DEFAULT }}>
             {requesterName} needs help!
           </h3>
-          <p className="text-sm text-gray-400">
-            Choose how to help with: <span className="text-purple-300 font-medium">{word}</span>
+          <p className="text-sm" style={{ color: colors.text.muted }}>
+            Choose how to help with: <span className="font-medium" style={{ color: colors.secondary.light }}>{word}</span>
           </p>
         </div>
         <div className="space-y-3">
@@ -77,17 +88,21 @@ export function HintSelector({
             <button
               key={option.id}
               onClick={() => onSelectHint(option.id)}
-              className="w-full p-4 rounded-xl border border-gray-600 bg-gray-700/50 hover:bg-purple-500/20 hover:border-purple-500 transition-all group"
+              className="w-full p-4 rounded-xl border transition-all group hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+              }}
             >
               <div className="flex items-center gap-4">
                 <div className="text-3xl group-hover:scale-110 transition-transform">
                   {option.icon}
                 </div>
                 <div className="text-left">
-                  <div className="font-semibold text-white group-hover:text-purple-300 transition-colors">
+                  <div className="font-semibold transition-colors" style={{ color: colors.text.DEFAULT }}>
                     {option.label}
                   </div>
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm" style={{ color: colors.text.muted }}>
                     {option.description}
                   </div>
                 </div>
@@ -98,7 +113,8 @@ export function HintSelector({
         
         <button
           onClick={onDismiss}
-          className="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          className="w-full mt-4 py-2 text-sm transition hover:brightness-110"
+          style={{ color: colors.text.muted }}
         >
           Maybe later
         </button>
@@ -106,4 +122,3 @@ export function HintSelector({
     </div>
   );
 }
-

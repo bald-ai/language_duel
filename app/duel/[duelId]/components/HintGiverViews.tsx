@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { JSX } from "react";
 import { normalizeAccents } from "@/lib/stringUtils";
+import { colors } from "@/lib/theme";
 
 // HintGiverView - Shown to opponent when they accept hint request
 interface HintGiverViewProps {
@@ -55,7 +56,7 @@ export function HintGiverView({
         }
         elements.push(
           <div key={`space-${slotIdx}`} className="w-6 flex items-end justify-center pb-2">
-            <span className="text-gray-600">•</span>
+            <span style={{ color: colors.neutral.dark }}>•</span>
           </div>
         );
       }
@@ -69,35 +70,55 @@ export function HintGiverView({
       // Can click to reveal if: not already revealed and hints remaining
       const canClick = !isRevealed && hintsRemaining > 0;
 
-      let letterColor = "text-gray-400";
-      if (isHintRevealed) letterColor = "text-purple-400"; // Hint we provided
-      else if (isRequesterRevealed) letterColor = "text-white"; // Already revealed by requester
-      else if (typedChar) letterColor = isCorrect ? "text-green-400" : "text-red-400";
+      let letterColor = colors.text.muted;
+      if (isHintRevealed) letterColor = colors.secondary.light; // Hint we provided
+      else if (isRequesterRevealed) letterColor = colors.text.DEFAULT; // Already revealed by requester
+      else if (typedChar) letterColor = isCorrect ? colors.status.success.light : colors.status.danger.light;
+
+      const hintButtonStyle = isHintRevealed
+        ? {
+            backgroundColor: colors.secondary.DEFAULT,
+            borderColor: colors.secondary.dark,
+            color: colors.text.DEFAULT,
+          }
+        : isRequesterRevealed
+          ? {
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.neutral.dark,
+              color: colors.text.muted,
+            }
+          : canClick
+            ? {
+                backgroundColor: `${colors.secondary.DEFAULT}26`,
+                borderColor: colors.secondary.DEFAULT,
+                color: colors.secondary.light,
+              }
+            : {
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.neutral.dark,
+                color: colors.text.muted,
+              };
 
       currentWordSlots.push(
         <div key={slotIdx} className="flex flex-col items-center">
           <button
             onClick={() => canClick && onProvideHint(slotIdx)}
             disabled={!canClick}
-            className={`text-xs px-1.5 py-0.5 rounded mb-1 ${
-              isHintRevealed
-                ? "bg-purple-600 text-white"
-                : isRequesterRevealed
-                  ? "bg-gray-600 text-gray-500"
-                  : canClick
-                    ? "bg-purple-700 text-purple-200 hover:bg-purple-600 cursor-pointer"
-                    : "bg-gray-700 text-gray-500"
+            className={`text-xs px-1.5 py-0.5 rounded mb-1 border-2 transition ${
+              canClick ? "cursor-pointer hover:brightness-110" : ""
             }`}
+            style={hintButtonStyle}
           >
             {isHintRevealed ? "✓" : "H"}
           </button>
           <div
             className={`w-8 h-10 flex items-center justify-center border-b-2 ${
-              canClick ? "border-purple-500 cursor-pointer" : "border-gray-500"
+              canClick ? "cursor-pointer" : ""
             }`}
+            style={{ borderColor: canClick ? colors.secondary.DEFAULT : colors.neutral.dark }}
             onClick={() => canClick && onProvideHint(slotIdx)}
           >
-            <span className={`text-xl font-bold ${letterColor}`}>
+            <span className="text-xl font-bold" style={{ color: letterColor }}>
               {isRevealed ? slot.char.toUpperCase() : typedChar.toUpperCase()}
             </span>
           </div>
@@ -118,26 +139,47 @@ export function HintGiverView({
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full border-2 border-purple-500">
+      <div
+        className="rounded-xl p-6 max-w-lg w-full border-2"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.secondary.dark,
+          boxShadow: `0 20px 50px ${colors.secondary.DEFAULT}33`,
+        }}
+      >
         <div className="text-center mb-4">
-          <div className="text-purple-400 text-sm font-medium mb-1">
+          <div className="text-sm font-medium mb-1" style={{ color: colors.secondary.light }}>
             🆘 {requesterName} needs help!
           </div>
-          <div className="text-3xl font-bold text-white mb-2">{word}</div>
-          <div className="text-sm text-gray-400">Click on letters to reveal (up to 3)</div>
+          <div className="text-3xl font-bold mb-2" style={{ color: colors.text.DEFAULT }}>
+            {word}
+          </div>
+          <div className="text-sm" style={{ color: colors.text.muted }}>
+            Click on letters to reveal (up to 3)
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 justify-center items-end p-4 bg-gray-900 rounded-lg min-h-[120px] mb-4">
+        <div
+          className="flex flex-wrap gap-4 justify-center items-end p-4 rounded-lg min-h-[120px] mb-4"
+          style={{ backgroundColor: colors.background.DEFAULT }}
+        >
           {renderSlots()}
         </div>
 
         <div className="flex justify-center items-center gap-4">
-          <div className="text-purple-400 font-medium">Hints remaining: {hintsRemaining}/3</div>
+          <div className="font-medium" style={{ color: colors.secondary.light }}>
+            Hints remaining: {hintsRemaining}/3
+          </div>
         </div>
 
         <button
           onClick={onDismiss}
-          className="w-full mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm"
+          className="w-full mt-4 px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.muted,
+          }}
         >
           Minimize (continue your game)
         </button>
@@ -170,13 +212,24 @@ export function L2HintGiverView({
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full border-2 border-purple-500">
+      <div
+        className="rounded-xl p-6 max-w-lg w-full border-2"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.secondary.dark,
+          boxShadow: `0 20px 50px ${colors.secondary.DEFAULT}33`,
+        }}
+      >
         <div className="text-center mb-4">
-          <div className="text-purple-400 text-sm font-medium mb-1">
+          <div className="text-sm font-medium mb-1" style={{ color: colors.secondary.light }}>
             🆘 {requesterName} needs help!
           </div>
-          <div className="text-3xl font-bold text-white mb-2">{word}</div>
-          <div className="text-sm text-gray-400">Click on 2 wrong options to eliminate them</div>
+          <div className="text-3xl font-bold mb-2" style={{ color: colors.text.DEFAULT }}>
+            {word}
+          </div>
+          <div className="text-sm" style={{ color: colors.text.muted }}>
+            Click on 2 wrong options to eliminate them
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 w-full mb-4">
@@ -185,16 +238,40 @@ export function L2HintGiverView({
             const isEliminated = eliminatedOptions.includes(option);
             const canEliminate = !isCorrect && !isEliminated && eliminationsRemaining > 0;
 
-            let buttonClass = "border-gray-600 bg-gray-800";
+            let buttonClass = "p-4 rounded-lg border-2 text-lg font-medium transition-all";
+            let buttonStyle = {
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            };
             if (isCorrect) {
-              buttonClass = "border-green-500 bg-green-500/20 text-green-400 cursor-not-allowed";
+              buttonClass += " cursor-not-allowed";
+              buttonStyle = {
+                backgroundColor: `${colors.status.success.DEFAULT}26`,
+                borderColor: colors.status.success.DEFAULT,
+                color: colors.status.success.light,
+              };
             } else if (isEliminated) {
-              buttonClass = "border-red-500 bg-red-500/20 text-red-400 line-through opacity-50";
+              buttonClass += " line-through opacity-50 cursor-not-allowed";
+              buttonStyle = {
+                backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                borderColor: colors.status.danger.DEFAULT,
+                color: colors.status.danger.light,
+              };
             } else if (canEliminate) {
-              buttonClass =
-                "border-gray-600 bg-gray-800 hover:border-red-500 hover:bg-red-500/10 cursor-pointer";
+              buttonClass += " cursor-pointer hover:brightness-110";
+              buttonStyle = {
+                backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+                borderColor: colors.status.warning.DEFAULT,
+                color: colors.status.warning.light,
+              };
             } else {
-              buttonClass = "border-gray-600 bg-gray-800 opacity-50 cursor-not-allowed";
+              buttonClass += " opacity-50 cursor-not-allowed";
+              buttonStyle = {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.neutral.dark,
+                color: colors.text.muted,
+              };
             }
 
             return (
@@ -202,7 +279,8 @@ export function L2HintGiverView({
                 key={idx}
                 onClick={() => canEliminate && onEliminateOption(option)}
                 disabled={!canEliminate}
-                className={`p-4 rounded-lg border-2 text-lg font-medium transition-all ${buttonClass}`}
+                className={buttonClass}
+                style={buttonStyle}
               >
                 {isCorrect && <span className="mr-2">✓</span>}
                 {isEliminated && <span className="mr-2">✗</span>}
@@ -213,14 +291,19 @@ export function L2HintGiverView({
         </div>
 
         <div className="flex justify-center items-center gap-4">
-          <div className="text-purple-400 font-medium">
+          <div className="font-medium" style={{ color: colors.secondary.light }}>
             Eliminations remaining: {eliminationsRemaining}/2
           </div>
         </div>
 
         <button
           onClick={onDismiss}
-          className="w-full mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm"
+          className="w-full mt-4 px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.muted,
+          }}
         >
           Minimize (continue your game)
         </button>
@@ -228,4 +311,3 @@ export function L2HintGiverView({
     </div>
   );
 }
-

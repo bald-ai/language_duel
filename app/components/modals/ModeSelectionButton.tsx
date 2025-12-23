@@ -1,57 +1,72 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
+type ModeTone = "primary" | "secondary" | "cta";
+
 interface ModeSelectionButtonProps {
   selected: boolean;
   onClick: () => void;
   title: string;
   description: string;
-  selectedColor?: "blue" | "purple";
+  selectedTone?: ModeTone;
 }
+
+const toneMap = {
+  primary: colors.primary,
+  secondary: colors.secondary,
+  cta: colors.cta,
+} as const;
 
 export function ModeSelectionButton({
   selected,
   onClick,
   title,
   description,
-  selectedColor = "blue",
+  selectedTone = "primary",
 }: ModeSelectionButtonProps) {
-  const colorClasses = {
-    blue: {
-      border: "border-blue-500/80 bg-blue-500/10",
-      title: "text-blue-300",
-      check: "border-blue-400 bg-blue-500",
-    },
-    purple: {
-      border: "border-purple-500/80 bg-purple-500/10",
-      title: "text-purple-300",
-      check: "border-purple-400 bg-purple-500",
-    },
-  };
+  const tone = toneMap[selectedTone];
+  const cardStyle = selected
+    ? {
+        backgroundColor: `${tone.DEFAULT}1A`,
+        borderColor: `${tone.DEFAULT}66`,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      };
 
-  const colors = colorClasses[selectedColor];
+  const titleStyle = selected ? { color: tone.light } : { color: colors.text.DEFAULT };
+
+  const checkStyle = selected
+    ? {
+        backgroundColor: tone.DEFAULT,
+        borderColor: tone.DEFAULT,
+      }
+    : {
+        backgroundColor: "transparent",
+        borderColor: colors.neutral.dark,
+      };
 
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={[
-        "w-full text-left p-5 rounded-2xl border-2 transition-colors",
-        "flex items-center justify-between gap-4",
-        selected ? colors.border : "border-gray-700 hover:bg-gray-700 hover:border-gray-600",
-      ].join(" ")}
+      className="w-full text-left p-4 sm:p-5 rounded-2xl border-2 transition hover:brightness-110 flex items-center justify-between gap-4"
+      style={cardStyle}
     >
       <div>
-        <div className={["font-bold text-2xl", selected ? colors.title : "text-white"].join(" ")}>
+        <div className="font-bold text-lg sm:text-xl" style={titleStyle}>
           {title}
         </div>
-        <div className="text-sm text-gray-300">{description}</div>
+        <div className="text-sm" style={{ color: colors.text.muted }}>
+          {description}
+        </div>
       </div>
       <div
-        className={[
-          "w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0",
-          selected ? colors.check : "border-gray-500/80 bg-transparent",
-        ].join(" ")}
+        className="w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0"
+        style={checkStyle}
       >
         {selected && <CheckIcon />}
       </div>
@@ -79,4 +94,3 @@ function CheckIcon() {
     </svg>
   );
 }
-

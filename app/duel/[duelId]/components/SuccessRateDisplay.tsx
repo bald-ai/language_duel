@@ -2,6 +2,7 @@
 
 import { calculateMaxScore, calculateSuccessRate } from "@/lib/scoring";
 import type { DifficultyDistribution } from "@/lib/difficultyUtils";
+import { colors } from "@/lib/theme";
 
 interface SuccessRateDisplayProps {
   questionsAnswered: number;
@@ -27,15 +28,14 @@ export function SuccessRateDisplay({
   const theirSuccessRate = calculateSuccessRate(theirScore, maxScore);
 
   return (
-    <div className="text-sm text-gray-400 mb-2">
-      <span className="text-green-400">
+    <div className="text-sm mb-2" style={{ color: colors.text.muted }}>
+      <span style={{ color: colors.status.success.light }}>
         {myName?.split(" ")[0] || "You"}: {mySuccessRate}%
       </span>
       <span className="mx-2">|</span>
-      <span className="text-blue-400">
+      <span style={{ color: colors.secondary.light }}>
         {theirName?.split(" ")[0] || "Opponent"}: {theirSuccessRate}%
       </span>
     </div>
   );
 }
-

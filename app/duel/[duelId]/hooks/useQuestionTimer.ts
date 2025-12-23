@@ -47,6 +47,21 @@ export function useQuestionTimer({
 }: UseQuestionTimerParams): UseQuestionTimerResult {
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Store latest values in refs to avoid including them in dependencies
+  // This prevents infinite loops when these values change frequently
+  const timeoutAnswerRef = useRef(timeoutAnswer);
+  const setHasTimedOutRef = useRef(setHasTimedOut);
+  const hasAnsweredRef = useRef(hasAnswered);
+  const duelIdRef = useRef(duelId);
+  
+  // Update refs when values change
+  useEffect(() => {
+    timeoutAnswerRef.current = timeoutAnswer;
+    setHasTimedOutRef.current = setHasTimedOut;
+    hasAnsweredRef.current = hasAnswered;
+    duelIdRef.current = duelId;
+  }, [timeoutAnswer, setHasTimedOut, hasAnswered, duelId]);
 
   useEffect(() => {
     // Clear any existing timer
@@ -73,10 +88,11 @@ export function useQuestionTimer({
       setQuestionTimer(remaining);
 
       // Check if time is up and player hasn't answered
+      // Use refs to access latest values without including them in dependencies
       if (remaining <= 0 && !hasTimedOutRef.current) {
-        setHasTimedOut(true);
-        if (!hasAnswered && duelId) {
-          timeoutAnswer({ duelId }).catch(console.error);
+        setHasTimedOutRef.current(true);
+        if (!hasAnsweredRef.current && duelIdRef.current) {
+          timeoutAnswerRef.current({ duelId: duelIdRef.current }).catch(console.error);
         }
       }
     };
@@ -99,12 +115,8 @@ export function useQuestionTimer({
     questionTimerPausedAt,
     currentWordIndex,
     duelStatus,
-    duelId,
-    hasAnswered,
-    viewerIsChallenger,
-    timeoutAnswer,
-    hasTimedOutRef,
-    setHasTimedOut,
+    // Removed: duelId, hasAnswered, timeoutAnswer, hasTimedOutRef, setHasTimedOut, viewerIsChallenger
+    // These are now accessed via refs to prevent infinite loops, or are not used in the effect
   ]);
 
   return { questionTimer };

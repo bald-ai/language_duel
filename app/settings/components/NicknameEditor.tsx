@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { NICKNAME_MAX_LENGTH } from "../constants";
+import { colors } from "@/lib/theme";
 
 interface NicknameEditorProps {
   currentNickname?: string;
@@ -45,12 +46,27 @@ export function NicknameEditor({
   const hasChanged = nickname.trim() !== (currentNickname || "");
 
   return (
-    <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-6">
-      <h3 className="text-lg font-bold text-gray-300 mb-4">Change Nickname</h3>
+    <div 
+      className="rounded-2xl p-6 border-2"
+      style={{
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      <h3 
+        className="text-lg font-bold mb-4"
+        style={{ color: colors.text.DEFAULT }}
+      >
+        Change Nickname
+      </h3>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="nickname" className="block text-sm text-gray-400 mb-2">
+          <label 
+            htmlFor="nickname" 
+            className="block text-sm mb-2"
+            style={{ color: colors.text.muted }}
+          >
             New Nickname
           </label>
           <div className="relative">
@@ -62,29 +78,47 @@ export function NicknameEditor({
               maxLength={NICKNAME_MAX_LENGTH}
               placeholder="Enter nickname..."
               disabled={isUpdating}
-              className="w-full px-4 py-3 bg-gray-700 border-2 border-gray-600 rounded-xl text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none transition-colors disabled:opacity-50"
+              className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: colors.primary.dark,
+                borderColor: colors.primary.DEFAULT,
+                color: colors.text.DEFAULT,
+              }}
             />
             {currentDiscriminator && nickname.trim() && (
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+              <span 
+                className="absolute right-4 top-1/2 -translate-y-1/2"
+                style={{ color: colors.text.muted }}
+              >
                 #{currentDiscriminator}*
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs mt-2" style={{ color: colors.text.muted }}>
             * A new random discriminator will be assigned when you change your nickname
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div 
+            className="p-3 rounded-lg border"
+            style={{
+              backgroundColor: `${colors.cta.dark}20`,
+              borderColor: `${colors.cta.DEFAULT}50`,
+            }}
+          >
+            <p className="text-sm" style={{ color: colors.cta.light }}>{error}</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={isUpdating || !hasChanged || !nickname.trim()}
-          className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold uppercase hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-xl font-bold uppercase transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: colors.primary.DEFAULT,
+            color: colors.text.DEFAULT,
+          }}
         >
           {isUpdating ? "Updating..." : "Update Nickname"}
         </button>
@@ -92,4 +126,3 @@ export function NicknameEditor({
     </div>
   );
 }
-

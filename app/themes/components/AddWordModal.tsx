@@ -1,5 +1,7 @@
 "use client";
 
+import { buttonStyles, colors } from "@/lib/theme";
+
 interface AddWordModalProps {
   isOpen: boolean;
   newWordInput: string;
@@ -9,6 +11,28 @@ interface AddWordModalProps {
   onAdd: () => void;
   onClose: () => void;
 }
+
+const actionButtonClassName =
+  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
+
+const primaryActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+  borderTopColor: buttonStyles.primary.border.top,
+  borderBottomColor: buttonStyles.primary.border.bottom,
+  borderLeftColor: buttonStyles.primary.border.sides,
+  borderRightColor: buttonStyles.primary.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
+
+const outlineButtonClassName =
+  "flex-1 border-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
+
+const outlineButtonStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+};
 
 export function AddWordModal({
   isOpen,
@@ -23,17 +47,33 @@ export function AddWordModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-700">
-        <h2 className="text-xl font-bold text-white mb-4 text-center">Add New Word</h2>
+      <div
+        className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          boxShadow: `0 20px 60px ${colors.primary.glow}`,
+        }}
+      >
+        <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
+          Add New Word
+        </h2>
 
         <div className="mb-4">
-          <label className="block text-sm text-gray-300 mb-2">English Word</label>
+          <label className="block text-sm mb-2" style={{ color: colors.text.muted }}>
+            English Word
+          </label>
           <input
             type="text"
             value={newWordInput}
             onChange={(e) => onInputChange(e.target.value)}
             placeholder="Enter an English word..."
-            className="w-full p-4 border-2 border-gray-700 bg-gray-900 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            className="w-full p-4 border-2 rounded-xl focus:outline-none placeholder:opacity-60"
+            style={{
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }}
             disabled={isAdding}
             autoFocus
             onKeyDown={(e) => {
@@ -45,15 +85,27 @@ export function AddWordModal({
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 text-sm">
+          <div
+            className="mb-4 p-3 border-2 rounded-xl text-sm"
+            style={{
+              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+              borderColor: `${colors.status.danger.DEFAULT}66`,
+              color: colors.status.danger.light,
+            }}
+          >
             {error}
           </div>
         )}
 
         {isAdding && (
           <div className="mb-4 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-            <p className="text-sm text-gray-300">Generating Spanish translation and wrong answers...</p>
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2"
+              style={{ borderColor: colors.cta.light }}
+            />
+            <p className="text-sm" style={{ color: colors.text.muted }}>
+              Generating Spanish translation and wrong answers...
+            </p>
           </div>
         )}
 
@@ -61,14 +113,16 @@ export function AddWordModal({
           <button
             onClick={onAdd}
             disabled={!newWordInput.trim() || isAdding}
-            className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-bold uppercase disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+            className={actionButtonClassName}
+            style={primaryActionStyle}
           >
             {isAdding ? "Adding..." : "Add"}
           </button>
           <button
             onClick={onClose}
             disabled={isAdding}
-            className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-xl py-3 font-bold text-white uppercase hover:bg-gray-600 transition-colors disabled:opacity-50"
+            className={outlineButtonClassName}
+            style={outlineButtonStyle}
           >
             Cancel
           </button>
@@ -77,4 +131,3 @@ export function AddWordModal({
     </div>
   );
 }
-

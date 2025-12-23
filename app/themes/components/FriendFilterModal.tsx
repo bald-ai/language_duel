@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
+import { colors } from "@/lib/theme";
 
 interface FriendFilterModalProps {
   isOpen: boolean;
@@ -25,13 +26,26 @@ export function FriendFilterModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+      <div
+        className="border-2 rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col backdrop-blur-sm"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          boxShadow: `0 20px 60px ${colors.primary.glow}`,
+        }}
+      >
         {/* Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-300">Filter Themes</h2>
+        <div
+          className="p-4 border-b flex items-center justify-between"
+          style={{ borderColor: colors.primary.dark }}
+        >
+          <h2 className="title-font text-lg font-bold" style={{ color: colors.text.DEFAULT }}>
+            Filter Themes
+          </h2>
           <button
             onClick={onClose}
-            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+            className="p-1 transition hover:brightness-110"
+            style={{ color: colors.text.muted }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -49,10 +63,16 @@ export function FriendFilterModal({
           {/* Show All Option */}
           <button
             onClick={onShowAll}
-            className="w-full p-4 mb-3 bg-amber-600/20 border-2 border-amber-500/30 rounded-xl text-left hover:bg-amber-600/30 transition-colors"
+            className="w-full p-4 mb-3 border-2 rounded-xl text-left transition hover:brightness-110"
+            style={{
+              backgroundColor: `${colors.primary.DEFAULT}1A`,
+              borderColor: `${colors.primary.DEFAULT}66`,
+            }}
           >
-            <span className="font-bold text-amber-400">Show All Themes</span>
-            <p className="text-sm text-gray-500 mt-1">
+            <span className="font-bold" style={{ color: colors.text.DEFAULT }}>
+              Show All Themes
+            </span>
+            <p className="text-sm mt-1" style={{ color: colors.text.muted }}>
               View your themes and all friends&apos; shared themes
             </p>
           </button>
@@ -60,24 +80,32 @@ export function FriendFilterModal({
           {/* My Themes Only Option */}
           <button
             onClick={onShowMyThemes}
-            className="w-full p-4 mb-3 bg-blue-600/20 border-2 border-blue-500/30 rounded-xl text-left hover:bg-blue-600/30 transition-colors"
+            className="w-full p-4 mb-3 border-2 rounded-xl text-left transition hover:brightness-110"
+            style={{
+              backgroundColor: `${colors.secondary.DEFAULT}1A`,
+              borderColor: `${colors.secondary.DEFAULT}66`,
+            }}
           >
-            <span className="font-bold text-blue-400">My Themes Only</span>
-            <p className="text-sm text-gray-500 mt-1">
+            <span className="font-bold" style={{ color: colors.secondary.light }}>
+              My Themes Only
+            </span>
+            <p className="text-sm mt-1" style={{ color: colors.text.muted }}>
               View only themes you created
             </p>
           </button>
 
           {friends.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No friends yet</p>
-              <p className="text-sm text-gray-600 mt-1">
+              <p style={{ color: colors.text.muted }}>No friends yet</p>
+              <p className="text-sm mt-1" style={{ color: colors.neutral.dark }}>
                 Add friends to filter by their shared themes
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-gray-500 mb-2 px-1">Friends&apos; themes:</p>
+              <p className="text-sm mb-2 px-1" style={{ color: colors.text.muted }}>
+                Friends&apos; themes:
+              </p>
               {friends.map((friend) => {
                 const displayName = friend.nickname && friend.discriminator
                   ? `${friend.nickname}#${friend.discriminator}`
@@ -87,29 +115,45 @@ export function FriendFilterModal({
                   <button
                     key={friend.friendId}
                     onClick={() => onSelectFriend(friend.friendId)}
-                    className="w-full p-3 bg-gray-800/50 border-2 border-gray-700 rounded-xl flex items-center gap-3 hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
+                    className="w-full p-3 border-2 rounded-xl flex items-center gap-3 transition hover:brightness-110"
+                    style={{
+                      backgroundColor: colors.background.DEFAULT,
+                      borderColor: colors.primary.dark,
+                    }}
                   >
                     {friend.imageUrl ? (
                       <img
                         src={friend.imageUrl}
                         alt=""
-                        className="w-10 h-10 rounded-full border-2 border-gray-600"
+                        className="w-10 h-10 rounded-full border-2"
+                        style={{ borderColor: colors.primary.dark }}
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
-                        <span className="text-gray-400 font-bold">
+                      <div
+                        className="w-10 h-10 rounded-full border-2 flex items-center justify-center"
+                        style={{
+                          backgroundColor: colors.background.elevated,
+                          borderColor: colors.primary.dark,
+                        }}
+                      >
+                        <span className="font-bold" style={{ color: colors.text.muted }}>
                           {(friend.nickname || friend.email)[0].toUpperCase()}
                         </span>
                       </div>
                     )}
                     <div className="flex-1 text-left min-w-0">
-                      <p className="font-medium text-white truncate">{displayName}</p>
+                      <p className="font-medium truncate" style={{ color: colors.text.DEFAULT }}>
+                        {displayName}
+                      </p>
                       {friend.nickname && (
-                        <p className="text-sm text-gray-500 truncate">{friend.email}</p>
+                        <p className="text-sm truncate" style={{ color: colors.text.muted }}>
+                          {friend.email}
+                        </p>
                       )}
                     </div>
                     <svg
-                      className="w-5 h-5 text-gray-500"
+                      className="w-5 h-5"
+                      style={{ color: colors.text.muted }}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"

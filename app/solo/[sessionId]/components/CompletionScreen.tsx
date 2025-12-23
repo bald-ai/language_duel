@@ -3,6 +3,7 @@
 import { formatDuration } from "@/lib/stringUtils";
 import { calculateAccuracy } from "@/lib/scoring";
 import { ACCURACY_THRESHOLDS } from "../constants";
+import { buttonStyles, colors } from "@/lib/theme";
 
 interface CompletionScreenProps {
   questionsAnswered: number;
@@ -11,6 +12,19 @@ interface CompletionScreenProps {
   totalDuration: number;
   onExit: () => void;
 }
+
+const actionButtonClassName =
+  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
+
+const primaryActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+  borderTopColor: buttonStyles.primary.border.top,
+  borderBottomColor: buttonStyles.primary.border.bottom,
+  borderLeftColor: buttonStyles.primary.border.sides,
+  borderRightColor: buttonStyles.primary.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
 
 /**
  * Displays the solo challenge completion summary with stats and exit option.
@@ -24,50 +38,83 @@ export function CompletionScreen({
 }: CompletionScreenProps) {
   const accuracy = calculateAccuracy(correctAnswers, questionsAnswered);
 
-  const getAccuracyColor = () => {
-    if (accuracy >= ACCURACY_THRESHOLDS.HIGH) return "text-green-400";
-    if (accuracy >= ACCURACY_THRESHOLDS.MEDIUM) return "text-yellow-400";
-    return "text-red-400";
+  const getAccuracyStyle = () => {
+    if (accuracy >= ACCURACY_THRESHOLDS.HIGH) return { color: colors.status.success.DEFAULT };
+    if (accuracy >= ACCURACY_THRESHOLDS.MEDIUM) return { color: colors.status.warning.DEFAULT };
+    return { color: colors.status.danger.DEFAULT };
+  };
+
+  const cardStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.status.success.DEFAULT,
+    boxShadow: `0 20px 60px ${colors.status.success.DEFAULT}33`,
+  };
+
+  const statCardStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="bg-gray-800 rounded-xl p-8 max-w-md w-full text-center border-2 border-green-500">
-        <div className="text-4xl mb-4">🎉</div>
-        <h1 className="text-2xl font-bold text-green-400 mb-6">Challenge Complete!</h1>
+    <div
+      className="w-full max-w-md mx-auto rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+      style={cardStyle}
+    >
+      <div
+        className="title-font text-2xl sm:text-3xl uppercase tracking-widest"
+        style={{ color: colors.text.DEFAULT }}
+      >
+        Challenge Complete
+      </div>
+      <p className="mt-2 text-xs sm:text-sm" style={{ color: colors.text.muted }}>
+        Nice work. Here is your summary.
+      </p>
 
-        <div className="space-y-4 mb-8">
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-gray-400 text-sm">Total Time</div>
-            <div className="text-3xl font-bold font-mono text-white">
-              {formatDuration(totalDuration)}
-            </div>
+      <div className="mt-6 grid grid-cols-2 gap-3 text-left">
+        <div className="rounded-2xl border-2 p-3" style={statCardStyle}>
+          <div className="text-[11px] uppercase tracking-widest" style={{ color: colors.text.muted }}>
+            Total Time
           </div>
-
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-gray-400 text-sm">Words Mastered</div>
-            <div className="text-3xl font-bold text-white">{totalWords}</div>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-gray-400 text-sm">Questions Answered</div>
-            <div className="text-3xl font-bold text-white">{questionsAnswered}</div>
-          </div>
-
-          <div className="bg-gray-900 rounded-lg p-4">
-            <div className="text-gray-400 text-sm">Accuracy</div>
-            <div className={`text-3xl font-bold ${getAccuracyColor()}`}>{accuracy}%</div>
+          <div className="mt-1 text-xl font-mono" style={{ color: colors.text.DEFAULT }}>
+            {formatDuration(totalDuration)}
           </div>
         </div>
 
-        <button
-          onClick={onExit}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors"
-        >
-          Back to Home
-        </button>
+        <div className="rounded-2xl border-2 p-3" style={statCardStyle}>
+          <div className="text-[11px] uppercase tracking-widest" style={{ color: colors.text.muted }}>
+            Words Mastered
+          </div>
+          <div className="mt-1 text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
+            {totalWords}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border-2 p-3" style={statCardStyle}>
+          <div className="text-[11px] uppercase tracking-widest" style={{ color: colors.text.muted }}>
+            Questions
+          </div>
+          <div className="mt-1 text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
+            {questionsAnswered}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border-2 p-3" style={statCardStyle}>
+          <div className="text-[11px] uppercase tracking-widest" style={{ color: colors.text.muted }}>
+            Accuracy
+          </div>
+          <div className="mt-1 text-xl font-semibold" style={getAccuracyStyle()}>
+            {accuracy}%
+          </div>
+        </div>
       </div>
+
+      <button
+        onClick={onExit}
+        className={`${actionButtonClassName} mt-6`}
+        style={primaryActionStyle}
+      >
+        Back to Home
+      </button>
     </div>
   );
 }
-

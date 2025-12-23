@@ -3,6 +3,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { FriendWithDetails } from "@/convex/friends";
+import { buttonStyles, colors } from "@/lib/theme";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -19,6 +20,29 @@ interface ThemeListProps {
   onOpenFriendFilter?: () => void;
   onClearFriendFilter?: () => void;
 }
+
+const actionButtonClassName =
+  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
+
+const primaryActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+  borderTopColor: buttonStyles.primary.border.top,
+  borderBottomColor: buttonStyles.primary.border.bottom,
+  borderLeftColor: buttonStyles.primary.border.sides,
+  borderRightColor: buttonStyles.primary.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
+
+const ctaActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
+  borderTopColor: buttonStyles.cta.border.top,
+  borderBottomColor: buttonStyles.cta.border.bottom,
+  borderLeftColor: buttonStyles.cta.border.sides,
+  borderRightColor: buttonStyles.cta.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
 
 export function ThemeList({
   themes,
@@ -41,30 +65,56 @@ export function ThemeList({
       : null;
 
   const isFiltering = myThemesOnly || !!selectedFriend;
+  const subtitle = filterDisplay
+    ? `Filtering: ${filterDisplay} • ${themes.length} theme${themes.length !== 1 ? "s" : ""}`
+    : `${themes.length} theme${themes.length !== 1 ? "s" : ""} available`;
+
+  const filterButtonStyle = isFiltering
+    ? {
+        backgroundColor: `${colors.secondary.DEFAULT}26`,
+        borderColor: `${colors.secondary.DEFAULT}66`,
+        color: colors.secondary.light,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+        color: colors.text.muted,
+      };
 
   return (
     <>
-      <header className="w-full mb-6">
-        <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-center text-gray-300 uppercase tracking-wide truncate">
-                {filterDisplay ? `Themes - ${filterDisplay}` : "Themes"}
+      <header className="w-full mb-6 animate-slide-up">
+        <div
+          className="w-full rounded-3xl border-2 p-4 sm:p-5 flex flex-col gap-3 backdrop-blur-sm shadow-lg"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            boxShadow: `0 16px 40px ${colors.primary.glow}`,
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0 text-center">
+              <h1
+                className="title-font text-2xl sm:text-3xl uppercase tracking-wider truncate"
+                style={{
+                  background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
+                }}
+              >
+                Themes
               </h1>
-              {isFiltering && (
-                <p className="text-center text-sm text-gray-500">
-                  {themes.length} theme{themes.length !== 1 ? "s" : ""}
-                </p>
-              )}
+              <p className="text-xs sm:text-sm mt-1" style={{ color: colors.text.muted }}>
+                {subtitle}
+              </p>
             </div>
             {onOpenFriendFilter && (
               <button
                 onClick={onOpenFriendFilter}
-                className={`ml-3 p-2 rounded-lg border-2 transition-colors ${
-                  isFiltering
-                    ? "bg-amber-600/20 border-amber-500/50 text-amber-400"
-                    : "bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600"
-                }`}
+                className="p-2 rounded-xl border-2 transition hover:brightness-110"
+                style={filterButtonStyle}
                 title="Filter themes"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,22 +131,29 @@ export function ThemeList({
           {isFiltering && onClearFriendFilter && (
             <button
               onClick={onClearFriendFilter}
-              className="mt-2 w-full py-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors"
+              className="mt-1 w-full py-1.5 text-xs sm:text-sm uppercase tracking-widest transition"
+              style={{ color: colors.secondary.light }}
             >
               Clear Filter
             </button>
           )}
         </div>
 
-        <button
-          onClick={onGenerateNew}
-          className="w-full bg-gray-800 border-2 border-gray-700 rounded-xl py-3 text-lg font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
-        >
-          Generate New
-        </button>
+        <div className="mt-4 animate-slide-up delay-100">
+          <button onClick={onGenerateNew} className={actionButtonClassName} style={ctaActionStyle}>
+            Generate New
+          </button>
+        </div>
       </header>
 
-      <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl p-4 mb-4 flex-1 overflow-y-auto">
+      <div
+        className="w-full rounded-3xl border-2 p-4 mb-4 flex-1 min-h-0 overflow-y-auto backdrop-blur-sm animate-slide-up delay-200"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          boxShadow: `0 20px 60px ${colors.primary.glow}`,
+        }}
+      >
         <div className="flex flex-col gap-3">
           {themes.map((theme) => {
             const isDeleting = deletingThemeId === theme._id;
@@ -106,7 +163,11 @@ export function ThemeList({
             return (
               <div
                 key={theme._id}
-                className="w-full p-4 bg-gray-800/50 border-2 border-gray-700 rounded-xl hover:border-gray-600 transition-colors overflow-hidden"
+                className="w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
+                style={{
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.primary.dark,
+                }}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <button
@@ -115,11 +176,19 @@ export function ThemeList({
                     className="text-left flex-1 min-w-0"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-bold text-lg truncate" title={theme.name}>
+                      <span
+                        className="font-bold text-lg truncate"
+                        title={theme.name}
+                        style={{ color: colors.text.DEFAULT }}
+                      >
                         {theme.name}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-400 truncate" title={`${theme.words.length} words`}>
+                    <div
+                      className="text-sm truncate"
+                      title={`${theme.words.length} words`}
+                      style={{ color: colors.text.muted }}
+                    >
                       {theme.words.length} words
                     </div>
                   </button>
@@ -128,7 +197,12 @@ export function ThemeList({
                       <button
                         onClick={() => onDuplicateTheme(theme._id)}
                         disabled={isMutating}
-                        className="px-3 py-1 bg-blue-500/15 text-blue-200 rounded-lg text-sm font-medium hover:bg-blue-500/25 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                        style={{
+                          backgroundColor: `${colors.secondary.DEFAULT}1A`,
+                          borderColor: `${colors.secondary.DEFAULT}66`,
+                          color: colors.secondary.light,
+                        }}
                       >
                         {isDuplicating ? "Duplicating..." : "Duplicate"}
                       </button>
@@ -136,7 +210,12 @@ export function ThemeList({
                         <button
                           onClick={() => onDeleteTheme(theme._id, theme.name)}
                           disabled={isMutating}
-                          className="px-3 py-1 bg-red-500/15 text-red-200 rounded-lg text-sm font-medium hover:bg-red-500/25 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                          style={{
+                            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+                            borderColor: `${colors.status.danger.DEFAULT}66`,
+                            color: colors.status.danger.light,
+                          }}
                         >
                           {isDeleting ? "Deleting..." : "Delete"}
                         </button>
@@ -144,18 +223,32 @@ export function ThemeList({
                     </div>
 
                     <div
-                      className="px-2 py-1 rounded-md border border-gray-700 bg-gray-800 text-[11px] font-semibold tracking-wide text-gray-300 uppercase leading-none whitespace-nowrap"
+                      className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
+                      style={{
+                        backgroundColor: colors.background.elevated,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.muted,
+                      }}
                       title="Word type"
                     >
                       {theme.wordType === "verbs" ? "Verbs" : theme.wordType === "nouns" ? "Nouns" : "No category"}
                     </div>
                     {/* Visibility badge */}
                     <div
-                      className={`px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap ${
+                      className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
+                      style={
                         theme.visibility === "shared"
-                          ? "border-amber-600/50 bg-amber-600/20 text-amber-400"
-                          : "border-gray-700 bg-gray-800 text-gray-500"
-                      }`}
+                          ? {
+                              backgroundColor: `${colors.cta.DEFAULT}1A`,
+                              borderColor: `${colors.cta.DEFAULT}66`,
+                              color: colors.cta.light,
+                            }
+                          : {
+                              backgroundColor: colors.background.elevated,
+                              borderColor: colors.primary.dark,
+                              color: colors.neutral.dark,
+                            }
+                      }
                       title={theme.visibility === "shared" ? "Shared with friends" : "Private"}
                     >
                       {theme.visibility === "shared" ? "Shared" : "Private"}
@@ -163,7 +256,12 @@ export function ThemeList({
                     {/* Owner badge for friend's themes */}
                     {!theme.isOwner && theme.ownerNickname && (
                       <div
-                        className="px-2 py-1 rounded-md border border-blue-600/50 bg-blue-600/20 text-[11px] font-semibold tracking-wide text-blue-400 uppercase leading-none whitespace-nowrap"
+                        className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
+                        style={{
+                          backgroundColor: `${colors.secondary.DEFAULT}1A`,
+                          borderColor: `${colors.secondary.DEFAULT}66`,
+                          color: colors.secondary.light,
+                        }}
                         title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
                       >
                         {theme.ownerNickname}
@@ -179,7 +277,8 @@ export function ThemeList({
 
       <button
         onClick={onBack}
-        className="w-full bg-gray-800 border-2 border-gray-700 rounded-2xl py-4 text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
+        className={`${actionButtonClassName} animate-slide-up delay-300`}
+        style={primaryActionStyle}
       >
         Back
       </button>

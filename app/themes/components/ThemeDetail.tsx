@@ -10,6 +10,7 @@ import {
   hasDuplicateWrongAnswersInWord, 
   doesWrongAnswerMatchCorrect 
 } from "@/lib/themes";
+import { buttonStyles, colors } from "@/lib/theme";
 import type { FieldType } from "../constants";
 import { THEME_NAME_MAX_LENGTH } from "../constants";
 import { AddWordModal } from "./AddWordModal";
@@ -59,6 +60,50 @@ interface ThemeDetailProps {
   isUpdatingFriendsCanEdit?: boolean;
   onFriendsCanEditChange?: (canEdit: boolean) => void;
 }
+
+const rowActionButtonClassName =
+  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-2xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
+
+const primaryActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+  borderTopColor: buttonStyles.primary.border.top,
+  borderBottomColor: buttonStyles.primary.border.bottom,
+  borderLeftColor: buttonStyles.primary.border.sides,
+  borderRightColor: buttonStyles.primary.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
+
+const ctaActionStyle = {
+  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
+  borderTopColor: buttonStyles.cta.border.top,
+  borderBottomColor: buttonStyles.cta.border.bottom,
+  borderLeftColor: buttonStyles.cta.border.sides,
+  borderRightColor: buttonStyles.cta.border.sides,
+  color: colors.text.DEFAULT,
+  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+};
+
+const outlineButtonClassName =
+  "flex-1 border-2 rounded-2xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest transition hover:brightness-110";
+
+const outlineButtonStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+};
+
+const secondaryActionStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+};
+
+const secondaryAccentStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.secondary.dark,
+  color: colors.secondary.light,
+};
 
 export function ThemeDetail({
   theme,
@@ -113,6 +158,28 @@ export function ThemeDetail({
   const hasThemeIssues =
     hasDuplicateWords || hasThemeDuplicateWrongAnswers || hasThemeWrongMatchingAnswer;
 
+  const visibilityButtonClassName =
+    "px-4 py-1.5 text-sm font-medium transition hover:brightness-110 disabled:opacity-50";
+  const privateButtonStyle =
+    visibility === "private"
+      ? { backgroundColor: colors.primary.DEFAULT, color: colors.text.DEFAULT }
+      : { backgroundColor: colors.background.DEFAULT, color: colors.text.muted };
+  const sharedButtonStyle =
+    visibility === "shared"
+      ? { backgroundColor: colors.secondary.DEFAULT, color: colors.text.DEFAULT }
+      : { backgroundColor: colors.background.DEFAULT, color: colors.text.muted };
+  const lockButtonStyle = friendsCanEdit
+    ? {
+        backgroundColor: `${colors.secondary.DEFAULT}26`,
+        borderColor: `${colors.secondary.DEFAULT}66`,
+        color: colors.secondary.light,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+        color: colors.text.muted,
+      };
+
   const handleThemeNameBlur = () => {
     if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== theme.name) {
       onThemeNameChange(editedThemeName.trim().toUpperCase());
@@ -152,10 +219,20 @@ export function ThemeDetail({
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-gray-900">
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{ backgroundColor: `${colors.background.DEFAULT}E6` }}
+    >
       {/* Fixed Header */}
-      <header className="flex-shrink-0 w-full max-w-md mx-auto px-4 pt-6 pb-4">
-        <div className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg py-3 px-4">
+      <header className="flex-shrink-0 w-full max-w-xl mx-auto px-6 pt-6 pb-4 relative z-10 animate-slide-up">
+        <div
+          className="w-full rounded-3xl border-2 py-4 px-5 backdrop-blur-sm shadow-lg"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            boxShadow: `0 16px 40px ${colors.primary.glow}`,
+          }}
+        >
           {isEditingThemeName && canEdit ? (
             <input
               type="text"
@@ -168,7 +245,8 @@ export function ThemeDetail({
               onBlur={handleThemeNameBlur}
               onKeyDown={handleThemeNameKeyDown}
               maxLength={THEME_NAME_MAX_LENGTH}
-              className="w-full text-xl font-bold text-center text-gray-300 uppercase tracking-wide bg-transparent border-none outline-none focus:ring-0"
+              className="title-font w-full text-xl font-bold text-center uppercase tracking-wider bg-transparent border-none outline-none focus:ring-0"
+              style={{ color: colors.text.DEFAULT }}
               autoFocus
             />
           ) : (
@@ -179,7 +257,13 @@ export function ThemeDetail({
                   setIsEditingThemeName(true);
                 }
               }}
-              className={`text-xl font-bold text-center text-gray-300 uppercase tracking-wide transition-colors ${canEdit ? "cursor-pointer" : ""}`}
+              className={`title-font text-2xl sm:text-3xl text-center uppercase tracking-wider transition-colors ${canEdit ? "cursor-pointer" : ""}`}
+              style={{
+                background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
               title={canEdit ? "Click to edit theme name" : ""}
             >
               {theme.name}
@@ -188,7 +272,7 @@ export function ThemeDetail({
           
           {/* Owner info for friend's themes */}
           {!isOwner && ownerDisplay && (
-            <p className="text-center text-sm text-gray-500 mt-1">
+            <p className="text-center text-sm mt-1" style={{ color: colors.text.muted }}>
               by {ownerDisplay}
             </p>
           )}
@@ -196,26 +280,23 @@ export function ThemeDetail({
           {/* Visibility toggle for owner */}
           {isOwner && onVisibilityChange && (
             <div className="flex justify-center items-center gap-2 mt-3">
-              <div className="inline-flex rounded-lg overflow-hidden border-2 border-gray-600">
+              <div
+                className="inline-flex rounded-xl overflow-hidden border-2"
+                style={{ borderColor: colors.primary.dark }}
+              >
                 <button
                   onClick={() => onVisibilityChange("private")}
                   disabled={isUpdatingVisibility}
-                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                    visibility === "private"
-                      ? "bg-gray-600 text-white"
-                      : "bg-gray-700 text-gray-400 hover:bg-gray-600"
-                  } disabled:opacity-50`}
+                  className={visibilityButtonClassName}
+                  style={privateButtonStyle}
                 >
                   Private
                 </button>
                 <button
                   onClick={() => onVisibilityChange("shared")}
                   disabled={isUpdatingVisibility}
-                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                    visibility === "shared"
-                      ? "bg-amber-600 text-white"
-                      : "bg-gray-700 text-gray-400 hover:bg-gray-600"
-                  } disabled:opacity-50`}
+                  className={visibilityButtonClassName}
+                  style={sharedButtonStyle}
                 >
                   Shared
                 </button>
@@ -227,11 +308,8 @@ export function ThemeDetail({
                   onClick={() => onFriendsCanEditChange(!friendsCanEdit)}
                   disabled={isUpdatingFriendsCanEdit}
                   title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
-                  className={`p-1.5 rounded-lg border-2 transition-colors ${
-                    friendsCanEdit
-                      ? "bg-green-600/20 border-green-500 text-green-400 hover:bg-green-600/30"
-                      : "bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600"
-                  } disabled:opacity-50`}
+                  className="p-1.5 rounded-xl border-2 transition hover:brightness-110 disabled:opacity-50"
+                  style={lockButtonStyle}
                 >
                   {friendsCanEdit ? (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -250,12 +328,22 @@ export function ThemeDetail({
       </header>
 
       {/* Scrollable Words List */}
-      <div className="flex-1 overflow-y-auto px-4">
-        <div className="w-full max-w-md mx-auto">
-          <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-4">
+      <div className="flex-1 overflow-y-auto px-6 relative z-10">
+        <div className="w-full max-w-xl mx-auto">
+          <div
+            className="rounded-3xl border-2 p-4 backdrop-blur-sm animate-slide-up delay-100"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+              boxShadow: `0 20px 60px ${colors.primary.glow}`,
+            }}
+          >
             {/* Legend */}
-            <div className="text-xs text-gray-300 mb-4 px-1">
-              <span className="text-amber-400 font-medium">(Irr)</span> = Irregular verb
+            <div className="text-xs mb-4 px-1" style={{ color: colors.text.muted }}>
+              <span className="font-medium" style={{ color: colors.status.warning.light }}>
+                (Irr)
+              </span>{" "}
+              = Irregular verb
             </div>
 
             <div className="flex flex-col gap-4">
@@ -265,30 +353,72 @@ export function ThemeDetail({
                 const wrongMatchesAnswer = doesWrongAnswerMatchCorrect(word);
                 const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
 
-                let badgeClass = "border-gray-600 text-gray-300 bg-gray-800";
-                if (isDuplicateWord) {
-                  badgeClass = "border-red-500 text-red-200 bg-red-500/10";
-                } else if (hasInvalidChoices) {
-                  badgeClass = "border-orange-500 text-orange-200 bg-orange-500/10";
-                }
+                const badgeStyle = isDuplicateWord
+                  ? {
+                      backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+                      borderColor: colors.status.danger.dark,
+                      color: colors.status.danger.light,
+                    }
+                  : hasInvalidChoices
+                    ? {
+                        backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+                        borderColor: colors.status.warning.dark,
+                        color: colors.status.warning.light,
+                      }
+                    : {
+                        backgroundColor: colors.background.DEFAULT,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.DEFAULT,
+                      };
+
+                const wordButtonStyle = {
+                  backgroundColor: `${colors.primary.DEFAULT}1A`,
+                  borderColor: `${colors.primary.light}66`,
+                  color: colors.text.DEFAULT,
+                };
+
+                const answerButtonStyle = {
+                  backgroundColor: `${colors.secondary.DEFAULT}1A`,
+                  borderColor: `${colors.secondary.light}66`,
+                  color: colors.text.DEFAULT,
+                };
+
+                const wrongButtonStyle = {
+                  backgroundColor: `${colors.cta.DEFAULT}1A`,
+                  borderColor: `${colors.cta.light}66`,
+                  color: colors.text.DEFAULT,
+                };
 
                 return (
-                  <div key={index} className="bg-gray-800/50 border-2 border-gray-700 rounded-xl p-4">
+                  <div
+                    key={index}
+                    className="border-2 rounded-2xl p-4"
+                    style={{
+                      backgroundColor: colors.background.DEFAULT,
+                      borderColor: colors.primary.dark,
+                    }}
+                  >
                     {/* Word number badge */}
                     <div className="flex items-center gap-2 mb-3">
                       <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold ${badgeClass}`}
+                        className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
+                        style={badgeStyle}
                       >
                         {index + 1}
                       </div>
                       {isDuplicateWord && (
-                        <span className="text-red-500 text-sm font-bold" title="Duplicate word in theme">
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: colors.status.danger.DEFAULT }}
+                          title="Duplicate word in theme"
+                        >
                           !
                         </span>
                       )}
                       {hasInvalidChoices && (
                         <span
-                          className="text-orange-500 text-sm font-bold"
+                          className="text-sm font-bold"
+                          style={{ color: colors.status.warning.DEFAULT }}
                           title={
                             wrongMatchesAnswer
                               ? "Wrong answer matches correct answer"
@@ -305,21 +435,27 @@ export function ThemeDetail({
                       <button
                         onClick={() => canEdit && onEditWord(index, "word")}
                         disabled={!canEdit}
-                        className={`p-2 bg-blue-500/10 border-2 border-blue-500/30 rounded-lg text-sm font-medium text-blue-200 transition-colors text-center ${
-                          canEdit ? "hover:bg-blue-500/20 hover:border-blue-400/50 cursor-pointer" : "cursor-default"
+                        className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+                          canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
                         }`}
+                        style={wordButtonStyle}
                       >
-                        <div className="text-xs text-blue-300 mb-1">Word</div>
+                        <div className="text-xs mb-1" style={{ color: colors.primary.light }}>
+                          Word
+                        </div>
                         {word.word}
                       </button>
                       <button
                         onClick={() => canEdit && onEditWord(index, "answer")}
                         disabled={!canEdit}
-                        className={`p-2 bg-green-500/10 border-2 border-green-500/30 rounded-lg text-sm font-medium text-green-200 transition-colors text-center ${
-                          canEdit ? "hover:bg-green-500/20 hover:border-green-400/50 cursor-pointer" : "cursor-default"
+                        className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+                          canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
                         }`}
+                        style={answerButtonStyle}
                       >
-                        <div className="text-xs text-green-300 mb-1">Answer</div>
+                        <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
+                          Answer
+                        </div>
                         {word.answer}
                       </button>
                     </div>
@@ -331,11 +467,14 @@ export function ThemeDetail({
                           key={wrongIdx}
                           onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
                           disabled={!canEdit}
-                          className={`p-2 bg-orange-500/10 border-2 border-orange-500/30 rounded-lg text-sm font-medium text-orange-200 transition-colors text-center ${
-                            canEdit ? "hover:bg-orange-500/20 hover:border-orange-400/50 cursor-pointer" : "cursor-default"
+                          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+                            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
                           }`}
+                          style={wrongButtonStyle}
                         >
-                          <div className="text-xs text-orange-300 mb-1">Wrong {wrongIdx + 1}</div>
+                          <div className="text-xs mb-1" style={{ color: colors.cta.light }}>
+                            Wrong {wrongIdx + 1}
+                          </div>
                           {wrongAnswer}
                         </button>
                       ))}
@@ -345,7 +484,12 @@ export function ThemeDetail({
                     {canEdit && (
                       <button
                         onClick={() => onDeleteWord(index)}
-                        className="mt-3 w-full py-2 bg-red-500/10 border-2 border-red-500/30 rounded-lg text-sm font-medium text-red-200 hover:bg-red-500/20 hover:border-red-400/50 transition-colors"
+                        className="mt-3 w-full py-2 border-2 rounded-lg text-sm font-medium transition hover:brightness-110"
+                        style={{
+                          backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+                          borderColor: `${colors.status.danger.DEFAULT}66`,
+                          color: colors.status.danger.light,
+                        }}
                       >
                         Delete Word
                       </button>
@@ -361,20 +505,28 @@ export function ThemeDetail({
       </div>
 
       {/* Fixed Bottom Buttons */}
-      <div className="flex-shrink-0 w-full bg-gray-900 border-t border-gray-800 px-4 py-4">
-        <div className="w-full max-w-md mx-auto space-y-3">
+      <div
+        className="flex-shrink-0 w-full border-t px-6 py-4 backdrop-blur-sm relative z-10 animate-slide-up delay-200"
+        style={{
+          backgroundColor: `${colors.background.DEFAULT}E6`,
+          borderColor: colors.primary.dark,
+        }}
+      >
+        <div className="w-full max-w-xl mx-auto space-y-3">
           {/* Add Word / Generate Random Row - only for those with edit permission */}
           {canEdit && (
             <div className="flex gap-3">
               <button
                 onClick={handleAddWordClick}
-                className="flex-1 bg-blue-600 text-white rounded-2xl py-3 text-lg font-bold uppercase hover:bg-blue-700 transition-colors"
+                className={`${outlineButtonClassName} text-sm sm:text-base`}
+                style={secondaryActionStyle}
               >
                 + Add Word
               </button>
               <button
                 onClick={handleGenerateRandomClick}
-                className="flex-1 bg-purple-600 text-white rounded-2xl py-3 text-lg font-bold uppercase hover:bg-purple-700 transition-colors"
+                className={`${outlineButtonClassName} text-sm sm:text-base`}
+                style={secondaryAccentStyle}
               >
                 + Generate
               </button>
@@ -388,13 +540,15 @@ export function ThemeDetail({
                 <button
                   onClick={onSave}
                   disabled={hasThemeIssues}
-                  className="flex-1 bg-gray-800 text-white rounded-2xl py-4 text-lg font-bold uppercase hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800"
+                  className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  style={ctaActionStyle}
                 >
                   Save
                 </button>
                 <button
                   onClick={onCancel}
-                  className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-2xl py-4 text-lg font-bold text-white uppercase hover:bg-gray-600 transition-colors"
+                  className={outlineButtonClassName}
+                  style={outlineButtonStyle}
                 >
                   Cancel
                 </button>
@@ -402,7 +556,8 @@ export function ThemeDetail({
             ) : (
               <button
                 onClick={onCancel}
-                className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-2xl py-4 text-lg font-bold text-white uppercase hover:bg-gray-600 transition-colors"
+                className={rowActionButtonClassName}
+                style={primaryActionStyle}
               >
                 Back
               </button>
@@ -410,7 +565,14 @@ export function ThemeDetail({
           </div>
         </div>
         {canEdit && hasThemeIssues && (
-          <div className="mt-3 w-full max-w-md mx-auto rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-200">
+          <div
+            className="mt-3 w-full max-w-xl mx-auto rounded-2xl border-2 px-4 py-2 text-xs font-medium"
+            style={{
+              backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+              borderColor: `${colors.status.warning.DEFAULT}66`,
+              color: colors.status.warning.light,
+            }}
+          >
             Theme contains issues. Fix the highlighted words to enable saving.
           </div>
         )}

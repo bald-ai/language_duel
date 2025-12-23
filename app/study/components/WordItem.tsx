@@ -3,6 +3,7 @@
 import type { WordEntry } from "@/lib/types";
 import { HintState, HINT_RATIO } from "../hooks";
 import { stripIrr } from "@/lib/stringUtils";
+import { colors } from "@/lib/theme";
 
 interface WordItemProps {
   word: WordEntry;
@@ -31,17 +32,48 @@ export function WordItem({
   const totalLetters = letters.filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / HINT_RATIO);
   const hintsRemaining = maxHints - hintCount;
+  const hasHintsRemaining = hintsRemaining > 0;
+
+  const hintPillStyle = hasHintsRemaining
+    ? {
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        color: colors.text.DEFAULT,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.neutral.dark,
+        color: colors.text.muted,
+      };
+
+  const iconButtonStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const playingButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
 
   return (
     <div
-      className={`flex items-center gap-4 ${isRevealed ? "justify-center" : "justify-between"}`}
+      className={`flex items-center gap-4 rounded-2xl border-2 px-4 py-3 transition ${isRevealed ? "justify-center" : "justify-between"}`}
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
     >
       {/* Word and Answer Section */}
       <div className={`text-center ${isRevealed ? "" : "flex-1"}`}>
-        <div className="text-lg font-medium text-white mb-1">{word.word}</div>
+        <div className="text-lg font-medium mb-1" style={{ color: colors.text.DEFAULT }}>
+          {word.word}
+        </div>
         <div className="flex items-center justify-center">
           {isRevealed ? (
-            <span className="text-lg font-bold text-green-400">
+            <span className="text-lg font-bold" style={{ color: colors.secondary.light }}>
               {cleanAnswer.toUpperCase()}
             </span>
           ) : (
@@ -53,23 +85,22 @@ export function WordItem({
                   <div
                     key={idx}
                     onClick={() =>
-                      !revealedPositions.includes(idx) &&
-                      hintsRemaining > 0 &&
-                      onRevealLetter(idx)
+                      !revealedPositions.includes(idx) && hasHintsRemaining && onRevealLetter(idx)
                     }
-                    className={`w-5 h-6 flex items-end justify-center border-b-2 border-gray-500 ${
-                      !revealedPositions.includes(idx) && hintsRemaining > 0
-                        ? "cursor-pointer hover:border-green-500"
+                    className={`w-5 h-6 flex items-end justify-center border-b-2 transition ${
+                      !revealedPositions.includes(idx) && hasHintsRemaining
+                        ? "cursor-pointer hover:brightness-110"
                         : ""
                     }`}
+                    style={{ borderColor: colors.neutral.dark }}
                     title={
-                      !revealedPositions.includes(idx) && hintsRemaining > 0
+                      !revealedPositions.includes(idx) && hasHintsRemaining
                         ? "Click to reveal this letter"
                         : undefined
                     }
                   >
                     {revealedPositions.includes(idx) && (
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-lg font-bold" style={{ color: colors.text.DEFAULT }}>
                         {letter.toUpperCase()}
                       </span>
                     )}
@@ -86,24 +117,22 @@ export function WordItem({
         <div className="flex gap-2 items-center">
           {/* Hints Remaining Indicator */}
           <div
-            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
-              hintsRemaining > 0
-                ? "border-gray-600 bg-gray-800 text-gray-200"
-                : "border-gray-700 bg-gray-800/50 text-gray-500"
-            }`}
+            className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold"
+            style={hintPillStyle}
             title={
-              hintsRemaining > 0
+              hasHintsRemaining
                 ? "Hints remaining - click empty letter slots to reveal"
                 : "No hints remaining"
             }
           >
-            {hintsRemaining > 0 ? hintsRemaining : "–"}
+            {hasHintsRemaining ? hintsRemaining : "–"}
           </div>
 
           {/* Reset Button */}
           <button
             onClick={onReset}
-            className="bg-gray-700 border-2 border-gray-600 rounded-lg w-10 h-10 flex items-center justify-center text-white hover:bg-gray-600 transition-colors"
+            className="border-2 rounded-xl w-10 h-10 flex items-center justify-center transition hover:brightness-110"
+            style={iconButtonStyle}
             title="Reset"
           >
             <svg
@@ -125,7 +154,8 @@ export function WordItem({
           {/* Reveal Full Word Button */}
           <button
             onClick={onRevealFullWord}
-            className="bg-gray-700 border-2 border-gray-600 rounded-lg w-10 h-10 flex items-center justify-center text-white hover:bg-gray-600 transition-colors"
+            className="border-2 rounded-xl w-10 h-10 flex items-center justify-center transition hover:brightness-110"
+            style={iconButtonStyle}
             title="Reveal full word"
           >
             <svg
@@ -153,11 +183,10 @@ export function WordItem({
           <button
             onClick={onPlayTTS}
             disabled={isPlaying}
-            className={`border-2 rounded-lg w-10 h-10 flex items-center justify-center transition-colors ${
-              isPlaying
-                ? "bg-green-500 border-green-600 text-white"
-                : "bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+            className={`border-2 rounded-xl w-10 h-10 flex items-center justify-center transition disabled:cursor-not-allowed ${
+              isPlaying ? "" : "hover:brightness-110"
             }`}
+            style={isPlaying ? playingButtonStyle : iconButtonStyle}
             title="Listen"
           >
             <svg
@@ -180,4 +209,3 @@ export function WordItem({
     </div>
   );
 }
-

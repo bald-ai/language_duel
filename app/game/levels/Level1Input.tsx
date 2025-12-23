@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { JSX } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
+import { colors } from "@/lib/theme";
 import { AUTO_COMPLETE_DELAY_MS, CURSOR_MOVE_DELAY_MS } from "./constants";
 import type { Level1Props } from "./types";
 
@@ -204,7 +205,7 @@ export function Level1Input({
         }
         elements.push(
           <div key={`space-${slotIdx}`} className="w-8 flex items-end justify-center pb-2">
-            <span className="text-gray-600 text-lg">•</span>
+            <span className="text-lg" style={{ color: colors.neutral.dark }}>•</span>
           </div>
         );
       }
@@ -214,30 +215,64 @@ export function Level1Input({
       const isCorrect = normalizeAccents(typedChar) === normalizeAccents(slot.char);
       const isCursor = cursorPosition === slotIdx;
 
-      let letterColor = "text-gray-400";
-      if (isRevealed) letterColor = "text-white";
-      else if (typedChar) letterColor = isCorrect ? "text-green-400" : "text-red-400";
+      const letterStyle = {
+        color: isRevealed
+          ? colors.text.DEFAULT
+          : typedChar
+          ? isCorrect
+            ? colors.status.success.light
+            : colors.status.danger.light
+          : colors.text.muted,
+      };
 
       currentWordSlots.push(
         <div key={slotIdx} className="flex flex-col items-center">
           <button
             onClick={(e) => { e.stopPropagation(); revealHint(slotIdx); }}
             disabled={isRevealed}
-            className={`text-xs px-1.5 py-0.5 rounded mb-1 transition-colors ${
-              isRevealed
-                ? "bg-gray-600 text-gray-500 cursor-not-allowed"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
+            className={
+              isDuelMode
+                ? `text-xs px-1.5 py-0.5 rounded mb-1 transition border-2 ${
+                    isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
+                  }`
+                : `text-[10px] px-1.5 py-0.5 rounded mb-1 transition border-2 uppercase tracking-widest font-bold ${
+                    isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
+                  }`
+            }
+            style={
+              !isDuelMode
+                ? isRevealed
+                  ? {
+                      backgroundColor: colors.background.DEFAULT,
+                      borderColor: colors.neutral.dark,
+                      color: colors.text.muted,
+                    }
+                  : {
+                      backgroundColor: colors.background.elevated,
+                      borderColor: colors.primary.dark,
+                      color: colors.text.DEFAULT,
+                    }
+                : isRevealed
+                ? {
+                    backgroundColor: colors.background.DEFAULT,
+                    borderColor: colors.neutral.dark,
+                    color: colors.text.muted,
+                  }
+                : {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.DEFAULT,
+                  }
+            }
           >
             H
           </button>
           <div
             onDoubleClick={() => handleSlotDoubleClick(slotIdx)}
-            className={`w-8 h-10 flex items-center justify-center border-b-2 ${
-              isCursor ? "border-blue-400" : "border-gray-500"
-            } cursor-text`}
+            className="w-8 h-10 flex items-center justify-center border-b-2 cursor-text"
+            style={{ borderColor: isCursor ? colors.secondary.DEFAULT : colors.primary.dark }}
           >
-            <span className={`text-xl font-bold ${letterColor}`}>
+            <span className="text-xl font-bold" style={letterStyle}>
               {isRevealed ? slot.char.toUpperCase() : typedChar.toUpperCase()}
             </span>
           </div>
@@ -257,7 +292,16 @@ export function Level1Input({
       <div
         ref={containerRef}
         onClick={handleContainerClick}
-        className="flex flex-wrap gap-4 justify-center items-end p-4 bg-gray-800 rounded-lg cursor-text min-h-[120px]"
+        className={`flex flex-wrap gap-4 justify-center items-end p-4 cursor-text min-h-[120px] ${
+          isDuelMode ? "rounded-lg border-2" : "rounded-2xl border-2 backdrop-blur-sm"
+        }`}
+        style={
+          {
+            backgroundColor: isDuelMode ? colors.background.elevated : colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+            boxShadow: isDuelMode ? undefined : `0 16px 40px ${colors.primary.glow}`,
+          }
+        }
       >
         {renderSlots()}
         <input
@@ -276,7 +320,12 @@ export function Level1Input({
           {canRequestHint && !hintRequested && (
             <button
               onClick={handleRequestHint}
-              className="px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-base font-medium flex items-center gap-2"
+              className="px-5 py-3 rounded-lg text-base font-medium flex items-center gap-2 border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -285,20 +334,30 @@ export function Level1Input({
           {/* Waiting for hint acceptance */}
           {hintRequested && !hintAccepted && (
             <div className="flex flex-col items-center gap-2">
-              <div className="text-purple-400 text-sm animate-pulse">
+              <div className="text-sm animate-pulse" style={{ color: colors.secondary.light }}>
                 Waiting for opponent to help...
               </div>
               {onRequestHint && (
                 <button
                   onClick={handleRequestHint}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                  className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.secondary.DEFAULT,
+                    borderColor: colors.secondary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
                 >
                   Request another hint
                 </button>
               )}
               <button
                 onClick={onCancelHint}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+                className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.muted,
+                }}
               >
                 Cancel
               </button>
@@ -307,12 +366,17 @@ export function Level1Input({
           
           {/* Hint accepted - receiving hints (only for letters type) */}
           {hintRequested && hintAccepted && hintType === "letters" && (
-            <div className="flex flex-col items-center gap-2 text-purple-400 text-sm">
+            <div className="flex flex-col items-center gap-2 text-sm" style={{ color: colors.secondary.light }}>
               <div>🎯 Opponent is giving you hints ({hintRevealedPositions?.length || 0}/3)</div>
               {onRequestHint && (
                 <button
                   onClick={handleRequestHint}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                  className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.secondary.DEFAULT,
+                    borderColor: colors.secondary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
                 >
                   Request another hint
                 </button>
@@ -327,11 +391,22 @@ export function Level1Input({
         <button
           onClick={handleConfirm}
           disabled={!isAnswerCorrect || hasCompleted}
-          className={`px-6 py-3 rounded-lg text-lg font-bold transition-colors ${
-            isAnswerCorrect && !hasCompleted
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+          className={`px-6 py-3 rounded-lg text-lg font-bold transition border-2 ${
+            isAnswerCorrect && !hasCompleted ? "hover:brightness-110" : "cursor-not-allowed opacity-60"
           }`}
+          style={
+            isAnswerCorrect && !hasCompleted
+              ? {
+                  backgroundColor: colors.cta.DEFAULT,
+                  borderColor: colors.cta.dark,
+                  color: colors.text.DEFAULT,
+                }
+              : {
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.neutral.dark,
+                  color: colors.text.muted,
+                }
+          }
         >
           ✓ Confirm Answer
         </button>
@@ -340,11 +415,27 @@ export function Level1Input({
       {/* Don't Know button */}
       <button
         onClick={onSkip}
-        className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm font-medium transition-colors"
+        className={
+          isDuelMode
+            ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+            : "px-4 py-2 rounded-xl border-2 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
+        }
+        style={
+          isDuelMode
+            ? {
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              }
+            : {
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }
+        }
       >
         Don&apos;t Know
       </button>
     </div>
   );
 }
-

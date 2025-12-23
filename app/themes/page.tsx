@@ -10,13 +10,15 @@ import {
   DeleteConfirmModal,
   FriendFilterModal,
 } from "./components";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 export default function ThemesPage() {
   const controller = useThemesController();
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-900">
-      <div className="flex-1 flex flex-col items-center justify-start w-full max-w-md mx-auto px-4 py-6">
+    <ThemedPage>
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-0">
         {controller.viewMode === VIEW_MODES.LIST && (
           <>
             <ThemeList {...controller.listProps} />
@@ -34,7 +36,14 @@ export default function ThemesPage() {
         )}
       </div>
 
+      <div
+        className="relative z-10 h-1"
+        style={{
+          background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+        }}
+      />
+
       <DeleteConfirmModal {...controller.deleteConfirmProps} />
-    </div>
+    </ThemedPage>
   );
 }

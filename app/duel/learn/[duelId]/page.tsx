@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { TimerSelectionView, LearnGridView } from "./components";
 import { TIMER_GREEN_THRESHOLD, TIMER_YELLOW_THRESHOLD } from "@/app/game/constants";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
@@ -238,34 +240,67 @@ export default function DuelLearnPage() {
   };
 
   const getTimerColor = () => {
-    if (!timeRemaining || !confirmedDuration) return "text-white";
+    if (!timeRemaining || !confirmedDuration) return colors.text.DEFAULT;
     const percentage = timeRemaining / confirmedDuration;
-    if (percentage > TIMER_GREEN_THRESHOLD) return "text-green-400";
-    if (percentage > TIMER_YELLOW_THRESHOLD) return "text-yellow-400";
-    return "text-red-400";
+    if (percentage > TIMER_GREEN_THRESHOLD) return colors.status.success.light;
+    if (percentage > TIMER_YELLOW_THRESHOLD) return colors.status.warning.light;
+    return colors.status.danger.light;
+  };
+
+  const renderMessage = (
+    message: string,
+    tone: "default" | "danger" = "default",
+    showSpinner = false
+  ) => {
+    const toneStyles = {
+      default: {
+        borderColor: colors.primary.dark,
+        boxShadow: `0 18px 45px ${colors.primary.glow}`,
+        textColor: colors.text.DEFAULT,
+      },
+      danger: {
+        borderColor: colors.status.danger.DEFAULT,
+        boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+        textColor: colors.status.danger.light,
+      },
+    };
+    const style = toneStyles[tone];
+
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex items-center justify-center px-6">
+          <div
+            className="rounded-2xl border-2 p-6 text-center backdrop-blur-sm"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: style.borderColor,
+              boxShadow: style.boxShadow,
+            }}
+          >
+            {showSpinner && (
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-3"
+                style={{ borderColor: colors.cta.light }}
+              />
+            )}
+            <p className="text-base font-semibold" style={{ color: style.textColor }}>
+              {message}
+            </p>
+          </div>
+        </div>
+      </ThemedPage>
+    );
   };
 
   // Loading states
   if (duelData === null) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
-        You&apos;re not part of this duel
-      </div>
-    );
+    return renderMessage("You're not part of this duel", "danger");
   }
   if (duelData === undefined || theme === undefined) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
-    );
+    return renderMessage("Loading duel...", "default", true);
   }
   if (!theme) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
-        Theme not found
-      </div>
-    );
+    return renderMessage("Theme not found", "danger");
   }
 
   // Timer selection phase (before both confirm)

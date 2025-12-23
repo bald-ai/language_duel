@@ -23,7 +23,9 @@ import {
   Level3Input,
 } from "@/app/game/levels";
 import { calculateAccuracy } from "@/lib/scoring";
-import { LEVEL_COLORS, MAX_L1_LETTER_HINTS, MAX_L2_ELIMINATIONS } from "@/app/game/constants";
+import { MAX_L1_LETTER_HINTS, MAX_L2_ELIMINATIONS } from "@/app/game/constants";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 interface SoloStyleChallengeProps {
   duel: Doc<"challenges">;
@@ -43,6 +45,8 @@ export default function SoloStyleChallenge({
   const isChallenger = viewerRole === "challenger";
   const myName = isChallenger ? challenger?.name : opponent?.name;
   const theirName = isChallenger ? opponent?.name : challenger?.name;
+  const myColor = colors.status.success.light;
+  const theirColor = colors.secondary.light;
 
   // Use the extracted hook for all game logic
   const game = useSoloStyleGame({
@@ -50,6 +54,52 @@ export default function SoloStyleChallenge({
     theme,
     viewerRole,
   });
+
+  const levelBadgeStyles: Record<0 | 1 | 2 | 3, React.CSSProperties> = {
+    0: {
+      color: colors.text.muted,
+      borderColor: colors.neutral.dark,
+      backgroundColor: `${colors.neutral.dark}26`,
+    },
+    1: {
+      color: colors.status.success.light,
+      borderColor: colors.status.success.DEFAULT,
+      backgroundColor: `${colors.status.success.DEFAULT}26`,
+    },
+    2: {
+      color: colors.status.warning.light,
+      borderColor: colors.status.warning.DEFAULT,
+      backgroundColor: `${colors.status.warning.DEFAULT}26`,
+    },
+    3: {
+      color: colors.status.danger.light,
+      borderColor: colors.status.danger.DEFAULT,
+      backgroundColor: `${colors.status.danger.DEFAULT}26`,
+    },
+  };
+
+  const hintButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const hintBadgeStyle = {
+    backgroundColor: `${colors.secondary.DEFAULT}33`,
+    color: colors.text.DEFAULT,
+  };
+
+  const successBannerStyle = {
+    backgroundColor: colors.status.success.DEFAULT,
+    borderColor: colors.status.success.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const dangerButtonStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.status.danger.DEFAULT,
+    color: colors.status.danger.light,
+  };
 
   // Completion screen
   if (duel.status === "completed" || (game.myCompleted && game.theirCompleted)) {
@@ -83,7 +133,8 @@ export default function SoloStyleChallenge({
 
   // Main challenge UI
   return (
-    <main className="min-h-screen bg-gray-900 flex flex-col items-center p-4 relative">
+    <ThemedPage>
+      <main className="relative z-10 flex-1 flex flex-col items-center p-4">
       {/* Hint Giver View - shows when I'm providing hints to opponent */}
       {game.isHintGiver && game.hintRequesterWord && game.hintRequesterState && game.showHintGiverView && (
         <HintGiverView
@@ -103,17 +154,23 @@ export default function SoloStyleChallenge({
       {game.isHintGiver && game.hintType === "letters" && game.hintRequesterWord && game.hintRequesterState && !game.showHintGiverView && (
         <button
           onClick={() => game.setShowHintGiverView(true)}
-          className="fixed bottom-20 left-4 z-40 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
+          style={hintButtonStyle}
         >
           <span>🆘</span>
           <span>Help {theirName?.split(" ")[0] || "Opponent"}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{MAX_L1_LETTER_HINTS - game.hintRevealedPositions.length}/{MAX_L1_LETTER_HINTS}</span>
+          <span className="px-2 py-0.5 rounded text-sm" style={hintBadgeStyle}>
+            {MAX_L1_LETTER_HINTS - game.hintRevealedPositions.length}/{MAX_L1_LETTER_HINTS}
+          </span>
         </button>
       )}
 
       {/* TTS hint sent confirmation - shows when giver chose TTS for L1 */}
       {game.showHintSentBanner && game.isHintGiver && game.hintType === "tts" && (
-        <div className="fixed bottom-20 left-4 z-40 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2"
+          style={successBannerStyle}
+        >
           <span>🔊</span>
           <span>Sound sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
@@ -121,7 +178,10 @@ export default function SoloStyleChallenge({
 
       {/* Anagram hint sent confirmation */}
       {game.showHintSentBanner && game.isHintGiver && game.hintType === "anagram" && (
-        <div className="fixed bottom-20 left-4 z-40 bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2"
+          style={hintButtonStyle}
+        >
           <span>🔀</span>
           <span>Anagram sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
@@ -129,7 +189,10 @@ export default function SoloStyleChallenge({
 
       {/* Flash hint sent confirmation - shows when giver chose flash */}
       {game.showHintSentBanner && game.isHintGiver && game.hintType === "flash" && (
-        <div className="fixed bottom-20 left-4 z-40 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2"
+          style={hintButtonStyle}
+        >
           <span>⚡</span>
           <span>Answer flashed to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
@@ -150,7 +213,8 @@ export default function SoloStyleChallenge({
       {game.canAcceptHint && game.hintRequesterWord && game.hintSelectorDismissed && (
         <button
           onClick={() => game.setHintSelectorDismissed(false)}
-          className="fixed bottom-20 right-4 z-40 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+          className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
+          style={hintButtonStyle}
         >
           <span>🆘</span>
           <span>{theirName?.split(" ")[0] || "Opponent"} needs help</span>
@@ -174,17 +238,23 @@ export default function SoloStyleChallenge({
       {game.isHintGiverL2 && game.hintL2Type === "eliminate" && game.hintL2RequesterWord && game.hintL2Options.length > 0 && !game.showL2HintGiverView && (
         <button
           onClick={() => game.setShowL2HintGiverView(true)}
-          className="fixed bottom-20 left-4 z-40 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
+          style={hintButtonStyle}
         >
           <span>🆘</span>
           <span>Help {theirName?.split(" ")[0] || "Opponent"}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded text-sm">{MAX_L2_ELIMINATIONS - game.hintL2EliminatedOptions.length}/{MAX_L2_ELIMINATIONS}</span>
+          <span className="px-2 py-0.5 rounded text-sm" style={hintBadgeStyle}>
+            {MAX_L2_ELIMINATIONS - game.hintL2EliminatedOptions.length}/{MAX_L2_ELIMINATIONS}
+          </span>
         </button>
       )}
 
       {/* TTS hint sent confirmation - shows when giver chose TTS for L2 */}
       {game.showHintSentBannerL2 && game.isHintGiverL2 && game.hintL2Type === "tts" && (
-        <div className="fixed bottom-20 left-4 z-40 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2"
+          style={successBannerStyle}
+        >
           <span>🔊</span>
           <span>Sound sent to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
@@ -192,7 +262,10 @@ export default function SoloStyleChallenge({
 
       {/* Flash hint sent confirmation - shows when giver chose flash for L2 */}
       {game.showHintSentBannerL2 && game.isHintGiverL2 && game.hintL2Type === "flash" && (
-        <div className="fixed bottom-20 left-4 z-40 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+        <div
+          className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2"
+          style={hintButtonStyle}
+        >
           <span>⚡</span>
           <span>Answer flashed to {theirName?.split(" ")[0] || "Opponent"}!</span>
         </div>
@@ -213,7 +286,8 @@ export default function SoloStyleChallenge({
       {game.canAcceptHintL2 && game.hintL2RequesterWord && game.hintL2SelectorDismissed && (
         <button
           onClick={() => game.setHintL2SelectorDismissed(false)}
-          className="fixed bottom-20 right-4 z-40 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+          className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
+          style={hintButtonStyle}
         >
           <span>🆘</span>
           <span>{theirName?.split(" ")[0] || "Opponent"} needs help</span>
@@ -223,7 +297,8 @@ export default function SoloStyleChallenge({
       {/* Exit Button */}
       <button
         onClick={game.handleExit}
-        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded z-50"
+        className="absolute top-4 right-4 font-bold py-2 px-4 rounded z-50 border-2 text-xs uppercase tracking-widest transition hover:brightness-110"
+        style={dangerButtonStyle}
       >
         Exit
       </button>
@@ -232,35 +307,48 @@ export default function SoloStyleChallenge({
       {game.theirCurrentWordIndex !== undefined && game.theirCurrentLevel !== undefined && !game.theirCompleted && (
         <div className="absolute top-4 left-4 z-50 flex flex-col items-start gap-1">
           <div
-            className={`rounded-full px-4 py-2 transition-all duration-300 ${
+            className="rounded-full px-4 py-2 transition-all duration-300 border"
+            style={
               game.opponentAnswerFeedback === "correct"
-                ? "bg-green-500/30 border-2 border-green-500 shadow-lg shadow-green-500/50"
+                ? {
+                    backgroundColor: `${colors.status.success.DEFAULT}26`,
+                    borderColor: colors.status.success.DEFAULT,
+                    boxShadow: `0 0 20px ${colors.status.success.DEFAULT}66`,
+                  }
                 : game.opponentAnswerFeedback === "wrong"
-                  ? "bg-red-500/30 border-2 border-red-500 shadow-lg shadow-red-500/50"
-                  : "bg-gray-800/90 border border-gray-700"
-            }`}
+                  ? {
+                      backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                      borderColor: colors.status.danger.DEFAULT,
+                      boxShadow: `0 0 20px ${colors.status.danger.DEFAULT}66`,
+                    }
+                  : {
+                      backgroundColor: `${colors.background.elevated}E6`,
+                      borderColor: colors.primary.dark,
+                    }
+            }
           >
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">{theirName?.split(" ")[0] || "Opponent"}:</span>
-              <span className="text-blue-400 font-medium text-sm">
+              <span className="text-xs" style={{ color: colors.text.muted }}>
+                {theirName?.split(" ")[0] || "Opponent"}:
+              </span>
+              <span className="font-medium text-sm" style={{ color: theirColor }}>
                 {game.opponentLastAnsweredWord || theme.words[game.theirCurrentWordIndex]?.word || "..."}
               </span>
               <span
-                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                  game.theirCurrentLevel === 1
-                    ? "bg-green-500/20 text-green-400 border border-green-500/50"
-                    : game.theirCurrentLevel === 2
-                      ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50"
-                      : "bg-red-500/20 text-red-400 border border-red-500/50"
-                }`}
+                className="px-2 py-0.5 rounded text-xs font-medium border"
+                style={levelBadgeStyles[(game.theirCurrentLevel || 1) as 0 | 1 | 2 | 3]}
               >
                 L{game.theirCurrentLevel}
               </span>
               {game.opponentAnswerFeedback && (
                 <span
-                  className={`text-xs font-bold ${
-                    game.opponentAnswerFeedback === "correct" ? "text-green-400" : "text-red-400"
-                  }`}
+                  className="text-xs font-bold"
+                  style={{
+                    color:
+                      game.opponentAnswerFeedback === "correct"
+                        ? colors.status.success.light
+                        : colors.status.danger.light,
+                  }}
                 >
                   {game.opponentAnswerFeedback === "correct" ? "✓" : "✗"}
                 </span>
@@ -269,9 +357,13 @@ export default function SoloStyleChallenge({
           </div>
           {game.opponentFeedbackMessage && (
             <div
-              className={`text-xs font-bold px-4 ${
-                game.opponentFeedbackMessage === "Word completed!" ? "text-green-400" : "text-red-400"
-              }`}
+              className="text-xs font-bold px-4"
+              style={{
+                color:
+                  game.opponentFeedbackMessage === "Word completed!"
+                    ? colors.status.success.light
+                    : colors.status.danger.light,
+              }}
             >
               {game.opponentFeedbackMessage}
             </div>
@@ -282,21 +374,25 @@ export default function SoloStyleChallenge({
       {/* Progress Header */}
       <div className="w-full max-w-md mb-8 mt-16">
         <div className="text-center mb-4">
-          <h1 className="text-xl font-bold text-gray-300">{theme.name}</h1>
+          <h1 className="text-xl font-bold" style={{ color: colors.text.DEFAULT }}>
+            {theme.name}
+          </h1>
         </div>
 
         {/* Dual progress bars */}
         <div className="space-y-2 mb-4">
           {/* My progress */}
           <div className="flex items-center gap-3">
-            <span className="text-green-400 text-sm w-20 truncate">{myName?.split(" ")[0] || "You"}</span>
-            <div className="flex-1 bg-gray-700 rounded-full h-3">
+            <span className="text-sm w-20 truncate" style={{ color: myColor }}>
+              {myName?.split(" ")[0] || "You"}
+            </span>
+            <div className="flex-1 rounded-full h-3" style={{ backgroundColor: colors.background.elevated }}>
               <div
-                className="bg-green-500 rounded-full h-3 transition-all duration-300"
-                style={{ width: `${(game.myMastered / game.totalWords) * 100}%` }}
+                className="rounded-full h-3 transition-all duration-300"
+                style={{ backgroundColor: colors.status.success.DEFAULT, width: `${(game.myMastered / game.totalWords) * 100}%` }}
               />
             </div>
-            <span className="text-green-400 text-sm w-20 text-right">
+            <span className="text-sm w-20 text-right" style={{ color: myColor }}>
               {game.myMastered}/{game.totalWords}{" "}
               {game.myStats && game.myStats.questionsAnswered > 0
                 ? `${calculateAccuracy(game.myStats.correctAnswers, game.myStats.questionsAnswered)}%`
@@ -306,14 +402,16 @@ export default function SoloStyleChallenge({
 
           {/* Their progress */}
           <div className="flex items-center gap-3">
-            <span className="text-blue-400 text-sm w-20 truncate">{theirName?.split(" ")[0] || "Opponent"}</span>
-            <div className="flex-1 bg-gray-700 rounded-full h-3">
+            <span className="text-sm w-20 truncate" style={{ color: theirColor }}>
+              {theirName?.split(" ")[0] || "Opponent"}
+            </span>
+            <div className="flex-1 rounded-full h-3" style={{ backgroundColor: colors.background.elevated }}>
               <div
-                className="bg-blue-500 rounded-full h-3 transition-all duration-300"
-                style={{ width: `${(game.theirMastered / game.totalWords) * 100}%` }}
+                className="rounded-full h-3 transition-all duration-300"
+                style={{ backgroundColor: colors.secondary.DEFAULT, width: `${(game.theirMastered / game.totalWords) * 100}%` }}
               />
             </div>
-            <span className="text-blue-400 text-sm w-20 text-right">
+            <span className="text-sm w-20 text-right" style={{ color: theirColor }}>
               {game.theirMastered}/{game.totalWords}{" "}
               {game.theirStats && game.theirStats.questionsAnswered > 0
                 ? `${calculateAccuracy(game.theirStats.correctAnswers, game.theirStats.questionsAnswered)}%`
@@ -323,38 +421,63 @@ export default function SoloStyleChallenge({
         </div>
 
         {/* Stats */}
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-sm" style={{ color: colors.text.muted }}>
           Questions: {game.myStats?.questionsAnswered || 0} | Correct: {game.myStats?.correctAnswers || 0}
         </div>
       </div>
 
       {/* Question Card */}
       {game.currentWord && (
-        <div className="w-full max-w-md bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+        <div
+          className="w-full max-w-md rounded-xl p-6 border"
+          style={{
+            backgroundColor: `${colors.background.elevated}CC`,
+            borderColor: colors.primary.dark,
+            boxShadow: `0 18px 45px ${colors.primary.glow}`,
+          }}
+        >
           {/* Level indicator */}
           <div className="flex justify-center mb-4">
-            <span className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${LEVEL_COLORS[(game.myCurrentLevel || 1) as 0 | 1 | 2 | 3]}`}>
+            <span
+              className="inline-block px-3 py-1 rounded-full border text-sm font-medium"
+              style={levelBadgeStyles[(game.myCurrentLevel || 1) as 0 | 1 | 2 | 3]}
+            >
               Level {game.myCurrentLevel || 1}
             </span>
           </div>
 
           {/* Word to translate */}
           <div className="text-center mb-6">
-            <div className="text-3xl font-bold text-white mb-2">{game.currentWord.word}</div>
-            <div className="text-sm text-gray-400">Translate to Spanish</div>
+            <div className="text-3xl font-bold mb-2" style={{ color: colors.text.DEFAULT }}>
+              {game.currentWord.word}
+            </div>
+            <div className="text-sm" style={{ color: colors.text.muted }}>
+              Translate to Spanish
+            </div>
           </div>
 
           {/* Feedback overlay */}
           {game.showFeedback && (
             <div
-              className={`text-center py-4 mb-4 rounded-lg ${
-                game.feedbackCorrect ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-              }`}
+              className="text-center py-4 mb-4 rounded-lg"
+              style={
+                game.feedbackCorrect
+                  ? {
+                      backgroundColor: `${colors.status.success.DEFAULT}26`,
+                      color: colors.status.success.light,
+                    }
+                  : {
+                      backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                      color: colors.status.danger.light,
+                    }
+              }
             >
-              <div className="text-2xl font-bold mb-2">{game.feedbackCorrect ? "✓ Correct!" : "✗ Wrong"}</div>
+              <div className="text-2xl font-bold mb-2">
+                {game.feedbackCorrect ? "✓ Correct!" : "✗ Wrong"}
+              </div>
               {game.feedbackAnswer && (
                 <div className="text-lg">
-                  Answer: <span className="font-bold text-white">{game.feedbackAnswer}</span>
+                  Answer: <span className="font-bold" style={{ color: colors.text.DEFAULT }}>{game.feedbackAnswer}</span>
                 </div>
               )}
             </div>
@@ -363,8 +486,17 @@ export default function SoloStyleChallenge({
           {/* Flash hint overlay - brief neutral answer flash */}
           {game.showFlashHint && game.flashHintAnswer && (
             <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none animate-pulse">
-              <div className="bg-purple-600/90 backdrop-blur-sm text-white px-8 py-6 rounded-2xl shadow-2xl border-2 border-purple-400">
-                <div className="text-sm text-purple-200 mb-1 text-center">⚡ Hint</div>
+              <div
+                className="backdrop-blur-sm px-8 py-6 rounded-2xl shadow-2xl border-2"
+                style={{
+                  backgroundColor: `${colors.secondary.DEFAULT}E6`,
+                  borderColor: colors.secondary.light,
+                  color: colors.text.DEFAULT,
+                }}
+              >
+                <div className="text-sm mb-1 text-center" style={{ color: colors.text.muted }}>
+                  ⚡ Hint
+                </div>
                 <div className="text-4xl font-bold text-center">{game.flashHintAnswer}</div>
               </div>
             </div>
@@ -446,6 +578,7 @@ export default function SoloStyleChallenge({
           )}
         </div>
       )}
-    </main>
+      </main>
+    </ThemedPage>
   );
 }

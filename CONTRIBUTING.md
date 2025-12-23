@@ -114,8 +114,9 @@ const score = Math.round((correctAnswers / questionsAnswered) * 100);
 
 ### 5. Magic Number Ban
 
-- **Rule:** No hardcoded numbers (timers, probabilities, limits) in component code.
+- **Rule:** No hardcoded numbers (timers, probabilities, limits) in component logic or business rules.
 - **Action:** Move them to `constants.ts` files, either at the feature level or global `lib/` level.
+- **Exception:** Tailwind utility classes (e.g., `max-w-[360px]`, `pt-12`, `grid-cols-[1fr_200px]`) are generally allowed directly in JSX for layout purposes, as they represent visual styling rather than business logic. However, if a specific dimension is used repeatedly across multiple components, consider a constant.
 
 **Good:**
 

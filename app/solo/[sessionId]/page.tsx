@@ -10,7 +10,8 @@ import { formatDuration } from "@/lib/stringUtils";
 // Feature-local imports
 import { useSoloSession } from "./hooks";
 import { CompletionScreen } from "./components";
-import { LEVEL_COLORS } from "@/app/game/constants";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 // Shared Level components
 import {
@@ -20,6 +21,29 @@ import {
   Level2MultipleChoice,
   Level3Input,
 } from "@/app/game/levels";
+
+const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: string; backgroundColor: string }> = {
+  0: {
+    color: colors.text.muted,
+    borderColor: colors.neutral.dark,
+    backgroundColor: `${colors.neutral.dark}26`,
+  },
+  1: {
+    color: colors.status.success.DEFAULT,
+    borderColor: colors.status.success.DEFAULT,
+    backgroundColor: `${colors.status.success.DEFAULT}26`,
+  },
+  2: {
+    color: colors.status.warning.DEFAULT,
+    borderColor: colors.status.warning.DEFAULT,
+    backgroundColor: `${colors.status.warning.DEFAULT}26`,
+  },
+  3: {
+    color: colors.status.danger.DEFAULT,
+    borderColor: colors.status.danger.DEFAULT,
+    backgroundColor: `${colors.status.danger.DEFAULT}26`,
+  },
+};
 
 /**
  * Solo Challenge Page - Controller component
@@ -83,124 +107,320 @@ export default function SoloChallengePage() {
   // Navigation
   const handleExit = () => router.push("/");
 
+  const baseCardStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    boxShadow: `0 18px 45px ${colors.primary.glow}`,
+  };
+
   // Loading states
   if (!themeId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-400">No theme selected</div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              No theme selected
+            </p>
+            <button
+              onClick={handleExit}
+              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   if (theme === undefined) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={baseCardStyle}
+          >
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+              style={{ borderColor: colors.cta.light }}
+            />
+            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
+              Loading challenge...
+            </p>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   if (theme === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-400">Theme not found</div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              Theme not found
+            </p>
+            <button
+              onClick={handleExit}
+              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   if (!session.initialized || !currentWord) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={baseCardStyle}
+          >
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+              style={{ borderColor: colors.cta.light }}
+            />
+            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
+              Preparing your next question...
+            </p>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
-  // Completion screen
-  if (session.completed) {
-    return (
-      <CompletionScreen
-        questionsAnswered={session.questionsAnswered}
-        correctAnswers={session.correctAnswers}
-        totalWords={theme.words.length}
-        totalDuration={elapsedTime}
-        onExit={handleExit}
+  const header = (
+    <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up">
+      <div
+        className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full"
+        style={{ color: colors.neutral.DEFAULT }}
       />
-    );
-  }
 
-  return (
-    <main className="min-h-screen flex flex-col items-center p-4 relative">
-      {/* Exit Button */}
-      <button
-        onClick={handleExit}
-        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+      <h1
+        className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none"
+        style={{
+          background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
+        }}
       >
-        Exit Challenge
-      </button>
+        Solo{" "}
+        <span
+          style={{
+            background: `linear-gradient(135deg, ${colors.cta.DEFAULT} 0%, ${colors.cta.lighter} 50%, ${colors.cta.DEFAULT} 100%)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Challenge
+        </span>
+      </h1>
 
-      {/* Progress Header */}
-      <div className="w-full max-w-md mb-8 mt-16">
-        <div className="text-center mb-4">
-          <h1 className="text-xl font-bold text-gray-300">{theme.name}</h1>
-          <div className="text-2xl font-mono text-gray-400 mt-2">
-            {formatDuration(elapsedTime)}
+      <div
+        className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 text-xs uppercase tracking-widest max-w-full"
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          color: colors.text.muted,
+        }}
+      >
+        <span className="truncate max-w-[240px]">{theme.name}</span>
+      </div>
+
+      <div className="flex items-center gap-2 mt-3">
+        <div
+          className="w-8 h-px bg-gradient-to-r from-transparent to-current"
+          style={{ color: colors.primary.DEFAULT }}
+        />
+        <div className="w-1.5 h-1.5 rotate-45" style={{ backgroundColor: colors.primary.DEFAULT }} />
+        <div
+          className="w-8 h-px bg-gradient-to-l from-transparent to-current"
+          style={{ color: colors.primary.DEFAULT }}
+        />
+      </div>
+    </header>
+  );
+
+  const progressPercentage = theme.words.length
+    ? Math.min(100, (masteredCount / theme.words.length) * 100)
+    : 0;
+
+  const content = session.completed ? (
+    <CompletionScreen
+      questionsAnswered={session.questionsAnswered}
+      correctAnswers={session.correctAnswers}
+      totalWords={theme.words.length}
+      totalDuration={elapsedTime}
+      onExit={handleExit}
+    />
+  ) : (
+    <>
+      <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
+        <button
+          onClick={handleExit}
+          className="px-3 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+          style={{
+            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+            borderColor: colors.status.danger.DEFAULT,
+            color: colors.status.danger.light,
+          }}
+        >
+          Exit
+        </button>
+      </div>
+
+      {header}
+
+      <section
+        className="w-full rounded-3xl border-2 p-4 sm:p-5 mb-4 backdrop-blur-sm animate-slide-up delay-200"
+        style={baseCardStyle}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
+              Elapsed Time
+            </div>
+            <div className="mt-1 text-3xl sm:text-4xl font-mono" style={{ color: colors.text.DEFAULT }}>
+              {formatDuration(elapsedTime)}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
+              Mastered
+            </div>
+            <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
+              {masteredCount} / {theme.words.length}
+            </div>
+            <div className="text-xs" style={{ color: colors.text.muted }}>
+              Pool {session.activePool.length} active
+            </div>
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="bg-gray-700 rounded-full h-4 mb-2">
+        <div
+          className="mt-4 h-2 rounded-full border-2"
+          style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}
+        >
           <div
-            className="bg-green-500 rounded-full h-4 transition-all duration-300"
-            style={{ width: `${(masteredCount / theme.words.length) * 100}%` }}
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${progressPercentage}%`,
+              backgroundImage: `linear-gradient(90deg, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT})`,
+            }}
           />
         </div>
-        <div className="flex justify-between text-sm text-gray-400">
-          <span>
-            {masteredCount} / {theme.words.length} words mastered
-          </span>
-          <span>Pool: {session.activePool.length} active</span>
-        </div>
-      </div>
+      </section>
 
-      {/* Question Card */}
-      <div className="w-full max-w-md bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-        {/* Level indicator */}
+      <section
+        className="w-full rounded-3xl border-2 p-6 backdrop-blur-sm animate-slide-up delay-300"
+        style={baseCardStyle}
+      >
         <div className="flex justify-center mb-4">
           <span
-            className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${LEVEL_COLORS[session.questionLevel]}`}
+            className="inline-block px-3 py-1 rounded-full border-2 text-xs font-bold uppercase tracking-widest"
+            style={levelBadgeStyles[session.questionLevel]}
           >
             Level {session.questionLevel}
           </span>
         </div>
 
-        {/* Word to translate */}
         {session.questionLevel !== 0 && (
           <div className="text-center mb-6">
-            <div className="text-3xl font-bold text-white mb-2">{currentWord.word}</div>
-            <div className="text-sm text-gray-400">Translate to Spanish</div>
+            <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
+              {currentWord.word}
+            </div>
+            <div className="text-xs uppercase tracking-widest mt-2" style={{ color: colors.text.muted }}>
+              Translate to Spanish
+            </div>
           </div>
         )}
 
-        {/* Feedback overlay */}
         {showFeedback && (
           <div
-            className={`text-center py-4 mb-4 rounded-lg ${
-              feedbackCorrect ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-            }`}
+            className="text-center py-4 mb-4 rounded-2xl border-2"
+            style={
+              feedbackCorrect
+                ? {
+                    borderColor: colors.status.success.DEFAULT,
+                    backgroundColor: `${colors.status.success.DEFAULT}26`,
+                    color: colors.status.success.light,
+                  }
+                : {
+                    borderColor: colors.status.danger.DEFAULT,
+                    backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                    color: colors.status.danger.light,
+                  }
+            }
           >
             <div className="text-2xl font-bold mb-2">
-              {feedbackCorrect ? "✓ Correct!" : "✗ Wrong"}
+              {feedbackCorrect ? "Correct" : "Wrong"}
             </div>
             {feedbackAnswer && (
-              <div className="text-lg">
-                Answer: <span className="font-bold text-white">{feedbackAnswer}</span>
+              <div className="text-base" style={{ color: colors.text.DEFAULT }}>
+                Answer: <span className="font-bold">{feedbackAnswer}</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Input based on level */}
         {!showFeedback && (
           <>
             {session.questionLevel === 0 && (
@@ -218,6 +438,7 @@ export default function SoloChallengePage() {
                 answer={currentWord.answer}
                 onCorrect={handleCorrect}
                 onSkip={handleIncorrect}
+                mode="solo"
               />
             )}
 
@@ -228,6 +449,7 @@ export default function SoloChallengePage() {
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
+                mode="solo"
               />
             )}
 
@@ -239,6 +461,7 @@ export default function SoloChallengePage() {
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
+                mode="solo"
               />
             )}
 
@@ -249,16 +472,35 @@ export default function SoloChallengePage() {
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
+                mode="solo"
               />
             )}
           </>
         )}
-      </div>
+      </section>
 
-      {/* Stats footer */}
-      <div className="mt-8 text-center text-gray-500 text-sm">
+      <div
+        className="mt-4 text-xs uppercase tracking-widest"
+        style={{ color: colors.text.muted }}
+      >
         Questions: {session.questionsAnswered} | Correct: {session.correctAnswers}
       </div>
-    </main>
+    </>
+  );
+
+  const containerClassName = `relative z-10 flex-1 min-h-0 flex flex-col items-center w-full max-w-xl mx-auto px-6 pt-6 pb-0 ${
+    session.completed ? "justify-center" : ""
+  }`;
+
+  return (
+    <ThemedPage>
+      <div className={containerClassName}>{content}</div>
+      <div
+        className="relative z-10 h-1"
+        style={{
+          background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+        }}
+      />
+    </ThemedPage>
   );
 }

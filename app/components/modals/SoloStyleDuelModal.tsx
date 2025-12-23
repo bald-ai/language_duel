@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
-import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
-import { CLASSIC_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
 import { ModalShell } from "./ModalShell";
 import { buttonStyles, colors } from "@/lib/theme";
 
@@ -27,10 +25,9 @@ interface CreateDuelOptions {
   opponentId: Id<"users">;
   themeId: Id<"themes">;
   mode: "solo" | "classic";
-  classicDifficultyPreset?: ClassicDifficultyPreset;
 }
 
-interface DuelModalProps {
+interface SoloStyleDuelModalProps {
   users: User[];
   themes: Theme[] | undefined;
   pendingDuels: PendingDuel[] | undefined;
@@ -82,7 +79,7 @@ const dangerButtonStyle = {
 
 const sectionLabelClassName = "text-xs uppercase tracking-widest mb-2";
 
-export function DuelModal({
+export function SoloStyleDuelModal({
   users,
   themes,
   pendingDuels,
@@ -93,28 +90,26 @@ export function DuelModal({
   onCreateDuel,
   onClose,
   onNavigateToThemes,
-}: DuelModalProps) {
+}: SoloStyleDuelModalProps) {
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("progressive");
 
   const selectedOpponent = users.find((user) => user._id === selectedOpponentId) || null;
   const selectedTheme = themes?.find((theme) => theme._id === selectedThemeId) || null;
 
-  const canCreate = selectedOpponentId && selectedThemeId && selectedDifficulty;
+  const canCreate = selectedOpponentId && selectedThemeId;
 
   const handleCreateDuel = () => {
     if (!selectedOpponentId || !selectedThemeId) return;
     onCreateDuel({
       opponentId: selectedOpponentId,
       themeId: selectedThemeId,
-      mode: "classic",
-      classicDifficultyPreset: selectedDifficulty,
+      mode: "solo",
     });
   };
 
   return (
-    <ModalShell title="Create Classic Duel" maxHeight>
+    <ModalShell title="Create Solo Style Duel" maxHeight>
       <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4">
         {/* Pending Duels Section */}
         {pendingDuels === undefined ? (
@@ -195,15 +190,17 @@ export function DuelModal({
           />
         </div>
 
-        {/* Section 3: Difficulty Selector */}
-        <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.muted }}>
-            Difficulty
+        {/* Mode Info */}
+        <div
+          className="p-3 border-2 rounded-2xl"
+          style={{
+            backgroundColor: `${colors.primary.DEFAULT}1A`,
+            borderColor: `${colors.primary.DEFAULT}66`,
+          }}
+        >
+          <p className="text-xs text-center" style={{ color: colors.text.muted }}>
+            <strong style={{ color: colors.text.DEFAULT }}>Solo Style:</strong> Independent progress, 3-level system with typing & multiple choice.
           </p>
-          <DifficultySelector
-            selectedDifficulty={selectedDifficulty}
-            onSelect={setSelectedDifficulty}
-          />
         </div>
       </div>
 
@@ -395,7 +392,7 @@ function CompactThemeSelector({
               </div>
               {isSelected && (
                 <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center"
+                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
                   style={{ backgroundColor: colors.cta.DEFAULT }}
                 >
                   <svg className="w-2.5 h-2.5" fill="white" viewBox="0 0 20 20">
@@ -423,74 +420,6 @@ function CompactThemeSelector({
           Selected: <span style={{ color: colors.cta.light }}>{selectedTheme.name}</span>
         </div>
       )}
-    </div>
-  );
-}
-
-interface DifficultySelectorProps {
-  selectedDifficulty: ClassicDifficultyPreset;
-  onSelect: (preset: ClassicDifficultyPreset) => void;
-}
-
-function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelectorProps) {
-  return (
-    <div className="space-y-2">
-      {CLASSIC_DIFFICULTY_OPTIONS.map((opt) => {
-        const isSelected = selectedDifficulty === opt.preset;
-        return (
-          <button
-            key={opt.preset}
-            onClick={() => onSelect(opt.preset)}
-            className="w-full text-left px-4 py-3 border-2 rounded-xl transition hover:brightness-110"
-            style={
-              isSelected
-                ? {
-                    backgroundColor: `${colors.cta.DEFAULT}1A`,
-                    borderColor: colors.cta.DEFAULT,
-                  }
-                : {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.primary.dark,
-                  }
-            }
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div
-                  className="font-bold text-sm"
-                  style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
-                >
-                  {opt.label}
-                </div>
-                <div className="text-xs" style={{ color: colors.text.muted }}>
-                  {opt.description}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {opt.isDefault && (
-                  <span className="text-xs font-semibold" style={{ color: colors.cta.light }}>
-                    Default
-                  </span>
-                )}
-                {isSelected && (
-                  <div
-                    className="w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: colors.cta.DEFAULT }}
-                  >
-                    <svg className="w-2.5 h-2.5" fill="white" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </div>
-          </button>
-        );
-      })}
     </div>
   );
 }

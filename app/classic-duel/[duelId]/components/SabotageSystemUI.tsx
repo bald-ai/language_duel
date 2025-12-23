@@ -37,8 +37,8 @@ export function SabotageSystemUI({
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
-      <div className="text-sm font-medium text-gray-200">
+    <div className="flex flex-col items-center gap-2">
+      <div className="text-sm font-medium text-gray-200 uppercase tracking-wider opacity-80">
         Sabotage{" "}
         <span className="text-gray-300 tabular-nums">
           {sabotagesRemaining}/{MAX_SABOTAGES}

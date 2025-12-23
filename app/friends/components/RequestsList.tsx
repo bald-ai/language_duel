@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendRequestWithDetails } from "@/convex/friends";
+import { colors } from "@/lib/theme";
 
 interface RequestsListProps {
   requests: FriendRequestWithDetails[];
@@ -22,7 +23,7 @@ export function RequestsList({
   if (requests.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">No pending friend requests</p>
+        <p style={{ color: colors.text.muted }}>No pending friend requests</p>
       </div>
     );
   }
@@ -41,26 +42,44 @@ export function RequestsList({
         return (
           <div
             key={request.requestId}
-            className="bg-gray-800/50 border-2 border-gray-700 rounded-xl p-4 flex items-center gap-4"
+            className="rounded-xl p-4 flex items-center gap-4 border-2"
+            style={{
+              backgroundColor: `${colors.primary.dark}40`,
+              borderColor: colors.primary.dark,
+            }}
           >
             {request.imageUrl ? (
               <img
                 src={request.imageUrl}
                 alt=""
-                className="w-12 h-12 rounded-full border-2 border-gray-600"
+                className="w-12 h-12 rounded-full border-2"
+                style={{ borderColor: colors.neutral.dark }}
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center">
-                <span className="text-gray-400 text-lg font-bold">
+              <div 
+                className="w-12 h-12 rounded-full border-2 flex items-center justify-center"
+                style={{ 
+                  backgroundColor: colors.primary.dark,
+                  borderColor: colors.neutral.dark,
+                }}
+              >
+                <span 
+                  className="text-lg font-bold"
+                  style={{ color: colors.neutral.DEFAULT }}
+                >
                   {(request.nickname || request.email)[0].toUpperCase()}
                 </span>
               </div>
             )}
 
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white truncate">{displayName}</p>
+              <p className="font-bold truncate" style={{ color: colors.text.DEFAULT }}>
+                {displayName}
+              </p>
               {request.nickname && (
-                <p className="text-sm text-gray-500 truncate">{request.email}</p>
+                <p className="text-sm truncate" style={{ color: colors.text.muted }}>
+                  {request.email}
+                </p>
               )}
             </div>
 
@@ -68,14 +87,22 @@ export function RequestsList({
               <button
                 onClick={() => onAccept(request.requestId)}
                 disabled={isMutating}
-                className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: colors.primary.DEFAULT,
+                  color: colors.text.DEFAULT,
+                }}
               >
                 {isAccepting ? "..." : "Accept"}
               </button>
               <button
                 onClick={() => onReject(request.requestId)}
                 disabled={isMutating}
-                className="px-3 py-1 bg-red-600/80 text-white rounded-lg text-sm font-medium hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: `${colors.cta.dark}80`,
+                  color: colors.text.DEFAULT,
+                }}
               >
                 {isRejecting ? "..." : "Reject"}
               </button>

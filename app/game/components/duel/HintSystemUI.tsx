@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/lib/theme";
+
 interface HintSystemUIProps {
   canRequestHint: boolean;
   iRequestedHint: boolean;
@@ -33,13 +35,22 @@ export function HintSystemUI({
   requestHintText = "💡 Request Hint",
   acceptHintText = "✓ Accept Hint Request",
 }: HintSystemUIProps) {
+  const hintButtonClass =
+    "rounded-lg px-6 py-2 font-medium transition hover:brightness-110 border-2";
+  const hintButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
+
   return (
     <div className="flex flex-col items-center gap-2 mt-2">
       {/* Request Hint Button - for player who hasn't answered */}
       {canRequestHint && (
         <button
           onClick={onRequestHint}
-          className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+          className={hintButtonClass}
+          style={hintButtonStyle}
         >
           {requestHintText}
         </button>
@@ -47,14 +58,14 @@ export function HintSystemUI({
 
       {/* Waiting for hint acceptance */}
       {iRequestedHint && !hintAccepted && (
-        <div className="text-purple-400 font-medium animate-pulse">
+        <div className="font-medium animate-pulse" style={{ color: colors.secondary.light }}>
           Waiting for opponent to accept hint request...
         </div>
       )}
 
       {/* Hint received - show status */}
       {iRequestedHint && hintAccepted && (
-        <div className="text-purple-400 font-medium">
+        <div className="font-medium" style={{ color: colors.secondary.light }}>
           💡 Hint received! {eliminatedOptionsCount}/2 options eliminated
         </div>
       )}
@@ -63,7 +74,8 @@ export function HintSystemUI({
       {canAcceptHint && (
         <button
           onClick={onAcceptHint}
-          className="rounded-lg px-6 py-2 font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors animate-bounce"
+          className={`${hintButtonClass} animate-bounce`}
+          style={hintButtonStyle}
         >
           {acceptHintText}
         </button>
@@ -72,10 +84,10 @@ export function HintSystemUI({
       {/* Hint provider mode - show instructions */}
       {isHintProvider && (
         <div className="text-center">
-          <div className="text-orange-400 font-medium mb-1">
+          <div className="font-medium mb-1" style={{ color: colors.status.warning.light }}>
             🎯 Click on {2 - eliminatedOptionsCount} wrong option{2 - eliminatedOptionsCount !== 1 ? 's' : ''} to eliminate
           </div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs" style={{ color: colors.text.muted }}>
             You&apos;ll get +0.5 points if they answer after your hint
           </div>
         </div>
@@ -83,18 +95,17 @@ export function HintSystemUI({
 
       {/* Hint provider done eliminating */}
       {hasAnswered && theyRequestedHint && hintAccepted && eliminatedOptionsCount >= 2 && (
-        <div className="text-green-400 font-medium">
+        <div className="font-medium" style={{ color: colors.status.success.light }}>
           ✓ Hint provided! Waiting for opponent...
         </div>
       )}
 
       {/* Opponent requested hint - show notification */}
       {theyRequestedHint && !hintAccepted && !hasAnswered && (
-        <div className="text-purple-400 font-medium">
+        <div className="font-medium" style={{ color: colors.secondary.light }}>
           Opponent requested a hint
         </div>
       )}
     </div>
   );
 }
-

@@ -13,12 +13,82 @@ import { WordCard } from "./components";
 import { useDraggableList } from "./hooks/useDraggableList";
 import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { buttonStyles, colors } from "@/lib/theme";
 
 // State for each word: hintCount and revealedPositions
 interface HintState {
   hintCount: number;
   revealedPositions: number[];
 }
+
+const actionButtonClassName =
+  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
+
+const buildActionStyle = (variant: "primary" | "cta") => {
+  const styles = buttonStyles[variant];
+  return {
+    backgroundImage: `linear-gradient(to bottom, ${styles.gradient.from}, ${styles.gradient.to})`,
+    borderTopColor: styles.border.top,
+    borderBottomColor: styles.border.bottom,
+    borderLeftColor: styles.border.sides,
+    borderRightColor: styles.border.sides,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
+};
+
+const primaryActionStyle = buildActionStyle("primary");
+const ctaActionStyle = buildActionStyle("cta");
+
+const timerOptionClassName =
+  "px-5 py-3 rounded-2xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
+
+const timerOptionActiveStyle = {
+  backgroundColor: colors.primary.DEFAULT,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+  boxShadow: `0 12px 30px ${colors.primary.glow}`,
+};
+
+const timerOptionInactiveStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.muted,
+};
+
+const toggleButtonClassName =
+  "px-4 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
+
+const toggleActiveStyle = {
+  backgroundColor: colors.primary.DEFAULT,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+};
+
+const toggleInactiveStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.muted,
+};
+
+const resetToggleStyle = {
+  backgroundColor: colors.background.DEFAULT,
+  borderColor: colors.neutral.dark,
+  color: colors.text.muted,
+};
+
+const cardStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  boxShadow: `0 18px 50px ${colors.primary.glow}`,
+};
+
+const listCardStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  boxShadow: `0 20px 55px ${colors.primary.glow}`,
+};
 
 export default function LearnPhasePage() {
   const params = useParams();
@@ -212,241 +282,393 @@ export default function LearnPhasePage() {
   const handleExit = () => router.push("/");
 
   // --- Timer display ---
-  const getTimerColor = () => {
+  const getTimerStyle = () => {
     const percentage = timeRemaining / duration;
-    if (percentage > TIMER_THRESHOLDS.GREEN) return "text-green-400";
-    if (percentage > TIMER_THRESHOLDS.YELLOW) return "text-yellow-400";
-    return "text-red-400";
+    if (percentage > TIMER_THRESHOLDS.GREEN) return { color: colors.status.success.DEFAULT };
+    if (percentage > TIMER_THRESHOLDS.YELLOW) return { color: colors.status.warning.DEFAULT };
+    return { color: colors.status.danger.DEFAULT };
   };
 
+  const header = (
+    <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up shrink-0">
+      <div
+        className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full"
+        style={{ color: colors.neutral.DEFAULT }}
+      />
+
+      <h1
+        className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none"
+        style={{
+          background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
+        }}
+      >
+        Solo{" "}
+        <span
+          style={{
+            background: `linear-gradient(135deg, ${colors.cta.DEFAULT} 0%, ${colors.cta.lighter} 50%, ${colors.cta.DEFAULT} 100%)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Challenge
+        </span>
+      </h1>
+
+      <p
+        className="mt-2 text-xs sm:text-sm font-light tracking-wide"
+        style={{ color: colors.text.muted }}
+      >
+        Study first, then jump into the challenge
+      </p>
+
+      <div className="flex items-center gap-2 mt-3">
+        <div
+          className="w-8 h-px bg-gradient-to-r from-transparent to-current"
+          style={{ color: colors.primary.DEFAULT }}
+        />
+        <div className="w-1.5 h-1.5 rotate-45" style={{ backgroundColor: colors.primary.DEFAULT }} />
+        <div
+          className="w-8 h-px bg-gradient-to-l from-transparent to-current"
+          style={{ color: colors.primary.DEFAULT }}
+        />
+      </div>
+    </header>
+  );
 
   // --- Loading states ---
   if (!themeId) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-red-400">No theme selected</div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              No theme selected
+            </p>
+            <button
+              onClick={handleExit}
+              className={`${actionButtonClassName} mt-6`}
+              style={primaryActionStyle}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   if (!theme) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-      </div>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={cardStyle}
+          >
+            <div
+              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+              style={{ borderColor: colors.cta.light }}
+            />
+            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
+              Loading study session...
+            </p>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   // --- Pre-start screen ---
   if (!isStarted) {
     return (
-      <main className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full text-center">
-          <h1 className="text-2xl font-bold text-gray-300 mb-2">{theme.name}</h1>
-          <p className="text-gray-400 mb-8">Set your study time</p>
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-8">
+          {header}
 
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
-            {TIMER_OPTIONS.map((option) => (
-              <button
-                key={option}
-                onClick={() => setDuration(option)}
-                className={`px-6 py-3 rounded-xl font-bold text-lg transition-colors ${
-                  duration === option
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                }`}
-              >
-                {formatDuration(option)}
-              </button>
-            ))}
+          <section
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up delay-200"
+            style={cardStyle}
+          >
+            <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
+              Theme
+            </div>
+            <h2 className="mt-1 text-2xl font-bold" style={{ color: colors.text.DEFAULT }}>
+              {theme.name}
+            </h2>
+
+            <p className="mt-3 text-sm" style={{ color: colors.text.muted }}>
+              Set your study time
+            </p>
+
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {TIMER_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setDuration(option)}
+                  className={timerOptionClassName}
+                  style={duration === option ? timerOptionActiveStyle : timerOptionInactiveStyle}
+                >
+                  {formatDuration(option)}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className="mt-5 inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 text-xs uppercase tracking-widest"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              }}
+            >
+              {theme.words.length} words to study
+            </div>
+          </section>
+
+          <div className="w-full mt-6 grid gap-3 animate-slide-up delay-300">
+            <button onClick={handleStart} className={actionButtonClassName} style={ctaActionStyle}>
+              Start Learning
+            </button>
+            <button onClick={handleExit} className={actionButtonClassName} style={primaryActionStyle}>
+              Back to Home
+            </button>
           </div>
-
-          <p className="text-gray-500 mb-8">{theme.words.length} words to study</p>
-
-          <button
-            onClick={handleStart}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl text-xl transition-colors mb-4"
-          >
-            Start Learning
-          </button>
-
-          <button
-            onClick={handleExit}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-3 rounded-xl transition-colors"
-          >
-            Back to Home
-          </button>
         </div>
-      </main>
+
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
     );
   }
 
   // --- Main learning UI ---
   return (
-    <main className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Exit Button */}
-      <button
-        onClick={handleExit}
-        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-colors"
-      >
-        Exit
-      </button>
+    <ThemedPage>
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center w-full max-w-xl mx-auto px-6 pt-6 pb-0">
+        <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
+          <button
+            onClick={handleExit}
+            className="px-3 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+            style={{
+              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+              borderColor: colors.status.danger.DEFAULT,
+              color: colors.status.danger.light,
+            }}
+          >
+            Exit
+          </button>
+        </div>
 
-      {/* Header with Timer */}
-      <header className="flex-shrink-0 pt-6 pb-4 px-4">
-        <div className="max-w-md mx-auto text-center">
-          <h1 className="text-xl font-bold text-gray-300 mb-2">{theme.name}</h1>
-          <div className={`text-6xl font-bold ${getTimerColor()} transition-colors`}>
+        {header}
+
+        <section
+          className="w-full rounded-3xl border-2 p-5 text-center backdrop-blur-sm animate-slide-up delay-200"
+          style={cardStyle}
+        >
+          <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
+            Study Session
+          </div>
+          <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
+            {theme.name}
+          </div>
+          <div
+            className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
+            style={getTimerStyle()}
+          >
             {formatDuration(timeRemaining)}
           </div>
 
-          <div className="flex items-center justify-center gap-4 mt-4">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <button
-              onClick={() => setIsRevealed(!isRevealed)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                isRevealed
-                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  : "bg-green-600 text-white"
-              }`}
+              onClick={() => setIsRevealed(true)}
+              className={toggleButtonClassName}
+              style={isRevealed ? toggleActiveStyle : toggleInactiveStyle}
             >
-              {isRevealed ? "Testing" : "Reveal"}
+              Reveal
+            </button>
+            <button
+              onClick={() => setIsRevealed(false)}
+              className={toggleButtonClassName}
+              style={!isRevealed ? toggleActiveStyle : toggleInactiveStyle}
+            >
+              Test
             </button>
             {!isRevealed && (
               <button
                 onClick={resetAll}
-                className="px-4 py-2 rounded-lg font-medium text-sm bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                className={toggleButtonClassName}
+                style={resetToggleStyle}
               >
                 Reset All
               </button>
             )}
           </div>
-        </div>
-      </header>
+        </section>
 
-      {/* Words List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
-        <div
-          ref={containerRef}
-          className={`max-w-md mx-auto relative ${isRevealed ? "space-y-2" : "space-y-3"}`}
+        <section
+          className="w-full flex-1 min-h-0 rounded-3xl border-2 p-4 pt-6 mb-4 overflow-y-auto backdrop-blur-sm animate-slide-up delay-300"
+          style={listCardStyle}
         >
-          {/* Confidence legend */}
-          {!isConfidenceLegendDismissed && (
-            <div className="sticky top-2 z-10 w-fit">
-              <div className="rounded-xl border border-gray-700 bg-gray-900/80 px-3 py-2 backdrop-blur">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-2 w-20 overflow-hidden rounded-full">
-                    <div className="flex-1 bg-gray-600" />
-                    <div className="flex-1 bg-green-500" />
-                    <div className="flex-1 bg-orange-400" />
-                    <div className="flex-1 bg-red-500" />
+          <div
+            ref={containerRef}
+            className={`w-full relative ${isRevealed ? "space-y-2" : "space-y-3"}`}
+          >
+            {!isConfidenceLegendDismissed && (
+              <div className="sticky top-2 z-10 w-fit">
+                <div
+                  className="rounded-2xl border-2 px-3 py-2 backdrop-blur-sm"
+                  style={{
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex h-2 w-20 overflow-hidden rounded-full border"
+                      style={{ borderColor: colors.primary.dark }}
+                    >
+                      <div className="flex-1" style={{ backgroundColor: colors.neutral.dark }} />
+                      <div className="flex-1" style={{ backgroundColor: colors.status.success.DEFAULT }} />
+                      <div className="flex-1" style={{ backgroundColor: colors.status.warning.DEFAULT }} />
+                      <div className="flex-1" style={{ backgroundColor: colors.status.danger.DEFAULT }} />
+                    </div>
+                    <div className="text-[11px] leading-tight" style={{ color: colors.text.muted }}>
+                      Confidence sets the starting challenge level (0 quick check {'->'} 3 no hints).
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Dismiss confidence legend"
+                      onClick={() => {
+                        setIsConfidenceLegendDismissed(true);
+                        try {
+                          sessionStorage.setItem(confidenceLegendStorageKey, "1");
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full transition hover:brightness-110"
+                      style={{ color: colors.text.muted }}
+                    >
+                      <span className="text-base leading-none">x</span>
+                    </button>
                   </div>
-                  <div className="text-[11px] leading-tight text-gray-300">
-                    Confidence sets the starting challenge level (0 quick check → 3 no hints).
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Dismiss confidence legend"
-                    onClick={() => {
-                      setIsConfidenceLegendDismissed(true);
-                      try {
-                        sessionStorage.setItem(confidenceLegendStorageKey, "1");
-                      } catch {
-                        // ignore
-                      }
-                    }}
-                    className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-colors"
-                  >
-                    <span className="text-base leading-none">×</span>
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {wordOrder.map((originalIndex, orderIdx) => {
-            const word = theme.words[originalIndex];
-            const wordKey = `${themeId}-${originalIndex}`;
-            const state = getHintState(wordKey);
-            const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-            const hintsRemaining = maxHints - state.hintCount;
+            {wordOrder.map((originalIndex, orderIdx) => {
+              const word = theme.words[originalIndex];
+              const wordKey = `${themeId}-${originalIndex}`;
+              const state = getHintState(wordKey);
+              const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+              const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
+              const hintsRemaining = maxHints - state.hintCount;
 
-            return (
-              <WordCard
-                key={originalIndex}
-                word={word}
-                isRevealed={isRevealed}
-                confidence={getConfidence(wordKey)}
-                onConfidenceChange={(val) => setConfidence(wordKey, val)}
-                revealedPositions={state.revealedPositions}
-                hintsRemaining={hintsRemaining}
-                onRevealLetter={(pos) => revealLetter(wordKey, pos)}
-                onRevealFullWord={() => revealFullWord(wordKey, word.answer)}
-                onResetWord={() => resetWord(wordKey)}
-                isTTSPlaying={playingWordIndex === originalIndex}
-                isTTSDisabled={playingWordIndex !== null}
-                onPlayTTS={() => playTTS(originalIndex, word.answer)}
-                isDragging={dragState.draggedIndex === orderIdx}
-                onMouseDown={(e) => handleMouseDown(e, orderIdx)}
-                style={getItemStyle(orderIdx, originalIndex)}
-                refCallback={(el) => itemRefs.current.set(originalIndex, el)}
-              />
-            );
-          })}
-        </div>
-      </div>
+              return (
+                <WordCard
+                  key={originalIndex}
+                  word={word}
+                  isRevealed={isRevealed}
+                  confidence={getConfidence(wordKey)}
+                  onConfidenceChange={(val) => setConfidence(wordKey, val)}
+                  revealedPositions={state.revealedPositions}
+                  hintsRemaining={hintsRemaining}
+                  onRevealLetter={(pos) => revealLetter(wordKey, pos)}
+                  onRevealFullWord={() => revealFullWord(wordKey, word.answer)}
+                  onResetWord={() => resetWord(wordKey)}
+                  isTTSPlaying={playingWordIndex === originalIndex}
+                  isTTSDisabled={playingWordIndex !== null}
+                  onPlayTTS={() => playTTS(originalIndex, word.answer)}
+                  isDragging={dragState.draggedIndex === orderIdx}
+                  onMouseDown={(e) => handleMouseDown(e, orderIdx)}
+                  style={getItemStyle(orderIdx, originalIndex)}
+                  refCallback={(el) => itemRefs.current.set(originalIndex, el)}
+                />
+              );
+            })}
+          </div>
+        </section>
 
-      {/* Floating dragged card */}
-      {dragState.draggedIndex !== null && wordOrder.length > 0 && (
-        <div
-          className="fixed pointer-events-none z-50"
-          style={{
-            left: dragState.mousePos.x - dragOffset.current.x,
-            top: dragState.mousePos.y - dragOffset.current.y,
-            width: containerRef.current?.offsetWidth,
-          }}
-        >
-          {(() => {
-            const originalIndex = wordOrder[dragState.draggedIndex];
-            const word = theme.words[originalIndex];
-            const wordKey = `${themeId}-${originalIndex}`;
-            const state = getHintState(wordKey);
-            const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
-            const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-            const hintsRemaining = maxHints - state.hintCount;
-
-            return (
-              <WordCard
-                word={word}
-                isRevealed={isRevealed}
-                confidence={getConfidence(wordKey)}
-                onConfidenceChange={() => {}}
-                revealedPositions={state.revealedPositions}
-                hintsRemaining={hintsRemaining}
-                onRevealLetter={() => {}}
-                onRevealFullWord={() => {}}
-                onResetWord={() => {}}
-                isTTSPlaying={playingWordIndex === originalIndex}
-                isTTSDisabled={playingWordIndex !== null}
-                onPlayTTS={() => {}}
-                isFloating
-              />
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Fixed Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-4">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={handleSkip}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors"
+        {dragState.draggedIndex !== null && wordOrder.length > 0 && (
+          <div
+            className="fixed pointer-events-none z-50"
+            style={{
+              left: dragState.mousePos.x - dragOffset.current.x,
+              top: dragState.mousePos.y - dragOffset.current.y,
+              width: containerRef.current?.offsetWidth,
+            }}
           >
-            Skip to Challenge →
+            {(() => {
+              const originalIndex = wordOrder[dragState.draggedIndex];
+              const word = theme.words[originalIndex];
+              const wordKey = `${themeId}-${originalIndex}`;
+              const state = getHintState(wordKey);
+              const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+              const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
+              const hintsRemaining = maxHints - state.hintCount;
+
+              return (
+                <WordCard
+                  word={word}
+                  isRevealed={isRevealed}
+                  confidence={getConfidence(wordKey)}
+                  onConfidenceChange={() => {}}
+                  revealedPositions={state.revealedPositions}
+                  hintsRemaining={hintsRemaining}
+                  onRevealLetter={() => {}}
+                  onRevealFullWord={() => {}}
+                  onResetWord={() => {}}
+                  isTTSPlaying={playingWordIndex === originalIndex}
+                  isTTSDisabled={playingWordIndex !== null}
+                  onPlayTTS={() => {}}
+                  isFloating
+                />
+              );
+            })()}
+          </div>
+        )}
+
+        <div className="w-full pb-[calc(env(safe-area-inset-bottom)+1.5rem)] animate-slide-up delay-400">
+          <button onClick={handleSkip} className={actionButtonClassName} style={ctaActionStyle}>
+            Skip to Challenge {'->'}
           </button>
         </div>
       </div>
-    </main>
+
+      <div
+        className="relative z-10 h-1"
+        style={{
+          background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+        }}
+      />
+    </ThemedPage>
   );
 }

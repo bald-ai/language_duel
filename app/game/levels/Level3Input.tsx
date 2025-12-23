@@ -6,6 +6,7 @@ import { generateAnagramLetters, buildAnagramWithSpaces } from "@/lib/prng";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { DUEL_CORRECT_DELAY_MS, NAVIGATE_ENABLE_DELAY_MS } from "./constants";
 import type { Level3Props, HintProps } from "./types";
+import { buttonStyles, colors } from "@/lib/theme";
 
 interface Level3ExtendedProps extends Level3Props, HintProps {
   onRequestHint?: () => void;
@@ -107,7 +108,7 @@ export function Level3Input({
   return (
     <div className="flex flex-col items-center gap-4">
       {hasMultipleWords && !submitted && (
-        <div className="text-xs text-yellow-500/80">
+        <div className="text-xs" style={{ color: colors.status.warning.light }}>
           Include spaces between words
         </div>
       )}
@@ -118,14 +119,23 @@ export function Level3Input({
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
         disabled={submitted}
-        className="w-full max-w-xs px-4 py-3 text-lg text-center bg-gray-800 border-2 border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none"
+        className={`w-full max-w-xs px-4 py-3 text-lg text-center border-2 focus:outline-none ${
+          isDuelMode ? "rounded-lg" : "rounded-2xl"
+        }`}
+        style={{
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.dark,
+          color: colors.text.DEFAULT,
+        }}
         placeholder={showAnagramHint ? `Anagram: ${anagramHint}` : "Type your answer..."}
         autoFocus
       />
       
       {/* Anagram hint display (duel mode) */}
       {showAnagramHint && (
-        <div className="text-sm text-purple-300">Hint (anagram): {anagramHint}</div>
+        <div className="text-sm" style={{ color: colors.secondary.light }}>
+          Hint (anagram): {anagramHint}
+        </div>
       )}
       
       {/* Hint System UI - Duel mode only */}
@@ -134,7 +144,12 @@ export function Level3Input({
           {canRequestHint && !hintRequested && !submitted && (
             <button
               onClick={onRequestHint}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+              className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -142,20 +157,30 @@ export function Level3Input({
           
           {hintRequested && !hintAccepted && (
             <div className="flex flex-col items-center gap-2">
-              <div className="text-purple-400 text-sm animate-pulse">
+              <div className="text-sm animate-pulse" style={{ color: colors.secondary.light }}>
                 Waiting for opponent to help...
               </div>
               {onRequestHint && (
                 <button
                   onClick={onRequestHint}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+                  className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                  style={{
+                    backgroundColor: colors.secondary.DEFAULT,
+                    borderColor: colors.secondary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
                 >
                   Request another hint
                 </button>
               )}
               <button
                 onClick={onCancelHint}
-                className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded text-xs"
+                className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.muted,
+                }}
               >
                 Cancel
               </button>
@@ -165,7 +190,12 @@ export function Level3Input({
           {hintRequested && hintAccepted && onRequestHint && (
             <button
               onClick={onRequestHint}
-              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs"
+              className="px-3 py-1 rounded text-xs border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                borderColor: colors.secondary.dark,
+                color: colors.text.DEFAULT,
+              }}
             >
               Request another hint
             </button>
@@ -179,13 +209,52 @@ export function Level3Input({
           <button
             onClick={handleSubmit}
             disabled={!inputValue.trim()}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+            className={
+              isDuelMode
+                ? "px-6 py-2 rounded-lg font-medium border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                : "bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-2 px-5 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            }
+            style={
+              !isDuelMode
+                ? {
+                    backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+                    borderTopColor: buttonStyles.primary.border.top,
+                    borderBottomColor: buttonStyles.primary.border.bottom,
+                    borderLeftColor: buttonStyles.primary.border.sides,
+                    borderRightColor: buttonStyles.primary.border.sides,
+                    color: colors.text.DEFAULT,
+                    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                  }
+                : {
+                    backgroundColor: colors.cta.DEFAULT,
+                    borderColor: colors.cta.dark,
+                    color: colors.text.DEFAULT,
+                  }
+            }
           >
             Submit
           </button>
           <button
             onClick={onSkip}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded-lg text-sm font-medium transition-colors"
+            className={
+              isDuelMode
+                ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+                : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+            }
+            style={
+              !isDuelMode
+                ? {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.DEFAULT,
+                    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                  }
+                : {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.muted,
+                  }
+            }
           >
             Don&apos;t Know
           </button>
@@ -196,50 +265,76 @@ export function Level3Input({
       {submitted && isCorrectAnswer && (
         isDuelMode ? (
           // Duel mode: simple correct message
-          <div className="text-green-400 text-xl font-bold">✓ Correct!</div>
+          <div className="text-xl font-bold" style={{ color: colors.status.success.light }}>
+            ✓ Correct!
+          </div>
         ) : (
           // Solo mode: Listen/Continue options
           <div className="flex flex-col items-center gap-3">
-            <div className="text-green-400 text-xl font-bold">✓ Correct!</div>
+            <div className="text-xl font-bold" style={{ color: colors.status.success.DEFAULT }}>
+              Correct
+            </div>
             <div className="flex gap-3">
               <button
                 onClick={handlePlayAudio}
                 disabled={isPlayingAudio}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 font-medium transition-all ${
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-60"
+                style={
                   isPlayingAudio
-                    ? 'border-green-500 bg-green-500/20 text-green-400 cursor-not-allowed'
+                    ? {
+                        borderColor: colors.status.success.DEFAULT,
+                        backgroundColor: `${colors.status.success.DEFAULT}26`,
+                        color: colors.status.success.DEFAULT,
+                      }
                     : selectedOption === "listen"
-                      ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                      : 'border-gray-600 bg-gray-800 hover:border-gray-500'
-                }`}
+                    ? {
+                        borderColor: colors.secondary.DEFAULT,
+                        backgroundColor: `${colors.secondary.DEFAULT}26`,
+                        color: colors.secondary.light,
+                      }
+                    : {
+                        borderColor: colors.primary.dark,
+                        backgroundColor: colors.background.DEFAULT,
+                        color: colors.text.DEFAULT,
+                      }
+                }
               >
-                <span className="text-xl">{isPlayingAudio ? '🔊' : '🔈'}</span>
-                <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
+                <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
               </button>
               <button
                 onClick={handleContinue}
                 disabled={isPlayingAudio}
-                className={`px-4 py-2 rounded-lg border-2 font-medium transition-all disabled:opacity-50 ${
+                className="px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-50"
+                style={
                   selectedOption === "continue"
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-400'
-                    : 'border-gray-600 bg-gray-800 hover:border-gray-500'
-                }`}
+                    ? {
+                        borderColor: colors.primary.DEFAULT,
+                        backgroundColor: `${colors.primary.DEFAULT}26`,
+                        color: colors.text.DEFAULT,
+                      }
+                    : {
+                        borderColor: colors.primary.dark,
+                        backgroundColor: colors.background.DEFAULT,
+                        color: colors.text.DEFAULT,
+                      }
+                }
               >
-                Continue →
+                Continue
               </button>
             </div>
-            <div className="text-xs text-gray-500">← → to select, Enter to confirm</div>
+            <div className="text-xs" style={{ color: colors.text.muted }}>
+              Left and right to select, Enter to confirm
+            </div>
           </div>
         )
       )}
       
       {/* Wrong answer feedback */}
       {submitted && !isCorrectAnswer && (
-        <div className="text-red-400">
+        <div style={{ color: colors.status.danger.light }}>
           Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
         </div>
       )}
     </div>
   );
 }
-

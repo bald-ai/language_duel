@@ -11,6 +11,8 @@ import SoloStyleChallenge from "./SoloStyleChallenge";
 import { DuelGameUI } from "./components";
 import { useDuelPhase, useQuestionTimer } from "./hooks";
 import { useTTS } from "@/app/game/hooks";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 
@@ -270,30 +272,80 @@ export default function DuelPage() {
     router.push("/");
   }, [router]);
 
+  const renderMessage = (
+    message: string,
+    tone: "default" | "warning" | "danger" = "default",
+    showSpinner = false
+  ) => {
+    const toneStyles = {
+      default: {
+        borderColor: colors.primary.dark,
+        boxShadow: `0 18px 45px ${colors.primary.glow}`,
+        textColor: colors.text.DEFAULT,
+      },
+      warning: {
+        borderColor: colors.status.warning.DEFAULT,
+        boxShadow: `0 18px 45px ${colors.status.warning.DEFAULT}33`,
+        textColor: colors.status.warning.light,
+      },
+      danger: {
+        borderColor: colors.status.danger.DEFAULT,
+        boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+        textColor: colors.status.danger.light,
+      },
+    };
+    const style = toneStyles[tone];
+
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex items-center justify-center px-6">
+          <div
+            className="rounded-2xl border-2 p-6 text-center backdrop-blur-sm"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: style.borderColor,
+              boxShadow: style.boxShadow,
+            }}
+          >
+            {showSpinner && (
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-3"
+                style={{ borderColor: colors.cta.light }}
+              />
+            )}
+            <p className="text-base font-semibold" style={{ color: style.textColor }}>
+              {message}
+            </p>
+          </div>
+        </div>
+      </ThemedPage>
+    );
+  };
+
   // Early returns AFTER all hooks
-  if (!user) return <div>Sign in first.</div>;
-  if (duelData === undefined) return <div>Loading duel...</div>;
-  if (duelData === null) return <div>You&apos;re not part of this duel</div>;
-  if (!theme) return <div>Loading theme...</div>;
+  if (!user) return renderMessage("Sign in first.", "warning");
+  if (duelData === undefined) return renderMessage("Loading duel...", "default", true);
+  if (duelData === null) return renderMessage("You're not part of this duel", "danger");
+  if (!theme) return renderMessage("Loading theme...", "default", true);
 
   // Redirect classic mode duels to classic-duel route (handled by useEffect)
   if (duel?.mode === "classic") {
-    return <div>Redirecting to classic duel...</div>;
+    return renderMessage("Redirecting to classic duel...");
   }
 
   // Check duel status
   const status = duel?.status;
   if (status === "pending") {
-    return <div>Duel not yet accepted...</div>;
+    return renderMessage("Duel not yet accepted...", "warning");
   }
   if (status === "rejected") {
-    return <div>Duel was rejected</div>;
+    return renderMessage("Duel was rejected", "danger");
   }
   if (status === "stopped") {
-    return <div>Duel was stopped</div>;
+    return renderMessage("Duel was stopped", "danger");
   }
   if (status === "learning") {
-    return <div>Redirecting to learn phase...</div>;
+    return renderMessage("Redirecting to learn phase...");
   }
   // Handle new solo-style "challenging" status
   if (status === "challenging" && duel) {
@@ -321,14 +373,14 @@ export default function DuelPage() {
   }
 
   // At this point, duel is guaranteed to exist
-  if (!duel) return <div>Loading...</div>;
+  if (!duel) return renderMessage("Loading duel...", "default", true);
 
   // Check if current user is challenger or opponent
   const isChallenger = viewerIsChallenger;
   const isOpponent = viewerRole === "opponent";
 
   if (!isChallenger && !isOpponent) {
-    return <div>You&apos;re not part of this duel</div>;
+    return renderMessage("You're not part of this duel", "danger");
   }
 
   const hasAnswered =
