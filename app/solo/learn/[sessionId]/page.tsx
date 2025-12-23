@@ -236,6 +236,7 @@ export default function LearnPhasePage() {
     dragState,
     containerRef,
     itemRefs,
+    dragLayerRef,
     dragOffset,
     handleMouseDown,
     getItemStyle,
@@ -718,10 +719,13 @@ export default function LearnPhasePage() {
 
         {dragState.draggedIndex !== null && wordOrder.length > 0 && (
           <div
-            className="fixed pointer-events-none z-50"
+            ref={dragLayerRef}
+            className="fixed pointer-events-none z-50 will-change-transform"
             style={{
-              left: dragState.mousePos.x - dragOffset.current.x,
-              top: dragState.mousePos.y - dragOffset.current.y,
+              // Initial position set here, subsequent moves use transform via ref
+              left: 0,
+              top: 0,
+              transform: `translate3d(${dragState.mousePos.x - dragOffset.current.x}px, ${dragState.mousePos.y - dragOffset.current.y}px, 0)`,
               width: containerRef.current?.offsetWidth,
             }}
           >

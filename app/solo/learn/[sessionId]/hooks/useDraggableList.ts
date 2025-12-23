@@ -4,9 +4,6 @@ import { useState, useEffect, useRef, RefObject, useCallback, useMemo } from "re
 
 const ANIMATION_TIMING = "200ms cubic-bezier(0.2, 0, 0, 1)";
 
-// Throttle interval in ms (16ms = ~60fps)
-const THROTTLE_MS = 16;
-
 interface UseDraggableListOptions {
   itemCount: number;
   gap: number;
@@ -15,6 +12,7 @@ interface UseDraggableListOptions {
 interface DragState {
   draggedIndex: number | null;
   dropIndex: number | null;
+  // Keep mousePos for backward compatibility, but it only updates on drag start now
   mousePos: { x: number; y: number };
 }
 
@@ -24,6 +22,7 @@ interface UseDraggableListReturn<T> {
   dragState: DragState;
   containerRef: RefObject<HTMLDivElement | null>;
   itemRefs: RefObject<Map<number, HTMLDivElement | null>>;
+  dragLayerRef: RefObject<HTMLDivElement | null>;
   dragOffset: RefObject<{ x: number; y: number }>;
   handleMouseDown: (e: React.MouseEvent, orderIdx: number) => void;
   getItemStyle: (orderIdx: number, originalIndex: number) => React.CSSProperties;
@@ -37,23 +36,27 @@ export function useDraggableList<T>(
   
   const [order, setOrder] = useState<T[]>(initialOrder ?? []);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  // mousePos is now only set once at drag start (for initial positioning)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const dragLayerRef = useRef<HTMLDivElement | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
+  
+  // Performance optimization: cache item heights at drag start to avoid layout thrashing
+  const cachedHeights = useRef<number[]>([]);
+  const rAF = useRef<number | null>(null);
 
   // Sync with initial order when it changes
   useEffect(() => {
     if (initialOrder && order.length === 0) {
-      // Use setTimeout to defer state updates and avoid cascading renders
       setTimeout(() => setOrder(initialOrder), 0);
     }
   }, [initialOrder, order.length]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent, orderIdx: number) => {
-    // Don't start drag if clicking on interactive elements
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest("input")) return;
 
@@ -62,26 +65,40 @@ export function useDraggableList<T>(
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
+    
+    // Cache all item heights ONCE at drag start - eliminates layout thrashing during drag
+    const heights: number[] = [];
+    order.forEach((originalIdx) => {
+      const el = itemRefs.current.get(originalIdx as number);
+      heights.push(el ? el.offsetHeight : 64);
+    });
+    cachedHeights.current = heights;
+    
     setDraggedIndex(orderIdx);
     setMousePos({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  // Throttle ref for mousemove
-  const lastMoveTime = useRef<number>(0);
+  }, [order]);
 
   // Mouse move and mouse up handlers
   useEffect(() => {
     if (draggedIndex === null || order.length === 0) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Throttle mousemove to 16ms (~60fps)
-      const now = performance.now();
-      if (now - lastMoveTime.current < THROTTLE_MS) return;
-      lastMoveTime.current = now;
+      // Cancel any pending animation frame
+      if (rAF.current !== null) {
+        cancelAnimationFrame(rAF.current);
+      }
+      
+      // Use requestAnimationFrame for smooth visual updates
+      rAF.current = requestAnimationFrame(() => {
+        // Move floating element directly via DOM - bypasses React render cycle entirely
+        if (dragLayerRef.current) {
+          const x = e.clientX - dragOffset.current.x;
+          const y = e.clientY - dragOffset.current.y;
+          dragLayerRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        }
+      });
 
-      setMousePos({ x: e.clientX, y: e.clientY });
-
-      // Calculate drop position based on mouse Y
+      // Calculate drop position using CACHED heights (no reflows)
       if (containerRef.current) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const relativeY = e.clientY - containerRect.top;
@@ -90,24 +107,28 @@ export function useDraggableList<T>(
         let accumulatedHeight = 0;
 
         for (let index = 0; index < order.length; index++) {
-          const originalIdx = order[index];
-          const itemEl = itemRefs.current.get(originalIdx as number);
-          if (itemEl && index !== draggedIndex) {
-            const height = itemEl.offsetHeight + gap;
+          if (index !== draggedIndex) {
+            const height = (cachedHeights.current[index] || 64) + gap;
             if (relativeY > accumulatedHeight + height / 2) {
               newDropIndex = index + 1;
             }
             accumulatedHeight += height;
-          } else if (index === draggedIndex) {
+          } else {
             accumulatedHeight += gap;
           }
         }
 
-        setDropIndex(newDropIndex);
+        // Only update state if drop index actually changed
+        setDropIndex((prev) => (prev !== newDropIndex ? newDropIndex : prev));
       }
     };
 
     const handleMouseUp = () => {
+      if (rAF.current !== null) {
+        cancelAnimationFrame(rAF.current);
+        rAF.current = null;
+      }
+      
       if (draggedIndex !== null && dropIndex !== null && order.length > 0) {
         if (draggedIndex !== dropIndex) {
           const newOrder = [...order];
@@ -119,6 +140,7 @@ export function useDraggableList<T>(
       }
       setDraggedIndex(null);
       setDropIndex(null);
+      cachedHeights.current = [];
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -127,6 +149,9 @@ export function useDraggableList<T>(
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      if (rAF.current !== null) {
+        cancelAnimationFrame(rAF.current);
+      }
     };
   }, [draggedIndex, dropIndex, order, gap]);
 
@@ -134,13 +159,12 @@ export function useDraggableList<T>(
     if (draggedIndex === null || dropIndex === null || order.length === 0) return {};
     if (orderIdx === draggedIndex) return {};
 
-    // Get actual item height for accurate transforms
-    const itemEl = itemRefs.current.get(originalIndex);
-    const itemHeight = itemEl ? itemEl.offsetHeight + gap : 64 + gap;
+    // Use cached height if available, otherwise fallback
+    const cachedH = cachedHeights.current[orderIdx];
+    const itemHeight = (cachedH || 64) + gap;
 
     const adjustedDropIndex = dropIndex > draggedIndex ? dropIndex - 1 : dropIndex;
 
-    // Exact logic from reference code
     if (orderIdx >= adjustedDropIndex && draggedIndex > orderIdx) {
       return {
         transform: `translateY(${itemHeight}px)`,
@@ -169,7 +193,6 @@ export function useDraggableList<T>(
     return { transition: `transform ${ANIMATION_TIMING}` };
   }, [draggedIndex, dropIndex, order.length, gap]);
 
-  // Memoize dragState to prevent unnecessary re-renders
   const dragState = useMemo<DragState>(() => ({
     draggedIndex,
     dropIndex,
@@ -182,6 +205,7 @@ export function useDraggableList<T>(
     dragState,
     containerRef,
     itemRefs,
+    dragLayerRef,
     dragOffset,
     handleMouseDown,
     getItemStyle,
