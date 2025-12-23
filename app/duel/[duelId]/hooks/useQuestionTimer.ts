@@ -17,7 +17,6 @@ export interface UseQuestionTimerParams {
   duelStatus: string | undefined;
   duelId: Id<"challenges"> | undefined;
   hasAnswered: boolean;
-  viewerIsChallenger: boolean;
   timeoutAnswer: (args: { duelId: Id<"challenges"> }) => Promise<unknown>;
   // Refs to track timeout state across renders
   hasTimedOutRef: React.MutableRefObject<boolean>;
@@ -40,7 +39,6 @@ export function useQuestionTimer({
   duelStatus,
   duelId,
   hasAnswered,
-  viewerIsChallenger,
   timeoutAnswer,
   hasTimedOutRef,
   setHasTimedOut,
@@ -115,8 +113,9 @@ export function useQuestionTimer({
     questionTimerPausedAt,
     currentWordIndex,
     duelStatus,
-    // Removed: duelId, hasAnswered, timeoutAnswer, hasTimedOutRef, setHasTimedOut, viewerIsChallenger
-    // These are now accessed via refs to prevent infinite loops, or are not used in the effect
+    hasTimedOutRef,
+    // Note: duelId, hasAnswered, timeoutAnswer, setHasTimedOut are accessed via refs
+    // to prevent infinite loops when these values change frequently
   ]);
 
   return { questionTimer };

@@ -41,7 +41,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
         <div className="flex-1 min-w-0">
           <h2 
             className="text-2xl font-bold truncate"
-            style={{ color: colors.cta.DEFAULT }}
+            style={{ color: colors.text.DEFAULT }}
           >
             {displayName}
           </h2>
@@ -66,7 +66,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div 
-            className="rounded-xl border px-3 py-3"
+            className="rounded-xl border px-3 py-3 text-center"
             style={{
               borderColor: colors.primary.dark,
               backgroundColor: `${colors.background.DEFAULT}60`,
@@ -77,14 +77,13 @@ export function ProfileCard({ user }: ProfileCardProps) {
             </p>
             <p className="text-2xl font-bold" style={{ color: colors.cta.light }}>
               {llmRemaining}
-              <span className="text-sm" style={{ color: colors.text.muted }}>/{LLM_MONTHLY_CREDITS}</span>
             </p>
             <p className="text-xs" style={{ color: colors.text.muted }}>
               Theme {LLM_THEME_CREDITS} | Other {LLM_SMALL_ACTION_CREDITS}
             </p>
           </div>
           <div 
-            className="rounded-xl border px-3 py-3"
+            className="rounded-xl border px-3 py-3 text-center"
             style={{
               borderColor: colors.primary.dark,
               backgroundColor: `${colors.background.DEFAULT}60`,
@@ -95,7 +94,6 @@ export function ProfileCard({ user }: ProfileCardProps) {
             </p>
             <p className="text-2xl font-bold" style={{ color: colors.cta.light }}>
               {ttsRemaining}
-              <span className="text-sm" style={{ color: colors.text.muted }}>/{TTS_MONTHLY_GENERATIONS}</span>
             </p>
             <p className="text-xs" style={{ color: colors.text.muted }}>Generations</p>
           </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Outfit, Bebas_Neue } from "next/font/google";
 import { ConvexClientProvider } from "@/app/components/convex-provider";
+import { ThemeProvider } from "@/app/components/ThemeProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -53,12 +54,14 @@ export default function RootLayout({
       }}
     >
       <ConvexClientProvider>
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
           <body
             className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${bebasNeue.variable} antialiased`}
           >
-            {children}
-            <Toaster richColors position="top-center" />
+            <ThemeProvider>
+              {children}
+              <Toaster richColors position="top-center" />
+            </ThemeProvider>
           </body>
         </html>
       </ConvexClientProvider>

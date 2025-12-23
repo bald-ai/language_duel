@@ -158,7 +158,6 @@ export default function DuelPage() {
     duelStatus: duel?.status,
     duelId: duel?._id,
     hasAnswered: hasAnsweredForTimer,
-    viewerIsChallenger,
     timeoutAnswer,
     hasTimedOutRef,
     setHasTimedOut,

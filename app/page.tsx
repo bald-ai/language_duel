@@ -91,7 +91,9 @@ export default function Home() {
           className="mt-3 text-sm sm:text-base text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
           style={{ color: colors.neutral.DEFAULT }}
         >
-          Master languages through friendly competition
+          Achieve oral mastery and find out
+          <br />
+          which one of you sucks more
         </p>
       </header>
 

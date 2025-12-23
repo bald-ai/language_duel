@@ -24,6 +24,9 @@ interface ThemeListProps {
 const actionButtonClassName =
   "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
 
+const badgeBaseClassName =
+  "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase leading-none";
+
 const primaryActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
   borderTopColor: buttonStyles.primary.border.top,
@@ -169,30 +172,30 @@ export function ThemeList({
                   borderColor: colors.primary.dark,
                 }}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <button
-                    onClick={() => onOpenTheme(theme)}
-                    disabled={isMutating}
-                    className="text-left flex-1 min-w-0"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="font-bold text-lg truncate"
-                        title={theme.name}
-                        style={{ color: colors.text.DEFAULT }}
-                      >
-                        {theme.name}
-                      </span>
-                    </div>
-                    <div
-                      className="text-sm truncate"
-                      title={`${theme.words.length} words`}
-                      style={{ color: colors.text.muted }}
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <button
+                      onClick={() => onOpenTheme(theme)}
+                      disabled={isMutating}
+                      className="text-left flex-1 min-w-0 transition hover:brightness-110"
                     >
-                      {theme.words.length} words
-                    </div>
-                  </button>
-                  <div className="flex flex-col items-end gap-2 ml-auto">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="font-bold text-lg leading-snug whitespace-normal break-words"
+                          title={theme.name}
+                          style={{ color: colors.text.DEFAULT }}
+                        >
+                          {theme.name}
+                        </span>
+                      </div>
+                      <div
+                        className="text-sm"
+                        title={`${theme.words.length} words`}
+                        style={{ color: colors.text.muted }}
+                      >
+                        {theme.words.length} words
+                      </div>
+                    </button>
                     <div className="flex flex-wrap gap-2 justify-end">
                       <button
                         onClick={() => onDuplicateTheme(theme._id)}
@@ -221,52 +224,55 @@ export function ThemeList({
                         </button>
                       )}
                     </div>
+                  </div>
 
+                  <div className="flex flex-col gap-2">
                     <div
-                      className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
+                      className="h-px w-full"
+                      style={{ backgroundColor: `${colors.primary.dark}66` }}
+                      aria-hidden="true"
+                    />
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div
+                      className={`${badgeBaseClassName} whitespace-nowrap`}
                       style={{
-                        backgroundColor: colors.background.elevated,
-                        borderColor: colors.primary.dark,
+                        backgroundColor: `${colors.text.muted}14`,
                         color: colors.text.muted,
                       }}
                       title="Word type"
                     >
                       {theme.wordType === "verbs" ? "Verbs" : theme.wordType === "nouns" ? "Nouns" : "No category"}
                     </div>
-                    {/* Visibility badge */}
                     <div
-                      className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
+                      className={`${badgeBaseClassName} whitespace-nowrap`}
                       style={
                         theme.visibility === "shared"
                           ? {
-                              backgroundColor: `${colors.cta.DEFAULT}1A`,
-                              borderColor: `${colors.cta.DEFAULT}66`,
-                              color: colors.cta.light,
+                              backgroundColor: `${colors.neutral.dark}24`,
+                              color: colors.neutral.light,
                             }
                           : {
-                              backgroundColor: colors.background.elevated,
-                              borderColor: colors.primary.dark,
-                              color: colors.neutral.dark,
+                              backgroundColor: `${colors.text.muted}14`,
+                              color: colors.text.muted,
                             }
                       }
                       title={theme.visibility === "shared" ? "Shared with friends" : "Private"}
                     >
                       {theme.visibility === "shared" ? "Shared" : "Private"}
                     </div>
-                    {/* Owner badge for friend's themes */}
                     {!theme.isOwner && theme.ownerNickname && (
                       <div
-                        className="px-2 py-1 rounded-md border text-[11px] font-semibold tracking-wide uppercase leading-none whitespace-nowrap"
-                        style={{
-                          backgroundColor: `${colors.secondary.DEFAULT}1A`,
-                          borderColor: `${colors.secondary.DEFAULT}66`,
-                          color: colors.secondary.light,
-                        }}
-                        title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
-                      >
+                      className={`${badgeBaseClassName} whitespace-nowrap`}
+                      style={{
+                        backgroundColor: `${colors.text.muted}14`,
+                        color: colors.neutral.dark,
+                      }}
+                      title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
+                    >
                         {theme.ownerNickname}
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
               </div>

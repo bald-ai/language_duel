@@ -4,7 +4,7 @@
 
 **To change the theme, edit `lib/theme.ts`** - all components import colors from there.
 
-For pure CSS needs (animations, patterns), CSS variables are defined in `app/globals.css` and should be kept in sync.
+For pure CSS needs (animations, patterns), CSS variables are defined in `app/globals.css`. The ThemeProvider applies the active theme to CSS variables at runtime; keep the default `:root` values aligned with the `default` theme to avoid initial paint mismatch.
 
 ---
 
@@ -79,9 +79,9 @@ export const colors = {
 }
 ```
 
-### Step 2: Sync CSS Variables (if needed)
+### Step 2: Sync CSS Variables (default theme only)
 
-If you use the CSS classes like `.geo-pattern` or `.glow-pulse`, also update `app/globals.css`:
+If you change the `default` theme values, update the `:root` CSS variables in `app/globals.css` so the first paint matches before ThemeProvider runs:
 
 ```css
 :root {

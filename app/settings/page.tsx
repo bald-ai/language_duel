@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ProfileCard, NicknameEditor } from "./components";
+import { ProfileCard, NicknameEditor, ThemeSelector } from "./components";
 import { useNicknameUpdate } from "./hooks";
 import { SearchBar, UserCard, RequestsList, FriendsList } from "@/app/friends/components";
 import { useFriendSearch, useFriendActions } from "@/app/friends/hooks";
@@ -104,6 +104,8 @@ export default function SettingsPage() {
           onClearError={nicknameUpdate.clearError}
         />
 
+        <ThemeSelector />
+
         {/* Friends Section */}
         <section 
           className="rounded-2xl border-2 overflow-hidden"
@@ -129,48 +131,53 @@ export default function SettingsPage() {
           </div>
 
           {/* Friends Tabs */}
-          <div className="flex border-b-2" style={{ borderColor: colors.primary.dark }}>
-            <button
-              onClick={() => setActiveTab(TABS.REQUESTS)}
-              className="flex-1 py-3 font-bold uppercase text-sm transition-colors relative"
-              style={{
-                backgroundColor: activeTab === TABS.REQUESTS ? colors.primary.DEFAULT : "transparent",
-                color: activeTab === TABS.REQUESTS ? colors.text.DEFAULT : colors.text.muted,
-              }}
+          <div className="border-b-2 px-4 py-3" style={{ borderColor: colors.primary.dark }}>
+            <div
+              className="flex overflow-hidden rounded-xl border"
+              style={{ borderColor: colors.primary.dark }}
             >
-              Requests
-              {requestCount > 0 && (
-                <span 
-                  className="absolute top-1 right-2 min-w-5 h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center"
-                  style={{
-                    backgroundColor: colors.cta.DEFAULT,
-                    color: colors.text.DEFAULT,
-                  }}
-                >
-                  {requestCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab(TABS.FRIENDS)}
-              className="flex-1 py-3 font-bold uppercase text-sm transition-colors"
-              style={{
-                backgroundColor: activeTab === TABS.FRIENDS ? colors.primary.DEFAULT : "transparent",
-                color: activeTab === TABS.FRIENDS ? colors.text.DEFAULT : colors.text.muted,
-              }}
-            >
-              Friends ({friends?.length ?? 0})
-            </button>
-            <button
-              onClick={() => setActiveTab(TABS.SEARCH)}
-              className="flex-1 py-3 font-bold uppercase text-sm transition-colors"
-              style={{
-                backgroundColor: activeTab === TABS.SEARCH ? colors.primary.DEFAULT : "transparent",
-                color: activeTab === TABS.SEARCH ? colors.text.DEFAULT : colors.text.muted,
-              }}
-            >
-              Add New
-            </button>
+              <button
+                onClick={() => setActiveTab(TABS.REQUESTS)}
+                className="flex-1 py-3 font-bold uppercase text-sm transition-colors relative"
+                style={{
+                  backgroundColor: activeTab === TABS.REQUESTS ? colors.primary.DEFAULT : "transparent",
+                  color: activeTab === TABS.REQUESTS ? colors.text.DEFAULT : colors.text.muted,
+                }}
+              >
+                Requests
+                {requestCount > 0 && (
+                  <span
+                    className="absolute top-1 right-2 min-w-5 h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center"
+                    style={{
+                      backgroundColor: colors.cta.DEFAULT,
+                      color: colors.text.DEFAULT,
+                    }}
+                  >
+                    {requestCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab(TABS.FRIENDS)}
+                className="flex-1 py-3 font-bold uppercase text-sm transition-colors"
+                style={{
+                  backgroundColor: activeTab === TABS.FRIENDS ? colors.primary.DEFAULT : "transparent",
+                  color: activeTab === TABS.FRIENDS ? colors.text.DEFAULT : colors.text.muted,
+                }}
+              >
+                Friends ({friends?.length ?? 0})
+              </button>
+              <button
+                onClick={() => setActiveTab(TABS.SEARCH)}
+                className="flex-1 py-3 font-bold uppercase text-sm transition-colors"
+                style={{
+                  backgroundColor: activeTab === TABS.SEARCH ? colors.primary.DEFAULT : "transparent",
+                  color: activeTab === TABS.SEARCH ? colors.text.DEFAULT : colors.text.muted,
+                }}
+              >
+                Add New
+              </button>
+            </div>
           </div>
 
           {/* Tab Content */}
