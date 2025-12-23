@@ -265,3 +265,17 @@ html {
   height: 100dvh;
 }
 
+/* Large viewport height - for fixed backgrounds that shouldn't resize */
+.h-lvh {
+  height: 100vh; /* Fallback for older browsers */
+  height: 100lvh;
+}
+
+/* Prevent iOS Safari overscroll bounce on fixed backgrounds */
+@supports (-webkit-touch-callout: none) {
+  .fixed-bg-ios-fix {
+    /* Use -webkit-fill-available as fallback on iOS */
+    height: -webkit-fill-available;
+  }
+}
+

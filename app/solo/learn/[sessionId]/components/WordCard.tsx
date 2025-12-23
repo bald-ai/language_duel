@@ -121,63 +121,72 @@ export const WordCard = memo(function WordCard({
       style={computedStyle}
       className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
     >
-      <div className="flex items-stretch justify-between">
-        {/* Word & Answer Section */}
-        <div className="flex-1">
-          <div
-            className={`font-medium ${
-              isRevealed ? "text-base mb-0.5 leading-tight" : "text-lg mb-1"
-            }`}
-            style={{ color: colors.text.DEFAULT }}
-          >
-            {word.word}
-          </div>
-
-          {/* Answer - revealed or letter slots */}
-          {isRevealed ? (
+      {isRevealed ? (
+        // Revealed mode: horizontal layout with word info, confidence buttons, and TTS
+        <div className="flex items-center justify-between gap-3">
+          {/* Word & Answer Section */}
+          <div className="flex-1 min-w-0">
             <div
-              className="font-bold text-base leading-tight"
+              className="font-medium text-base mb-0.5 leading-tight truncate"
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {word.word}
+            </div>
+            <div
+              className="font-bold text-base leading-tight truncate"
               style={{ color: colors.secondary.light }}
             >
               {word.answer}
             </div>
-          ) : (
-            <div onMouseDown={(e) => e.stopPropagation()}>
-              <LetterGroups
-                answer={word.answer}
-                revealedPositions={revealedPositions}
-                hintsRemaining={hintsRemaining}
-                onRevealLetter={onRevealLetter}
-              />
-            </div>
-          )}
+          </div>
+
+          {/* TTS Button */}
+          <button
+            onClick={onPlayTTS}
+            disabled={isTTSDisabled}
+            className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition ${
+              isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
+            }`}
+            style={ttsButtonStyle}
+          >
+            <SpeakerIcon className="w-5 h-5" />
+          </button>
+
+          {/* Confidence Segmented Control */}
+          <div onMouseDown={(e) => e.stopPropagation()}>
+            <ConfidenceSlider
+              value={confidence}
+              onChange={onConfidenceChange}
+              compact
+              readOnly={isFloating}
+            />
+          </div>
         </div>
+      ) : (
+        // Testing mode: stacked layout
+        <div className="flex flex-col gap-3">
+          {/* Top row: Word info and action buttons */}
+          <div className="flex items-start justify-between gap-3">
+            {/* Word & Answer Section */}
+            <div className="flex-1 min-w-0">
+              <div
+                className="font-medium text-lg mb-1"
+                style={{ color: colors.text.DEFAULT }}
+              >
+                {word.word}
+              </div>
+              <div onMouseDown={(e) => e.stopPropagation()}>
+                <LetterGroups
+                  answer={word.answer}
+                  revealedPositions={revealedPositions}
+                  hintsRemaining={hintsRemaining}
+                  onRevealLetter={onRevealLetter}
+                />
+              </div>
+            </div>
 
-        {/* Buttons Section */}
-        <div className={`flex items-center ${isRevealed ? "gap-1.5 ml-3" : "gap-2 ml-4"}`}>
-          {/* Confidence Slider */}
-          <ConfidenceSlider
-            value={confidence}
-            onChange={onConfidenceChange}
-            compact={!isRevealed}
-            readOnly={isFloating}
-          />
-
-          {isRevealed ? (
-            // Revealed mode: just TTS button
-            <button
-              onClick={onPlayTTS}
-              disabled={isTTSDisabled}
-              className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition ${
-                isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
-              }`}
-              style={ttsButtonStyle}
-            >
-              <SpeakerIcon className="w-6 h-6" />
-            </button>
-          ) : (
-            // Testing mode: 2x2 grid of buttons
-            <div className="grid grid-cols-2 gap-1.5">
+            {/* Action buttons: 2x2 grid */}
+            <div className="grid grid-cols-2 gap-1.5 shrink-0">
               {/* Hints Remaining */}
               <div
                 className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold"
@@ -216,9 +225,22 @@ export const WordCard = memo(function WordCard({
                 <SpeakerIcon className="w-4 h-4" />
               </button>
             </div>
-          )}
+          </div>
+
+          {/* Bottom row: Confidence segmented control */}
+          <div
+            className="flex justify-center pt-2 border-t"
+            style={{ borderColor: colors.primary.dark }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <ConfidenceSlider
+              value={confidence}
+              onChange={onConfidenceChange}
+              readOnly={isFloating}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });
