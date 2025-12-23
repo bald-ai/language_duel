@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
 import { stripIrr } from "@/lib/stringUtils";
 import { colors } from "@/lib/theme";
@@ -26,7 +27,7 @@ interface WordCardProps {
  * Individual word card component for the learn grid.
  * Shows the word and answer (revealed or as letter slots) with action buttons.
  */
-export function WordCard({
+export const WordCard = memo(function WordCard({
   word,
   isRevealed,
   revealedPositions,
@@ -167,4 +168,6 @@ export function WordCard({
       </div>
     </div>
   );
-}
+});
+
+WordCard.displayName = "WordCard";

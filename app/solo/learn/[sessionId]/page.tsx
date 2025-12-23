@@ -22,6 +22,11 @@ interface HintState {
   revealedPositions: number[];
 }
 
+const DEFAULT_HINT_STATE = Object.freeze({
+  hintCount: 0,
+  revealedPositions: Object.freeze([] as number[]),
+}) as HintState;
+
 const actionButtonClassName =
   "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
 
@@ -97,8 +102,8 @@ interface MemoizedWordCardWrapperProps {
   word: { word: string; answer: string };
   themeId: string | null;
   isRevealed: boolean;
-  hintStates: Record<string, HintState>;
-  confidenceLevels: Record<string, number>;
+  hintState: HintState;
+  confidence: number;
   playingWordIndex: number | null;
   draggedIndex: number | null;
   setConfidence: (wordKey: string, level: number) => void;
@@ -117,8 +122,8 @@ const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   word,
   themeId,
   isRevealed,
-  hintStates,
-  confidenceLevels,
+  hintState,
+  confidence,
   playingWordIndex,
   draggedIndex,
   setConfidence,
@@ -131,11 +136,10 @@ const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   itemRefs,
 }: MemoizedWordCardWrapperProps) {
   const wordKey = `${themeId}-${originalIndex}`;
-  const state = hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
+  const state = hintState;
   const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
   const hintsRemaining = maxHints - state.hintCount;
-  const confidence = confidenceLevels[wordKey] ?? 0;
 
   // Memoize callbacks for this specific word
   const handleConfidenceChange = useCallback(
@@ -262,13 +266,9 @@ export default function LearnPhasePage() {
     setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
   }, []);
 
-  const getHintState = useCallback((wordKey: string): HintState => {
-    return hintStates[wordKey] || { hintCount: 0, revealedPositions: [] };
-  }, [hintStates]);
-
   const revealLetter = useCallback((wordKey: string, position: number) => {
     setHintStates((prev) => {
-      const current = prev[wordKey] || { hintCount: 0, revealedPositions: [] };
+      const current = prev[wordKey] || DEFAULT_HINT_STATE;
       if (current.revealedPositions.includes(position)) return prev;
       return {
         ...prev,
@@ -692,28 +692,34 @@ export default function LearnPhasePage() {
               </div>
             )}
 
-            {wordOrder.map((originalIndex, orderIdx) => (
-              <MemoizedWordCardWrapper
-                key={originalIndex}
-                originalIndex={originalIndex}
-                orderIdx={orderIdx}
-                word={theme.words[originalIndex]}
-                themeId={themeId}
-                isRevealed={isRevealed}
-                hintStates={hintStates}
-                confidenceLevels={confidenceLevels}
-                playingWordIndex={playingWordIndex}
-                draggedIndex={dragState.draggedIndex}
-                setConfidence={setConfidence}
-                revealLetter={revealLetter}
-                revealFullWord={revealFullWord}
-                resetWord={resetWord}
-                playTTS={playTTS}
-                handleMouseDown={handleMouseDown}
-                getItemStyle={getItemStyle}
-                itemRefs={itemRefs}
-              />
-            ))}
+            {wordOrder.map((originalIndex, orderIdx) => {
+              const wordKey = `${themeId}-${originalIndex}`;
+              const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
+              const confidence = confidenceLevels[wordKey] ?? 0;
+
+              return (
+                <MemoizedWordCardWrapper
+                  key={originalIndex}
+                  originalIndex={originalIndex}
+                  orderIdx={orderIdx}
+                  word={theme.words[originalIndex]}
+                  themeId={themeId}
+                  isRevealed={isRevealed}
+                  hintState={state}
+                  confidence={confidence}
+                  playingWordIndex={playingWordIndex}
+                  draggedIndex={dragState.draggedIndex}
+                  setConfidence={setConfidence}
+                  revealLetter={revealLetter}
+                  revealFullWord={revealFullWord}
+                  resetWord={resetWord}
+                  playTTS={playTTS}
+                  handleMouseDown={handleMouseDown}
+                  getItemStyle={getItemStyle}
+                  itemRefs={itemRefs}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -733,7 +739,8 @@ export default function LearnPhasePage() {
               const originalIndex = wordOrder[dragState.draggedIndex];
               const word = theme.words[originalIndex];
               const wordKey = `${themeId}-${originalIndex}`;
-              const state = getHintState(wordKey);
+              const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
+              const confidence = confidenceLevels[wordKey] ?? 0;
               const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
               const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
               const hintsRemaining = maxHints - state.hintCount;
@@ -742,7 +749,7 @@ export default function LearnPhasePage() {
                 <WordCard
                   word={word}
                   isRevealed={isRevealed}
-                  confidence={getConfidence(wordKey)}
+                  confidence={confidence}
                   onConfidenceChange={() => {}}
                   revealedPositions={state.revealedPositions}
                   hintsRemaining={hintsRemaining}

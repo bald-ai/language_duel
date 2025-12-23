@@ -109,7 +109,7 @@ export const WordCard = memo(function WordCard({
 
   const baseClasses = `rounded-2xl border-2 ${
     isRevealed ? "py-3 px-2.5" : "p-4"
-  } select-none backdrop-blur-sm transition-all`;
+  } select-none transition`;
 
   const cursorClasses = isFloating ? "" : "cursor-grab active:cursor-grabbing";
   const visibilityClasses = isDragging ? "opacity-0" : "";
