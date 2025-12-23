@@ -155,7 +155,7 @@ export function useDraggableList<T>(
     };
   }, [draggedIndex, dropIndex, order, gap]);
 
-  const getItemStyle = useCallback((orderIdx: number, originalIndex: number): React.CSSProperties => {
+  const getItemStyle = useCallback((orderIdx: number, _originalIndex: number): React.CSSProperties => {
     if (draggedIndex === null || dropIndex === null || order.length === 0) return {};
     if (orderIdx === draggedIndex) return {};
 

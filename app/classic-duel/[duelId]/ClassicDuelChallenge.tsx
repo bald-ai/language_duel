@@ -516,51 +516,17 @@ export default function ClassicDuelChallenge({
     return false;
   }, [outgoingSabotage, duel.questionStartTime]);
 
-  if (!user) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Sign in first.</div>;
-
-  const status = duel.status;
-  
-  if (!isChallenger && !isOpponent) {
-    return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">You&apos;re not part of this duel</div>;
-  }
-
-  // Raw hasAnswered from server (may be stale during question transitions)
-  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) || 
-                     (isOpponent && duel.opponentAnswered);
-  // Computed hasAnswered that's only valid for the current question (prevents race condition)
-  // We already set isLockedIndexRef when user confirms answer, so hasAnswered should only be true
-  // if the lock was set for the current question
-  const hasAnswered = hasAnsweredRaw && (isLockedIndexRef.current === index);
-  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) || 
-                              (isOpponent && duel.challengerAnswered);
-
-  // Hint system state
-  const myRole = isChallenger ? "challenger" : "opponent";
-  const theirRole = isChallenger ? "opponent" : "challenger";
-  const hintRequestedBy = duel.hintRequestedBy;
-  const hintAccepted = duel.hintAccepted;
-  const eliminatedOptions = duel.eliminatedOptions || [];
-  
-  const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
-  const iRequestedHint = hintRequestedBy === myRole;
-  const theyRequestedHint = hintRequestedBy === theirRole;
-  const canAcceptHint = hasAnswered && theyRequestedHint && !hintAccepted;
-  const isHintProvider = hasAnswered && theyRequestedHint && !!hintAccepted;
-  const canEliminate = isHintProvider && eliminatedOptions.length < 2;
-
-  const inTransition = phase === 'transition' && !!frozenData;
-  const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
-
-  const handleStopDuel = async () => {
+  // All useCallback hooks MUST be defined before any early returns (React rules of hooks)
+  const handleStopDuel = useCallback(async () => {
     try {
       await stopDuel({ duelId: duel._id });
       router.push('/');
     } catch (error) {
       console.error("Failed to stop duel:", error);
     }
-  };
+  }, [stopDuel, duel._id, router]);
 
-  const handleConfirmAnswer = async () => {
+  const handleConfirmAnswer = useCallback(async () => {
     if (!selectedAnswer) return;
     lockedAnswerRef.current = selectedAnswer;
     setIsLocked(true);
@@ -571,41 +537,41 @@ export default function ClassicDuelChallenge({
       setIsLocked(false);
       lockedAnswerRef.current = null;
     }
-  };
+  }, [selectedAnswer, answer, duel._id, index, setIsLocked]);
 
-  const handleRequestHint = async () => {
+  const handleRequestHint = useCallback(async () => {
     try {
       await requestHint({ duelId: duel._id });
     } catch (error) {
       console.error("Failed to request hint:", error);
     }
-  };
+  }, [requestHint, duel._id]);
 
-  const handleAcceptHint = async () => {
+  const handleAcceptHint = useCallback(async () => {
     try {
       await acceptHint({ duelId: duel._id });
     } catch (error) {
       console.error("Failed to accept hint:", error);
     }
-  };
+  }, [acceptHint, duel._id]);
 
-  const handleEliminateOption = async (option: string) => {
+  const handleEliminateOption = useCallback(async (option: string) => {
     try {
       await eliminateOption({ duelId: duel._id, option });
     } catch (error) {
       console.error("Failed to eliminate option:", error);
     }
-  };
+  }, [eliminateOption, duel._id]);
 
-  const handleSendSabotage = async (effect: SabotageEffect) => {
+  const handleSendSabotage = useCallback(async (effect: SabotageEffect) => {
     try {
       await sendSabotage({ duelId: duel._id, effect });
     } catch (error) {
       console.error("Failed to send sabotage:", error);
     }
-  };
+  }, [sendSabotage, duel._id]);
 
-  const handlePlayAudio = async () => {
+  const handlePlayAudio = useCallback(async () => {
     const correctAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
     if (isPlayingAudio || !correctAnswer || correctAnswer === "done") return;
     
@@ -655,7 +621,43 @@ export default function ClassicDuelChallenge({
       toast.error(message);
       setIsPlayingAudio(false);
     }
-  };
+  }, [isPlayingAudio, frozenData, currentWord.answer]);
+
+  // Early returns AFTER all hooks are defined
+  if (!user) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Sign in first.</div>;
+
+  const status = duel.status;
+  
+  if (!isChallenger && !isOpponent) {
+    return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">You&apos;re not part of this duel</div>;
+  }
+
+  // Raw hasAnswered from server (may be stale during question transitions)
+  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) || 
+                     (isOpponent && duel.opponentAnswered);
+  // Computed hasAnswered that's only valid for the current question (prevents race condition)
+  // We already set isLockedIndexRef when user confirms answer, so hasAnswered should only be true
+  // if the lock was set for the current question
+  const hasAnswered = hasAnsweredRaw && (isLockedIndexRef.current === index);
+  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) || 
+                              (isOpponent && duel.challengerAnswered);
+
+  // Hint system state
+  const myRole = isChallenger ? "challenger" : "opponent";
+  const theirRole = isChallenger ? "opponent" : "challenger";
+  const hintRequestedBy = duel.hintRequestedBy;
+  const hintAccepted = duel.hintAccepted;
+  const eliminatedOptions = duel.eliminatedOptions || [];
+  
+  const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
+  const iRequestedHint = hintRequestedBy === myRole;
+  const theyRequestedHint = hintRequestedBy === theirRole;
+  const canAcceptHint = hasAnswered && theyRequestedHint && !hintAccepted;
+  const isHintProvider = hasAnswered && theyRequestedHint && !!hintAccepted;
+  const canEliminate = isHintProvider && eliminatedOptions.length < 2;
+
+  const inTransition = phase === 'transition' && !!frozenData;
+  const showListenButton = (hasAnswered || isLocked || inTransition) && ((frozenData?.word ?? word) !== 'done');
 
   // Scores
   const challengerScore = duel.challengerScore || 0;

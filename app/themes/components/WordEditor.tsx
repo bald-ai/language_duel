@@ -62,7 +62,7 @@ export function WordEditor({
   oldValue,
   generatedValue,
   manualValue,
-  currentPrompt,
+  currentPrompt: _currentPrompt,
   userFeedback,
   promptSummary,
   customInstructions,

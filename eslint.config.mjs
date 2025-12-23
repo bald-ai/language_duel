@@ -14,7 +14,23 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated Convex files
     "convex/_generated/**",
+    // Auto-generated service worker files
+    "public/sw.js",
+    "public/workbox-*.js",
   ]),
+  // Allow unused variables that start with underscore
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { colors } from "@/lib/theme";
 
 interface HintSystemUIProps {
@@ -21,7 +22,7 @@ interface HintSystemUIProps {
 /**
  * Hint system UI with request, accept, and provider states.
  */
-export function HintSystemUI({
+export const HintSystemUI = memo(function HintSystemUI({
   canRequestHint,
   iRequestedHint,
   theyRequestedHint,
@@ -108,4 +109,4 @@ export function HintSystemUI({
       )}
     </div>
   );
-}
+});

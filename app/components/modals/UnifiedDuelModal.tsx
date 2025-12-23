@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
 import { CLASSIC_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
@@ -277,7 +277,7 @@ interface OpponentSelectorProps {
   onSelect: (id: Id<"users">) => void;
 }
 
-function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
+const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
   if (users.length === 0) {
     return (
       <div
@@ -354,7 +354,7 @@ function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelec
       )}
     </div>
   );
-}
+});
 
 interface CompactThemeSelectorProps {
   themes: Theme[] | undefined;
@@ -364,7 +364,7 @@ interface CompactThemeSelectorProps {
   onCreateTheme: () => void;
 }
 
-function CompactThemeSelector({
+const CompactThemeSelector = memo(function CompactThemeSelector({
   themes,
   selectedThemeId,
   selectedTheme,
@@ -463,14 +463,14 @@ function CompactThemeSelector({
       )}
     </div>
   );
-}
+});
 
 interface DifficultySelectorProps {
   selectedDifficulty: ClassicDifficultyPreset;
   onSelect: (preset: ClassicDifficultyPreset) => void;
 }
 
-function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelectorProps) {
+const DifficultySelector = memo(function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelectorProps) {
   return (
     <div className="space-y-2">
       {CLASSIC_DIFFICULTY_OPTIONS.map((opt) => {
@@ -531,4 +531,4 @@ function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelector
       })}
     </div>
   );
-}
+});

@@ -6,6 +6,22 @@ const nextConfig: NextConfig = {
   // Note: Production builds MUST use --webpack flag for PWA service worker generation.
   // See package.json "build" script.
   turbopack: {},
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.clerk.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "img.clerk.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.clerk.accounts.dev",
+      },
+    ],
+  },
 };
 
 export default withPWA({

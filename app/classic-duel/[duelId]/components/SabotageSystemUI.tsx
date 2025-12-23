@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { MAX_SABOTAGES, SABOTAGE_OPTIONS, type SabotageEffect } from "@/app/game/sabotage";
 
 interface SabotageSystemUIProps {
@@ -21,7 +22,7 @@ interface SabotageSystemUIProps {
  * Principle: No magic numbers in component code. (Uses MAX_SABOTAGES from constants)
  * Principle: Co-locate feature-specific components.
  */
-export function SabotageSystemUI({
+export const SabotageSystemUI = memo(function SabotageSystemUI({
   status,
   phase,
   word,
@@ -74,5 +75,4 @@ export function SabotageSystemUI({
       </div>
     </div>
   );
-}
-
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { colors } from "@/lib/theme";
 
 interface AvatarProps {
@@ -35,14 +36,14 @@ export function Avatar({
 
   if (src && !error) {
     return (
-      <img
+      <Image
         src={src}
         alt={name}
+        width={size}
+        height={size}
         onError={() => setError(true)}
         className={`rounded-full border-2 object-cover shrink-0 ${className}`}
         style={{
-          width: size,
-          height: size,
           borderColor: borderColor,
         }}
       />

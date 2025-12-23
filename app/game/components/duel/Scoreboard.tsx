@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { colors } from "@/lib/theme";
 
 interface ScoreboardProps {
@@ -15,7 +16,7 @@ interface ScoreboardProps {
  * - Mobile: compact padding and smaller text
  * - Tablet/Desktop (sm+/md+): larger padding, text, and minimum width
  */
-export function Scoreboard({ myName, theirName, myScore, theirScore }: ScoreboardProps) {
+export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore, theirScore }: ScoreboardProps) {
   const formatScore = (score: number) => 
     Number.isInteger(score) ? score : score.toFixed(1);
 
@@ -52,4 +53,4 @@ export function Scoreboard({ myName, theirName, myScore, theirScore }: Scoreboar
       </div>
     </div>
   );
-}
+});

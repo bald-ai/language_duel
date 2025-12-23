@@ -172,10 +172,10 @@ const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
     [handleMouseDown, orderIdx]
   );
 
-  const refCallback = useCallback(
-    (el: HTMLDivElement | null) => itemRefs.current?.set(originalIndex, el),
-    [itemRefs, originalIndex]
-  );
+  // Inline ref callback - refs are stable by design, no need for useCallback
+  const refCallback = (el: HTMLDivElement | null) => {
+    itemRefs.current?.set(originalIndex, el);
+  };
 
   const style = getItemStyle(orderIdx, originalIndex);
 

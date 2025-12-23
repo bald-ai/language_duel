@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { colors } from "@/lib/theme";
 
 interface CountdownControlsProps {
@@ -18,7 +19,7 @@ interface CountdownControlsProps {
 /**
  * Countdown display with pause/unpause/skip controls.
  */
-export function CountdownControls({
+export const CountdownControls = memo(function CountdownControls({
   countdown,
   countdownPausedBy,
   countdownUnpauseRequestedBy,
@@ -163,4 +164,4 @@ export function CountdownControls({
       </button>
     </div>
   );
-}
+});
