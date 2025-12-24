@@ -4,15 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
 import SoloStyleChallenge from "./SoloStyleChallenge";
-import { DuelGameUI } from "./components";
-import { useDuelPhase, useQuestionTimer } from "./hooks";
+import { DuelGameUI, DuelStatusMessage } from "./components";
+import { useDuelAnswerEffects, useDuelHintState, useDuelPageEffects, useDuelPhase, useQuestionTimer } from "./hooks";
 import { useTTS } from "@/app/game/hooks";
-import { ThemedPage } from "@/app/components/ThemedPage";
-import { colors } from "@/lib/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 
@@ -50,19 +48,27 @@ export default function DuelPage() {
   const opponent = duelData?.opponent;
   const viewerRole = duelData?.viewerRole as "challenger" | "opponent" | undefined;
   const viewerIsChallenger = viewerRole === "challenger";
+  const {
+    isChallenger,
+    isOpponent,
+    hasAnswered,
+    opponentHasAnswered,
+    hintAccepted,
+    eliminatedOptions,
+    canRequestHint,
+    iRequestedHint,
+    theyRequestedHint,
+    canAcceptHint,
+    isHintProvider,
+    canEliminate,
+  } = useDuelHintState({ duel, viewerRole });
 
-  // Redirect effects for different modes/statuses
-  useEffect(() => {
-    if (duel?.mode === "classic") {
-      router.push(`/classic-duel/${duelId}`);
-    }
-  }, [duel?.mode, duelId, router]);
-
-  useEffect(() => {
-    if (duel?.status === "learning") {
-      router.push(`/duel/learn/${duelId}`);
-    }
-  }, [duel?.status, duelId, router]);
+  useDuelPageEffects({
+    duelId,
+    duel,
+    duelData,
+    router,
+  });
 
   const wordOrder = duel?.wordOrder;
   const words = useMemo(() => theme?.words ?? [], [theme?.words]);
@@ -114,35 +120,13 @@ export default function DuelPage() {
     countdownPausedBy,
   });
 
-  // Reset UI state when transitioning to new question
-  // This effect synchronizes local UI state with server-driven phase transitions
-  useEffect(() => {
-    if (phase === "answering") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: syncing with server state
-      setSelectedAnswer(null);
-      setIsLocked(false);
-    }
-  }, [phase]);
-
-  // Monitor duel status for real-time updates
-  useEffect(() => {
-    if (duelData) {
-      const status = duelData.duel.status;
-      if (status === "stopped" || status === "rejected") {
-        router.push("/");
-      }
-    }
-  }, [duelData, router]);
-
-  // Clear selected answer if it becomes eliminated
-  // This effect synchronizes local selection with server-driven elimination
-  const currentEliminatedOptions = duelData?.duel?.eliminatedOptions;
-  useEffect(() => {
-    if (selectedAnswer && currentEliminatedOptions?.includes(selectedAnswer)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: syncing with server state
-      setSelectedAnswer(null);
-    }
-  }, [currentEliminatedOptions, selectedAnswer]);
+  useDuelAnswerEffects({
+    phase,
+    eliminatedOptions,
+    selectedAnswer,
+    setSelectedAnswer,
+    setIsLocked,
+  });
 
   // Determine if user has answered (for timer hook - needs to be computed before hook call)
   const challengerAnswered = duel?.challengerAnswered ?? false;
@@ -271,80 +255,32 @@ export default function DuelPage() {
     router.push("/");
   }, [router]);
 
-  const renderMessage = (
-    message: string,
-    tone: "default" | "warning" | "danger" = "default",
-    showSpinner = false
-  ) => {
-    const toneStyles = {
-      default: {
-        borderColor: colors.primary.dark,
-        boxShadow: `0 18px 45px ${colors.primary.glow}`,
-        textColor: colors.text.DEFAULT,
-      },
-      warning: {
-        borderColor: colors.status.warning.DEFAULT,
-        boxShadow: `0 18px 45px ${colors.status.warning.DEFAULT}33`,
-        textColor: colors.status.warning.light,
-      },
-      danger: {
-        borderColor: colors.status.danger.DEFAULT,
-        boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-        textColor: colors.status.danger.light,
-      },
-    };
-    const style = toneStyles[tone];
-
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex items-center justify-center px-6">
-          <div
-            className="rounded-2xl border-2 p-6 text-center backdrop-blur-sm"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: style.borderColor,
-              boxShadow: style.boxShadow,
-            }}
-          >
-            {showSpinner && (
-              <div
-                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-3"
-                style={{ borderColor: colors.cta.light }}
-              />
-            )}
-            <p className="text-base font-semibold" style={{ color: style.textColor }}>
-              {message}
-            </p>
-          </div>
-        </div>
-      </ThemedPage>
-    );
-  };
-
   // Early returns AFTER all hooks
-  if (!user) return renderMessage("Sign in first.", "warning");
-  if (duelData === undefined) return renderMessage("Loading duel...", "default", true);
-  if (duelData === null) return renderMessage("You're not part of this duel", "danger");
-  if (!theme) return renderMessage("Loading theme...", "default", true);
+  if (!user) return <DuelStatusMessage message="Sign in first." tone="warning" />;
+  if (duelData === undefined)
+    return <DuelStatusMessage message="Loading duel..." showSpinner />;
+  if (duelData === null)
+    return <DuelStatusMessage message="You're not part of this duel" tone="danger" />;
+  if (!theme) return <DuelStatusMessage message="Loading theme..." showSpinner />;
 
   // Redirect classic mode duels to classic-duel route (handled by useEffect)
   if (duel?.mode === "classic") {
-    return renderMessage("Redirecting to classic duel...");
+    return <DuelStatusMessage message="Redirecting to classic duel..." />;
   }
 
   // Check duel status
   const status = duel?.status;
   if (status === "pending") {
-    return renderMessage("Duel not yet accepted...", "warning");
+    return <DuelStatusMessage message="Duel not yet accepted..." tone="warning" />;
   }
   if (status === "rejected") {
-    return renderMessage("Duel was rejected", "danger");
+    return <DuelStatusMessage message="Duel was rejected" tone="danger" />;
   }
   if (status === "stopped") {
-    return renderMessage("Duel was stopped", "danger");
+    return <DuelStatusMessage message="Duel was stopped" tone="danger" />;
   }
   if (status === "learning") {
-    return renderMessage("Redirecting to learn phase...");
+    return <DuelStatusMessage message="Redirecting to learn phase..." />;
   }
   // Handle new solo-style "challenging" status
   if (status === "challenging" && duel) {
@@ -372,35 +308,11 @@ export default function DuelPage() {
   }
 
   // At this point, duel is guaranteed to exist
-  if (!duel) return renderMessage("Loading duel...", "default", true);
-
-  // Check if current user is challenger or opponent
-  const isChallenger = viewerIsChallenger;
-  const isOpponent = viewerRole === "opponent";
+  if (!duel) return <DuelStatusMessage message="Loading duel..." showSpinner />;
 
   if (!isChallenger && !isOpponent) {
-    return renderMessage("You're not part of this duel", "danger");
+    return <DuelStatusMessage message="You're not part of this duel" tone="danger" />;
   }
-
-  const hasAnswered =
-    (isChallenger && !!duel.challengerAnswered) || (isOpponent && !!duel.opponentAnswered);
-  const opponentHasAnswered =
-    (isChallenger && duel.opponentAnswered) || (isOpponent && duel.challengerAnswered);
-
-  // Hint system state
-  const myRole = isChallenger ? "challenger" : "opponent";
-  const theirRole = isChallenger ? "opponent" : "challenger";
-  const hintRequestedBy = duel.hintRequestedBy;
-  const hintAccepted = duel.hintAccepted;
-  const eliminatedOptions = duel.eliminatedOptions || [];
-
-  // Hint UI states
-  const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
-  const iRequestedHint = hintRequestedBy === myRole;
-  const theyRequestedHint = hintRequestedBy === theirRole;
-  const canAcceptHint = hasAnswered && theyRequestedHint && !hintAccepted;
-  const isHintProvider = hasAnswered && theyRequestedHint && !!hintAccepted;
-  const canEliminate = isHintProvider && eliminatedOptions.length < 2;
 
   // TTS button visibility - show during transition phase (including when paused)
   const inTransition = phase === "transition" && !!frozenData;

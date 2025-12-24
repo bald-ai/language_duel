@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { VIEW_MODES } from "./constants";
 import { useThemesController } from "./hooks";
 import {
@@ -15,6 +16,23 @@ import { colors } from "@/lib/theme";
 
 export default function ThemesPage() {
   const controller = useThemesController();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
+      return;
+    }
+
+    performance.mark("themes-page-mounted");
+
+    const idleTimeout = window.setTimeout(() => {
+      performance.mark("themes-page-interactive");
+      performance.measure("themes-tti", "themes-page-mounted", "themes-page-interactive");
+    }, 0);
+
+    return () => {
+      window.clearTimeout(idleTimeout);
+    };
+  }, []);
 
   return (
     <ThemedPage>

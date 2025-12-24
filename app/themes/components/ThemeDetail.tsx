@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import { 
@@ -107,6 +107,173 @@ const secondaryAccentStyle = {
   borderColor: colors.secondary.dark,
   color: colors.secondary.light,
 };
+
+interface WordCardProps {
+  word: WordEntry;
+  index: number;
+  isDuplicate: boolean;
+  hasDuplicateWrongAnswers: boolean;
+  wrongMatchesAnswer: boolean;
+  canEdit: boolean;
+  onEditWord: (wordIndex: number, field: FieldType, wrongIndex?: number) => void;
+  onDeleteWord: (index: number) => void;
+}
+
+const WordCard = memo(function WordCard({
+  word,
+  index,
+  isDuplicate,
+  hasDuplicateWrongAnswers,
+  wrongMatchesAnswer,
+  canEdit,
+  onEditWord,
+  onDeleteWord,
+}: WordCardProps) {
+  const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
+
+  const badgeStyle = isDuplicate
+    ? {
+        backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+        borderColor: colors.status.danger.dark,
+        color: colors.status.danger.light,
+      }
+    : hasInvalidChoices
+      ? {
+          backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+          borderColor: colors.status.warning.dark,
+          color: colors.status.warning.light,
+        }
+      : {
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+          color: colors.text.DEFAULT,
+        };
+
+  const wordButtonStyle = {
+    backgroundColor: `${colors.primary.DEFAULT}1A`,
+    borderColor: `${colors.primary.light}66`,
+    color: colors.text.DEFAULT,
+  };
+
+  const answerButtonStyle = {
+    backgroundColor: `${colors.secondary.DEFAULT}1A`,
+    borderColor: `${colors.secondary.light}66`,
+    color: colors.text.DEFAULT,
+  };
+
+  const wrongButtonStyle = {
+    backgroundColor: `${colors.cta.DEFAULT}1A`,
+    borderColor: `${colors.cta.light}66`,
+    color: colors.text.DEFAULT,
+  };
+
+  return (
+    <div
+      className="border-2 rounded-2xl p-4"
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      {/* Word number badge */}
+      <div className="flex items-center gap-2 mb-3">
+        <div
+          className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
+          style={badgeStyle}
+        >
+          {index + 1}
+        </div>
+        {isDuplicate && (
+          <span
+            className="text-sm font-bold"
+            style={{ color: colors.status.danger.DEFAULT }}
+            title="Duplicate word in theme"
+          >
+            !
+          </span>
+        )}
+        {hasInvalidChoices && (
+          <span
+            className="text-sm font-bold"
+            style={{ color: colors.status.warning.DEFAULT }}
+            title={
+              wrongMatchesAnswer
+                ? "Wrong answer matches correct answer"
+                : "Duplicate wrong answers"
+            }
+          >
+            ⚠
+          </span>
+        )}
+      </div>
+
+      {/* Word & Answer Row */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button
+          onClick={() => canEdit && onEditWord(index, "word")}
+          disabled={!canEdit}
+          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+          }`}
+          style={wordButtonStyle}
+        >
+          <div className="text-xs mb-1" style={{ color: colors.primary.light }}>
+            Word
+          </div>
+          {word.word}
+        </button>
+        <button
+          onClick={() => canEdit && onEditWord(index, "answer")}
+          disabled={!canEdit}
+          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+          }`}
+          style={answerButtonStyle}
+        >
+          <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
+            Answer
+          </div>
+          {word.answer}
+        </button>
+      </div>
+
+      {/* Wrong Answers Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {word.wrongAnswers.map((wrongAnswer, wrongIdx) => (
+          <button
+            key={wrongIdx}
+            onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
+            disabled={!canEdit}
+            className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+              canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+            }`}
+            style={wrongButtonStyle}
+          >
+            <div className="text-xs mb-1" style={{ color: colors.cta.light }}>
+              Wrong {wrongIdx + 1}
+            </div>
+            {wrongAnswer}
+          </button>
+        ))}
+      </div>
+
+      {/* Delete Word Button */}
+      {canEdit && (
+        <button
+          onClick={() => onDeleteWord(index)}
+          className="mt-3 w-full py-2 border-2 rounded-lg text-sm font-medium transition hover:brightness-110"
+          style={{
+            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+            borderColor: `${colors.status.danger.DEFAULT}66`,
+            color: colors.status.danger.light,
+          }}
+        >
+          Delete Word
+        </button>
+      )}
+    </div>
+  );
+});
 
 export function ThemeDetail({
   theme,
@@ -380,150 +547,19 @@ export function ThemeDetail({
               const isDuplicateWord = duplicateWordIndices.has(index);
               const hasDuplicateWrongAnswers = hasDuplicateWrongAnswersInWord(word);
               const wrongMatchesAnswer = doesWrongAnswerMatchCorrect(word);
-              const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
-
-              const badgeStyle = isDuplicateWord
-                ? {
-                    backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                    borderColor: colors.status.danger.dark,
-                    color: colors.status.danger.light,
-                  }
-                : hasInvalidChoices
-                  ? {
-                      backgroundColor: `${colors.status.warning.DEFAULT}1A`,
-                      borderColor: colors.status.warning.dark,
-                      color: colors.status.warning.light,
-                    }
-                  : {
-                      backgroundColor: colors.background.DEFAULT,
-                      borderColor: colors.primary.dark,
-                      color: colors.text.DEFAULT,
-                    };
-
-              const wordButtonStyle = {
-                backgroundColor: `${colors.primary.DEFAULT}1A`,
-                borderColor: `${colors.primary.light}66`,
-                color: colors.text.DEFAULT,
-              };
-
-              const answerButtonStyle = {
-                backgroundColor: `${colors.secondary.DEFAULT}1A`,
-                borderColor: `${colors.secondary.light}66`,
-                color: colors.text.DEFAULT,
-              };
-
-              const wrongButtonStyle = {
-                backgroundColor: `${colors.cta.DEFAULT}1A`,
-                borderColor: `${colors.cta.light}66`,
-                color: colors.text.DEFAULT,
-              };
 
               return (
-                <div
+                <WordCard
                   key={index}
-                  className="border-2 rounded-2xl p-4"
-                  style={{
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.primary.dark,
-                  }}
-                >
-                  {/* Word number badge */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div
-                      className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
-                      style={badgeStyle}
-                    >
-                      {index + 1}
-                    </div>
-                    {isDuplicateWord && (
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: colors.status.danger.DEFAULT }}
-                        title="Duplicate word in theme"
-                      >
-                        !
-                      </span>
-                    )}
-                    {hasInvalidChoices && (
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: colors.status.warning.DEFAULT }}
-                        title={
-                          wrongMatchesAnswer
-                            ? "Wrong answer matches correct answer"
-                            : "Duplicate wrong answers"
-                        }
-                      >
-                        ⚠
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Word & Answer Row */}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <button
-                      onClick={() => canEdit && onEditWord(index, "word")}
-                      disabled={!canEdit}
-                      className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-                        canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-                      }`}
-                      style={wordButtonStyle}
-                    >
-                      <div className="text-xs mb-1" style={{ color: colors.primary.light }}>
-                        Word
-                      </div>
-                      {word.word}
-                    </button>
-                    <button
-                      onClick={() => canEdit && onEditWord(index, "answer")}
-                      disabled={!canEdit}
-                      className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-                        canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-                      }`}
-                      style={answerButtonStyle}
-                    >
-                      <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
-                        Answer
-                      </div>
-                      {word.answer}
-                    </button>
-                  </div>
-
-                  {/* Wrong Answers Grid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {word.wrongAnswers.map((wrongAnswer, wrongIdx) => (
-                      <button
-                        key={wrongIdx}
-                        onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
-                        disabled={!canEdit}
-                        className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-                          canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-                        }`}
-                        style={wrongButtonStyle}
-                      >
-                        <div className="text-xs mb-1" style={{ color: colors.cta.light }}>
-                          Wrong {wrongIdx + 1}
-                        </div>
-                        {wrongAnswer}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Delete Word Button */}
-                  {canEdit && (
-                    <button
-                      onClick={() => onDeleteWord(index)}
-                      className="mt-3 w-full py-2 border-2 rounded-lg text-sm font-medium transition hover:brightness-110"
-                      style={{
-                        backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                        borderColor: `${colors.status.danger.DEFAULT}66`,
-                        color: colors.status.danger.light,
-                      }}
-                    >
-                      Delete Word
-                    </button>
-                  )}
-                </div>
+                  word={word}
+                  index={index}
+                  isDuplicate={isDuplicateWord}
+                  hasDuplicateWrongAnswers={hasDuplicateWrongAnswers}
+                  wrongMatchesAnswer={wrongMatchesAnswer}
+                  canEdit={canEdit}
+                  onEditWord={onEditWord}
+                  onDeleteWord={onDeleteWord}
+                />
               );
             })}
           </div>

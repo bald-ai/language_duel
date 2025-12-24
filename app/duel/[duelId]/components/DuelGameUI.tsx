@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { AnswerButton } from "./AnswerButton";
 import { DifficultyPill } from "./DifficultyPill";
 import { SuccessRateDisplay } from "./SuccessRateDisplay";
@@ -89,7 +90,7 @@ interface DuelGameUIProps {
   onBackToHome: () => void;
 }
 
-export function DuelGameUI({
+export const DuelGameUI = memo(function DuelGameUI({
   duel,
   challenger,
   opponent,
@@ -379,4 +380,4 @@ export function DuelGameUI({
       </main>
     </ThemedPage>
   );
-}
+});

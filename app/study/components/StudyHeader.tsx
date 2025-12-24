@@ -1,7 +1,8 @@
 "use client";
 
+import { memo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 
 interface Theme {
   _id: Id<"themes">;
@@ -11,32 +12,27 @@ interface Theme {
 interface StudyHeaderProps {
   themes: Theme[];
   selectedTheme: Theme | null;
-  isRevealed: boolean;
   onThemeChange: (themeId: string) => void;
-  onToggleReveal: () => void;
 }
 
-export function StudyHeader({
+function StudyHeaderComponent({
   themes,
   selectedTheme,
-  isRevealed,
   onThemeChange,
-  onToggleReveal,
 }: StudyHeaderProps) {
-  const toggleStyles = isRevealed ? buttonStyles.primary : buttonStyles.cta;
   const selectedThemeName = selectedTheme?.name ?? "Select theme";
 
   return (
     <header className="w-full flex-shrink-0">
       <div
-        className="w-full rounded-3xl border-2 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-sm shadow-lg"
+        className="w-full rounded-3xl border-2 p-4 sm:p-5 flex items-center justify-center backdrop-blur-sm shadow-lg"
         style={{
           backgroundColor: colors.background.elevated,
           borderColor: colors.primary.dark,
           boxShadow: `0 16px 40px ${colors.primary.glow}`,
         }}
       >
-        <div className="relative w-full sm:flex-1">
+        <div className="relative w-full max-w-xs">
           <div
             className="px-5 py-3 rounded-2xl font-semibold text-sm uppercase tracking-widest border-2 flex items-center justify-center gap-2"
             style={{
@@ -77,23 +73,9 @@ export function StudyHeader({
             ))}
           </select>
         </div>
-
-        <button
-          onClick={onToggleReveal}
-          className="w-full sm:w-auto px-6 py-3 rounded-2xl font-semibold text-sm uppercase tracking-widest border-t-2 border-b-4 border-x-2 transition-all duration-200 hover:translate-y-0.5 active:translate-y-1"
-          style={{
-            backgroundImage: `linear-gradient(to bottom, ${toggleStyles.gradient.from}, ${toggleStyles.gradient.to})`,
-            borderTopColor: toggleStyles.border.top,
-            borderBottomColor: toggleStyles.border.bottom,
-            borderLeftColor: toggleStyles.border.sides,
-            borderRightColor: toggleStyles.border.sides,
-            color: colors.text.DEFAULT,
-            textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-          }}
-        >
-          {isRevealed ? "Testing" : "Reveal"}
-        </button>
       </div>
     </header>
   );
 }
+
+export const StudyHeader = memo(StudyHeaderComponent);

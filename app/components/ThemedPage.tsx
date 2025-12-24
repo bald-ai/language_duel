@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import Image from "next/image";
 import { colors } from "@/lib/theme";
 
@@ -17,6 +17,9 @@ export function ThemedPage({
   backgroundImage = "/background.png",
   backgroundFocalPoint = "50% 30%"
 }: ThemedPageProps) {
+  const [isMobile, setIsMobile] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const rootClassName = [
     "min-h-dvh flex flex-col relative",
     className,
@@ -24,8 +27,64 @@ export function ThemedPage({
     .filter(Boolean)
     .join(" ");
 
+  useEffect(() => {
+    const updateIsMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    updateIsMobile();
+    window.addEventListener("resize", updateIsMobile);
+
+    return () => {
+      window.removeEventListener("resize", updateIsMobile);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setReduceMotion(document.hidden);
+    };
+
+    handleVisibilityChange();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    let timeoutId: number | null = null;
+
+    const handleScroll = () => {
+      setIsScrolling(true);
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
+        setIsScrolling(false);
+      }, 160);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return (
-    <div className={rootClassName}>
+    <div
+      className={rootClassName}
+      data-paused={reduceMotion && isMobile ? "true" : undefined}
+      data-reduce-motion={reduceMotion ? "true" : undefined}
+    >
       {/* 
         Background container - Fixed viewport wrapper to prevent mobile browser 
         resize jank when scrolling (Android Chrome URL bar, iOS Safari)
@@ -34,7 +93,8 @@ export function ThemedPage({
         className="fixed -z-10 overflow-hidden"
         style={{ 
           // Force GPU compositing layer - critical for Android scroll performance
-          transform: "translate3d(0, 0, 0)",
+          transform: "translateZ(0)",
+          willChange: isScrolling ? "transform" : "auto",
           backfaceVisibility: "hidden",
           WebkitBackfaceVisibility: "hidden",
           // Use large viewport height - doesn't change when browser chrome hides/shows
@@ -50,12 +110,13 @@ export function ThemedPage({
             src={backgroundImage}
             alt="Background"
             fill
-            priority
+            priority={!isMobile}
+            loading={isMobile ? "lazy" : undefined}
             className="object-cover"
             style={{ 
               objectPosition: backgroundFocalPoint,
               // Prevent image from causing repaints during scroll
-              transform: "translate3d(0, 0, 0)",
+              transform: "translateZ(0)",
             }}
             sizes="100vw"
           />
@@ -71,7 +132,7 @@ export function ThemedPage({
         
         {/* Gradient overlay layer */}
         <div
-          className="absolute inset-0 animated-gradient"
+          className={`absolute inset-0 ${reduceMotion ? "" : "animated-gradient"}`}
           style={{
             background: `
               radial-gradient(ellipse 80% 50% at 50% -20%, ${colors.primary.DEFAULT}66 0%, transparent 50%),
@@ -84,16 +145,16 @@ export function ThemedPage({
 
         {/* Decorative blurred circles */}
         <div
-          className="absolute top-20 left-10 w-32 h-32 rounded-full blur-3xl"
-          style={{ backgroundColor: `${colors.primary.DEFAULT}1A` }}
+          className="absolute top-20 left-10 w-32 h-32 rounded-full blur-md md:blur-3xl"
+          style={{ backgroundColor: `${colors.primary.DEFAULT}1A`, contentVisibility: "auto" }}
         />
         <div
-          className="absolute bottom-40 right-10 w-40 h-40 rounded-full blur-3xl"
-          style={{ backgroundColor: `${colors.cta.DEFAULT}1A` }}
+          className="absolute bottom-40 right-10 w-40 h-40 rounded-full blur-md md:blur-3xl"
+          style={{ backgroundColor: `${colors.cta.DEFAULT}1A`, contentVisibility: "auto" }}
         />
         <div
-          className="absolute top-1/2 left-1/4 w-24 h-24 rounded-full blur-2xl"
-          style={{ backgroundColor: `${colors.secondary.DEFAULT}1A` }}
+          className="absolute top-1/2 left-1/4 w-24 h-24 rounded-full blur-sm md:blur-2xl"
+          style={{ backgroundColor: `${colors.secondary.DEFAULT}1A`, contentVisibility: "auto" }}
         />
       </div>
 

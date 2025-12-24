@@ -107,9 +107,7 @@ export const WordCard = memo(function WordCard({
     ? disabledButtonStyleConst
     : iconButtonStyleConst;
 
-  const baseClasses = `rounded-2xl border-2 ${
-    isRevealed ? "py-3 px-2.5" : "p-4"
-  } select-none transition`;
+  const baseClasses = "rounded-2xl border-2 p-4 select-none transition";
 
   const cursorClasses = isFloating ? "" : "cursor-grab active:cursor-grabbing";
   const visibilityClasses = isDragging ? "opacity-0" : "";
@@ -122,112 +120,39 @@ export const WordCard = memo(function WordCard({
       className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
     >
       {isRevealed ? (
-        // Revealed mode: horizontal layout with word info, confidence buttons, and TTS
-        <div className="flex items-center justify-between gap-3">
-          {/* Word & Answer Section */}
-          <div className="flex-1 min-w-0">
-            <div
-              className="font-medium text-base mb-0.5 leading-tight truncate"
-              style={{ color: colors.text.DEFAULT }}
-            >
-              {word.word}
-            </div>
-            <div
-              className="font-bold text-base leading-tight truncate"
-              style={{ color: colors.secondary.light }}
-            >
-              {word.answer}
-            </div>
-          </div>
-
-          {/* TTS Button */}
-          <button
-            onClick={onPlayTTS}
-            disabled={isTTSDisabled}
-            className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition ${
-              isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
-            }`}
-            style={ttsButtonStyle}
-          >
-            <SpeakerIcon className="w-5 h-5" />
-          </button>
-
-          {/* Confidence Segmented Control */}
-          <div onMouseDown={(e) => e.stopPropagation()}>
-            <ConfidenceSlider
-              value={confidence}
-              onChange={onConfidenceChange}
-              compact
-              readOnly={isFloating}
-            />
-          </div>
-        </div>
-      ) : (
-        // Testing mode: stacked layout
+        // Revealed mode: stacked layout to keep the full answer visible
         <div className="flex flex-col gap-3">
-          {/* Top row: Word info and action buttons */}
           <div className="flex items-start justify-between gap-3">
             {/* Word & Answer Section */}
             <div className="flex-1 min-w-0">
               <div
-                className="font-medium text-lg mb-1"
+                className="font-medium text-base mb-1 leading-tight"
                 style={{ color: colors.text.DEFAULT }}
               >
                 {word.word}
               </div>
-              <div onMouseDown={(e) => e.stopPropagation()}>
-                <LetterGroups
-                  answer={word.answer}
-                  revealedPositions={revealedPositions}
-                  hintsRemaining={hintsRemaining}
-                  onRevealLetter={onRevealLetter}
-                />
-              </div>
-            </div>
-
-            {/* Action buttons: 2x2 grid */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
-              {/* Hints Remaining */}
               <div
-                className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold"
-                style={hintPillStyle}
+                className="font-bold text-lg leading-snug break-words"
+                style={{ color: colors.secondary.light }}
               >
-                {hintsRemaining > 0 ? hintsRemaining : "-"}
+                {word.answer}
               </div>
-
-              {/* Reset Button */}
-              <button
-                onClick={onResetWord}
-                className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-                style={iconButtonStyleConst}
-              >
-                <ResetIcon className="w-4 h-4" />
-              </button>
-
-              {/* Reveal Full Word Button */}
-              <button
-                onClick={onRevealFullWord}
-                className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-                style={iconButtonStyleConst}
-              >
-                <EyeIcon className="w-4 h-4" />
-              </button>
-
-              {/* TTS Button */}
-              <button
-                onClick={onPlayTTS}
-                disabled={isTTSDisabled}
-                className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
-                  isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
-                }`}
-                style={ttsButtonStyle}
-              >
-                <SpeakerIcon className="w-4 h-4" />
-              </button>
             </div>
+
+            {/* TTS Button */}
+            <button
+              onClick={onPlayTTS}
+              disabled={isTTSDisabled}
+              className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition ${
+                isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
+              }`}
+              style={ttsButtonStyle}
+            >
+              <SpeakerIcon className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Bottom row: Confidence segmented control */}
+          {/* Confidence Segmented Control */}
           <div
             className="flex justify-center pt-2 border-t"
             style={{ borderColor: colors.primary.dark }}
@@ -238,6 +163,81 @@ export const WordCard = memo(function WordCard({
               onChange={onConfidenceChange}
               readOnly={isFloating}
             />
+          </div>
+        </div>
+      ) : (
+        // Testing mode: stacked layout
+        <div className="flex flex-col gap-3">
+          {/* Top row: Word info and letter groups */}
+          <div className="flex-1 min-w-0">
+            <div
+              className="font-medium text-lg mb-1"
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {word.word}
+            </div>
+            <div onMouseDown={(e) => e.stopPropagation()}>
+              <LetterGroups
+                answer={word.answer}
+                revealedPositions={revealedPositions}
+                hintsRemaining={hintsRemaining}
+                onRevealLetter={onRevealLetter}
+              />
+            </div>
+          </div>
+
+          {/* Confidence segmented control */}
+          <div
+            className="flex justify-center pt-2 border-t"
+            style={{ borderColor: colors.primary.dark }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <ConfidenceSlider
+              value={confidence}
+              onChange={onConfidenceChange}
+              readOnly={isFloating}
+            />
+          </div>
+
+          {/* Action buttons: horizontal row */}
+          <div className="flex gap-2 justify-center">
+            {/* Hints Remaining */}
+            <div
+              className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold"
+              style={hintPillStyle}
+            >
+              {hintsRemaining > 0 ? hintsRemaining : "-"}
+            </div>
+
+            {/* Reset Button */}
+            <button
+              onClick={onResetWord}
+              className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
+              style={iconButtonStyleConst}
+            >
+              <ResetIcon className="w-4 h-4" />
+            </button>
+
+            {/* Reveal Full Word Button */}
+            <button
+              onClick={onRevealFullWord}
+              className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
+              style={iconButtonStyleConst}
+            >
+              <EyeIcon className="w-4 h-4" />
+            </button>
+
+            {/* TTS Button */}
+            <button
+              onClick={onPlayTTS}
+              disabled={isTTSDisabled}
+              className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
+                isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
+              }`}
+              style={ttsButtonStyle}
+            >
+              <SpeakerIcon className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

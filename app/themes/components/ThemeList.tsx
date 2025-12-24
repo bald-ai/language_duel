@@ -1,8 +1,14 @@
 "use client";
 
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { FriendWithDetails } from "@/convex/friends";
+import {
+  VariableSizeList as List,
+  type ListChildComponentProps,
+  type VariableSizeList,
+} from "react-window";
 import { buttonStyles, colors } from "@/lib/theme";
 
 interface ThemeListProps {
@@ -47,6 +53,198 @@ const ctaActionStyle = {
   textShadow: "0 2px 4px rgba(0,0,0,0.4)",
 };
 
+const ITEM_GAP = 12;
+const ITEM_SIZE = 188;
+
+interface ThemeCardProps {
+  theme: ThemeWithOwner;
+  isDeleting: boolean;
+  isDuplicating: boolean;
+  onOpenTheme: (theme: ThemeWithOwner) => void;
+  onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
+  onDuplicateTheme: (themeId: Id<"themes">) => void;
+}
+
+const ThemeCard = memo(function ThemeCard({
+  theme,
+  isDeleting,
+  isDuplicating,
+  onOpenTheme,
+  onDeleteTheme,
+  onDuplicateTheme,
+}: ThemeCardProps) {
+  const isMutating = isDeleting || isDuplicating;
+
+  return (
+    <div
+      className="relative w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <button
+            onClick={() => onOpenTheme(theme)}
+            disabled={isMutating}
+            className="text-left flex-1 min-w-0 transition hover:brightness-110"
+          >
+            <span
+              className="font-bold text-lg leading-snug whitespace-normal break-words"
+              title={theme.name}
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {theme.name}
+            </span>
+            <div
+              className="text-sm"
+              title={`${theme.words.length} words`}
+              style={{ color: colors.text.muted }}
+            >
+              {theme.words.length} words
+            </div>
+          </button>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button
+              onClick={() => onDuplicateTheme(theme._id)}
+              disabled={isMutating}
+              className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+              style={{
+                backgroundColor: `${colors.secondary.DEFAULT}1A`,
+                borderColor: `${colors.secondary.DEFAULT}66`,
+                color: colors.secondary.light,
+              }}
+            >
+              {isDuplicating ? "Duplicating..." : "Duplicate"}
+            </button>
+            {theme.isOwner && (
+              <button
+                onClick={() => onDeleteTheme(theme._id, theme.name)}
+                disabled={isMutating}
+                className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
+                style={{
+                  backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+                  borderColor: `${colors.status.danger.DEFAULT}66`,
+                  color: colors.status.danger.light,
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div
+            className="h-px w-full"
+            style={{ backgroundColor: `${colors.primary.dark}66` }}
+            aria-hidden="true"
+          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div
+              className={`${badgeBaseClassName} whitespace-nowrap`}
+              style={{
+                backgroundColor: `${colors.text.muted}14`,
+                color: colors.text.muted,
+              }}
+              title="Word type"
+            >
+              {theme.wordType === "verbs" ? "Verbs" : theme.wordType === "nouns" ? "Nouns" : "No category"}
+            </div>
+            <div
+              className={`${badgeBaseClassName} whitespace-nowrap`}
+              style={
+                theme.visibility === "shared"
+                  ? {
+                      backgroundColor: `${colors.neutral.dark}24`,
+                      color: colors.neutral.light,
+                    }
+                  : {
+                      backgroundColor: `${colors.text.muted}14`,
+                      color: colors.text.muted,
+                    }
+              }
+              title={theme.visibility === "shared" ? "Shared with friends" : "Private"}
+            >
+              {theme.visibility === "shared" ? "Shared" : "Private"}
+            </div>
+            {!theme.isOwner && theme.ownerNickname && (
+              <div
+                className={`${badgeBaseClassName} whitespace-nowrap`}
+                style={{
+                  backgroundColor: `${colors.text.muted}14`,
+                  color: colors.neutral.dark,
+                }}
+                title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
+              >
+                {theme.ownerNickname}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+interface ThemeListData {
+  themes: ThemeWithOwner[];
+  deletingThemeId: Id<"themes"> | null;
+  duplicatingThemeId: Id<"themes"> | null;
+  onOpenTheme: (theme: ThemeWithOwner) => void;
+  onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
+  onDuplicateTheme: (themeId: Id<"themes">) => void;
+  setRowSize: (index: number, size: number) => void;
+}
+
+const ThemeRow = memo(function ThemeRow({
+  index,
+  style,
+  data,
+}: ListChildComponentProps<ThemeListData>) {
+  const theme = data.themes[index];
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const rowStyle = {
+    ...style,
+    paddingBottom: ITEM_GAP,
+  };
+
+  useLayoutEffect(() => {
+    if (!theme || !contentRef.current) {
+      return;
+    }
+
+    const rect = contentRef.current.getBoundingClientRect();
+
+    if (rect.height > 0) {
+      data.setRowSize(index, Math.ceil(rect.height + ITEM_GAP));
+    }
+  }, [data, index, theme]);
+
+  if (!theme) {
+    return null;
+  }
+
+  const isDeleting = data.deletingThemeId === theme._id;
+  const isDuplicating = data.duplicatingThemeId === theme._id;
+
+  return (
+    <div style={rowStyle}>
+      <div ref={contentRef}>
+        <ThemeCard
+          theme={theme}
+          isDeleting={isDeleting}
+          isDuplicating={isDuplicating}
+          onOpenTheme={data.onOpenTheme}
+          onDeleteTheme={data.onDeleteTheme}
+          onDuplicateTheme={data.onDuplicateTheme}
+        />
+      </div>
+    </div>
+  );
+});
+
 export function ThemeList({
   themes,
   deletingThemeId,
@@ -61,6 +259,12 @@ export function ThemeList({
   onOpenFriendFilter,
   onClearFriendFilter,
 }: ThemeListProps) {
+  const listRef = useRef<VariableSizeList | null>(null);
+  const sizeMapRef = useRef<Map<number, number>>(new Map());
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const [listHeight, setListHeight] = useState(0);
+  const [listWidth, setListWidth] = useState(0);
+
   const filterDisplay = myThemesOnly
     ? "My Themes"
     : selectedFriend
@@ -72,17 +276,99 @@ export function ThemeList({
     ? `Filtering: ${filterDisplay} • ${themes.length} theme${themes.length !== 1 ? "s" : ""}`
     : `${themes.length} theme${themes.length !== 1 ? "s" : ""} available`;
 
-  const filterButtonStyle = isFiltering
-    ? {
-        backgroundColor: `${colors.secondary.DEFAULT}26`,
-        borderColor: `${colors.secondary.DEFAULT}66`,
-        color: colors.cta.lighter,
+  const filterButtonStyle = useMemo(
+    () =>
+      isFiltering
+        ? {
+            backgroundColor: `${colors.secondary.DEFAULT}26`,
+            borderColor: `${colors.secondary.DEFAULT}66`,
+            color: colors.cta.lighter,
+          }
+        : {
+            backgroundColor: colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+            color: colors.text.muted,
+          },
+    [isFiltering]
+  );
+
+  useEffect(() => {
+    sizeMapRef.current.clear();
+    listRef.current?.resetAfterIndex(0, true);
+  }, [themes]);
+
+  useEffect(() => {
+    const container = listContainerRef.current;
+
+    if (!container || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setListHeight(Math.max(0, Math.floor(entry.contentRect.height)));
+        setListWidth(Math.max(0, Math.floor(entry.contentRect.width)));
       }
-    : {
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-        color: colors.text.muted,
-      };
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [themes.length]);
+
+  const setRowSize = useCallback((index: number, size: number) => {
+    const currentSize = sizeMapRef.current.get(index);
+
+    if (currentSize === size) {
+      return;
+    }
+
+    sizeMapRef.current.set(index, size);
+    listRef.current?.resetAfterIndex(index);
+  }, []);
+
+  const listData = useMemo<ThemeListData>(
+    () => ({
+      themes,
+      deletingThemeId,
+      duplicatingThemeId,
+      onOpenTheme,
+      onDeleteTheme,
+      onDuplicateTheme,
+      setRowSize,
+    }),
+    [
+      themes,
+      deletingThemeId,
+      duplicatingThemeId,
+      onOpenTheme,
+      onDeleteTheme,
+      onDuplicateTheme,
+      setRowSize,
+    ]
+  );
+
+  const getItemSize = useCallback((index: number) => {
+    return sizeMapRef.current.get(index) ?? ITEM_SIZE;
+  }, []);
+
+  const itemKey = useCallback((index: number, data: ThemeListData) => {
+    return data.themes[index]?._id ?? index;
+  }, []);
+
+  const listViewportHeight = useMemo(() => {
+    if (listHeight > 0) {
+      return listHeight;
+    }
+
+    const visibleCount = Math.min(themes.length, 6);
+    return Math.max(ITEM_SIZE, visibleCount * ITEM_SIZE);
+  }, [listHeight, themes.length]);
+
+  const listViewportWidth = useMemo(() => Math.max(1, listWidth), [listWidth]);
 
   return (
     <>
@@ -150,132 +436,27 @@ export function ThemeList({
       </header>
 
       <div
-        className="w-full rounded-3xl border-2 p-4 mb-4 flex-1 min-h-0 overflow-y-auto backdrop-blur-sm animate-slide-up delay-200"
+        className="w-full rounded-3xl border-2 p-4 mb-4 flex-1 min-h-0 overflow-hidden backdrop-blur-sm animate-slide-up delay-200"
         style={{
           backgroundColor: colors.background.elevated,
           borderColor: colors.primary.dark,
           boxShadow: `0 20px 60px ${colors.primary.glow}`,
         }}
       >
-        <div className="flex flex-col gap-3">
-          {themes.map((theme) => {
-            const isDeleting = deletingThemeId === theme._id;
-            const isDuplicating = duplicatingThemeId === theme._id;
-            const isMutating = isDeleting || isDuplicating;
-
-            return (
-              <div
-                key={theme._id}
-                className="relative w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
-                style={{
-                  backgroundColor: colors.background.DEFAULT,
-                  borderColor: colors.primary.dark,
-                }}
-              >
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <button
-                      onClick={() => onOpenTheme(theme)}
-                      disabled={isMutating}
-                      className="text-left flex-1 min-w-0 transition hover:brightness-110"
-                    >
-                      <span
-                        className="font-bold text-lg leading-snug whitespace-normal break-words"
-                        title={theme.name}
-                        style={{ color: colors.text.DEFAULT }}
-                      >
-                        {theme.name}
-                      </span>
-                      <div
-                        className="text-sm"
-                        title={`${theme.words.length} words`}
-                        style={{ color: colors.text.muted }}
-                      >
-                        {theme.words.length} words
-                      </div>
-                    </button>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      <button
-                        onClick={() => onDuplicateTheme(theme._id)}
-                        disabled={isMutating}
-                        className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-                        style={{
-                          backgroundColor: `${colors.secondary.DEFAULT}1A`,
-                          borderColor: `${colors.secondary.DEFAULT}66`,
-                          color: colors.secondary.light,
-                        }}
-                      >
-                        {isDuplicating ? "Duplicating..." : "Duplicate"}
-                      </button>
-                      {theme.isOwner && (
-                        <button
-                          onClick={() => onDeleteTheme(theme._id, theme.name)}
-                          disabled={isMutating}
-                          className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-                          style={{
-                            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                            borderColor: `${colors.status.danger.DEFAULT}66`,
-                            color: colors.status.danger.light,
-                          }}
-                        >
-                          {isDeleting ? "Deleting..." : "Delete"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div
-                      className="h-px w-full"
-                      style={{ backgroundColor: `${colors.primary.dark}66` }}
-                      aria-hidden="true"
-                    />
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                    <div
-                      className={`${badgeBaseClassName} whitespace-nowrap`}
-                      style={{
-                        backgroundColor: `${colors.text.muted}14`,
-                        color: colors.text.muted,
-                      }}
-                      title="Word type"
-                    >
-                      {theme.wordType === "verbs" ? "Verbs" : theme.wordType === "nouns" ? "Nouns" : "No category"}
-                    </div>
-                    <div
-                      className={`${badgeBaseClassName} whitespace-nowrap`}
-                      style={
-                        theme.visibility === "shared"
-                          ? {
-                              backgroundColor: `${colors.neutral.dark}24`,
-                              color: colors.neutral.light,
-                            }
-                          : {
-                              backgroundColor: `${colors.text.muted}14`,
-                              color: colors.text.muted,
-                            }
-                      }
-                      title={theme.visibility === "shared" ? "Shared with friends" : "Private"}
-                    >
-                      {theme.visibility === "shared" ? "Shared" : "Private"}
-                    </div>
-                    {!theme.isOwner && theme.ownerNickname && (
-                      <div
-                      className={`${badgeBaseClassName} whitespace-nowrap`}
-                      style={{
-                        backgroundColor: `${colors.text.muted}14`,
-                        color: colors.neutral.dark,
-                      }}
-                      title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
-                    >
-                        {theme.ownerNickname}
-                      </div>
-                    )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div ref={listContainerRef} className="h-full">
+          <List
+            height={listViewportHeight}
+            itemCount={themes.length}
+            itemSize={getItemSize}
+            estimatedItemSize={ITEM_SIZE}
+            overscanCount={3}
+            width={listViewportWidth}
+            itemData={listData}
+            itemKey={itemKey}
+            ref={listRef}
+          >
+            {ThemeRow}
+          </List>
         </div>
       </div>
 

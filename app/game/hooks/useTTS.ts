@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 
@@ -12,6 +12,20 @@ export function useTTS() {
   const [playingWordKey, setPlayingWordKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cacheRef = useRef<Map<string, string>>(new Map());
+  const maxCacheSize = 25;
+
+  const trimCache = useCallback(() => {
+    while (cacheRef.current.size > maxCacheSize) {
+      const [oldestKey, oldestUrl] = cacheRef.current.entries().next().value ?? [];
+
+      if (!oldestKey || !oldestUrl) {
+        break;
+      }
+
+      cacheRef.current.delete(oldestKey);
+      URL.revokeObjectURL(oldestUrl);
+    }
+  }, [maxCacheSize]);
 
   const playTTS = useCallback(async (wordKey: string, text: string) => {
     if (playingWordKey === wordKey) return;
@@ -36,6 +50,10 @@ export function useTTS() {
         const audioBlob = await response.blob();
         audioUrl = URL.createObjectURL(audioBlob);
         cacheRef.current.set(text, audioUrl);
+        trimCache();
+      } else {
+        cacheRef.current.delete(text);
+        cacheRef.current.set(text, audioUrl);
       }
 
       if (audioRef.current) {
@@ -59,9 +77,26 @@ export function useTTS() {
       toast.error(message);
       setPlayingWordKey(null);
     }
-  }, [playingWordKey]);
+  }, [playingWordKey, trimCache]);
 
   const isPlaying = playingWordKey !== null;
+
+  useEffect(() => {
+    const cache = cacheRef.current;
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+
+      for (const url of cache.values()) {
+        URL.revokeObjectURL(url);
+      }
+
+      cache.clear();
+    };
+  }, []);
 
   return {
     playingWordKey,

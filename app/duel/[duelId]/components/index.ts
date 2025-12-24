@@ -7,3 +7,4 @@ export { DifficultyPill } from './DifficultyPill';
 export { SuccessRateDisplay } from './SuccessRateDisplay';
 export { HintGiverView, L2HintGiverView } from './HintGiverViews';
 export { SoloCompletionScreen, SoloWaitingScreen } from './SoloCompletionScreen';
+export { DuelStatusMessage } from './DuelStatusMessage';

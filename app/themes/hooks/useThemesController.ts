@@ -525,24 +525,8 @@ export function useThemesController() {
     }
   }, [wordEditor, selectedTheme]);
 
-  return {
-    // View state
-    viewMode,
-    selectedTheme,
-    localWords,
-    themes,
-
-    // Modal state
-    showGenerateModal,
-    setShowGenerateModal,
-    deleteConfirm,
-    setDeleteConfirm,
-
-    // Navigation
-    goBack,
-
-    // Theme list props
-    listProps: {
+  const listProps = useMemo(
+    () => ({
       themes,
       deletingThemeId: themeActions.deletingThemeId,
       duplicatingThemeId: themeActions.duplicatingThemeId,
@@ -551,39 +535,29 @@ export function useThemesController() {
       onDuplicateTheme: handleDuplicateTheme,
       onGenerateNew: handleOpenGenerateModal,
       onBack: goBack,
-      // Friend filter props
       selectedFriend,
       myThemesOnly,
       onOpenFriendFilter: () => setShowFriendFilterModal(true),
       onClearFriendFilter: handleClearFriendFilter,
-    },
+    }),
+    [
+      themes,
+      themeActions.deletingThemeId,
+      themeActions.duplicatingThemeId,
+      openTheme,
+      handleDeleteTheme,
+      handleDuplicateTheme,
+      handleOpenGenerateModal,
+      goBack,
+      selectedFriend,
+      myThemesOnly,
+      setShowFriendFilterModal,
+      handleClearFriendFilter,
+    ]
+  );
 
-    // Friend filter modal props
-    friendFilterModalProps: {
-      isOpen: showFriendFilterModal,
-      friends: friends ?? [],
-      onSelectFriend: handleSetFriendFilter,
-      onShowAll: handleClearFriendFilter,
-      onShowMyThemes: handleShowMyThemes,
-      onClose: () => setShowFriendFilterModal(false),
-    },
-
-    // Generate modal props
-    generateModalProps: {
-      isOpen: showGenerateModal,
-      themeName: themeGenerator.themeName,
-      themePrompt: themeGenerator.themePrompt,
-      wordType: themeGenerator.wordType,
-      isGenerating: themeGenerator.isGenerating,
-      onThemeNameChange: themeGenerator.setThemeName,
-      onThemePromptChange: themeGenerator.setThemePrompt,
-      onWordTypeChange: themeGenerator.setWordType,
-      onGenerate: handleGenerateNewTheme,
-      onClose: handleCloseGenerateModal,
-    },
-
-    // Theme detail props
-    detailProps: {
+  const detailProps = useMemo(
+    () => ({
       theme: selectedTheme!,
       localWords,
       onThemeNameChange: handleThemeNameChange,
@@ -611,18 +585,66 @@ export function useThemesController() {
       onRandomCountChange: generateRandomHook.setCount,
       onGenerateRandom: handleGenerateRandom,
       onGenerateRandomReset: generateRandomHook.reset,
-      // Visibility props
       visibility: selectedTheme?.visibility || "private",
       isUpdatingVisibility,
       onVisibilityChange: handleVisibilityChange,
-      // Friends can edit props
       friendsCanEdit: selectedTheme?.friendsCanEdit || false,
       isUpdatingFriendsCanEdit,
       onFriendsCanEditChange: handleFriendsCanEditChange,
-    },
+    }),
+    [
+      selectedTheme,
+      localWords,
+      handleThemeNameChange,
+      handleDeleteWord,
+      handleEditWord,
+      handleSaveTheme,
+      handleCancelTheme,
+      showAddWordModal,
+      setShowAddWordModal,
+      addWordHook.newWordInput,
+      addWordHook.isAdding,
+      addWordHook.error,
+      addWordHook.setNewWordInput,
+      handleAddWord,
+      addWordHook.reset,
+      showGenerateRandomModal,
+      setShowGenerateRandomModal,
+      generateRandomHook.count,
+      generateRandomHook.isGenerating,
+      generateRandomHook.error,
+      generateRandomHook.setCount,
+      handleGenerateRandom,
+      generateRandomHook.reset,
+      isUpdatingVisibility,
+      handleVisibilityChange,
+      isUpdatingFriendsCanEdit,
+      handleFriendsCanEditChange,
+    ]
+  );
 
-    // Word editor props
-    wordEditorProps: {
+  const wordEditorPromptSummary = useMemo(() => {
+    if (wordEditor.editingField && selectedTheme && wordEditor.editingWordIndex !== null) {
+      return buildFieldSummary(
+        wordEditor.editingField,
+        selectedTheme.name,
+        localWords[wordEditor.editingWordIndex]?.word || "",
+        selectedTheme.wordType || "nouns",
+        wordEditor.editingWrongIndex
+      );
+    }
+
+    return "";
+  }, [
+    wordEditor.editingField,
+    wordEditor.editingWordIndex,
+    wordEditor.editingWrongIndex,
+    selectedTheme,
+    localWords,
+  ]);
+
+  const wordEditorProps = useMemo(
+    () => ({
       editingField: wordEditor.editingField!,
       editingWrongIndex: wordEditor.editingWrongIndex,
       editMode: wordEditor.editMode,
@@ -631,16 +653,7 @@ export function useThemesController() {
       manualValue: wordEditor.manualValue,
       currentPrompt: wordEditor.currentPrompt,
       userFeedback: wordEditor.userFeedback,
-      promptSummary:
-        wordEditor.editingField && selectedTheme && wordEditor.editingWordIndex !== null
-          ? buildFieldSummary(
-              wordEditor.editingField,
-              selectedTheme.name,
-              localWords[wordEditor.editingWordIndex]?.word || "",
-              selectedTheme.wordType || "nouns",
-              wordEditor.editingWrongIndex
-            )
-          : "",
+      promptSummary: wordEditorPromptSummary,
       customInstructions: wordEditor.customInstructions,
       isGenerating: wordEditor.isGenerating,
       isRegenerating: wordEditor.isRegenerating,
@@ -658,7 +671,85 @@ export function useThemesController() {
       onRegenerateSkip: handleRegenerateSkip,
       onRegenerateCancel: wordEditor.hideRegenerateConfirm,
       onBack: goBack,
+    }),
+    [
+      wordEditor.editingField,
+      wordEditor.editingWrongIndex,
+      wordEditor.editMode,
+      wordEditor.oldValue,
+      wordEditor.generatedValue,
+      wordEditor.manualValue,
+      wordEditor.currentPrompt,
+      wordEditor.userFeedback,
+      wordEditorPromptSummary,
+      wordEditor.customInstructions,
+      wordEditor.isGenerating,
+      wordEditor.isRegenerating,
+      wordEditor.showRegenerateModal,
+      wordEditor.pendingManualWord,
+      handleGenerate,
+      wordEditor.goToManual,
+      wordEditor.setManualValue,
+      wordEditor.setUserFeedback,
+      wordEditor.setCustomInstructions,
+      handleAcceptGenerated,
+      handleRegenerate,
+      handleSaveManual,
+      handleRegenerateConfirm,
+      handleRegenerateSkip,
+      wordEditor.hideRegenerateConfirm,
+      goBack,
+    ]
+  );
+
+  return {
+    // View state
+    viewMode,
+    selectedTheme,
+    localWords,
+    themes,
+
+    // Modal state
+    showGenerateModal,
+    setShowGenerateModal,
+    deleteConfirm,
+    setDeleteConfirm,
+
+    // Navigation
+    goBack,
+
+    // Theme list props
+    listProps,
+
+    // Friend filter modal props
+    friendFilterModalProps: {
+      isOpen: showFriendFilterModal,
+      friends: friends ?? [],
+      onSelectFriend: handleSetFriendFilter,
+      onShowAll: handleClearFriendFilter,
+      onShowMyThemes: handleShowMyThemes,
+      onClose: () => setShowFriendFilterModal(false),
     },
+
+    // Generate modal props
+    generateModalProps: {
+      isOpen: showGenerateModal,
+      themeName: themeGenerator.themeName,
+      themePrompt: themeGenerator.themePrompt,
+      wordType: themeGenerator.wordType,
+      isGenerating: themeGenerator.isGenerating,
+      onThemeNameChange: themeGenerator.setThemeName,
+      onThemePromptChange: themeGenerator.setThemePrompt,
+      onWordTypeChange: themeGenerator.setWordType,
+      onGenerate: handleGenerateNewTheme,
+      onClose: handleCloseGenerateModal,
+    },
+
+    // Theme detail props
+    detailProps,
+
+    // Word editor props
+    wordEditorProps,
 
     // Delete confirm props
     deleteConfirmProps: {

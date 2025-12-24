@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { stripIrr } from "@/lib/stringUtils";
 import { colors } from "@/lib/theme";
 
@@ -21,7 +22,7 @@ type AnswerButtonProps = {
   truncateText?: boolean;
 };
 
-export function AnswerButton({
+const AnswerButtonComponent = function AnswerButton({
   answer,
   selectedAnswer,
   correctAnswer,
@@ -141,6 +142,29 @@ export function AnswerButton({
       )}
     </button>
   );
-}
+};
+
+export const AnswerButton = memo(
+  AnswerButtonComponent,
+  (prev, next) => {
+    return (
+      prev.answer === next.answer &&
+      prev.selectedAnswer === next.selectedAnswer &&
+      prev.correctAnswer === next.correctAnswer &&
+      prev.hasNoneOption === next.hasNoneOption &&
+      prev.isShowingFeedback === next.isShowingFeedback &&
+      prev.isEliminated === next.isEliminated &&
+      prev.canEliminate === next.canEliminate &&
+      prev.opponentPickedThis === next.opponentPickedThis &&
+      prev.isRevealing === next.isRevealing &&
+      prev.typedText === next.typedText &&
+      prev.revealComplete === next.revealComplete &&
+      prev.disabled === next.disabled &&
+      prev.truncateText === next.truncateText &&
+      prev.onClick === next.onClick &&
+      prev.style === next.style
+    );
+  }
+);
 
 export type { AnswerButtonProps };

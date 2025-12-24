@@ -91,8 +91,16 @@ body {
 }
 
 .animated-gradient {
-  animation: gradient-shift 15s ease infinite;
+  animation: gradient-shift 30s ease infinite;
   background-size: 200% 200%;
+}
+
+[data-paused="true"] .animated-gradient {
+  animation-play-state: paused;
+}
+
+[data-reduce-motion="true"] .animated-gradient {
+  animation-duration: 120s;
 }
 
 /* Glow effects */
@@ -135,6 +143,25 @@ body {
 .delay-500 { animation-delay: 500ms; }
 .delay-600 { animation-delay: 600ms; }
 .delay-700 { animation-delay: 700ms; }
+
+@media (max-width: 768px) {
+  .animate-slide-up {
+    animation-duration: 0.3s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-gradient,
+  .glow-pulse,
+  .animate-slide-up {
+    animation: none !important;
+  }
+
+  .animate-slide-up {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* ========================================
  * DECORATIVE PATTERNS
@@ -278,4 +305,3 @@ html {
     height: -webkit-fill-available;
   }
 }
-
