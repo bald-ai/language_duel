@@ -46,6 +46,7 @@ next-env.d.ts
 # project-specific
 /test_images/
 convex_documentation.md
+scripts/test-resemble.ts
 
 # PWA files
 public/sw.js

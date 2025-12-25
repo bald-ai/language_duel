@@ -58,7 +58,7 @@ export default function Home() {
         />
         
         <h1 
-          className="title-font text-4xl sm:text-5xl md:text-6xl tracking-tight text-center leading-none"
+          className="title-font text-5xl sm:text-6xl md:text-7xl tracking-tight text-center leading-none"
           style={{
             background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
             WebkitBackgroundClip: "text",
@@ -82,12 +82,12 @@ export default function Home() {
         </h1>
 
         <p 
-          className="mt-3 text-sm sm:text-base text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
+          className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
           style={{ color: colors.neutral.DEFAULT }}
         >
-          Achieve oral mastery and find out
+          Achieve <b><u>oral mastery</u></b> and find out
           <br />
-          which one of you sucks more
+          which one of you <b><u>sucks</u></b> more
         </p>
       </header>
 
