@@ -10,6 +10,7 @@ import {
   type VariableSizeList,
 } from "react-window";
 import { buttonStyles, colors } from "@/lib/theme";
+import { ThemeCardMenu } from "./ThemeCardMenu";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -29,9 +30,6 @@ interface ThemeListProps {
 
 const actionButtonClassName =
   "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
-
-const badgeBaseClassName =
-  "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase leading-none";
 
 const primaryActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
@@ -54,7 +52,7 @@ const ctaActionStyle = {
 };
 
 const ITEM_GAP = 12;
-const ITEM_SIZE = 188;
+const ITEM_SIZE = 100;
 
 interface ThemeCardProps {
   theme: ThemeWithOwner;
@@ -75,6 +73,20 @@ const ThemeCard = memo(function ThemeCard({
 }: ThemeCardProps) {
   const isMutating = isDeleting || isDuplicating;
 
+  const categoryLabel =
+    theme.wordType === "verbs"
+      ? "Verbs"
+      : theme.wordType === "nouns"
+        ? "Nouns"
+        : "No category";
+
+  const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
+
+  const ownerInfo =
+    !theme.isOwner && theme.ownerNickname
+      ? ` • by ${theme.ownerNickname}`
+      : "";
+
   return (
     <div
       className="relative w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
@@ -83,106 +95,36 @@ const ThemeCard = memo(function ThemeCard({
         borderColor: colors.primary.dark,
       }}
     >
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <button
-            onClick={() => onOpenTheme(theme)}
-            disabled={isMutating}
-            className="text-left flex-1 min-w-0 transition hover:brightness-110"
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <button
+          onClick={() => onOpenTheme(theme)}
+          disabled={isMutating}
+          className="text-left flex-1 min-w-0 transition hover:brightness-110"
+        >
+          <h3
+            className="font-bold text-xl uppercase tracking-wide leading-snug whitespace-normal break-words"
+            title={theme.name}
+            style={{ color: colors.text.DEFAULT }}
           >
-            <span
-              className="font-bold text-lg leading-snug whitespace-normal break-words"
-              title={theme.name}
-              style={{ color: colors.text.DEFAULT }}
-            >
-              {theme.name}
-            </span>
-            <div
-              className="text-sm"
-              title={`${theme.words.length} words`}
-              style={{ color: colors.text.muted }}
-            >
-              {theme.words.length} words
-            </div>
-          </button>
-          <div className="flex flex-wrap gap-2 justify-end">
-            <button
-              onClick={() => onDuplicateTheme(theme._id)}
-              disabled={isMutating}
-              className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-              style={{
-                backgroundColor: `${colors.secondary.DEFAULT}1A`,
-                borderColor: `${colors.secondary.DEFAULT}66`,
-                color: colors.secondary.light,
-              }}
-            >
-              {isDuplicating ? "Duplicating..." : "Duplicate"}
-            </button>
-            {theme.isOwner && (
-              <button
-                onClick={() => onDeleteTheme(theme._id, theme.name)}
-                disabled={isMutating}
-                className="px-3 py-1 rounded-lg text-sm font-medium transition whitespace-nowrap border disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110"
-                style={{
-                  backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                  borderColor: `${colors.status.danger.DEFAULT}66`,
-                  color: colors.status.danger.light,
-                }}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            )}
-          </div>
-        </div>
+            {theme.name}
+          </h3>
+        </button>
+        <ThemeCardMenu
+          themeId={theme._id}
+          themeName={theme.name}
+          isOwner={theme.isOwner}
+          isDeleting={isDeleting}
+          isDuplicating={isDuplicating}
+          onDuplicate={onDuplicateTheme}
+          onDelete={onDeleteTheme}
+        />
+      </div>
 
-        <div className="flex flex-col gap-2">
-          <div
-            className="h-px w-full"
-            style={{ backgroundColor: `${colors.primary.dark}66` }}
-            aria-hidden="true"
-          />
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div
-              className={`${badgeBaseClassName} whitespace-nowrap`}
-              style={{
-                backgroundColor: `${colors.text.muted}14`,
-                color: colors.text.muted,
-              }}
-              title="Word type"
-            >
-              {theme.wordType === "verbs" ? "Verbs" : theme.wordType === "nouns" ? "Nouns" : "No category"}
-            </div>
-            <div
-              className={`${badgeBaseClassName} whitespace-nowrap`}
-              style={
-                theme.visibility === "shared"
-                  ? {
-                      backgroundColor: `${colors.neutral.dark}24`,
-                      color: colors.neutral.light,
-                    }
-                  : {
-                      backgroundColor: `${colors.text.muted}14`,
-                      color: colors.text.muted,
-                    }
-              }
-              title={theme.visibility === "shared" ? "Shared with friends" : "Private"}
-            >
-              {theme.visibility === "shared" ? "Shared" : "Private"}
-            </div>
-            {!theme.isOwner && theme.ownerNickname && (
-              <div
-                className={`${badgeBaseClassName} whitespace-nowrap`}
-                style={{
-                  backgroundColor: `${colors.text.muted}14`,
-                  color: colors.neutral.dark,
-                }}
-                title={`Owned by ${theme.ownerNickname}#${theme.ownerDiscriminator}`}
-              >
-                {theme.ownerNickname}
-              </div>
-            )}
-          </div>
-        </div>
+      <div
+        className="text-sm uppercase tracking-wide"
+        style={{ color: colors.text.muted }}
+      >
+        {theme.words.length} words • {categoryLabel} • {visibilityLabel}{ownerInfo}
       </div>
     </div>
   );

@@ -81,9 +81,6 @@ export function useSoloStyleGame({
   const [hintSelectorDismissed, setHintSelectorDismissed] = useState(false);
   const [hintL2SelectorDismissed, setHintL2SelectorDismissed] = useState(false);
 
-  // TTS playback state for hints
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPlayedForHintRef = useRef<string | null>(null);
   const isPlayingTTSRef = useRef(false);
@@ -268,7 +265,6 @@ export function useSoloStyleGame({
   const playTTSHint = useCallback(async (word: string) => {
     if (isPlayingTTSRef.current || !word) return;
     isPlayingTTSRef.current = true;
-    setIsPlayingTTS(true);
     try {
       const response = await fetch("/api/tts", {
         method: "POST",
@@ -289,12 +285,10 @@ export function useSoloStyleGame({
       ttsAudioRef.current = audio;
       audio.onended = () => {
         isPlayingTTSRef.current = false;
-        setIsPlayingTTS(false);
         URL.revokeObjectURL(audioUrl);
       };
       audio.onerror = () => {
         isPlayingTTSRef.current = false;
-        setIsPlayingTTS(false);
         URL.revokeObjectURL(audioUrl);
       };
       await audio.play();
@@ -302,7 +296,6 @@ export function useSoloStyleGame({
       const message = error instanceof Error ? error.message : "Failed to play audio";
       toast.error(message);
       isPlayingTTSRef.current = false;
-      setIsPlayingTTS(false);
     }
   }, []);
 
