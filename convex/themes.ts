@@ -195,6 +195,24 @@ export const getTheme = query({
     const isOwner = !theme.ownerId || theme.ownerId === currentUserId;
     if (isOwner) return theme;
 
+    // Allow access if user is part of a duel that uses this theme
+    // Check both as challenger and as opponent
+    const duelAsChallenger = await ctx.db
+      .query("challenges")
+      .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
+      .filter((q) => q.eq(q.field("themeId"), args.themeId))
+      .first();
+
+    const duelAsOpponent = await ctx.db
+      .query("challenges")
+      .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
+      .filter((q) => q.eq(q.field("themeId"), args.themeId))
+      .first();
+
+    if (duelAsChallenger || duelAsOpponent) {
+      return theme;
+    }
+
     // Allow access if theme is shared and caller is a confirmed friend of owner
     if (theme.visibility === "shared" && theme.ownerId) {
       const ownerId = theme.ownerId;

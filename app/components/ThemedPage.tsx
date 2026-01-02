@@ -14,7 +14,7 @@ interface ThemedPageProps {
 export function ThemedPage({ 
   children, 
   className, 
-  backgroundImage = "/background.png",
+  backgroundImage = "/background.jpg",
   backgroundFocalPoint = "50% 30%"
 }: ThemedPageProps) {
   const [isMobile, setIsMobile] = useState(false);
