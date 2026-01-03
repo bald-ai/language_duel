@@ -3,8 +3,8 @@
 /**
  * CSS VARIABLES
  * 
- * These should match lib/theme.ts - if you change colors,
- * update BOTH files (or just use the TypeScript theme in components).
+ * These are default values that match the "Playful Duo" palette.
+ * The ThemeProvider updates these at runtime via applyCssVariables().
  * 
  * CSS variables are useful for:
  * - Pure CSS animations/effects
@@ -13,7 +13,7 @@
  */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   
   /* Safe area insets for PWA/notch devices */
   --sat: env(safe-area-inset-top, 0px);
@@ -23,35 +23,36 @@
   
   /* ========================================
    * SEMANTIC COLOR ROLES (use these!)
+   * Default values: Playful Duo palette
    * ======================================== */
   
   /* Primary - Main brand color, standard buttons */
-  --color-primary: #3C34C5;
-  --color-primary-light: #4F47D8;
-  --color-primary-dark: #2A248F;
+  --color-primary: #FB7185;
+  --color-primary-light: #FC8A9C;
+  --color-primary-dark: #E9586E;
   
-  /* CTA - Call-to-action, highlights (use sparingly!) */
-  --color-cta: #DE7321;
-  --color-cta-light: #F08535;
-  --color-cta-dark: #B55C1A;
+  /* CTA/Accent - Call-to-action, highlights (use sparingly!) */
+  --color-cta: #22C55E;
+  --color-cta-light: #3DD672;
+  --color-cta-dark: #1A9A4A;
   
-  /* Neutral - Decorative, muted elements */
-  --color-neutral: #B3A57A;
-  --color-neutral-light: #C9BD94;
-  --color-neutral-dark: #8A7F5E;
+  /* Neutral - Decorative, muted elements (derived from accent) */
+  --color-neutral: #6BBF8E;
+  --color-neutral-light: #8AD0A6;
+  --color-neutral-dark: #4F9A6D;
   
-  /* Secondary - Supporting elements */
-  --color-secondary: #397AAC;
-  --color-secondary-light: #4A8FC2;
-  --color-secondary-dark: #2A5D84;
+  /* Secondary - Supporting elements (derived from primary) */
+  --color-secondary: #8AB0C4;
+  --color-secondary-light: #A5C4D5;
+  --color-secondary-dark: #6B95AD;
   
   /* Backgrounds */
-  --color-background: #0B0A14;
-  --color-background-elevated: #14132A;
+  --color-background: #FFF8F1;
+  --color-background-elevated: #FFFFFF;
   
   /* Text */
-  --color-text: #F4F3F0;
-  --color-text-muted: #A09C8E;
+  --color-text: #1A1A1A;
+  --color-text-muted: #6B6B6B;
 
   /* Status */
   --color-success: #3BB273;
@@ -80,28 +81,6 @@ body {
  * ANIMATIONS
  * ======================================== */
 
-/* Animated gradient background */
-@keyframes gradient-shift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animated-gradient {
-  animation: gradient-shift 30s ease infinite;
-  background-size: 200% 200%;
-}
-
-[data-paused="true"] .animated-gradient {
-  animation-play-state: paused;
-}
-
-[data-reduce-motion="true"] .animated-gradient {
-  animation-duration: 120s;
-}
 
 /* Glow effects */
 @keyframes pulse-glow {
@@ -151,7 +130,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animated-gradient,
   .glow-pulse,
   .animate-slide-up {
     animation: none !important;
@@ -303,5 +281,78 @@ html {
   .fixed-bg-ios-fix {
     /* Use -webkit-fill-available as fallback on iOS */
     height: -webkit-fill-available;
+  }
+}
+
+
+/* Themed title gradients for homepage */
+.themed-title-gradient {
+  background-image: linear-gradient(135deg, var(--color-text) 0%, var(--color-neutral) 50%, var(--color-text) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+
+.themed-title-accent {
+  background-image: linear-gradient(135deg, var(--color-cta) 0%, var(--color-cta-light) 50%, var(--color-cta) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========================================
+ * TITLE TEXT OUTLINE EFFECTS
+ * Uses pseudo-element for outline behind gradient text
+ * ======================================== */
+
+/* Base outline styles - "Language" text */
+.title-text-outline {
+  position: relative;
+  display: inline-block;
+}
+
+.title-text-outline::before {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  -webkit-text-stroke: 3px var(--color-primary-dark);
+  color: transparent;
+}
+
+/* Accent outline styles - "Duel" text */
+.title-text-outline-accent {
+  position: relative;
+  display: inline-block;
+}
+
+.title-text-outline-accent::before {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  -webkit-text-stroke: 3px var(--color-cta-dark);
+  color: transparent;
+}
+
+/* Responsive stroke width */
+@media (min-width: 640px) {
+  .title-text-outline::before {
+    -webkit-text-stroke-width: 4px;
+  }
+  .title-text-outline-accent::before {
+    -webkit-text-stroke-width: 4px;
+  }
+}
+
+@media (min-width: 768px) {
+  .title-text-outline::before {
+    -webkit-text-stroke-width: 5px;
+  }
+  .title-text-outline-accent::before {
+    -webkit-text-stroke-width: 5px;
   }
 }

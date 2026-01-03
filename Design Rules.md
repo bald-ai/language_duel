@@ -4,33 +4,74 @@
 
 **To change the theme, edit `lib/theme.ts`** - all components import colors from there.
 
-For pure CSS needs (animations, patterns), CSS variables are defined in `app/globals.css`. The ThemeProvider applies the active theme to CSS variables at runtime; keep the default `:root` values aligned with the `default` theme to avoid initial paint mismatch.
+The theme system uses a **simplified 3-color palette** approach:
+- **bg**: Background base color
+- **primary**: Main brand color for buttons and UI elements
+- **accent**: Call-to-action color for highlights and emphasis
+
+All other color variants (light, dark, etc.) are **automatically derived** from these three base colors using `lib/colorUtils.ts`.
+
+For pure CSS needs (animations, patterns), CSS variables are defined in `app/globals.css`. The ThemeProvider applies the active theme to CSS variables at runtime; keep the default `:root` values aligned with the first palette to avoid initial paint mismatch.
 
 ---
 
 ## File Structure
 
 ```
-lib/theme.ts          ← MAIN THEME FILE (TypeScript, used by components)
+lib/colorUtils.ts     ← Color shade derivation utility
+lib/theme.ts          ← MAIN THEME FILE (palettes & color exports)
 app/globals.css       ← CSS variables (for animations/patterns, sync with theme.ts)
 app/layout.tsx        ← Font definitions & Clerk styling (Exceptions)
-lib/Design Rules.md   ← This documentation
+app/components/ThemeProvider.tsx    ← Runtime theme switching & persistence
+app/components/BackgroundProvider.tsx  ← Background image selection
+Design Rules.md       ← This documentation
 ```
 
 ---
 
-## Color Palette
+## Color Palettes
 
-| Role | Color | Hex | When to Use |
-|------|-------|-----|-------------|
-| **Primary** | Royal Blue | `#3C34C5` | Standard buttons, active states, brand elements |
-| **CTA** | Burnt Orange | `#DE7321` | Important actions, highlights, notifications |
-| **Neutral** | Olive Gold | `#B3A57A` | Decorative elements, muted text, borders |
-| **Secondary** | Steel Blue | `#397AAC` | Supporting elements, hover states |
+The theme system includes **5 pre-defined color palettes**. Each palette consists of 3 base colors:
+
+| Palette Name | Background | Primary | Accent | Mood |
+|-------------|------------|---------|--------|------|
+| **Playful Duo** | `#FFF8F1` | `#FB7185` | `#22C55E` | Warm cream with rose & green |
+| **Toybox Adventure** | `#FDF4FF` | `#A855F7` | `#FACC15` | Soft purple & sunny yellow |
+| **Warm Mischief** | `#FFF7ED` | `#F97316` | `#0EA5E9` | Peach with orange & sky blue |
+| **Friendly Rivalry** | `#F0F9FF` | `#2563EB` | `#FB7185` | Light blue with deep blue & rose |
+| **Candy Co-op** | `#FFF1F2` | `#EC4899` | `#22D3EE` | Blush pink & cyan |
+
+### Automatic Shade Derivation
+
+From each palette's 3 base colors, the system automatically generates:
+
+| Derived Role | Source | Description |
+|--------------|--------|-------------|
+| **primary** shades | `primary` | DEFAULT, light, dark, darkest, glow |
+| **cta** shades | `accent` | DEFAULT, light, lighter, dark, darkest, glow |
+| **neutral** shades | `accent` (desaturated) | Decorative, muted elements |
+| **secondary** shades | `primary` (hue-shifted) | Supporting elements |
+| **background** shades | `bg` | DEFAULT, elevated |
+| **text** shades | `bg` (contrast-based) | DEFAULT, muted, inverse |
+
+---
+
+## Background Images
+
+Users can select from **2 background images**:
+
+| Filename | Label | Description |
+|----------|-------|-------------|
+| `background.jpg` | Castle Lights | Default background |
+| `background_2.jpg` | Mystic Forest | Alternative background |
+
+Background selection is managed by `BackgroundProvider` and persisted to Convex for authenticated users.
+
+---
 
 ## Status Colors
 
-Use these for feedback states (errors, warnings, success). Defined in `lib/theme.ts` under `colors.status`.
+Status colors are **consistent across all palettes** for accessibility:
 
 | Role | Hex | Use For |
 |------|-----|---------|
@@ -56,38 +97,55 @@ import { MenuButton } from "@/app/components/MenuButton";
 
 ### When to Use Each
 
-| Variant | Color | Use For |
-|---------|-------|---------|
-| `primary` (default) | Royal Blue | Most buttons, standard actions |
-| `cta` | Burnt Orange | Highlighted actions, primary goals |
+| Variant | Color Source | Use For |
+|---------|--------------|---------|
+| `primary` (default) | Palette's `primary` | Most buttons, standard actions |
+| `cta` | Palette's `accent` | Highlighted actions, primary goals |
 
 ---
 
-## How to Change the Theme
+## How to Change the Color Set
 
-### Step 1: Edit `lib/theme.ts`
+### Adding a New Palette
+
+Edit `lib/theme.ts` and add to the `colorPalettes` array:
 
 ```typescript
-export const colors = {
-  primary: {
-    DEFAULT: "#3C34C5",  // ← Change these
-    light: "#4F47D8",
-    dark: "#2A248F",
-    // ...
+export const colorPalettes: ColorPalette[] = [
+  // ... existing palettes
+  {
+    name: "my-new-palette",
+    label: "My New Palette",
+    bg: "#0B0A14",      // Background base
+    primary: "#3C34C5", // Primary base
+    accent: "#DE7321",  // Accent/CTA base
   },
-  // ...
-}
+];
 ```
 
-### Step 2: Sync CSS Variables (default theme only)
+That's it! All shades are automatically derived.
 
-If you change the `default` theme values, update the `:root` CSS variables in `app/globals.css` so the first paint matches before ThemeProvider runs:
+### Syncing CSS Variables (first palette only)
+
+If you change the first palette's values, update `:root` in `app/globals.css`:
 
 ```css
 :root {
-  --color-primary: #3C34C5;  /* ← Keep in sync with theme.ts */
+  --color-primary: #3C34C5;  /* ← Keep in sync with first palette */
   /* ... */
 }
+```
+
+### Valid Color Set Names
+
+Update `convex/userPreferences.ts` to include new palette names:
+
+```typescript
+const VALID_COLOR_SETS = [
+  "playful-duo",
+  "toybox-adventure",
+  // ... add new palette names
+] as const;
 ```
 
 ---
@@ -105,6 +163,30 @@ To change fonts, edit `app/layout.tsx` and update the imports.
 
 ---
 
+## 💡 User Preferences & Persistence
+
+### Storage Strategy
+
+| User State | Color Set Storage | Background Storage |
+|------------|-------------------|-------------------|
+| Authenticated | Convex database | Convex database |
+| Unauthenticated | localStorage | localStorage |
+
+Preferences are synced on login - Convex data takes priority over localStorage.
+
+### Providers
+
+```tsx
+// app/layout.tsx - Provider nesting order
+<ThemeProvider>
+  <BackgroundProvider>
+    {children}
+  </BackgroundProvider>
+</ThemeProvider>
+```
+
+---
+
 ## 💡 Exceptions & Third-Party Tools
 
 ### Clerk Authentication
@@ -114,23 +196,35 @@ This is intentionally kept separate from the main theme system as it is a third-
 
 ---
 
-## Key Design Principles
+## Customization Philosophy
 
-### 1. Visual Hierarchy Through Contrast
-Most elements should use the primary color. Only the MOST important action gets the CTA color.
+### 🎨 Single-Place Configuration
+
+The design system is built around the principle that **all visual changes should happen in one place**:
+
+1. **Change palette?** → Edit `lib/theme.ts`
+2. **Add background?** → Add image to `/public`, update `BackgroundSelector.tsx` and `convex/userPreferences.ts`
+3. **Change fonts?** → Edit `app/layout.tsx`
+
+Components automatically adapt to color set changes - no manual updates needed.
+
+### 📐 Key Design Principles
+
+#### 1. Visual Hierarchy Through Contrast
+Most elements should use the primary color. Only the MOST important action gets the accent/CTA color.
 
 ```
 Bad:  5 buttons, 4 different colors → confusing
-Good: 5 buttons, 4 blue + 1 orange → clear hierarchy
+Good: 5 buttons, 4 primary + 1 accent → clear hierarchy
 ```
 
-### 2. Semantic Color Usage
+#### 2. Semantic Color Usage
 Colors have meaning:
 - **Primary** = "This is a normal action"
-- **CTA** = "This is THE action I want you to take"
+- **CTA/Accent** = "This is THE action I want you to take"
 - **Neutral** = "This is decorative/secondary information"
 
-### 3. Consistency
+#### 3. Consistency
 Use the theme system! Don't hardcode hex values in components.
 
 ```tsx
@@ -141,3 +235,6 @@ Use the theme system! Don't hardcode hex values in components.
 import { colors } from "@/lib/theme";
 <div style={{ backgroundColor: colors.primary.DEFAULT }}>
 ```
+
+#### 4. Automatic Adaptation
+Components using the `colors` object automatically update when the user switches palettes. No re-renders or prop changes needed - the mutable color object is updated in place.

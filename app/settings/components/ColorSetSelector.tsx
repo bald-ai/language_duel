@@ -1,10 +1,14 @@
 "use client";
 
 import { colors, themeOptions } from "@/lib/theme";
-import { useTheme } from "@/app/components/ThemeProvider";
+import { useColorSet } from "@/app/components/ThemeProvider";
 
-export function ThemeSelector() {
-  const { themeName, setTheme } = useTheme();
+/**
+ * ColorSetSelector - Allows users to select from 5 color palettes
+ * Displays palette name with 3 color dots (bg, primary, accent)
+ */
+export function ColorSetSelector() {
+  const { colorSetName, setColorSet } = useColorSet();
 
   return (
     <section
@@ -22,7 +26,7 @@ export function ThemeSelector() {
           className="text-lg font-bold uppercase tracking-wide"
           style={{ color: colors.text.DEFAULT }}
         >
-          Theme
+          Color Set
         </h2>
         <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
           Choose your palette
@@ -31,12 +35,12 @@ export function ThemeSelector() {
 
       <div className="p-4 grid gap-2">
         {themeOptions.map((option) => {
-          const isActive = option.name === themeName;
+          const isActive = option.name === colorSetName;
 
           return (
             <button
               key={option.name}
-              onClick={() => setTheme(option.name)}
+              onClick={() => setColorSet(option.name)}
               className="w-full flex items-center justify-between rounded-xl border-2 px-3 py-3 transition hover:brightness-110"
               style={{
                 backgroundColor: isActive
@@ -47,18 +51,22 @@ export function ThemeSelector() {
               aria-pressed={isActive}
             >
               <div className="flex items-center gap-3">
+                {/* 3 color dots: bg, primary, accent */}
                 <div className="flex items-center gap-1">
+                  <span
+                    className="w-3 h-3 rounded-full border border-white/20"
+                    style={{ backgroundColor: option.preview.bg }}
+                    title="Background"
+                  />
                   <span
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: option.preview.primary }}
+                    title="Primary"
                   />
                   <span
                     className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: option.preview.secondary }}
-                  />
-                  <span
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: option.preview.cta }}
+                    style={{ backgroundColor: option.preview.accent }}
+                    title="Accent"
                   />
                 </div>
                 <span

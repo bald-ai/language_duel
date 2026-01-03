@@ -21,6 +21,7 @@ import type * as migrations_001_add_nickname_system from "../migrations/001_add_
 import type * as migrations_002_add_theme_ownership from "../migrations/002_add_theme_ownership.js";
 import type * as sabotage from "../sabotage.js";
 import type * as themes from "../themes.js";
+import type * as userPreferences from "../userPreferences.js";
 import type * as users from "../users.js";
 
 import type {
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/002_add_theme_ownership": typeof migrations_002_add_theme_ownership;
   sabotage: typeof sabotage;
   themes: typeof themes;
+  userPreferences: typeof userPreferences;
   users: typeof users;
 }>;
 

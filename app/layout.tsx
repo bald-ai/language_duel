@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Outfit, Bebas_Neue } from "next/font/google";
 import { ConvexClientProvider } from "@/app/components/convex-provider";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { BackgroundProvider } from "@/app/components/BackgroundProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { themes, DEFAULT_THEME_NAME } from "@/lib/theme";
@@ -78,8 +79,10 @@ export default function RootLayout({
             className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${bebasNeue.variable} antialiased`}
           >
             <ThemeProvider>
-              {children}
-              <Toaster richColors position="top-center" />
+              <BackgroundProvider>
+                {children}
+                <Toaster richColors position="top-center" />
+              </BackgroundProvider>
             </ThemeProvider>
           </body>
         </html>

@@ -1,70 +1,114 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import {
   applyTheme,
   DEFAULT_THEME_NAME,
-  THEME_STORAGE_KEY,
   isThemeName,
   type ThemeName,
 } from "@/lib/theme";
 
-type ThemeContextValue = {
+const COLOR_SET_STORAGE_KEY = "language-duel-color-set";
+
+type ColorSetContextValue = {
+  colorSetName: ThemeName;
+  setColorSet: (colorSetName: ThemeName) => void;
+  isLoading: boolean;
+  // Backward-compatible aliases
   themeName: ThemeName;
   setTheme: (themeName: ThemeName) => void;
 };
 
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-
-function getInitialTheme(): ThemeName {
-  if (typeof window === "undefined") {
-    return DEFAULT_THEME_NAME;
-  }
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return storedTheme && isThemeName(storedTheme) ? storedTheme : DEFAULT_THEME_NAME;
-}
+const ColorSetContext = createContext<ColorSetContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeName, setThemeName] = useState<ThemeName>(() => {
-    const initial = getInitialTheme();
-    if (typeof window !== "undefined") {
-      applyTheme(initial);
-    }
-    return initial;
-  });
+  // Always start with the default theme to match SSR
+  const [colorSetName, setColorSetName] = useState<ThemeName>(DEFAULT_THEME_NAME);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [hasAppliedServerPref, setHasAppliedServerPref] = useState(false);
 
-  const handleSetTheme = useCallback((nextTheme: ThemeName) => {
-    setThemeName((current) => {
-      if (nextTheme === current) {
-        return current;
+  // Fetch user preferences from Convex (will be null for unauthenticated users)
+  const userPreferences = useQuery(api.userPreferences.getUserPreferences);
+  const updateColorSetMutation = useMutation(api.userPreferences.updateColorSetPreference);
+
+  // Apply localStorage preference after hydration (to avoid SSR mismatch)
+  useEffect(() => {
+    if (!hasHydrated) {
+      const storedColorSet = window.localStorage.getItem(COLOR_SET_STORAGE_KEY);
+      if (storedColorSet && isThemeName(storedColorSet)) {
+        applyTheme(storedColorSet);
+        setColorSetName(storedColorSet);
       }
-      applyTheme(nextTheme);
-      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-      return nextTheme;
-    });
-  }, []);
+      setHasHydrated(true);
+    }
+  }, [hasHydrated]);
+
+  // Apply server preference on first load (prioritize Convex over localStorage)
+  useEffect(() => {
+    if (hasHydrated && userPreferences && !hasAppliedServerPref) {
+      const serverColorSet = userPreferences.selectedColorSet;
+      if (serverColorSet && isThemeName(serverColorSet) && serverColorSet !== colorSetName) {
+        applyTheme(serverColorSet);
+        setColorSetName(serverColorSet);
+        // Also update localStorage to keep in sync
+        window.localStorage.setItem(COLOR_SET_STORAGE_KEY, serverColorSet);
+      }
+      setHasAppliedServerPref(true);
+    }
+  }, [userPreferences, hasAppliedServerPref, colorSetName, hasHydrated]);
+
+  const handleSetColorSet = useCallback(
+    (nextColorSet: ThemeName) => {
+      setColorSetName((current) => {
+        if (nextColorSet === current) {
+          return current;
+        }
+        applyTheme(nextColorSet);
+        window.localStorage.setItem(COLOR_SET_STORAGE_KEY, nextColorSet);
+
+        // If user is authenticated, save to Convex
+        if (userPreferences !== undefined && userPreferences !== null) {
+          updateColorSetMutation({ colorSet: nextColorSet }).catch((error) => {
+            console.error("Failed to save color set preference:", error);
+          });
+        }
+
+        return nextColorSet;
+      });
+    },
+    [userPreferences, updateColorSetMutation]
+  );
 
   const value = useMemo(
     () => ({
-      themeName,
-      setTheme: handleSetTheme,
+      colorSetName,
+      setColorSet: handleSetColorSet,
+      isLoading: userPreferences === undefined,
+      // Backward-compatible aliases
+      themeName: colorSetName,
+      setTheme: handleSetColorSet,
     }),
-    [themeName, handleSetTheme]
+    [colorSetName, handleSetColorSet, userPreferences]
   );
 
   return (
-    <ThemeContext.Provider value={value}>
+    <ColorSetContext.Provider value={value}>
       {children}
-    </ThemeContext.Provider>
+    </ColorSetContext.Provider>
   );
 }
 
-export function useTheme() {
-  const context = useContext(ThemeContext);
+export function useColorSet() {
+  const context = useContext(ColorSetContext);
 
   if (!context) {
-    throw new Error("useTheme must be used within ThemeProvider");
+    throw new Error("useColorSet must be used within ThemeProvider");
   }
 
   return context;
 }
+
+// Backward-compatible alias
+export const useTheme = useColorSet;

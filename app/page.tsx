@@ -10,27 +10,27 @@ import { ThemedPage } from "@/app/components/ThemedPage";
 import { SoloModal, WaitingModal, JoiningModal, UnifiedDuelModal } from "@/app/components/modals";
 import { colors } from "@/lib/theme";
 
-// Decorative icons for menu items
+// Decorative icons for menu items - use CSS variable for stroke color
 const StudyIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
   </svg>
 );
 
 const SoloIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
   </svg>
 );
 
 const DuelIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
   </svg>
 );
 
 const ThemesIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.lighter} strokeWidth={2}>
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
   </svg>
 );
@@ -54,27 +54,33 @@ export default function Home() {
         {/* Decorative line above title */}
         <div 
           className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full" 
-          style={{ color: colors.neutral.DEFAULT }}
+          style={{ color: "var(--color-neutral)" }}
         />
         
         <h1 
-          className="title-font text-5xl sm:text-6xl md:text-7xl tracking-tight text-center leading-none"
-          style={{
-            background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
-          }}
+          className="title-font text-5xl sm:text-6xl md:text-7xl tracking-tight text-center leading-none relative"
         >
-          Language
+          <span 
+            className="title-text-outline"
+            data-text="Language"
+            style={{ 
+              backgroundImage: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`, 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
+              backgroundClip: 'text',
+            }}
+          >
+            Language
+          </span>
           <br />
           <span 
-            style={{
-              background: `linear-gradient(135deg, ${colors.cta.DEFAULT} 0%, ${colors.cta.lighter} 50%, ${colors.cta.DEFAULT} 100%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
+            className="title-text-outline-accent"
+            data-text="Duel"
+            style={{ 
+              backgroundImage: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`, 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent', 
+              backgroundClip: 'text',
             }}
           >
             Duel
@@ -83,7 +89,7 @@ export default function Home() {
 
         <p 
           className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
-          style={{ color: colors.neutral.DEFAULT }}
+          style={{ color: "#FFFFFF" }}
         >
           Achieve <b><u>oral mastery</u></b> and find out
           <br />

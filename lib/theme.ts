@@ -3,10 +3,82 @@
  *
  * Change colors or fonts here, and they'll update everywhere in the app.
  * This is the SINGLE SOURCE OF TRUTH for all design tokens.
+ *
+ * The theme system uses a simplified 3-color palette approach:
+ * - bg: Background base color
+ * - primary: Main brand color for buttons and UI elements
+ * - accent: Call-to-action color for highlights and emphasis
+ *
+ * All other color variants (light, dark, etc.) are automatically derived.
  */
 
+import {
+  derivePrimaryShades,
+  deriveCtaShades,
+  deriveNeutralShades,
+  deriveSecondaryShades,
+  deriveBackgroundShades,
+  deriveTextShades,
+} from "./colorUtils";
+
 // =============================================================================
-// THEME SHAPES
+// PALETTE DEFINITIONS
+// =============================================================================
+
+/**
+ * A color palette definition with just 3 base colors
+ */
+export type ColorPalette = {
+  name: string;
+  label: string;
+  bg: string;
+  primary: string;
+  accent: string;
+};
+
+/**
+ * The 5 available color palettes
+ */
+export const colorPalettes: ColorPalette[] = [
+  {
+    name: "playful-duo",
+    label: "Playful Duo",
+    bg: "#FFF8F1",
+    primary: "#FB7185",
+    accent: "#22C55E",
+  },
+  {
+    name: "toybox-adventure",
+    label: "Toybox Adventure",
+    bg: "#FDF4FF",
+    primary: "#A855F7",
+    accent: "#FACC15",
+  },
+  {
+    name: "warm-mischief",
+    label: "Warm Mischief",
+    bg: "#FFF7ED",
+    primary: "#F97316",
+    accent: "#0EA5E9",
+  },
+  {
+    name: "friendly-rivalry",
+    label: "Friendly Rivalry",
+    bg: "#F0F9FF",
+    primary: "#2563EB",
+    accent: "#FB7185",
+  },
+  {
+    name: "candy-coop",
+    label: "Candy Co-op",
+    bg: "#FFF1F2",
+    primary: "#EC4899",
+    accent: "#22D3EE",
+  },
+];
+
+// =============================================================================
+// THEME SHAPES (maintained for backward compatibility)
 // =============================================================================
 
 type ThemeColors = {
@@ -69,145 +141,72 @@ type ThemeDefinition = {
 };
 
 // =============================================================================
-// THEME DEFINITIONS
+// DERIVE THEME COLORS FROM PALETTE
 // =============================================================================
 
-export const themes = {
-  default: {
-    label: "Royal",
-    colors: {
-      // Primary - Your main brand color (used for most buttons, active states)
-      primary: {
-        DEFAULT: "#3C34C5",
-        light: "#4F47D8",
-        dark: "#2A248F",
-        darkest: "#1F1A6B",
-        glow: "rgba(60, 52, 197, 0.4)",
+/**
+ * Generate full ThemeColors from a 3-color palette
+ */
+function deriveThemeColors(palette: ColorPalette): ThemeColors {
+  return {
+    primary: derivePrimaryShades(palette.primary),
+    cta: deriveCtaShades(palette.accent),
+    neutral: deriveNeutralShades(palette.accent),
+    secondary: deriveSecondaryShades(palette.primary),
+    background: deriveBackgroundShades(palette.bg),
+    text: deriveTextShades(palette.bg),
+    // Status colors remain consistent across all palettes for accessibility
+    status: {
+      success: {
+        DEFAULT: "#3BB273",
+        light: "#5CD192",
+        dark: "#2A8A56",
       },
-      // CTA/Accent - Call-to-action color (use sparingly, 1-2 times per screen)
-      cta: {
-        DEFAULT: "#DE7321",
-        light: "#F08535",
-        lighter: "#F5A05C",
-        dark: "#B55C1A",
-        darkest: "#8F4711",
-        glow: "rgba(222, 115, 33, 0.5)",
+      warning: {
+        DEFAULT: "#E3B341",
+        light: "#F2C86D",
+        dark: "#B98928",
       },
-      // Neutral - Decorative, muted elements
-      neutral: {
-        DEFAULT: "#B3A57A",
-        light: "#C9BD94",
-        dark: "#8A7F5E",
-      },
-      // Secondary - Supporting color (optional, for secondary buttons)
-      secondary: {
-        DEFAULT: "#397AAC",
-        light: "#4A8FC2",
-        dark: "#2A5D84",
-      },
-      // Background colors
-      background: {
-        DEFAULT: "#0B0A14",
-        elevated: "#14132A",
-      },
-      // Text colors
-      text: {
-        DEFAULT: "#F4F3F0",
-        muted: "#A09C8E",
-        inverse: "#0B0A14",
-      },
-      // Status colors (feedback states)
-      status: {
-        success: {
-          DEFAULT: "#3BB273",
-          light: "#5CD192",
-          dark: "#2A8A56",
-        },
-        warning: {
-          DEFAULT: "#E3B341",
-          light: "#F2C86D",
-          dark: "#B98928",
-        },
-        danger: {
-          DEFAULT: "#E35F5F",
-          light: "#F27979",
-          dark: "#B54848",
-        },
+      danger: {
+        DEFAULT: "#E35F5F",
+        light: "#F27979",
+        dark: "#B54848",
       },
     },
-  },
-  forest: {
-    label: "Forest",
-    colors: {
-      primary: {
-        DEFAULT: "#2F855A",
-        light: "#38A169",
-        dark: "#276749",
-        darkest: "#1C4532",
-        glow: "rgba(47, 133, 90, 0.4)",
-      },
-      cta: {
-        DEFAULT: "#D97706",
-        light: "#F59E0B",
-        lighter: "#FBBF24",
-        dark: "#B45309",
-        darkest: "#92400E",
-        glow: "rgba(217, 119, 6, 0.5)",
-      },
-      neutral: {
-        DEFAULT: "#BFA97A",
-        light: "#D4C197",
-        dark: "#8F7C57",
-      },
-      secondary: {
-        DEFAULT: "#3B82F6",
-        light: "#60A5FA",
-        dark: "#1E40AF",
-      },
-      background: {
-        DEFAULT: "#0B1110",
-        elevated: "#141D1A",
-      },
-      text: {
-        DEFAULT: "#F4F3F0",
-        muted: "#A6A39A",
-        inverse: "#0B1110",
-      },
-      status: {
-        success: {
-          DEFAULT: "#3BB273",
-          light: "#5CD192",
-          dark: "#2A8A56",
-        },
-        warning: {
-          DEFAULT: "#E3B341",
-          light: "#F2C86D",
-          dark: "#B98928",
-        },
-        danger: {
-          DEFAULT: "#E35F5F",
-          light: "#F27979",
-          dark: "#B54848",
-        },
-      },
-    },
-  },
-} as const;
+  };
+}
 
-export type ThemeName = keyof typeof themes;
-export const DEFAULT_THEME_NAME: ThemeName = "default";
-export const THEME_STORAGE_KEY = "language-duel-theme";
+// =============================================================================
+// THEME DEFINITIONS (generated from palettes)
+// =============================================================================
 
-export const themeOptions = (Object.entries(themes) as [ThemeName, ThemeDefinition][])
-  .map(([name, theme]) => ({
-    name,
-    label: theme.label,
-    preview: {
-      primary: theme.colors.primary.DEFAULT,
-      secondary: theme.colors.secondary.DEFAULT,
-      cta: theme.colors.cta.DEFAULT,
-    },
-  }));
+export const themes = colorPalettes.reduce(
+  (acc, palette) => {
+    acc[palette.name] = {
+      label: palette.label,
+      colors: deriveThemeColors(palette),
+    };
+    return acc;
+  },
+  {} as Record<string, ThemeDefinition>
+);
+
+// Add backward-compatible "default" and "forest" aliases
+themes["default"] = themes["playful-duo"];
+themes["forest"] = themes["toybox-adventure"];
+
+export type ThemeName = string;
+export const DEFAULT_THEME_NAME = "playful-duo";
+
+export const themeOptions = colorPalettes.map((palette) => ({
+  name: palette.name,
+  label: palette.label,
+  preview: {
+    bg: palette.bg,
+    primary: palette.primary,
+    accent: palette.accent,
+  },
+}));
 
 // =============================================================================
 // MUTABLE RUNTIME TOKENS

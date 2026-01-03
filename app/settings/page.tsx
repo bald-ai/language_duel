@@ -4,17 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ProfileCard, NicknameEditor, ThemeSelector } from "./components";
+import { ProfileCard, NicknameEditor, ColorSetSelector, BackgroundSelector } from "./components";
 import { useNicknameUpdate } from "./hooks";
 import { SearchBar, UserCard, RequestsList, FriendsList } from "@/app/friends/components";
 import { useFriendSearch, useFriendActions } from "@/app/friends/hooks";
 import { TABS, type TabId } from "@/app/friends/constants";
 import { colors } from "@/lib/theme";
+import { useBackground } from "@/app/components/BackgroundProvider";
 
 export default function SettingsPage() {
   const router = useRouter();
   const currentUser = useQuery(api.users.getCurrentUser);
   const nicknameUpdate = useNicknameUpdate();
+  
+  // User preferences for background - use the context hook for live updates
+  const { background, setBackground, isLoading: isBackgroundLoading } = useBackground();
   
   // Friends state
   const [activeTab, setActiveTab] = useState<TabId>(TABS.REQUESTS);
@@ -104,7 +108,15 @@ export default function SettingsPage() {
           onClearError={nicknameUpdate.clearError}
         />
 
-        <ThemeSelector />
+        {/* Color Set Selector */}
+        <ColorSetSelector />
+
+        {/* Background Selector */}
+        <BackgroundSelector
+          selectedBackground={background}
+          onSelect={setBackground}
+          isUpdating={isBackgroundLoading}
+        />
 
         {/* Friends Section */}
         <section 

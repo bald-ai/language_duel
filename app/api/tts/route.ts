@@ -6,17 +6,95 @@ import { TTS_GENERATION_COST } from '@/lib/credits/constants';
 
 export const runtime = 'nodejs';
 
+// ============================================================================
+// ELEVENLABS TTS (Active)
+// ============================================================================
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = 'zl1Ut8dvwcVSuQSB9XkG';
 const MODEL_ID = 'eleven_multilingual_v2';
 const OUTPUT_FORMAT = 'mp3_44100_128';
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || '';
 
 const VOICE_SETTINGS = {
   speed: 0.7,
   stability: 1,
 } as const;
 
+// ============================================================================
+// RESEMBLE AI TTS (NOT IN USE - Experiencing intermittent 500 errors)
+// As of Jan 2026, Resemble API returns "Synthesis failed! An error has occurred
+// within our systems" intermittently. Keep this for future use when stable.
+// 
+// To restore Resemble:
+// 1. Uncomment the Resemble constants and functions below
+// 2. Replace the ElevenLabs logic in POST handler with Resemble clip creation
+// 3. Change Content-Type to 'audio/wav'
+// 4. Set RESEMBLE_API_KEY in .env
+// ============================================================================
+// const RESEMBLE_API_KEY = process.env.RESEMBLE_API_KEY;
+// const RESEMBLE_BASE_URL = 'https://app.resemble.ai/api/v2';
+// const PROJECT_UUID = '5d2d9092';
+// const VOICE_UUID = 'a253156d'; // Jota - native Spanish voice
+// const SPEECH_RATE_PERCENT = 75;
+//
+// function getResembleHeaders() {
+//   return {
+//     Authorization: `Bearer ${RESEMBLE_API_KEY}`,
+//     'Content-Type': 'application/json',
+//   };
+// }
+//
+// function escapeForSsml(text: string): string {
+//   return text
+//     .replace(/&/g, '&amp;')
+//     .replace(/</g, '&lt;')
+//     .replace(/>/g, '&gt;')
+//     .replace(/"/g, '&quot;')
+//     .replace(/'/g, '&apos;');
+// }
+//
+// async function createResembleClip(text: string): Promise<{ uuid: string; audio_src?: string } | null> {
+//   const escapedText = escapeForSsml(text);
+//   const ssmlText = `<speak><prosody rate="${SPEECH_RATE_PERCENT}%">${escapedText}</prosody></speak>`;
+//
+//   const response = await fetch(`${RESEMBLE_BASE_URL}/projects/${PROJECT_UUID}/clips`, {
+//     method: 'POST',
+//     headers: getResembleHeaders(),
+//     body: JSON.stringify({
+//       voice_uuid: VOICE_UUID,
+//       body: ssmlText,
+//       is_public: false,
+//       is_archived: false,
+//     }),
+//   });
+//
+//   if (!response.ok) {
+//     console.error('[Resemble TTS] API error:', await response.text());
+//     return null;
+//   }
+//
+//   const data = await response.json();
+//   return data.item || data;
+// }
+//
+// async function waitForResembleAudio(clipUuid: string, maxAttempts = 20): Promise<string | null> {
+//   for (let i = 0; i < maxAttempts; i++) {
+//     const response = await fetch(`${RESEMBLE_BASE_URL}/projects/${PROJECT_UUID}/clips/${clipUuid}`, {
+//       method: 'GET',
+//       headers: getResembleHeaders(),
+//     });
+//
+//     if (!response.ok) return null;
+//
+//     const data = await response.json();
+//     const clip = data.item || data;
+//     if (clip.audio_src) return clip.audio_src;
+//
+//     await new Promise((resolve) => setTimeout(resolve, 500));
+//   }
+//   return null;
+// }
+
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || '';
 const MAX_TEXT_CHARS = 2000;
 const TTS_TIMEOUT_MS = 15_000;
 

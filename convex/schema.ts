@@ -85,6 +85,9 @@ export default defineSchema({
     llmCreditsRemaining: v.optional(v.number()),
     ttsGenerationsRemaining: v.optional(v.number()),
     creditsMonth: v.optional(v.string()),
+    // User preferences for theme system
+    selectedColorSet: v.optional(v.string()),
+    selectedBackground: v.optional(v.string()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_nickname_discriminator", ["nickname", "discriminator"]),
