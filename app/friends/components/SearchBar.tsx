@@ -18,8 +18,8 @@ export function SearchBar({ searchTerm, onSearchChange, isSearching }: SearchBar
         placeholder="Email or Name#1234"
         className="w-full px-4 py-3 pl-10 rounded-xl border-2 focus:outline-none transition-colors"
         style={{
-          backgroundColor: colors.primary.dark,
-          borderColor: colors.primary.DEFAULT,
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.primary.light,
           color: colors.text.DEFAULT,
         }}
       />
@@ -40,7 +40,7 @@ export function SearchBar({ searchTerm, onSearchChange, isSearching }: SearchBar
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <div 
             className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: colors.cta.DEFAULT, borderTopColor: "transparent" }}
+            style={{ borderColor: colors.primary.DEFAULT, borderTopColor: "transparent" }}
           />
         </div>
       )}

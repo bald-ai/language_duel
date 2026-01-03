@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { TABS, type TabId } from "./constants";
 import { SearchBar, UserCard, RequestsList, FriendsList } from "./components";
 import { useFriendSearch, useFriendActions } from "./hooks";
+import { colors } from "@/lib/theme";
 
 export default function FriendsPage() {
   const router = useRouter();
@@ -21,18 +22,25 @@ export default function FriendsPage() {
   const requestCount = requests?.length ?? 0;
 
   return (
-    <div className="min-h-screen bg-gray-900 px-4 py-6">
+    <div 
+      className="min-h-screen px-4 py-6"
+      style={{ backgroundColor: colors.background.DEFAULT }}
+    >
       <div className="max-w-md mx-auto">
         {/* Header */}
         <header className="flex items-center gap-4 mb-6">
           <button
             onClick={() => router.push("/")}
-            className="p-2 bg-gray-800 border-2 border-gray-700 rounded-lg hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg border-2 transition-colors"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+            }}
           >
             <svg
-              className="w-6 h-6 text-gray-300"
+              className="w-6 h-6"
               fill="none"
-              stroke="currentColor"
+              stroke={colors.text.DEFAULT}
               viewBox="0 0 24 24"
             >
               <path
@@ -43,50 +51,73 @@ export default function FriendsPage() {
               />
             </svg>
           </button>
-          <h1 className="text-2xl font-bold text-gray-300 uppercase tracking-wide">Friends</h1>
+          <h1 
+            className="text-2xl font-bold uppercase tracking-wide"
+            style={{ color: colors.text.DEFAULT }}
+          >
+            Friends
+          </h1>
         </header>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div 
+          className="flex rounded-xl border-2 p-1 mb-6"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.light,
+          }}
+        >
           <button
             onClick={() => setActiveTab(TABS.FRIENDS)}
-            className={`flex-1 py-3 rounded-xl font-bold uppercase text-sm transition-colors ${
-              activeTab === TABS.FRIENDS
-                ? "bg-amber-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+            className="flex-1 py-2.5 rounded-lg font-bold uppercase text-sm transition-colors"
+            style={{
+              backgroundColor: activeTab === TABS.FRIENDS ? `${colors.primary.light}40` : "transparent",
+              color: activeTab === TABS.FRIENDS ? colors.text.DEFAULT : colors.text.muted,
+              borderBottom: activeTab === TABS.FRIENDS ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
+            }}
           >
             Friends
           </button>
           <button
             onClick={() => setActiveTab(TABS.REQUESTS)}
-            className={`flex-1 py-3 rounded-xl font-bold uppercase text-sm transition-colors relative ${
-              activeTab === TABS.REQUESTS
-                ? "bg-amber-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+            className="flex-1 py-2.5 rounded-lg font-bold uppercase text-sm transition-colors relative"
+            style={{
+              backgroundColor: activeTab === TABS.REQUESTS ? `${colors.primary.light}40` : "transparent",
+              color: activeTab === TABS.REQUESTS ? colors.text.DEFAULT : colors.text.muted,
+              borderBottom: activeTab === TABS.REQUESTS ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
+            }}
           >
             Requests
             {requestCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs font-bold flex items-center justify-center text-white">
+              <span 
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center text-white"
+                style={{ backgroundColor: colors.status.danger.DEFAULT }}
+              >
                 {requestCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab(TABS.SEARCH)}
-            className={`flex-1 py-3 rounded-xl font-bold uppercase text-sm transition-colors ${
-              activeTab === TABS.SEARCH
-                ? "bg-amber-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+            className="flex-1 py-2.5 rounded-lg font-bold uppercase text-sm transition-colors"
+            style={{
+              backgroundColor: activeTab === TABS.SEARCH ? `${colors.primary.light}40` : "transparent",
+              color: activeTab === TABS.SEARCH ? colors.text.DEFAULT : colors.text.muted,
+              borderBottom: activeTab === TABS.SEARCH ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
+            }}
           >
             Search
           </button>
         </div>
 
         {/* Tab Content */}
-        <div className="bg-gray-800 border-2 border-gray-700 rounded-2xl p-4 min-h-[400px]">
+        <div 
+          className="rounded-2xl p-4 min-h-[400px] border-2"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+          }}
+        >
           {activeTab === TABS.FRIENDS && (
             <FriendsList
               friends={friends ?? []}
@@ -115,7 +146,7 @@ export default function FriendsPage() {
 
               {search.hasSearched && search.results.length === 0 && !search.isSearching && (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">No users found</p>
+                  <p style={{ color: colors.text.muted }}>No users found</p>
                 </div>
               )}
 
@@ -144,7 +175,12 @@ export default function FriendsPage() {
         {/* Back Button */}
         <button
           onClick={() => router.push("/")}
-          className="w-full mt-6 py-4 bg-gray-800 border-2 border-gray-700 rounded-2xl text-xl font-bold text-white uppercase tracking-wide hover:bg-gray-700 transition-colors"
+          className="w-full mt-6 py-4 rounded-2xl text-xl font-bold uppercase tracking-wide transition-colors border-2"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
         >
           Back
         </button>

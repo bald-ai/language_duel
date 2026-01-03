@@ -16,7 +16,7 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
     return (
       <div className="text-center py-12">
         <p style={{ color: colors.text.muted }}>No friends yet</p>
-        <p className="text-sm mt-2" style={{ color: colors.neutral.dark }}>
+        <p className="text-sm mt-2" style={{ color: colors.text.muted }}>
           Search for users to add them as friends
         </p>
       </div>
@@ -37,15 +37,15 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
             key={friend.friendshipId}
             className="rounded-xl p-4 flex items-center gap-4 border-2"
             style={{
-              backgroundColor: `${colors.primary.dark}40`,
-              borderColor: colors.primary.dark,
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.light,
             }}
           >
             <Avatar
               src={friend.imageUrl}
               name={friend.nickname || friend.email}
               size={48}
-              borderColor={colors.neutral.DEFAULT}
+              borderColor={colors.primary.dark}
             />
 
             <div className="flex-1 min-w-0">
@@ -62,10 +62,11 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
             <button
               onClick={() => onRemove(friend.friendId)}
               disabled={isRemoving}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
               style={{
-                backgroundColor: `${colors.cta.dark}30`,
-                color: colors.cta.light,
+                backgroundColor: "transparent",
+                borderColor: colors.status.danger.DEFAULT,
+                color: colors.status.danger.DEFAULT,
               }}
             >
               {isRemoving ? "..." : "Remove"}

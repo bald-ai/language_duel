@@ -89,7 +89,7 @@ export default function Home() {
 
         <p 
           className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
-          style={{ color: "#FFFFFF" }}
+          style={{ color: colors.text.DEFAULT }}
         >
           Achieve <b><u>oral mastery</u></b> and find out
           <br />

@@ -4,6 +4,12 @@
 
 export const DEFAULT_DURATION = 300; // 5 minutes default
 
+/**
+ * Timer options for solo study mode (in seconds)
+ * 5, 10, 15 minutes
+ */
+export const SOLO_TIMER_OPTIONS = [300, 600, 900] as const;
+
 // Layout gaps in pixels
 export const LAYOUT = {
   GAP_REVEALED: 8,  // space-y-2

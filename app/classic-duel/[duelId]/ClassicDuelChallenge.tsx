@@ -55,6 +55,7 @@ import {
   FinalResultsPanel,
 } from "@/app/game/components/duel";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import { colors } from "@/lib/theme";
 
 // Props interface
 interface ClassicDuelChallengeProps {
@@ -624,12 +625,28 @@ export default function ClassicDuelChallenge({
   }, [isPlayingAudio, frozenData, currentWord.answer]);
 
   // Early returns AFTER all hooks are defined
-  if (!user) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Sign in first.</div>;
+  if (!user) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: colors.background.DEFAULT, color: colors.text.DEFAULT }}
+      >
+        Sign in first.
+      </div>
+    );
+  }
 
   const status = duel.status;
   
   if (!isChallenger && !isOpponent) {
-    return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">You&apos;re not part of this duel</div>;
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: colors.background.DEFAULT, color: colors.text.DEFAULT }}
+      >
+        You&apos;re not part of this duel
+      </div>
+    );
   }
 
   // Raw hasAnswered from server (may be stale during question transitions)
@@ -704,13 +721,28 @@ export default function ClassicDuelChallenge({
 
   // Pre-compute difficulty pill JSX
   const currentDifficulty = frozenData ? frozenData.difficulty : difficulty;
-  const levelColors = {
-    easy: "text-green-400 bg-green-500/20 border-green-500",
-    medium: "text-yellow-400 bg-yellow-500/20 border-yellow-500",
-    hard: "text-red-400 bg-red-500/20 border-red-500",
+  const levelStyles = {
+    easy: {
+      color: colors.status.success.light,
+      backgroundColor: `${colors.status.success.DEFAULT}33`,
+      borderColor: colors.status.success.DEFAULT,
+    },
+    medium: {
+      color: colors.status.warning.light,
+      backgroundColor: `${colors.status.warning.DEFAULT}33`,
+      borderColor: colors.status.warning.DEFAULT,
+    },
+    hard: {
+      color: colors.status.danger.light,
+      backgroundColor: `${colors.status.danger.DEFAULT}33`,
+      borderColor: colors.status.danger.DEFAULT,
+    },
   };
   const difficultyPill = (
-    <span className={`inline-block px-3 py-1 rounded-full border text-sm font-medium ${levelColors[currentDifficulty.level]}`}>
+    <span
+      className="inline-block px-3 py-1 rounded-full border text-sm font-medium"
+      style={levelStyles[currentDifficulty.level]}
+    >
       {currentDifficulty.level.toUpperCase()} (+{currentDifficulty.points === 1 ? "1" : currentDifficulty.points} pts)
     </span>
   );
@@ -718,15 +750,77 @@ export default function ClassicDuelChallenge({
   // User role for countdown controls
   const userRole = isChallenger ? "challenger" : "opponent";
 
+  const timerIsDanger = questionTimer !== null && questionTimer <= TIMER_DANGER_THRESHOLD;
+  const timerIsWarning = questionTimer !== null && questionTimer <= TIMER_WARNING_THRESHOLD;
+  const timerColor = timerIsDanger
+    ? colors.status.danger.light
+    : timerIsWarning
+      ? colors.status.warning.light
+      : colors.text.DEFAULT;
+
+  const gameContainerStyle = {
+    "--classic-bg": colors.background.DEFAULT,
+    "--classic-bg-elevated": `${colors.background.elevated}80`,
+    borderColor: colors.primary.dark,
+  } as React.CSSProperties;
+
+  const subtleBorderStyle = { borderColor: `${colors.primary.dark}80` };
+  const mutedTextStyle = { color: colors.text.muted };
+
+  const exitButtonStyle = {
+    backgroundColor: colors.status.danger.DEFAULT,
+    color: colors.text.inverse,
+  };
+
+  const listenButtonStyle = isPlayingAudio
+    ? {
+        backgroundColor: colors.status.success.DEFAULT,
+        borderColor: colors.status.success.dark,
+        color: colors.text.DEFAULT,
+      }
+    : {
+        backgroundColor: colors.secondary.DEFAULT,
+        borderColor: colors.secondary.dark,
+        color: colors.text.DEFAULT,
+      };
+
+  const confirmDisabled = !selectedAnswer || isLocked;
+  const confirmButtonStyle = confirmDisabled
+    ? {
+        backgroundColor: colors.background.elevated,
+        borderBottomColor: colors.neutral.dark,
+        color: colors.text.muted,
+      }
+    : {
+        backgroundColor: colors.cta.DEFAULT,
+        borderBottomColor: colors.cta.dark,
+        color: colors.text.DEFAULT,
+      };
+
+  const waitingMessageStyle = {
+    color: colors.status.warning.light,
+    backgroundColor: `${colors.background.DEFAULT}99`,
+    borderColor: `${colors.status.warning.DEFAULT}4D`,
+  };
+
   return (
-    <main className="min-h-dvh bg-gray-900 text-white md:flex md:items-center md:justify-center md:p-6 lg:p-8">
-      <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
-      
-      {/* Game Container - full screen on mobile, centered card on desktop */}
-      <div className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:border-gray-700 md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-gray-900 md:bg-gray-800/50">
+      <main
+        className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
+        style={{ color: colors.text.DEFAULT }}
+      >
+        <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
+        
+        {/* Game Container - full screen on mobile, centered card on desktop */}
+        <div
+          className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--classic-bg)] md:bg-[var(--classic-bg-elevated)]"
+          style={gameContainerStyle}
+        >
         
         {/* Header: Scoreboard + Exit */}
-        <header className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b border-gray-700/50">
+        <header
+          className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
+          style={subtleBorderStyle}
+        >
           <Scoreboard
             myName={myName}
             theirName={theirName}
@@ -737,7 +831,8 @@ export default function ClassicDuelChallenge({
           {status !== "completed" && (
             <button
               onClick={handleStopDuel}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-5 rounded-lg text-base flex-shrink-0"
+              className="font-bold py-2 px-5 rounded-lg text-base flex-shrink-0 transition hover:brightness-110"
+              style={exitButtonStyle}
             >
               Exit Duel
             </button>
@@ -748,7 +843,7 @@ export default function ClassicDuelChallenge({
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
           {/* Word progress and difficulty */}
           <div className="text-center mb-3">
-            <div className="text-sm text-gray-400 mb-1">
+            <div className="text-sm mb-1" style={mutedTextStyle}>
               Word #{(frozenData ? frozenData.wordIndex : index) + 1} of {words.length}
             </div>
             <div>{difficultyPill}</div>
@@ -761,7 +856,12 @@ export default function ClassicDuelChallenge({
           
           {/* Reversed indicator */}
           {phase === "answering" && activeSabotage === "reverse" && (
-            <div className="mb-2 text-sm font-medium text-purple-300 tracking-wide">🔄 REVERSED</div>
+            <div
+              className="mb-2 text-sm font-medium tracking-wide"
+              style={{ color: colors.secondary.light }}
+            >
+              🔄 REVERSED
+            </div>
           )}
 
           {/* Timer OR Countdown controls */}
@@ -769,16 +869,19 @@ export default function ClassicDuelChallenge({
             {/* Timer during answering phase */}
             {questionTimer !== null && phase === 'answering' && (
               <div className="flex items-center justify-center gap-2">
-                <span className={`text-4xl font-bold tabular-nums ${
-                  questionTimer <= TIMER_DANGER_THRESHOLD ? 'text-red-500 animate-pulse' : 
-                  questionTimer <= TIMER_WARNING_THRESHOLD ? 'text-yellow-400' : 
-                  'text-white'
-                }`}>
+                <span
+                  className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
+                  style={{ color: timerColor }}
+                >
                   {Math.max(0, Math.min(TIMER_DISPLAY_MAX, Math.ceil(questionTimer - 1)))}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs" style={mutedTextStyle}>
                   sec
-                  {duel.questionTimerPausedAt && <span className="block text-purple-400">Paused</span>}
+                  {duel.questionTimerPausedAt && (
+                    <span className="block" style={{ color: colors.secondary.light }}>
+                      Paused
+                    </span>
+                  )}
                 </span>
               </div>
             )}
@@ -805,8 +908,9 @@ export default function ClassicDuelChallenge({
             onClick={handlePlayAudio}
             disabled={isPlayingAudio}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${
-              isPlayingAudio ? 'bg-green-600 border-green-700 text-white cursor-not-allowed' : 'bg-blue-600 border-blue-700 hover:bg-blue-500 text-white'
+              isPlayingAudio ? "cursor-not-allowed" : "hover:brightness-110"
             }`}
+            style={listenButtonStyle}
           >
             <span className="text-lg">{isPlayingAudio ? '🔊' : '🔈'}</span>
             <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
@@ -923,12 +1027,16 @@ export default function ClassicDuelChallenge({
         </div>
 
         {/* Footer: Confirm + Sabotage - always visible */}
-        <footer className="flex-shrink-0 flex flex-col items-center gap-2 w-full px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t border-gray-700/50">
+        <footer
+          className="flex-shrink-0 flex flex-col items-center gap-2 w-full px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t"
+          style={subtleBorderStyle}
+        >
         {/* Confirm Button */}
         {!hasAnswered && phase === 'answering' && word !== "done" && (
           <button
-            className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 border-green-800"
-            disabled={!selectedAnswer || isLocked}
+            className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
+            style={confirmButtonStyle}
+            disabled={confirmDisabled}
             onClick={handleConfirmAnswer}
           >
             Confirm Answer
@@ -968,7 +1076,10 @@ export default function ClassicDuelChallenge({
 
         {/* Waiting message */}
         {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
-          <div className="text-yellow-400 font-medium animate-pulse bg-gray-900/60 px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border border-yellow-500/30 text-sm sm:text-base">
+          <div
+            className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
+            style={waitingMessageStyle}
+          >
             Waiting for opponent...
           </div>
         )}
@@ -986,6 +1097,6 @@ export default function ClassicDuelChallenge({
         )}
         </footer>
       </div>
-    </main>
+      </main>
   );
 }

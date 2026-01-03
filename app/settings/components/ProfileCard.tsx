@@ -73,7 +73,15 @@ export function ProfileCard({ user }: ProfileCardProps) {
             <p className="text-[11px] uppercase tracking-wide" style={{ color: colors.text.muted }}>
               LLM
             </p>
-            <p className="text-2xl font-bold" style={{ color: colors.cta.light }}>
+            <p 
+              className="text-xl" 
+              style={{ 
+                color: colors.text.DEFAULT, 
+                fontFamily: "Outfit, system-ui, sans-serif",
+                fontWeight: 500,
+                fontStyle: "normal",
+              }}
+            >
               {llmRemaining}
             </p>
             <p className="text-xs" style={{ color: colors.text.muted }}>
@@ -90,7 +98,15 @@ export function ProfileCard({ user }: ProfileCardProps) {
             <p className="text-[11px] uppercase tracking-wide" style={{ color: colors.text.muted }}>
               TTS
             </p>
-            <p className="text-2xl font-bold" style={{ color: colors.cta.light }}>
+            <p 
+              className="text-xl" 
+              style={{ 
+                color: colors.text.DEFAULT, 
+                fontFamily: "Outfit, system-ui, sans-serif",
+                fontWeight: 500,
+                fontStyle: "normal",
+              }}
+            >
               {ttsRemaining}
             </p>
             <p className="text-xs" style={{ color: colors.text.muted }}>Generations</p>

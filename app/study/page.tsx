@@ -279,37 +279,39 @@ export default function StudyPage() {
         </div>
 
         <div className="flex-1 min-h-0 px-6 pb-4 flex flex-col">
-          <div
-            className="w-full rounded-3xl border-2 p-4 flex-1 min-h-0 overflow-hidden backdrop-blur-sm"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.primary.dark,
-              boxShadow: `0 20px 60px ${colors.primary.glow}`,
-            }}
-          >
-            <div ref={listContainerRef} className="h-full max-w-xl mx-auto">
-              {selectedTheme ? (
-                <List
-                  ref={listRef}
-                  height={listViewportHeight}
-                  itemCount={words.length}
-                  itemSize={getRowSize}
-                  estimatedItemSize={DEFAULT_ROW_HEIGHT}
-                  overscanCount={3}
-                  width={listViewportWidth}
-                  itemData={wordRowData}
-                  itemKey={itemKey}
-                >
-                  {WordRow}
-                </List>
-              ) : (
-                <div
-                  className="h-full flex items-center justify-center text-sm"
-                  style={{ color: colors.text.muted }}
-                >
-                  Select a theme to start studying.
-                </div>
-              )}
+          <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+            <div
+              className="w-full rounded-3xl border-2 p-4 flex-1 min-h-0 overflow-hidden backdrop-blur-sm"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                boxShadow: `0 20px 60px ${colors.primary.glow}`,
+              }}
+            >
+              <div ref={listContainerRef} className="h-full">
+                {selectedTheme ? (
+                  <List
+                    ref={listRef}
+                    height={listViewportHeight}
+                    itemCount={words.length}
+                    itemSize={getRowSize}
+                    estimatedItemSize={DEFAULT_ROW_HEIGHT}
+                    overscanCount={3}
+                    width={listViewportWidth}
+                    itemData={wordRowData}
+                    itemKey={itemKey}
+                  >
+                    {WordRow}
+                  </List>
+                ) : (
+                  <div
+                    className="h-full flex items-center justify-center text-sm"
+                    style={{ color: colors.text.muted }}
+                  >
+                    Select a theme to start studying.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

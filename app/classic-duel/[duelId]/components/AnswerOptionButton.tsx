@@ -1,6 +1,7 @@
 "use client";
 
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
+import { colors } from "@/lib/theme";
 
 /**
  * Context needed to compute option state for an answer button.
@@ -39,11 +40,11 @@ export interface OptionState {
   opponentPickedThis: boolean;
   isNoneOfAbove: boolean;
   disabled: boolean;
-  className: string;
+  style: React.CSSProperties;
 }
 
 /**
- * Computes all boolean flags and className for an answer option.
+ * Computes all boolean flags and styles for an answer option.
  */
 export function computeOptionState(
   answer: string,
@@ -77,28 +78,58 @@ export function computeOptionState(
   // Compute disabled state with proper precedence
   const disabled = (isShowingFeedback && !canEliminateThis) || isEliminated;
 
-  // Compute className
-  let className: string;
+  // Compute styles
+  let style: React.CSSProperties;
   if (isEliminated) {
-    className =
-      "border-gray-700 bg-gray-900 text-gray-600 line-through opacity-40 cursor-not-allowed";
+    style = {
+      borderColor: colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
   } else if (canEliminateThis) {
-    className =
-      "border-orange-500 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 cursor-pointer animate-pulse";
+    style = {
+      borderColor: colors.status.warning.DEFAULT,
+      backgroundColor: `${colors.status.warning.DEFAULT}26`,
+      color: colors.status.warning.dark,
+    };
   } else if (isShowingFeedback) {
     if (isSelected) {
-      className = isCorrectOption
-        ? "border-green-500 bg-green-500/20 text-green-400"
-        : "border-red-500 bg-red-500/20 text-red-400";
+      style = isCorrectOption
+        ? {
+            borderColor: colors.status.success.DEFAULT,
+            backgroundColor: `${colors.status.success.DEFAULT}26`,
+            color: colors.status.success.dark,
+          }
+        : {
+            borderColor: colors.status.danger.DEFAULT,
+            backgroundColor: `${colors.status.danger.DEFAULT}26`,
+            color: colors.status.danger.dark,
+          };
     } else if (isCorrectOption) {
-      className = "border-green-500 bg-green-500/10 text-green-400";
+      style = {
+        borderColor: colors.status.success.DEFAULT,
+        backgroundColor: `${colors.status.success.DEFAULT}1A`,
+        color: colors.status.success.dark,
+      };
     } else {
-      className = "border-gray-600 bg-gray-800 text-gray-400 opacity-50";
+      style = {
+        borderColor: colors.neutral.dark,
+        backgroundColor: colors.background.DEFAULT,
+        color: colors.text.muted,
+      };
     }
   } else if (isSelected) {
-    className = "border-blue-500 bg-blue-500/20 text-blue-400";
+    style = {
+      borderColor: colors.secondary.DEFAULT,
+      backgroundColor: `${colors.secondary.DEFAULT}26`,
+      color: colors.secondary.dark,
+    };
   } else {
-    className = "border-gray-600 bg-gray-800 hover:border-gray-500 text-white";
+    style = {
+      borderColor: colors.primary.dark,
+      backgroundColor: colors.background.elevated,
+      color: colors.text.DEFAULT,
+    };
   }
 
   return {
@@ -109,7 +140,7 @@ export function computeOptionState(
     opponentPickedThis,
     isNoneOfAbove,
     disabled,
-    className,
+    style,
   };
 }
 
@@ -159,13 +190,28 @@ export function AnswerOptionButton({
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
     : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative";
+  const mutedFeedback =
+    state.disabled &&
+    !state.isEliminated &&
+    !state.canEliminateThis &&
+    !state.isSelected &&
+    !state.isCorrectOption;
+  const stateClasses = [
+    state.isEliminated ? "line-through opacity-40 cursor-not-allowed" : "",
+    state.canEliminateThis ? "cursor-pointer animate-pulse hover:brightness-110" : "",
+    mutedFeedback ? "opacity-50" : "",
+    !state.disabled && !state.canEliminateThis ? "hover:brightness-110" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const combinedStyle = { ...style, ...state.style };
 
   return (
     <button
       disabled={state.disabled}
       onClick={onClick}
-      style={style}
-      className={`${baseClasses} ${state.className}`}
+      style={combinedStyle}
+      className={`${baseClasses} ${stateClasses}`}
     >
       {state.isNoneOfAbove && hasNoneOption && showTypeReveal ? (
         <span className="font-medium">
@@ -179,21 +225,28 @@ export function AnswerOptionButton({
       )}
 
       {state.canEliminateThis && (
-        <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span
+          className="absolute -top-2 -right-2 text-xs px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: colors.status.warning.DEFAULT, color: colors.text.inverse }}
+        >
           ✕
         </span>
       )}
 
       {state.opponentPickedThis && (
-        <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span
+          className="absolute -top-2 -left-2 text-xs px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: colors.secondary.DEFAULT, color: colors.text.inverse }}
+        >
           👤
         </span>
       )}
 
       {state.isNoneOfAbove && hasNoneOption && isShowingFeedback && (
-        <span className="absolute top-2 right-2 text-green-400">✓</span>
+        <span className="absolute top-2 right-2" style={{ color: colors.status.success.light }}>
+          ✓
+        </span>
       )}
     </button>
   );
 }
-

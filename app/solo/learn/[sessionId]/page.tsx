@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { TIMER_OPTIONS } from "@/lib/constants";
+import { SOLO_TIMER_OPTIONS } from "./constants";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { formatDuration } from "@/lib/stringUtils";
@@ -533,7 +533,7 @@ export default function LearnPhasePage() {
             </p>
 
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              {TIMER_OPTIONS.map((option) => (
+              {SOLO_TIMER_OPTIONS.map((option) => (
                 <button
                   key={option}
                   onClick={() => setDuration(option)}
@@ -584,11 +584,15 @@ export default function LearnPhasePage() {
         <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
           <button
             onClick={handleExit}
-            className="px-3 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+            className="px-5 py-3 rounded-xl border-2 border-b-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"
             style={{
-              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-              borderColor: colors.status.danger.DEFAULT,
-              color: colors.status.danger.light,
+              backgroundColor: colors.status.danger.DEFAULT,
+              borderTopColor: colors.status.danger.light,
+              borderBottomColor: colors.status.danger.dark,
+              borderLeftColor: colors.status.danger.DEFAULT,
+              borderRightColor: colors.status.danger.DEFAULT,
+              color: "#FFFFFF",
+              textShadow: "0 2px 4px rgba(0,0,0,0.3)",
             }}
           >
             Exit
@@ -663,7 +667,8 @@ export default function LearnPhasePage() {
                       className="flex h-2 w-20 overflow-hidden rounded-full border"
                       style={{ borderColor: colors.primary.dark }}
                     >
-                      <div className="flex-1" style={{ backgroundColor: colors.neutral.dark }} />
+                      {/* Level 0 uses fixed grey (#6B7280) for consistency across palettes */}
+                      <div className="flex-1" style={{ backgroundColor: "#6B7280" }} />
                       <div className="flex-1" style={{ backgroundColor: colors.status.success.DEFAULT }} />
                       <div className="flex-1" style={{ backgroundColor: colors.status.warning.DEFAULT }} />
                       <div className="flex-1" style={{ backgroundColor: colors.status.danger.DEFAULT }} />

@@ -134,49 +134,63 @@ export function UnifiedDuelModal({
             </p>
           </div>
         ) : pendingDuels.length > 0 ? (
-          <div
-            className="p-4 border-2 rounded-2xl"
-            style={{
-              backgroundColor: `${colors.status.warning.DEFAULT}1A`,
-              borderColor: `${colors.status.warning.DEFAULT}66`,
-            }}
-          >
-            <p className="text-xs uppercase tracking-widest mb-2" style={{ color: colors.status.warning.light }}>
-              Pending Duels
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-widest font-emphasis" style={{ color: colors.text.muted }}>
+              Incoming Challenges
             </p>
             {pendingDuels.map(({ challenge: duel, challenger }) => (
-              <div key={duel._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: colors.text.DEFAULT }}>
-                    {challenger?.email || "Unknown"}
-                  </span>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider"
-                    style={{
-                      backgroundColor: duel.mode === "classic" ? `${colors.cta.DEFAULT}1A` : `${colors.secondary.DEFAULT}1A`,
-                      color: duel.mode === "classic" ? colors.cta.light : colors.secondary.light,
-                    }}
-                  >
-                    {duel.mode === "classic" ? "Classic" : "Solo Style"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onAcceptDuel(duel._id)}
-                    disabled={isJoiningDuel}
-                    className={smallActionButtonClassName}
-                    style={successButtonStyle}
-                  >
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => onRejectDuel(duel._id)}
-                    disabled={isJoiningDuel}
-                    className={smallActionButtonClassName}
-                    style={dangerButtonStyle}
-                  >
-                    Reject
-                  </button>
+              <div
+                key={duel._id}
+                className="p-3 border-2 rounded-xl"
+                style={{
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.primary.dark,
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-emphasis shrink-0"
+                      style={{
+                        backgroundColor: duel.mode === "classic" ? `${colors.cta.DEFAULT}20` : `${colors.secondary.DEFAULT}20`,
+                        color: duel.mode === "classic" ? colors.cta.DEFAULT : colors.secondary.DEFAULT,
+                      }}
+                    >
+                      {duel.mode === "classic" ? "⚔️" : "📝"}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-emphasis truncate" style={{ color: colors.text.DEFAULT }}>
+                        {challenger?.email || "Unknown"}
+                      </p>
+                      <p className="text-xs" style={{ color: colors.text.muted }}>
+                        {duel.mode === "classic" ? "Classic Duel" : "Solo Style"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => onAcceptDuel(duel._id)}
+                      disabled={isJoiningDuel}
+                      className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
+                      style={{
+                        backgroundColor: colors.status.success.DEFAULT,
+                        color: colors.background.DEFAULT,
+                      }}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => onRejectDuel(duel._id)}
+                      disabled={isJoiningDuel}
+                      className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
+                      style={{
+                        backgroundColor: `${colors.status.danger.DEFAULT}20`,
+                        color: colors.status.danger.DEFAULT,
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

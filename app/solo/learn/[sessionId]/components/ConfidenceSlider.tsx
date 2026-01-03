@@ -10,9 +10,13 @@ interface ConfidenceSliderProps {
   readOnly?: boolean;
 }
 
-// Color mapping for each confidence level - matches our theme status colors
+// Color mapping for each confidence level
+// Level 0 uses a fixed grey to remain consistent across all palettes
+// Levels 1-3 use the fixed status colors (also consistent across palettes)
+const CONFIDENCE_LEVEL_0_GREY = "#9CA3AF";
+
 const CONFIDENCE_COLORS = {
-  0: colors.neutral.DEFAULT,
+  0: CONFIDENCE_LEVEL_0_GREY,
   1: colors.status.success.DEFAULT,
   2: colors.status.warning.DEFAULT,
   3: colors.status.danger.DEFAULT,

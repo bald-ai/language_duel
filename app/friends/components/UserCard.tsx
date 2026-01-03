@@ -35,15 +35,15 @@ export function UserCard({
     <div 
       className="rounded-xl p-4 flex items-center gap-4 border-2"
       style={{
-        backgroundColor: `${colors.primary.dark}40`,
-        borderColor: colors.primary.dark,
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.light,
       }}
     >
       <Avatar
         src={imageUrl}
         name={nickname || email}
         size={48}
-        borderColor={colors.neutral.dark}
+        borderColor={colors.primary.dark}
       />
 
       <div className="flex-1 min-w-0">
@@ -60,20 +60,22 @@ export function UserCard({
       <div className="shrink-0">
         {isFriend ? (
           <span 
-            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border"
             style={{
-              backgroundColor: `${colors.primary.DEFAULT}30`,
-              color: colors.primary.light,
+              backgroundColor: "transparent",
+              borderColor: colors.status.success.DEFAULT,
+              color: colors.status.success.DEFAULT,
             }}
           >
             Friends
           </span>
         ) : isPending ? (
           <span 
-            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border"
             style={{
-              backgroundColor: `${colors.neutral.DEFAULT}30`,
-              color: colors.neutral.DEFAULT,
+              backgroundColor: "transparent",
+              borderColor: colors.text.muted,
+              color: colors.text.muted,
             }}
           >
             Pending
@@ -85,7 +87,7 @@ export function UserCard({
             className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: colors.primary.DEFAULT,
-              color: colors.text.DEFAULT,
+              color: "white",
             }}
           >
             {isSending ? "..." : "+ Add"}

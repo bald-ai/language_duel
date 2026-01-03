@@ -44,15 +44,15 @@ export function RequestsList({
             key={request.requestId}
             className="rounded-xl p-4 flex items-center gap-4 border-2"
             style={{
-              backgroundColor: `${colors.primary.dark}40`,
-              borderColor: colors.primary.dark,
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.light,
             }}
           >
             <Avatar
               src={request.imageUrl}
               name={request.nickname || request.email}
               size={48}
-              borderColor={colors.neutral.dark}
+              borderColor={colors.primary.dark}
             />
 
             <div className="flex-1 min-w-0">
@@ -72,8 +72,8 @@ export function RequestsList({
                 disabled={isMutating}
                 className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: colors.primary.DEFAULT,
-                  color: colors.text.DEFAULT,
+                  backgroundColor: colors.status.success.DEFAULT,
+                  color: "white",
                 }}
               >
                 {isAccepting ? "..." : "Accept"}
@@ -81,10 +81,11 @@ export function RequestsList({
               <button
                 onClick={() => onReject(request.requestId)}
                 disabled={isMutating}
-                className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border"
                 style={{
-                  backgroundColor: `${colors.cta.dark}80`,
-                  color: colors.text.DEFAULT,
+                  backgroundColor: "transparent",
+                  borderColor: colors.text.muted,
+                  color: colors.text.muted,
                 }}
               >
                 {isRejecting ? "..." : "Reject"}

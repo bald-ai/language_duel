@@ -80,8 +80,8 @@ export function NicknameEditor({
               disabled={isUpdating}
               className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: colors.primary.dark,
-                borderColor: colors.primary.DEFAULT,
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.light,
                 color: colors.text.DEFAULT,
               }}
             />
@@ -114,10 +114,11 @@ export function NicknameEditor({
         <button
           type="submit"
           disabled={isUpdating || !hasChanged || !nickname.trim()}
-          className="w-full py-3 rounded-xl font-bold uppercase transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             backgroundColor: colors.primary.DEFAULT,
-            color: colors.text.DEFAULT,
+            color: "white",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
         >
           {isUpdating ? "Updating..." : "Update Nickname"}

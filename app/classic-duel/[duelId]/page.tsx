@@ -7,9 +7,14 @@ import { useEffect } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import ClassicDuelChallenge from "./ClassicDuelChallenge";
+import { ThemedPage } from "@/app/components/ThemedPage";
+import { colors } from "@/lib/theme";
 
 const FullScreenMessage = ({ children }: { children: React.ReactNode }) => (
-  <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
+  <div
+    className="min-h-screen flex items-center justify-center"
+    style={{ backgroundColor: colors.background.DEFAULT, color: colors.text.DEFAULT }}
+  >
     {children}
   </div>
 );
@@ -49,27 +54,33 @@ export default function ClassicDuelPage() {
     }
   }, [duel, duelId, router]);
 
-  if (!user) return <FullScreenMessage>Sign in first.</FullScreenMessage>;
-  if (duelData === undefined) return <FullScreenMessage>Loading duel...</FullScreenMessage>;
-  if (duelData === null) return <FullScreenMessage>You&apos;re not part of this duel</FullScreenMessage>;
-  if (!theme) return <FullScreenMessage>Loading theme...</FullScreenMessage>;
-  if (!duel) return <FullScreenMessage>Duel not found</FullScreenMessage>;
+  let content: React.ReactNode;
 
-  if (duel.mode !== "classic" || duel.status === "rejected" || duel.status === "stopped") {
-    return <FullScreenMessage>Redirecting...</FullScreenMessage>;
+  if (!user) {
+    content = <FullScreenMessage>Sign in first.</FullScreenMessage>;
+  } else if (duelData === undefined) {
+    content = <FullScreenMessage>Loading duel...</FullScreenMessage>;
+  } else if (duelData === null) {
+    content = <FullScreenMessage>You&apos;re not part of this duel</FullScreenMessage>;
+  } else if (!theme) {
+    content = <FullScreenMessage>Loading theme...</FullScreenMessage>;
+  } else if (!duel) {
+    content = <FullScreenMessage>Duel not found</FullScreenMessage>;
+  } else if (duel.mode !== "classic" || duel.status === "rejected" || duel.status === "stopped") {
+    content = <FullScreenMessage>Redirecting...</FullScreenMessage>;
+  } else if (duel.status === "pending") {
+    content = <FullScreenMessage>Duel not yet accepted...</FullScreenMessage>;
+  } else {
+    content = (
+      <ClassicDuelChallenge
+        duel={duel as Doc<"challenges">}
+        theme={theme}
+        challenger={challenger ?? null}
+        opponent={opponent ?? null}
+        viewerRole={viewerRole as "challenger" | "opponent"}
+      />
+    );
   }
 
-  if (duel.status === "pending") {
-    return <FullScreenMessage>Duel not yet accepted...</FullScreenMessage>;
-  }
-
-  return (
-    <ClassicDuelChallenge
-      duel={duel as Doc<"challenges">}
-      theme={theme}
-      challenger={challenger ?? null}
-      opponent={opponent ?? null}
-      viewerRole={viewerRole as "challenger" | "opponent"}
-    />
-  );
+  return <ThemedPage>{content}</ThemedPage>;
 }

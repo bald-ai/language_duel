@@ -22,11 +22,15 @@ import {
   Level3Input,
 } from "@/app/game/levels";
 
+// Fixed grey for level 0 to remain consistent across all palettes
+const LEVEL_0_GREY = "#9CA3AF";
+const LEVEL_0_GREY_DARK = "#6B7280";
+
 const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: string; backgroundColor: string }> = {
   0: {
-    color: colors.text.muted,
-    borderColor: colors.neutral.dark,
-    backgroundColor: `${colors.neutral.dark}26`,
+    color: LEVEL_0_GREY,
+    borderColor: LEVEL_0_GREY_DARK,
+    backgroundColor: `${LEVEL_0_GREY_DARK}26`,
   },
   1: {
     color: colors.status.success.DEFAULT,
@@ -251,20 +255,24 @@ export default function SoloChallengePage() {
         style={{ color: colors.neutral.DEFAULT }}
       />
 
-      <h1
-        className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none"
-        style={{
-          background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
-        }}
-      >
-        Solo{" "}
+      <h1 className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none text-center">
         <span
+          className="title-text-outline"
+          data-text="Solo"
           style={{
-            background: `linear-gradient(135deg, ${colors.cta.DEFAULT} 0%, ${colors.cta.lighter} 50%, ${colors.cta.DEFAULT} 100%)`,
+            background: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          Solo
+        </span>{" "}
+        <span
+          className="title-text-outline-accent"
+          data-text="Challenge"
+          style={{
+            background: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`,
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -316,11 +324,15 @@ export default function SoloChallengePage() {
       <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
         <button
           onClick={handleExit}
-          className="px-3 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+          className="px-5 py-3 rounded-xl border-2 border-b-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"
           style={{
-            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-            borderColor: colors.status.danger.DEFAULT,
-            color: colors.status.danger.light,
+            backgroundColor: colors.status.danger.DEFAULT,
+            borderTopColor: colors.status.danger.light,
+            borderBottomColor: colors.status.danger.dark,
+            borderLeftColor: colors.status.danger.DEFAULT,
+            borderRightColor: colors.status.danger.DEFAULT,
+            color: "#FFFFFF",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
         >
           Exit
@@ -481,7 +493,7 @@ export default function SoloChallengePage() {
 
       <div
         className="mt-4 text-xs uppercase tracking-widest"
-        style={{ color: colors.text.muted }}
+        style={{ color: colors.text.DEFAULT }}
       >
         Questions: {session.questionsAnswered} | Correct: {session.correctAnswers}
       </div>

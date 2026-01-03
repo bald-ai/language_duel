@@ -29,7 +29,7 @@ interface ThemeListProps {
 }
 
 const actionButtonClassName =
-  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
+  "w-full bg-gradient-to-b border-t-2 border-b-3 border-x-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-md";
 
 const primaryActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
@@ -51,8 +51,9 @@ const ctaActionStyle = {
   textShadow: "0 2px 4px rgba(0,0,0,0.4)",
 };
 
-const ITEM_GAP = 12;
-const ITEM_SIZE = 100;
+const ITEM_GAP = 8;
+const ITEM_SIZE = 72;
+const LIST_CONTAINER_PADDING = 24;
 
 interface ThemeCardProps {
   theme: ThemeWithOwner;
@@ -75,10 +76,10 @@ const ThemeCard = memo(function ThemeCard({
 
   const categoryLabel =
     theme.wordType === "verbs"
-      ? "Verbs"
+      ? "VERBS"
       : theme.wordType === "nouns"
-        ? "Nouns"
-        : "No category";
+        ? "NOUNS"
+        : "NO CATEGORY";
 
   const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
 
@@ -89,25 +90,31 @@ const ThemeCard = memo(function ThemeCard({
 
   return (
     <div
-      className="relative w-full p-4 border-2 rounded-2xl transition hover:brightness-110 overflow-hidden"
+      className="relative w-full px-4 py-3 border-2 rounded-2xl transition hover:brightness-105 overflow-hidden"
       style={{
         backgroundColor: colors.background.DEFAULT,
         borderColor: colors.primary.dark,
       }}
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
+      <div className="flex items-center justify-between gap-3">
         <button
           onClick={() => onOpenTheme(theme)}
           disabled={isMutating}
           className="text-left flex-1 min-w-0 transition hover:brightness-110"
         >
           <h3
-            className="font-bold text-xl uppercase tracking-wide leading-snug whitespace-normal break-words"
+            className="font-bold text-base uppercase tracking-wide leading-tight truncate"
             title={theme.name}
             style={{ color: colors.text.DEFAULT }}
           >
             {theme.name}
           </h3>
+          <div
+            className="text-xs tracking-wide mt-0.5"
+            style={{ color: colors.text.muted }}
+          >
+            {theme.words.length} words • {categoryLabel} • {visibilityLabel}{ownerInfo}
+          </div>
         </button>
         <ThemeCardMenu
           themeId={theme._id}
@@ -118,13 +125,6 @@ const ThemeCard = memo(function ThemeCard({
           onDuplicate={onDuplicateTheme}
           onDelete={onDeleteTheme}
         />
-      </div>
-
-      <div
-        className="text-sm uppercase tracking-wide"
-        style={{ color: colors.text.muted }}
-      >
-        {theme.words.length} words • {categoryLabel} • {visibilityLabel}{ownerInfo}
       </div>
     </div>
   );
@@ -203,8 +203,9 @@ export function ThemeList({
 }: ThemeListProps) {
   const listRef = useRef<VariableSizeList | null>(null);
   const sizeMapRef = useRef<Map<number, number>>(new Map());
+  const listSpaceRef = useRef<HTMLDivElement | null>(null);
   const listContainerRef = useRef<HTMLDivElement | null>(null);
-  const [listHeight, setListHeight] = useState(0);
+  const [availableHeight, setAvailableHeight] = useState(0);
   const [listWidth, setListWidth] = useState(0);
 
   const filterDisplay = myThemesOnly
@@ -240,6 +241,27 @@ export function ThemeList({
   }, [themes]);
 
   useEffect(() => {
+    const container = listSpaceRef.current;
+
+    if (!container || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setAvailableHeight(Math.max(0, Math.floor(entry.contentRect.height)));
+      }
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     const container = listContainerRef.current;
 
     if (!container || typeof ResizeObserver === "undefined") {
@@ -249,7 +271,6 @@ export function ThemeList({
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        setListHeight(Math.max(0, Math.floor(entry.contentRect.height)));
         setListWidth(Math.max(0, Math.floor(entry.contentRect.width)));
       }
     });
@@ -259,7 +280,7 @@ export function ThemeList({
     return () => {
       observer.disconnect();
     };
-  }, [themes.length]);
+  }, []);
 
   const setRowSize = useCallback((index: number, size: number) => {
     const currentSize = sizeMapRef.current.get(index);
@@ -302,53 +323,45 @@ export function ThemeList({
   }, []);
 
   const listViewportHeight = useMemo(() => {
-    if (listHeight > 0) {
-      return listHeight;
-    }
+    const totalContentHeight = Math.max(themes.length * ITEM_SIZE, ITEM_SIZE);
 
-    const visibleCount = Math.min(themes.length, 6);
-    return Math.max(ITEM_SIZE, visibleCount * ITEM_SIZE);
-  }, [listHeight, themes.length]);
+    // Fallback before ResizeObserver fires: estimate based on viewport height
+    // Subtract approximate space for header (~200px), footer button (~60px), and page padding (~48px)
+    const estimatedAvailableHeight =
+      typeof window !== "undefined" ? Math.max(300, window.innerHeight - 308) : 500;
+    const availableSpace = availableHeight > 0 ? availableHeight : estimatedAvailableHeight;
+    const listSpace = Math.max(0, availableSpace - LIST_CONTAINER_PADDING);
+
+    return Math.min(listSpace, totalContentHeight);
+  }, [availableHeight, themes.length]);
 
   const listViewportWidth = useMemo(() => Math.max(1, listWidth), [listWidth]);
 
   return (
     <>
-      <header className="w-full mb-6 animate-slide-up">
+      <header className="w-full mb-4 animate-slide-up">
         <div
-          className="w-full rounded-3xl border-2 p-4 sm:p-5 flex flex-col gap-3 backdrop-blur-sm shadow-lg"
+          className="w-full rounded-2xl border-2 px-4 py-3 flex flex-col gap-2 backdrop-blur-sm shadow-md"
           style={{
             backgroundColor: colors.background.elevated,
             borderColor: colors.primary.dark,
-            boxShadow: `0 16px 40px ${colors.primary.glow}`,
+            boxShadow: `0 8px 24px ${colors.primary.glow}`,
           }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0 text-center">
-              <h1
-                className="title-font text-2xl sm:text-3xl uppercase tracking-wider truncate"
-                style={{
-                  background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
-                }}
-              >
-                Themes
-              </h1>
-              <p className="text-xs sm:text-sm mt-1" style={{ color: colors.text.muted }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm" style={{ color: colors.text.muted }}>
                 {subtitle}
               </p>
             </div>
             {onOpenFriendFilter && (
               <button
                 onClick={onOpenFriendFilter}
-                className="p-2 rounded-xl border-2 transition hover:brightness-110"
+                className="p-1.5 rounded-lg border-2 transition hover:brightness-110"
                 style={filterButtonStyle}
                 title="Filter themes"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -362,7 +375,7 @@ export function ThemeList({
           {isFiltering && onClearFriendFilter && (
             <button
               onClick={onClearFriendFilter}
-              className="mt-1 w-full py-1.5 text-xs sm:text-sm uppercase tracking-widest transition"
+              className="w-full py-1 text-xs uppercase tracking-widest transition"
               style={{ color: colors.cta.lighter }}
             >
               Clear Filter
@@ -370,35 +383,40 @@ export function ThemeList({
           )}
         </div>
 
-        <div className="mt-4 animate-slide-up delay-100">
+        <div className="mt-3 animate-slide-up delay-100">
           <button onClick={onGenerateNew} className={actionButtonClassName} style={ctaActionStyle}>
             Generate New
           </button>
         </div>
       </header>
 
-      <div
-        className="w-full rounded-3xl border-2 p-4 mb-4 flex-1 min-h-0 overflow-hidden backdrop-blur-sm animate-slide-up delay-200"
-        style={{
-          backgroundColor: colors.background.elevated,
-          borderColor: colors.primary.dark,
-          boxShadow: `0 20px 60px ${colors.primary.glow}`,
-        }}
-      >
-        <div ref={listContainerRef} className="h-full">
-          <List
-            height={listViewportHeight}
-            itemCount={themes.length}
-            itemSize={getItemSize}
-            estimatedItemSize={ITEM_SIZE}
-            overscanCount={3}
-            width={listViewportWidth}
-            itemData={listData}
-            itemKey={itemKey}
-            ref={listRef}
-          >
-            {ThemeRow}
-          </List>
+      <div ref={listSpaceRef} className="w-full flex-1 min-h-0 mb-3">
+        <div
+          className="w-full rounded-2xl border-2 p-3 overflow-hidden backdrop-blur-sm animate-slide-up delay-200"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            boxShadow: `0 12px 32px ${colors.primary.glow}`,
+            // Cap container height at content size to eliminate white space when few items
+            maxHeight:
+              listViewportHeight > 0 ? listViewportHeight + LIST_CONTAINER_PADDING : undefined,
+          }}
+        >
+          <div ref={listContainerRef} className="h-full">
+            <List
+              height={listViewportHeight}
+              itemCount={themes.length}
+              itemSize={getItemSize}
+              estimatedItemSize={ITEM_SIZE}
+              overscanCount={3}
+              width={listViewportWidth}
+              itemData={listData}
+              itemKey={itemKey}
+              ref={listRef}
+            >
+              {ThemeRow}
+            </List>
+          </div>
         </div>
       </div>
 

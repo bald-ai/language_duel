@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { MAX_SABOTAGES, SABOTAGE_OPTIONS, type SabotageEffect } from "@/app/game/sabotage";
+import { colors } from "@/lib/theme";
 
 interface SabotageSystemUIProps {
   status: string;
@@ -37,16 +38,37 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
     return null;
   }
 
+  const containerStyle = {
+    borderColor: colors.primary.dark,
+    backgroundColor: `${colors.background.DEFAULT}CC`,
+  };
+  const disabledButtonStyle = {
+    borderColor: colors.neutral.dark,
+    backgroundColor: colors.background.DEFAULT,
+    color: colors.text.muted,
+  };
+  const enabledButtonStyle = {
+    borderColor: colors.primary.dark,
+    backgroundColor: colors.background.elevated,
+    color: colors.text.DEFAULT,
+  };
+
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="text-sm font-medium text-gray-200 uppercase tracking-wider opacity-80">
+      <div
+        className="text-sm font-medium uppercase tracking-wider opacity-80"
+        style={{ color: colors.text.DEFAULT }}
+      >
         Sabotage{" "}
-        <span className="text-gray-300 tabular-nums">
+        <span className="tabular-nums" style={{ color: colors.text.DEFAULT }}>
           {sabotagesRemaining}/{MAX_SABOTAGES}
         </span>
       </div>
 
-      <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border border-gray-700 bg-gray-900/80 backdrop-blur-md shadow-xl">
+      <div
+        className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border backdrop-blur-md shadow-xl"
+        style={containerStyle}
+      >
         {SABOTAGE_OPTIONS.map((option) => {
           // Rule: Sabotage can't be sent if the opponent has already answered
           const disabled =
@@ -63,9 +85,10 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
               disabled={disabled}
               className={`h-11 w-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
                 disabled
-                  ? "border-gray-700 bg-gray-800 text-gray-500 cursor-not-allowed opacity-60"
-                  : "border-gray-600 bg-gray-800 hover:bg-gray-700 hover:border-gray-500 active:scale-95"
+                  ? "cursor-not-allowed opacity-60"
+                  : "hover:brightness-110 active:scale-95"
               }`}
+              style={disabled ? disabledButtonStyle : enabledButtonStyle}
               title={option.label}
             >
               {option.emoji}
