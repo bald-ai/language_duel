@@ -2,6 +2,7 @@
 
 import { memo, useMemo, useCallback } from "react";
 import { colors } from "@/lib/theme";
+import { stripIrr } from "@/lib/stringUtils";
 
 interface LetterGroupsProps {
   answer: string;
@@ -9,16 +10,6 @@ interface LetterGroupsProps {
   hintsRemaining: number;
   onRevealLetter: (position: number) => void;
 }
-
-// Memoized static styles
-const letterSlotStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-} as const;
-
-const revealedLetterStyle = {
-  color: colors.secondary.light,
-} as const;
 
 export const LetterGroups = memo(function LetterGroups({
   answer,
@@ -28,7 +19,7 @@ export const LetterGroups = memo(function LetterGroups({
 }: LetterGroupsProps) {
   // Memoize word groups computation to avoid recalculating on every render
   const wordGroups = useMemo(() => {
-    const letters = answer.split("");
+    const letters = stripIrr(answer).split("");
     const groups: Array<Array<{ idx: number; letter: string }>> = [];
     let currentGroup: Array<{ idx: number; letter: string }> = [];
 
@@ -75,10 +66,16 @@ export const LetterGroups = memo(function LetterGroups({
                     ? ""
                     : "cursor-not-allowed opacity-50"
                 }`}
-                style={letterSlotStyle}
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                }}
               >
                 {isRevealed && (
-                  <span className="text-base font-bold" style={revealedLetterStyle}>
+                  <span
+                    className="text-base font-bold"
+                    style={{ color: colors.secondary.light }}
+                  >
                     {letter.toUpperCase()}
                   </span>
                 )}

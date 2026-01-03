@@ -8,7 +8,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { SOLO_TIMER_OPTIONS } from "./constants";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
-import { formatDuration } from "@/lib/stringUtils";
+import { formatDuration, stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components";
 import { useDraggableList } from "./hooks/useDraggableList";
 import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
@@ -137,7 +137,7 @@ const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
 }: MemoizedWordCardWrapperProps) {
   const wordKey = `${themeId}-${originalIndex}`;
   const state = hintState;
-  const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+  const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
   const hintsRemaining = maxHints - state.hintCount;
 
@@ -281,7 +281,8 @@ export default function LearnPhasePage() {
   }, []);
 
   const revealFullWord = useCallback((wordKey: string, answer: string) => {
-    const allPositions = answer
+    const strippedAnswer = stripIrr(answer);
+    const allPositions = strippedAnswer
       .split("")
       .map((char, idx) => (char !== " " ? idx : -1))
       .filter((idx) => idx !== -1);
@@ -746,7 +747,7 @@ export default function LearnPhasePage() {
               const wordKey = `${themeId}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
-              const totalLetters = word.answer.split("").filter((l) => l !== " ").length;
+              const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
               const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
               const hintsRemaining = maxHints - state.hintCount;
 

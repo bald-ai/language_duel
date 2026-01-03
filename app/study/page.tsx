@@ -9,6 +9,7 @@ import { StudyHeader, WordItem } from "./components";
 import { useTTS } from "./hooks/useTTS";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+import { stripIrr } from "@/lib/stringUtils";
 import {
   VariableSizeList as List,
   type ListChildComponentProps,
@@ -93,6 +94,7 @@ export default function StudyPage() {
   const themeList = useMemo(() => themes ?? [], [themes]);
   const [selectedThemeId, setSelectedThemeId] = useState("");
   const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
+  const [isAllRevealed, setIsAllRevealed] = useState(false);
   const listRef = useRef<VariableSizeList | null>(null);
   const sizeMapRef = useRef<Map<number, number>>(new Map());
   const listContainerRef = useRef<HTMLDivElement | null>(null);
@@ -189,7 +191,8 @@ export default function StudyPage() {
   }, []);
 
   const revealFullWord = useCallback((wordKey: string, answer: string) => {
-    const allPositions = answer
+    const strippedAnswer = stripIrr(answer);
+    const allPositions = strippedAnswer
       .split("")
       .map((char, idx) => (char !== " " ? idx : -1))
       .filter((idx) => idx !== -1);
@@ -211,11 +214,43 @@ export default function StudyPage() {
       delete next[wordKey];
       return next;
     });
+    // When any word is hidden, we're no longer in "all revealed" state
+    setIsAllRevealed(false);
   }, []);
 
   const handleThemeChange = useCallback((themeId: string) => {
     setSelectedThemeId(themeId);
   }, []);
+
+  // Reset isAllRevealed when theme changes
+  useEffect(() => {
+    setIsAllRevealed(false);
+  }, [resolvedThemeId]);
+
+  const handleToggleRevealAll = useCallback(() => {
+    if (isAllRevealed) {
+      // Hide all: clear all hint states
+      setHintStates({});
+      setIsAllRevealed(false);
+    } else {
+      // Reveal all: iterate through all words and reveal them
+      const newHintStates: Record<string, HintState> = {};
+      words.forEach((word) => {
+        const wordKey = `${resolvedThemeId}-${word.word}-${word.answer}`;
+        const strippedAnswer = stripIrr(word.answer);
+        const allPositions = strippedAnswer
+          .split("")
+          .map((char, idx) => (char !== " " ? idx : -1))
+          .filter((idx) => idx !== -1);
+        newHintStates[wordKey] = {
+          hintCount: allPositions.length,
+          revealedPositions: allPositions,
+        };
+      });
+      setHintStates(newHintStates);
+      setIsAllRevealed(true);
+    }
+  }, [isAllRevealed, words, resolvedThemeId]);
 
   const wordRowData = useMemo(
     () => ({
@@ -274,6 +309,8 @@ export default function StudyPage() {
               themes={themeList}
               selectedTheme={selectedTheme}
               onThemeChange={handleThemeChange}
+              isAllRevealed={isAllRevealed}
+              onToggleRevealAll={handleToggleRevealAll}
             />
           </div>
         </div>

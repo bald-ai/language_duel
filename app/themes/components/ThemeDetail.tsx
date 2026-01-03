@@ -389,13 +389,9 @@ export function ThemeDetail({
   };
 
   return (
-    <div className="relative w-full flex flex-col gap-4 pb-28">
-      <div
-        className="fixed inset-0 -z-10 pointer-events-none"
-        style={{ backgroundColor: `${colors.background.DEFAULT}E6` }}
-      />
-      {/* Sticky Header */}
-      <header className="sticky top-4 z-20 w-full animate-slide-up">
+    <div className="w-full flex-1 min-h-0 flex flex-col">
+      {/* Header */}
+      <header className="w-full flex-shrink-0 pb-4 animate-slide-up">
         <div
           className="w-full rounded-2xl border-2 px-4 py-3 backdrop-blur-sm shadow-lg"
           style={{
@@ -524,10 +520,10 @@ export function ThemeDetail({
         </div>
       </header>
 
-      {/* Words List */}
-      <div className="w-full">
+      {/* Words List - scrollable container */}
+      <div className="flex-1 min-h-0 flex flex-col">
         <div
-          className="rounded-3xl border-2 p-4 backdrop-blur-sm animate-slide-up delay-100"
+          className="flex-1 min-h-0 rounded-3xl border-2 p-4 overflow-y-auto backdrop-blur-sm animate-slide-up delay-100"
           style={{
             backgroundColor: colors.background.elevated,
             borderColor: colors.primary.dark,
@@ -564,12 +560,10 @@ export function ThemeDetail({
             })}
           </div>
         </div>
-        {/* Spacer for floating action dock */}
-        <div className="h-24"></div>
       </div>
 
-      {/* Floating Action Dock */}
-      <div className="fixed bottom-4 left-1/2 z-20 w-full max-w-xl -translate-x-1/2 px-6 animate-slide-up delay-200">
+      {/* Action Dock - part of flex layout, not fixed */}
+      <div className="w-full flex-shrink-0 pt-4 animate-slide-up delay-200">
         <div
           className="rounded-2xl border-2 p-2 backdrop-blur-sm shadow-lg"
           style={{

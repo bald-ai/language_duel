@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { EyeIcon, EyeSlashIcon } from "@/app/components/icons";
 
 interface Theme {
   _id: Id<"themes">;
@@ -13,26 +14,30 @@ interface StudyHeaderProps {
   themes: Theme[];
   selectedTheme: Theme | null;
   onThemeChange: (themeId: string) => void;
+  isAllRevealed: boolean;
+  onToggleRevealAll: () => void;
 }
 
 function StudyHeaderComponent({
   themes,
   selectedTheme,
   onThemeChange,
+  isAllRevealed,
+  onToggleRevealAll,
 }: StudyHeaderProps) {
   const selectedThemeName = selectedTheme?.name ?? "Select theme";
 
   return (
     <header className="w-full flex-shrink-0">
       <div
-        className="w-full rounded-3xl border-2 p-4 sm:p-5 flex items-center justify-center backdrop-blur-sm shadow-lg"
+        className="w-full rounded-3xl border-2 p-4 sm:p-5 flex items-center justify-between backdrop-blur-sm shadow-lg"
         style={{
           backgroundColor: colors.background.elevated,
           borderColor: colors.primary.dark,
           boxShadow: `0 16px 40px ${colors.primary.glow}`,
         }}
       >
-        <div className="relative w-full max-w-xs">
+        <div className="relative flex-1">
           <div
             className="px-5 py-3 rounded-2xl font-semibold text-sm uppercase tracking-widest border-2 flex items-center justify-center gap-2"
             style={{
@@ -73,6 +78,24 @@ function StudyHeaderComponent({
             ))}
           </select>
         </div>
+
+        <button
+          onClick={onToggleRevealAll}
+          className="ml-4 w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition hover:brightness-110"
+          style={{
+            backgroundColor: colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
+          aria-label={isAllRevealed ? "Hide All" : "Reveal All"}
+          title={isAllRevealed ? "Hide All" : "Reveal All"}
+        >
+          {isAllRevealed ? (
+            <EyeSlashIcon className="w-5 h-5" />
+          ) : (
+            <EyeIcon className="w-5 h-5" />
+          )}
+        </button>
       </div>
     </header>
   );

@@ -3,9 +3,10 @@
 import { memo, useMemo } from "react";
 import type { WordEntry } from "@/lib/types";
 import { LetterGroups } from "@/app/solo/learn/[sessionId]/components/LetterGroups";
-import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
+import { ResetIcon, EyeIcon, EyeSlashIcon, SpeakerIcon } from "@/app/components/icons";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { colors } from "@/lib/theme";
+import { stripIrr } from "@/lib/stringUtils";
 
 interface HintState {
   hintCount: number;
@@ -22,41 +23,6 @@ interface WordItemProps {
   onReset: () => void;
   onPlayTTS: () => void;
 }
-
-const cardStyleConst = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.primary.dark,
-} as const;
-
-const iconButtonStyleConst = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-} as const;
-
-const disabledButtonStyleConst = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.neutral.dark,
-  color: colors.text.muted,
-} as const;
-
-const playingButtonStyleConst = {
-  backgroundColor: colors.secondary.DEFAULT,
-  borderColor: colors.secondary.dark,
-  color: colors.text.DEFAULT,
-} as const;
-
-const hintPillActiveStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-} as const;
-
-const hintPillInactiveStyle = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.neutral.dark,
-  color: colors.text.muted,
-} as const;
 
 const arePositionsEqual = (left: number[], right: number[]) => {
   if (left.length !== right.length) {
@@ -106,21 +72,54 @@ function WordItemComponent({
 }: WordItemProps) {
   const { hintCount, revealedPositions } = hintState;
   const totalLetters = useMemo(
-    () => word.answer.split("").filter((letter) => letter !== " ").length,
+    () => stripIrr(word.answer).split("").filter((letter) => letter !== " ").length,
     [word.answer]
   );
   const maxHints = useMemo(() => Math.ceil(totalLetters / LETTERS_PER_HINT), [totalLetters]);
   const hintsRemaining = maxHints - hintCount;
   const hasHintsRemaining = hintsRemaining > 0;
-  const hintPillStyle = hasHintsRemaining ? hintPillActiveStyle : hintPillInactiveStyle;
+  const isFullyRevealed = revealedPositions.length >= totalLetters;
+
+  // Compute styles at render time so they update when palette changes
+  const cardStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
+  };
+
+  const iconButtonStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  const hintPillStyle = hasHintsRemaining
+    ? {
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        color: colors.text.DEFAULT,
+      }
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.neutral.dark,
+        color: colors.text.muted,
+      };
+
   const ttsButtonStyle = isTTSPlaying
-    ? playingButtonStyleConst
+    ? {
+        backgroundColor: colors.secondary.DEFAULT,
+        borderColor: colors.secondary.dark,
+        color: colors.text.DEFAULT,
+      }
     : isTTSDisabled
-    ? disabledButtonStyleConst
-    : iconButtonStyleConst;
+    ? {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.neutral.dark,
+        color: colors.text.muted,
+      }
+    : iconButtonStyle;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border-2 p-4 transition" style={cardStyleConst}>
+    <div className="flex flex-col gap-3 rounded-2xl border-2 p-4 transition" style={cardStyle}>
       {/* Word & Answer Section */}
       <div className="flex-1 min-w-0">
         <div className="text-lg font-medium mb-1" style={{ color: colors.text.DEFAULT }}>
@@ -151,18 +150,22 @@ function WordItemComponent({
         <button
           onClick={onReset}
           className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-          style={iconButtonStyleConst}
+          style={iconButtonStyle}
         >
           <ResetIcon className="w-4 h-4" />
         </button>
 
-        {/* Reveal Full Word Button */}
+        {/* Reveal/Hide Word Button */}
         <button
-          onClick={onRevealFullWord}
+          onClick={isFullyRevealed ? onReset : onRevealFullWord}
           className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-          style={iconButtonStyleConst}
+          style={iconButtonStyle}
         >
-          <EyeIcon className="w-4 h-4" />
+          {isFullyRevealed ? (
+            <EyeSlashIcon className="w-4 h-4" />
+          ) : (
+            <EyeIcon className="w-4 h-4" />
+          )}
         </button>
 
         {/* TTS Button */}
