@@ -74,7 +74,7 @@ export const LetterGroups = memo(function LetterGroups({
                 {isRevealed && (
                   <span
                     className="text-base font-bold"
-                    style={{ color: colors.secondary.light }}
+                    style={{ color: colors.text.DEFAULT, fontFamily: "system-ui, -apple-system, sans-serif" }}
                   >
                     {letter.toUpperCase()}
                   </span>

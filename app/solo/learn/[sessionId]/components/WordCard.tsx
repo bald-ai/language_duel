@@ -133,7 +133,7 @@ export const WordCard = memo(function WordCard({
               </div>
               <div
                 className="font-bold text-lg leading-snug break-words"
-                style={{ color: colors.secondary.light }}
+                style={{ color: colors.text.DEFAULT, fontFamily: "system-ui, -apple-system, sans-serif" }}
               >
                 {word.answer}
               </div>

@@ -83,7 +83,7 @@ export const WordCard = memo(function WordCard({
                     style={{ borderColor: colors.neutral.dark }}
                   >
                     {revealedPositions.includes(idx) && (
-                      <span className="text-base font-bold" style={{ color: colors.status.success.light }}>
+                      <span className="text-base font-bold" style={{ color: colors.text.DEFAULT, fontFamily: "system-ui, -apple-system, sans-serif" }}>
                         {letter.toUpperCase()}
                       </span>
                     )}

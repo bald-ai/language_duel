@@ -199,6 +199,7 @@ export function Level2TypingInput({
             backgroundColor: colors.background.elevated,
             borderColor: submitted ? colors.neutral.dark : colors.primary.dark,
             color: colors.text.DEFAULT,
+            fontFamily: "system-ui, -apple-system, sans-serif",
           }}
         >
           {anagramLetters[idx]?.toUpperCase()}

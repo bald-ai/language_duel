@@ -71,9 +71,9 @@ export function HintGiverView({
       const canClick = !isRevealed && hintsRemaining > 0;
 
       let letterColor = colors.text.muted;
-      if (isHintRevealed) letterColor = colors.secondary.light; // Hint we provided
+      if (isHintRevealed) letterColor = colors.text.DEFAULT; // Hint we provided
       else if (isRequesterRevealed) letterColor = colors.text.DEFAULT; // Already revealed by requester
-      else if (typedChar) letterColor = isCorrect ? colors.status.success.light : colors.status.danger.light;
+      else if (typedChar) letterColor = isCorrect ? colors.status.success.DEFAULT : colors.status.danger.DEFAULT;
 
       const hintButtonStyle = isHintRevealed
         ? {
@@ -118,7 +118,7 @@ export function HintGiverView({
             style={{ borderColor: canClick ? colors.secondary.DEFAULT : colors.neutral.dark }}
             onClick={() => canClick && onProvideHint(slotIdx)}
           >
-            <span className="text-xl font-bold" style={{ color: letterColor }}>
+            <span className="text-xl font-bold" style={{ color: letterColor, fontFamily: "system-ui, -apple-system, sans-serif" }}>
               {isRevealed ? slot.char.toUpperCase() : typedChar.toUpperCase()}
             </span>
           </div>

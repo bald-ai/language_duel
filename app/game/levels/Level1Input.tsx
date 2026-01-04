@@ -216,13 +216,8 @@ export function Level1Input({
       const isCursor = cursorPosition === slotIdx;
 
       const letterStyle = {
-        color: isRevealed
-          ? colors.text.DEFAULT
-          : typedChar
-          ? isCorrect
-            ? colors.status.success.light
-            : colors.status.danger.light
-          : colors.text.muted,
+        color: colors.text.DEFAULT,
+        fontFamily: "system-ui, -apple-system, sans-serif",
       };
 
       currentWordSlots.push(
