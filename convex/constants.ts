@@ -91,7 +91,7 @@ export const HINT_PROVIDER_BONUS = 0.5;
 // ===========================================
 // Difficulty Distribution Ratios (Classic Mode)
 // ===========================================
-/** Target ratio for progressive difficulty: 40% Easy, 30% Medium, 30% Hard */
+/** Target ratio for easy difficulty: 40% Easy, 30% Medium, 30% Hard */
 export const DIFFICULTY_RATIO_EASY = 0.4;
 export const DIFFICULTY_RATIO_MEDIUM = 0.3;
 export const DIFFICULTY_RATIO_HARD = 0.3;

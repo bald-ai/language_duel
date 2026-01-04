@@ -56,12 +56,7 @@ export interface DifficultyDistribution {
   total: number;
 }
 
-export type ClassicDifficultyPreset =
-  | "easy_only"
-  | "easy_medium"
-  | "progressive"
-  | "medium_hard"
-  | "hard_only";
+export type ClassicDifficultyPreset = "easy" | "medium" | "hard";
 
 // ============================================================================
 // Distribution Calculators
@@ -95,32 +90,23 @@ function calculateProgressiveClassicDistribution(wordCount: number): DifficultyD
 
 export function calculateClassicDifficultyDistribution(
   wordCount: number,
-  preset: ClassicDifficultyPreset = "progressive"
+  preset: ClassicDifficultyPreset = "easy"
 ): DifficultyDistribution {
   if (wordCount <= 0) {
     return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
   }
 
   switch (preset) {
-    case "easy_only": {
-      const easy = wordCount;
-      return { easy, medium: 0, hard: 0, easyEnd: easy, mediumEnd: easy, total: wordCount };
-    }
-    case "easy_medium": {
-      const easy = Math.ceil(wordCount / 2);
-      const medium = wordCount - easy;
-      return { easy, medium, hard: 0, easyEnd: easy, mediumEnd: easy + medium, total: wordCount };
-    }
-    case "medium_hard": {
+    case "medium": {
       const medium = Math.ceil(wordCount / 2);
       const hard = wordCount - medium;
       return { easy: 0, medium, hard, easyEnd: 0, mediumEnd: medium, total: wordCount };
     }
-    case "hard_only": {
+    case "hard": {
       const hard = wordCount;
       return { easy: 0, medium: 0, hard, easyEnd: 0, mediumEnd: 0, total: wordCount };
     }
-    case "progressive":
+    case "easy":
     default:
       return calculateProgressiveClassicDistribution(wordCount);
   }
@@ -128,7 +114,7 @@ export function calculateClassicDifficultyDistribution(
 
 // Backwards-compatible helper for non-classic flows.
 export function calculateDifficultyDistribution(wordCount: number): DifficultyDistribution {
-  return calculateClassicDifficultyDistribution(wordCount, "progressive");
+  return calculateClassicDifficultyDistribution(wordCount, "easy");
 }
 
 // ============================================================================

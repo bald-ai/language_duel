@@ -110,7 +110,7 @@ export const answerDuel = mutation({
 
     // Determine difficulty and points
     const wordCount = theme.words.length;
-    const classicPreset = (duel.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
+    const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
     const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const pointsForCorrect = getPointsForIndex(questionIndex, distribution);
     const isHardMode = isHardModeIndex(questionIndex, distribution);

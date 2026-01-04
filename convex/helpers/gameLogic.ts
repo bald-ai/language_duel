@@ -36,12 +36,7 @@ export interface DifficultyDistribution {
   total: number;
 }
 
-export type ClassicDifficultyPreset =
-  | "easy_only"
-  | "easy_medium"
-  | "progressive"
-  | "medium_hard"
-  | "hard_only";
+export type ClassicDifficultyPreset = "easy" | "medium" | "hard";
 
 export interface WordState {
   wordIndex: number;
@@ -67,7 +62,7 @@ export interface NextQuestionResult {
 // ===========================================
 
 /**
- * Calculate progressive difficulty distribution (40% Easy, 30% Medium, 30% Hard).
+ * Calculate easy difficulty distribution (40% Easy, 30% Medium, 30% Hard).
  */
 export function calculateProgressiveClassicDistribution(
   wordCount: number
@@ -110,36 +105,14 @@ export function calculateProgressiveClassicDistribution(
  */
 export function calculateClassicDifficultyDistribution(
   wordCount: number,
-  preset: ClassicDifficultyPreset = "progressive"
+  preset: ClassicDifficultyPreset = "easy"
 ): DifficultyDistribution {
   if (wordCount <= 0) {
     return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
   }
 
   switch (preset) {
-    case "easy_only": {
-      return {
-        easy: wordCount,
-        medium: 0,
-        hard: 0,
-        easyEnd: wordCount,
-        mediumEnd: wordCount,
-        total: wordCount,
-      };
-    }
-    case "easy_medium": {
-      const easy = Math.ceil(wordCount / 2);
-      const medium = wordCount - easy;
-      return {
-        easy,
-        medium,
-        hard: 0,
-        easyEnd: easy,
-        mediumEnd: easy + medium,
-        total: wordCount,
-      };
-    }
-    case "medium_hard": {
+    case "medium": {
       const medium = Math.ceil(wordCount / 2);
       const hard = wordCount - medium;
       return {
@@ -151,7 +124,7 @@ export function calculateClassicDifficultyDistribution(
         total: wordCount,
       };
     }
-    case "hard_only": {
+    case "hard": {
       return {
         easy: 0,
         medium: 0,
@@ -161,7 +134,7 @@ export function calculateClassicDifficultyDistribution(
         total: wordCount,
       };
     }
-    case "progressive":
+    case "easy":
     default:
       return calculateProgressiveClassicDistribution(wordCount);
   }

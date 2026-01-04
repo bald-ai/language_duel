@@ -24,11 +24,9 @@ export const createDuel = mutation({
     mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
     classicDifficultyPreset: v.optional(
       v.union(
-        v.literal("easy_only"),
-        v.literal("easy_medium"),
-        v.literal("progressive"),
-        v.literal("medium_hard"),
-        v.literal("hard_only")
+        v.literal("easy"),
+        v.literal("medium"),
+        v.literal("hard")
       )
     ),
   },
@@ -60,7 +58,7 @@ export const createDuel = mutation({
       status: "pending",
       mode: duelMode,
       classicDifficultyPreset:
-        duelMode === "classic" ? classicDifficultyPreset || "progressive" : undefined,
+        duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
       createdAt: Date.now(),
     });
   },

@@ -184,7 +184,7 @@ export default function ClassicDuelChallenge({
   const word = currentWord.word;
   
   // Calculate dynamic difficulty distribution
-  const classicPreset = (duel.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
+  const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
   const difficultyDistribution = useMemo(() => 
     calculateClassicDifficultyDistribution(words.length, classicPreset), 
     [words.length, classicPreset]

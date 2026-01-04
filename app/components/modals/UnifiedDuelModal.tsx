@@ -100,7 +100,7 @@ export function UnifiedDuelModal({
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
   const [selectedDuelMode, setSelectedDuelMode] = useState<DuelMode>("classic");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("progressive");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("easy");
 
   const selectedOpponent = users.find((user) => user._id === selectedOpponentId) || null;
   const selectedTheme = themes?.find((theme) => theme._id === selectedThemeId) || null;

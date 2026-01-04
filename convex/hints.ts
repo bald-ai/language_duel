@@ -132,7 +132,7 @@ export const eliminateOption = mutation({
 
     // Check if this is a hard mode question
     const wordCount = theme.words.length;
-    const classicPreset = (duel.classicDifficultyPreset ?? "progressive") as ClassicDifficultyPreset;
+    const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
     const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const isHardMode = isHardModeIndex(duel.currentWordIndex, distribution);
 
