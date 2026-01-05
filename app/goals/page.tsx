@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -12,6 +12,11 @@ import { PartnerSelector } from "./components/PartnerSelector";
 import { GoalThemeList } from "./components/GoalThemeList";
 import { GoalThemeSelector } from "./components/GoalThemeSelector";
 import { LockButton } from "./components/LockButton";
+import { DeleteGoalButton } from "./components/DeleteGoalButton";
+import { PlanSwitcher } from "./components/PlanSwitcher";
+
+// Local storage key for remembering last viewed plan
+const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
 
 // Format date as "Jan 4"
 function formatDate(timestamp: number): string {
@@ -24,12 +29,19 @@ export default function GoalsPage() {
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<Id<"users"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreationFlow, setShowCreationFlow] = useState(false);
 
-  // Queries
+  // All plans state
+  const [selectedPlanId, setSelectedPlanId] = useState<Id<"weeklyGoals"> | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  // Queries - reactive and cached
   const friends = useQuery(api.friends.getFriends);
-  const fetchActiveGoal = useMutation(api.weeklyGoals.getActiveGoal);
-  type GoalData = Awaited<ReturnType<typeof fetchActiveGoal>>;
-  const [goalData, setGoalData] = useState<GoalData | undefined>(undefined);
+  const allPlans = useQuery(api.weeklyGoals.getAllActiveGoals);
+  const selectedPlan = useQuery(
+    api.weeklyGoals.getGoalById,
+    selectedPlanId ? { goalId: selectedPlanId } : "skip"
+  );
 
   // Mutations
   const createGoal = useMutation(api.weeklyGoals.createGoal);
@@ -38,42 +50,67 @@ export default function GoalsPage() {
   const toggleCompletion = useMutation(api.weeklyGoals.toggleCompletion);
   const lockGoal = useMutation(api.weeklyGoals.lockGoal);
   const completeGoal = useMutation(api.weeklyGoals.completeGoal);
-  const cleanupExpired = useMutation(api.weeklyGoals.cleanupExpiredGoal);
+  const deleteGoal = useMutation(api.weeklyGoals.deleteGoal);
+  const purgeExpiredGoals = useMutation(api.weeklyGoals.purgeExpiredGoalsForUser);
 
-  const refreshGoalData = useCallback(async () => {
-    try {
-      const data = await fetchActiveGoal();
-      setGoalData(data);
-    } catch (error) {
-      setGoalData(null);
-      toast.error(error instanceof Error ? error.message : "Failed to load goal");
-    }
-  }, [fetchActiveGoal]);
-
+  // Initial selection and periodic expiry cleanup
   useEffect(() => {
-    void refreshGoalData();
-  }, [refreshGoalData]);
+    if (!allPlans || initialLoadDone) return;
 
-  // Check for expired goal and clean up
-  useEffect(() => {
-    if (goalData?.goal?.expiresAt && goalData.goal.expiresAt < Date.now()) {
-      const cleanup = async () => {
-        await cleanupExpired({ goalId: goalData.goal._id });
-        await refreshGoalData();
-      };
-      void cleanup();
+    // Restore last viewed plan or select first
+    if (allPlans.length > 0) {
+      const lastPlanId = localStorage.getItem(LAST_PLAN_KEY);
+      const planExists = allPlans.some((p) => p.goal._id === lastPlanId);
+      const targetId = planExists ? (lastPlanId as Id<"weeklyGoals">) : allPlans[0].goal._id;
+      setSelectedPlanId(targetId);
+      localStorage.setItem(LAST_PLAN_KEY, targetId);
     }
-  }, [goalData, cleanupExpired, refreshGoalData]);
+    setInitialLoadDone(true);
+
+    // Purge expired goals on initial load
+    void purgeExpiredGoals();
+  }, [allPlans, initialLoadDone, purgeExpiredGoals]);
+
+  // Update localStorage when selection changes
+  useEffect(() => {
+    if (selectedPlanId) {
+      localStorage.setItem(LAST_PLAN_KEY, selectedPlanId);
+    }
+  }, [selectedPlanId]);
+
+  // Ensure a valid plan is always selected when plans exist
+  useEffect(() => {
+    if (!allPlans || allPlans.length === 0) return;
+    if (!initialLoadDone) return; // Don't interfere with initial load
+
+    // Check if selectedPlan is null and selectedPlanId is either null or not found in allPlans
+    const planExists = selectedPlanId && allPlans.some((p) => p.goal._id === selectedPlanId);
+
+    if (selectedPlan === null && !planExists) {
+      // Select the first available plan
+      const firstPlanId = allPlans[0].goal._id;
+      setSelectedPlanId(firstPlanId);
+      localStorage.setItem(LAST_PLAN_KEY, firstPlanId);
+    }
+  }, [allPlans, selectedPlan, selectedPlanId, initialLoadDone]);
+
+  // Handle plan selection from switcher
+  const handleSelectPlan = (planId: Id<"weeklyGoals">) => {
+    setSelectedPlanId(planId);
+    setShowCreationFlow(false);
+  };
 
   // Handlers
   const handleCreateGoal = async () => {
     if (!selectedPartnerId) return;
     setIsCreating(true);
     try {
-      await createGoal({ partnerId: selectedPartnerId });
-      await refreshGoalData();
+      const newGoalId = await createGoal({ partnerId: selectedPartnerId });
       toast.success("Goal created! Add themes to get started.");
       setSelectedPartnerId(null);
+      setShowCreationFlow(false);
+      // Select the newly created goal - query will auto-refresh
+      setSelectedPlanId(newGoalId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create goal");
     } finally {
@@ -82,11 +119,11 @@ export default function GoalsPage() {
   };
 
   const handleAddThemes = async (themeIds: Id<"themes">[]) => {
-    if (!goalData?.goal) return;
+    if (!selectedPlan?.goal) return;
     try {
-      const remainingSlots = Math.max(0, 5 - goalData.goal.themes.length);
+      const remainingSlots = Math.max(0, 5 - selectedPlan.goal.themes.length);
       const existingThemeIds = new Set(
-        goalData.goal.themes.map((theme) => theme.themeId)
+        selectedPlan.goal.themes.map((theme) => theme.themeId)
       );
       const addedThemeIds = new Set<Id<"themes">>();
       let addedCount = 0;
@@ -95,12 +132,12 @@ export default function GoalsPage() {
         if (addedCount >= remainingSlots) break;
         if (existingThemeIds.has(themeId) || addedThemeIds.has(themeId)) continue;
 
-        await addTheme({ goalId: goalData.goal._id, themeId });
+        await addTheme({ goalId: selectedPlan.goal._id, themeId });
         addedThemeIds.add(themeId);
         addedCount += 1;
       }
       setShowThemeSelector(false);
-      await refreshGoalData();
+      // Query will auto-refresh
       toast.success(`Added ${addedCount} theme${addedCount === 1 ? "" : "s"}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add themes");
@@ -108,30 +145,30 @@ export default function GoalsPage() {
   };
 
   const handleRemoveTheme = async (themeId: Id<"themes">) => {
-    if (!goalData?.goal) return;
+    if (!selectedPlan?.goal) return;
     try {
-      await removeTheme({ goalId: goalData.goal._id, themeId });
-      await refreshGoalData();
+      await removeTheme({ goalId: selectedPlan.goal._id, themeId });
+      // Query will auto-refresh
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove theme");
     }
   };
 
   const handleToggleCompletion = async (themeId: Id<"themes">) => {
-    if (!goalData?.goal) return;
+    if (!selectedPlan?.goal) return;
     try {
-      await toggleCompletion({ goalId: goalData.goal._id, themeId });
-      await refreshGoalData();
+      await toggleCompletion({ goalId: selectedPlan.goal._id, themeId });
+      // Query will auto-refresh
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update");
     }
   };
 
   const handleLock = async () => {
-    if (!goalData?.goal) return;
+    if (!selectedPlan?.goal) return;
     try {
-      await lockGoal({ goalId: goalData.goal._id });
-      await refreshGoalData();
+      await lockGoal({ goalId: selectedPlan.goal._id });
+      // Query will auto-refresh
       toast.success("Goal locked!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to lock goal");
@@ -139,18 +176,31 @@ export default function GoalsPage() {
   };
 
   const handleComplete = async () => {
-    if (!goalData?.goal) return;
+    if (!selectedPlan?.goal) return;
     try {
-      await completeGoal({ goalId: goalData.goal._id });
-      await refreshGoalData();
+      await completeGoal({ goalId: selectedPlan.goal._id });
+      setSelectedPlanId(null);
+      // Query will auto-refresh
       toast.success("Goal completed! Create a new one.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to complete goal");
     }
   };
 
+  const handleDelete = async () => {
+    if (!selectedPlan?.goal) return;
+    try {
+      await deleteGoal({ goalId: selectedPlan.goal._id });
+      setSelectedPlanId(null);
+      // Query will auto-refresh
+      toast.success("Goal cancelled");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete goal");
+    }
+  };
+
   // Loading state
-  if (goalData === undefined || friends === undefined) {
+  if (allPlans === undefined || friends === undefined) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -163,33 +213,30 @@ export default function GoalsPage() {
     );
   }
 
+  // Determine current state
+  const hasPlans = allPlans.length > 0;
+  const hasPlanSelected = selectedPlan != null; // handles both null and undefined
+  const isEditing = hasPlanSelected && selectedPlan.goal.status === "editing";
+  const isActive = hasPlanSelected && selectedPlan.goal.status === "active";
+  const canAddThemes = isEditing && hasPlanSelected && selectedPlan.goal.themes.length < 5;
+  const viewerLocked = hasPlanSelected && (
+    (selectedPlan.viewerRole === "creator" && selectedPlan.goal.creatorLocked) ||
+    (selectedPlan.viewerRole === "partner" && selectedPlan.goal.partnerLocked)
+  );
+  const partnerLocked = hasPlanSelected && (
+    (selectedPlan.viewerRole === "creator" && selectedPlan.goal.partnerLocked) ||
+    (selectedPlan.viewerRole === "partner" && selectedPlan.goal.creatorLocked)
+  );
+
   // Check if all themes are completed by both users
   const allCompleted =
-    goalData?.goal &&
-    goalData.goal.themes.length > 0 &&
-    goalData.goal.themes.every((t) => t.creatorCompleted && t.partnerCompleted);
+    hasPlanSelected &&
+    selectedPlan.goal.themes.length > 0 &&
+    selectedPlan.goal.themes.every((t) => t.creatorCompleted && t.partnerCompleted);
 
-  // Determine current state
-  const hasGoal = goalData !== null;
-  const isEditing = hasGoal && goalData.goal.status === "editing";
-  const isActive = hasGoal && goalData.goal.status === "active";
-  const canAddThemes = isEditing && goalData.goal.themes.length < 5;
-  const viewerLocked = hasGoal && (
-    (goalData.viewerRole === "creator" && goalData.goal.creatorLocked) ||
-    (goalData.viewerRole === "partner" && goalData.goal.partnerLocked)
-  );
-  const partnerLocked = hasGoal && (
-    (goalData.viewerRole === "creator" && goalData.goal.partnerLocked) ||
-    (goalData.viewerRole === "partner" && goalData.goal.creatorLocked)
-  );
-
-  // Date range display
-  const startDate = goalData?.goal?.lockedAt
-    ? formatDate(goalData.goal.lockedAt)
-    : formatDate(Date.now());
-  const endDate = goalData?.goal?.expiresAt
-    ? formatDate(goalData.goal.expiresAt)
-    : formatDate(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  // Date range display - only show for active goals with real dates
+  const startDate = selectedPlan?.goal?.lockedAt ? formatDate(selectedPlan.goal.lockedAt) : null;
+  const endDate = selectedPlan?.goal?.expiresAt ? formatDate(selectedPlan.goal.expiresAt) : null;
 
   return (
     <ThemedPage className="px-4 py-6">
@@ -222,12 +269,22 @@ export default function GoalsPage() {
             className="text-2xl font-bold uppercase tracking-wide"
             style={{ color: colors.text.DEFAULT }}
           >
-            Weekly Goal
+            Weekly Goals
           </h1>
         </header>
 
-        {/* No Goal - Creation Flow */}
-        {!hasGoal && (
+        {/* Plan Switcher - show when user has plans */}
+        {hasPlans && (
+          <PlanSwitcher
+            plans={allPlans}
+            selectedId={selectedPlanId}
+            onSelect={handleSelectPlan}
+            onCreateNew={() => setShowCreationFlow(true)}
+          />
+        )}
+
+        {/* Creation Flow - show when no plans OR user clicked + */}
+        {(!hasPlans || showCreationFlow) && (
           <section
             className="rounded-2xl border-2 p-6 space-y-6"
             style={{
@@ -253,23 +310,38 @@ export default function GoalsPage() {
               onSelect={setSelectedPartnerId}
             />
 
-            <button
-              onClick={handleCreateGoal}
-              disabled={!selectedPartnerId || isCreating}
-              className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: colors.primary.DEFAULT,
-                color: "white",
-                textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-              }}
-            >
-              {isCreating ? "Creating..." : "Create Goal"}
-            </button>
+            <div className="flex gap-2">
+              {showCreationFlow && (
+                <button
+                  onClick={() => setShowCreationFlow(false)}
+                  className="flex-1 py-3 rounded-xl font-bold uppercase tracking-wider transition-colors border-2"
+                  style={{
+                    backgroundColor: colors.background.DEFAULT,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.DEFAULT,
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={handleCreateGoal}
+                disabled={!selectedPartnerId || isCreating}
+                className="flex-1 py-3 rounded-xl font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: colors.primary.DEFAULT,
+                  color: "white",
+                  textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                }}
+              >
+                {isCreating ? "Creating..." : "Create Goal"}
+              </button>
+            </div>
           </section>
         )}
 
-        {/* Has Goal - Display */}
-        {hasGoal && (
+        {/* Selected Plan Display */}
+        {selectedPlan && !showCreationFlow && (
           <>
             {/* Partner Display Header */}
             <section
@@ -290,17 +362,17 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {goalData.creator?.nickname?.charAt(0).toUpperCase() ||
-                        goalData.creator?.email?.charAt(0).toUpperCase() ||
+                      {selectedPlan.creator?.nickname?.charAt(0).toUpperCase() ||
+                        selectedPlan.creator?.email?.charAt(0).toUpperCase() ||
                         "?"}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {goalData.creator?.nickname || goalData.creator?.email?.split("@")[0]}
+                      {selectedPlan.creator?.nickname || selectedPlan.creator?.email?.split("@")[0]}
                     </p>
-                    {goalData.goal.creatorLocked && (
+                    {selectedPlan.goal.creatorLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
                     )}
                   </div>
@@ -312,7 +384,7 @@ export default function GoalsPage() {
                     className="text-sm font-bold"
                     style={{ color: colors.text.DEFAULT }}
                   >
-                    {startDate} to {endDate}
+                    {startDate && endDate ? `${startDate} to ${endDate}` : "Planning Phase"}
                   </p>
                   <p className="text-xs" style={{ color: colors.text.muted }}>
                     {isEditing ? "Not started yet" : "Active"}
@@ -329,17 +401,17 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {goalData.partner?.nickname?.charAt(0).toUpperCase() ||
-                        goalData.partner?.email?.charAt(0).toUpperCase() ||
+                      {selectedPlan.partner?.nickname?.charAt(0).toUpperCase() ||
+                        selectedPlan.partner?.email?.charAt(0).toUpperCase() ||
                         "?"}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {goalData.partner?.nickname || goalData.partner?.email?.split("@")[0]}
+                      {selectedPlan.partner?.nickname || selectedPlan.partner?.email?.split("@")[0]}
                     </p>
-                    {goalData.goal.partnerLocked && (
+                    {selectedPlan.goal.partnerLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
                     )}
                   </div>
@@ -349,8 +421,8 @@ export default function GoalsPage() {
 
             {/* Theme List */}
             <GoalThemeList
-              themes={goalData.goal.themes}
-              viewerRole={goalData.viewerRole}
+              themes={selectedPlan.goal.themes}
+              viewerRole={selectedPlan.viewerRole}
               isEditing={isEditing}
               onToggle={handleToggleCompletion}
               onRemove={handleRemoveTheme}
@@ -367,12 +439,12 @@ export default function GoalsPage() {
                   backgroundColor: `${colors.background.elevated}CC`,
                 }}
               >
-                + Add Theme ({goalData.goal.themes.length}/5)
+                + Add Theme ({selectedPlan.goal.themes.length}/5)
               </button>
             )}
 
             {/* Theme count at max */}
-            {isEditing && goalData.goal.themes.length >= 5 && (
+            {isEditing && selectedPlan.goal.themes.length >= 5 && (
               <p
                 className="text-center text-sm"
                 style={{ color: colors.text.muted }}
@@ -387,6 +459,11 @@ export default function GoalsPage() {
                 partnerLocked={partnerLocked}
                 onLock={handleLock}
               />
+            )}
+
+            {/* Delete Button (only in editing mode, if user hasn't locked) */}
+            {isEditing && !viewerLocked && (
+              <DeleteGoalButton onDelete={handleDelete} />
             )}
 
             {/* Waiting for partner to lock */}
@@ -422,10 +499,10 @@ export default function GoalsPage() {
         )}
 
         {/* Theme Selector Modal */}
-        {showThemeSelector && goalData?.goal && (
+        {showThemeSelector && selectedPlan?.goal && (
           <GoalThemeSelector
-            goalId={goalData.goal._id}
-            currentThemeCount={goalData.goal.themes.length}
+            goalId={selectedPlan.goal._id}
+            currentThemeCount={selectedPlan.goal.themes.length}
             onSelect={handleAddThemes}
             onClose={() => setShowThemeSelector(false)}
           />

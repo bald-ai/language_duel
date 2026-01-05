@@ -6,7 +6,6 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import type { MutationCtx } from "./_generated/server";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 5;
@@ -22,21 +21,30 @@ export interface GoalWithUsers {
   viewerRole: GoalRole;
 }
 
-async function purgeExpiredGoals(
-  ctx: MutationCtx,
+function filterNonExpiredGoals(
   goals: Doc<"weeklyGoals">[],
-  now: number,
-  shouldDelete: boolean
-): Promise<Doc<"weeklyGoals">[]> {
-  const expiredGoals = goals.filter(
-    (goal) => goal.expiresAt && goal.expiresAt < now
-  );
-
-  if (shouldDelete && expiredGoals.length > 0) {
-    await Promise.all(expiredGoals.map((goal) => ctx.db.delete(goal._id)));
-  }
-
+  now: number
+): Doc<"weeklyGoals">[] {
   return goals.filter((goal) => !goal.expiresAt || goal.expiresAt >= now);
+}
+
+/**
+ * Sort goals by lockedAt descending, then createdAt descending as a tiebreaker.
+ * This ensures consistent ordering across loads.
+ */
+function sortGoalsByRecency(goals: GoalWithUsers[]): GoalWithUsers[] {
+  return [...goals].sort((a, b) => {
+    // First sort by lockedAt descending (locked goals first, more recent locks first)
+    const aLockedAt = a.goal.lockedAt ?? 0;
+    const bLockedAt = b.goal.lockedAt ?? 0;
+    if (aLockedAt !== bLockedAt) {
+      return bLockedAt - aLockedAt; // descending
+    }
+    // Tiebreaker: createdAt descending (more recent first)
+    const aCreatedAt = a.goal.createdAt ?? 0;
+    const bCreatedAt = b.goal.createdAt ?? 0;
+    return bCreatedAt - aCreatedAt; // descending
+  });
 }
 
 // =============================================================================
@@ -44,19 +52,20 @@ async function purgeExpiredGoals(
 // =============================================================================
 
 /**
- * Get the user's active or editing goal.
- * Returns null if user has no active goal.
+ * Get all the user's active or editing goals.
+ * Returns an array of goals where the user is either creator or partner.
  */
-export const getActiveGoal = mutation({
+export const getAllActiveGoals = query({
   args: {},
-  handler: async (ctx): Promise<GoalWithUsers | null> => {
+  handler: async (ctx): Promise<GoalWithUsers[]> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return null;
+    if (!auth) return [];
 
     const userId = auth.user._id;
     const now = Date.now();
+    const results: GoalWithUsers[] = [];
 
-    // Check for goal where user is creator
+    // Get all goals where user is creator
     const goalsAsCreator = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_creator", (q) => q.eq("creatorId", userId))
@@ -67,20 +76,13 @@ export const getActiveGoal = mutation({
         )
       )
       .collect();
-    const activeGoalsAsCreator = await purgeExpiredGoals(
-      ctx,
-      goalsAsCreator,
-      now,
-      true
-    );
-    const goalAsCreator = activeGoalsAsCreator[0];
+    const activeGoalsAsCreator = filterNonExpiredGoals(goalsAsCreator, now);
 
-    if (goalAsCreator) {
-      const creator = await ctx.db.get(goalAsCreator.creatorId);
-      const partner = await ctx.db.get(goalAsCreator.partnerId);
-
-      return {
-        goal: goalAsCreator,
+    for (const goal of activeGoalsAsCreator) {
+      const creator = await ctx.db.get(goal.creatorId);
+      const partner = await ctx.db.get(goal.partnerId);
+      results.push({
+        goal,
         creator: creator
           ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
           : null,
@@ -88,10 +90,10 @@ export const getActiveGoal = mutation({
           ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
           : null,
         viewerRole: "creator",
-      };
+      });
     }
 
-    // Check for goal where user is partner
+    // Get all goals where user is partner
     const goalsAsPartner = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_partner", (q) => q.eq("partnerId", userId))
@@ -102,20 +104,13 @@ export const getActiveGoal = mutation({
         )
       )
       .collect();
-    const activeGoalsAsPartner = await purgeExpiredGoals(
-      ctx,
-      goalsAsPartner,
-      now,
-      true
-    );
-    const goalAsPartner = activeGoalsAsPartner[0];
+    const activeGoalsAsPartner = filterNonExpiredGoals(goalsAsPartner, now);
 
-    if (goalAsPartner) {
-      const creator = await ctx.db.get(goalAsPartner.creatorId);
-      const partner = await ctx.db.get(goalAsPartner.partnerId);
-
-      return {
-        goal: goalAsPartner,
+    for (const goal of activeGoalsAsPartner) {
+      const creator = await ctx.db.get(goal.creatorId);
+      const partner = await ctx.db.get(goal.partnerId);
+      results.push({
+        goal,
         creator: creator
           ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
           : null,
@@ -123,10 +118,103 @@ export const getActiveGoal = mutation({
           ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
           : null,
         viewerRole: "partner",
-      };
+      });
     }
 
-    return null;
+    // Sort results for consistent ordering: lockedAt desc, then createdAt desc
+    return sortGoalsByRecency(results);
+  },
+});
+
+/**
+ * Get a specific goal by ID.
+ * Returns null if goal not found or user is not a participant.
+ */
+export const getGoalById = query({
+  args: { goalId: v.id("weeklyGoals") },
+  handler: async (ctx, { goalId }): Promise<GoalWithUsers | null> => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+
+    const userId = auth.user._id;
+    const now = Date.now();
+
+    const goal = await ctx.db.get(goalId);
+    if (!goal) return null;
+
+    // Check if user is a participant
+    const isCreator = goal.creatorId === userId;
+    const isPartner = goal.partnerId === userId;
+    if (!isCreator && !isPartner) return null;
+
+    // Check if goal is expired (return null, but don't delete - that's done via mutation)
+    if (goal.expiresAt && goal.expiresAt < now) {
+      return null;
+    }
+
+    // Only return active or editing goals
+    if (goal.status !== "active" && goal.status !== "editing") return null;
+
+    const creator = await ctx.db.get(goal.creatorId);
+    const partner = await ctx.db.get(goal.partnerId);
+
+    return {
+      goal,
+      creator: creator
+        ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
+        : null,
+      partner: partner
+        ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
+        : null,
+      viewerRole: isCreator ? "creator" : "partner",
+    };
+  },
+});
+
+/**
+ * Purge all expired goals for the current user.
+ * This mutation should be called periodically from the client to clean up expired goals.
+ */
+export const purgeExpiredGoalsForUser = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ deletedCount: number }> => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return { deletedCount: 0 };
+
+    const userId = auth.user._id;
+    const now = Date.now();
+    let deletedCount = 0;
+
+    // Get all goals where user is creator
+    const goalsAsCreator = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_creator", (q) => q.eq("creatorId", userId))
+      .collect();
+
+    // Get all goals where user is partner
+    const goalsAsPartner = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_partner", (q) => q.eq("partnerId", userId))
+      .collect();
+
+    // Combine and dedupe
+    const allGoals = [...goalsAsCreator, ...goalsAsPartner];
+    const seenIds = new Set<string>();
+    const uniqueGoals = allGoals.filter((g) => {
+      if (seenIds.has(g._id)) return false;
+      seenIds.add(g._id);
+      return true;
+    });
+
+    // Delete expired goals
+    for (const goal of uniqueGoals) {
+      if (goal.expiresAt && goal.expiresAt < now) {
+        await ctx.db.delete(goal._id);
+        deletedCount++;
+      }
+    }
+
+    return { deletedCount };
   },
 });
 
@@ -208,6 +296,7 @@ export const getEligibleThemes = query({
 
 /**
  * Create a new weekly goal with a partner.
+ * Validates that there's no existing active goal between this specific duo.
  */
 export const createGoal = mutation({
   args: {
@@ -230,75 +319,46 @@ export const createGoal = mutation({
 
     if (!friendship) throw new Error("You can only create goals with friends");
 
-    // Check if user already has an active goal
-    const existingAsCreator = await ctx.db
+    // Check if there's already an active goal between this SPECIFIC duo
+    // Case 1: Current user is creator, partner is partner
+    const existingGoalUserAsCreator = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_creator", (q) => q.eq("creatorId", user._id))
       .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
+        q.and(
+          q.eq(q.field("partnerId"), partnerId),
+          q.or(
+            q.eq(q.field("status"), "editing"),
+            q.eq(q.field("status"), "active")
+          )
         )
       )
       .collect();
-    const activeAsCreator = await purgeExpiredGoals(ctx, existingAsCreator, now, true);
+    const activeUserAsCreator = filterNonExpiredGoals(existingGoalUserAsCreator, now);
 
-    if (activeAsCreator.length > 0) throw new Error("You already have an active goal");
+    if (activeUserAsCreator.length > 0) {
+      throw new Error("You already have an active goal with this partner");
+    }
 
-    const existingAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", user._id))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
-        )
-      )
-      .collect();
-    const activeAsPartner = await purgeExpiredGoals(ctx, existingAsPartner, now, true);
-
-    if (activeAsPartner.length > 0) throw new Error("You already have an active goal");
-
-    // Check if partner already has an active goal
-    const partnerExistingAsCreator = await ctx.db
+    // Case 2: Partner is creator, current user is partner
+    const existingGoalUserAsPartner = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_creator", (q) => q.eq("creatorId", partnerId))
       .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
+        q.and(
+          q.eq(q.field("partnerId"), user._id),
+          q.or(
+            q.eq(q.field("status"), "editing"),
+            q.eq(q.field("status"), "active")
+          )
         )
       )
       .collect();
-    const activePartnerAsCreator = await purgeExpiredGoals(
-      ctx,
-      partnerExistingAsCreator,
-      now,
-      false
-    );
+    const activeUserAsPartner = filterNonExpiredGoals(existingGoalUserAsPartner, now);
 
-    if (activePartnerAsCreator.length > 0)
-      throw new Error("Your partner already has an active goal");
-
-    const partnerExistingAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", partnerId))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
-        )
-      )
-      .collect();
-    const activePartnerAsPartner = await purgeExpiredGoals(
-      ctx,
-      partnerExistingAsPartner,
-      now,
-      false
-    );
-
-    if (activePartnerAsPartner.length > 0)
-      throw new Error("Your partner already has an active goal");
+    if (activeUserAsPartner.length > 0) {
+      throw new Error("You already have an active goal with this partner");
+    }
 
     // Create the goal
     return await ctx.db.insert("weeklyGoals", {
@@ -351,9 +411,10 @@ export const addTheme = mutation({
     if (theme.visibility !== "shared")
       throw new Error("Theme must be shared");
 
-    // Check if theme is already in goal
-    if (goal.themes.some((t) => t.themeId === themeId))
-      throw new Error("Theme already added");
+    // Skip if theme is already in goal (idempotent behavior)
+    if (goal.themes.some((t) => t.themeId === themeId)) {
+      return; // Already added, silently succeed
+    }
 
     // Add theme
     await ctx.db.patch(goalId, {
@@ -486,6 +547,34 @@ export const lockGoal = mutation({
     }
 
     await ctx.db.patch(goalId, updates);
+  },
+});
+
+/**
+ * Delete an unlocked goal.
+ * Either creator or partner can delete while in editing status.
+ */
+export const deleteGoal = mutation({
+  args: {
+    goalId: v.id("weeklyGoals"),
+  },
+  handler: async (ctx, { goalId }) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const goal = await ctx.db.get(goalId);
+    if (!goal) throw new Error("Goal not found");
+
+    // Verify user is part of this goal
+    const isCreator = goal.creatorId === user._id;
+    const isPartner = goal.partnerId === user._id;
+    if (!isCreator && !isPartner) throw new Error("Not authorized");
+
+    // Can only delete unlocked goals
+    if (goal.status !== "editing") {
+      throw new Error("Cannot delete a locked goal");
+    }
+
+    await ctx.db.delete(goalId);
   },
 });
 
