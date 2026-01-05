@@ -23,6 +23,7 @@ import type * as sabotage from "../sabotage.js";
 import type * as themes from "../themes.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as users from "../users.js";
+import type * as weeklyGoals from "../weeklyGoals.js";
 
 import type {
   ApiFromModules,
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   themes: typeof themes;
   userPreferences: typeof userPreferences;
   users: typeof users;
+  weeklyGoals: typeof weeklyGoals;
 }>;
 
 /**

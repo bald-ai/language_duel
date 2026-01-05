@@ -224,4 +224,33 @@ export default defineSchema({
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])
     .index("by_status", ["status"]),
+
+  // -------------------------------------------
+  // Weekly Goals Table
+  // -------------------------------------------
+  weeklyGoals: defineTable({
+    creatorId: v.id("users"),
+    partnerId: v.id("users"),
+    themes: v.array(
+      v.object({
+        themeId: v.id("themes"),
+        themeName: v.string(),
+        creatorCompleted: v.boolean(),
+        partnerCompleted: v.boolean(),
+      })
+    ),
+    creatorLocked: v.boolean(),
+    partnerLocked: v.boolean(),
+    lockedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("editing"),
+      v.literal("active"),
+      v.literal("completed")
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_creator", ["creatorId"])
+    .index("by_partner", ["partnerId"])
+    .index("by_status", ["status"]),
 });
