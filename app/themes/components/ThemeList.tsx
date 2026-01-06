@@ -150,6 +150,7 @@ const ThemeRow = memo(function ThemeRow({
   const rowStyle = {
     ...style,
     paddingBottom: ITEM_GAP,
+    paddingRight: 12,
   };
 
   useLayoutEffect(() => {
@@ -223,15 +224,15 @@ export function ThemeList({
     () =>
       isFiltering
         ? {
-            backgroundColor: `${colors.secondary.DEFAULT}26`,
-            borderColor: `${colors.secondary.DEFAULT}66`,
-            color: colors.cta.lighter,
-          }
+          backgroundColor: `${colors.secondary.DEFAULT}26`,
+          borderColor: `${colors.secondary.DEFAULT}66`,
+          color: colors.cta.lighter,
+        }
         : {
-            backgroundColor: colors.background.DEFAULT,
-            borderColor: colors.primary.dark,
-            color: colors.text.muted,
-          },
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+          color: colors.text.muted,
+        },
     [isFiltering]
   );
 

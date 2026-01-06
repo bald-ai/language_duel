@@ -25,7 +25,16 @@ const SoloIcon = () => (
 
 const DuelIcon = () => (
   <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    <g transform="rotate(45 12 12)">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19v3" />
+    </g>
+    <g transform="rotate(-45 12 12)">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19v3" />
+    </g>
   </svg>
 );
 
@@ -52,34 +61,34 @@ export default function Home() {
       {/* Top Section: Title */}
       <header className="relative z-10 flex flex-col items-center pt-8 pb-4 animate-slide-up shrink-0">
         {/* Decorative line above title */}
-        <div 
-          className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full" 
+        <div
+          className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full"
           style={{ color: "var(--color-neutral)" }}
         />
-        
-        <h1 
+
+        <h1
           className="title-font text-5xl sm:text-6xl md:text-7xl tracking-tight text-center leading-none relative"
         >
-          <span 
+          <span
             className="title-text-outline"
             data-text="Language"
-            style={{ 
-              backgroundImage: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`, 
-              WebkitBackgroundClip: 'text', 
-              WebkitTextFillColor: 'transparent', 
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
           >
             Language
           </span>
           <br />
-          <span 
+          <span
             className="title-text-outline-accent"
             data-text="Duel"
-            style={{ 
-              backgroundImage: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`, 
-              WebkitBackgroundClip: 'text', 
-              WebkitTextFillColor: 'transparent', 
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
           >
@@ -87,7 +96,7 @@ export default function Home() {
           </span>
         </h1>
 
-        <p 
+        <p
           className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
           style={{ color: colors.text.DEFAULT }}
         >
@@ -99,7 +108,7 @@ export default function Home() {
 
       {/* Empty spacer to push menu to bottom */}
       <div className="flex-1" />
-        
+
       {/* Bottom Section: Menu Dock */}
       <main className="relative z-10 w-full max-w-[360px] mx-auto px-6 pb-[calc(20px+env(safe-area-inset-bottom))] animate-slide-up delay-300">
         <nav className="w-full flex flex-col gap-2.5">
@@ -110,7 +119,7 @@ export default function Home() {
               Study
             </MenuButton>
           </div>
-          
+
           <div className="animate-slide-up delay-400">
             <MenuButton onClick={lobby.openSoloModal}>
               <SoloIcon />
@@ -124,7 +133,7 @@ export default function Home() {
               Duel
             </MenuButton>
           </div>
-          
+
           <div className="animate-slide-up delay-600">
             <MenuButton onClick={() => router.push("/themes")}>
               <ThemesIcon />

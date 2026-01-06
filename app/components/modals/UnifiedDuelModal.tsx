@@ -119,7 +119,12 @@ export function UnifiedDuelModal({
 
   return (
     <ModalShell title="Create Duel" maxHeight>
-      <div className="flex-1 overflow-y-auto pr-1 -mr-1 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto border-2 rounded-xl p-4 space-y-4"
+        style={{
+          borderColor: colors.primary.dark,
+        }}
+      >
         {/* Pending Duels Section */}
         {pendingDuels === undefined ? (
           <div
@@ -248,13 +253,14 @@ export function UnifiedDuelModal({
               description="Real-time countdown, hints & sabotage system"
               selectedTone="cta"
             />
-            <ModeSelectionButton
+            {/* <ModeSelectionButton
               selected={selectedDuelMode === "solo"}
               onClick={() => setSelectedDuelMode("solo")}
               title="Solo Style Duel"
               description="Independent progress, 3-level system with typing"
               selectedTone="secondary"
-            />
+            /> */}
+            {/* Solo Style Duel temporarily disabled - it will be coming back later */}
           </div>
         </div>
       </div>
@@ -497,13 +503,13 @@ const DifficultySelector = memo(function DifficultySelector({ selectedDifficulty
             style={
               isSelected
                 ? {
-                    backgroundColor: `${colors.cta.DEFAULT}1A`,
-                    borderColor: colors.cta.DEFAULT,
-                  }
+                  backgroundColor: `${colors.cta.DEFAULT}1A`,
+                  borderColor: colors.cta.DEFAULT,
+                }
                 : {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.primary.dark,
-                  }
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.primary.dark,
+                }
             }
           >
             <div className="flex items-center justify-between">
