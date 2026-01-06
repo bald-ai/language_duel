@@ -395,6 +395,10 @@ export const addTheme = mutation({
     // Can only add themes in editing status
     if (goal.status !== "editing") throw new Error("Goal is locked");
 
+    // Cannot add themes if either participant has locked
+    if (goal.creatorLocked || goal.partnerLocked)
+      throw new Error("Cannot add themes after a participant has locked");
+
     // Check max themes
     if (goal.themes.length >= MAX_THEMES_PER_GOAL)
       throw new Error("Maximum themes reached");
@@ -452,6 +456,10 @@ export const removeTheme = mutation({
 
     // Can only remove themes in editing status
     if (goal.status !== "editing") throw new Error("Goal is locked");
+
+    // Cannot remove themes if either participant has locked
+    if (goal.creatorLocked || goal.partnerLocked)
+      throw new Error("Cannot remove themes after a participant has locked");
 
     // Remove theme
     await ctx.db.patch(goalId, {
@@ -572,6 +580,11 @@ export const deleteGoal = mutation({
     // Can only delete unlocked goals
     if (goal.status !== "editing") {
       throw new Error("Cannot delete a locked goal");
+    }
+
+    // Cannot delete if either participant has locked
+    if (goal.creatorLocked || goal.partnerLocked) {
+      throw new Error("Cannot delete goal after a participant has locked");
     }
 
     await ctx.db.delete(goalId);

@@ -11,40 +11,26 @@ interface ThemedPageProps {
   backgroundFocalPoint?: string;
 }
 
-export function ThemedPage({ 
-  children, 
-  className, 
+export function ThemedPage({
+  children,
+  className,
   backgroundImage,
   backgroundFocalPoint = "50% 30%"
 }: ThemedPageProps) {
-  const [isMobile, setIsMobile] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  
+
   // Get user's selected background from context
   const backgroundContext = useBackground();
-  
+
   // Use prop if provided, otherwise use user's preference from context
   const effectiveBackground = backgroundImage ?? `/${backgroundContext.background}`;
-  
+
   const rootClassName = [
     "min-h-dvh flex flex-col relative",
     className,
   ]
     .filter(Boolean)
     .join(" ");
-
-  useEffect(() => {
-    const updateIsMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    updateIsMobile();
-    window.addEventListener("resize", updateIsMobile);
-
-    return () => {
-      window.removeEventListener("resize", updateIsMobile);
-    };
-  }, []);
 
   useEffect(() => {
     let timeoutId: number | null = null;
@@ -78,9 +64,9 @@ export function ThemedPage({
         Background container - Fixed viewport wrapper to prevent mobile browser 
         resize jank when scrolling (Android Chrome URL bar, iOS Safari)
       */}
-      <div 
+      <div
         className="fixed -z-10 overflow-hidden"
-        style={{ 
+        style={{
           // Force GPU compositing layer - critical for Android scroll performance
           transform: "translateZ(0)",
           willChange: isScrolling ? "transform" : "auto",
@@ -99,10 +85,9 @@ export function ThemedPage({
             src={effectiveBackground}
             alt="Background"
             fill
-            priority={!isMobile}
-            loading={isMobile ? "lazy" : undefined}
+            loading="eager"
             className="object-cover"
-            style={{ 
+            style={{
               objectPosition: backgroundFocalPoint,
               // Prevent image from causing repaints during scroll
               transform: "translateZ(0)",

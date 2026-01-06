@@ -14,6 +14,8 @@ interface ThemeCardMenuProps {
   isDuplicating: boolean;
   onDuplicate: (themeId: Id<"themes">) => void;
   onDelete: (themeId: Id<"themes">, themeName: string) => void;
+  isArchived?: boolean;
+  onToggleArchive?: (themeId: Id<"themes">) => void;
 }
 
 interface DropdownPosition {
@@ -29,6 +31,8 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
   isDuplicating,
   onDuplicate,
   onDelete,
+  isArchived,
+  onToggleArchive,
 }: ThemeCardMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0 });
@@ -144,6 +148,31 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
       >
         {isDuplicating ? "Duplicating..." : "Duplicate"}
       </button>
+
+      {onToggleArchive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleArchive(themeId);
+            setIsOpen(false);
+          }}
+          disabled={isMutating}
+          className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: "transparent",
+            color: colors.text.muted,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = `${colors.secondary.DEFAULT}15`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "transparent";
+          }}
+          role="menuitem"
+        >
+          {isArchived ? "Unarchive" : "Archive"}
+        </button>
+      )}
 
       {isOwner && (
         <button

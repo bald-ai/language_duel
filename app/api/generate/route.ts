@@ -160,7 +160,7 @@ async function callOpenAIJson<T>(
     model: OPENAI_MODEL,
     reasoning: { effort: OPENAI_REASONING_EFFORT },
     input: toResponsesInput(params.messages),
-    max_output_tokens: 3000,
+    max_output_tokens: 30000,
     text: {
       format: {
         type: "json_schema",
@@ -211,11 +211,11 @@ export async function POST(request: NextRequest) {
       const systemPrompt = body.wordType === "verbs"
         ? buildVerbThemeSystemPrompt(body.themeName, body.themePrompt)
         : buildThemeSystemPrompt(body.themeName, body.themePrompt);
-      
+
       const userMessage = body.wordType === "verbs"
-        ? `Generate 20 Spanish verbs for the theme "${body.themeName}".`
-        : `Generate 20 Spanish vocabulary words for the theme "${body.themeName}".`;
-      
+        ? `Generate 10 Spanish verbs for the theme "${body.themeName}".`
+        : `Generate 10 Spanish vocabulary words for the theme "${body.themeName}".`;
+
       const messages = buildMessages({
         systemPrompt,
         userMessage,
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "field") {
       const { fieldType, themeName, wordType, currentWord, currentAnswer, currentWrongAnswers, fieldIndex, existingWords, rejectedWords, history, customInstructions } = body;
-      
+
       const systemPrompt = buildFieldSystemPrompt(
         fieldType,
         themeName,
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "regenerate-for-word") {
       const { themeName, wordType, newWord } = body;
-      
+
       const systemPrompt = buildRegenerateForWordPrompt(themeName, newWord, wordType || "nouns");
 
       const messages = buildMessages({
@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "add-word") {
       const { themeName, wordType, newWord, existingWords } = body;
-      
+
       const systemPrompt = buildAddWordPrompt(themeName, newWord, existingWords, wordType || "nouns");
 
       const messages = buildMessages({
@@ -363,13 +363,13 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "generate-random-words") {
       const { themeName, wordType, count, existingWords } = body;
-      
+
       // Validate count
       const validCount = Math.min(
         Math.max(Math.floor(count), RANDOM_WORDS_MIN_COUNT),
         RANDOM_WORDS_MAX_COUNT
       );
-      
+
       const systemPrompt = buildGenerateRandomWordsPrompt(themeName, validCount, existingWords, wordType || "nouns");
 
       const userMessage = wordType === "verbs"

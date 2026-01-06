@@ -6,7 +6,7 @@
 // ============================================================================
 
 const WRONG_ANSWER_COUNT = 6;
-const THEME_WORD_COUNT = 20;
+const THEME_WORD_COUNT = 10;
 
 const WRONG_ANSWER_REQUIREMENTS = `- Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish words

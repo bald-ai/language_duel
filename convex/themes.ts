@@ -22,10 +22,11 @@ export const getThemes = query({
   args: {
     filterByFriendId: v.optional(v.id("users")),
     myThemesOnly: v.optional(v.boolean()),
+    archivedOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<ThemeWithOwner[]> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
-    
+
     // If not authenticated, return empty (themes require auth now)
     if (!auth) return [];
 
@@ -101,6 +102,14 @@ export const getThemes = query({
 
       // Merge all results (no duplicates since queries target different owners)
       themes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes];
+    }
+
+    // Filter based on archived status
+    const archivedIds = new Set(auth.user.archivedThemeIds || []);
+    if (args.archivedOnly) {
+      themes = themes.filter((t) => archivedIds.has(t._id));
+    } else {
+      themes = themes.filter((t) => !archivedIds.has(t._id));
     }
 
     // Enrich with owner details and edit permissions
@@ -275,10 +284,10 @@ export const updateTheme = mutation({
     // Verify ownership or edit permission
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
-    
+
     const isOwner = !theme.ownerId || theme.ownerId === user._id;
     const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
-    
+
     if (!isOwner && !canEditAsNonOwner) {
       throw new Error("You don't have permission to edit this theme");
     }
@@ -383,3 +392,24 @@ export const duplicateTheme = mutation({
     });
   },
 });
+
+export const toggleThemeArchive = mutation({
+  args: { themeId: v.id("themes") },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const currentArchived = user.archivedThemeIds || [];
+    const isArchived = currentArchived.includes(args.themeId);
+
+    let newArchived;
+    if (isArchived) {
+      newArchived = currentArchived.filter((id) => id !== args.themeId);
+    } else {
+      newArchived = [...currentArchived, args.themeId];
+    }
+
+    await ctx.db.patch(user._id, { archivedThemeIds: newArchived });
+    return !isArchived; // Return new state (true = archived, false = unarchived)
+  },
+});
+

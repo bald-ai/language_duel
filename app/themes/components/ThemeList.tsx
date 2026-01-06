@@ -26,6 +26,9 @@ interface ThemeListProps {
   myThemesOnly?: boolean;
   onOpenFriendFilter?: () => void;
   onClearFriendFilter?: () => void;
+  showArchived?: boolean;
+  onToggleShowArchived?: () => void;
+  onToggleArchive?: (themeId: Id<"themes">) => void;
 }
 
 const actionButtonClassName =
@@ -62,6 +65,8 @@ interface ThemeCardProps {
   onOpenTheme: (theme: ThemeWithOwner) => void;
   onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
   onDuplicateTheme: (themeId: Id<"themes">) => void;
+  isArchived?: boolean;
+  onToggleArchive?: (themeId: Id<"themes">) => void;
 }
 
 const ThemeCard = memo(function ThemeCard({
@@ -71,6 +76,8 @@ const ThemeCard = memo(function ThemeCard({
   onOpenTheme,
   onDeleteTheme,
   onDuplicateTheme,
+  isArchived,
+  onToggleArchive,
 }: ThemeCardProps) {
   const isMutating = isDeleting || isDuplicating;
 
@@ -124,6 +131,8 @@ const ThemeCard = memo(function ThemeCard({
           isDuplicating={isDuplicating}
           onDuplicate={onDuplicateTheme}
           onDelete={onDeleteTheme}
+          isArchived={isArchived}
+          onToggleArchive={onToggleArchive}
         />
       </div>
     </div>
@@ -137,6 +146,8 @@ interface ThemeListData {
   onOpenTheme: (theme: ThemeWithOwner) => void;
   onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
   onDuplicateTheme: (themeId: Id<"themes">) => void;
+  onToggleArchive?: (themeId: Id<"themes">) => void;
+  isArchived?: boolean;
   setRowSize: (index: number, size: number) => void;
 }
 
@@ -182,6 +193,8 @@ const ThemeRow = memo(function ThemeRow({
           onOpenTheme={data.onOpenTheme}
           onDeleteTheme={data.onDeleteTheme}
           onDuplicateTheme={data.onDuplicateTheme}
+          isArchived={data.isArchived}
+          onToggleArchive={data.onToggleArchive}
         />
       </div>
     </div>
@@ -201,6 +214,9 @@ export function ThemeList({
   myThemesOnly,
   onOpenFriendFilter,
   onClearFriendFilter,
+  showArchived,
+  onToggleShowArchived,
+  onToggleArchive,
 }: ThemeListProps) {
   const listRef = useRef<VariableSizeList | null>(null);
   const sizeMapRef = useRef<Map<number, number>>(new Map());
@@ -209,13 +225,15 @@ export function ThemeList({
   const [availableHeight, setAvailableHeight] = useState(0);
   const [listWidth, setListWidth] = useState(0);
 
-  const filterDisplay = myThemesOnly
-    ? "My Themes"
-    : selectedFriend
-      ? `${selectedFriend.nickname || selectedFriend.email}${selectedFriend.discriminator ? `#${selectedFriend.discriminator}` : ""}`
-      : null;
+  const filterDisplay = showArchived
+    ? "Archived Themes"
+    : myThemesOnly
+      ? "My Themes"
+      : selectedFriend
+        ? `${selectedFriend.nickname || selectedFriend.email}${selectedFriend.discriminator ? `#${selectedFriend.discriminator}` : ""}`
+        : null;
 
-  const isFiltering = myThemesOnly || !!selectedFriend;
+  const isFiltering = showArchived || myThemesOnly || !!selectedFriend;
   const subtitle = filterDisplay
     ? `Filtering: ${filterDisplay} • ${themes.length} theme${themes.length !== 1 ? "s" : ""}`
     : `${themes.length} theme${themes.length !== 1 ? "s" : ""} available`;
@@ -302,6 +320,8 @@ export function ThemeList({
       onOpenTheme,
       onDeleteTheme,
       onDuplicateTheme,
+      onToggleArchive,
+      isArchived: showArchived,
       setRowSize,
     }),
     [
@@ -311,6 +331,8 @@ export function ThemeList({
       onOpenTheme,
       onDeleteTheme,
       onDuplicateTheme,
+      onToggleArchive,
+      showArchived,
       setRowSize,
     ]
   );
@@ -368,6 +390,27 @@ export function ThemeList({
                     strokeLinejoin="round"
                     strokeWidth={2}
                     d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+              </button>
+            )}
+            {onToggleShowArchived && (
+              <button
+                onClick={onToggleShowArchived}
+                className="p-1.5 rounded-lg border-2 transition hover:brightness-110 ml-2"
+                style={{
+                  backgroundColor: showArchived ? `${colors.secondary.DEFAULT}26` : colors.background.DEFAULT,
+                  borderColor: showArchived ? `${colors.secondary.DEFAULT}66` : colors.primary.dark,
+                  color: showArchived ? colors.cta.lighter : colors.text.muted,
+                }}
+                title={showArchived ? "Show Active Themes" : "Show Archived Themes"}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                   />
                 </svg>
               </button>

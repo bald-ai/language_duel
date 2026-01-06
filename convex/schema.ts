@@ -86,6 +86,8 @@ export default defineSchema({
     // User preferences for theme system
     selectedColorSet: v.optional(v.string()),
     selectedBackground: v.optional(v.string()),
+    // Archived themes (hidden from main list)
+    archivedThemeIds: v.optional(v.array(v.id("themes"))),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_nickname_discriminator", ["nickname", "discriminator"]),

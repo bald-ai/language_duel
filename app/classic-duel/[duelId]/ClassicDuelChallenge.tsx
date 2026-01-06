@@ -76,7 +76,7 @@ export default function ClassicDuelChallenge({
   const router = useRouter();
   const { user } = useUser();
   const viewerIsChallenger = viewerRole === "challenger";
-  
+
   const [selectedAnswerRaw, setSelectedAnswerRaw] = useState<string | null>(null);
   // Track which question index the selectedAnswer belongs to
   const selectedAnswerIndexRef = useRef<number | null>(null);
@@ -140,7 +140,7 @@ export default function ClassicDuelChallenge({
   const requestUnpauseCountdown = useMutation(api.duel.requestUnpauseCountdown);
   const confirmUnpauseCountdown = useMutation(api.duel.confirmUnpauseCountdown);
   const skipCountdown = useMutation(api.duel.skipCountdown);
-  
+
   // Question timer state
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -149,12 +149,12 @@ export default function ClassicDuelChallenge({
   // Duel start time tracking for total duration
   const duelStartTimeRef = useRef<number | null>(null);
   const [duelDuration, setDuelDuration] = useState<number>(0);
-  
+
   // Phase-based state machine for question flow
   const [phase, setPhase] = useState<'idle' | 'answering' | 'transition'>('idle');
   const activeQuestionIndexRef = useRef<number | null>(null);
   const lockedAnswerRef = useRef<string | null>(null);
-  
+
   // Extract values
   const wordOrder = duel.wordOrder;
   // Memoize words to avoid creating new array reference on every render
@@ -166,7 +166,7 @@ export default function ClassicDuelChallenge({
   const selectedAnswer = (selectedAnswerIndexRef.current === index) ? selectedAnswerRaw : null;
   // Computed isLocked that's only valid for the current question (prevents race condition)
   const isLocked = (isLockedIndexRef.current === index) ? isLockedRaw : false;
-  
+
   // Sabotage effect management (extracted to hook)
   const mySabotage = viewerIsChallenger ? duel.challengerSabotage : duel.opponentSabotage;
   const { activeSabotage, sabotagePhase } = useSabotageEffect({
@@ -174,7 +174,7 @@ export default function ClassicDuelChallenge({
     phase,
     isLocked,
   });
-  
+
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
   // Memoize currentWord to avoid creating new object reference on every render
   const currentWord = useMemo(
@@ -182,35 +182,35 @@ export default function ClassicDuelChallenge({
     [words, actualWordIndex]
   );
   const word = currentWord.word;
-  
+
   // Calculate dynamic difficulty distribution
   const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
-  const difficultyDistribution = useMemo(() => 
-    calculateClassicDifficultyDistribution(words.length, classicPreset), 
+  const difficultyDistribution = useMemo(() =>
+    calculateClassicDifficultyDistribution(words.length, classicPreset),
     [words.length, classicPreset]
   );
 
   const currentWordIndex = duel.currentWordIndex;
-  
+
   // Unified transition effect
   useEffect(() => {
     if (currentWordIndex === undefined || !words.length) return;
-    
+
     if (activeQuestionIndexRef.current === null) {
       activeQuestionIndexRef.current = currentWordIndex;
       setPhase('answering');
       return;
     }
-    
+
     if (activeQuestionIndexRef.current === currentWordIndex) return;
-    
+
     const prevIndex = activeQuestionIndexRef.current;
     const shouldShowTransition = isLocked || lockedAnswerRef.current || hasTimedOutRef.current;
-    
+
     if (shouldShowTransition) {
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-      
+
       const prevDistribution = calculateClassicDifficultyDistribution(words.length, classicPreset);
       const prevDifficultyData = getDifficultyForIndex(prevIndex, prevDistribution);
       const prevDifficulty = {
@@ -218,18 +218,18 @@ export default function ClassicDuelChallenge({
         points: prevDifficultyData.points,
         wrongCount: prevDifficultyData.wrongCount,
       };
-      
+
       // Use shared shuffle utility for deterministic answer order
       const { answers: prevShuffled, hasNoneOption: prevHasNone } = shuffleAnswersForQuestion(
         prevWord as WordEntry,
         prevIndex,
         prevDifficulty
       );
-      
-      const opponentLastAnswer = viewerIsChallenger 
-        ? duel.opponentLastAnswer 
+
+      const opponentLastAnswer = viewerIsChallenger
+        ? duel.opponentLastAnswer
         : duel.challengerLastAnswer;
-      
+
       setPhase('transition');
       setFrozenData({
         word: prevWord.word,
@@ -241,7 +241,7 @@ export default function ClassicDuelChallenge({
         hasNoneOption: prevHasNone,
         difficulty: prevDifficulty,
       });
-      
+
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
         setCountdown(5);
@@ -253,11 +253,11 @@ export default function ClassicDuelChallenge({
       lockedAnswerRef.current = null;
       hasTimedOutRef.current = false;
     }
-    
+
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
   }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, classicPreset]);
-  
+
   // Countdown timer
   const countdownPausedBy = duel.countdownPausedBy;
   const countdownUnpauseRequestedBy = duel.countdownUnpauseRequestedBy;
@@ -267,25 +267,25 @@ export default function ClassicDuelChallenge({
     [duel.countdownSkipRequestedBy]
   );
   const prevCountdownPausedByRef = useRef<string | undefined>(countdownPausedBy);
-  
+
   // Detect when unpause is confirmed (countdownPausedBy goes from truthy to undefined)
   // Reset countdown to 1 second when this happens
   useEffect(() => {
     const wasPaused = prevCountdownPausedByRef.current;
     const isNowUnpaused = !countdownPausedBy;
-    
+
     if (wasPaused && isNowUnpaused && countdown !== null && phase === 'transition') {
       // Unpause confirmed - reset countdown to 1 second
       setCountdown(1);
     }
-    
+
     prevCountdownPausedByRef.current = countdownPausedBy;
   }, [countdownPausedBy, countdown, phase]);
-  
+
   useEffect(() => {
     if (countdown === null || phase !== 'transition') return;
     if (countdownPausedBy) return;
-    
+
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
@@ -324,11 +324,11 @@ export default function ClassicDuelChallenge({
 
   useEffect(() => {
     if (!isRevealing || !frozenData) return;
-    
+
     const correctAnswer = frozenData.correctAnswer;
     setTypedText("");
     setRevealComplete(false);
-    
+
     let i = 0;
     const interval = setInterval(() => {
       if (i < correctAnswer.length) {
@@ -339,7 +339,7 @@ export default function ClassicDuelChallenge({
         clearInterval(interval);
       }
     }, TYPE_REVEAL_INTERVAL_MS);
-    
+
     return () => clearInterval(interval);
   }, [isRevealing, frozenData]);
 
@@ -368,10 +368,10 @@ export default function ClassicDuelChallenge({
     const wasNotAnswering = prevPhaseRef.current !== 'answering';
     const isNowAnswering = phase === 'answering';
     prevPhaseRef.current = phase;
-    
+
     if (wasNotAnswering && isNowAnswering) {
       hasTimedOutRef.current = false;
-      
+
       // Capture duel start time on first question
       if (duelStartTimeRef.current === null) {
         duelStartTimeRef.current = Date.now();
@@ -386,22 +386,22 @@ export default function ClassicDuelChallenge({
       setDuelDuration(duration);
     }
   }, [duel.status]);
-  
+
   // Timer countdown effect (uses server start time; freezes when paused)
   useEffect(() => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-    
+
     const status = duel.status;
     const questionStartTime = duel.questionStartTime;
-    
+
     if (phase !== 'answering' || status !== "accepted" || !questionStartTime) {
       setQuestionTimer(null);
       return;
     }
-    
+
     const updateTimer = () => {
       const isFirstQuestion = (duel.currentWordIndex ?? 0) === 0;
       const transitionOffset = isFirstQuestion ? 0 : TRANSITION_COUNTDOWN_SECONDS * 1000;
@@ -410,22 +410,22 @@ export default function ClassicDuelChallenge({
       const elapsed = (now - effectiveStartTime) / 1000;
       const remaining = Math.max(0, QUESTION_TIMER_SECONDS - elapsed);
       setQuestionTimer(remaining);
-      
+
       if (remaining <= 0 && !hasTimedOutRef.current) {
         hasTimedOutRef.current = true;
-        const hasAnswered = viewerIsChallenger 
-          ? duel.challengerAnswered 
+        const hasAnswered = viewerIsChallenger
+          ? duel.challengerAnswered
           : duel.opponentAnswered;
-        
+
         if (!hasAnswered && duel._id) {
           timeoutAnswer({ duelId: duel._id }).catch(console.error);
         }
       }
     };
-    
+
     updateTimer();
     timerIntervalRef.current = setInterval(updateTimer, TIMER_UPDATE_INTERVAL_MS);
-    
+
     return () => {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
@@ -446,7 +446,7 @@ export default function ClassicDuelChallenge({
   ]);
 
   // Difficulty
-  const difficulty = useMemo(() => 
+  const difficulty = useMemo(() =>
     getDifficultyForIndex(index, difficultyDistribution),
     [index, difficultyDistribution]
   );
@@ -456,13 +456,13 @@ export default function ClassicDuelChallenge({
     if (word === "done" || !currentWord.wrongAnswers?.length) {
       return { shuffledAnswers: [], hasNoneOption: false };
     }
-    
+
     const { answers, hasNoneOption: hasNone } = shuffleAnswersForQuestion(
       currentWord as WordEntry,
       index,
       difficulty
     );
-    
+
     return { shuffledAnswers: answers, hasNoneOption: hasNone };
   }, [currentWord, word, index, difficulty]);
 
@@ -490,19 +490,19 @@ export default function ClassicDuelChallenge({
   const isChallenger = viewerIsChallenger;
   const isOpponent = viewerRole === "opponent";
   const outgoingSabotage = isChallenger ? duel.opponentSabotage : duel.challengerSabotage;
-  
+
   // Memoized sabotage active check - updates when sabotage or question changes
   // MUST be called before any early returns to follow React Hook rules
   const isOutgoingSabotageActive = useMemo(() => {
     if (!outgoingSabotage) return false;
-    
+
     // For sticky, check if within duration of last sabotage
     // Note: This won't auto-expire but will update on next state change
     if (outgoingSabotage.effect === "sticky") {
       const now = Date.now();
       return now - outgoingSabotage.timestamp < SABOTAGE_DURATION_MS;
     }
-    
+
     // For bounce/trampoline/reverse, active if sent during current question
     if (
       outgoingSabotage.effect === "bounce" ||
@@ -513,7 +513,7 @@ export default function ClassicDuelChallenge({
         ? outgoingSabotage.timestamp >= duel.questionStartTime
         : true; // Assume active if no question start time
     }
-    
+
     return false;
   }, [outgoingSabotage, duel.questionStartTime]);
 
@@ -575,7 +575,7 @@ export default function ClassicDuelChallenge({
   const handlePlayAudio = useCallback(async () => {
     const correctAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
     if (isPlayingAudio || !correctAnswer || correctAnswer === "done") return;
-    
+
     setIsPlayingAudio(true);
     try {
       const response = await fetch('/api/tts', {
@@ -583,23 +583,23 @@ export default function ClassicDuelChallenge({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: correctAnswer }),
       });
-      
+
       if (!response.ok) {
         const message = await getResponseErrorMessage(response);
         throw new Error(message);
       }
-      
+
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
-      
+
       // Cleanup previous audio
       if (audioRef.current) audioRef.current.pause();
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-      
+
       audioUrlRef.current = audioUrl;
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
-      
+
       audio.onended = () => {
         setIsPlayingAudio(false);
         if (audioUrlRef.current) {
@@ -607,7 +607,7 @@ export default function ClassicDuelChallenge({
           audioUrlRef.current = null;
         }
       };
-      
+
       audio.onerror = () => {
         setIsPlayingAudio(false);
         if (audioUrlRef.current) {
@@ -615,7 +615,7 @@ export default function ClassicDuelChallenge({
           audioUrlRef.current = null;
         }
       };
-      
+
       await audio.play();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to play audio";
@@ -637,7 +637,7 @@ export default function ClassicDuelChallenge({
   }
 
   const status = duel.status;
-  
+
   if (!isChallenger && !isOpponent) {
     return (
       <div
@@ -650,14 +650,14 @@ export default function ClassicDuelChallenge({
   }
 
   // Raw hasAnswered from server (may be stale during question transitions)
-  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) || 
-                     (isOpponent && duel.opponentAnswered);
+  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) ||
+    (isOpponent && duel.opponentAnswered);
   // Computed hasAnswered that's only valid for the current question (prevents race condition)
   // We already set isLockedIndexRef when user confirms answer, so hasAnswered should only be true
   // if the lock was set for the current question
   const hasAnswered = hasAnsweredRaw && (isLockedIndexRef.current === index);
-  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) || 
-                              (isOpponent && duel.challengerAnswered);
+  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) ||
+    (isOpponent && duel.challengerAnswered);
 
   // Hint system state
   const myRole = isChallenger ? "challenger" : "opponent";
@@ -665,7 +665,7 @@ export default function ClassicDuelChallenge({
   const hintRequestedBy = duel.hintRequestedBy;
   const hintAccepted = duel.hintAccepted;
   const eliminatedOptions = duel.eliminatedOptions || [];
-  
+
   const canRequestHint = !hasAnswered && opponentHasAnswered && !hintRequestedBy;
   const iRequestedHint = hintRequestedBy === myRole;
   const theyRequestedHint = hintRequestedBy === theirRole;
@@ -684,8 +684,8 @@ export default function ClassicDuelChallenge({
   const myName = (isChallenger ? challenger?.name : opponent?.name) || "You";
   const theirName = (isChallenger ? opponent?.name : challenger?.name) || "Opponent";
 
-  const mySabotagesUsed = isChallenger 
-    ? (duel.challengerSabotagesUsed || 0) 
+  const mySabotagesUsed = isChallenger
+    ? (duel.challengerSabotagesUsed || 0)
     : (duel.opponentSabotagesUsed || 0);
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
 
@@ -759,7 +759,7 @@ export default function ClassicDuelChallenge({
       : colors.text.DEFAULT;
 
   const gameContainerStyle = {
-    "--classic-bg": colors.background.DEFAULT,
+    "--classic-bg": `${colors.background.DEFAULT}E6`,
     "--classic-bg-elevated": `${colors.background.elevated}80`,
     borderColor: colors.primary.dark,
   } as React.CSSProperties;
@@ -774,28 +774,28 @@ export default function ClassicDuelChallenge({
 
   const listenButtonStyle = isPlayingAudio
     ? {
-        backgroundColor: colors.status.success.DEFAULT,
-        borderColor: colors.status.success.dark,
-        color: colors.text.DEFAULT,
-      }
+      backgroundColor: colors.status.success.DEFAULT,
+      borderColor: colors.status.success.dark,
+      color: colors.text.DEFAULT,
+    }
     : {
-        backgroundColor: colors.secondary.DEFAULT,
-        borderColor: colors.secondary.dark,
-        color: colors.text.DEFAULT,
-      };
+      backgroundColor: colors.secondary.DEFAULT,
+      borderColor: colors.secondary.dark,
+      color: colors.text.DEFAULT,
+    };
 
   const confirmDisabled = !selectedAnswer || isLocked;
   const confirmButtonStyle = confirmDisabled
     ? {
-        backgroundColor: colors.background.elevated,
-        borderBottomColor: colors.neutral.dark,
-        color: colors.text.muted,
-      }
+      backgroundColor: colors.background.elevated,
+      borderBottomColor: colors.neutral.dark,
+      color: colors.text.muted,
+    }
     : {
-        backgroundColor: colors.cta.DEFAULT,
-        borderBottomColor: colors.cta.dark,
-        color: colors.text.DEFAULT,
-      };
+      backgroundColor: colors.cta.DEFAULT,
+      borderBottomColor: colors.cta.dark,
+      color: colors.text.DEFAULT,
+    };
 
   const waitingMessageStyle = {
     color: colors.status.warning.light,
@@ -804,18 +804,18 @@ export default function ClassicDuelChallenge({
   };
 
   return (
-      <main
-        className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
-        style={{ color: colors.text.DEFAULT }}
+    <main
+      className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
+      style={{ color: colors.text.DEFAULT }}
+    >
+      <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
+
+      {/* Game Container - full screen on mobile, centered card on desktop */}
+      <div
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--classic-bg)] md:bg-[var(--classic-bg-elevated)]"
+        style={gameContainerStyle}
       >
-        <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
-        
-        {/* Game Container - full screen on mobile, centered card on desktop */}
-        <div
-          className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--classic-bg)] md:bg-[var(--classic-bg-elevated)]"
-          style={gameContainerStyle}
-        >
-        
+
         {/* Header: Scoreboard + Exit */}
         <header
           className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
@@ -827,7 +827,7 @@ export default function ClassicDuelChallenge({
             myScore={myScore}
             theirScore={theirScore}
           />
-          
+
           {status !== "completed" && (
             <button
               onClick={handleStopDuel}
@@ -853,7 +853,7 @@ export default function ClassicDuelChallenge({
           <div className="text-2xl md:text-3xl font-bold mb-4 text-center">
             {frozenData ? frozenData.word : word}
           </div>
-          
+
           {/* Reversed indicator */}
           {phase === "answering" && activeSabotage === "reverse" && (
             <div
@@ -885,7 +885,7 @@ export default function ClassicDuelChallenge({
                 </span>
               </div>
             )}
-            
+
             {/* Countdown controls during transition */}
             {countdown !== null && frozenData && (
               <CountdownControls
@@ -903,127 +903,125 @@ export default function ClassicDuelChallenge({
           </div>
 
           {/* TTS Listen button */}
-        {showListenButton && (
-          <button
-            onClick={handlePlayAudio}
-            disabled={isPlayingAudio}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${
-              isPlayingAudio ? "cursor-not-allowed" : "hover:brightness-110"
-            }`}
-            style={listenButtonStyle}
-          >
-            <span className="text-lg">{isPlayingAudio ? '🔊' : '🔈'}</span>
-            <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
-          </button>
-        )}
-
-        {/* Answer Options - always render container for stable layout */}
-        {(frozenData ? frozenData.word : word) !== "done" && (
-          <>
-            {/* Normal grid layout - use visibility instead of unmounting to prevent layout shift */}
-            <div 
-              className={`grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md ${
-                (activeSabotage === 'bounce' || activeSabotage === 'trampoline') ? 'invisible' : ''
-              }`}
+          {showListenButton && (
+            <button
+              onClick={handlePlayAudio}
+              disabled={isPlayingAudio}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${isPlayingAudio ? "cursor-not-allowed" : "hover:brightness-110"
+                }`}
+              style={listenButtonStyle}
             >
-            {displayAnswers.map((ans, i) => {
-              const state = computeOptionState(ans, { ...optionContext, answer: ans });
-              const cleanAns = stripIrr(ans);
-              const displayedAnswer =
-                activeSabotage === "reverse"
-                  ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
-                  : cleanAns;
-              
-              return (
-                <AnswerOptionButton
-                  key={i}
-                  answer={ans}
-                  displayText={displayedAnswer}
-                  state={state}
-                  onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                  showTypeReveal={isRevealing && !!frozenData}
-                  typedText={typedText}
-                  revealComplete={revealComplete}
-                  hasNoneOption={displayHasNone}
-                  isShowingFeedback={isShowingFeedback}
-                />
-              );
-            })}
-            </div>
-
-            {/* Bouncing options when bounce sabotage is active */}
-          {activeSabotage === 'bounce' && bouncingOptions.length > 0 && (
-            <div className="fixed inset-0 z-50 pointer-events-none">
-              {displayAnswers.map((ans, i) => {
-                const bouncePos = bouncingOptions[i];
-                if (!bouncePos) return null;
-
-                const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                const cleanAns = stripIrr(ans);
-                
-                return (
-                  <AnswerOptionButton
-                    key={i}
-                    answer={ans}
-                    displayText={cleanAns}
-                    state={state}
-                    onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                    hasNoneOption={displayHasNone}
-                    isShowingFeedback={isShowingFeedback}
-                    isFlying
-                    style={{
-                      position: 'absolute',
-                      left: bouncePos.x,
-                      top: bouncePos.y,
-                      width: BUTTON_WIDTH,
-                      height: BUTTON_HEIGHT,
-                      pointerEvents: 'auto',
-                      transform: `scale(${BOUNCE_FLY_SCALE})`,
-                      transformOrigin: 'top left',
-                    }}
-                  />
-                );
-              })}
-            </div>
+              <span className="text-lg">{isPlayingAudio ? '🔊' : '🔈'}</span>
+              <span>{isPlayingAudio ? 'Playing...' : 'Listen'}</span>
+            </button>
           )}
 
-          {/* Trampoline options when trampoline sabotage is active */}
-          {activeSabotage === 'trampoline' && trampolineOptions.length > 0 && (
-            <div className="fixed inset-0 z-50 pointer-events-none">
-              {displayAnswers.map((ans, i) => {
-                const trampPos = trampolineOptions[i];
-                if (!trampPos) return null;
+          {/* Answer Options - always render container for stable layout */}
+          {(frozenData ? frozenData.word : word) !== "done" && (
+            <>
+              {/* Normal grid layout - use visibility instead of unmounting to prevent layout shift */}
+              <div
+                className={`grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md ${(activeSabotage === 'bounce' || activeSabotage === 'trampoline') ? 'invisible' : ''
+                  }`}
+              >
+                {displayAnswers.map((ans, i) => {
+                  const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                  const cleanAns = stripIrr(ans);
+                  const displayedAnswer =
+                    activeSabotage === "reverse"
+                      ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
+                      : cleanAns;
 
-                const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                const cleanAns = stripIrr(ans);
+                  return (
+                    <AnswerOptionButton
+                      key={i}
+                      answer={ans}
+                      displayText={displayedAnswer}
+                      state={state}
+                      onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
+                      showTypeReveal={isRevealing && !!frozenData}
+                      typedText={typedText}
+                      revealComplete={revealComplete}
+                      hasNoneOption={displayHasNone}
+                      isShowingFeedback={isShowingFeedback}
+                    />
+                  );
+                })}
+              </div>
 
-                return (
-                  <AnswerOptionButton
-                    key={i}
-                    answer={ans}
-                    displayText={cleanAns}
-                    state={state}
-                    onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                    hasNoneOption={displayHasNone}
-                    isShowingFeedback={isShowingFeedback}
-                    isFlying
-                    style={{
-                      position: 'absolute',
-                      left: trampPos.x + trampPos.shakeOffset.x,
-                      top: trampPos.y + trampPos.shakeOffset.y,
-                      width: TRAMPOLINE_BUTTON_WIDTH,
-                      height: TRAMPOLINE_BUTTON_HEIGHT,
-                      pointerEvents: 'auto',
-                      transform: trampPos.phase === 'flying' ? `scale(${TRAMPOLINE_FLY_SCALE})` : 'scale(1)',
-                      transformOrigin: 'top left',
-                    }}
-                  />
-                );
-              })}
-            </div>
+              {/* Bouncing options when bounce sabotage is active */}
+              {activeSabotage === 'bounce' && bouncingOptions.length > 0 && (
+                <div className="fixed inset-0 z-50 pointer-events-none">
+                  {displayAnswers.map((ans, i) => {
+                    const bouncePos = bouncingOptions[i];
+                    if (!bouncePos) return null;
+
+                    const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                    const cleanAns = stripIrr(ans);
+
+                    return (
+                      <AnswerOptionButton
+                        key={i}
+                        answer={ans}
+                        displayText={cleanAns}
+                        state={state}
+                        onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
+                        hasNoneOption={displayHasNone}
+                        isShowingFeedback={isShowingFeedback}
+                        isFlying
+                        style={{
+                          position: 'absolute',
+                          left: bouncePos.x,
+                          top: bouncePos.y,
+                          width: BUTTON_WIDTH,
+                          height: BUTTON_HEIGHT,
+                          pointerEvents: 'auto',
+                          transform: `scale(${BOUNCE_FLY_SCALE})`,
+                          transformOrigin: 'top left',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Trampoline options when trampoline sabotage is active */}
+              {activeSabotage === 'trampoline' && trampolineOptions.length > 0 && (
+                <div className="fixed inset-0 z-50 pointer-events-none">
+                  {displayAnswers.map((ans, i) => {
+                    const trampPos = trampolineOptions[i];
+                    if (!trampPos) return null;
+
+                    const state = computeOptionState(ans, { ...optionContext, answer: ans });
+                    const cleanAns = stripIrr(ans);
+
+                    return (
+                      <AnswerOptionButton
+                        key={i}
+                        answer={ans}
+                        displayText={cleanAns}
+                        state={state}
+                        onClick={() => handleOptionClick(ans, state.canEliminateThis, state.isEliminated)}
+                        hasNoneOption={displayHasNone}
+                        isShowingFeedback={isShowingFeedback}
+                        isFlying
+                        style={{
+                          position: 'absolute',
+                          left: trampPos.x + trampPos.shakeOffset.x,
+                          top: trampPos.y + trampPos.shakeOffset.y,
+                          width: TRAMPOLINE_BUTTON_WIDTH,
+                          height: TRAMPOLINE_BUTTON_HEIGHT,
+                          pointerEvents: 'auto',
+                          transform: trampPos.phase === 'flying' ? `scale(${TRAMPOLINE_FLY_SCALE})` : 'scale(1)',
+                          transformOrigin: 'top left',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
-          </>
-        )}
         </div>
 
         {/* Footer: Confirm + Sabotage - always visible */}
@@ -1031,72 +1029,72 @@ export default function ClassicDuelChallenge({
           className="flex-shrink-0 flex flex-col items-center gap-2 w-full px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t"
           style={subtleBorderStyle}
         >
-        {/* Confirm Button */}
-        {!hasAnswered && phase === 'answering' && word !== "done" && (
-          <button
-            className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
-            style={confirmButtonStyle}
-            disabled={confirmDisabled}
-            onClick={handleConfirmAnswer}
-          >
-            Confirm Answer
-          </button>
-        )}
+          {/* Confirm Button */}
+          {!hasAnswered && phase === 'answering' && word !== "done" && (
+            <button
+              className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
+              style={confirmButtonStyle}
+              disabled={confirmDisabled}
+              onClick={handleConfirmAnswer}
+            >
+              Confirm Answer
+            </button>
+          )}
 
-        {/* Hint System UI */}
-        {phase === 'answering' && word !== "done" && (
-          <HintSystemUI
-            canRequestHint={canRequestHint}
-            iRequestedHint={iRequestedHint}
-            theyRequestedHint={theyRequestedHint}
-            hintAccepted={!!hintAccepted}
-            canAcceptHint={canAcceptHint}
-            isHintProvider={isHintProvider}
+          {/* Hint System UI */}
+          {phase === 'answering' && word !== "done" && (
+            <HintSystemUI
+              canRequestHint={canRequestHint}
+              iRequestedHint={iRequestedHint}
+              theyRequestedHint={theyRequestedHint}
+              hintAccepted={!!hintAccepted}
+              canAcceptHint={canAcceptHint}
+              isHintProvider={isHintProvider}
+              hasAnswered={hasAnswered}
+              eliminatedOptionsCount={eliminatedOptions.length}
+              onRequestHint={handleRequestHint}
+              onAcceptHint={handleAcceptHint}
+              requestHintText="Begging for help!"
+              acceptHintText="Bafoon is begging"
+            />
+          )}
+
+          {/* Sabotage System UI */}
+          <SabotageSystemUI
+            status={status}
+            phase={phase}
+            word={word}
+            sabotagesRemaining={sabotagesRemaining}
+            isLocked={isLocked}
             hasAnswered={hasAnswered}
-            eliminatedOptionsCount={eliminatedOptions.length}
-            onRequestHint={handleRequestHint}
-            onAcceptHint={handleAcceptHint}
-            requestHintText="Begging for help!"
-            acceptHintText="Bafoon is begging"
+            isOutgoingSabotageActive={isOutgoingSabotageActive}
+            opponentHasAnswered={opponentHasAnswered}
+            onSendSabotage={handleSendSabotage}
           />
-        )}
 
-        {/* Sabotage System UI */}
-        <SabotageSystemUI
-          status={status}
-          phase={phase}
-          word={word}
-          sabotagesRemaining={sabotagesRemaining}
-          isLocked={isLocked}
-          hasAnswered={hasAnswered}
-          isOutgoingSabotageActive={isOutgoingSabotageActive}
-          opponentHasAnswered={opponentHasAnswered}
-          onSendSabotage={handleSendSabotage}
-        />
+          {/* Waiting message */}
+          {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
+            <div
+              className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
+              style={waitingMessageStyle}
+            >
+              Waiting for opponent...
+            </div>
+          )}
 
-        {/* Waiting message */}
-        {hasAnswered && phase === 'answering' && word !== "done" && !theyRequestedHint && (
-          <div
-            className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
-            style={waitingMessageStyle}
-          >
-            Waiting for opponent...
-          </div>
-        )}
-
-        {/* Final Results - shown at end, no separate screen */}
-        {status === "completed" && (
-          <FinalResultsPanel
-            myName={myName}
-            theirName={theirName}
-            myScore={myScore}
-            theirScore={theirScore}
-            onBackToHome={() => router.push('/')}
-            duelDuration={duelDuration}
-          />
-        )}
+          {/* Final Results - shown at end, no separate screen */}
+          {status === "completed" && (
+            <FinalResultsPanel
+              myName={myName}
+              theirName={theirName}
+              myScore={myScore}
+              theirScore={theirScore}
+              onBackToHome={() => router.push('/')}
+              duelDuration={duelDuration}
+            />
+          )}
         </footer>
       </div>
-      </main>
+    </main>
   );
 }

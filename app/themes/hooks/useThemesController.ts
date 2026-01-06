@@ -39,15 +39,17 @@ export function useThemesController() {
   // Friend filter state
   const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
   const [myThemesOnly, setMyThemesOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] = useState(false);
 
   // Convex queries - build query args based on filter state
   const queryArgs = useMemo(() => {
+    if (showArchived) return { archivedOnly: true };
     if (myThemesOnly) return { myThemesOnly: true };
     if (selectedFriendFilter) return { filterByFriendId: selectedFriendFilter };
     return {};
-  }, [myThemesOnly, selectedFriendFilter]);
+  }, [myThemesOnly, selectedFriendFilter, showArchived]);
 
   const rawThemesQuery = useQuery(api.themes.getThemes, queryArgs);
   const friends = useQuery(api.friends.getFriends);
@@ -56,6 +58,7 @@ export function useThemesController() {
   // Mutations
   const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
   const updateFriendsCanEditMutation = useMutation(api.themes.updateThemeFriendsCanEdit);
+  const toggleArchiveMutation = useMutation(api.themes.toggleThemeArchive);
 
   // Custom hooks
   const themeGenerator = useThemeGenerator();
@@ -142,6 +145,7 @@ export function useThemesController() {
   const handleClearFriendFilter = useCallback(() => {
     setSelectedFriendFilter(null);
     setMyThemesOnly(false);
+    setShowArchived(false);
     setShowFriendFilterModal(false);
   }, []);
 
@@ -165,7 +169,19 @@ export function useThemesController() {
     }
   }, [viewMode, wordEditor, router]);
 
-  // Theme actions
+  // Archive actions
+  const handleToggleArchive = useCallback(
+    async (themeId: Id<"themes">) => {
+      try {
+        const isArchived = await toggleArchiveMutation({ themeId });
+        toast.success(isArchived ? "Theme archived" : "Theme unarchived");
+      } catch (err) {
+        toast.error("Failed to update archive status");
+      }
+    },
+    [toggleArchiveMutation]
+  );
+
   const openTheme = useCallback((theme: ThemeWithOwner) => {
     setSelectedTheme(theme);
     setLocalWords([...theme.words]);
@@ -539,6 +555,9 @@ export function useThemesController() {
       myThemesOnly,
       onOpenFriendFilter: () => setShowFriendFilterModal(true),
       onClearFriendFilter: handleClearFriendFilter,
+      showArchived,
+      onToggleShowArchived: () => setShowArchived((prev) => !prev),
+      onToggleArchive: handleToggleArchive,
     }),
     [
       themes,
@@ -553,6 +572,9 @@ export function useThemesController() {
       myThemesOnly,
       setShowFriendFilterModal,
       handleClearFriendFilter,
+      showArchived,
+      setShowArchived,
+      handleToggleArchive,
     ]
   );
 
@@ -565,6 +587,8 @@ export function useThemesController() {
       onEditWord: handleEditWord,
       onSave: handleSaveTheme,
       onCancel: handleCancelTheme,
+      onToggleArchive: handleToggleArchive,
+      isArchived: showArchived,
       showAddWordModal,
       onShowAddWordModal: setShowAddWordModal,
       addWordState: {
@@ -764,3 +788,5 @@ export function useThemesController() {
     wordEditorState: wordEditor,
   };
 }
+
+
