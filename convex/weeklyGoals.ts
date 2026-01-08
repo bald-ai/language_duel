@@ -361,15 +361,30 @@ export const createGoal = mutation({
     }
 
     // Create the goal
-    return await ctx.db.insert("weeklyGoals", {
+    const goalId = await ctx.db.insert("weeklyGoals", {
       creatorId: user._id,
       partnerId,
       themes: [],
       creatorLocked: false,
       partnerLocked: false,
       status: "editing",
-      createdAt: Date.now(),
+      createdAt: now,
     });
+
+    // Notify the partner about the new goal invitation
+    await ctx.db.insert("notifications", {
+      type: "weekly_plan_invitation",
+      fromUserId: user._id,
+      toUserId: partnerId,
+      status: "pending",
+      payload: {
+        goalId,
+        themeCount: 0,
+      },
+      createdAt: now,
+    });
+
+    return goalId;
   },
 });
 
@@ -546,12 +561,41 @@ export const lockGoal = mutation({
       ? goal.partnerLocked
       : goal.creatorLocked;
 
+    const now = Date.now();
+
     if (bothLocked) {
       // Both are now locked - activate the goal
-      const now = Date.now();
       updates.status = "active";
       updates.lockedAt = now;
       updates.expiresAt = now + GOAL_DURATION_MS;
+    } else {
+      // First lock - update the existing notification with current theme count
+      const otherUserId = isCreator ? goal.partnerId : goal.creatorId;
+
+      // Find the existing weekly_plan_invitation notification for this goal
+      const existingNotification = await ctx.db
+        .query("notifications")
+        .withIndex("by_recipient", (q) =>
+          q.eq("toUserId", otherUserId).eq("status", "pending")
+        )
+        .filter((q) => q.eq(q.field("type"), "weekly_plan_invitation"))
+        .collect();
+
+      const notificationForThisGoal = existingNotification.find(
+        (n) => n.payload?.goalId === goalId
+      );
+
+      if (notificationForThisGoal) {
+        // Update existing notification with refreshed payload
+        await ctx.db.patch(notificationForThisGoal._id, {
+          fromUserId: user._id,
+          payload: {
+            goalId,
+            themeCount: goal.themes.length,
+          },
+          createdAt: now,
+        });
+      }
     }
 
     await ctx.db.patch(goalId, updates);

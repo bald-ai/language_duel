@@ -44,8 +44,9 @@ export const createDuel = mutation({
     // Create shuffled word order
     const wordOrder = createShuffledWordOrder(theme.words.length);
     const duelMode = mode || "solo";
+    const now = Date.now();
 
-    return await ctx.db.insert("challenges", {
+    const challengeId = await ctx.db.insert("challenges", {
       challengerId: challenger._id,
       opponentId,
       themeId,
@@ -59,8 +60,25 @@ export const createDuel = mutation({
       mode: duelMode,
       classicDifficultyPreset:
         duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
-      createdAt: Date.now(),
+      createdAt: now,
     });
+
+    // Create notification for the opponent
+    await ctx.db.insert("notifications", {
+      type: "duel_challenge",
+      fromUserId: challenger._id,
+      toUserId: opponentId,
+      status: "pending",
+      payload: {
+        challengeId,
+        themeName: theme.name,
+        mode: duelMode,
+        classicDifficultyPreset: duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
+      },
+      createdAt: now,
+    });
+
+    return challengeId;
   },
 });
 
@@ -93,17 +111,17 @@ export const getDuel = query({
       },
       challenger: challenger
         ? {
-            _id: challenger._id,
-            name: challenger.name,
-            imageUrl: challenger.imageUrl,
-          }
+          _id: challenger._id,
+          name: challenger.name,
+          imageUrl: challenger.imageUrl,
+        }
         : null,
       opponent: opponent
         ? {
-            _id: opponent._id,
-            name: opponent.name,
-            imageUrl: opponent.imageUrl,
-          }
+          _id: opponent._id,
+          name: opponent.name,
+          imageUrl: opponent.imageUrl,
+        }
         : null,
     };
   },
@@ -178,34 +196,34 @@ export const acceptDuel = mutation({
       // Solo mode: skip learning phase - go directly to challenging
       const challengerPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
       seed = challengerPoolsResult.newSeed;
-      
+
       const opponentPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
       seed = opponentPoolsResult.newSeed;
-      
+
       const wordStates = createInitialWordStates(wordCount);
 
       // Pick first question for each player using seeded PRNG
       seed = (seed * 1103515245 + 12345) & 0x7fffffff;
       const challengerFirstWord =
         challengerPoolsResult.activePool[
-          Math.floor((seed / 0x7fffffff) * challengerPoolsResult.activePool.length)
+        Math.floor((seed / 0x7fffffff) * challengerPoolsResult.activePool.length)
         ];
-      
+
       seed = (seed * 1103515245 + 12345) & 0x7fffffff;
       const opponentFirstWord =
         opponentPoolsResult.activePool[
-          Math.floor((seed / 0x7fffffff) * opponentPoolsResult.activePool.length)
+        Math.floor((seed / 0x7fffffff) * opponentPoolsResult.activePool.length)
         ];
 
       const challengerLevel = determineInitialLevelSeeded(seed);
       seed = challengerLevel.newSeed;
-      
+
       const challengerL2Mode = determineLevel2ModeSeeded(seed);
       seed = challengerL2Mode.newSeed;
-      
+
       const opponentLevel = determineInitialLevelSeeded(seed);
       seed = opponentLevel.newSeed;
-      
+
       const opponentL2Mode = determineLevel2ModeSeeded(seed);
       seed = opponentL2Mode.newSeed;
 

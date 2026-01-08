@@ -4,7 +4,7 @@ This file provides guidance for AI coding agents working on this codebase.
 
 ## Before Making Plans or Changes
 
-**Always consult the following documents before proposing or implementing changes:**
+**Always OPEN AND READ the following documents before proposing or implementing changes:**
 
 ### For Code Architecture & Engineering Decisions
 → Read **`CONTRIBUTING.md`**
@@ -35,3 +35,5 @@ This covers:
 | UI components or styling | `Design Rules.md` |
 | Colors, buttons, theme | `Design Rules.md` |
 | Both architecture + UI | Both documents |
+
+**Always OPEN AND READ the following documents before proposing or implementing changes:**

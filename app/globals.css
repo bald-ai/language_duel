@@ -14,42 +14,42 @@
 
 :root {
   color-scheme: light;
-  
+
   /* Safe area insets for PWA/notch devices */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  
+
   /* ========================================
    * SEMANTIC COLOR ROLES (use these!)
    * Default values: Playful Duo palette
    * ======================================== */
-  
+
   /* Primary - Main brand color, standard buttons */
   --color-primary: #FB7185;
   --color-primary-light: #FC8A9C;
   --color-primary-dark: #E9586E;
-  
+
   /* CTA/Accent - Call-to-action, highlights (use sparingly!) */
   --color-cta: #22C55E;
   --color-cta-light: #3DD672;
   --color-cta-dark: #1A9A4A;
-  
+
   /* Neutral - Decorative, muted elements (derived from accent) */
   --color-neutral: #6BBF8E;
   --color-neutral-light: #8AD0A6;
   --color-neutral-dark: #4F9A6D;
-  
+
   /* Secondary - Supporting elements (derived from primary) */
   --color-secondary: #8AB0C4;
   --color-secondary-light: #A5C4D5;
   --color-secondary-dark: #6B95AD;
-  
+
   /* Backgrounds */
   --color-background: #FFF8F1;
   --color-background-elevated: #FFFFFF;
-  
+
   /* Text */
   --color-text: #1A1A1A;
   --color-text-muted: #6B6B6B;
@@ -84,13 +84,16 @@ body {
 
 /* Glow effects */
 @keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent), 
-                0 0 40px color-mix(in srgb, var(--color-primary) 20%, transparent);
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent),
+      0 0 40px color-mix(in srgb, var(--color-primary) 20%, transparent);
   }
+
   50% {
-    box-shadow: 0 0 30px color-mix(in srgb, var(--color-primary) 60%, transparent), 
-                0 0 60px color-mix(in srgb, var(--color-primary) 30%, transparent);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--color-primary) 60%, transparent),
+      0 0 60px color-mix(in srgb, var(--color-primary) 30%, transparent);
   }
 }
 
@@ -104,6 +107,7 @@ body {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -115,13 +119,99 @@ body {
   opacity: 0;
 }
 
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
-.delay-600 { animation-delay: 600ms; }
-.delay-700 { animation-delay: 700ms; }
+.delay-100 {
+  animation-delay: 100ms;
+}
+
+.delay-200 {
+  animation-delay: 200ms;
+}
+
+.delay-300 {
+  animation-delay: 300ms;
+}
+
+.delay-400 {
+  animation-delay: 400ms;
+}
+
+.delay-500 {
+  animation-delay: 500ms;
+}
+
+.delay-600 {
+  animation-delay: 600ms;
+}
+
+.delay-700 {
+  animation-delay: 700ms;
+}
+
+/* Slide down animation for notification panel */
+@keyframes slide-down-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down-fade 0.2s ease-out forwards;
+}
+
+/* Scale in animation for context menus and modals */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.15s ease-out forwards;
+}
+
+/* Slide out animation for dismissed items */
+@keyframes slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.animate-slide-out {
+  animation: slide-out-right 0.2s ease-in forwards;
+}
+
+/* Fade in animation for backdrop */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out forwards;
+}
 
 @media (max-width: 768px) {
   .animate-slide-up {
@@ -130,14 +220,26 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .glow-pulse,
-  .animate-slide-up {
+  .animate-slide-up,
+  .animate-slide-down,
+  .animate-scale-in,
+  .animate-slide-out,
+  .animate-fade-in {
     animation: none !important;
   }
 
-  .animate-slide-up {
+  .animate-slide-up,
+  .animate-slide-down,
+  .animate-scale-in,
+  .animate-slide-out {
     opacity: 1;
     transform: none;
+  }
+
+  .animate-fade-in {
+    opacity: 1;
   }
 }
 
@@ -147,7 +249,7 @@ body {
 
 /* Geometric pattern overlay - uses primary color */
 .geo-pattern {
-  background-image: 
+  background-image:
     linear-gradient(30deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
     linear-gradient(150deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
     linear-gradient(30deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
@@ -246,15 +348,19 @@ html {
 .pt-safe {
   padding-top: var(--sat);
 }
+
 .pr-safe {
   padding-right: var(--sar);
 }
+
 .pb-safe {
   padding-bottom: var(--sab);
 }
+
 .pl-safe {
   padding-left: var(--sal);
 }
+
 .p-safe {
   padding-top: var(--sat);
   padding-right: var(--sar);
@@ -266,13 +372,15 @@ html {
 .min-h-dvh {
   min-height: 100dvh;
 }
+
 .h-dvh {
   height: 100dvh;
 }
 
 /* Large viewport height - for fixed backgrounds that shouldn't resize */
 .h-lvh {
-  height: 100vh; /* Fallback for older browsers */
+  height: 100vh;
+  /* Fallback for older browsers */
   height: 100lvh;
 }
 
@@ -291,7 +399,7 @@ html {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
 }
 
 .themed-title-accent {
@@ -343,6 +451,7 @@ html {
   .title-text-outline::before {
     -webkit-text-stroke-width: 4px;
   }
+
   .title-text-outline-accent::before {
     -webkit-text-stroke-width: 4px;
   }
@@ -352,6 +461,7 @@ html {
   .title-text-outline::before {
     -webkit-text-stroke-width: 5px;
   }
+
   .title-text-outline-accent::before {
     -webkit-text-stroke-width: 5px;
   }

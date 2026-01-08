@@ -80,6 +80,11 @@ export function ThemedPage({
         }}
       >
         {/* Background image layer */}
+        {/* 
+          Eager loading required: Background images were not loading at all on smaller screens
+          without this. The lazy loading behavior was causing display issues on mobile.
+          Trade-off: Slightly higher initial load, but ensures background always displays.
+        */}
         {effectiveBackground && (
           <Image
             src={effectiveBackground}

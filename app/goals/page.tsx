@@ -14,6 +14,7 @@ import { GoalThemeSelector } from "./components/GoalThemeSelector";
 import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
 import { PlanSwitcher } from "./components/PlanSwitcher";
+import { MAX_THEMES_PER_GOAL } from "./constants";
 
 // Local storage key for remembering last viewed plan
 const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
@@ -121,7 +122,7 @@ export default function GoalsPage() {
   const handleAddThemes = async (themeIds: Id<"themes">[]) => {
     if (!selectedPlan?.goal) return;
     try {
-      const remainingSlots = Math.max(0, 5 - selectedPlan.goal.themes.length);
+      const remainingSlots = Math.max(0, MAX_THEMES_PER_GOAL - selectedPlan.goal.themes.length);
       const existingThemeIds = new Set(
         selectedPlan.goal.themes.map((theme) => theme.themeId)
       );
@@ -218,7 +219,7 @@ export default function GoalsPage() {
   const hasPlanSelected = selectedPlan != null; // handles both null and undefined
   const isEditing = hasPlanSelected && selectedPlan.goal.status === "editing";
   const isActive = hasPlanSelected && selectedPlan.goal.status === "active";
-  const canAddThemes = isEditing && hasPlanSelected && selectedPlan.goal.themes.length < 5;
+  const canAddThemes = isEditing && hasPlanSelected && selectedPlan.goal.themes.length < MAX_THEMES_PER_GOAL;
   const viewerLocked = hasPlanSelected && (
     (selectedPlan.viewerRole === "creator" && selectedPlan.goal.creatorLocked) ||
     (selectedPlan.viewerRole === "partner" && selectedPlan.goal.partnerLocked)
@@ -439,17 +440,17 @@ export default function GoalsPage() {
                   backgroundColor: `${colors.background.elevated}CC`,
                 }}
               >
-                + Add Theme ({selectedPlan.goal.themes.length}/5)
+                + Add Theme ({selectedPlan.goal.themes.length}/{MAX_THEMES_PER_GOAL})
               </button>
             )}
 
             {/* Theme count at max */}
-            {isEditing && selectedPlan.goal.themes.length >= 5 && (
+            {isEditing && selectedPlan.goal.themes.length >= MAX_THEMES_PER_GOAL && (
               <p
                 className="text-center text-sm"
                 style={{ color: colors.text.muted }}
               >
-                Maximum themes reached (5/5)
+                Maximum themes reached ({MAX_THEMES_PER_GOAL}/{MAX_THEMES_PER_GOAL})
               </p>
             )}
 

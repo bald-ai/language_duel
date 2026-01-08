@@ -69,6 +69,27 @@ const soloHintRequesterStateValidator = v.object({
 // Schema Definition
 // ===========================================
 
+// Notification type validator
+const notificationTypeValidator = v.union(
+  v.literal("friend_request"),
+  v.literal("weekly_plan_invitation"),
+  v.literal("scheduled_duel"),
+  v.literal("duel_challenge")
+);
+
+const notificationStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("read"),
+  v.literal("dismissed")
+);
+
+const scheduledDuelStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("accepted"),
+  v.literal("counter_proposed"),
+  v.literal("declined")
+);
+
 export default defineSchema({
   // -------------------------------------------
   // Users Table
@@ -82,12 +103,16 @@ export default defineSchema({
     discriminator: v.optional(v.number()),
     llmCreditsRemaining: v.optional(v.number()),
     ttsGenerationsRemaining: v.optional(v.number()),
+    // TTS provider preference: 'resemble' (default) or 'elevenlabs'
+    ttsProvider: v.optional(v.union(v.literal("resemble"), v.literal("elevenlabs"))),
     creditsMonth: v.optional(v.string()),
     // User preferences for theme system
     selectedColorSet: v.optional(v.string()),
     selectedBackground: v.optional(v.string()),
     // Archived themes (hidden from main list)
     archivedThemeIds: v.optional(v.array(v.id("themes"))),
+    // Presence tracking
+    lastSeenAt: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_nickname_discriminator", ["nickname", "discriminator"]),
@@ -255,4 +280,43 @@ export default defineSchema({
     .index("by_creator", ["creatorId"])
     .index("by_partner", ["partnerId"])
     .index("by_status", ["status"]),
+
+  // -------------------------------------------
+  // Notifications Table
+  // -------------------------------------------
+  notifications: defineTable({
+    type: notificationTypeValidator,
+    fromUserId: v.id("users"),
+    toUserId: v.id("users"),
+    status: notificationStatusValidator,
+    payload: v.optional(v.any()), // JSON payload for notification-specific data
+    createdAt: v.number(),
+  })
+    .index("by_recipient", ["toUserId", "status"])
+    .index("by_type", ["type", "toUserId"]),
+
+  // -------------------------------------------
+  // Scheduled Duels Table
+  // -------------------------------------------
+  scheduledDuels: defineTable({
+    proposerId: v.id("users"),
+    recipientId: v.id("users"),
+    themeId: v.id("themes"),
+    scheduledTime: v.number(), // Unix timestamp
+    status: scheduledDuelStatusValidator,
+    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
+    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
+    // Ready state tracking
+    proposerReady: v.optional(v.boolean()),
+    recipientReady: v.optional(v.boolean()),
+    proposerReadyAt: v.optional(v.number()),
+    recipientReadyAt: v.optional(v.number()),
+    // Reference to started duel (if both players are ready)
+    startedDuelId: v.optional(v.id("challenges")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_proposer", ["proposerId"])
+    .index("by_recipient", ["recipientId", "status"])
+    .index("by_scheduled_time", ["scheduledTime"]),
 });

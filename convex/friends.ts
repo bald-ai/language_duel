@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { isUserOnline } from "./users";
 
 // Friend with user details
 export type FriendWithDetails = {
@@ -13,6 +14,8 @@ export type FriendWithDetails = {
   email: string;
   imageUrl?: string;
   createdAt: number;
+  isOnline: boolean;
+  lastSeenAt?: number;
 };
 
 // Friend request with sender details (for received requests)
@@ -142,11 +145,19 @@ export const getFriends = query({
           email: friend.email,
           imageUrl: friend.imageUrl,
           createdAt: friendship.createdAt,
+          isOnline: isUserOnline(friend.lastSeenAt),
+          lastSeenAt: friend.lastSeenAt,
         });
       }
     }
 
-    return friendsWithDetails;
+    // Sort: online users first, then offline by most recently seen
+    return friendsWithDetails.sort((a, b) => {
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+      // Both same status, sort by lastSeenAt descending
+      return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
+    });
   },
 });
 
@@ -252,11 +263,24 @@ export const sendFriendRequest = mutation({
     }
 
     // Create the friend request
+    const now = Date.now();
     const requestId = await ctx.db.insert("friendRequests", {
       senderId: user._id,
       receiverId: args.receiverId,
       status: "pending",
-      createdAt: Date.now(),
+      createdAt: now,
+    });
+
+    // Create notification for the receiver
+    await ctx.db.insert("notifications", {
+      type: "friend_request",
+      fromUserId: user._id,
+      toUserId: args.receiverId,
+      status: "pending",
+      payload: {
+        friendRequestId: requestId,
+      },
+      createdAt: now,
     });
 
     return { requestId };
@@ -288,6 +312,20 @@ export const acceptFriendRequest = mutation({
 
     // Update request status
     await ctx.db.patch(args.requestId, { status: "accepted" });
+
+    // Dismiss any related friend request notifications for this request
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id)
+      )
+      .collect();
+
+    for (const notification of notifications) {
+      if (notification.payload?.friendRequestId === args.requestId) {
+        await ctx.db.patch(notification._id, { status: "dismissed" });
+      }
+    }
 
     // Create bidirectional friendship
     const now = Date.now();
@@ -331,6 +369,20 @@ export const rejectFriendRequest = mutation({
 
     // Update request status
     await ctx.db.patch(args.requestId, { status: "rejected" });
+
+    // Dismiss any related friend request notifications for this request
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id)
+      )
+      .collect();
+
+    for (const notification of notifications) {
+      if (notification.payload?.friendRequestId === args.requestId) {
+        await ctx.db.patch(notification._id, { status: "dismissed" });
+      }
+    }
 
     return { success: true };
   },

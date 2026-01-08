@@ -2,11 +2,11 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { AuthButtons } from "@/app/components/auth";
 import { useSyncUser } from "@/hooks/useSyncUser";
 import { useDuelLobby } from "@/hooks/useDuelLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
 import { SoloModal, WaitingModal, JoiningModal, UnifiedDuelModal } from "@/app/components/modals";
 import { colors } from "@/lib/theme";
 
@@ -53,8 +53,13 @@ export default function Home() {
 
   return (
     <ThemedPage className="justify-between">
-      {/* Auth button - top right */}
-      <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
+      {/* Top-left nav buttons (Bell, Goals) */}
+      <div className="absolute top-3 left-2 sm:left-4 z-20">
+        <LeftNavButtons />
+      </div>
+
+      {/* Top-right auth buttons (Settings, User) */}
+      <div className="absolute top-3 right-2 sm:right-4 z-20">
         <AuthButtons />
       </div>
 
@@ -128,7 +133,7 @@ export default function Home() {
           </div>
 
           <div className="animate-slide-up delay-500">
-            <MenuButton onClick={lobby.openUnifiedDuelModal} badge={lobby.pendingClassicCount + lobby.pendingSoloStyleCount}>
+            <MenuButton onClick={lobby.openUnifiedDuelModal}>
               <DuelIcon />
               Duel
             </MenuButton>
@@ -144,41 +149,47 @@ export default function Home() {
       </main>
 
       {/* Modals */}
-      {lobby.showUnifiedDuelModal && (
-        <UnifiedDuelModal
-          users={lobby.users}
-          themes={lobby.themes}
-          pendingDuels={[
-            ...(lobby.pendingClassicDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "classic" as const } })) || []),
-            ...(lobby.pendingSoloStyleDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "solo" as const } })) || []),
-          ]}
-          isJoiningDuel={lobby.isJoiningDuel}
-          isCreatingDuel={lobby.isCreatingDuel}
-          onAcceptDuel={lobby.handleAcceptDuel}
-          onRejectDuel={lobby.handleRejectDuel}
-          onCreateDuel={lobby.handleCreateDuel}
-          onClose={lobby.closeUnifiedDuelModal}
-          onNavigateToThemes={lobby.navigateToThemes}
-        />
-      )}
+      {
+        lobby.showUnifiedDuelModal && (
+          <UnifiedDuelModal
+            users={lobby.users}
+            themes={lobby.themes}
+            pendingDuels={[
+              ...(lobby.pendingClassicDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "classic" as const } })) || []),
+              ...(lobby.pendingSoloStyleDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "solo" as const } })) || []),
+            ]}
+            isJoiningDuel={lobby.isJoiningDuel}
+            isCreatingDuel={lobby.isCreatingDuel}
+            onAcceptDuel={lobby.handleAcceptDuel}
+            onRejectDuel={lobby.handleRejectDuel}
+            onCreateDuel={lobby.handleCreateDuel}
+            onClose={lobby.closeUnifiedDuelModal}
+            onNavigateToThemes={lobby.navigateToThemes}
+          />
+        )
+      }
 
-      {lobby.showSoloModal && (
-        <SoloModal
-          themes={lobby.themes}
-          onContinue={lobby.handleContinueSolo}
-          onClose={lobby.closeSoloModal}
-          onNavigateToThemes={lobby.navigateToThemes}
-        />
-      )}
+      {
+        lobby.showSoloModal && (
+          <SoloModal
+            themes={lobby.themes}
+            onContinue={lobby.handleContinueSolo}
+            onClose={lobby.closeSoloModal}
+            onNavigateToThemes={lobby.navigateToThemes}
+          />
+        )
+      }
 
-      {lobby.showWaitingModal && (
-        <WaitingModal
-          isCancelling={lobby.isCancellingDuel}
-          onCancel={lobby.handleCancelWaiting}
-        />
-      )}
+      {
+        lobby.showWaitingModal && (
+          <WaitingModal
+            isCancelling={lobby.isCancellingDuel}
+            onCancel={lobby.handleCancelWaiting}
+          />
+        )
+      }
 
       {lobby.isJoiningDuel && <JoiningModal />}
-    </ThemedPage>
+    </ThemedPage >
   );
 }

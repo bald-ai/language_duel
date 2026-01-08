@@ -35,6 +35,7 @@ export type CurrentUser = {
   llmCreditsRemaining: number;
   ttsGenerationsRemaining: number;
   creditsMonth: string;
+  ttsProvider: "resemble" | "elevenlabs";
 };
 
 function getCurrentMonthKey(now = Date.now()): string {
@@ -103,6 +104,7 @@ export const getCurrentUser = query({
       llmCreditsRemaining: normalizedCredits.llmCreditsRemaining,
       ttsGenerationsRemaining: normalizedCredits.ttsGenerationsRemaining,
       creditsMonth: normalizedCredits.creditsMonth,
+      ttsProvider: auth.user.ttsProvider ?? "resemble",
     };
   },
 });
@@ -175,6 +177,24 @@ export const updateNickname = mutation({
     });
 
     return { nickname: args.nickname, discriminator };
+  },
+});
+
+/**
+ * Update current user's TTS provider preference
+ */
+export const updateTtsProvider = mutation({
+  args: {
+    ttsProvider: v.union(v.literal("resemble"), v.literal("elevenlabs")),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    await ctx.db.patch(user._id, {
+      ttsProvider: args.ttsProvider,
+    });
+
+    return { ttsProvider: args.ttsProvider };
   },
 });
 
@@ -370,5 +390,46 @@ export const consumeCredits = mutation({
       ttsGenerationsRemaining: nextTtsGenerations,
       creditsMonth: normalized.creditsMonth,
     };
+  },
+});
+
+// ===========================================
+// Presence Tracking
+// ===========================================
+
+// Consider user online if lastSeenAt is within this duration
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Helper to determine if a user is online based on lastSeenAt
+ */
+export function isUserOnline(lastSeenAt: number | undefined): boolean {
+  if (!lastSeenAt) return false;
+  return Date.now() - lastSeenAt < ONLINE_THRESHOLD_MS;
+}
+
+/**
+ * Update user presence (call periodically from client)
+ */
+export const updatePresence = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return;
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) {
+      return;
+    }
+
+    await ctx.db.patch(user._id, {
+      lastSeenAt: Date.now(),
+    });
   },
 });

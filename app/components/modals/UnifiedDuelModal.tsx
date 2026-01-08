@@ -253,6 +253,11 @@ export function UnifiedDuelModal({
               description="Real-time countdown, hints & sabotage system"
               selectedTone="cta"
             />
+            {/* 
+              Solo Style Duel - Currently disabled (50/50 on keeping it)
+              Keeping the code here until I make a final decision on whether to keep this feature.
+              Will revisit and decide: either re-enable or remove completely.
+            */}
             {/* <ModeSelectionButton
               selected={selectedDuelMode === "solo"}
               onClick={() => setSelectedDuelMode("solo")}
@@ -260,7 +265,6 @@ export function UnifiedDuelModal({
               description="Independent progress, 3-level system with typing"
               selectedTone="secondary"
             /> */}
-            {/* Solo Style Duel temporarily disabled - it will be coming back later */}
           </div>
         </div>
       </div>
