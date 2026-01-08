@@ -23,7 +23,7 @@ export function generateTimeSlots(date: Date = new Date()): TimeSlot[] {
 
     // Generate slots from 00:00 to 23:30
     for (let hour = 0; hour < 24; hour++) {
-        for (let minute of [0, 30]) {
+        for (const minute of [0, 30]) {
             const slotDate = new Date(date);
             slotDate.setHours(hour, minute, 0, 0);
 

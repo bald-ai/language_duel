@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
+import Image from "next/image";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
 import { toast } from "sonner";
 
@@ -16,7 +18,6 @@ import { toast } from "sonner";
  */
 export function AddFriendSection() {
     const [searchTerm, setSearchTerm] = useState("");
-    const [isSearching, setIsSearching] = useState(false);
 
     const searchResults = useQuery(
         api.users.searchUsers,
@@ -25,13 +26,14 @@ export function AddFriendSection() {
 
     const sendFriendRequestMutation = useMutation(api.friends.sendFriendRequest);
 
-    const handleSendRequest = async (userId: string) => {
+    const handleSendRequest = async (userId: Id<"users">) => {
         try {
-            await sendFriendRequestMutation({ receiverId: userId as any });
+            await sendFriendRequestMutation({ receiverId: userId });
             toast.success("Friend request sent!");
             setSearchTerm("");
-        } catch (error: any) {
-            toast.error(error.message || "Failed to send friend request");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to send friend request";
+            toast.error(message);
         }
     };
 
@@ -93,9 +95,11 @@ export function AddFriendSection() {
                                         style={{ backgroundColor: colors.neutral.DEFAULT }}
                                     >
                                         {user.imageUrl ? (
-                                            <img
+                                            <Image
                                                 src={user.imageUrl}
                                                 alt=""
+                                                width={32}
+                                                height={32}
                                                 className="w-full h-full rounded-full object-cover"
                                             />
                                         ) : (

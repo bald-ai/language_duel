@@ -1,8 +1,13 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { colors } from "@/lib/theme";
+
+// SSR-safe mounting detection using useSyncExternalStore
+const emptySubscribe = () => () => { };
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 interface ModalShellProps {
   children: ReactNode;
@@ -20,11 +25,7 @@ export function ModalShell({
   panelClassName,
 }: ModalShellProps) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
   if (!isMounted) {
     return null;

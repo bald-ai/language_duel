@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { colors } from "@/lib/theme";
 import type { FriendWithDetails } from "@/convex/friends";
 
@@ -109,9 +110,11 @@ export function FriendListItem({
                         }}
                     >
                         {friend.imageUrl ? (
-                            <img
+                            <Image
                                 src={friend.imageUrl}
                                 alt=""
+                                width={40}
+                                height={40}
                                 className="w-full h-full rounded-full object-cover"
                             />
                         ) : (

@@ -60,14 +60,14 @@ export function Level1Input({
   // Auto-complete for solo mode (no manual confirm needed)
   useEffect(() => {
     if (isDuelMode || hasCompleted) return;
-    
+
     const checkCompletion = () => {
       if (isAnswerCorrect) {
         setHasCompleted(true);
         onCorrect(cleanAnswer);
       }
     };
-    
+
     const timeout = setTimeout(checkCompletion, AUTO_COMPLETE_DELAY_MS);
     return () => clearTimeout(timeout);
   }, [typedLetters, letterSlots, isAnswerCorrect, onCorrect, hasCompleted, isDuelMode, cleanAnswer]);
@@ -212,7 +212,7 @@ export function Level1Input({
 
       const typedChar = typedLetters[slotIdx] || "";
       const isRevealed = revealedPositions.has(slotIdx);
-      const isCorrect = normalizeAccents(typedChar) === normalizeAccents(slot.char);
+      const _isCorrect = normalizeAccents(typedChar) === normalizeAccents(slot.char);
       const isCursor = cursorPosition === slotIdx;
 
       const letterStyle = {
@@ -227,33 +227,31 @@ export function Level1Input({
             disabled={isRevealed}
             className={
               isDuelMode
-                ? `text-xs px-1.5 py-0.5 rounded mb-1 transition border-2 ${
-                    isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
-                  }`
-                : `text-[10px] px-1.5 py-0.5 rounded mb-1 transition border-2 uppercase tracking-widest font-bold ${
-                    isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
-                  }`
+                ? `text-xs px-1.5 py-0.5 rounded mb-1 transition border-2 ${isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
+                }`
+                : `text-[10px] px-1.5 py-0.5 rounded mb-1 transition border-2 uppercase tracking-widest font-bold ${isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
+                }`
             }
             style={
               !isDuelMode
                 ? isRevealed
                   ? {
-                      backgroundColor: colors.background.DEFAULT,
-                      borderColor: colors.neutral.dark,
-                      color: colors.text.muted,
-                    }
-                  : {
-                      backgroundColor: colors.background.elevated,
-                      borderColor: colors.primary.dark,
-                      color: colors.text.DEFAULT,
-                    }
-                : isRevealed
-                ? {
                     backgroundColor: colors.background.DEFAULT,
                     borderColor: colors.neutral.dark,
                     color: colors.text.muted,
                   }
-                : {
+                  : {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.DEFAULT,
+                  }
+                : isRevealed
+                  ? {
+                    backgroundColor: colors.background.DEFAULT,
+                    borderColor: colors.neutral.dark,
+                    color: colors.text.muted,
+                  }
+                  : {
                     backgroundColor: colors.background.elevated,
                     borderColor: colors.primary.dark,
                     color: colors.text.DEFAULT,
@@ -287,9 +285,8 @@ export function Level1Input({
       <div
         ref={containerRef}
         onClick={handleContainerClick}
-        className={`flex flex-wrap gap-4 justify-center items-end p-4 cursor-text min-h-[120px] ${
-          isDuelMode ? "rounded-lg border-2" : "rounded-2xl border-2 backdrop-blur-sm"
-        }`}
+        className={`flex flex-wrap gap-4 justify-center items-end p-4 cursor-text min-h-[120px] ${isDuelMode ? "rounded-lg border-2" : "rounded-2xl border-2 backdrop-blur-sm"
+          }`}
         style={
           {
             backgroundColor: isDuelMode ? colors.background.elevated : colors.background.DEFAULT,
@@ -307,7 +304,7 @@ export function Level1Input({
           autoFocus
         />
       </div>
-      
+
       {/* Hint System UI - Duel mode only */}
       {isDuelMode && (
         <div className="flex flex-col items-center gap-2">
@@ -325,7 +322,7 @@ export function Level1Input({
               <span>🆘</span> Ask for Help
             </button>
           )}
-          
+
           {/* Waiting for hint acceptance */}
           {hintRequested && !hintAccepted && (
             <div className="flex flex-col items-center gap-2">
@@ -358,7 +355,7 @@ export function Level1Input({
               </button>
             </div>
           )}
-          
+
           {/* Hint accepted - receiving hints (only for letters type) */}
           {hintRequested && hintAccepted && hintType === "letters" && (
             <div className="flex flex-col items-center gap-2 text-sm" style={{ color: colors.secondary.light }}>
@@ -380,33 +377,32 @@ export function Level1Input({
           )}
         </div>
       )}
-      
+
       {/* Manual Confirm Button - Duel mode only */}
       {isDuelMode && (
         <button
           onClick={handleConfirm}
           disabled={!isAnswerCorrect || hasCompleted}
-          className={`px-6 py-3 rounded-lg text-lg font-bold transition border-2 ${
-            isAnswerCorrect && !hasCompleted ? "hover:brightness-110" : "cursor-not-allowed opacity-60"
-          }`}
+          className={`px-6 py-3 rounded-lg text-lg font-bold transition border-2 ${isAnswerCorrect && !hasCompleted ? "hover:brightness-110" : "cursor-not-allowed opacity-60"
+            }`}
           style={
             isAnswerCorrect && !hasCompleted
               ? {
-                  backgroundColor: colors.cta.DEFAULT,
-                  borderColor: colors.cta.dark,
-                  color: colors.text.DEFAULT,
-                }
+                backgroundColor: colors.cta.DEFAULT,
+                borderColor: colors.cta.dark,
+                color: colors.text.DEFAULT,
+              }
               : {
-                  backgroundColor: colors.background.elevated,
-                  borderColor: colors.neutral.dark,
-                  color: colors.text.muted,
-                }
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.neutral.dark,
+                color: colors.text.muted,
+              }
           }
         >
           ✓ Confirm Answer
         </button>
       )}
-      
+
       {/* Don't Know button */}
       <button
         onClick={onSkip}
@@ -418,15 +414,15 @@ export function Level1Input({
         style={
           isDuelMode
             ? {
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.muted,
-              }
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+              color: colors.text.muted,
+            }
             : {
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }
         }
       >
         Don&apos;t Know

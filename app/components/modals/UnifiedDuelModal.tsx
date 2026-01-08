@@ -68,16 +68,17 @@ const outlineButtonStyle = {
   color: colors.text.DEFAULT,
 };
 
-const smallActionButtonClassName =
+// These are kept for potential future use but currently unused
+const _smallActionButtonClassName =
   "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
 
-const successButtonStyle = {
+const _successButtonStyle = {
   backgroundColor: `${colors.status.success.DEFAULT}1A`,
   borderColor: `${colors.status.success.DEFAULT}66`,
   color: colors.status.success.light,
 };
 
-const dangerButtonStyle = {
+const _dangerButtonStyle = {
   backgroundColor: `${colors.status.danger.DEFAULT}1A`,
   borderColor: `${colors.status.danger.DEFAULT}66`,
   color: colors.status.danger.light,

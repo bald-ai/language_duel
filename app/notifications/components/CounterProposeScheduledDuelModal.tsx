@@ -116,8 +116,9 @@ export function CounterProposeScheduledDuelModal({
             });
             toast.success("Counter-proposal sent!");
             onClose();
-        } catch (error: any) {
-            toast.error(error.message || "Failed to send counter-proposal");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to send counter-proposal";
+            toast.error(message);
         } finally {
             setIsSubmitting(false);
         }

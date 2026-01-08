@@ -41,9 +41,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const storedColorSet = window.localStorage.getItem(COLOR_SET_STORAGE_KEY);
       if (storedColorSet && isThemeName(storedColorSet)) {
         applyTheme(storedColorSet);
-        setColorSetName(storedColorSet);
+        // Defer state update to avoid synchronous setState in effect
+        queueMicrotask(() => setColorSetName(storedColorSet));
       }
-      setHasHydrated(true);
+      queueMicrotask(() => setHasHydrated(true));
     }
   }, [hasHydrated]);
 
@@ -53,13 +54,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const serverColorSet = userPreferences.selectedColorSet;
       if (serverColorSet && isThemeName(serverColorSet) && serverColorSet !== colorSetName) {
         applyTheme(serverColorSet);
-        setColorSetName(serverColorSet);
-        // Also update localStorage to keep in sync
-        window.localStorage.setItem(COLOR_SET_STORAGE_KEY, serverColorSet);
-        // Force remount of all children so they pick up the new colors
-        setThemeVersion((v) => v + 1);
+        // Defer state updates to avoid synchronous setState in effect
+        queueMicrotask(() => {
+          setColorSetName(serverColorSet);
+          // Also update localStorage to keep in sync
+          window.localStorage.setItem(COLOR_SET_STORAGE_KEY, serverColorSet);
+          // Force remount of all children so they pick up the new colors
+          setThemeVersion((v) => v + 1);
+        });
       }
-      setHasAppliedServerPref(true);
+      queueMicrotask(() => setHasAppliedServerPref(true));
     }
   }, [userPreferences, hasAppliedServerPref, colorSetName, hasHydrated]);
 

@@ -175,7 +175,7 @@ export function useThemesController() {
       try {
         const isArchived = await toggleArchiveMutation({ themeId });
         toast.success(isArchived ? "Theme archived" : "Theme unarchived");
-      } catch (err) {
+      } catch (_err) {
         toast.error("Failed to update archive status");
       }
     },
@@ -570,10 +570,8 @@ export function useThemesController() {
       goBack,
       selectedFriend,
       myThemesOnly,
-      setShowFriendFilterModal,
       handleClearFriendFilter,
       showArchived,
-      setShowArchived,
       handleToggleArchive,
     ]
   );
@@ -624,6 +622,8 @@ export function useThemesController() {
       handleEditWord,
       handleSaveTheme,
       handleCancelTheme,
+      handleToggleArchive,
+      showArchived,
       showAddWordModal,
       setShowAddWordModal,
       addWordHook.newWordInput,

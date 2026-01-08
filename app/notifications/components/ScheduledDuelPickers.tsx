@@ -10,7 +10,7 @@ export interface ThemeOption {
     _id: Id<"themes">;
     name: string;
     words: unknown[];
-    visibility: "shared" | "private";
+    visibility?: "shared" | "private";
 }
 
 interface CompactThemeSelectorProps {

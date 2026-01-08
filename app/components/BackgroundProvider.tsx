@@ -30,9 +30,10 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
     if (!hasHydrated) {
       const storedBackground = window.localStorage.getItem(BACKGROUND_STORAGE_KEY);
       if (storedBackground) {
-        setBackgroundState(storedBackground);
+        // Defer state update to avoid synchronous setState in effect
+        queueMicrotask(() => setBackgroundState(storedBackground));
       }
-      setHasHydrated(true);
+      queueMicrotask(() => setHasHydrated(true));
     }
   }, [hasHydrated]);
 
@@ -41,11 +42,14 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
     if (hasHydrated && userPreferences && !hasAppliedServerPref) {
       const serverBackground = userPreferences.selectedBackground;
       if (serverBackground && serverBackground !== background) {
-        setBackgroundState(serverBackground);
-        // Also update localStorage to keep in sync
-        window.localStorage.setItem(BACKGROUND_STORAGE_KEY, serverBackground);
+        // Defer state update to avoid synchronous setState in effect
+        queueMicrotask(() => {
+          setBackgroundState(serverBackground);
+          // Also update localStorage to keep in sync
+          window.localStorage.setItem(BACKGROUND_STORAGE_KEY, serverBackground);
+        });
       }
-      setHasAppliedServerPref(true);
+      queueMicrotask(() => setHasAppliedServerPref(true));
     }
   }, [userPreferences, hasAppliedServerPref, background, hasHydrated]);
 

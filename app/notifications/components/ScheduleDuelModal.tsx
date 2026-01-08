@@ -97,8 +97,9 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
             });
             toast.success("Duel proposal sent!");
             onClose();
-        } catch (error: any) {
-            toast.error(error.message || "Failed to send proposal");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Failed to send proposal";
+            toast.error(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -187,9 +188,8 @@ function CompactOpponentPicker({
     const triggerRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const selectedLabel = selectedOpponent
-        ? `${selectedOpponent.nickname || selectedOpponent.name || selectedOpponent.email}${
-            selectedOpponent.discriminator ? `#${selectedOpponent.discriminator.toString().padStart(4, "0")}` : ""
-          }`
+        ? `${selectedOpponent.nickname || selectedOpponent.name || selectedOpponent.email}${selectedOpponent.discriminator ? `#${selectedOpponent.discriminator.toString().padStart(4, "0")}` : ""
+        }`
         : "Select a friend...";
 
     useEffect(() => {

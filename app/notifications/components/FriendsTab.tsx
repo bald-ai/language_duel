@@ -24,8 +24,8 @@ interface FriendsTabProps {
  * - Pending outgoing requests section
  * - Right-click/long-press context menu for actions
  */
-export function FriendsTab({ onClose }: FriendsTabProps) {
-    const router = useRouter();
+export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
+    const _router = useRouter();
     const friends = useQuery(api.friends.getFriends);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);

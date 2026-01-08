@@ -40,7 +40,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.acceptFriendRequest(notificationId);
             toast.success("Friend request accepted!");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to accept friend request");
         }
     };
@@ -49,7 +49,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.rejectFriendRequest(notificationId);
             toast.success("Friend request rejected");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to reject friend request");
         }
     };
@@ -67,7 +67,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                     : `/duel/${result.challengeId}`;
                 router.push(route);
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to accept challenge");
         }
     };
@@ -76,12 +76,12 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.declineDuelChallenge(notificationId);
             toast.success("Challenge declined");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to decline challenge");
         }
     };
 
-    const handleViewWeeklyPlan = (goalId?: Id<"weeklyGoals">) => {
+    const handleViewWeeklyPlan = (_goalId?: Id<"weeklyGoals">) => {
         onClose();
         router.push("/goals");
     };
@@ -89,7 +89,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
     const handleDismissWeeklyPlan = async (notificationId: Id<"notifications">) => {
         try {
             await actions.dismissWeeklyPlanInvitation(notificationId);
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to dismiss notification");
         }
     };
@@ -97,7 +97,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
     const handleDismissNotification = async (notificationId: Id<"notifications">) => {
         try {
             await actions.dismissNotification(notificationId);
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to dismiss notification");
         }
     };
@@ -113,7 +113,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.acceptScheduledDuel(scheduledDuelId);
             toast.success("Scheduled duel accepted! Get ready when it's time.");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to accept scheduled duel");
         }
     };
@@ -134,7 +134,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.declineScheduledDuel(scheduledDuelId);
             toast.success("Scheduled duel cancelled");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to decline scheduled duel");
         }
     };
@@ -154,7 +154,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             } else {
                 toast.success("You're ready! Waiting for opponent...");
             }
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to set ready status");
         }
     };
@@ -167,7 +167,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await cancelReady(scheduledDuelId);
             toast.info("Ready status cancelled");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to cancel ready status");
         }
     };
@@ -180,7 +180,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await cancelScheduledDuel(scheduledDuelId);
             toast.success("Scheduled duel cancelled");
-        } catch (error) {
+        } catch (_error) {
             toast.error("Failed to cancel scheduled duel");
         }
     };
@@ -204,7 +204,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             >
                 <BellOffIcon />
                 <p className="mt-3 text-sm">No notifications</p>
-                <p className="text-xs mt-1">You're all caught up!</p>
+                <p className="text-xs mt-1">You&apos;re all caught up!</p>
             </div>
         );
     }

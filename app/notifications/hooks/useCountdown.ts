@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatCountdown } from "@/lib/timeUtils";
 
 interface CountdownResult {
@@ -15,14 +15,22 @@ interface CountdownResult {
  * @returns Object with timeRemaining, isExpired, and formattedTime
  */
 export function useCountdown(targetTimestamp: number): CountdownResult {
+    // Initialize with a pure computation - no refs needed
+    const initialValue = useMemo(
+        () => Math.max(0, targetTimestamp - Date.now()),
+        // intentionally empty - we only want initial value
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    );
+
+    const [timeRemaining, setTimeRemaining] = useState<number>(initialValue);
+
     const calculateRemaining = useCallback(() => {
         return Math.max(0, targetTimestamp - Date.now());
     }, [targetTimestamp]);
 
-    const [timeRemaining, setTimeRemaining] = useState<number>(calculateRemaining);
-
     useEffect(() => {
-        // Set initial value
+        // Update state when targetTimestamp changes
         setTimeRemaining(calculateRemaining());
 
         // Update every second

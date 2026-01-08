@@ -220,12 +220,9 @@ export default function StudyPage() {
 
   const handleThemeChange = useCallback((themeId: string) => {
     setSelectedThemeId(themeId);
-  }, []);
-
-  // Reset isAllRevealed when theme changes
-  useEffect(() => {
+    // Reset isAllRevealed when theme changes
     setIsAllRevealed(false);
-  }, [resolvedThemeId]);
+  }, []);
 
   const handleToggleRevealAll = useCallback(() => {
     if (isAllRevealed) {
