@@ -5,7 +5,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ModalShell } from "./ModalShell";
 import { ThemeSelector } from "./ThemeSelector";
 import { ModeSelectionButton } from "./ModeSelectionButton";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
+import {
+  actionButtonClassName,
+  ctaActionStyle,
+  outlineButtonClassName,
+  outlineButtonStyle,
+} from "./modalButtonStyles";
 
 interface Theme {
   _id: Id<"themes">;
@@ -50,7 +56,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
           <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
             Select a theme to practice.
           </p>
-          <div className="max-h-80 overflow-y-auto pr-1">
+          <div className="max-h-80 overflow-y-auto pr-3">
             <ThemeSelector
               themes={themes}
               onSelect={handleSelectTheme}
@@ -60,12 +66,8 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
           <button
             type="button"
             onClick={onClose}
-            className="mt-4 w-full border-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.primary.dark,
-              color: colors.text.DEFAULT,
-            }}
+            className={`${outlineButtonClassName} mt-4`}
+            style={outlineButtonStyle}
           >
             Cancel
           </button>
@@ -123,16 +125,8 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
             type="button"
             onClick={handleContinue}
             disabled={!selectedMode}
-            className="mt-6 w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:translate-y-0.5 hover:brightness-110 active:translate-y-1"
-            style={{
-              backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
-              borderTopColor: buttonStyles.cta.border.top,
-              borderBottomColor: buttonStyles.cta.border.bottom,
-              borderLeftColor: buttonStyles.cta.border.sides,
-              borderRightColor: buttonStyles.cta.border.sides,
-              color: colors.text.DEFAULT,
-              textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-            }}
+            className={`${actionButtonClassName} mt-6`}
+            style={ctaActionStyle}
           >
             Continue
           </button>
@@ -141,24 +135,16 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
             <button
               type="button"
               onClick={handleBack}
-              className="w-full border-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
+              className={outlineButtonClassName}
+              style={outlineButtonStyle}
             >
               Back
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="w-full border-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
+              className={outlineButtonClassName}
+              style={outlineButtonStyle}
             >
               Cancel
             </button>

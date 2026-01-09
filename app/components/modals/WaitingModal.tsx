@@ -2,6 +2,7 @@
 
 import { ModalShell } from "./ModalShell";
 import { colors } from "@/lib/theme";
+import { outlineButtonClassName } from "./modalButtonStyles";
 
 interface WaitingModalProps {
   isCancelling: boolean;
@@ -21,7 +22,7 @@ export function WaitingModal({ isCancelling, onCancel }: WaitingModalProps) {
       <button
         onClick={onCancel}
         disabled={isCancelling}
-        className="w-full border-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+        className={outlineButtonClassName}
         style={{
           backgroundColor: colors.background.elevated,
           borderColor: colors.status.danger.DEFAULT,

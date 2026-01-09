@@ -7,6 +7,7 @@ import type { FriendWithDetails } from "@/convex/friends";
 
 interface FriendListItemProps {
     friend: FriendWithDetails;
+    onQuickDuel: () => void;
     onScheduleDuel: () => void;
     onRemoveFriend: () => void;
 }
@@ -21,6 +22,7 @@ interface FriendListItemProps {
  */
 export function FriendListItem({
     friend,
+    onQuickDuel,
     onScheduleDuel,
     onRemoveFriend
 }: FriendListItemProps) {
@@ -28,6 +30,7 @@ export function FriendListItem({
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [showConfirmRemove, setShowConfirmRemove] = useState(false);
     const itemRef = useRef<HTMLDivElement>(null);
+    const menuButtonRef = useRef<HTMLButtonElement>(null);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
     // Handle right-click (desktop)
@@ -69,6 +72,16 @@ export function FriendListItem({
         }
     }, [showMenu, showConfirmRemove]);
 
+    // Handle menu button click - calculates position from button
+    const handleMenuClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (menuButtonRef.current) {
+            const rect = menuButtonRef.current.getBoundingClientRect();
+            setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
+        }
+        setShowMenu(true);
+    };
+
     const handleScheduleDuelClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setShowMenu(false);
@@ -91,7 +104,7 @@ export function FriendListItem({
         <>
             <div
                 ref={itemRef}
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors hover:bg-opacity-60"
+                className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-opacity-60"
                 style={{
                     backgroundColor: showMenu ? `${colors.primary.DEFAULT}10` : 'transparent'
                 }}
@@ -99,7 +112,6 @@ export function FriendListItem({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
-                onClick={() => setShowMenu(true)}
             >
                 {/* Avatar with online indicator */}
                 <div className="relative">
@@ -156,11 +168,54 @@ export function FriendListItem({
                     </p>
                 </div>
 
-                {/* More options indicator */}
-                <div style={{ color: colors.text.muted }}>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
+                {/* Action buttons */}
+                <div className="flex items-center gap-1">
+                    {/* Quick Duel button - only for online friends */}
+                    {friend.isOnline && (
+                        <button
+                            className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
+                            style={{ color: colors.cta.DEFAULT }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onQuickDuel();
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            title="Start Duel"
+                        >
+                            <SwordsIcon />
+                        </button>
+                    )}
+
+                    {/* Schedule Duel quick action */}
+                    <button
+                        className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
+                        style={{ color: colors.cta.DEFAULT }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onScheduleDuel();
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        title="Schedule Duel"
+                    >
+                        <CalendarIcon />
+                    </button>
+
+                    {/* More options button */}
+                    <button
+                        ref={menuButtonRef}
+                        className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
+                        style={{ color: colors.text.muted }}
+                        onClick={handleMenuClick}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        title="More options"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -176,16 +231,6 @@ export function FriendListItem({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <button
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
-                        style={{ color: colors.text.DEFAULT }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        onClick={handleScheduleDuelClick}
-                    >
-                        <CalendarIcon />
-                        Schedule Duel
-                    </button>
                     <button
                         className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
                         style={{ color: colors.status.danger.DEFAULT }}
@@ -257,6 +302,21 @@ function TrashIcon() {
     return (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+    );
+}
+
+function SwordsIcon() {
+    return (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <g transform="rotate(45 12 12)">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
+            </g>
+            <g transform="rotate(-45 12 12)">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
+            </g>
         </svg>
     );
 }

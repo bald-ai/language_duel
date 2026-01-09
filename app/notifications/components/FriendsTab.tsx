@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { FriendListItem } from "./FriendListItem";
 import { AddFriendSection } from "./AddFriendSection";
 import { ScheduleDuelModal } from "./ScheduleDuelModal";
+import { UnifiedDuelModal, WaitingModal, JoiningModal } from "@/app/components/modals";
+import { useDuelLobby } from "@/hooks/useDuelLobby";
 
 interface FriendsTabProps {
     onClose: () => void;
@@ -29,14 +31,29 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
     const friends = useQuery(api.friends.getFriends);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);
+    const lobby = useDuelLobby();
 
     // Schedule duel modal state
     const [scheduleDuelFriendId, setScheduleDuelFriendId] = useState<Id<"users"> | null>(null);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
+    // Quick duel modal state
+    const [quickDuelFriendId, setQuickDuelFriendId] = useState<Id<"users"> | null>(null);
+    const [isQuickDuelModalOpen, setIsQuickDuelModalOpen] = useState(false);
+
     const handleScheduleDuel = (friendId: Id<"users">) => {
         setScheduleDuelFriendId(friendId);
         setIsScheduleModalOpen(true);
+    };
+
+    const handleQuickDuel = (friendId: Id<"users">) => {
+        setQuickDuelFriendId(friendId);
+        setIsQuickDuelModalOpen(true);
+    };
+
+    const closeQuickDuelModal = () => {
+        setIsQuickDuelModalOpen(false);
+        setQuickDuelFriendId(null);
     };
 
     const handleRemoveFriend = async (friendId: Id<"users">) => {
@@ -83,6 +100,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                             <FriendListItem
                                 key={friend.friendshipId}
                                 friend={friend}
+                                onQuickDuel={() => handleQuickDuel(friend.friendId)}
                                 onScheduleDuel={() => handleScheduleDuel(friend.friendId)}
                                 onRemoveFriend={() => handleRemoveFriend(friend.friendId)}
                             />
@@ -156,6 +174,37 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                     onClose={closeScheduleModal}
                 />
             )}
+
+            {/* Quick Duel Modal */}
+            {isQuickDuelModalOpen && quickDuelFriendId && (
+                <UnifiedDuelModal
+                    users={lobby.users}
+                    themes={lobby.themes}
+                    pendingDuels={[
+                        ...(lobby.pendingClassicDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "classic" as const } })) || []),
+                        ...(lobby.pendingSoloStyleDuels?.map(d => ({ ...d, challenge: { ...d.challenge, mode: "solo" as const } })) || []),
+                    ]}
+                    isJoiningDuel={lobby.isJoiningDuel}
+                    isCreatingDuel={lobby.isCreatingDuel}
+                    onAcceptDuel={lobby.handleAcceptDuel}
+                    onRejectDuel={lobby.handleRejectDuel}
+                    onCreateDuel={lobby.handleCreateDuel}
+                    onClose={closeQuickDuelModal}
+                    onNavigateToThemes={lobby.navigateToThemes}
+                    initialOpponentId={quickDuelFriendId}
+                />
+            )}
+
+            {/* Waiting Modal - shows when duel invite is pending */}
+            {lobby.showWaitingModal && (
+                <WaitingModal
+                    isCancelling={lobby.isCancellingDuel}
+                    onCancel={lobby.handleCancelWaiting}
+                />
+            )}
+
+            {/* Joining Modal - shows when joining a duel */}
+            {lobby.isJoiningDuel && <JoiningModal />}
         </div>
     );
 }

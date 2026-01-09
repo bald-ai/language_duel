@@ -92,16 +92,16 @@ export function PlanSwitcher({
             {/* Create new plan button */}
             <button
                 onClick={onCreateNew}
-                className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed transition-all shrink-0 hover:opacity-80"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border-2 border-dashed transition-all shrink-0 hover:opacity-80 whitespace-nowrap"
                 style={{
                     borderColor: colors.primary.dark,
                     color: colors.text.muted,
                     backgroundColor: `${colors.background.elevated}80`,
                 }}
-                title="Create new plan"
+                title="Create new goal with a different partner"
             >
                 <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -113,6 +113,7 @@ export function PlanSwitcher({
                         d="M12 4v16m8-8H4"
                     />
                 </svg>
+                <span className="text-sm font-medium">New Goal</span>
             </button>
         </div>
     );

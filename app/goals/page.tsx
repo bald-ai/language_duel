@@ -214,6 +214,18 @@ export default function GoalsPage() {
     );
   }
 
+  // Filter out friends who already have an active/editing goal with the user
+  // Since max 1 goal per pair is enforced, we exclude anyone already in allPlans
+  const existingPartnerIds = new Set(
+    allPlans?.flatMap(plan => [
+      plan.partner?._id,
+      plan.creator?._id,
+    ].filter(Boolean)) ?? []
+  );
+  const availableFriends = friends?.filter(
+    friend => !existingPartnerIds.has(friend.friendId)
+  ) ?? [];
+
   // Determine current state
   const hasPlans = allPlans.length > 0;
   const hasPlanSelected = selectedPlan != null; // handles both null and undefined
@@ -306,7 +318,7 @@ export default function GoalsPage() {
             </div>
 
             <PartnerSelector
-              friends={friends}
+              friends={availableFriends}
               selectedId={selectedPartnerId}
               onSelect={setSelectedPartnerId}
             />

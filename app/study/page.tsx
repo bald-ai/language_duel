@@ -71,7 +71,7 @@ const WordRow = memo(function WordRow({
   const isTTSDisabled = data.playingWordKey !== null;
 
   return (
-    <div style={{ ...style, paddingBottom: LIST_GAP }}>
+    <div style={{ ...style, paddingBottom: LIST_GAP, paddingRight: 12 }}>
       <div ref={contentRef}>
         <WordItem
           word={word}

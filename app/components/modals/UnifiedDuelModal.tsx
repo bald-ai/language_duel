@@ -6,7 +6,13 @@ import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
 import { CLASSIC_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
 import { ModalShell } from "./ModalShell";
 import { ModeSelectionButton } from "./ModeSelectionButton";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
+import {
+  actionButtonClassName,
+  ctaActionStyle,
+  outlineButtonClassName,
+  outlineButtonStyle,
+} from "./modalButtonStyles";
 
 interface User {
   _id: Id<"users">;
@@ -42,47 +48,10 @@ interface UnifiedDuelModalProps {
   onCreateDuel: (options: CreateDuelOptions) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
+  initialOpponentId?: Id<"users"> | null;
 }
 
 type DuelMode = "classic" | "solo";
-
-const actionButtonClassName =
-  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
-
-const ctaActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
-  borderTopColor: buttonStyles.cta.border.top,
-  borderBottomColor: buttonStyles.cta.border.bottom,
-  borderLeftColor: buttonStyles.cta.border.sides,
-  borderRightColor: buttonStyles.cta.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
-const outlineButtonClassName =
-  "w-full border-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-const outlineButtonStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-};
-
-// These are kept for potential future use but currently unused
-const _smallActionButtonClassName =
-  "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-const _successButtonStyle = {
-  backgroundColor: `${colors.status.success.DEFAULT}1A`,
-  borderColor: `${colors.status.success.DEFAULT}66`,
-  color: colors.status.success.light,
-};
-
-const _dangerButtonStyle = {
-  backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-  borderColor: `${colors.status.danger.DEFAULT}66`,
-  color: colors.status.danger.light,
-};
 
 const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semibold";
 
@@ -97,8 +66,9 @@ export function UnifiedDuelModal({
   onCreateDuel,
   onClose,
   onNavigateToThemes,
+  initialOpponentId,
 }: UnifiedDuelModalProps) {
-  const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(null);
+  const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
   const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
   const [selectedDuelMode, setSelectedDuelMode] = useState<DuelMode>("classic");
   const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("easy");
