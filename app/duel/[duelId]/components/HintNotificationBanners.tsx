@@ -4,8 +4,8 @@ import { MAX_L1_LETTER_HINTS, MAX_L2_ELIMINATIONS } from "@/app/game/constants";
 import { colors } from "@/lib/theme";
 
 interface HintNotificationBannersProps {
-  isHintGiver: boolean;
-  hintType: string | null;
+  isHintGiver?: boolean;
+  hintType?: string;
   showHintSentBanner: boolean;
   theirName: string | undefined;
   hintRevealedPositions: number[];
@@ -13,11 +13,11 @@ interface HintNotificationBannersProps {
   hintSelectorDismissed: boolean;
   showHintGiverView: boolean;
   hintRequesterWord: { word: string } | null;
-  hintRequesterState: { typedLetters: string[]; revealedPositions: number[] } | null;
+  hintRequesterState?: { level?: number; wordIndex: number; typedLetters: string[]; revealedPositions: number[] };
   onShowHintGiverView: (show: boolean) => void;
   onDismissHintSelector: (dismissed: boolean) => void;
-  isHintGiverL2: boolean;
-  hintL2Type: string | null;
+  isHintGiverL2?: boolean;
+  hintL2Type?: string;
   showHintSentBannerL2: boolean;
   hintL2EliminatedOptions: string[];
   canAcceptHintL2: boolean;

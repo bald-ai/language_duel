@@ -82,11 +82,6 @@ export function FriendListItem({
         setShowMenu(true);
     };
 
-    const handleScheduleDuelClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setShowMenu(false);
-        onScheduleDuel();
-    };
 
     const handleRemoveClick = (e: React.MouseEvent) => {
         e.stopPropagation();

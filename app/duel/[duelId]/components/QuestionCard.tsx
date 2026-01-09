@@ -33,7 +33,7 @@ interface QuestionCardProps {
   canRequestHint: boolean;
   hintRequested: boolean;
   hintAccepted: boolean | undefined;
-  hintType: string | null;
+  hintType?: string;
   hintRevealedPositions: number[];
   onRequestHint: (typedLetters: string[], revealedPositions: number[]) => void | Promise<void>;
   onRequestSimpleHint: () => void | Promise<void>;
@@ -141,13 +141,13 @@ export function QuestionCard({
           style={
             feedbackCorrect
               ? {
-                  backgroundColor: `${colors.status.success.DEFAULT}26`,
-                  color: colors.status.success.light,
-                }
+                backgroundColor: `${colors.status.success.DEFAULT}26`,
+                color: colors.status.success.light,
+              }
               : {
-                  backgroundColor: `${colors.status.danger.DEFAULT}26`,
-                  color: colors.status.danger.light,
-                }
+                backgroundColor: `${colors.status.danger.DEFAULT}26`,
+                color: colors.status.danger.light,
+              }
           }
         >
           <div className="text-2xl font-bold mb-2">

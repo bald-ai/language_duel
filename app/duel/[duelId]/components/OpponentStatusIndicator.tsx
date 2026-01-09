@@ -7,7 +7,7 @@ interface OpponentStatusIndicatorProps {
   theirName: string | undefined;
   theirCurrentWordIndex: number | undefined;
   theirCurrentLevel: number | undefined;
-  theirCompleted: boolean;
+  theirCompleted?: boolean;
   opponentAnswerFeedback: "correct" | "wrong" | null;
   opponentLastAnsweredWord: string | null;
   opponentFeedbackMessage: string | null;
@@ -58,20 +58,20 @@ export function OpponentStatusIndicator({
   const statusStyle =
     opponentAnswerFeedback === "correct"
       ? {
-          backgroundColor: `${colors.status.success.DEFAULT}26`,
-          borderColor: colors.status.success.DEFAULT,
-          boxShadow: `0 0 20px ${colors.status.success.DEFAULT}66`,
-        }
+        backgroundColor: `${colors.status.success.DEFAULT}26`,
+        borderColor: colors.status.success.DEFAULT,
+        boxShadow: `0 0 20px ${colors.status.success.DEFAULT}66`,
+      }
       : opponentAnswerFeedback === "wrong"
         ? {
-            backgroundColor: `${colors.status.danger.DEFAULT}26`,
-            borderColor: colors.status.danger.DEFAULT,
-            boxShadow: `0 0 20px ${colors.status.danger.DEFAULT}66`,
-          }
+          backgroundColor: `${colors.status.danger.DEFAULT}26`,
+          borderColor: colors.status.danger.DEFAULT,
+          boxShadow: `0 0 20px ${colors.status.danger.DEFAULT}66`,
+        }
         : {
-            backgroundColor: `${colors.background.elevated}E6`,
-            borderColor: colors.primary.dark,
-          };
+          backgroundColor: `${colors.background.elevated}E6`,
+          borderColor: colors.primary.dark,
+        };
 
   return (
     <div className="absolute top-4 left-4 z-50 flex flex-col items-start gap-1">
