@@ -71,6 +71,12 @@ export function useThemesController() {
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithOwner | null>(null);
   const [localWords, setLocalWords] = useState<WordEntry[]>([]);
+  // Track pending (unsaved) theme data - only set for newly generated themes
+  const [pendingThemeData, setPendingThemeData] = useState<{
+    themeName: string;
+    description: string;
+    wordType: "nouns" | "verbs";
+  } | null>(null);
 
   // Modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -236,38 +242,42 @@ export function useThemesController() {
       const words = await themeGenerator.generate();
       if (!words) return;
 
-      const result = await themeActions.create(
-        themeGenerator.themeName,
-        `Generated theme for: ${themeGenerator.themeName}`,
+      // Store pending theme data without persisting to database
+      // Theme will only be saved when user explicitly clicks Save
+      const pendingData = {
+        themeName: themeGenerator.themeName,
+        description: `Generated theme for: ${themeGenerator.themeName}`,
+        wordType: themeGenerator.wordType,
+      };
+      setPendingThemeData(pendingData);
+
+      // Build temporary theme object for local editing
+      // Using empty string as _id to mark this as unsaved
+      const newTheme: ThemeWithOwner = {
+        _id: "" as Id<"themes">,
+        _creationTime: Date.now(),
+        name: themeGenerator.themeName.toUpperCase(),
+        description: pendingData.description,
         words,
-        themeGenerator.wordType
-      );
-      if (result.ok && result.themeId) {
-        // Build theme object and open it for review
-        const newTheme: ThemeWithOwner = {
-          _id: result.themeId,
-          _creationTime: Date.now(),
-          name: themeGenerator.themeName.toUpperCase(),
-          description: `Generated theme for: ${themeGenerator.themeName}`,
-          words,
-          wordType: themeGenerator.wordType,
-          createdAt: Date.now(),
-          visibility: "private",
-          isOwner: true,
-          canEdit: true,
-        };
-        openTheme(newTheme);
-        setShowGenerateModal(false);
-        themeGenerator.reset();
-      } else if (!result.ok) {
-        toast.error(result.error || "Failed to create theme");
-      }
+        wordType: themeGenerator.wordType,
+        createdAt: Date.now(),
+        visibility: "private",
+        isOwner: true,
+        canEdit: true,
+      };
+
+      // Open for review but don't persist yet
+      setSelectedTheme(newTheme);
+      setLocalWords([...words]);
+      setViewMode(VIEW_MODES.DETAIL);
+      setShowGenerateModal(false);
+      themeGenerator.reset();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Generation failed";
       toast.error(message);
       themeGenerator.setError(null);
     }
-  }, [themeGenerator, themeActions, openTheme]);
+  }, [themeGenerator]);
 
   const handleCloseGenerateModal = useCallback(() => {
     setShowGenerateModal(false);
@@ -336,17 +346,43 @@ export function useThemesController() {
       return;
     }
 
-    const result = await themeActions.update(selectedTheme._id, selectedTheme.name, localWords);
-    if (result.ok) {
-      setViewMode(VIEW_MODES.LIST);
-      setSelectedTheme(null);
-      setLocalWords([]);
+    // Check if this is a pending (unsaved) theme
+    const isPendingTheme = pendingThemeData !== null && selectedTheme._id === "";
+
+    if (isPendingTheme) {
+      // Create new theme in database
+      const result = await themeActions.create(
+        selectedTheme.name,
+        pendingThemeData.description,
+        localWords,
+        pendingThemeData.wordType
+      );
+      if (result.ok) {
+        setPendingThemeData(null);
+        setViewMode(VIEW_MODES.LIST);
+        setSelectedTheme(null);
+        setLocalWords([]);
+        toast.success("Theme created successfully");
+      } else {
+        toast.error(result.error || "Failed to create theme");
+      }
     } else {
-      toast.error(result.error || "Failed to save theme");
+      // Update existing theme
+      const result = await themeActions.update(selectedTheme._id, selectedTheme.name, localWords);
+      if (result.ok) {
+        setViewMode(VIEW_MODES.LIST);
+        setSelectedTheme(null);
+        setLocalWords([]);
+      } else {
+        toast.error(result.error || "Failed to save theme");
+      }
     }
-  }, [selectedTheme, localWords, themeActions]);
+  }, [selectedTheme, localWords, themeActions, pendingThemeData]);
 
   const handleCancelTheme = useCallback(() => {
+    // For pending themes, simply discard local state - nothing was persisted
+    // For existing themes, just navigate back without any database changes
+    setPendingThemeData(null);
     setViewMode(VIEW_MODES.LIST);
     setSelectedTheme(null);
     setLocalWords([]);
