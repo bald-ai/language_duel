@@ -1,6 +1,22 @@
+---
+tags:
+  - design-system
+  - theme
+  - colors
+  - typography
+  - buttons
+  - backgrounds
+  - status-colors
+  - preferences
+  - providers
+  - clerk
+source: "Design Rules.backup.md"
+migrated_on: "2026-01-25"
+---
+
 # Language-Duel Design System
 
-## 🎯 Single Source of Truth
+## Single Source of Truth
 
 **To change the theme, edit `lib/theme.ts`** - all components import colors from there.
 
@@ -18,13 +34,13 @@ For pure CSS needs (animations, patterns), CSS variables are defined in `app/glo
 ## File Structure
 
 ```
-lib/colorUtils.ts     ← Color shade derivation utility
-lib/theme.ts          ← MAIN THEME FILE (palettes & color exports)
-app/globals.css       ← CSS variables (for animations/patterns, sync with theme.ts)
-app/layout.tsx        ← Font definitions & Clerk styling (Exceptions)
-app/components/ThemeProvider.tsx    ← Runtime theme switching & persistence
-app/components/BackgroundProvider.tsx  ← Background image selection
-Design Rules.md       ← This documentation
+lib/colorUtils.ts     <- Color shade derivation utility
+lib/theme.ts          <- MAIN THEME FILE (palettes & color exports)
+app/globals.css       <- CSS variables (for animations/patterns, sync with theme.ts)
+app/layout.tsx        <- Font definitions & Clerk styling (Exceptions)
+app/components/ThemeProvider.tsx    <- Runtime theme switching & persistence
+app/components/BackgroundProvider.tsx  <- Background image selection
+DOCUMENTATION.md      <- This documentation
 ```
 
 ---
@@ -131,7 +147,7 @@ If you change the first palette's values, update `:root` in `app/globals.css`:
 
 ```css
 :root {
-  --color-primary: #3C34C5;  /* ← Keep in sync with first palette */
+  --color-primary: #3C34C5;  /* <- Keep in sync with first palette */
   /* ... */
 }
 ```
@@ -163,7 +179,7 @@ To change fonts, edit `app/layout.tsx` and update the imports.
 
 ---
 
-## 💡 User Preferences & Persistence
+## User Preferences & Persistence
 
 ### Storage Strategy
 
@@ -187,9 +203,10 @@ Preferences are synced on login - Convex data takes priority over localStorage.
 
 ---
 
-## 💡 Exceptions & Third-Party Tools
+## Exceptions & Third-Party Tools
 
 ### Clerk Authentication
+
 Clerk's styling (colors for login/signup modals) is handled separately in `app/layout.tsx` within the `<ClerkProvider>` appearance prop.
 
 This is intentionally kept separate from the main theme system as it is a third-party configuration that rarely needs iteration compared to the main UI.
@@ -198,43 +215,47 @@ This is intentionally kept separate from the main theme system as it is a third-
 
 ## Customization Philosophy
 
-### 🎨 Single-Place Configuration
+### Single-Place Configuration
 
 The design system is built around the principle that **all visual changes should happen in one place**:
 
-1. **Change palette?** → Edit `lib/theme.ts`
-2. **Add background?** → Add image to `/public`, update `BackgroundSelector.tsx` and `convex/userPreferences.ts`
-3. **Change fonts?** → Edit `app/layout.tsx`
+1. **Change palette?** -> Edit `lib/theme.ts`
+2. **Add background?** -> Add image to `/public`, update `BackgroundSelector.tsx` and `convex/userPreferences.ts`
+3. **Change fonts?** -> Edit `app/layout.tsx`
 
 Components automatically adapt to color set changes - no manual updates needed.
 
-### 📐 Key Design Principles
+### Key Design Principles
 
 #### 1. Visual Hierarchy Through Contrast
+
 Most elements should use the primary color. Only the MOST important action gets the accent/CTA color.
 
 ```
-Bad:  5 buttons, 4 different colors → confusing
-Good: 5 buttons, 4 primary + 1 accent → clear hierarchy
+Bad:  5 buttons, 4 different colors -> confusing
+Good: 5 buttons, 4 primary + 1 accent -> clear hierarchy
 ```
 
 #### 2. Semantic Color Usage
+
 Colors have meaning:
 - **Primary** = "This is a normal action"
 - **CTA/Accent** = "This is THE action I want you to take"
 - **Neutral** = "This is decorative/secondary information"
 
 #### 3. Consistency
+
 Use the theme system! Don't hardcode hex values in components.
 
 ```tsx
-// ❌ Bad - hardcoded color
+// Bad - hardcoded color
 <div style={{ backgroundColor: "#3C34C5" }}>
 
-// ✅ Good - uses theme
+// Good - uses theme
 import { colors } from "@/lib/theme";
 <div style={{ backgroundColor: colors.primary.DEFAULT }}>
 ```
 
 #### 4. Automatic Adaptation
+
 Components using the `colors` object automatically update when the user switches palettes. No re-renders or prop changes needed - the mutable color object is updated in place.
