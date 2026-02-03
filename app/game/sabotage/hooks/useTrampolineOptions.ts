@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { SabotageEffect } from "@/lib/sabotage";
+import type { SabotageEffect } from "@/lib/sabotage/types";
 import {
   TRAMPOLINE_BUTTON_WIDTH,
   TRAMPOLINE_BUTTON_HEIGHT,

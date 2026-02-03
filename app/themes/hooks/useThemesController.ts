@@ -12,17 +12,13 @@ import {
   checkThemeForDuplicateWords,
   isWordDuplicate,
   checkThemeForWrongMatchingAnswer,
-} from "@/lib/themes";
+} from "@/lib/themes/validators";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
-import {
-  useThemeGenerator,
-  useAddWord,
-  useGenerateRandom,
-  useWordEditor,
-  useThemeActions,
-} from "./index";
+import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
+import { useWordEditor } from "./useWordEditor";
+import { useThemeActions } from "./useThemeActions";
 import { toast } from "sonner";
 
 interface DeleteConfirmState {

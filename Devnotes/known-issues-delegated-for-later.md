@@ -72,3 +72,35 @@ Need to define a consistent avatar color strategy:
 ### Status
 
 Parked for later. Requires design decision on avatar identity and color consistency across the app.
+
+---
+
+## Weekly Goal Decline Action Missing
+
+**Date identified:** 2026-02-03
+
+**Context:** Discovered during email notifications implementation prep. The plan includes a "weekly goal declined" email trigger, but no explicit decline mutation exists.
+
+### The Problem
+
+Weekly goals have no explicit "decline" action. When User A invites User B to a weekly goal:
+- User B can open the goal and add/remove themes (editing phase)
+- User B can lock the goal (accept)
+- User B can delete the goal (while unlocked)
+- But there's no "decline" button that notifies User A
+
+Currently, if User B doesn't want to participate, they just ignore or delete — User A gets no notification.
+
+### Impact on Email Notifications
+
+Email trigger #10 ("weekly goal invite declined") cannot be implemented without this mutation.
+
+### Options
+
+1. **Add explicit decline mutation** — creates notification for User A, deletes the goal
+2. **Skip this email trigger** — document that decline = silent ignore/delete
+3. **Repurpose delete as decline** — treat `deleteGoal` as implicit decline, send email to partner
+
+### Status
+
+Parked. Will proceed with email notifications without this trigger for now.

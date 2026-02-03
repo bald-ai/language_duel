@@ -1,6 +1,6 @@
 "use client";
 
-import type { SabotageEffect, SabotagePhase } from "@/lib/sabotage";
+import type { SabotageEffect, SabotagePhase } from "@/lib/sabotage/types";
 import { StickyNotes } from "./effects/StickyNotes";
 
 interface SabotageRendererProps {

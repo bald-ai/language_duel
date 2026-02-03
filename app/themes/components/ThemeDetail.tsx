@@ -3,13 +3,13 @@
 import { memo, useMemo, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
-import { 
-  getDuplicateWordIndices, 
+import {
+  getDuplicateWordIndices,
   checkThemeForDuplicateWrongAnswers,
   checkThemeForWrongMatchingAnswer,
-  hasDuplicateWrongAnswersInWord, 
-  doesWrongAnswerMatchCorrect 
-} from "@/lib/themes";
+  hasDuplicateWrongAnswersInWord,
+  doesWrongAnswerMatchCorrect,
+} from "@/lib/themes/validators";
 import { buttonStyles, colors } from "@/lib/theme";
 import type { FieldType } from "../constants";
 import { THEME_NAME_MAX_LENGTH } from "../constants";

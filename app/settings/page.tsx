@@ -4,8 +4,12 @@
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ProfileCard, NicknameEditor, ColorSetSelector, BackgroundSelector, TTSProviderSelector } from "./components";
-import { useNicknameUpdate } from "./hooks";
+import { ProfileCard } from "./components/ProfileCard";
+import { NicknameEditor } from "./components/NicknameEditor";
+import { ColorSetSelector } from "./components/ColorSetSelector";
+import { BackgroundSelector } from "./components/BackgroundSelector";
+import { TTSProviderSelector } from "./components/TTSProviderSelector";
+import { useNicknameUpdate } from "./hooks/useNicknameUpdate";
 import { colors } from "@/lib/theme";
 import { useBackground } from "@/app/components/BackgroundProvider";
 

@@ -159,7 +159,8 @@ export default defineSchema({
     friendsCanEdit: v.optional(v.boolean()),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_visibility", ["visibility"]),
+    .index("by_visibility", ["visibility"])
+    .index("by_visibility_owner", ["visibility", "ownerId"]),
 
   // -------------------------------------------
   // Friend Requests Table

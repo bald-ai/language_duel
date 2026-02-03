@@ -10,7 +10,9 @@ import { toast } from "sonner";
 import { FriendListItem } from "./FriendListItem";
 import { AddFriendSection } from "./AddFriendSection";
 import { ScheduleDuelModal } from "./ScheduleDuelModal";
-import { UnifiedDuelModal, WaitingModal, JoiningModal } from "@/app/components/modals";
+import { UnifiedDuelModal } from "@/app/components/modals/UnifiedDuelModal";
+import { WaitingModal } from "@/app/components/modals/WaitingModal";
+import { JoiningModal } from "@/app/components/modals/JoiningModal";
 import { useDuelLobby } from "@/hooks/useDuelLobby";
 
 interface FriendsTabProps {

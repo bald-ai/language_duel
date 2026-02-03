@@ -1,6 +1,6 @@
 "use client";
 
-import type { WordType } from "@/lib/themes";
+import type { WordType } from "@/lib/themes/api";
 import {
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,

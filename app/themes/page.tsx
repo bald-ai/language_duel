@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { VIEW_MODES } from "./constants";
-import { useThemesController } from "./hooks";
+import { useThemesController } from "./hooks/useThemesController";
 import { ThemeList } from "./components/ThemeList";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";

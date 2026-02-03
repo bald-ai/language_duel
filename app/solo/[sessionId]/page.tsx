@@ -8,8 +8,8 @@ import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/lib/stringUtils";
 
 // Feature-local imports
-import { useSoloSession } from "./hooks";
-import { CompletionScreen } from "./components";
+import { useSoloSession } from "./hooks/useSoloSession";
+import { CompletionScreen } from "./components/CompletionScreen";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
 

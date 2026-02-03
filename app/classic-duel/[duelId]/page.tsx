@@ -36,10 +36,7 @@ export default function ClassicDuelPage() {
     viewerRole = "challenger"
   } = duelData || {};
 
-  const theme = useQuery(
-    api.themes.getTheme,
-    duel?.themeId ? { themeId: duel.themeId } : "skip"
-  );
+  const theme = duelData?.theme ?? null;
 
   useEffect(() => {
     if (!duel) return;

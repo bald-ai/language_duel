@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { generateField, regenerateForWord, type WordType, type FieldType } from "@/lib/themes";
+import { generateField, regenerateForWord, type WordType, type FieldType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { EDIT_MODES, type EditMode } from "../constants";
 

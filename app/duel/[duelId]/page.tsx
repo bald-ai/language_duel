@@ -10,7 +10,11 @@ import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/di
 import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
 import { DuelGameUI } from "./components/DuelGameUI";
 import { DuelStatusMessage } from "./components/DuelStatusMessage";
-import { useDuelAnswerEffects, useDuelHintState, useDuelPageEffects, useDuelPhase, useQuestionTimer } from "./hooks";
+import { useDuelAnswerEffects } from "./hooks/useDuelAnswerEffects";
+import { useDuelHintState } from "./hooks/useDuelHintState";
+import { useDuelPageEffects } from "./hooks/useDuelPageEffects";
+import { useDuelPhase } from "./hooks/useDuelPhase";
+import { useQuestionTimer } from "./hooks/useQuestionTimer";
 import { useTTS } from "@/app/game/hooks";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -29,12 +33,6 @@ export default function DuelPage() {
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   const duelData = useQuery(api.duel.getDuel, { duelId: duelId as Id<"challenges"> });
-
-  // Get theme for this duel
-  const theme = useQuery(
-    api.themes.getTheme,
-    duelData?.duel?.themeId ? { themeId: duelData.duel.themeId } : "skip"
-  );
   const answer = useMutation(api.duel.answerDuel);
   const stopDuel = useMutation(api.duel.stopDuel);
   const requestHint = useMutation(api.duel.requestHint);
@@ -74,6 +72,7 @@ export default function DuelPage() {
   });
 
   const wordOrder = duel?.wordOrder;
+  const theme = duelData?.theme ?? null;
   const words = useMemo(() => theme?.words ?? [], [theme?.words]);
 
   // When completed, show the last word; otherwise show current word

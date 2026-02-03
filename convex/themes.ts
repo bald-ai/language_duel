@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { hasThemeAccess } from "../lib/themeAccess";
 
+const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
 const wordValidator = v.object({
   word: v.string(),
@@ -107,16 +108,22 @@ export const getThemes = query({
         .collect();
       const friendIds = friendships.map((f) => f.friendId);
 
-      // Fetch each friend's shared themes
-      const friendSharedThemesPromises = friendIds.map(async (friendId) => {
-        const friendThemes = await ctx.db
-          .query("themes")
-          .withIndex("by_owner", (q) => q.eq("ownerId", friendId))
-          .collect();
-        return friendThemes.filter((t) => t.visibility === "shared");
-      });
-      const friendSharedThemesArrays = await Promise.all(friendSharedThemesPromises);
-      const friendSharedThemes = friendSharedThemesArrays.flat();
+      // Fetch each friend's shared themes using a composite index to avoid scans
+      const friendSharedThemes: Doc<"themes">[] = [];
+      for (let i = 0; i < friendIds.length; i += FRIEND_SHARED_THEME_BATCH_SIZE) {
+        const batch = friendIds.slice(i, i + FRIEND_SHARED_THEME_BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map((friendId) =>
+            ctx.db
+              .query("themes")
+              .withIndex("by_visibility_owner", (q) =>
+                q.eq("visibility", "shared").eq("ownerId", friendId)
+              )
+              .collect()
+          )
+        );
+        friendSharedThemes.push(...batchResults.flat());
+      }
 
       // Query 4: Themes from active scheduled duels
       const scheduledAsProposer = await ctx.db

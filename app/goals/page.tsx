@@ -132,19 +132,27 @@ export default function GoalsPage() {
         selectedPlan.goal.themes.map((theme) => theme.themeId)
       );
       const addedThemeIds = new Set<Id<"themes">>();
-      let addedCount = 0;
+      const addPromises: Promise<unknown>[] = [];
 
       for (const themeId of themeIds) {
-        if (addedCount >= remainingSlots) break;
+        if (addPromises.length >= remainingSlots) break;
         if (existingThemeIds.has(themeId) || addedThemeIds.has(themeId)) continue;
 
-        await addTheme({ goalId: selectedPlan.goal._id, themeId });
+        addPromises.push(addTheme({ goalId: selectedPlan.goal._id, themeId }));
         addedThemeIds.add(themeId);
-        addedCount += 1;
+      }
+      let fulfilledCount = 0;
+      if (addPromises.length > 0) {
+        const results = await Promise.allSettled(addPromises);
+        fulfilledCount = results.filter((result) => result.status === "fulfilled").length;
       }
       setShowThemeSelector(false);
       // Query will auto-refresh
-      toast.success(`Added ${addedCount} theme${addedCount === 1 ? "" : "s"}`);
+      if (fulfilledCount > 0) {
+        toast.success(`Added ${fulfilledCount} theme${fulfilledCount === 1 ? "" : "s"}`);
+      } else {
+        toast.error("Failed to add themes");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add themes");
     }

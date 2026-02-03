@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { generateTheme, addWord, generateRandomWords, type WordType } from "@/lib/themes";
+import { generateTheme, addWord, generateRandomWords, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { DEFAULT_RANDOM_WORD_COUNT } from "../constants";
 
@@ -238,3 +238,5 @@ export function useGenerateRandom() {
     generate,
   };
 }
+
+export type { WordType };

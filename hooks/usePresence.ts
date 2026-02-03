@@ -6,6 +6,11 @@ import { api } from "@/convex/_generated/api";
 
 const PRESENCE_UPDATE_INTERVAL_MS = 30000; // 30 seconds
 
+let presenceListenerCount = 0;
+let presenceInterval: ReturnType<typeof setInterval> | null = null;
+let presenceVisibilityHandler: (() => void) | null = null;
+let latestUpdatePresence: (() => void) | null = null;
+
 /**
  * Hook to track user online presence
  * 
@@ -13,49 +18,68 @@ const PRESENCE_UPDATE_INTERVAL_MS = 30000; // 30 seconds
  * update the user's presence status every 30 seconds.
  */
 export function usePresence() {
-    const updatePresenceMutation = useMutation(api.users.updatePresence);
-    const isUpdatingRef = useRef(false);
+  const updatePresenceMutation = useMutation(api.users.updatePresence);
+  const isUpdatingRef = useRef(false);
 
-    const updatePresence = useCallback(async () => {
-        if (isUpdatingRef.current) {
-            return;
+  const updatePresence = useCallback(async () => {
+    if (isUpdatingRef.current) {
+      return;
+    }
+    isUpdatingRef.current = true;
+    try {
+      await updatePresenceMutation();
+    } catch (error) {
+      // Silently fail - presence is non-critical
+      console.debug("Failed to update presence:", error);
+    } finally {
+      isUpdatingRef.current = false;
+    }
+  }, [updatePresenceMutation]);
+
+  useEffect(() => {
+    presenceListenerCount += 1;
+    latestUpdatePresence = updatePresence;
+
+    if (presenceListenerCount === 1) {
+      const runUpdatePresence = () => {
+        latestUpdatePresence?.();
+      };
+
+      // Update presence immediately
+      runUpdatePresence();
+
+      // Update every 30 seconds
+      presenceInterval = setInterval(() => {
+        runUpdatePresence();
+      }, PRESENCE_UPDATE_INTERVAL_MS);
+
+      // Update on visibility change (when user returns to tab)
+      presenceVisibilityHandler = () => {
+        if (document.visibilityState === "visible") {
+          runUpdatePresence();
         }
-        isUpdatingRef.current = true;
-        try {
-            await updatePresenceMutation();
-        } catch (error) {
-            // Silently fail - presence is non-critical
-            console.debug("Failed to update presence:", error);
-        } finally {
-            isUpdatingRef.current = false;
+      };
+
+      document.addEventListener("visibilitychange", presenceVisibilityHandler);
+    }
+
+    return () => {
+      presenceListenerCount = Math.max(0, presenceListenerCount - 1);
+      if (presenceListenerCount === 0) {
+        if (presenceInterval) {
+          clearInterval(presenceInterval);
+          presenceInterval = null;
         }
-    }, [updatePresenceMutation]);
+        if (presenceVisibilityHandler) {
+          document.removeEventListener("visibilitychange", presenceVisibilityHandler);
+          presenceVisibilityHandler = null;
+        }
+        latestUpdatePresence = null;
+      }
+    };
+  }, [updatePresence]);
 
-    useEffect(() => {
-        // Update presence immediately
-        updatePresence();
-
-        // Update every 30 seconds
-        const interval = setInterval(() => {
-            updatePresence();
-        }, PRESENCE_UPDATE_INTERVAL_MS);
-
-        // Update on visibility change (when user returns to tab)
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                updatePresence();
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            clearInterval(interval);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [updatePresence]);
-
-    return { updatePresence };
+  return { updatePresence };
 }
 
 export default usePresence;

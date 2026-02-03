@@ -102,9 +102,12 @@ export const getDuel = query({
     ]);
     const viewerRole = isChallenger ? "challenger" : "opponent";
 
+    const theme = duel.themeId ? await ctx.db.get(duel.themeId) : null;
+
     // Return only safe user fields (no email, no clerkId)
     return {
       duel,
+      theme,
       viewerRole,
       viewer: {
         _id: auth.user._id,

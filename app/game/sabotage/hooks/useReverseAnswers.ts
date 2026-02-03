@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import type { SabotageEffect } from "@/lib/sabotage";
+import type { SabotageEffect } from "@/lib/sabotage/types";
 import {
   REVERSE_HOLD_MS,
   REVERSE_SCRAMBLE_MS,

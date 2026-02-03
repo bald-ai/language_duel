@@ -34,10 +34,7 @@ export default function DuelLearnPage() {
 
   // Fetch duel data
   const duelData = useQuery(api.duel.getDuel, { duelId: duelId as Id<"challenges"> });
-  const theme = useQuery(
-    api.themes.getTheme,
-    duelData?.duel?.themeId ? { themeId: duelData.duel.themeId } : "skip"
-  );
+  const theme = duelData?.theme ?? null;
 
   // Mutations
   const selectTimer = useMutation(api.duel.selectLearnTimer);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { SabotagePhase } from "@/lib/sabotage";
+import type { SabotagePhase } from "@/lib/sabotage/types";
 import { hashSeed, mulberry32 } from "@/lib/prng";
 import {
   STICKY_NOTE_COUNT,

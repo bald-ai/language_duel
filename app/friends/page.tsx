@@ -5,8 +5,12 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TABS, type TabId } from "./constants";
-import { SearchBar, UserCard, RequestsList, FriendsList } from "./components";
-import { useFriendSearch, useFriendActions } from "./hooks";
+import { SearchBar } from "./components/SearchBar";
+import { UserCard } from "./components/UserCard";
+import { RequestsList } from "./components/RequestsList";
+import { FriendsList } from "./components/FriendsList";
+import { useFriendSearch } from "./hooks/useFriendSearch";
+import { useFriendActions } from "./hooks/useFriendActions";
 import { colors } from "@/lib/theme";
 
 export default function FriendsPage() {

@@ -91,6 +91,11 @@ const listCardStyle = {
   boxShadow: `0 20px 55px ${colors.primary.glow}`,
 };
 
+const listItemStyle = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "220px 420px",
+} as const;
+
 
 export default function LearnPhasePage() {
   const params = useParams();
@@ -561,27 +566,28 @@ export default function LearnPhasePage() {
               const confidence = confidenceLevels[wordKey] ?? 0;
 
               return (
-                <MemoizedWordCardWrapper
-                  key={originalIndex}
-                  originalIndex={originalIndex}
-                  orderIdx={orderIdx}
-                  word={theme.words[originalIndex]}
-                  themeId={themeId}
-                  isRevealed={isRevealed}
-                  hintState={state}
-                  confidence={confidence}
-                  playingWordIndex={playingWordIndex}
-                  draggedIndex={dragState.draggedIndex}
-                  setConfidence={setConfidence}
-                  revealLetter={revealLetter}
-                  revealFullWord={revealFullWord}
-                  resetWord={resetWord}
-                  playTTS={playTTS}
-                  handleMouseDown={handleMouseDown}
-                  getItemStyle={getItemStyle}
-                  itemRefs={itemRefs}
-                  dataTestIdBase={`solo-learn-word-${originalIndex}`}
-                />
+                <div key={originalIndex} style={listItemStyle}>
+                  <MemoizedWordCardWrapper
+                    originalIndex={originalIndex}
+                    orderIdx={orderIdx}
+                    word={theme.words[originalIndex]}
+                    themeId={themeId}
+                    isRevealed={isRevealed}
+                    hintState={state}
+                    confidence={confidence}
+                    playingWordIndex={playingWordIndex}
+                    draggedIndex={dragState.draggedIndex}
+                    setConfidence={setConfidence}
+                    revealLetter={revealLetter}
+                    revealFullWord={revealFullWord}
+                    resetWord={resetWord}
+                    playTTS={playTTS}
+                    handleMouseDown={handleMouseDown}
+                    getItemStyle={getItemStyle}
+                    itemRefs={itemRefs}
+                    dataTestIdBase={`solo-learn-word-${originalIndex}`}
+                  />
+                </div>
               );
             })}
           </div>

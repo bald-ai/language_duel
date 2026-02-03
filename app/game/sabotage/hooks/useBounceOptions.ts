@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { SabotageEffect } from "@/lib/sabotage";
+import type { SabotageEffect } from "@/lib/sabotage/types";
 import {
   BUTTON_WIDTH,
   BUTTON_HEIGHT,
