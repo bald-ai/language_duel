@@ -60,6 +60,7 @@ export function BackgroundSelector({
                 boxShadow: isActive ? `0 0 12px ${colors.cta.glow}` : undefined,
               }}
               aria-pressed={isActive}
+              data-testid={`settings-background-${option.filename.replace(/\\W+/g, "-")}`}
             >
               <Image
                 src={`/${option.filename}`}

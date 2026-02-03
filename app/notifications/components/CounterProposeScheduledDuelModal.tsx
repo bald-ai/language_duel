@@ -53,9 +53,7 @@ export function CounterProposeScheduledDuelModal({
     const counterProposeScheduledDuel = useMutation(api.scheduledDuels.counterProposeScheduledDuel);
 
     const timeSlots = useMemo(() => generateTimeSlots(), []);
-    const sharedThemes = useMemo(() => {
-        return themes?.filter((theme) => theme.visibility === "shared") ?? [];
-    }, [themes]);
+    const availableThemes = useMemo(() => themes ?? [], [themes]);
 
     useEffect(() => {
         if (!scheduledDuel || themes === undefined || hasInitialized) {
@@ -63,21 +61,21 @@ export function CounterProposeScheduledDuelModal({
         }
 
         const timeSlot = timeSlots.find((slot) => slot.timestamp === scheduledDuel.scheduledTime);
-        const themeMatch = sharedThemes.find((theme) => theme._id === scheduledDuel.themeId);
+        const themeMatch = availableThemes.find((theme) => theme._id === scheduledDuel.themeId);
 
         setSelectedTime(timeSlot ? timeSlot.timestamp : null);
         setSelectedThemeId(themeMatch ? themeMatch._id : null);
         setHasInitialized(true);
-    }, [scheduledDuel, themes, timeSlots, sharedThemes, hasInitialized]);
+    }, [scheduledDuel, themes, timeSlots, availableThemes, hasInitialized]);
 
-    const selectedTheme = sharedThemes.find((theme) => theme._id === selectedThemeId) || null;
+    const selectedTheme = availableThemes.find((theme) => theme._id === selectedThemeId) || null;
     const isLoading = scheduledDuel === undefined || themes === undefined;
     const isMissing = scheduledDuel === null;
     const scheduledTimeAvailable = scheduledDuel
         ? timeSlots.some((slot) => slot.timestamp === scheduledDuel.scheduledTime)
         : true;
     const scheduledThemeAvailable = scheduledDuel
-        ? sharedThemes.some((theme) => theme._id === scheduledDuel.themeId)
+        ? availableThemes.some((theme) => theme._id === scheduledDuel.themeId)
         : true;
 
     const otherUser = scheduledDuel?.isProposer ? scheduledDuel.recipient : scheduledDuel?.proposer;
@@ -167,10 +165,11 @@ export function CounterProposeScheduledDuelModal({
                                 Theme
                             </p>
                             <CompactThemePicker
-                                themes={sharedThemes}
+                                themes={availableThemes}
                                 selectedThemeId={selectedThemeId}
                                 selectedTheme={selectedTheme}
                                 onSelect={setSelectedThemeId}
+                                dataTestIdPrefix="counter-duel-theme"
                             />
                             {!scheduledThemeAvailable && (
                                 <p className="text-xs mt-2" style={{ color: colors.status.warning.dark }}>
@@ -188,6 +187,7 @@ export function CounterProposeScheduledDuelModal({
                                 timeSlots={timeSlots}
                                 selectedTime={selectedTime}
                                 onSelect={setSelectedTime}
+                                dataTestIdPrefix="counter-duel-time"
                             />
                             {!scheduledTimeAvailable && (
                                 <p className="text-xs mt-2" style={{ color: colors.status.warning.dark }}>
@@ -224,6 +224,7 @@ export function CounterProposeScheduledDuelModal({
                     disabled={isSubmitting || isLoading || isMissing || !selectedThemeId || !selectedTime}
                     className={actionButtonClassName}
                     style={ctaActionStyle}
+                    data-testid="counter-duel-submit"
                 >
                     {isSubmitting ? "Sending..." : "Send Counter"}
                 </button>
@@ -231,6 +232,7 @@ export function CounterProposeScheduledDuelModal({
                     onClick={onClose}
                     className={outlineButtonClassName}
                     style={outlineButtonStyle}
+                    data-testid="counter-duel-cancel"
                 >
                     Cancel
                 </button>

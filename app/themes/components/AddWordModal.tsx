@@ -46,7 +46,10 @@ export function AddWordModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      data-testid="theme-add-word-modal"
+    >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={{
@@ -81,6 +84,7 @@ export function AddWordModal({
                 onAdd();
               }
             }}
+            data-testid="theme-add-word-input"
           />
         </div>
 
@@ -115,6 +119,7 @@ export function AddWordModal({
             disabled={!newWordInput.trim() || isAdding}
             className={actionButtonClassName}
             style={primaryActionStyle}
+            data-testid="theme-add-word-submit"
           >
             {isAdding ? "Adding..." : "Add"}
           </button>
@@ -123,6 +128,7 @@ export function AddWordModal({
             disabled={isAdding}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-add-word-cancel"
           >
             Cancel
           </button>

@@ -20,6 +20,7 @@ export function Level2MultipleChoice({
   onWrong,
   onSkip,
   mode,
+  dataTestIdBase,
   // Hint system props (optional - for duel mode)
   canRequestHint,
   hintRequested,
@@ -237,6 +238,7 @@ export function Level2MultipleChoice({
               disabled={submitted || isEliminated}
               className={`${isDuelMode ? "p-4 rounded-lg text-lg" : "p-4 rounded-2xl text-base sm:text-lg"} ${buttonClass}`}
               style={buttonStyle}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-option-${idx}` : undefined}
             >
               {isDuelMode && (
                 <span className="mr-2" style={{ color: colors.text.muted }}>
@@ -265,6 +267,7 @@ export function Level2MultipleChoice({
               disabled={selectedIndex === null}
               className={actionButtonClassName}
               style={primaryActionStyle}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm` : undefined}
             >
               Confirm
             </button>
@@ -285,6 +288,7 @@ export function Level2MultipleChoice({
                     color: colors.text.muted,
                   }
             }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
           >
             Don&apos;t Know
           </button>
@@ -319,6 +323,7 @@ export function Level2MultipleChoice({
                 borderColor: colors.secondary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request` : undefined}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -338,6 +343,7 @@ export function Level2MultipleChoice({
                     borderColor: colors.secondary.dark,
                     color: colors.text.DEFAULT,
                   }}
+                  data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
                 >
                   Request another hint
                 </button>
@@ -350,6 +356,7 @@ export function Level2MultipleChoice({
                   borderColor: colors.primary.dark,
                   color: colors.text.muted,
                 }}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-cancel` : undefined}
               >
                 Cancel
               </button>
@@ -365,6 +372,7 @@ export function Level2MultipleChoice({
                 borderColor: colors.secondary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
             >
               Request another hint
             </button>

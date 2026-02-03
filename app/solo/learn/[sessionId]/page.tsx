@@ -3,24 +3,20 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { SOLO_TIMER_OPTIONS } from "./constants";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { formatDuration, stripIrr } from "@/lib/stringUtils";
-import { WordCard } from "./components";
+import { WordCard } from "./components/WordCard";
+import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
+import { LearnHeader } from "./components/LearnHeader";
 import { useDraggableList } from "./hooks/useDraggableList";
 import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { buttonStyles, colors } from "@/lib/theme";
-
-// State for each word: hintCount and revealedPositions
-interface HintState {
-  hintCount: number;
-  revealedPositions: number[];
-}
 
 const DEFAULT_HINT_STATE = Object.freeze({
   hintCount: 0,
@@ -95,111 +91,6 @@ const listCardStyle = {
   boxShadow: `0 20px 55px ${colors.primary.glow}`,
 };
 
-// Memoized wrapper component to prevent unnecessary re-renders of WordCard
-interface MemoizedWordCardWrapperProps {
-  originalIndex: number;
-  orderIdx: number;
-  word: { word: string; answer: string };
-  themeId: string | null;
-  isRevealed: boolean;
-  hintState: HintState;
-  confidence: number;
-  playingWordIndex: number | null;
-  draggedIndex: number | null;
-  setConfidence: (wordKey: string, level: number) => void;
-  revealLetter: (wordKey: string, position: number) => void;
-  revealFullWord: (wordKey: string, answer: string) => void;
-  resetWord: (wordKey: string) => void;
-  playTTS: (wordIndex: number, spanishWord: string) => void;
-  handleMouseDown: (e: React.MouseEvent, orderIdx: number) => void;
-  getItemStyle: (orderIdx: number, originalIndex: number) => React.CSSProperties;
-  itemRefs: React.RefObject<Map<number, HTMLDivElement | null>>;
-}
-
-const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
-  originalIndex,
-  orderIdx,
-  word,
-  themeId,
-  isRevealed,
-  hintState,
-  confidence,
-  playingWordIndex,
-  draggedIndex,
-  setConfidence,
-  revealLetter,
-  revealFullWord,
-  resetWord,
-  playTTS,
-  handleMouseDown,
-  getItemStyle,
-  itemRefs,
-}: MemoizedWordCardWrapperProps) {
-  const wordKey = `${themeId}-${originalIndex}`;
-  const state = hintState;
-  const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
-  const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-  const hintsRemaining = maxHints - state.hintCount;
-
-  // Memoize callbacks for this specific word
-  const handleConfidenceChange = useCallback(
-    (val: number) => setConfidence(wordKey, val),
-    [setConfidence, wordKey]
-  );
-
-  const handleRevealLetter = useCallback(
-    (pos: number) => revealLetter(wordKey, pos),
-    [revealLetter, wordKey]
-  );
-
-  const handleRevealFullWord = useCallback(
-    () => revealFullWord(wordKey, word.answer),
-    [revealFullWord, wordKey, word.answer]
-  );
-
-  const handleResetWord = useCallback(
-    () => resetWord(wordKey),
-    [resetWord, wordKey]
-  );
-
-  const handlePlayTTS = useCallback(
-    () => playTTS(originalIndex, word.answer),
-    [playTTS, originalIndex, word.answer]
-  );
-
-  const handleMouseDownWrapper = useCallback(
-    (e: React.MouseEvent) => handleMouseDown(e, orderIdx),
-    [handleMouseDown, orderIdx]
-  );
-
-  // Inline ref callback - refs are stable by design, no need for useCallback
-  const refCallback = (el: HTMLDivElement | null) => {
-    itemRefs.current?.set(originalIndex, el);
-  };
-
-  const style = getItemStyle(orderIdx, originalIndex);
-
-  return (
-    <WordCard
-      word={word}
-      isRevealed={isRevealed}
-      confidence={confidence}
-      onConfidenceChange={handleConfidenceChange}
-      revealedPositions={state.revealedPositions}
-      hintsRemaining={hintsRemaining}
-      onRevealLetter={handleRevealLetter}
-      onRevealFullWord={handleRevealFullWord}
-      onResetWord={handleResetWord}
-      isTTSPlaying={playingWordIndex === originalIndex}
-      isTTSDisabled={playingWordIndex !== null}
-      onPlayTTS={handlePlayTTS}
-      isDragging={draggedIndex === orderIdx}
-      onMouseDown={handleMouseDownWrapper}
-      style={style}
-      refCallback={refCallback}
-    />
-  );
-});
 
 export default function LearnPhasePage() {
   const params = useParams();
@@ -398,57 +289,6 @@ export default function LearnPhasePage() {
     return { color: colors.status.danger.DEFAULT };
   }, [timeRemaining, duration]);
 
-  const header = (
-    <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up shrink-0">
-      <div
-        className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full"
-        style={{ color: colors.neutral.DEFAULT }}
-      />
-
-      <h1
-        className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none"
-        style={{
-          background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))",
-        }}
-      >
-        Solo{" "}
-        <span
-          style={{
-            background: `linear-gradient(135deg, ${colors.cta.DEFAULT} 0%, ${colors.cta.lighter} 50%, ${colors.cta.DEFAULT} 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Challenge
-        </span>
-      </h1>
-
-      <p
-        className="mt-2 text-xs sm:text-sm font-light tracking-wide"
-        style={{ color: colors.text.muted }}
-      >
-        Study first, then jump into the challenge
-      </p>
-
-      <div className="flex items-center gap-2 mt-3">
-        <div
-          className="w-8 h-px bg-gradient-to-r from-transparent to-current"
-          style={{ color: colors.primary.DEFAULT }}
-        />
-        <div className="w-1.5 h-1.5 rotate-45" style={{ backgroundColor: colors.primary.DEFAULT }} />
-        <div
-          className="w-8 h-px bg-gradient-to-l from-transparent to-current"
-          style={{ color: colors.primary.DEFAULT }}
-        />
-      </div>
-    </header>
-  );
-
   // --- Loading states ---
   if (!themeId) {
     return (
@@ -469,6 +309,7 @@ export default function LearnPhasePage() {
               onClick={handleExit}
               className={`${actionButtonClassName} mt-6`}
               style={primaryActionStyle}
+              data-testid="solo-learn-back-home"
             >
               Back to Home
             </button>
@@ -516,7 +357,7 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-8">
-          {header}
+          <LearnHeader />
 
           <section
             className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up delay-200"
@@ -540,6 +381,7 @@ export default function LearnPhasePage() {
                   onClick={() => setDuration(option)}
                   className={timerOptionClassName}
                   style={duration === option ? timerOptionActiveStyle : timerOptionInactiveStyle}
+                  data-testid={`solo-learn-timer-${option}`}
                 >
                   {formatDuration(option)}
                 </button>
@@ -559,10 +401,20 @@ export default function LearnPhasePage() {
           </section>
 
           <div className="w-full mt-6 grid gap-3 animate-slide-up delay-300">
-            <button onClick={handleStart} className={actionButtonClassName} style={ctaActionStyle}>
+            <button
+              onClick={handleStart}
+              className={actionButtonClassName}
+              style={ctaActionStyle}
+              data-testid="solo-learn-start"
+            >
               Start Learning
             </button>
-            <button onClick={handleExit} className={actionButtonClassName} style={primaryActionStyle}>
+            <button
+              onClick={handleExit}
+              className={actionButtonClassName}
+              style={primaryActionStyle}
+              data-testid="solo-learn-back-home"
+            >
               Back to Home
             </button>
           </div>
@@ -595,12 +447,13 @@ export default function LearnPhasePage() {
               color: "#FFFFFF",
               textShadow: "0 2px 4px rgba(0,0,0,0.3)",
             }}
+            data-testid="solo-learn-exit"
           >
             Exit
           </button>
         </div>
 
-        {header}
+        <LearnHeader />
 
         <section
           className="w-full rounded-3xl border-2 p-5 text-center backdrop-blur-sm animate-slide-up delay-200"
@@ -624,6 +477,7 @@ export default function LearnPhasePage() {
               onClick={() => setIsRevealed(true)}
               className={toggleButtonClassName}
               style={isRevealed ? toggleActiveStyle : toggleInactiveStyle}
+              data-testid="solo-learn-toggle-reveal"
             >
               Reveal
             </button>
@@ -631,6 +485,7 @@ export default function LearnPhasePage() {
               onClick={() => setIsRevealed(false)}
               className={toggleButtonClassName}
               style={!isRevealed ? toggleActiveStyle : toggleInactiveStyle}
+              data-testid="solo-learn-toggle-test"
             >
               Test
             </button>
@@ -639,6 +494,7 @@ export default function LearnPhasePage() {
                 onClick={resetAll}
                 className={toggleButtonClassName}
                 style={resetToggleStyle}
+                data-testid="solo-learn-reset-all"
               >
                 Reset All
               </button>
@@ -690,6 +546,7 @@ export default function LearnPhasePage() {
                       }}
                       className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full transition hover:brightness-110"
                       style={{ color: colors.text.muted }}
+                      data-testid="solo-learn-confidence-dismiss"
                     >
                       <span className="text-base leading-none">x</span>
                     </button>
@@ -723,6 +580,7 @@ export default function LearnPhasePage() {
                   handleMouseDown={handleMouseDown}
                   getItemStyle={getItemStyle}
                   itemRefs={itemRefs}
+                  dataTestIdBase={`solo-learn-word-${originalIndex}`}
                 />
               );
             })}
@@ -773,7 +631,12 @@ export default function LearnPhasePage() {
         )}
 
         <div className="w-full pb-[calc(env(safe-area-inset-bottom)+1.5rem)] animate-slide-up delay-400">
-          <button onClick={handleSkip} className={actionButtonClassName} style={ctaActionStyle}>
+          <button
+            onClick={handleSkip}
+            className={actionButtonClassName}
+            style={ctaActionStyle}
+            data-testid="solo-learn-skip"
+          >
             Skip to Challenge {'->'}
           </button>
         </div>

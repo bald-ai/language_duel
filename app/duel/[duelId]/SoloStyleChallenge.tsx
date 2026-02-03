@@ -103,6 +103,7 @@ export default function SoloStyleChallenge({
           onProvideHint={game.handleProvideHint}
           requesterName={theirName?.split(" ")[0] || "Opponent"}
           onDismiss={() => game.setShowHintGiverView(false)}
+          dataTestIdBase="solo-style-hint-giver"
         />
       )}
 
@@ -130,6 +131,7 @@ export default function SoloStyleChallenge({
         hintL2Options={game.hintL2Options}
         onShowL2HintGiverView={game.setShowL2HintGiverView}
         onDismissHintL2Selector={game.setHintL2SelectorDismissed}
+        dataTestIdBase="solo-style-hint-banner"
       />
 
       {/* Hint Type Selector - shows when opponent requests help */}
@@ -140,6 +142,7 @@ export default function SoloStyleChallenge({
           hintOptions={game.hintRequesterLevel === 1 ? L1_HINT_OPTIONS : TYPING_HINT_OPTIONS}
           onSelectHint={game.handleAcceptHint}
           onDismiss={() => game.setHintSelectorDismissed(true)}
+          dataTestIdBase="solo-style-hint-selector"
         />
       )}
 
@@ -153,6 +156,7 @@ export default function SoloStyleChallenge({
           onEliminateOption={game.handleEliminateL2Option}
           requesterName={theirName?.split(" ")[0] || "Opponent"}
           onDismiss={() => game.setShowL2HintGiverView(false)}
+          dataTestIdBase="solo-style-hint-giver-l2"
         />
       )}
 
@@ -164,6 +168,7 @@ export default function SoloStyleChallenge({
           hintOptions={L2_MC_HINT_OPTIONS}
           onSelectHint={game.handleAcceptHintL2}
           onDismiss={() => game.setHintL2SelectorDismissed(true)}
+          dataTestIdBase="solo-style-hint-selector-l2"
         />
       )}
 
@@ -172,6 +177,7 @@ export default function SoloStyleChallenge({
         onClick={game.handleExit}
         className="absolute top-4 right-4 font-bold py-2 px-4 rounded z-50 border-2 text-xs uppercase tracking-widest transition hover:brightness-110"
         style={dangerButtonStyle}
+        data-testid="solo-style-exit"
       >
         Exit
       </button>

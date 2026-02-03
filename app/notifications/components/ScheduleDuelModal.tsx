@@ -64,12 +64,9 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
     // Generate available time slots
     const timeSlots = useMemo(() => generateTimeSlots(), []);
 
-    // Filter to shared themes only
-    const sharedThemes = useMemo(() => {
-        return themes?.filter(t => t.visibility === "shared") ?? [];
-    }, [themes]);
+    const availableThemes = themes ?? [];
 
-    const selectedTheme = sharedThemes.find((theme) => theme._id === selectedThemeId) || null;
+    const selectedTheme = availableThemes.find((theme) => theme._id === selectedThemeId) || null;
     const selectedOpponent = friends?.find((friend) => friend.friendId === selectedOpponentId) || null;
 
     const handleSubmit = async () => {
@@ -114,10 +111,11 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                         Theme
                     </p>
                     <CompactThemePicker
-                        themes={sharedThemes}
+                        themes={availableThemes}
                         selectedThemeId={selectedThemeId}
                         selectedTheme={selectedTheme}
                         onSelect={setSelectedThemeId}
+                        dataTestIdPrefix="schedule-duel-theme"
                     />
                 </div>
 
@@ -130,6 +128,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                         timeSlots={timeSlots}
                         selectedTime={selectedTime}
                         onSelect={setSelectedTime}
+                        dataTestIdPrefix="schedule-duel-time"
                     />
                 </div>
 
@@ -143,6 +142,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                         selectedOpponentId={selectedOpponentId}
                         selectedOpponent={selectedOpponent}
                         onSelect={setSelectedOpponentId}
+                        dataTestIdPrefix="schedule-duel-opponent"
                     />
                 </div>
             </div>
@@ -155,6 +155,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                     disabled={isSubmitting || !selectedThemeId || !selectedTime || !selectedOpponentId}
                     className={actionButtonClassName}
                     style={ctaActionStyle}
+                    data-testid="schedule-duel-submit"
                 >
                     {isSubmitting ? "Sending..." : "Send Proposal"}
                 </button>
@@ -162,6 +163,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                     onClick={onClose}
                     className={outlineButtonClassName}
                     style={outlineButtonStyle}
+                    data-testid="schedule-duel-cancel"
                 >
                     Cancel
                 </button>
@@ -175,6 +177,7 @@ interface OpponentSelectorProps {
     selectedOpponentId: Id<"users">;
     selectedOpponent: FriendWithDetails | null;
     onSelect: (id: Id<"users">) => void;
+    dataTestIdPrefix?: string;
 }
 
 function CompactOpponentPicker({
@@ -182,6 +185,7 @@ function CompactOpponentPicker({
     selectedOpponentId,
     selectedOpponent,
     onSelect,
+    dataTestIdPrefix,
 }: OpponentSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
@@ -263,6 +267,7 @@ function CompactOpponentPicker({
                     borderColor: colors.primary.dark,
                     color: selectedOpponent ? colors.text.DEFAULT : colors.text.muted,
                 }}
+                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-trigger` : undefined}
             >
                 <span className="flex items-center justify-between">
                     <span className="truncate">{selectedLabel}</span>
@@ -306,6 +311,7 @@ function CompactOpponentPicker({
                                     backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                                     borderBottom: index < friends.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
                                 }}
+                                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-option-${friend.friendId}` : undefined}
                             >
                                 <div className="min-w-0">
                                     <div

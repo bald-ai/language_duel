@@ -178,6 +178,7 @@ export function WordEditor({
                   color: colors.text.DEFAULT,
                 }}
                 rows={3}
+                data-testid="word-editor-custom-instructions"
               />
               <div className="text-xs text-right mt-1" style={{ color: colors.text.muted }}>
                 {customInstructions.length}/{CUSTOM_INSTRUCTIONS_MAX_LENGTH}
@@ -191,6 +192,7 @@ export function WordEditor({
                 disabled={isGenerating}
                 className={rowActionButtonClassName}
                 style={primaryActionStyle}
+                data-testid="word-editor-generate"
               >
                 {isGenerating ? "Generating..." : "Generate"}
               </button>
@@ -198,6 +200,7 @@ export function WordEditor({
                 onClick={onGoToManual}
                 className={outlineButtonClassName}
                 style={outlineButtonStyle}
+                data-testid="word-editor-manual"
               >
                 Manually
               </button>
@@ -205,6 +208,7 @@ export function WordEditor({
                 onClick={onBack}
                 className={outlineButtonClassName}
                 style={outlineButtonStyle}
+                data-testid="word-editor-cancel"
               >
                 Cancel
               </button>
@@ -264,6 +268,7 @@ export function WordEditor({
                     color: colors.text.DEFAULT,
                   }}
                   rows={3}
+                  data-testid="word-editor-user-feedback"
                 />
               </div>
             )}
@@ -274,6 +279,7 @@ export function WordEditor({
                 onClick={onAcceptGenerated}
                 className={rowActionButtonClassName}
                 style={primaryActionStyle}
+                data-testid="word-editor-accept"
               >
                 Accept
               </button>
@@ -282,6 +288,7 @@ export function WordEditor({
                 disabled={isGenerating}
                 className={outlineButtonClassName}
                 style={outlineButtonStyle}
+                data-testid="word-editor-regenerate"
               >
                 {isGenerating ? "..." : "Regenerate"}
               </button>
@@ -289,6 +296,7 @@ export function WordEditor({
                 onClick={onBack}
                 className={outlineButtonClassName}
                 style={outlineButtonStyle}
+                data-testid="word-editor-cancel"
               >
                 Cancel
               </button>
@@ -315,6 +323,7 @@ export function WordEditor({
                   color: colors.text.DEFAULT,
                 }}
                 autoFocus
+                data-testid="word-editor-manual-input"
               />
             </div>
 
@@ -325,6 +334,7 @@ export function WordEditor({
                 disabled={!manualValue.trim()}
                 className={rowActionButtonClassName}
                 style={primaryActionStyle}
+                data-testid="word-editor-save-manual"
               >
                 Save
               </button>
@@ -332,6 +342,7 @@ export function WordEditor({
                 onClick={onBack}
                 className={outlineButtonClassName}
                 style={outlineButtonStyle}
+                data-testid="word-editor-cancel"
               >
                 Cancel
               </button>

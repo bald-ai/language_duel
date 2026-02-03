@@ -129,6 +129,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
       }}
       role="menu"
       onKeyDown={handleKeyDown}
+      data-testid={`theme-menu-${themeId}`}
     >
       <button
         onClick={handleDuplicate}
@@ -145,6 +146,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
           e.currentTarget.style.backgroundColor = "transparent";
         }}
         role="menuitem"
+        data-testid={`theme-duplicate-${themeId}`}
       >
         {isDuplicating ? "Duplicating..." : "Duplicate"}
       </button>
@@ -169,6 +171,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
             e.currentTarget.style.backgroundColor = "transparent";
           }}
           role="menuitem"
+          data-testid={`theme-archive-toggle-${themeId}`}
         >
           {isArchived ? "Unarchive" : "Archive"}
         </button>
@@ -190,6 +193,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
             e.currentTarget.style.backgroundColor = "transparent";
           }}
           role="menuitem"
+          data-testid={`theme-delete-${themeId}`}
         >
           {isDeleting ? "Deleting..." : "Delete"}
         </button>
@@ -210,6 +214,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
         aria-label="Theme actions"
         aria-expanded={isOpen}
         aria-haspopup="true"
+        data-testid={`theme-menu-button-${themeId}`}
       >
         <svg
           className="w-5 h-5"

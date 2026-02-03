@@ -8,6 +8,7 @@ interface ConfidenceSliderProps {
   onChange: (value: number) => void;
   compact?: boolean;
   readOnly?: boolean;
+  dataTestIdPrefix?: string;
 }
 
 // Color mapping for each confidence level
@@ -29,6 +30,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
   onChange,
   compact = false,
   readOnly = false,
+  dataTestIdPrefix,
 }: ConfidenceSliderProps) {
   const handleSelect = useCallback(
     (level: number) => {
@@ -55,6 +57,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
             type="button"
             onClick={() => handleSelect(level)}
             disabled={readOnly}
+            data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-${level}` : undefined}
             className={`
               ${buttonSize}
               ${fontSize}

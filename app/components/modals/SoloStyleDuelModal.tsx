@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ModalShell } from "./ModalShell";
 import { colors } from "@/lib/theme";
@@ -66,10 +66,16 @@ export function SoloStyleDuelModal({
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
 
-  const selectedOpponent = users.find((user) => user._id === selectedOpponentId) || null;
-  const selectedTheme = themes?.find((theme) => theme._id === selectedThemeId) || null;
+  const selectedOpponent = useMemo(
+    () => users.find((user) => user._id === selectedOpponentId) || null,
+    [users, selectedOpponentId]
+  );
+  const selectedTheme = useMemo(
+    () => themes?.find((theme) => theme._id === selectedThemeId) || null,
+    [themes, selectedThemeId]
+  );
 
-  const canCreate = selectedOpponentId && selectedThemeId;
+  const canCreate = Boolean(selectedOpponentId && selectedThemeId);
 
   const handleCreateDuel = () => {
     if (!selectedOpponentId || !selectedThemeId) return;
@@ -122,6 +128,7 @@ export function SoloStyleDuelModal({
                     disabled={isJoiningDuel}
                     className={smallActionButtonClassName}
                     style={successButtonStyle}
+                    data-testid={`solo-style-modal-accept-${duel._id}`}
                   >
                     Accept
                   </button>
@@ -130,6 +137,7 @@ export function SoloStyleDuelModal({
                     disabled={isJoiningDuel}
                     className={smallActionButtonClassName}
                     style={dangerButtonStyle}
+                    data-testid={`solo-style-modal-reject-${duel._id}`}
                   >
                     Reject
                   </button>
@@ -175,6 +183,7 @@ export function SoloStyleDuelModal({
           disabled={!canCreate || isCreatingDuel}
           className={actionButtonClassName}
           style={ctaActionStyle}
+          data-testid="solo-style-modal-create"
         >
           {isCreatingDuel ? "Creating..." : "Create Duel"}
         </button>
@@ -182,6 +191,7 @@ export function SoloStyleDuelModal({
           onClick={onClose}
           className={outlineButtonClassName}
           style={outlineButtonStyle}
+          data-testid="solo-style-modal-cancel"
         >
           Cancel
         </button>
@@ -199,7 +209,7 @@ interface OpponentSelectorProps {
   onSelect: (id: Id<"users">) => void;
 }
 
-function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
+const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
   if (users.length === 0) {
     return (
       <div
@@ -236,6 +246,7 @@ function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelec
                 backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                 borderBottom: index < users.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
               }}
+              data-testid={`solo-style-modal-opponent-${user._id}`}
             >
               <div
                 className="font-semibold text-sm truncate"
@@ -276,7 +287,7 @@ function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelec
       )}
     </div>
   );
-}
+});
 
 interface CompactThemeSelectorProps {
   themes: Theme[] | undefined;
@@ -286,7 +297,7 @@ interface CompactThemeSelectorProps {
   onCreateTheme: () => void;
 }
 
-function CompactThemeSelector({
+const CompactThemeSelector = memo(function CompactThemeSelector({
   themes,
   selectedThemeId,
   selectedTheme,
@@ -313,6 +324,7 @@ function CompactThemeSelector({
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="solo-style-modal-create-theme"
         >
           Create Theme
         </button>
@@ -340,6 +352,7 @@ function CompactThemeSelector({
                 backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                 borderBottom: index < themes.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
               }}
+              data-testid={`solo-style-modal-theme-${theme._id}`}
             >
               <div>
                 <div
@@ -385,4 +398,4 @@ function CompactThemeSelector({
       )}
     </div>
   );
-}
+});

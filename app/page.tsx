@@ -1,14 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useSyncUser } from "@/hooks/useSyncUser";
 import { useDuelLobby } from "@/hooks/useDuelLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
-import { SoloModal, WaitingModal, JoiningModal, UnifiedDuelModal } from "@/app/components/modals";
 import { colors } from "@/lib/theme";
+import type { Id } from "@/convex/_generated/dataModel";
 
 // Decorative icons for menu items - use CSS variable for stroke color
 const StudyIcon = () => (
@@ -44,12 +46,50 @@ const ThemesIcon = () => (
   </svg>
 );
 
+const UnifiedDuelModal = dynamic(
+  () =>
+    import("@/app/components/modals/UnifiedDuelModal").then((mod) => mod.UnifiedDuelModal),
+  { loading: () => null }
+);
+const SoloModal = dynamic(
+  () => import("@/app/components/modals/SoloModal").then((mod) => mod.SoloModal),
+  { loading: () => null }
+);
+const WaitingModal = dynamic(
+  () => import("@/app/components/modals/WaitingModal").then((mod) => mod.WaitingModal),
+  { loading: () => null }
+);
+const JoiningModal = dynamic(
+  () => import("@/app/components/modals/JoiningModal").then((mod) => mod.JoiningModal),
+  { loading: () => null }
+);
+
 export default function Home() {
   useUser();
   useSyncUser();
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const lobby = useDuelLobby();
+  
+  const openSoloParam = searchParams.get("openSolo");
+  const themeIdParam = searchParams.get("themeId");
+  const soloModeParam = searchParams.get("soloMode");
+  const soloThemeId = openSoloParam === "true" && themeIdParam 
+    ? (themeIdParam as Id<"themes">) 
+    : undefined;
+  const soloInitialMode = openSoloParam === "true" && soloModeParam === "challenge_only"
+    ? "challenge_only"
+    : undefined;
+  useEffect(() => {
+    if (soloThemeId) {
+      lobby.openSoloModal();
+    }
+  }, [soloThemeId, lobby]);
+
+  const handleCloseSoloModal = () => {
+    lobby.closeSoloModal();
+  };
 
   return (
     <ThemedPage className="justify-between">
@@ -119,28 +159,28 @@ export default function Home() {
         <nav className="w-full flex flex-col gap-2.5">
           {/* All standard buttons use primary */}
           <div className="animate-slide-up delay-300">
-            <MenuButton onClick={() => router.push("/study")}>
+            <MenuButton onClick={() => router.push("/study")} dataTestId="home-study">
               <StudyIcon />
               Study
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-400">
-            <MenuButton onClick={lobby.openSoloModal}>
+            <MenuButton onClick={lobby.openSoloModal} dataTestId="home-solo-challenge">
               <SoloIcon />
               Solo Challenge
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-500">
-            <MenuButton onClick={lobby.openUnifiedDuelModal}>
+            <MenuButton onClick={lobby.openUnifiedDuelModal} dataTestId="home-duel">
               <DuelIcon />
               Duel
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-600">
-            <MenuButton onClick={() => router.push("/themes")}>
+            <MenuButton onClick={() => router.push("/themes")} dataTestId="home-manage-themes">
               <ThemesIcon />
               Manage Themes
             </MenuButton>
@@ -174,8 +214,10 @@ export default function Home() {
           <SoloModal
             themes={lobby.themes}
             onContinue={lobby.handleContinueSolo}
-            onClose={lobby.closeSoloModal}
+            onClose={handleCloseSoloModal}
             onNavigateToThemes={lobby.navigateToThemes}
+            initialThemeId={soloThemeId}
+            initialMode={soloInitialMode}
           />
         )
       }

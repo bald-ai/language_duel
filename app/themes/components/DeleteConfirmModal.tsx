@@ -44,7 +44,10 @@ export function DeleteConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      data-testid={`theme-delete-modal-${itemType}`}
+    >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={{
@@ -84,6 +87,7 @@ export function DeleteConfirmModal({
             disabled={isDeleting}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-delete-cancel"
           >
             Cancel
           </button>
@@ -92,6 +96,7 @@ export function DeleteConfirmModal({
             disabled={isDeleting}
             className={actionButtonClassName}
             style={dangerActionStyle}
+            data-testid="theme-delete-confirm"
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>

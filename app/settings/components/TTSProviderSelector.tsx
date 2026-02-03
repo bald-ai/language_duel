@@ -69,6 +69,7 @@ export function TTSProviderSelector() {
                                 borderColor: isActive ? colors.primary.DEFAULT : colors.primary.dark,
                             }}
                             aria-pressed={isActive}
+                            data-testid={`settings-tts-${option.id}`}
                         >
                             <div className="flex items-center gap-3">
                                 <span className="text-xl">{option.icon}</span>

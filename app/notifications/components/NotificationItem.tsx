@@ -6,6 +6,7 @@ import { colors } from "@/lib/theme";
 import { getRelativeTime, formatScheduledTime } from "@/lib/timeUtils";
 import { useCountdown } from "../hooks/useCountdown";
 import { NOTIFICATION_TYPES } from "../constants";
+import { ThemeNameDropdown } from "./ThemeNameDropdown";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface NotificationData {
@@ -21,6 +22,7 @@ interface NotificationData {
         scheduledDuelId?: Id<"scheduledDuels">;
         goalId?: Id<"weeklyGoals">;
         friendRequestId?: Id<"friendRequests">;
+        themeId?: Id<"themes">;
         themeName?: string;
         scheduledTime?: number;
         mode?: string;
@@ -57,6 +59,9 @@ interface NotificationItemProps {
     currentUserIsProposer?: boolean;
     proposerReady?: boolean;
     recipientReady?: boolean;
+    // Theme quick actions
+    onSoloStudy?: (themeId: Id<"themes">) => void;
+    onSoloChallenge?: (themeId: Id<"themes">) => void;
 }
 
 /**
@@ -87,6 +92,8 @@ export function NotificationItem({
     currentUserIsProposer,
     proposerReady,
     recipientReady,
+    onSoloStudy,
+    onSoloChallenge,
 }: NotificationItemProps) {
     const { type, fromUser, payload, createdAt } = notification;
     const router = useRouter();
@@ -144,8 +151,24 @@ export function NotificationItem({
         };
     }, []);
 
+    const renderThemeName = (themeName: string, themeId?: Id<"themes">) => {
+        if (onSoloStudy && onSoloChallenge && themeId) {
+            return (
+                <ThemeNameDropdown
+                    themeName={themeName}
+                    themeId={themeId}
+                    onSoloStudy={onSoloStudy}
+                    onSoloChallenge={onSoloChallenge}
+                />
+            );
+        }
+        return <span className="font-semibold">{themeName}</span>;
+    };
+
     const getNotificationContent = () => {
         const userName = fromUser?.nickname || 'Someone';
+        const themeName = payload?.themeName || 'Theme';
+        const themeId = payload?.themeId;
 
         switch (type) {
             case NOTIFICATION_TYPES.FRIEND_REQUEST:
@@ -154,10 +177,18 @@ export function NotificationItem({
                     message: `${userName} wants to add you as a friend`,
                     actions: (
                         <div className="flex gap-2 mt-3">
-                            <ActionButton onClick={onAcceptFriendRequest} variant="accept">
+                            <ActionButton
+                                onClick={onAcceptFriendRequest}
+                                variant="accept"
+                                dataTestId={`notification-${notification._id}-accept-friend`}
+                            >
                                 Accept
                             </ActionButton>
-                            <ActionButton onClick={onRejectFriendRequest} variant="reject">
+                            <ActionButton
+                                onClick={onRejectFriendRequest}
+                                variant="reject"
+                                dataTestId={`notification-${notification._id}-reject-friend`}
+                            >
                                 Reject
                             </ActionButton>
                         </div>
@@ -167,13 +198,21 @@ export function NotificationItem({
             case NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION:
                 return {
                     icon: <CalendarIcon />,
-                    message: `${userName} invited you to a weekly plan with ${payload?.themeCount || 0} theme${(payload?.themeCount || 0) !== 1 ? 's' : ''}`,
+                    message: `${userName} invited you to a weekly plan`,
                     actions: (
                         <div className="flex gap-2 mt-3">
-                            <ActionButton onClick={onViewWeeklyPlan} variant="accept">
+                            <ActionButton
+                                onClick={onViewWeeklyPlan}
+                                variant="accept"
+                                dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                            >
                                 View
                             </ActionButton>
-                            <ActionButton onClick={onDismissWeeklyPlan} variant="dismiss">
+                            <ActionButton
+                                onClick={onDismissWeeklyPlan}
+                                variant="dismiss"
+                                dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                            >
                                 Dismiss
                             </ActionButton>
                         </div>
@@ -190,7 +229,7 @@ export function NotificationItem({
                 if (duelStarted) {
                     return {
                         icon: <SwordIcon />,
-                        message: `${payload?.themeName || 'Theme'} — Joining duel...`,
+                        message: <>{renderThemeName(themeName, themeId)} — Joining duel...</>,
                         actions: (
                             <div className="flex items-center gap-2 mt-3">
                                 <div
@@ -207,6 +246,7 @@ export function NotificationItem({
                                     onClick={onDismiss}
                                     className="text-xs opacity-50 hover:opacity-100 transition-opacity"
                                     style={{ color: colors.text.muted }}
+                                    data-testid={`notification-${notification._id}-dismiss-joining`}
                                 >
                                     ✕
                                 </button>
@@ -224,7 +264,7 @@ export function NotificationItem({
                     if (bothReady) {
                         return {
                             icon: <ClockIcon />,
-                            message: `Scheduled duel: ${payload?.themeName || 'Theme'}`,
+                            message: <>Scheduled duel: {renderThemeName(themeName, themeId)}</>,
                             actions: (
                                 <div className="flex flex-col gap-2 mt-3">
                                     <div
@@ -245,7 +285,7 @@ export function NotificationItem({
 
                     return {
                         icon: <ClockIcon />,
-                        message: `Scheduled duel: ${payload?.themeName || 'Theme'} ${countdownText}`,
+                        message: <>Scheduled duel: {renderThemeName(themeName, themeId)} {countdownText}</>,
                         actions: (
                             <div className="flex flex-col gap-2 mt-3">
                                 {/* Status row - who's ready */}
@@ -271,12 +311,17 @@ export function NotificationItem({
                                                 backgroundColor: `${colors.cta.DEFAULT}15`,
                                                 color: colors.cta.dark
                                             }}
+                                            data-testid={`notification-${notification._id}-cancel-ready`}
                                         >
                                             Ready ✓ <span className="opacity-60 ml-1">undo</span>
                                         </button>
                                     ) : (
                                         onSetReady && (
-                                            <ActionButton onClick={onSetReady} variant="accept">
+                                            <ActionButton
+                                                onClick={onSetReady}
+                                                variant="accept"
+                                                dataTestId={`notification-${notification._id}-set-ready`}
+                                            >
                                                 Ready Up
                                             </ActionButton>
                                         )
@@ -284,6 +329,7 @@ export function NotificationItem({
                                     <ActionButton
                                         onClick={onCancelScheduledDuel || onDeclineScheduledDuel}
                                         variant="reject"
+                                        dataTestId={`notification-${notification._id}-cancel-scheduled-duel`}
                                     >
                                         Cancel
                                     </ActionButton>
@@ -297,17 +343,29 @@ export function NotificationItem({
                 return {
                     icon: <ClockIcon />,
                     message: isCounter
-                        ? `${userName} counter-proposed: ${payload?.themeName || 'a duel'} at ${formattedTime}`
-                        : `${userName} proposes a duel: ${payload?.themeName || 'Theme'} at ${formattedTime}`,
+                        ? <>{userName} counter-proposed: {renderThemeName(themeName, themeId)} at {formattedTime}</>
+                        : <>{userName} proposes a duel: {renderThemeName(themeName, themeId)} at {formattedTime}</>,
                     actions: (
                         <div className="flex gap-2 mt-3">
-                            <ActionButton onClick={onAcceptScheduledDuel} variant="accept">
+                            <ActionButton
+                                onClick={onAcceptScheduledDuel}
+                                variant="accept"
+                                dataTestId={`notification-${notification._id}-accept-scheduled-duel`}
+                            >
                                 Accept
                             </ActionButton>
-                            <ActionButton onClick={onCounterProposeScheduledDuel} variant="secondary">
+                            <ActionButton
+                                onClick={onCounterProposeScheduledDuel}
+                                variant="secondary"
+                                dataTestId={`notification-${notification._id}-counter-scheduled-duel`}
+                            >
                                 Counter
                             </ActionButton>
-                            <ActionButton onClick={onDeclineScheduledDuel} variant="reject">
+                            <ActionButton
+                                onClick={onDeclineScheduledDuel}
+                                variant="reject"
+                                dataTestId={`notification-${notification._id}-decline-scheduled-duel`}
+                            >
                                 Decline
                             </ActionButton>
                         </div>
@@ -317,13 +375,21 @@ export function NotificationItem({
             case NOTIFICATION_TYPES.DUEL_CHALLENGE:
                 return {
                     icon: <SwordIcon />,
-                    message: `${userName} challenges you to a ${payload?.mode || 'classic'} duel: ${payload?.themeName || 'Theme'}`,
+                    message: <>{userName} challenges you to a {payload?.mode || 'classic'} duel: {renderThemeName(themeName, themeId)}</>,
                     actions: (
                         <div className="flex gap-2 mt-3">
-                            <ActionButton onClick={onAcceptDuelChallenge} variant="accept">
+                            <ActionButton
+                                onClick={onAcceptDuelChallenge}
+                                variant="accept"
+                                dataTestId={`notification-${notification._id}-accept-duel-challenge`}
+                            >
                                 Accept
                             </ActionButton>
-                            <ActionButton onClick={onDeclineDuelChallenge} variant="reject">
+                            <ActionButton
+                                onClick={onDeclineDuelChallenge}
+                                variant="reject"
+                                dataTestId={`notification-${notification._id}-decline-duel-challenge`}
+                            >
                                 Decline
                             </ActionButton>
                         </div>
@@ -336,7 +402,11 @@ export function NotificationItem({
                     message: 'You have a notification',
                     actions: (
                         <div className="flex gap-2 mt-3">
-                            <ActionButton onClick={onDismiss} variant="dismiss">
+                            <ActionButton
+                                onClick={onDismiss}
+                                variant="dismiss"
+                                dataTestId={`notification-${notification._id}-dismiss`}
+                            >
                                 Dismiss
                             </ActionButton>
                         </div>
@@ -351,6 +421,7 @@ export function NotificationItem({
         <div
             className="px-4 py-3 border-b last:border-b-0 animate-fade-in"
             style={{ borderColor: `${colors.neutral.light}20` }}
+            data-testid={`notification-item-${notification._id}`}
         >
             <div className="flex gap-3">
                 {/* Icon */}
@@ -363,12 +434,12 @@ export function NotificationItem({
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                    <p
+                    <div
                         className="text-sm leading-relaxed"
                         style={{ color: colors.text.DEFAULT }}
                     >
                         {content.message}
-                    </p>
+                    </div>
 
                     <p
                         className="text-xs mt-1"
@@ -388,9 +459,10 @@ interface ActionButtonProps {
     onClick: () => void;
     variant: 'accept' | 'reject' | 'dismiss' | 'secondary';
     children: React.ReactNode;
+    dataTestId?: string;
 }
 
-function ActionButton({ onClick, variant, children }: ActionButtonProps) {
+function ActionButton({ onClick, variant, children, dataTestId }: ActionButtonProps) {
     const getStyles = () => {
         switch (variant) {
             case 'accept':
@@ -419,6 +491,7 @@ function ActionButton({ onClick, variant, children }: ActionButtonProps) {
     return (
         <button
             onClick={onClick}
+            data-testid={dataTestId}
             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-transform active:scale-95"
             style={getStyles()}
         >

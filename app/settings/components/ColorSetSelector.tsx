@@ -49,6 +49,7 @@ export function ColorSetSelector() {
                 borderColor: isActive ? colors.primary.DEFAULT : colors.primary.dark,
               }}
               aria-pressed={isActive}
+              data-testid={`settings-color-set-${option.name}`}
             >
               <div className="flex items-center gap-3">
                 {/* 3 color dots: bg, primary, accent */}

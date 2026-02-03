@@ -1,8 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isUserOnline } from "./users";
+import { isFriendRequestPayload } from "./notificationPayloads";
 
 // Friend with user details
 export type FriendWithDetails = {
@@ -43,6 +44,21 @@ export type SentRequestWithDetails = {
   createdAt: number;
 };
 
+type UserDoc = Doc<"users">;
+
+async function loadUsersById(
+  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
+  userIds: Id<"users">[]
+) {
+  const uniqueIds = Array.from(new Set(userIds));
+  const users = await Promise.all(uniqueIds.map((id) => ctx.db.get(id)));
+  const usersById = new Map<Id<"users">, UserDoc | null>();
+  uniqueIds.forEach((id, index) => {
+    usersById.set(id, users[index] ?? null);
+  });
+  return usersById;
+}
+
 /**
  * Get pending friend requests received by current user
  */
@@ -57,25 +73,22 @@ export const getFriendRequests = query({
       .withIndex("by_receiver", (q) => q.eq("receiverId", auth.user._id).eq("status", "pending"))
       .collect();
 
-    const requestsWithDetails: FriendRequestWithDetails[] = [];
+    const sendersById = await loadUsersById(ctx, requests.map((request) => request.senderId));
 
-    for (const request of requests) {
-      const sender = await ctx.db.get(request.senderId);
-      if (sender) {
-        requestsWithDetails.push({
-          requestId: request._id,
-          senderId: sender._id,
-          nickname: sender.nickname,
-          discriminator: sender.discriminator,
-          name: sender.name,
-          email: sender.email,
-          imageUrl: sender.imageUrl,
-          createdAt: request.createdAt,
-        });
-      }
-    }
-
-    return requestsWithDetails;
+    return requests.flatMap((request) => {
+      const sender = sendersById.get(request.senderId);
+      if (!sender) return [];
+      return [{
+        requestId: request._id,
+        senderId: sender._id,
+        nickname: sender.nickname,
+        discriminator: sender.discriminator,
+        name: sender.name,
+        email: sender.email,
+        imageUrl: sender.imageUrl,
+        createdAt: request.createdAt,
+      }];
+    });
   },
 });
 
@@ -90,30 +103,26 @@ export const getSentRequests = query({
 
     const requests = await ctx.db
       .query("friendRequests")
-      .withIndex("by_sender", (q) => q.eq("senderId", auth.user._id))
+      .withIndex("by_sender_status", (q) => q.eq("senderId", auth.user._id).eq("status", "pending"))
       .collect();
 
-    const pendingRequests = requests.filter((r) => r.status === "pending");
-    const requestsWithDetails: SentRequestWithDetails[] = [];
+    const receiversById = await loadUsersById(ctx, requests.map((request) => request.receiverId));
 
-    for (const request of pendingRequests) {
-      const receiver = await ctx.db.get(request.receiverId);
-      if (receiver) {
-        requestsWithDetails.push({
-          requestId: request._id,
-          senderId: auth.user._id, // Current user's id
-          receiverId: receiver._id, // Receiver's id
-          nickname: receiver.nickname,
-          discriminator: receiver.discriminator,
-          name: receiver.name,
-          email: receiver.email,
-          imageUrl: receiver.imageUrl,
-          createdAt: request.createdAt,
-        });
-      }
-    }
-
-    return requestsWithDetails;
+    return requests.flatMap((request) => {
+      const receiver = receiversById.get(request.receiverId);
+      if (!receiver) return [];
+      return [{
+        requestId: request._id,
+        senderId: auth.user._id, // Current user's id
+        receiverId: receiver._id, // Receiver's id
+        nickname: receiver.nickname,
+        discriminator: receiver.discriminator,
+        name: receiver.name,
+        email: receiver.email,
+        imageUrl: receiver.imageUrl,
+        createdAt: request.createdAt,
+      }];
+    });
   },
 });
 
@@ -131,25 +140,24 @@ export const getFriends = query({
       .withIndex("by_user", (q) => q.eq("userId", auth.user._id))
       .collect();
 
-    const friendsWithDetails: FriendWithDetails[] = [];
+    const friendsById = await loadUsersById(ctx, friendships.map((friendship) => friendship.friendId));
 
-    for (const friendship of friendships) {
-      const friend = await ctx.db.get(friendship.friendId);
-      if (friend) {
-        friendsWithDetails.push({
-          friendshipId: friendship._id,
-          friendId: friend._id,
-          nickname: friend.nickname,
-          discriminator: friend.discriminator,
-          name: friend.name,
-          email: friend.email,
-          imageUrl: friend.imageUrl,
-          createdAt: friendship.createdAt,
-          isOnline: isUserOnline(friend.lastSeenAt),
-          lastSeenAt: friend.lastSeenAt,
-        });
-      }
-    }
+    const friendsWithDetails = friendships.flatMap((friendship) => {
+      const friend = friendsById.get(friendship.friendId);
+      if (!friend) return [];
+      return [{
+        friendshipId: friendship._id,
+        friendId: friend._id,
+        nickname: friend.nickname,
+        discriminator: friend.discriminator,
+        name: friend.name,
+        email: friend.email,
+        imageUrl: friend.imageUrl,
+        createdAt: friendship.createdAt,
+        isOnline: isUserOnline(friend.lastSeenAt),
+        lastSeenAt: friend.lastSeenAt,
+      }];
+    });
 
     // Sort: online users first, then offline by most recently seen
     return friendsWithDetails.sort((a, b) => {
@@ -184,7 +192,7 @@ export const getFriendshipStatus = query({
     // Check for pending request sent by current user
     const sentRequest = await ctx.db
       .query("friendRequests")
-      .withIndex("by_sender", (q) => q.eq("senderId", auth.user._id))
+      .withIndex("by_sender_status", (q) => q.eq("senderId", auth.user._id).eq("status", "pending"))
       .filter((q) => q.and(
         q.eq(q.field("receiverId"), args.userId),
         q.eq(q.field("status"), "pending")
@@ -241,7 +249,7 @@ export const sendFriendRequest = mutation({
     // Check for existing pending request (either direction)
     const existingSentRequest = await ctx.db
       .query("friendRequests")
-      .withIndex("by_sender", (q) => q.eq("senderId", user._id))
+      .withIndex("by_sender_status", (q) => q.eq("senderId", user._id).eq("status", "pending"))
       .filter((q) => q.and(
         q.eq(q.field("receiverId"), args.receiverId),
         q.eq(q.field("status"), "pending")
@@ -314,15 +322,27 @@ export const acceptFriendRequest = mutation({
     await ctx.db.patch(args.requestId, { status: "accepted" });
 
     // Dismiss any related friend request notifications for this request
-    const notifications = await ctx.db
+    const pendingNotifications = await ctx.db
       .query("notifications")
-      .withIndex("by_type", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id)
+      .withIndex("by_type_status", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "pending")
       )
       .collect();
 
+    const readNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "read")
+      )
+      .collect();
+
+    const notifications = [...pendingNotifications, ...readNotifications];
+
     for (const notification of notifications) {
-      if (notification.payload?.friendRequestId === args.requestId) {
+      if (
+        isFriendRequestPayload(notification.payload) &&
+        notification.payload.friendRequestId === args.requestId
+      ) {
         await ctx.db.patch(notification._id, { status: "dismissed" });
       }
     }
@@ -371,15 +391,27 @@ export const rejectFriendRequest = mutation({
     await ctx.db.patch(args.requestId, { status: "rejected" });
 
     // Dismiss any related friend request notifications for this request
-    const notifications = await ctx.db
+    const pendingNotifications = await ctx.db
       .query("notifications")
-      .withIndex("by_type", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id)
+      .withIndex("by_type_status", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "pending")
       )
       .collect();
 
+    const readNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "read")
+      )
+      .collect();
+
+    const notifications = [...pendingNotifications, ...readNotifications];
+
     for (const notification of notifications) {
-      if (notification.payload?.friendRequestId === args.requestId) {
+      if (
+        isFriendRequestPayload(notification.payload) &&
+        notification.payload.friendRequestId === args.requestId
+      ) {
         await ctx.db.patch(notification._id, { status: "dismissed" });
       }
     }

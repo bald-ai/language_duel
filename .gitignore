@@ -56,4 +56,7 @@ public/sw.js.map
 public/workbox-*.js.map
 public/worker-*.js.map
 
+# Personal
+thoughtnotebook.md
+
 

@@ -47,6 +47,7 @@ export function RequestsList({
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.light,
             }}
+            data-testid={`friend-request-${request.requestId}`}
           >
             <Avatar
               src={request.imageUrl}
@@ -75,6 +76,7 @@ export function RequestsList({
                   backgroundColor: colors.status.success.DEFAULT,
                   color: "white",
                 }}
+                data-testid={`friend-request-${request.requestId}-accept`}
               >
                 {isAccepting ? "..." : "Accept"}
               </button>
@@ -87,6 +89,7 @@ export function RequestsList({
                   borderColor: colors.text.muted,
                   color: colors.text.muted,
                 }}
+                data-testid={`friend-request-${request.requestId}-reject`}
               >
                 {isRejecting ? "..." : "Reject"}
               </button>

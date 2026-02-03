@@ -42,6 +42,7 @@ interface HintSelectorProps {
   hintOptions: HintOption[];
   onSelectHint: (hintType: string) => void;
   onDismiss: () => void;
+  dataTestIdBase?: string;
 }
 
 export function HintSelector({
@@ -50,6 +51,7 @@ export function HintSelector({
   hintOptions,
   onSelectHint,
   onDismiss,
+  dataTestIdBase,
 }: HintSelectorProps) {
   const modalStyle = {
     backgroundColor: colors.background.elevated,
@@ -65,6 +67,7 @@ export function HintSelector({
           onClick={onDismiss}
           className="absolute top-3 right-3 text-xl w-8 h-8 flex items-center justify-center rounded-full transition hover:brightness-110"
           style={{ color: colors.text.muted }}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-close` : undefined}
         >
           ✕
         </button>
@@ -93,6 +96,7 @@ export function HintSelector({
                 backgroundColor: colors.background.DEFAULT,
                 borderColor: colors.primary.dark,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-option-${option.id}` : undefined}
             >
               <div className="flex items-center gap-4">
                 <div className="text-3xl group-hover:scale-110 transition-transform">
@@ -115,6 +119,7 @@ export function HintSelector({
           onClick={onDismiss}
           className="w-full mt-4 py-2 text-sm transition hover:brightness-110"
           style={{ color: colors.text.muted }}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-dismiss` : undefined}
         >
           Maybe later
         </button>

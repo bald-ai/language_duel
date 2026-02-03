@@ -68,6 +68,7 @@ export function PartnerSelector({
                     ? `1px solid ${colors.primary.dark}`
                     : undefined,
               }}
+              data-testid={`goals-partner-${friend.friendId}`}
             >
               <div className="flex items-center gap-3">
                 <div

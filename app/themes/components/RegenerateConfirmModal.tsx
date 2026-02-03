@@ -44,7 +44,10 @@ export function RegenerateConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      data-testid="theme-regenerate-modal"
+    >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={{
@@ -94,6 +97,7 @@ export function RegenerateConfirmModal({
             disabled={isRegenerating}
             className={actionButtonClassName}
             style={primaryActionStyle}
+            data-testid="theme-regenerate-confirm"
           >
             {isRegenerating ? "..." : "Yes"}
           </button>
@@ -102,6 +106,7 @@ export function RegenerateConfirmModal({
             disabled={isRegenerating}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-regenerate-skip"
           >
             No
           </button>
@@ -110,6 +115,7 @@ export function RegenerateConfirmModal({
             disabled={isRegenerating}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-regenerate-cancel"
           >
             Cancel
           </button>

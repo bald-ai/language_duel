@@ -51,7 +51,7 @@ export function TimerSelectionView({
   return (
     <ThemedPage>
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
-        <ExitButton onExit={onExit} />
+        <ExitButton onExit={onExit} dataTestId="duel-learn-exit" />
 
         <div className="max-w-lg w-full text-center">
           <h1 className="text-2xl font-bold mb-2 title-font" style={{ color: colors.text.DEFAULT }}>
@@ -92,6 +92,7 @@ export function TimerSelectionView({
                           color: colors.text.muted,
                         }
                   }
+                  data-testid={`duel-learn-timer-${option}`}
                 >
                   {formatDuration(option)}
                   {/* Selection indicators */}
@@ -165,6 +166,7 @@ export function TimerSelectionView({
                 borderColor: colors.cta.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="duel-learn-confirm"
             >
               Confirm Selection
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
@@ -14,13 +14,20 @@ const PRESENCE_UPDATE_INTERVAL_MS = 30000; // 30 seconds
  */
 export function usePresence() {
     const updatePresenceMutation = useMutation(api.users.updatePresence);
+    const isUpdatingRef = useRef(false);
 
     const updatePresence = useCallback(async () => {
+        if (isUpdatingRef.current) {
+            return;
+        }
+        isUpdatingRef.current = true;
         try {
             await updatePresenceMutation();
         } catch (error) {
             // Silently fail - presence is non-critical
             console.debug("Failed to update presence:", error);
+        } finally {
+            isUpdatingRef.current = false;
         }
     }, [updatePresenceMutation]);
 

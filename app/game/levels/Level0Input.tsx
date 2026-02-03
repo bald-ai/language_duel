@@ -29,7 +29,7 @@ const secondaryActionStyle = {
  * Shows the word and answer, user indicates if they know it or not
  * Used only in solo study mode
  */
-export function Level0Input({ word, answer, onGotIt, onNotYet }: Level0Props) {
+export function Level0Input({ word, answer, onGotIt, onNotYet, dataTestIdBase }: Level0Props) {
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="text-center">
@@ -49,6 +49,7 @@ export function Level0Input({ word, answer, onGotIt, onNotYet }: Level0Props) {
           onClick={onGotIt}
           className={actionButtonClassName}
           style={primaryActionStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-got-it` : undefined}
         >
           Got it
         </button>
@@ -56,6 +57,7 @@ export function Level0Input({ word, answer, onGotIt, onNotYet }: Level0Props) {
           onClick={onNotYet}
           className={actionButtonClassName}
           style={secondaryActionStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-not-yet` : undefined}
         >
           Not yet
         </button>

@@ -25,7 +25,10 @@ export function FriendFilterModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      data-testid="theme-friend-filter-modal"
+    >
       <div
         className="border-2 rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col backdrop-blur-sm"
         style={{
@@ -46,6 +49,7 @@ export function FriendFilterModal({
             onClick={onClose}
             className="p-1 transition hover:brightness-110"
             style={{ color: colors.text.muted }}
+            data-testid="theme-friend-filter-close"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -68,6 +72,7 @@ export function FriendFilterModal({
               backgroundColor: `${colors.primary.DEFAULT}1A`,
               borderColor: `${colors.primary.DEFAULT}66`,
             }}
+            data-testid="theme-filter-all"
           >
             <span className="font-bold" style={{ color: colors.text.DEFAULT }}>
               Show All Themes
@@ -85,6 +90,7 @@ export function FriendFilterModal({
               backgroundColor: `${colors.secondary.DEFAULT}1A`,
               borderColor: `${colors.secondary.DEFAULT}66`,
             }}
+            data-testid="theme-filter-mine"
           >
             <span className="font-bold" style={{ color: colors.secondary.light }}>
               My Themes Only
@@ -120,6 +126,7 @@ export function FriendFilterModal({
                       backgroundColor: colors.background.DEFAULT,
                       borderColor: colors.primary.dark,
                     }}
+                    data-testid={`theme-filter-friend-${friend.friendId}`}
                   >
                     <Avatar
                       src={friend.imageUrl}

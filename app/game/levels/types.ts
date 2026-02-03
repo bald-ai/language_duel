@@ -11,6 +11,7 @@ export interface BaseLevelProps {
   answer: string;
   onSkip: () => void;
   mode?: GameMode; // Explicit mode prop (optional for backwards compatibility)
+  dataTestIdBase?: string;
 }
 
 // Props for Level0 (intro/reveal mode - solo only)
@@ -19,6 +20,7 @@ export interface Level0Props {
   answer: string;
   onGotIt: () => void;
   onNotYet: () => void;
+  dataTestIdBase?: string;
 }
 
 // Hint system props - all optional (only used in duel mode)
@@ -61,4 +63,3 @@ export interface Level3Props extends BaseLevelProps {
   onCorrect: (submittedAnswer: string) => void;
   onWrong: (submittedAnswer: string) => void;
 }
-

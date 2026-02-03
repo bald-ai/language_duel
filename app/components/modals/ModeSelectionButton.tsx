@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { colors } from "@/lib/theme";
 
 type ModeTone = "primary" | "secondary" | "cta";
@@ -10,6 +11,7 @@ interface ModeSelectionButtonProps {
   title: string;
   description: string;
   selectedTone?: ModeTone;
+  dataTestId?: string;
 }
 
 const toneMap = {
@@ -18,12 +20,13 @@ const toneMap = {
   cta: colors.cta,
 } as const;
 
-export function ModeSelectionButton({
+export const ModeSelectionButton = memo(function ModeSelectionButton({
   selected,
   onClick,
   title,
   description,
   selectedTone = "primary",
+  dataTestId,
 }: ModeSelectionButtonProps) {
   const tone = toneMap[selectedTone];
   const cardStyle = selected
@@ -52,6 +55,7 @@ export function ModeSelectionButton({
     <button
       type="button"
       onClick={onClick}
+      data-testid={dataTestId}
       aria-pressed={selected}
       className="w-full text-left p-4 sm:p-5 rounded-2xl border-2 transition hover:brightness-110 flex items-center justify-between gap-4"
       style={cardStyle}
@@ -68,11 +72,11 @@ export function ModeSelectionButton({
         className="w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0"
         style={checkStyle}
       >
-        {selected && <CheckIcon />}
+        {selected ? <CheckIcon /> : null}
       </div>
     </button>
   );
-}
+});
 
 function CheckIcon() {
   return (

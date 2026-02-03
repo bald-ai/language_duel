@@ -152,6 +152,7 @@ export function UnifiedDuelModal({
                         backgroundColor: colors.status.success.DEFAULT,
                         color: colors.background.DEFAULT,
                       }}
+                      data-testid={`duel-modal-accept-${duel._id}`}
                     >
                       Accept
                     </button>
@@ -163,6 +164,7 @@ export function UnifiedDuelModal({
                         backgroundColor: `${colors.status.danger.DEFAULT}20`,
                         color: colors.status.danger.DEFAULT,
                       }}
+                      data-testid={`duel-modal-reject-${duel._id}`}
                     >
                       Reject
                     </button>
@@ -223,6 +225,7 @@ export function UnifiedDuelModal({
               title="Classic Duel"
               description="Real-time countdown, hints & sabotage system"
               selectedTone="cta"
+              dataTestId="duel-modal-mode-classic"
             />
             {/* 
               Solo Style Duel - Currently disabled (50/50 on keeping it)
@@ -248,6 +251,7 @@ export function UnifiedDuelModal({
           disabled={!canCreate || isCreatingDuel}
           className={actionButtonClassName}
           style={ctaActionStyle}
+          data-testid="duel-modal-create"
         >
           {isCreatingDuel ? "Creating..." : "Create Duel"}
         </button>
@@ -255,6 +259,7 @@ export function UnifiedDuelModal({
           onClick={onClose}
           className={outlineButtonClassName}
           style={outlineButtonStyle}
+          data-testid="duel-modal-cancel"
         >
           Cancel
         </button>
@@ -309,6 +314,7 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
                 backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                 borderBottom: index < users.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
               }}
+              data-testid={`duel-modal-opponent-${user._id}`}
             >
               <div
                 className="font-semibold text-sm truncate"
@@ -386,6 +392,7 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="duel-modal-create-theme"
         >
           Create Theme
         </button>
@@ -413,6 +420,7 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
                 backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                 borderBottom: index < themes.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
               }}
+              data-testid={`duel-modal-theme-${theme._id}`}
             >
               <div>
                 <div
@@ -486,6 +494,7 @@ const DifficultySelector = memo(function DifficultySelector({ selectedDifficulty
                   borderColor: colors.primary.dark,
                 }
             }
+            data-testid={`duel-modal-difficulty-${opt.preset}`}
           >
             <div className="flex items-center justify-between">
               <div>

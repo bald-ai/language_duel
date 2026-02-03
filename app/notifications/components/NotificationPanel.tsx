@@ -67,6 +67,7 @@ export function NotificationPanel({
             <div
                 className="fixed inset-0 bg-black/30 z-40 sm:hidden animate-fade-in"
                 onClick={onClose}
+                data-testid="notification-panel-backdrop"
             />
 
             {/* Panel - positioned absolutely relative to parent container */}
@@ -77,6 +78,7 @@ export function NotificationPanel({
                     backgroundColor: colors.background.elevated,
                     border: `1px solid ${colors.neutral.light}30`,
                 }}
+                data-testid="notification-panel"
             >
                 {/* Tab selector */}
                 <div
@@ -116,9 +118,11 @@ interface TabButtonProps {
 }
 
 function TabButton({ label, isActive, onClick }: TabButtonProps) {
+    const testId = `notification-panel-tab-${label.toLowerCase().replace(/\s+/g, "-")}`;
     return (
         <button
             onClick={onClick}
+            data-testid={testId}
             className="flex-1 py-3 text-sm font-medium transition-all duration-200 relative"
             style={{
                 color: isActive ? colors.primary.DEFAULT : colors.text.muted,

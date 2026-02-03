@@ -54,6 +54,7 @@ export function PlanSwitcher({
                                 ? `0 0 8px ${colors.primary.glow}`
                                 : "none",
                         }}
+                        data-testid={`goals-plan-${plan.goal._id}`}
                     >
                         {/* Partner initial */}
                         <span
@@ -99,6 +100,7 @@ export function PlanSwitcher({
                     backgroundColor: `${colors.background.elevated}80`,
                 }}
                 title="Create new goal with a different partner"
+                data-testid="goals-plan-new"
             >
                 <svg
                     className="w-4 h-4"

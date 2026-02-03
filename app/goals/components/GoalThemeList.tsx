@@ -70,6 +70,7 @@ export function GoalThemeList({
                   : undefined,
               backgroundColor: bothCompleted ? `${colors.status.success.DEFAULT}10` : undefined,
             }}
+            data-testid={`goal-theme-${theme.themeId}`}
           >
             {/* Index */}
             <span
@@ -128,6 +129,7 @@ export function GoalThemeList({
                   : "transparent",
               }}
               title={viewerCompleted ? "Mark incomplete" : "Mark complete"}
+              data-testid={`goal-theme-toggle-${theme.themeId}`}
             >
               {viewerCompleted && (
                 <svg className="w-5 h-5" fill="white" viewBox="0 0 20 20">
@@ -150,6 +152,7 @@ export function GoalThemeList({
                   backgroundColor: `${colors.status.danger.DEFAULT}20`,
                 }}
                 title="Remove theme"
+                data-testid={`goal-theme-remove-${theme.themeId}`}
               >
                 <svg
                   className="w-4 h-4"

@@ -7,7 +7,11 @@
     "build": "tsx scripts/generate-manifest.ts && next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "generate:manifest": "tsx scripts/generate-manifest.ts"
+    "generate:manifest": "tsx scripts/generate-manifest.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@augmentcode/auggie-sdk": "^0.1.10",
@@ -24,21 +28,30 @@
     "react": "^19.2.2",
     "react-dom": "^19.2.2",
     "react-window": "^1.8.11",
+    "resend": "^6.9.1",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sharp": "^0.31.1",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.18",
     "canvas": "^3.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
+    "jsdom": "^27.4.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
+    "vite-tsconfig-paths": "^6.0.5",
+    "vitest": "^4.0.18",
     "webpack": "^5.104.1"
   }
 }

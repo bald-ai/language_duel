@@ -58,7 +58,10 @@ export function GenerateThemeModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      data-testid="theme-generate-modal"
+    >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={{
@@ -88,8 +91,9 @@ export function GenerateThemeModal({
                     backgroundColor: colors.background.DEFAULT,
                     borderColor: colors.primary.dark,
                     color: colors.text.muted,
-                  }
+                }
             }
+            data-testid="theme-generate-type-nouns"
           >
             Nouns
           </button>
@@ -108,8 +112,9 @@ export function GenerateThemeModal({
                     backgroundColor: colors.background.DEFAULT,
                     borderColor: colors.primary.dark,
                     color: colors.text.muted,
-                  }
+                }
             }
+            data-testid="theme-generate-type-verbs"
           >
             Verbs
           </button>
@@ -134,6 +139,7 @@ export function GenerateThemeModal({
                 color: colors.text.DEFAULT,
               }}
               disabled={isGenerating}
+              data-testid="theme-generate-name"
             />
             <p className="text-xs mt-1 text-right" style={{ color: colors.text.muted }}>
               {themeName.length}/{THEME_NAME_MAX_LENGTH}
@@ -158,6 +164,7 @@ export function GenerateThemeModal({
                 color: colors.text.DEFAULT,
               }}
               disabled={isGenerating}
+              data-testid="theme-generate-prompt"
             />
             <p className="text-xs mt-1 text-right" style={{ color: colors.text.muted }}>
               {themePrompt.length}/{THEME_PROMPT_MAX_LENGTH}
@@ -183,6 +190,7 @@ export function GenerateThemeModal({
             disabled={!themeName.trim() || isGenerating}
             className={actionButtonClassName}
             style={ctaActionStyle}
+            data-testid="theme-generate-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
           </button>
@@ -191,6 +199,7 @@ export function GenerateThemeModal({
             disabled={isGenerating}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-generate-cancel"
           >
             Cancel
           </button>

@@ -55,6 +55,7 @@ export function AddFriendSection() {
                         color: colors.text.DEFAULT,
                         border: `1px solid ${colors.neutral.light}40`,
                     }}
+                    data-testid="notifications-friend-search"
                 />
                 <div
                     className="absolute right-3 top-1/2 -translate-y-1/2"
@@ -148,6 +149,7 @@ export function AddFriendSection() {
                                             onClick={() => handleSendRequest(user._id)}
                                             className="text-xs px-3 py-1.5 rounded font-medium text-white transition-transform active:scale-95"
                                             style={{ backgroundColor: colors.primary.DEFAULT }}
+                                            data-testid={`notifications-friend-add-${user._id}`}
                                         >
                                             Add
                                         </button>

@@ -141,6 +141,7 @@ export default function SoloChallengePage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="solo-challenge-back-home"
             >
               Back to Home
             </button>
@@ -206,6 +207,7 @@ export default function SoloChallengePage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="solo-challenge-back-home"
             >
               Back to Home
             </button>
@@ -334,6 +336,7 @@ export default function SoloChallengePage() {
             color: "#FFFFFF",
             textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
+          data-testid="solo-challenge-exit"
         >
           Exit
         </button>
@@ -441,6 +444,7 @@ export default function SoloChallengePage() {
                 answer={currentWord.answer}
                 onGotIt={handleLevel0GotIt}
                 onNotYet={handleLevel0NotYet}
+                dataTestIdBase="solo-challenge-level0"
               />
             )}
 
@@ -451,6 +455,7 @@ export default function SoloChallengePage() {
                 onCorrect={handleCorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
+                dataTestIdBase="solo-challenge-level1"
               />
             )}
 
@@ -462,6 +467,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
+                dataTestIdBase="solo-challenge-level2-typing"
               />
             )}
 
@@ -474,6 +480,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
+                dataTestIdBase="solo-challenge-level2-mc"
               />
             )}
 
@@ -485,6 +492,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
+                dataTestIdBase="solo-challenge-level3"
               />
             )}
           </>

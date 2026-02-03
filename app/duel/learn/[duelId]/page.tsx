@@ -1,16 +1,25 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
-import { TimerSelectionView, LearnGridView } from "./components";
 import { TIMER_GREEN_THRESHOLD, TIMER_YELLOW_THRESHOLD } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+
+const TimerSelectionView = dynamic(
+  () => import("./components/TimerSelectionView").then((mod) => mod.TimerSelectionView),
+  { loading: () => null }
+);
+const LearnGridView = dynamic(
+  () => import("./components/LearnGridView").then((mod) => mod.LearnGridView),
+  { loading: () => null }
+);
 
 // State for each word: hintCount and revealedPositions
 interface HintState {

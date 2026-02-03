@@ -70,6 +70,7 @@ function StudyHeaderComponent({
             value={selectedTheme?._id || ""}
             onChange={(e) => onThemeChange(e.target.value)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+            data-testid="study-theme-select"
           >
             {themes.map((theme) => (
               <option key={theme._id} value={theme._id}>
@@ -89,6 +90,7 @@ function StudyHeaderComponent({
           }}
           aria-label={isAllRevealed ? "Hide All" : "Reveal All"}
           title={isAllRevealed ? "Hide All" : "Reveal All"}
+          data-testid="study-reveal-toggle"
         >
           {isAllRevealed ? (
             <EyeSlashIcon className="w-5 h-5" />

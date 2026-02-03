@@ -198,6 +198,7 @@ export function QuestionCard({
               onRequestHint={onRequestHint}
               onCancelHint={onCancelHint}
               onUpdateHintState={onUpdateHintState}
+              dataTestIdBase="duel-solo-level1"
             />
           )}
 
@@ -215,6 +216,7 @@ export function QuestionCard({
               hintType={hintType}
               onRequestHint={onRequestSimpleHint}
               onCancelHint={onCancelHint}
+              dataTestIdBase="duel-solo-level2-typing"
             />
           )}
 
@@ -233,6 +235,7 @@ export function QuestionCard({
               eliminatedOptions={hintL2EliminatedOptions}
               onRequestHint={onRequestHintL2}
               onCancelHint={onCancelHintL2}
+              dataTestIdBase="duel-solo-level2-mc"
             />
           )}
 
@@ -250,6 +253,7 @@ export function QuestionCard({
               hintType={hintType}
               onRequestHint={onRequestSimpleHint}
               onCancelHint={onCancelHint}
+              dataTestIdBase="duel-solo-level3"
             />
           )}
         </>

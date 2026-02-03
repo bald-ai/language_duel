@@ -112,6 +112,7 @@ export function CompletionScreen({
         onClick={onExit}
         className={`${actionButtonClassName} mt-6`}
         style={primaryActionStyle}
+        data-testid="solo-challenge-complete-back"
       >
         Back to Home
       </button>

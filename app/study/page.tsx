@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { WordEntry } from "@/lib/types";
@@ -69,6 +69,7 @@ const WordRow = memo(function WordRow({
   const hintState = data.getHintState(wordKey);
   const isTTSPlaying = data.playingWordKey === wordKey;
   const isTTSDisabled = data.playingWordKey !== null;
+  const dataTestIdBase = `study-word-${index}`;
 
   return (
     <div style={{ ...style, paddingBottom: LIST_GAP, paddingRight: 12 }}>
@@ -82,6 +83,7 @@ const WordRow = memo(function WordRow({
           onRevealFullWord={() => data.onRevealFullWord(wordKey, word.answer)}
           onReset={() => data.onResetWord(wordKey)}
           onPlayTTS={() => data.onPlayTTS(wordKey, word.answer)}
+          dataTestIdBase={dataTestIdBase}
         />
       </div>
     </div>
@@ -90,6 +92,7 @@ const WordRow = memo(function WordRow({
 
 export default function StudyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const themes = useQuery(api.themes.getThemes, {});
   const themeList = useMemo(() => themes ?? [], [themes]);
   const [selectedThemeId, setSelectedThemeId] = useState("");
@@ -101,6 +104,7 @@ export default function StudyPage() {
   const [listHeight, setListHeight] = useState(0);
   const [listWidth, setListWidth] = useState(0);
   const { playingWordKey, playTTS } = useTTS();
+  const themeIdParam = searchParams.get("themeId");
 
   const resolvedThemeId = useMemo(() => {
     if (themeList.length === 0) {
@@ -111,8 +115,12 @@ export default function StudyPage() {
       return selectedThemeId;
     }
 
+    if (themeIdParam && themeList.some((theme) => theme._id === themeIdParam)) {
+      return themeIdParam;
+    }
+
     return themeList[0]._id;
-  }, [selectedThemeId, themeList]);
+  }, [selectedThemeId, themeList, themeIdParam]);
 
   const selectedTheme = useMemo(
     () => themeList.find((theme) => theme._id === resolvedThemeId) ?? null,
@@ -360,6 +368,7 @@ export default function StudyPage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="study-back"
             >
               Back
             </button>

@@ -27,6 +27,7 @@ interface HintNotificationBannersProps {
   hintL2Options: string[];
   onShowL2HintGiverView: (show: boolean) => void;
   onDismissHintL2Selector: (dismissed: boolean) => void;
+  dataTestIdBase?: string;
 }
 
 export function HintNotificationBanners({
@@ -53,6 +54,7 @@ export function HintNotificationBanners({
   hintL2Options,
   onShowL2HintGiverView,
   onDismissHintL2Selector,
+  dataTestIdBase,
 }: HintNotificationBannersProps) {
   const opponentLabel = theirName?.split(" ")[0] || "Opponent";
   const hasRequester = Boolean(hintRequesterWord && hintRequesterState);
@@ -83,6 +85,7 @@ export function HintNotificationBanners({
           onClick={() => onShowHintGiverView(true)}
           className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-giver-minimized` : undefined}
         >
           <span>🆘</span>
           <span>Help {opponentLabel}</span>
@@ -131,6 +134,7 @@ export function HintNotificationBanners({
           onClick={() => onDismissHintSelector(false)}
           className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-selector-minimized` : undefined}
         >
           <span>🆘</span>
           <span>{opponentLabel} needs help</span>
@@ -143,6 +147,7 @@ export function HintNotificationBanners({
           onClick={() => onShowL2HintGiverView(true)}
           className="fixed bottom-20 left-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-giver-l2-minimized` : undefined}
         >
           <span>🆘</span>
           <span>Help {opponentLabel}</span>
@@ -180,6 +185,7 @@ export function HintNotificationBanners({
           onClick={() => onDismissHintL2Selector(false)}
           className="fixed bottom-20 right-4 z-40 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 border-2 transition hover:brightness-110"
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-selector-l2-minimized` : undefined}
         >
           <span>🆘</span>
           <span>{opponentLabel} needs help</span>

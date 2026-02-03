@@ -65,7 +65,7 @@ export function LearnGridView({
   return (
     <ThemedPage>
       <main className="relative z-10 flex-1 flex flex-col">
-        <ExitButton onExit={onExit} />
+        <ExitButton onExit={onExit} dataTestId="duel-learn-exit" />
 
         {/* Header with Timer */}
         <header className="flex-shrink-0 pt-6 pb-4 px-4">
@@ -102,6 +102,7 @@ export function LearnGridView({
                         color: colors.text.muted,
                       }
                 }
+                data-testid="duel-learn-toggle-mode"
               >
                 {isRevealed ? "Revealed" : "Testing"}
               </button>
@@ -114,6 +115,7 @@ export function LearnGridView({
                     borderColor: colors.primary.dark,
                     color: colors.text.muted,
                   }}
+                  data-testid="duel-learn-reset-all"
                 >
                   Reset All
                 </button>
@@ -145,6 +147,7 @@ export function LearnGridView({
                   isTTSPlaying={playingWordIndex === index}
                   isTTSDisabled={playingWordIndex !== null}
                   onPlayTTS={() => onPlayTTS(index, word.answer)}
+                  dataTestIdBase={`duel-learn-word-${index}`}
                 />
               );
             })}
@@ -165,6 +168,7 @@ export function LearnGridView({
                 borderColor: colors.cta.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="duel-learn-skip"
             >
               Skip to Challenge →
             </button>

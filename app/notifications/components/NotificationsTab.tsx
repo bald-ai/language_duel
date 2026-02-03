@@ -14,6 +14,29 @@ interface NotificationsTabProps {
     onClose: () => void;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+const hasScheduledDuelId = (
+    payload: unknown
+): payload is { scheduledDuelId: Id<"scheduledDuels"> } =>
+    isRecord(payload) && "scheduledDuelId" in payload;
+
+const hasChallengeId = (
+    payload: unknown
+): payload is { challengeId: Id<"challenges"> } =>
+    isRecord(payload) && "challengeId" in payload;
+
+const hasGoalId = (
+    payload: unknown
+): payload is { goalId: Id<"weeklyGoals"> } =>
+    isRecord(payload) && "goalId" in payload;
+
+const hasMode = (
+    payload: unknown
+): payload is { mode?: "solo" | "classic" } =>
+    isRecord(payload) && "mode" in payload;
+
 /**
  * NotificationsTab - Display all notification types with actions
  * 
@@ -185,6 +208,16 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
+    const handleSoloStudy = (themeId: Id<"themes">) => {
+        onClose();
+        router.push(`/study?themeId=${themeId}`);
+    };
+
+    const handleSoloChallenge = (themeId: Id<"themes">) => {
+        onClose();
+        router.push(`/?openSolo=true&themeId=${themeId}&soloMode=challenge_only`);
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -201,6 +234,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             <div
                 className="flex flex-col items-center justify-center py-12 px-4 text-center"
                 style={{ color: colors.text.muted }}
+                data-testid="notifications-empty-state"
             >
                 <BellOffIcon />
                 <p className="mt-3 text-sm">No notifications</p>
@@ -210,10 +244,20 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
     }
 
     return (
-        <div className="py-2">
+        <div className="py-2" data-testid="notifications-tab">
             {notifications.map((notification) => {
+                const payload = notification.payload;
+                const scheduledDuelId = hasScheduledDuelId(payload)
+                    ? payload.scheduledDuelId
+                    : undefined;
+                const challengeId = hasChallengeId(payload)
+                    ? payload.challengeId
+                    : undefined;
+                const duelMode = hasMode(payload) ? payload.mode : undefined;
+                const goalId = hasGoalId(payload) ? payload.goalId : undefined;
+
                 // Get scheduled duel data for ready states
-                const scheduledDuelData = getScheduledDuelData(notification.payload?.scheduledDuelId);
+                const scheduledDuelData = getScheduledDuelData(scheduledDuelId);
                 const isProposer = scheduledDuelData?.isProposer || false;
 
                 return (
@@ -222,21 +266,26 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         notification={notification}
                         onAcceptFriendRequest={() => handleAcceptFriendRequest(notification._id)}
                         onRejectFriendRequest={() => handleRejectFriendRequest(notification._id)}
-                        onAcceptDuelChallenge={() => handleAcceptDuelChallenge(notification._id, notification.payload?.challengeId, notification.payload?.mode)}
+                        onAcceptDuelChallenge={() =>
+                            handleAcceptDuelChallenge(notification._id, challengeId, duelMode)
+                        }
                         onDeclineDuelChallenge={() => handleDeclineDuelChallenge(notification._id)}
-                        onViewWeeklyPlan={() => handleViewWeeklyPlan(notification.payload?.goalId)}
+                        onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}
                         onDismissWeeklyPlan={() => handleDismissWeeklyPlan(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
-                        onAcceptScheduledDuel={() => handleAcceptScheduledDuel(notification.payload?.scheduledDuelId)}
-                        onCounterProposeScheduledDuel={() => handleCounterProposeScheduledDuel(notification.payload?.scheduledDuelId)}
-                        onDeclineScheduledDuel={() => handleDeclineScheduledDuel(notification.payload?.scheduledDuelId)}
-                        onCancelScheduledDuel={() => handleCancelScheduledDuel(notification.payload?.scheduledDuelId)}
+                        onAcceptScheduledDuel={() => handleAcceptScheduledDuel(scheduledDuelId)}
+                        onCounterProposeScheduledDuel={() => handleCounterProposeScheduledDuel(scheduledDuelId)}
+                        onDeclineScheduledDuel={() => handleDeclineScheduledDuel(scheduledDuelId)}
+                        onCancelScheduledDuel={() => handleCancelScheduledDuel(scheduledDuelId)}
                         // Ready state props
-                        onSetReady={() => handleSetReady(notification.payload?.scheduledDuelId)}
-                        onCancelReady={() => handleCancelReady(notification.payload?.scheduledDuelId)}
+                        onSetReady={() => handleSetReady(scheduledDuelId)}
+                        onCancelReady={() => handleCancelReady(scheduledDuelId)}
                         currentUserIsProposer={isProposer}
                         proposerReady={scheduledDuelData?.proposerReady}
                         recipientReady={scheduledDuelData?.recipientReady}
+                        // Theme quick actions
+                        onSoloStudy={handleSoloStudy}
+                        onSoloChallenge={handleSoloChallenge}
                     />
                 );
             })}

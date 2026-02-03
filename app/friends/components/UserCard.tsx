@@ -38,6 +38,7 @@ export function UserCard({
         backgroundColor: colors.background.elevated,
         borderColor: colors.primary.light,
       }}
+      data-testid={`user-search-${userId}`}
     >
       <Avatar
         src={imageUrl}
@@ -89,6 +90,7 @@ export function UserCard({
               backgroundColor: colors.primary.DEFAULT,
               color: "white",
             }}
+            data-testid={`user-search-add-${userId}`}
           >
             {isSending ? "..." : "+ Add"}
           </button>

@@ -185,6 +185,7 @@ export const DuelGameUI = memo(function DuelGameUI({
             onClick={onStopDuel}
             className="absolute top-4 right-4 font-bold py-2 px-4 rounded border-2 text-xs uppercase tracking-widest transition hover:brightness-110"
             style={exitButtonStyle}
+            data-testid="duel-exit"
           >
             Exit Duel
           </button>
@@ -260,6 +261,7 @@ export const DuelGameUI = memo(function DuelGameUI({
             onPause={onPauseCountdown}
             onRequestUnpause={onRequestUnpause}
             onConfirmUnpause={onConfirmUnpause}
+            dataTestIdBase="duel-countdown"
           />
         )}
 
@@ -276,6 +278,7 @@ export const DuelGameUI = memo(function DuelGameUI({
               borderColor: colors.status.success.dark,
               color: colors.text.DEFAULT,
             } : secondaryButtonStyle}
+            data-testid="duel-listen"
           >
             <span className="text-xl">{isPlayingAudio ? "🔊" : "🔈"}</span>
             <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
@@ -324,6 +327,7 @@ export const DuelGameUI = memo(function DuelGameUI({
                   revealComplete={revealComplete}
                   disabled={(isShowingFeedback && !canEliminateThis) || isEliminated}
                   onClick={handleClick}
+                  dataTestId={`duel-answer-${i}`}
                 />
               );
             })}
@@ -339,6 +343,7 @@ export const DuelGameUI = memo(function DuelGameUI({
             style={!selectedAnswer || isLocked ? mutedButtonStyle : ctaButtonStyle}
             disabled={!selectedAnswer || isLocked}
             onClick={onConfirmAnswer}
+            data-testid="duel-confirm"
           >
             {isLocked ? "Submitting..." : "Confirm Answer"}
           </button>
@@ -357,6 +362,7 @@ export const DuelGameUI = memo(function DuelGameUI({
             eliminatedOptionsCount={eliminatedOptions.length}
             onRequestHint={onRequestHint}
             onAcceptHint={onAcceptHint}
+            dataTestIdBase="duel-hint"
           />
         )}
 
@@ -375,6 +381,7 @@ export const DuelGameUI = memo(function DuelGameUI({
             myScore={myScore}
             theirScore={theirScore}
             onBackToHome={onBackToHome}
+            dataTestIdBack="duel-back-home"
           />
         )}
       </main>

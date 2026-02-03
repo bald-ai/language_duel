@@ -22,6 +22,7 @@ interface WordItemProps {
   onRevealFullWord: () => void;
   onReset: () => void;
   onPlayTTS: () => void;
+  dataTestIdBase?: string;
 }
 
 const arePositionsEqual = (left: number[], right: number[]) => {
@@ -69,6 +70,7 @@ function WordItemComponent({
   onRevealFullWord,
   onReset,
   onPlayTTS,
+  dataTestIdBase,
 }: WordItemProps) {
   const { hintCount, revealedPositions } = hintState;
   const totalLetters = useMemo(
@@ -119,7 +121,11 @@ function WordItemComponent({
     : iconButtonStyle;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border-2 p-4 transition" style={cardStyle}>
+    <div
+      className="flex flex-col gap-3 rounded-2xl border-2 p-4 transition"
+      style={cardStyle}
+      data-testid={dataTestIdBase}
+    >
       {/* Word & Answer Section */}
       <div className="flex-1 min-w-0">
         <div className="text-lg font-medium mb-1" style={{ color: colors.text.DEFAULT }}>
@@ -130,6 +136,7 @@ function WordItemComponent({
           revealedPositions={revealedPositions}
           hintsRemaining={hintsRemaining}
           onRevealLetter={onRevealLetter}
+          dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-hint` : undefined}
         />
       </div>
 
@@ -151,6 +158,7 @@ function WordItemComponent({
           onClick={onReset}
           className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
           style={iconButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-reset` : undefined}
         >
           <ResetIcon className="w-4 h-4" />
         </button>
@@ -160,6 +168,7 @@ function WordItemComponent({
           onClick={isFullyRevealed ? onReset : onRevealFullWord}
           className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
           style={iconButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
         >
           {isFullyRevealed ? (
             <EyeSlashIcon className="w-4 h-4" />
@@ -176,6 +185,7 @@ function WordItemComponent({
             isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
           }`}
           style={ttsButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
         >
           <SpeakerIcon className="w-4 h-4" />
         </button>

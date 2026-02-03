@@ -42,6 +42,7 @@ export default function SettingsPage() {
           onClick={() => router.push("/")}
           className="px-6 py-3 rounded-xl font-bold transition-colors"
           style={{ backgroundColor: colors.primary.DEFAULT, color: colors.text.DEFAULT }}
+          data-testid="settings-go-home"
         >
           Go Home
         </button>
@@ -64,6 +65,7 @@ export default function SettingsPage() {
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.dark,
             }}
+            data-testid="settings-back"
           >
             <svg
               className="w-6 h-6"
@@ -121,6 +123,7 @@ export default function SettingsPage() {
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="settings-back-menu"
         >
           Back to Menu
         </button>

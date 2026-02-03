@@ -304,8 +304,9 @@ export const confirmUnpauseCountdown = mutation({
       throw new Error("Not a classic duel");
     }
 
+    // Idempotency: if the request was already confirmed (or cleared), just no-op.
     if (!duel.countdownUnpauseRequestedBy) {
-      throw new Error("No unpause request pending");
+      return;
     }
 
     if (duel.countdownUnpauseRequestedBy === playerRole) {
@@ -616,4 +617,3 @@ export const submitSoloAnswer = mutation({
     await ctx.db.patch(duelId, update);
   },
 });
-

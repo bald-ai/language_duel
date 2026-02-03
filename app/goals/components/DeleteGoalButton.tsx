@@ -47,6 +47,7 @@ export function DeleteGoalButton({ onDelete }: DeleteGoalButtonProps) {
                             borderColor: colors.primary.dark,
                             color: colors.text.DEFAULT,
                         }}
+                        data-testid="goals-delete-cancel"
                     >
                         Cancel
                     </button>
@@ -59,6 +60,7 @@ export function DeleteGoalButton({ onDelete }: DeleteGoalButtonProps) {
                             color: "white",
                             textShadow: "0 2px 4px rgba(0,0,0,0.3)",
                         }}
+                        data-testid="goals-delete-confirm"
                     >
                         {isDeleting ? "Deleting..." : "Delete"}
                     </button>
@@ -69,16 +71,17 @@ export function DeleteGoalButton({ onDelete }: DeleteGoalButtonProps) {
 
     // Default delete button
     return (
-        <button
-            onClick={() => setShowConfirm(true)}
-            className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors border-2"
-            style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.status.danger.DEFAULT,
-                color: colors.status.danger.light,
-            }}
-        >
-            Cancel Goal
-        </button>
+    <button
+        onClick={() => setShowConfirm(true)}
+        className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors border-2"
+        style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.status.danger.DEFAULT,
+            color: colors.status.danger.light,
+        }}
+        data-testid="goals-delete"
+    >
+        Cancel Goal
+    </button>
     );
 }

@@ -9,6 +9,7 @@ interface LetterGroupsProps {
   revealedPositions: number[];
   hintsRemaining: number;
   onRevealLetter: (position: number) => void;
+  dataTestIdPrefix?: string;
 }
 
 export const LetterGroups = memo(function LetterGroups({
@@ -16,6 +17,7 @@ export const LetterGroups = memo(function LetterGroups({
   revealedPositions,
   hintsRemaining,
   onRevealLetter,
+  dataTestIdPrefix,
 }: LetterGroupsProps) {
   // Memoize word groups computation to avoid recalculating on every render
   const wordGroups = useMemo(() => {
@@ -66,6 +68,7 @@ export const LetterGroups = memo(function LetterGroups({
                     ? ""
                     : "cursor-not-allowed opacity-50"
                 }`}
+                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-letter-${idx}` : undefined}
                 style={{
                   backgroundColor: colors.background.elevated,
                   borderColor: colors.primary.dark,

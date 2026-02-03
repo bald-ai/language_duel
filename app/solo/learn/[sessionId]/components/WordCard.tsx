@@ -30,6 +30,7 @@ interface WordCardProps {
   onMouseDown?: (e: React.MouseEvent) => void;
   style?: React.CSSProperties;
   refCallback?: (el: HTMLDivElement | null) => void;
+  dataTestIdBase?: string;
 }
 
 // Memoized static styles to avoid recreation on each render
@@ -91,6 +92,7 @@ export const WordCard = memo(function WordCard({
   onMouseDown,
   style,
   refCallback,
+  dataTestIdBase,
 }: WordCardProps) {
   // Memoize computed styles to avoid recreation
   const computedStyle = useMemo(() => ({
@@ -118,6 +120,7 @@ export const WordCard = memo(function WordCard({
       onMouseDown={onMouseDown}
       style={computedStyle}
       className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
+      data-testid={dataTestIdBase}
     >
       {isRevealed ? (
         // Revealed mode: stacked layout to keep the full answer visible
@@ -147,6 +150,7 @@ export const WordCard = memo(function WordCard({
                 isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
               }`}
               style={ttsButtonStyle}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
             >
               <SpeakerIcon className="w-5 h-5" />
             </button>
@@ -162,6 +166,7 @@ export const WordCard = memo(function WordCard({
               value={confidence}
               onChange={onConfidenceChange}
               readOnly={isFloating}
+              dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined}
             />
           </div>
         </div>
@@ -182,6 +187,7 @@ export const WordCard = memo(function WordCard({
                 revealedPositions={revealedPositions}
                 hintsRemaining={hintsRemaining}
                 onRevealLetter={onRevealLetter}
+                dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-hint` : undefined}
               />
             </div>
           </div>
@@ -196,6 +202,7 @@ export const WordCard = memo(function WordCard({
               value={confidence}
               onChange={onConfidenceChange}
               readOnly={isFloating}
+              dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined}
             />
           </div>
 
@@ -214,6 +221,7 @@ export const WordCard = memo(function WordCard({
               onClick={onResetWord}
               className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
               style={iconButtonStyleConst}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-reset` : undefined}
             >
               <ResetIcon className="w-4 h-4" />
             </button>
@@ -223,6 +231,7 @@ export const WordCard = memo(function WordCard({
               onClick={onRevealFullWord}
               className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
               style={iconButtonStyleConst}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
             >
               <EyeIcon className="w-4 h-4" />
             </button>
@@ -235,6 +244,7 @@ export const WordCard = memo(function WordCard({
                 isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
               }`}
               style={ttsButtonStyle}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
             >
               <SpeakerIcon className="w-4 h-4" />
             </button>

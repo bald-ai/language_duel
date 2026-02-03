@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ModalShell } from "./ModalShell";
 import { ThemeSelector } from "./ThemeSelector";
@@ -26,12 +26,22 @@ interface SoloModalProps {
   onContinue: (themeId: Id<"themes">, mode: SoloMode) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
+  initialThemeId?: Id<"themes">;
+  initialMode?: SoloMode;
 }
 
-export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: SoloModalProps) {
+export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, initialThemeId, initialMode }: SoloModalProps) {
+  const resolvedInitialThemeId = useMemo(() => {
+    if (!initialThemeId || !themes || themes.length === 0) {
+      return null;
+    }
+    return themes.some((theme) => theme._id === initialThemeId) ? initialThemeId : null;
+  }, [initialThemeId, themes]);
   const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
   const [selectedMode, setSelectedMode] = useState<SoloMode | null>("learn_test");
-  const selectedTheme = themes?.find((theme) => theme._id === selectedThemeId) || null;
+  const effectiveThemeId = resolvedInitialThemeId ?? selectedThemeId;
+  const effectiveMode = resolvedInitialThemeId ? (initialMode ?? "learn_test") : selectedMode;
+  const selectedTheme = themes?.find((theme) => theme._id === effectiveThemeId) || null;
 
   const handleSelectTheme = (themeId: Id<"themes">) => {
     setSelectedThemeId(themeId);
@@ -39,8 +49,8 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
   };
 
   const handleContinue = () => {
-    if (!selectedThemeId || !selectedMode) return;
-    onContinue(selectedThemeId, selectedMode);
+    if (!effectiveThemeId || !effectiveMode) return;
+    onContinue(effectiveThemeId, effectiveMode);
   };
 
   const handleBack = () => {
@@ -51,7 +61,22 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
   return (
     <ModalShell title="Solo Challenge">
       {/* Step 1: Select Theme */}
-      {!selectedThemeId && (
+      {themes && themes.length === 0 ? (
+        <>
+          <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
+            Loading themes...
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`${outlineButtonClassName} mt-4`}
+            style={outlineButtonStyle}
+            data-testid="solo-modal-cancel"
+          >
+            Cancel
+          </button>
+        </>
+      ) : !effectiveThemeId && (
         <>
           <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
             Select a theme to practice.
@@ -68,6 +93,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
             onClick={onClose}
             className={`${outlineButtonClassName} mt-4`}
             style={outlineButtonStyle}
+            data-testid="solo-modal-cancel"
           >
             Cancel
           </button>
@@ -75,7 +101,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
       )}
 
       {/* Step 2: Select Mode */}
-      {selectedThemeId && (
+      {effectiveThemeId && (
         <>
           <div
             className="mb-4 p-3 border-2 rounded-2xl text-center"
@@ -111,6 +137,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
               title="Challenge Only"
               description="Jump straight into the challenge"
               selectedTone="secondary"
+              dataTestId="solo-modal-mode-challenge"
             />
             <ModeSelectionButton
               selected={selectedMode === "learn_test"}
@@ -118,6 +145,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
               title="Learn + Test"
               description="5 minutes to study, then challenge"
               selectedTone="primary"
+              dataTestId="solo-modal-mode-learn-test"
             />
           </div>
 
@@ -127,6 +155,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
             disabled={!selectedMode}
             className={`${actionButtonClassName} mt-6`}
             style={ctaActionStyle}
+            data-testid="solo-modal-continue"
           >
             Continue
           </button>
@@ -137,6 +166,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
               onClick={handleBack}
               className={outlineButtonClassName}
               style={outlineButtonStyle}
+              data-testid="solo-modal-back"
             >
               Back
             </button>
@@ -145,6 +175,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes }: S
               onClick={onClose}
               className={outlineButtonClassName}
               style={outlineButtonStyle}
+              data-testid="solo-modal-cancel"
             >
               Cancel
             </button>

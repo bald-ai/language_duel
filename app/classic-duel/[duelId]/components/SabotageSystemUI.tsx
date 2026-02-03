@@ -14,6 +14,7 @@ interface SabotageSystemUIProps {
   isOutgoingSabotageActive: boolean;
   opponentHasAnswered: boolean;
   onSendSabotage: (effect: SabotageEffect) => void;
+  dataTestIdBase?: string;
 }
 
 /**
@@ -33,6 +34,7 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   isOutgoingSabotageActive,
   opponentHasAnswered,
   onSendSabotage,
+  dataTestIdBase,
 }: SabotageSystemUIProps) {
   if (status !== "accepted" || phase !== "answering" || word === "done") {
     return null;
@@ -90,6 +92,7 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
               }`}
               style={disabled ? disabledButtonStyle : enabledButtonStyle}
               title={option.label}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-${option.effect}` : undefined}
             >
               {option.emoji}
             </button>

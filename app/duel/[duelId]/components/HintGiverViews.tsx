@@ -16,6 +16,7 @@ interface HintGiverViewProps {
   onProvideHint: (position: number) => void;
   requesterName: string;
   onDismiss: () => void;
+  dataTestIdBase?: string;
 }
 
 export function HintGiverView({
@@ -28,6 +29,7 @@ export function HintGiverView({
   onProvideHint,
   requesterName,
   onDismiss,
+  dataTestIdBase,
 }: HintGiverViewProps) {
   const letterSlots = useMemo(() => {
     const slots: { char: string; originalIndex: number }[] = [];
@@ -108,6 +110,7 @@ export function HintGiverView({
               canClick ? "cursor-pointer hover:brightness-110" : ""
             }`}
             style={hintButtonStyle}
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${slotIdx}` : undefined}
           >
             {isHintRevealed ? "✓" : "H"}
           </button>
@@ -180,6 +183,7 @@ export function HintGiverView({
             borderColor: colors.primary.dark,
             color: colors.text.muted,
           }}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-dismiss` : undefined}
         >
           Minimize (continue your game)
         </button>
@@ -197,6 +201,7 @@ interface L2HintGiverViewProps {
   onEliminateOption: (option: string) => void;
   requesterName: string;
   onDismiss: () => void;
+  dataTestIdBase?: string;
 }
 
 export function L2HintGiverView({
@@ -207,6 +212,7 @@ export function L2HintGiverView({
   onEliminateOption,
   requesterName,
   onDismiss,
+  dataTestIdBase,
 }: L2HintGiverViewProps) {
   const eliminationsRemaining = 2 - eliminatedOptions.length;
 
@@ -281,6 +287,7 @@ export function L2HintGiverView({
                 disabled={!canEliminate}
                 className={buttonClass}
                 style={buttonStyle}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-option-${idx}` : undefined}
               >
                 {isCorrect && <span className="mr-2">✓</span>}
                 {isEliminated && <span className="mr-2">✗</span>}
@@ -304,6 +311,7 @@ export function L2HintGiverView({
             borderColor: colors.primary.dark,
             color: colors.text.muted,
           }}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-dismiss` : undefined}
         >
           Minimize (continue your game)
         </button>

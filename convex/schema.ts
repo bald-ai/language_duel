@@ -1,5 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 // ===========================================
 // Shared Validators
@@ -70,7 +70,7 @@ const soloHintRequesterStateValidator = v.object({
 // ===========================================
 
 // Notification type validator
-const notificationTypeValidator = v.union(
+export const notificationTypeValidator = v.union(
   v.literal("friend_request"),
   v.literal("weekly_plan_invitation"),
   v.literal("scheduled_duel"),
@@ -89,6 +89,34 @@ const scheduledDuelStatusValidator = v.union(
   v.literal("counter_proposed"),
   v.literal("declined")
 );
+
+export const notificationPayloadValidator = v.union(
+  v.object({
+    friendRequestId: v.id("friendRequests"),
+  }),
+  v.object({
+    goalId: v.id("weeklyGoals"),
+    themeCount: v.number(),
+  }),
+  v.object({
+    challengeId: v.id("challenges"),
+    themeName: v.optional(v.string()),
+    mode: v.optional(duelModeValidator),
+    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
+  }),
+  v.object({
+    scheduledDuelId: v.id("scheduledDuels"),
+    themeId: v.optional(v.id("themes")),
+    themeName: v.optional(v.string()),
+    scheduledTime: v.optional(v.number()),
+    mode: v.optional(duelModeValidator),
+    isCounterProposal: v.optional(v.boolean()),
+    scheduledDuelStatus: v.optional(scheduledDuelStatusValidator),
+    startedDuelId: v.optional(v.id("challenges")),
+  })
+);
+
+export type NotificationPayload = Infer<typeof notificationPayloadValidator>;
 
 export default defineSchema({
   // -------------------------------------------
@@ -143,6 +171,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_receiver", ["receiverId", "status"])
+    .index("by_sender_status", ["senderId", "status"])
     .index("by_sender", ["senderId"]),
 
   // -------------------------------------------
@@ -250,6 +279,7 @@ export default defineSchema({
   })
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])
+    .index("by_opponent_status", ["opponentId", "status"])
     .index("by_status", ["status"]),
 
   // -------------------------------------------
@@ -289,10 +319,11 @@ export default defineSchema({
     fromUserId: v.id("users"),
     toUserId: v.id("users"),
     status: notificationStatusValidator,
-    payload: v.optional(v.any()), // JSON payload for notification-specific data
+    payload: v.optional(notificationPayloadValidator),
     createdAt: v.number(),
   })
     .index("by_recipient", ["toUserId", "status"])
+    .index("by_type_status", ["type", "toUserId", "status"])
     .index("by_type", ["type", "toUserId"]),
 
   // -------------------------------------------

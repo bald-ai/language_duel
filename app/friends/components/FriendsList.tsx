@@ -40,6 +40,7 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.light,
             }}
+            data-testid={`friend-item-${friend.friendId}`}
           >
             <Avatar
               src={friend.imageUrl}
@@ -68,6 +69,7 @@ export function FriendsList({ friends, removingId, onRemove }: FriendsListProps)
                 borderColor: colors.status.danger.DEFAULT,
                 color: colors.status.danger.DEFAULT,
               }}
+              data-testid={`friend-remove-${friend.friendId}`}
             >
               {isRemoving ? "..." : "Remove"}
             </button>

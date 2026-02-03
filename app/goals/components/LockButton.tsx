@@ -33,6 +33,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
           borderColor: colors.primary.dark,
           color: colors.text.DEFAULT,
         }}
+        data-testid="goals-lock"
       >
         Lock Goal (Partner Ready ✓)
       </button>
@@ -65,6 +66,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
               borderColor: colors.primary.dark,
               color: colors.text.DEFAULT,
             }}
+            data-testid="goals-lock-cancel"
           >
             Cancel
           </button>
@@ -77,6 +79,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
               color: "white",
               textShadow: "0 2px 4px rgba(0,0,0,0.3)",
             }}
+            data-testid="goals-lock-confirm"
           >
             {isLocking ? "Locking..." : "Confirm"}
           </button>
@@ -96,6 +99,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
         borderColor: colors.primary.dark,
         color: colors.text.DEFAULT,
       }}
+      data-testid="goals-lock"
     >
       {isLocking ? "Locking..." : "Lock Goal"}
     </button>

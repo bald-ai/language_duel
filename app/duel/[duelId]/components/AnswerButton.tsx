@@ -20,6 +20,7 @@ type AnswerButtonProps = {
   onClick: () => void;
   style?: React.CSSProperties;
   truncateText?: boolean;
+  dataTestId?: string;
 };
 
 const AnswerButtonComponent = function AnswerButton({
@@ -38,6 +39,7 @@ const AnswerButtonComponent = function AnswerButton({
   onClick,
   style,
   truncateText,
+  dataTestId,
 }: AnswerButtonProps) {
   const isNoneOfAbove = answer === "None of the above";
   const isWrongAnswer = isNoneOfAbove ? !hasNoneOption : answer !== correctAnswer;
@@ -106,6 +108,7 @@ const AnswerButtonComponent = function AnswerButton({
     <button
       disabled={disabled}
       onClick={onClick}
+      data-testid={dataTestId}
       className={`${baseClasses} ${stateClasses} ${truncateText ? 'shadow-lg' : ''}`}
       style={{ ...stateStyle, ...style }}
     >

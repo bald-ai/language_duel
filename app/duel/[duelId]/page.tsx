@@ -1,18 +1,21 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useMemo, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
 import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
-import SoloStyleChallenge from "./SoloStyleChallenge";
-import { DuelGameUI, DuelStatusMessage } from "./components";
+import { DuelGameUI } from "./components/DuelGameUI";
+import { DuelStatusMessage } from "./components/DuelStatusMessage";
 import { useDuelAnswerEffects, useDuelHintState, useDuelPageEffects, useDuelPhase, useQuestionTimer } from "./hooks";
 import { useTTS } from "@/app/game/hooks";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
+
+const SoloStyleChallenge = dynamic(() => import("./SoloStyleChallenge"), { loading: () => null });
 
 export default function DuelPage() {
   const params = useParams();

@@ -21,6 +21,7 @@ interface WordCardProps {
   isTTSPlaying: boolean;
   isTTSDisabled: boolean;
   onPlayTTS: () => void;
+  dataTestIdBase?: string;
 }
 
 /**
@@ -38,6 +39,7 @@ export const WordCard = memo(function WordCard({
   isTTSPlaying,
   isTTSDisabled,
   onPlayTTS,
+  dataTestIdBase,
 }: WordCardProps) {
   const cleanAnswer = stripIrr(word.answer);
   const letters = cleanAnswer.split("");
@@ -49,6 +51,7 @@ export const WordCard = memo(function WordCard({
         backgroundColor: colors.background.elevated,
         borderColor: colors.primary.dark,
       }}
+      data-testid={dataTestIdBase}
     >
       <div className="flex items-center justify-between">
         {/* Word & Answer Section */}
@@ -81,6 +84,7 @@ export const WordCard = memo(function WordCard({
                         : ""
                     }`}
                     style={{ borderColor: colors.neutral.dark }}
+                    data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${idx}` : undefined}
                   >
                     {revealedPositions.includes(idx) && (
                       <span className="text-base font-bold" style={{ color: colors.text.DEFAULT, fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -117,6 +121,7 @@ export const WordCard = memo(function WordCard({
                   borderColor: colors.primary.dark,
                   color: colors.text.muted,
                 }}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-reset` : undefined}
               >
                 <ResetIcon />
               </button>
@@ -129,6 +134,7 @@ export const WordCard = memo(function WordCard({
                   borderColor: colors.primary.dark,
                   color: colors.text.muted,
                 }}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
               >
                 <EyeIcon />
               </button>
@@ -161,6 +167,7 @@ export const WordCard = memo(function WordCard({
                     color: colors.text.muted,
                   }
             }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
           >
             <SpeakerIcon />
           </button>

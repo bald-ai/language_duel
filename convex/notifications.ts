@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { notificationPayloadValidator, notificationTypeValidator } from "./schema";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+    isDuelChallengePayload,
+    isFriendRequestPayload,
+} from "./notificationPayloads";
 import {
     createInitialWordStates,
     determineInitialLevelSeeded,
@@ -24,6 +29,38 @@ export type NotificationStatus = "pending" | "read" | "dismissed";
 // Queries
 // ===========================================
 
+type NotificationDoc = Doc<"notifications">;
+type UserDoc = Doc<"users">;
+
+const buildUserSummary = (user: UserDoc | null) => {
+    if (!user) return null;
+    return {
+        nickname: user.nickname,
+        discriminator: user.discriminator,
+        imageUrl: user.imageUrl,
+    };
+};
+
+async function enrichNotificationsWithSender(
+    ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
+    notifications: NotificationDoc[]
+) {
+    const uniqueFromUserIds = Array.from(new Set(notifications.map((n) => n.fromUserId)));
+    const users = await Promise.all(uniqueFromUserIds.map((id) => ctx.db.get(id)));
+    const usersById = new Map<Id<"users">, UserDoc | null>();
+    uniqueFromUserIds.forEach((id, index) => {
+        usersById.set(id, users[index] ?? null);
+    });
+
+    return notifications.map((notification) => {
+        const fromUser = usersById.get(notification.fromUserId) ?? null;
+        return {
+            ...notification,
+            fromUser: buildUserSummary(fromUser),
+        };
+    });
+}
+
 /**
  * Get all pending/unread notifications for the current user, grouped by type
  */
@@ -44,30 +81,22 @@ export const getNotifications = query({
             return [];
         }
 
-        // Get all non-dismissed notifications for this user
-        const notifications = await ctx.db
+        const pendingNotifications = await ctx.db
             .query("notifications")
             .withIndex("by_recipient", (q) =>
-                q.eq("toUserId", user._id)
+                q.eq("toUserId", user._id).eq("status", "pending")
             )
             .collect();
 
-        // Filter out dismissed notifications and enrich with sender info
-        const activeNotifications = notifications.filter(n => n.status !== "dismissed");
+        const readNotifications = await ctx.db
+            .query("notifications")
+            .withIndex("by_recipient", (q) =>
+                q.eq("toUserId", user._id).eq("status", "read")
+            )
+            .collect();
 
-        const enrichedNotifications = await Promise.all(
-            activeNotifications.map(async (notification) => {
-                const fromUser = await ctx.db.get(notification.fromUserId);
-                return {
-                    ...notification,
-                    fromUser: fromUser ? {
-                        nickname: fromUser.nickname,
-                        discriminator: fromUser.discriminator,
-                        imageUrl: fromUser.imageUrl,
-                    } : null,
-                };
-            })
-        );
+        const activeNotifications = [...pendingNotifications, ...readNotifications];
+        const enrichedNotifications = await enrichNotificationsWithSender(ctx, activeNotifications);
 
         // Sort by createdAt descending (newest first)
         return enrichedNotifications.sort((a, b) => b.createdAt - a.createdAt);
@@ -111,12 +140,7 @@ export const getNotificationCount = query({
  */
 export const getNotificationsByType = query({
     args: {
-        type: v.union(
-            v.literal("friend_request"),
-            v.literal("weekly_plan_invitation"),
-            v.literal("scheduled_duel"),
-            v.literal("duel_challenge")
-        ),
+        type: notificationTypeValidator,
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -133,29 +157,22 @@ export const getNotificationsByType = query({
             return [];
         }
 
-        const notifications = await ctx.db
+        const pendingNotifications = await ctx.db
             .query("notifications")
-            .withIndex("by_type", (q) =>
-                q.eq("type", args.type).eq("toUserId", user._id)
+            .withIndex("by_type_status", (q) =>
+                q.eq("type", args.type).eq("toUserId", user._id).eq("status", "pending")
             )
             .collect();
 
-        // Filter out dismissed and enrich with sender info
-        const activeNotifications = notifications.filter(n => n.status !== "dismissed");
+        const readNotifications = await ctx.db
+            .query("notifications")
+            .withIndex("by_type_status", (q) =>
+                q.eq("type", args.type).eq("toUserId", user._id).eq("status", "read")
+            )
+            .collect();
 
-        const enrichedNotifications = await Promise.all(
-            activeNotifications.map(async (notification) => {
-                const fromUser = await ctx.db.get(notification.fromUserId);
-                return {
-                    ...notification,
-                    fromUser: fromUser ? {
-                        nickname: fromUser.nickname,
-                        discriminator: fromUser.discriminator,
-                        imageUrl: fromUser.imageUrl,
-                    } : null,
-                };
-            })
-        );
+        const activeNotifications = [...pendingNotifications, ...readNotifications];
+        const enrichedNotifications = await enrichNotificationsWithSender(ctx, activeNotifications);
 
         return enrichedNotifications.sort((a, b) => b.createdAt - a.createdAt);
     },
@@ -170,15 +187,10 @@ export const getNotificationsByType = query({
  */
 export const createNotification = internalMutation({
     args: {
-        type: v.union(
-            v.literal("friend_request"),
-            v.literal("weekly_plan_invitation"),
-            v.literal("scheduled_duel"),
-            v.literal("duel_challenge")
-        ),
+        type: notificationTypeValidator,
         fromUserId: v.id("users"),
         toUserId: v.id("users"),
-        payload: v.optional(v.any()),
+        payload: v.optional(notificationPayloadValidator),
     },
     handler: async (ctx, args) => {
         const notificationId = await ctx.db.insert("notifications", {
@@ -304,10 +316,11 @@ export const acceptFriendRequestNotification = mutation({
         }
 
         // Get the friend request ID from payload
-        const friendRequestId = notification.payload?.friendRequestId as Id<"friendRequests"> | undefined;
-        if (!friendRequestId) {
+        const payload = notification.payload;
+        if (!isFriendRequestPayload(payload)) {
             throw new Error("Friend request ID not found in notification");
         }
+        const friendRequestId = payload.friendRequestId;
 
         const friendRequest = await ctx.db.get(friendRequestId);
         if (!friendRequest) {
@@ -381,10 +394,11 @@ export const rejectFriendRequestNotification = mutation({
         }
 
         // Get the friend request ID from payload
-        const friendRequestId = notification.payload?.friendRequestId as Id<"friendRequests"> | undefined;
-        if (!friendRequestId) {
+        const payload = notification.payload;
+        if (!isFriendRequestPayload(payload)) {
             throw new Error("Friend request ID not found in notification");
         }
+        const friendRequestId = payload.friendRequestId;
 
         const friendRequest = await ctx.db.get(friendRequestId);
         if (!friendRequest) {
@@ -441,10 +455,11 @@ export const acceptDuelChallenge = mutation({
         }
 
         // Get challenge ID from payload
-        const challengeId = notification.payload?.challengeId as Id<"challenges"> | undefined;
-        if (!challengeId) {
+        const payload = notification.payload;
+        if (!isDuelChallengePayload(payload)) {
             throw new Error("Challenge ID not found in notification");
         }
+        const challengeId = payload.challengeId;
 
         const challenge = await ctx.db.get(challengeId);
         if (!challenge) {
@@ -573,10 +588,11 @@ export const declineDuelChallenge = mutation({
         }
 
         // Get challenge ID from payload
-        const challengeId = notification.payload?.challengeId as Id<"challenges"> | undefined;
-        if (!challengeId) {
+        const payload = notification.payload;
+        if (!isDuelChallengePayload(payload)) {
             throw new Error("Challenge ID not found in notification");
         }
+        const challengeId = payload.challengeId;
 
         const challenge = await ctx.db.get(challengeId);
         if (!challenge) {

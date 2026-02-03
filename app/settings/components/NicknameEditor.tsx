@@ -84,6 +84,7 @@ export function NicknameEditor({
                 borderColor: colors.primary.light,
                 color: colors.text.DEFAULT,
               }}
+              data-testid="settings-nickname-input"
             />
             {currentDiscriminator && nickname.trim() && (
               <span 
@@ -120,6 +121,7 @@ export function NicknameEditor({
             color: "white",
             textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
+          data-testid="settings-nickname-submit"
         >
           {isUpdating ? "Updating..." : "Update Nickname"}
         </button>

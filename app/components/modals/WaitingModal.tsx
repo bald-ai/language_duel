@@ -28,6 +28,7 @@ export function WaitingModal({ isCancelling, onCancel }: WaitingModalProps) {
           borderColor: colors.status.danger.DEFAULT,
           color: colors.status.danger.light,
         }}
+        data-testid="waiting-modal-cancel"
       >
         {isCancelling ? "Cancelling..." : "Cancel Invite"}
       </button>

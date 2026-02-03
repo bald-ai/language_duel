@@ -25,6 +25,7 @@ export function Level3Input({
   onWrong,
   onSkip,
   mode,
+  dataTestIdBase,
   // Hint system props (optional - for duel mode)
   canRequestHint,
   hintRequested,
@@ -129,6 +130,7 @@ export function Level3Input({
         }}
         placeholder={showAnagramHint ? `Anagram: ${anagramHint}` : "Type your answer..."}
         autoFocus
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-input` : undefined}
       />
       
       {/* Anagram hint display (duel mode) */}
@@ -150,6 +152,7 @@ export function Level3Input({
                 borderColor: colors.secondary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request` : undefined}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -169,6 +172,7 @@ export function Level3Input({
                     borderColor: colors.secondary.dark,
                     color: colors.text.DEFAULT,
                   }}
+                  data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
                 >
                   Request another hint
                 </button>
@@ -181,6 +185,7 @@ export function Level3Input({
                   borderColor: colors.primary.dark,
                   color: colors.text.muted,
                 }}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-cancel` : undefined}
               >
                 Cancel
               </button>
@@ -196,6 +201,7 @@ export function Level3Input({
                 borderColor: colors.secondary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
             >
               Request another hint
             </button>
@@ -231,6 +237,7 @@ export function Level3Input({
                     color: colors.text.DEFAULT,
                   }
             }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-submit` : undefined}
           >
             Submit
           </button>
@@ -255,6 +262,7 @@ export function Level3Input({
                     color: colors.text.muted,
                   }
             }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
           >
             Don&apos;t Know
           </button>
@@ -298,6 +306,7 @@ export function Level3Input({
                         color: colors.text.DEFAULT,
                       }
                 }
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-listen` : undefined}
               >
                 <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
               </button>
@@ -318,6 +327,7 @@ export function Level3Input({
                         color: colors.text.DEFAULT,
                       }
                 }
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-continue` : undefined}
               >
                 Continue
               </button>

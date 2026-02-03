@@ -11,6 +11,7 @@ interface FinalResultsPanelProps {
   onBackToHome: () => void;
   // Optional duration display (for classic duel)
   duelDuration?: number;
+  dataTestIdBack?: string;
 }
 
 /**
@@ -23,6 +24,7 @@ export function FinalResultsPanel({
   theirScore,
   onBackToHome,
   duelDuration,
+  dataTestIdBack,
 }: FinalResultsPanelProps) {
   const formatScore = (score: number) =>
     Number.isInteger(score) ? score : score.toFixed(1);
@@ -112,6 +114,7 @@ export function FinalResultsPanel({
           onClick={onBackToHome}
           className="w-full font-bold py-3 px-6 rounded-lg text-lg transition hover:brightness-110 border-2"
           style={primaryButtonStyle}
+          data-testid={dataTestIdBack}
         >
           Back to Home
         </button>

@@ -18,6 +18,7 @@ interface CompactThemeSelectorProps {
     selectedThemeId: Id<"themes"> | null;
     selectedTheme: ThemeOption | null;
     onSelect: (themeId: Id<"themes">) => void;
+    dataTestIdPrefix?: string;
 }
 
 export function CompactThemePicker({
@@ -25,6 +26,7 @@ export function CompactThemePicker({
     selectedThemeId,
     selectedTheme,
     onSelect,
+    dataTestIdPrefix,
 }: CompactThemeSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
@@ -87,6 +89,7 @@ export function CompactThemePicker({
                     borderColor: colors.primary.dark,
                     color: selectedTheme ? colors.text.DEFAULT : colors.text.muted,
                 }}
+                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-trigger` : undefined}
             >
                 <span className="flex items-center justify-between">
                     {selectedLabel}
@@ -129,6 +132,7 @@ export function CompactThemePicker({
                                     backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
                                     borderBottom: index < themes.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
                                 }}
+                                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-option-${theme._id}` : undefined}
                             >
                                 <div>
                                     <div
@@ -170,9 +174,10 @@ interface TimePickerDropdownProps {
     timeSlots: TimeSlot[];
     selectedTime: number | null;
     onSelect: (timestamp: number) => void;
+    dataTestIdPrefix?: string;
 }
 
-export function TimePickerDropdown({ timeSlots, selectedTime, onSelect }: TimePickerDropdownProps) {
+export function TimePickerDropdown({ timeSlots, selectedTime, onSelect, dataTestIdPrefix }: TimePickerDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -219,6 +224,7 @@ export function TimePickerDropdown({ timeSlots, selectedTime, onSelect }: TimePi
                     borderColor: colors.primary.dark,
                     color: selectedTime ? colors.text.DEFAULT : colors.text.muted,
                 }}
+                data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-trigger` : undefined}
             >
                 <span className="flex items-center justify-between">
                     {selectedLabel}
@@ -270,6 +276,7 @@ export function TimePickerDropdown({ timeSlots, selectedTime, onSelect }: TimePi
                                             color: isSelected ? "white" : colors.text.DEFAULT,
                                             border: `1px solid ${isSelected ? colors.primary.DEFAULT : colors.neutral.light}40`,
                                         }}
+                                        data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-option-${slot.timestamp}` : undefined}
                                     >
                                         {slot.label}
                                     </button>

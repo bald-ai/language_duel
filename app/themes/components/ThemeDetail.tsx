@@ -174,6 +174,7 @@ const WordCard = memo(function WordCard({
         backgroundColor: colors.background.DEFAULT,
         borderColor: colors.primary.dark,
       }}
+      data-testid={`theme-word-card-${index}`}
     >
       {/* Word number badge */}
       <div className="flex items-center gap-2 mb-3">
@@ -216,6 +217,7 @@ const WordCard = memo(function WordCard({
             canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
           }`}
           style={wordButtonStyle}
+          data-testid={`theme-word-${index}-word`}
         >
           <div className="text-xs mb-1" style={{ color: colors.primary.light }}>
             Word
@@ -229,6 +231,7 @@ const WordCard = memo(function WordCard({
             canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
           }`}
           style={answerButtonStyle}
+          data-testid={`theme-word-${index}-answer`}
         >
           <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
             Answer
@@ -248,6 +251,7 @@ const WordCard = memo(function WordCard({
               canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
             }`}
             style={wrongButtonStyle}
+            data-testid={`theme-word-${index}-wrong-${wrongIdx}`}
           >
             <div className="text-xs mb-1" style={{ color: colors.cta.light }}>
               Wrong {wrongIdx + 1}
@@ -267,6 +271,7 @@ const WordCard = memo(function WordCard({
             borderColor: `${colors.status.danger.DEFAULT}66`,
             color: colors.status.danger.light,
           }}
+          data-testid={`theme-word-${index}-delete`}
         >
           Delete Word
         </button>
@@ -418,6 +423,7 @@ export function ThemeDetail({
                     className="title-font w-full text-xl sm:text-2xl font-bold uppercase tracking-wider bg-transparent border-none outline-none focus:ring-0"
                     style={{ color: colors.text.DEFAULT }}
                     autoFocus
+                    data-testid="theme-name-input"
                   />
                 ) : (
                   <h1
@@ -455,6 +461,7 @@ export function ThemeDetail({
                     onClick={handleAddWordClick}
                     className={utilityButtonClassName}
                     style={secondaryActionStyle}
+                    data-testid="theme-add-word"
                   >
                     + Add Word
                   </button>
@@ -462,6 +469,7 @@ export function ThemeDetail({
                     onClick={handleGenerateRandomClick}
                     className={utilityButtonClassName}
                     style={secondaryAccentStyle}
+                    data-testid="theme-generate"
                   >
                     + Generate
                   </button>
@@ -481,6 +489,7 @@ export function ThemeDetail({
                     disabled={isUpdatingVisibility}
                     className={visibilityButtonClassName}
                     style={privateButtonStyle}
+                    data-testid="theme-visibility-private"
                   >
                     Private
                   </button>
@@ -489,6 +498,7 @@ export function ThemeDetail({
                     disabled={isUpdatingVisibility}
                     className={visibilityButtonClassName}
                     style={sharedButtonStyle}
+                    data-testid="theme-visibility-shared"
                   >
                     Shared
                   </button>
@@ -502,6 +512,7 @@ export function ThemeDetail({
                     title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
                     className="p-1.5 rounded-xl border-2 transition hover:brightness-110 disabled:opacity-50"
                     style={lockButtonStyle}
+                    data-testid="theme-friends-can-edit"
                   >
                     {friendsCanEdit ? (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -579,6 +590,7 @@ export function ThemeDetail({
                   disabled={hasThemeIssues}
                   className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={ctaActionStyle}
+                  data-testid="theme-save"
                 >
                   Save
                 </button>
@@ -586,6 +598,7 @@ export function ThemeDetail({
                   onClick={onCancel}
                   className={outlineButtonClassName}
                   style={outlineButtonStyle}
+                  data-testid="theme-cancel"
                 >
                   Cancel
                 </button>
@@ -595,6 +608,7 @@ export function ThemeDetail({
                 onClick={onCancel}
                 className={rowActionButtonClassName}
                 style={primaryActionStyle}
+                data-testid="theme-back"
               >
                 Back
               </button>

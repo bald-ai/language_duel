@@ -170,6 +170,8 @@ export interface AnswerOptionButtonProps {
   style?: React.CSSProperties;
   /** Whether this is a flying button (bounce/trampoline) */
   isFlying?: boolean;
+  /** Optional test id for E2E */
+  dataTestId?: string;
 }
 
 /**
@@ -186,6 +188,7 @@ export function AnswerOptionButton({
   isShowingFeedback = false,
   style,
   isFlying = false,
+  dataTestId,
 }: AnswerOptionButtonProps) {
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
@@ -210,6 +213,7 @@ export function AnswerOptionButton({
     <button
       disabled={state.disabled}
       onClick={onClick}
+      data-testid={dataTestId}
       style={combinedStyle}
       className={`${baseClasses} ${stateClasses}`}
     >

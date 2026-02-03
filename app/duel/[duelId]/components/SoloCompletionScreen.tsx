@@ -122,6 +122,7 @@ export function SoloCompletionScreen({
             onClick={onBackToHome}
             className="w-full font-bold py-3 px-6 rounded-lg text-lg border-2 transition hover:brightness-110"
             style={primaryButtonStyle}
+            data-testid="solo-style-back-home"
           >
             Back to Home
           </button>

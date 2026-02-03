@@ -102,12 +102,14 @@ const ThemeCard = memo(function ThemeCard({
         backgroundColor: colors.background.DEFAULT,
         borderColor: colors.primary.dark,
       }}
+      data-testid={`theme-card-${theme._id}`}
     >
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={() => onOpenTheme(theme)}
           disabled={isMutating}
           className="text-left flex-1 min-w-0 transition hover:brightness-110"
+          data-testid={`theme-open-${theme._id}`}
         >
           <h3
             className="font-bold text-base uppercase tracking-wide leading-tight truncate"
@@ -383,6 +385,7 @@ export function ThemeList({
                 className="p-1.5 rounded-lg border-2 transition hover:brightness-110"
                 style={filterButtonStyle}
                 title="Filter themes"
+                data-testid="themes-filter"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -404,6 +407,7 @@ export function ThemeList({
                   color: showArchived ? colors.cta.lighter : colors.text.muted,
                 }}
                 title={showArchived ? "Show Active Themes" : "Show Archived Themes"}
+                data-testid="themes-toggle-archived"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -421,6 +425,7 @@ export function ThemeList({
               onClick={onClearFriendFilter}
               className="w-full py-1 text-xs uppercase tracking-widest transition"
               style={{ color: colors.cta.lighter }}
+              data-testid="themes-clear-filter"
             >
               Clear Filter
             </button>
@@ -428,7 +433,12 @@ export function ThemeList({
         </div>
 
         <div className="mt-3 animate-slide-up delay-100">
-          <button onClick={onGenerateNew} className={actionButtonClassName} style={ctaActionStyle}>
+          <button
+            onClick={onGenerateNew}
+            className={actionButtonClassName}
+            style={ctaActionStyle}
+            data-testid="themes-generate-new"
+          >
             Generate New
           </button>
         </div>
@@ -468,6 +478,7 @@ export function ThemeList({
         onClick={onBack}
         className={`${actionButtonClassName} animate-slide-up delay-300`}
         style={primaryActionStyle}
+        data-testid="themes-back"
       >
         Back
       </button>

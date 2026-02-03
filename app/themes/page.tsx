@@ -1,18 +1,33 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { VIEW_MODES } from "./constants";
 import { useThemesController } from "./hooks";
-import {
-  ThemeList,
-  ThemeDetail,
-  WordEditor,
-  GenerateThemeModal,
-  DeleteConfirmModal,
-  FriendFilterModal,
-} from "./components";
+import { ThemeList } from "./components/ThemeList";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+
+const ThemeDetail = dynamic(
+  () => import("./components/ThemeDetail").then((mod) => mod.ThemeDetail),
+  { loading: () => null }
+);
+const WordEditor = dynamic(
+  () => import("./components/WordEditor").then((mod) => mod.WordEditor),
+  { loading: () => null }
+);
+const GenerateThemeModal = dynamic(
+  () => import("./components/GenerateThemeModal").then((mod) => mod.GenerateThemeModal),
+  { loading: () => null }
+);
+const DeleteConfirmModal = dynamic(
+  () => import("./components/DeleteConfirmModal").then((mod) => mod.DeleteConfirmModal),
+  { loading: () => null }
+);
+const FriendFilterModal = dynamic(
+  () => import("./components/FriendFilterModal").then((mod) => mod.FriendFilterModal),
+  { loading: () => null }
+);
 
 export default function ThemesPage() {
   const controller = useThemesController();

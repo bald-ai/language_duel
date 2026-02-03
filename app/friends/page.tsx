@@ -36,6 +36,7 @@ export default function FriendsPage() {
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.dark,
             }}
+            data-testid="friends-back"
           >
             <svg
               className="w-6 h-6"
@@ -75,6 +76,7 @@ export default function FriendsPage() {
               color: activeTab === TABS.FRIENDS ? colors.text.DEFAULT : colors.text.muted,
               borderBottom: activeTab === TABS.FRIENDS ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
             }}
+            data-testid="friends-tab-friends"
           >
             Friends
           </button>
@@ -86,6 +88,7 @@ export default function FriendsPage() {
               color: activeTab === TABS.REQUESTS ? colors.text.DEFAULT : colors.text.muted,
               borderBottom: activeTab === TABS.REQUESTS ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
             }}
+            data-testid="friends-tab-requests"
           >
             Requests
             {requestCount > 0 && (
@@ -105,6 +108,7 @@ export default function FriendsPage() {
               color: activeTab === TABS.SEARCH ? colors.text.DEFAULT : colors.text.muted,
               borderBottom: activeTab === TABS.SEARCH ? `2px solid ${colors.primary.DEFAULT}` : "2px solid transparent",
             }}
+            data-testid="friends-tab-search"
           >
             Search
           </button>
@@ -181,6 +185,7 @@ export default function FriendsPage() {
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="friends-back-bottom"
         >
           Back
         </button>
@@ -188,4 +193,3 @@ export default function FriendsPage() {
     </div>
   );
 }
-

@@ -22,6 +22,7 @@ export function SearchBar({ searchTerm, onSearchChange, isSearching }: SearchBar
           borderColor: colors.primary.light,
           color: colors.text.DEFAULT,
         }}
+        data-testid="friends-search-input"
       />
       <svg
         className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"

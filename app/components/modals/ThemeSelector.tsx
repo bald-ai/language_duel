@@ -42,6 +42,7 @@ export function ThemeSelector({
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="theme-selector-create"
         >
           Create your first theme
         </button>
@@ -60,6 +61,7 @@ export function ThemeSelector({
             backgroundColor: colors.background.DEFAULT,
             borderColor: colors.primary.dark,
           }}
+          data-testid={`theme-selector-item-${theme._id}`}
         >
           <div
             className="font-semibold text-base truncate"

@@ -47,6 +47,7 @@ export function GoalThemeSelector({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+      data-testid="goals-theme-selector"
     >
       <div
         className="w-full max-w-md max-h-[80vh] rounded-2xl border-2 overflow-hidden flex flex-col"
@@ -77,6 +78,7 @@ export function GoalThemeSelector({
             style={{
               backgroundColor: colors.background.DEFAULT,
             }}
+            data-testid="goals-theme-selector-close"
           >
             <svg
               className="w-5 h-5"
@@ -106,7 +108,7 @@ export function GoalThemeSelector({
                 No eligible themes available
               </p>
               <p className="text-sm" style={{ color: colors.text.muted }}>
-                Themes must be shared and owned by you or your partner
+                Themes must be owned by you or your partner
               </p>
             </div>
           ) : (
@@ -129,6 +131,7 @@ export function GoalThemeSelector({
                         ? colors.cta.DEFAULT
                         : colors.primary.dark,
                     }}
+                    data-testid={`goals-theme-option-${theme._id}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
@@ -209,6 +212,7 @@ export function GoalThemeSelector({
               color: colors.text.muted,
               backgroundColor: "transparent",
             }}
+            data-testid="goals-theme-cancel"
           >
             Cancel
           </button>
@@ -220,6 +224,7 @@ export function GoalThemeSelector({
               backgroundColor: colors.cta.DEFAULT,
               color: colors.text.DEFAULT,
             }}
+            data-testid="goals-theme-add"
           >
             Add {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
           </button>

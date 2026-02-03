@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { isScheduledDuelPayload } from "./notificationPayloads";
 import {
     createShuffledWordOrder,
     initializeWordPoolsSeeded,
@@ -239,6 +240,7 @@ export const proposeScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId,
+                themeId: args.themeId,
                 themeName: theme.name,
                 scheduledTime: args.scheduledTime,
                 mode: args.mode || "classic",
@@ -307,7 +309,10 @@ export const acceptScheduledDuel = mutation({
             .collect();
 
         for (const notification of recipientNotifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     status: "read", // Mark as read so it doesn't count as unread for accepter
                     payload: {
@@ -326,6 +331,7 @@ export const acceptScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId: args.scheduledDuelId,
+                themeId: scheduledDuel.themeId,
                 themeName: theme?.name,
                 scheduledTime: scheduledDuel.scheduledTime,
                 mode: scheduledDuel.mode,
@@ -424,6 +430,7 @@ export const counterProposeScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId: args.scheduledDuelId,
+                themeId: updates.themeId || scheduledDuel.themeId,
                 themeName: theme?.name,
                 scheduledTime: updates.scheduledTime || scheduledDuel.scheduledTime,
                 mode: scheduledDuel.mode,
@@ -441,7 +448,10 @@ export const counterProposeScheduledDuel = mutation({
             .collect();
 
         for (const notification of notifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     status: "dismissed",
                 });
@@ -498,7 +508,10 @@ export const declineScheduledDuel = mutation({
             .collect();
 
         for (const notification of notifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     status: "dismissed",
                 });
@@ -576,7 +589,10 @@ export const cancelScheduledDuel = mutation({
             .collect();
 
         for (const notification of allScheduledDuelNotifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     status: "dismissed",
                 });
@@ -881,7 +897,10 @@ export const startScheduledDuel = internalMutation({
             .collect();
 
         for (const notification of allNotifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     payload: {
                         ...notification.payload,
@@ -1025,7 +1044,10 @@ export const expireScheduledDuel = internalMutation({
             .collect();
 
         for (const notification of notifications) {
-            if (notification.payload?.scheduledDuelId === args.scheduledDuelId) {
+            if (
+                isScheduledDuelPayload(notification.payload) &&
+                notification.payload.scheduledDuelId === args.scheduledDuelId
+            ) {
                 await ctx.db.patch(notification._id, {
                     status: "dismissed",
                 });

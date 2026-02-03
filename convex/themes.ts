@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { hasThemeAccess } from "../lib/themeAccess";
 
 // Word structure for validation
 const wordValidator = v.object({
@@ -17,6 +18,23 @@ export type ThemeWithOwner = Doc<"themes"> & {
   isOwner: boolean;
   canEdit: boolean;
 };
+
+type UserDoc = Doc<"users">;
+
+async function loadOwnersByThemes(
+  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
+  themes: Doc<"themes">[]
+) {
+  const ownerIds = Array.from(
+    new Set(themes.map((theme) => theme.ownerId).filter(Boolean) as Id<"users">[])
+  );
+  const owners = await Promise.all(ownerIds.map((id) => ctx.db.get(id)));
+  const ownersById = new Map<Id<"users">, UserDoc | null>();
+  ownerIds.forEach((id, index) => {
+    ownersById.set(id, owners[index] ?? null);
+  });
+  return ownersById;
+}
 
 export const getThemes = query({
   args: {
@@ -100,8 +118,48 @@ export const getThemes = query({
       const friendSharedThemesArrays = await Promise.all(friendSharedThemesPromises);
       const friendSharedThemes = friendSharedThemesArrays.flat();
 
-      // Merge all results (no duplicates since queries target different owners)
-      themes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes];
+      // Query 4: Themes from active scheduled duels
+      const scheduledAsProposer = await ctx.db
+        .query("scheduledDuels")
+        .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
+        .collect();
+      const scheduledAsRecipient = await ctx.db
+        .query("scheduledDuels")
+        .withIndex("by_recipient", (q) => q.eq("recipientId", currentUserId))
+        .collect();
+      const activeScheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].filter(
+        (sd) => sd.status === "pending" || sd.status === "accepted" || sd.status === "counter_proposed"
+      );
+      const scheduledThemeIds = activeScheduledDuels.map((sd) => sd.themeId);
+
+      // Query 5: Themes from active weekly goals
+      const goalsAsCreator = await ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
+        .collect();
+      const goalsAsPartner = await ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
+        .collect();
+      const activeGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
+        (g) => g.status === "editing" || g.status === "active"
+      );
+      const goalThemeIds = activeGoals.flatMap((g) => g.themes.map((t) => t.themeId));
+
+      // Fetch themes from scheduled duels and weekly goals
+      const accessThemeIds = [...new Set([...scheduledThemeIds, ...goalThemeIds])];
+      const accessThemes = await Promise.all(
+        accessThemeIds.map((id) => ctx.db.get(id))
+      );
+      const validAccessThemes = accessThemes.filter((t): t is Doc<"themes"> => t !== null);
+
+      // Merge all results and dedupe by themeId
+      const allThemes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes, ...validAccessThemes];
+      const themeMap = new Map<string, Doc<"themes">>();
+      for (const theme of allThemes) {
+        themeMap.set(theme._id.toString(), theme);
+      }
+      themes = Array.from(themeMap.values());
     }
 
     // Filter based on archived status
@@ -112,6 +170,8 @@ export const getThemes = query({
       themes = themes.filter((t) => !archivedIds.has(t._id));
     }
 
+    const ownersById = await loadOwnersByThemes(ctx, themes);
+
     // Enrich with owner details and edit permissions
     const themesWithOwner: ThemeWithOwner[] = [];
     for (const theme of themes) {
@@ -119,7 +179,7 @@ export const getThemes = query({
       let ownerDiscriminator: number | undefined;
 
       if (theme.ownerId) {
-        const owner = await ctx.db.get(theme.ownerId);
+        const owner = ownersById.get(theme.ownerId) ?? null;
         if (owner) {
           ownerNickname = owner.nickname;
           ownerDiscriminator = owner.discriminator;
@@ -191,7 +251,6 @@ export const getFriendThemes = query({
 export const getTheme = query({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
-    // Require authentication
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
@@ -200,51 +259,99 @@ export const getTheme = query({
 
     const currentUserId = auth.user._id;
 
-    // Allow access if user is the owner or theme has no owner (legacy)
-    const isOwner = !theme.ownerId || theme.ownerId === currentUserId;
-    if (isOwner) return theme;
+    const [
+      challengesAsChallenger,
+      challengesAsOpponent,
+      scheduledAsProposer,
+      scheduledAsRecipient,
+      goalsAsCreator,
+      goalsAsPartner,
+      friendshipsFromUser,
+      friendshipsToUser,
+    ] = await Promise.all([
+      ctx.db
+        .query("challenges")
+        .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
+        .filter((q) => q.eq(q.field("themeId"), args.themeId))
+        .collect(),
+      ctx.db
+        .query("challenges")
+        .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
+        .filter((q) => q.eq(q.field("themeId"), args.themeId))
+        .collect(),
+      ctx.db
+        .query("scheduledDuels")
+        .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
+        .filter((q) => q.eq(q.field("themeId"), args.themeId))
+        .collect(),
+      ctx.db
+        .query("scheduledDuels")
+        .withIndex("by_recipient", (q) => q.eq("recipientId", currentUserId))
+        .filter((q) => q.eq(q.field("themeId"), args.themeId))
+        .collect(),
+      ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
+        .collect(),
+      ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
+        .collect(),
+      theme.ownerId
+        ? ctx.db
+            .query("friends")
+            .withIndex("by_user", (q) => q.eq("userId", currentUserId))
+            .filter((q) => q.eq(q.field("friendId"), theme.ownerId!))
+            .collect()
+        : Promise.resolve([]),
+      theme.ownerId
+        ? ctx.db
+            .query("friends")
+            .withIndex("by_user", (q) => q.eq("userId", theme.ownerId!))
+            .filter((q) => q.eq(q.field("friendId"), currentUserId))
+            .collect()
+        : Promise.resolve([]),
+    ]);
 
-    // Allow access if user is part of a duel that uses this theme
-    // Check both as challenger and as opponent
-    const duelAsChallenger = await ctx.db
-      .query("challenges")
-      .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
-      .filter((q) => q.eq(q.field("themeId"), args.themeId))
-      .first();
+    const challenges = [...challengesAsChallenger, ...challengesAsOpponent].map((c) => ({
+      challengerId: c.challengerId,
+      opponentId: c.opponentId,
+      themeId: c.themeId,
+    }));
 
-    const duelAsOpponent = await ctx.db
-      .query("challenges")
-      .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
-      .filter((q) => q.eq(q.field("themeId"), args.themeId))
-      .first();
+    const scheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].map((sd) => ({
+      proposerId: sd.proposerId,
+      recipientId: sd.recipientId,
+      themeId: sd.themeId,
+      status: sd.status,
+    }));
 
-    if (duelAsChallenger || duelAsOpponent) {
-      return theme;
-    }
+    const weeklyGoals = [...goalsAsCreator, ...goalsAsPartner].map((g) => ({
+      creatorId: g.creatorId,
+      partnerId: g.partnerId,
+      status: g.status,
+      themeIds: g.themes.map((t) => t.themeId),
+    }));
 
-    // Allow access if theme is shared and caller is a confirmed friend of owner
-    if (theme.visibility === "shared" && theme.ownerId) {
-      const ownerId = theme.ownerId;
-      // Check friendship in either direction
-      const friendshipFromCaller = await ctx.db
-        .query("friends")
-        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
-        .filter((q) => q.eq(q.field("friendId"), ownerId))
-        .first();
+    const friendships = [...friendshipsFromUser, ...friendshipsToUser].map((f) => ({
+      userId: f.userId,
+      friendId: f.friendId,
+    }));
 
-      const friendshipFromOwner = await ctx.db
-        .query("friends")
-        .withIndex("by_user", (q) => q.eq("userId", ownerId))
-        .filter((q) => q.eq(q.field("friendId"), currentUserId))
-        .first();
+    const hasAccess = hasThemeAccess({
+      userId: currentUserId,
+      theme: {
+        themeId: args.themeId,
+        ownerId: theme.ownerId,
+        visibility: theme.visibility,
+      },
+      challenges,
+      scheduledDuels,
+      weeklyGoals,
+      friendships,
+    });
 
-      if (friendshipFromCaller || friendshipFromOwner) {
-        return theme;
-      }
-    }
-
-    // No access - theme is private or caller is not a friend
-    return null;
+    return hasAccess ? theme : null;
   },
 });
 
@@ -412,4 +519,3 @@ export const toggleThemeArchive = mutation({
     return !isArchived; // Return new state (true = archived, false = unarchived)
   },
 });
-

@@ -8,6 +8,7 @@ interface MenuButtonProps {
   children: ReactNode;
   badge?: number;
   variant?: ButtonVariant;
+  dataTestId?: string;
 }
 
 /**
@@ -17,13 +18,14 @@ interface MenuButtonProps {
  * 
  * Colors are defined in lib/theme.ts - change them there to update everywhere.
  */
-export function MenuButton({ onClick, children, badge, variant = "primary" }: MenuButtonProps) {
+export function MenuButton({ onClick, children, badge, variant = "primary", dataTestId }: MenuButtonProps) {
   const styles = buttonStyles[variant];
 
   return (
     <div className="relative group">
       <button
         onClick={onClick}
+        data-testid={dataTestId}
         className="
           w-full bg-gradient-to-b
           border-t-2 border-b-4 border-x-2

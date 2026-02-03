@@ -17,6 +17,7 @@ interface HintSystemUIProps {
   // Optional custom button text (for classic duel)
   requestHintText?: string;
   acceptHintText?: string;
+  dataTestIdBase?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export const HintSystemUI = memo(function HintSystemUI({
   onAcceptHint,
   requestHintText = "💡 Request Hint",
   acceptHintText = "✓ Accept Hint Request",
+  dataTestIdBase,
 }: HintSystemUIProps) {
   const hintButtonClass =
     "rounded-lg px-6 py-2 font-medium transition hover:brightness-110 border-2";
@@ -52,6 +54,7 @@ export const HintSystemUI = memo(function HintSystemUI({
           onClick={onRequestHint}
           className={hintButtonClass}
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-request` : undefined}
         >
           {requestHintText}
         </button>
@@ -77,6 +80,7 @@ export const HintSystemUI = memo(function HintSystemUI({
           onClick={onAcceptHint}
           className={`${hintButtonClass} animate-bounce`}
           style={hintButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-accept` : undefined}
         >
           {acceptHintText}
         </button>

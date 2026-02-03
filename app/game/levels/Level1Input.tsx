@@ -18,6 +18,7 @@ export function Level1Input({
   onCorrect,
   onSkip,
   mode,
+  dataTestIdBase,
   // Hint system props (optional - for duel mode)
   canRequestHint,
   hintRequested,
@@ -232,6 +233,7 @@ export function Level1Input({
                 : `text-[10px] px-1.5 py-0.5 rounded mb-1 transition border-2 uppercase tracking-widest font-bold ${isRevealed ? "cursor-not-allowed" : "hover:brightness-110"
                 }`
             }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${slotIdx}-hint` : undefined}
             style={
               !isDuelMode
                 ? isRevealed
@@ -318,6 +320,7 @@ export function Level1Input({
                 borderColor: colors.secondary.dark,
                 color: colors.text.DEFAULT,
               }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request` : undefined}
             >
               <span>🆘</span> Ask for Help
             </button>
@@ -338,6 +341,7 @@ export function Level1Input({
                     borderColor: colors.secondary.dark,
                     color: colors.text.DEFAULT,
                   }}
+                  data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
                 >
                   Request another hint
                 </button>
@@ -350,6 +354,7 @@ export function Level1Input({
                   borderColor: colors.primary.dark,
                   color: colors.text.muted,
                 }}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-cancel` : undefined}
               >
                 Cancel
               </button>
@@ -369,6 +374,7 @@ export function Level1Input({
                     borderColor: colors.secondary.dark,
                     color: colors.text.DEFAULT,
                   }}
+                  data-testid={dataTestIdBase ? `${dataTestIdBase}-hint-request-again` : undefined}
                 >
                   Request another hint
                 </button>
@@ -398,6 +404,7 @@ export function Level1Input({
                 color: colors.text.muted,
               }
           }
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm` : undefined}
         >
           ✓ Confirm Answer
         </button>
@@ -424,6 +431,7 @@ export function Level1Input({
               color: colors.text.DEFAULT,
             }
         }
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
       >
         Don&apos;t Know
       </button>

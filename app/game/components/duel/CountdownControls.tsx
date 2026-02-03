@@ -14,6 +14,7 @@ interface CountdownControlsProps {
   // Optional skip functionality (for classic duel)
   countdownSkipRequestedBy?: string[];
   onSkip?: () => void;
+  dataTestIdBase?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ export const CountdownControls = memo(function CountdownControls({
   onConfirmUnpause,
   countdownSkipRequestedBy = [],
   onSkip,
+  dataTestIdBase,
 }: CountdownControlsProps) {
   const opponentRole = userRole === "challenger" ? "opponent" : "challenger";
   const iHaveSkipped = countdownSkipRequestedBy.includes(userRole);
@@ -69,6 +71,7 @@ export const CountdownControls = memo(function CountdownControls({
             onClick={onPause}
             className={baseButtonClass}
             style={primaryButtonStyle}
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-pause` : undefined}
           >
             ⏸ Pause
           </button>
@@ -84,6 +87,7 @@ export const CountdownControls = memo(function CountdownControls({
                     ? successButtonStyle
                     : secondaryButtonStyle
               }
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
             >
               ⏭ Skip
             </button>
@@ -118,6 +122,7 @@ export const CountdownControls = memo(function CountdownControls({
             disabled
             className={`${baseButtonClass} cursor-not-allowed`}
             style={mutedButtonStyle}
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-unpause-requested` : undefined}
           >
             ▶ Unpause Requested
           </button>
@@ -141,6 +146,7 @@ export const CountdownControls = memo(function CountdownControls({
             onClick={onConfirmUnpause}
             className={`${baseButtonClass} animate-pulse`}
             style={successButtonStyle}
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm-unpause` : undefined}
           >
             ✓ Confirm Unpause
           </button>
@@ -159,6 +165,7 @@ export const CountdownControls = memo(function CountdownControls({
         onClick={onRequestUnpause}
         className={baseButtonClass}
         style={secondaryButtonStyle}
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-unpause` : undefined}
       >
         ▶ Unpause
       </button>

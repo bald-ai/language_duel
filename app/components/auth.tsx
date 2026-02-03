@@ -13,6 +13,7 @@ import { colors } from "@/lib/theme";
 import Image from "next/image";
 import { useNotifications, useNotificationPanel } from "@/app/notifications/hooks";
 import { NotificationPanel } from "@/app/notifications/components";
+import { PANEL_TABS } from "@/app/notifications/constants";
 import { usePresence } from "@/hooks/usePresence";
 
 // Goal icon - updated to use SVG
@@ -64,11 +65,21 @@ export function LeftNavButtons() {
       {/* Notification bell */}
       <div className="relative">
         <button
-          onClick={panel.toggle}
+          onClick={() => {
+            if (panel.isOpen) {
+              panel.close();
+              return;
+            }
+            panel.switchTab(
+              notificationCount > 0 ? PANEL_TABS.NOTIFICATIONS : PANEL_TABS.FRIENDS
+            );
+            panel.open();
+          }}
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Notifications & Friends"
           aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
           style={{ color: colors.text.DEFAULT }}
+          data-testid="nav-notifications"
         >
           <BellFriendsIcon />
         </button>
@@ -96,6 +107,7 @@ export function LeftNavButtons() {
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Weekly Goals"
           style={{ color: colors.text.DEFAULT }}
+          data-testid="nav-goals"
         >
           <GoalIcon />
         </button>
@@ -127,13 +139,16 @@ export function RightNavButtons() {
           onClick={() => router.push("/settings")}
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Settings"
+          data-testid="nav-settings"
         >
           <Image src="/settings.png" alt="Settings" width={28} height={28} />
         </button>
       </div>
 
       {/* Clean UserButton - just for auth */}
-      <UserButton afterSignOutUrl="/" />
+      <div data-testid="nav-user-menu">
+        <UserButton afterSignOutUrl="/" />
+      </div>
     </div>
   );
 }
@@ -151,6 +166,7 @@ export function AuthButtons() {
               borderColor: colors.secondary.light,
               color: colors.text.DEFAULT,
             }}
+            data-testid="auth-sign-in"
           >
             Sign In
           </button>
@@ -163,6 +179,7 @@ export function AuthButtons() {
               borderColor: colors.cta.light,
               color: colors.text.DEFAULT,
             }}
+            data-testid="auth-sign-up"
           >
             Sign Up
           </button>

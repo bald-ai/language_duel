@@ -107,6 +107,7 @@ export function FriendListItem({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
+                data-testid={`notifications-friend-${friend.friendId}`}
             >
                 {/* Avatar with online indicator */}
                 <div className="relative">
@@ -177,6 +178,7 @@ export function FriendListItem({
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             title="Start Duel"
+                            data-testid={`notifications-friend-${friend.friendId}-quick-duel`}
                         >
                             <SwordsIcon />
                         </button>
@@ -193,6 +195,7 @@ export function FriendListItem({
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         title="Schedule Duel"
+                        data-testid={`notifications-friend-${friend.friendId}-schedule-duel`}
                     >
                         <CalendarIcon />
                     </button>
@@ -206,6 +209,7 @@ export function FriendListItem({
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         title="More options"
+                        data-testid={`notifications-friend-${friend.friendId}-menu`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -232,6 +236,7 @@ export function FriendListItem({
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}10`}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         onClick={handleRemoveClick}
+                        data-testid={`notifications-friend-${friend.friendId}-remove`}
                     >
                         <TrashIcon />
                         Remove Friend
@@ -267,6 +272,7 @@ export function FriendListItem({
                                     color: colors.text.DEFAULT,
                                 }}
                                 onClick={() => setShowConfirmRemove(false)}
+                                data-testid={`notifications-friend-${friend.friendId}-remove-cancel`}
                             >
                                 Cancel
                             </button>
@@ -274,6 +280,7 @@ export function FriendListItem({
                                 className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white transition-colors"
                                 style={{ backgroundColor: colors.status.danger.DEFAULT }}
                                 onClick={handleConfirmRemove}
+                                data-testid={`notifications-friend-${friend.friendId}-remove-confirm`}
                             >
                                 Remove
                             </button>

@@ -2,14 +2,34 @@
  * Weekly Goals API - Queries and mutations for collaborative learning goals.
  */
 
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { isWeeklyPlanPayload } from "./notificationPayloads";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 5;
 const GOAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+async function dismissGoalNotifications(
+  ctx: MutationCtx,
+  goalId: Id<"weeklyGoals">
+) {
+  const notifications = await ctx.db
+    .query("notifications")
+    .withIndex("by_type", (q) => q.eq("type", "weekly_plan_invitation"))
+    .collect();
+
+  for (const notification of notifications) {
+    if (
+      isWeeklyPlanPayload(notification.payload) &&
+      notification.payload.goalId === goalId
+    ) {
+      await ctx.db.patch(notification._id, { status: "dismissed" });
+    }
+  }
+}
 
 // Types
 export type GoalRole = "creator" | "partner";
@@ -19,6 +39,32 @@ export interface GoalWithUsers {
   creator: { _id: Id<"users">; nickname?: string; email: string } | null;
   partner: { _id: Id<"users">; nickname?: string; email: string } | null;
   viewerRole: GoalRole;
+}
+
+type UserDoc = Doc<"users">;
+type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
+
+const toUserSummary = (user: UserDoc | null): UserSummary | null => {
+  if (!user) return null;
+  return { _id: user._id, nickname: user.nickname, email: user.email };
+};
+
+async function loadUsersByGoalParticipants(
+  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
+  goals: Doc<"weeklyGoals">[]
+) {
+  const userIds = new Set<Id<"users">>();
+  for (const goal of goals) {
+    userIds.add(goal.creatorId);
+    userIds.add(goal.partnerId);
+  }
+  const idList = Array.from(userIds);
+  const users = await Promise.all(idList.map((id) => ctx.db.get(id)));
+  const usersById = new Map<Id<"users">, UserDoc | null>();
+  idList.forEach((id, index) => {
+    usersById.set(id, users[index] ?? null);
+  });
+  return usersById;
 }
 
 function filterNonExpiredGoals(
@@ -78,21 +124,6 @@ export const getAllActiveGoals = query({
       .collect();
     const activeGoalsAsCreator = filterNonExpiredGoals(goalsAsCreator, now);
 
-    for (const goal of activeGoalsAsCreator) {
-      const creator = await ctx.db.get(goal.creatorId);
-      const partner = await ctx.db.get(goal.partnerId);
-      results.push({
-        goal,
-        creator: creator
-          ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
-          : null,
-        partner: partner
-          ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
-          : null,
-        viewerRole: "creator",
-      });
-    }
-
     // Get all goals where user is partner
     const goalsAsPartner = await ctx.db
       .query("weeklyGoals")
@@ -106,17 +137,23 @@ export const getAllActiveGoals = query({
       .collect();
     const activeGoalsAsPartner = filterNonExpiredGoals(goalsAsPartner, now);
 
-    for (const goal of activeGoalsAsPartner) {
-      const creator = await ctx.db.get(goal.creatorId);
-      const partner = await ctx.db.get(goal.partnerId);
+    const allActiveGoals = [...activeGoalsAsCreator, ...activeGoalsAsPartner];
+    const usersById = await loadUsersByGoalParticipants(ctx, allActiveGoals);
+
+    for (const goal of activeGoalsAsCreator) {
       results.push({
         goal,
-        creator: creator
-          ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
-          : null,
-        partner: partner
-          ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
-          : null,
+        creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
+        partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
+        viewerRole: "creator",
+      });
+    }
+
+    for (const goal of activeGoalsAsPartner) {
+      results.push({
+        goal,
+        creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
+        partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
         viewerRole: "partner",
       });
     }
@@ -155,17 +192,15 @@ export const getGoalById = query({
     // Only return active or editing goals
     if (goal.status !== "active" && goal.status !== "editing") return null;
 
-    const creator = await ctx.db.get(goal.creatorId);
-    const partner = await ctx.db.get(goal.partnerId);
+    const [creator, partner] = await Promise.all([
+      ctx.db.get(goal.creatorId),
+      ctx.db.get(goal.partnerId),
+    ]);
 
     return {
       goal,
-      creator: creator
-        ? { _id: creator._id, nickname: creator.nickname, email: creator.email }
-        : null,
-      partner: partner
-        ? { _id: partner._id, nickname: partner.nickname, email: partner.email }
-        : null,
+      creator: toUserSummary(creator),
+      partner: toUserSummary(partner),
       viewerRole: isCreator ? "creator" : "partner",
     };
   },
@@ -206,9 +241,10 @@ export const purgeExpiredGoalsForUser = mutation({
       return true;
     });
 
-    // Delete expired goals
+    // Delete expired goals and dismiss their notifications
     for (const goal of uniqueGoals) {
       if (goal.expiresAt && goal.expiresAt < now) {
+        await dismissGoalNotifications(ctx, goal._id);
         await ctx.db.delete(goal._id);
         deletedCount++;
       }
@@ -261,18 +297,16 @@ export const getEligibleThemes = query({
     const isPartner = goal.partnerId === auth.user._id;
     if (!isCreator && !isPartner) return [];
 
-    // Get themes owned by creator that are shared
+    // Get themes owned by creator
     const creatorThemes = await ctx.db
       .query("themes")
       .withIndex("by_owner", (q) => q.eq("ownerId", goal.creatorId))
-      .filter((q) => q.eq(q.field("visibility"), "shared"))
       .collect();
 
-    // Get themes owned by partner that are shared
+    // Get themes owned by partner
     const partnerThemes = await ctx.db
       .query("themes")
       .withIndex("by_owner", (q) => q.eq("ownerId", goal.partnerId))
-      .filter((q) => q.eq(q.field("visibility"), "shared"))
       .collect();
 
     // Combine and dedupe (shouldn't have dupes but just in case)
@@ -422,13 +456,12 @@ export const addTheme = mutation({
     const theme = await ctx.db.get(themeId);
     if (!theme) throw new Error("Theme not found");
 
-    // Theme must be shared and owned by one of the participants
+    // Theme must be owned by one of the participants
+    // Access is granted to the partner via the weekly goal relationship (see hasAccessViaWeeklyGoal)
     const isOwnedByCreator = theme.ownerId === goal.creatorId;
     const isOwnedByPartner = theme.ownerId === goal.partnerId;
     if (!isOwnedByCreator && !isOwnedByPartner)
       throw new Error("Theme must be owned by a participant");
-    if (theme.visibility !== "shared")
-      throw new Error("Theme must be shared");
 
     // Skip if theme is already in goal (idempotent behavior)
     if (goal.themes.some((t) => t.themeId === themeId)) {
@@ -582,7 +615,7 @@ export const lockGoal = mutation({
         .collect();
 
       const notificationForThisGoal = existingNotification.find(
-        (n) => n.payload?.goalId === goalId
+        (n) => isWeeklyPlanPayload(n.payload) && n.payload.goalId === goalId
       );
 
       if (notificationForThisGoal) {
@@ -631,6 +664,7 @@ export const deleteGoal = mutation({
       throw new Error("Cannot delete goal after a participant has locked");
     }
 
+    await dismissGoalNotifications(ctx, goalId);
     await ctx.db.delete(goalId);
   },
 });
@@ -654,7 +688,7 @@ export const completeGoal = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Delete the goal
+    await dismissGoalNotifications(ctx, goalId);
     await ctx.db.delete(goalId);
   },
 });
@@ -679,6 +713,7 @@ export const cleanupExpiredGoal = mutation({
 
     // Only delete if expired
     if (goal.expiresAt && goal.expiresAt < Date.now()) {
+      await dismissGoalNotifications(ctx, goalId);
       await ctx.db.delete(goalId);
     }
   },

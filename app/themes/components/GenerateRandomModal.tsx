@@ -49,7 +49,10 @@ export function GenerateRandomModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      data-testid="theme-generate-random-modal"
+    >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={{
@@ -76,6 +79,7 @@ export function GenerateRandomModal({
               className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
               style={{ backgroundColor: colors.primary.dark }}
               disabled={isGenerating}
+              data-testid="theme-generate-random-range"
             />
             <span className="w-8 text-center text-xl font-bold" style={{ color: colors.text.DEFAULT }}>
               {count}
@@ -118,6 +122,7 @@ export function GenerateRandomModal({
             disabled={isGenerating}
             className={actionButtonClassName}
             style={primaryActionStyle}
+            data-testid="theme-generate-random-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
           </button>
@@ -126,6 +131,7 @@ export function GenerateRandomModal({
             disabled={isGenerating}
             className={outlineButtonClassName}
             style={outlineButtonStyle}
+            data-testid="theme-generate-random-cancel"
           >
             Cancel
           </button>

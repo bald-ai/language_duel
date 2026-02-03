@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -10,7 +11,6 @@ import { toast } from "sonner";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { PartnerSelector } from "./components/PartnerSelector";
 import { GoalThemeList } from "./components/GoalThemeList";
-import { GoalThemeSelector } from "./components/GoalThemeSelector";
 import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
 import { PlanSwitcher } from "./components/PlanSwitcher";
@@ -18,6 +18,11 @@ import { MAX_THEMES_PER_GOAL } from "./constants";
 
 // Local storage key for remembering last viewed plan
 const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
+
+const GoalThemeSelector = dynamic(
+  () => import("./components/GoalThemeSelector").then((mod) => mod.GoalThemeSelector),
+  { loading: () => null }
+);
 
 // Format date as "Jan 4"
 function formatDate(timestamp: number): string {
@@ -263,6 +268,7 @@ export default function GoalsPage() {
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.dark,
             }}
+            data-testid="goals-back"
           >
             <svg
               className="w-6 h-6"
@@ -333,6 +339,7 @@ export default function GoalsPage() {
                     borderColor: colors.primary.dark,
                     color: colors.text.DEFAULT,
                   }}
+                  data-testid="goals-create-cancel"
                 >
                   Cancel
                 </button>
@@ -346,6 +353,7 @@ export default function GoalsPage() {
                   color: "white",
                   textShadow: "0 2px 4px rgba(0,0,0,0.3)",
                 }}
+                data-testid="goals-create-submit"
               >
                 {isCreating ? "Creating..." : "Create Goal"}
               </button>
@@ -451,6 +459,7 @@ export default function GoalsPage() {
                   color: colors.text.DEFAULT,
                   backgroundColor: `${colors.background.elevated}CC`,
                 }}
+                data-testid="goals-add-theme"
               >
                 + Add Theme ({selectedPlan.goal.themes.length}/{MAX_THEMES_PER_GOAL})
               </button>
@@ -504,6 +513,7 @@ export default function GoalsPage() {
                   color: "white",
                   textShadow: "0 2px 4px rgba(0,0,0,0.3)",
                 }}
+                data-testid="goals-complete"
               >
                 Complete Goal
               </button>
@@ -530,6 +540,7 @@ export default function GoalsPage() {
             borderColor: colors.primary.dark,
             color: colors.text.DEFAULT,
           }}
+          data-testid="goals-back-menu"
         >
           Back to Menu
         </button>

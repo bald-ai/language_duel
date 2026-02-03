@@ -4,12 +4,14 @@ import { colors } from "@/lib/theme";
 
 interface ExitButtonProps {
   onExit: () => Promise<void>;
+  dataTestId?: string;
 }
 
-export function ExitButton({ onExit }: ExitButtonProps) {
+export function ExitButton({ onExit, dataTestId }: ExitButtonProps) {
   return (
     <button
       onClick={onExit}
+      data-testid={dataTestId}
       className="absolute top-4 right-4 font-bold py-3 px-5 rounded-xl border-2 border-b-4 text-sm uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"
       style={{
         backgroundColor: colors.status.danger.DEFAULT,

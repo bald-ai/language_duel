@@ -96,8 +96,10 @@ export const getDuel = query({
     const isOpponent = auth.user._id === duel.opponentId;
     if (!isChallenger && !isOpponent) return null;
 
-    const challenger = await ctx.db.get(duel.challengerId);
-    const opponent = await ctx.db.get(duel.opponentId);
+    const [challenger, opponent] = await Promise.all([
+      ctx.db.get(duel.challengerId),
+      ctx.db.get(duel.opponentId),
+    ]);
     const viewerRole = isChallenger ? "challenger" : "opponent";
 
     // Return only safe user fields (no email, no clerkId)
@@ -133,30 +135,23 @@ export const getPendingDuels = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return [];
 
-    // Get all challenges where user is opponent using index
-    const allChallenges = await ctx.db
+    const pendingChallenges = await ctx.db
       .query("challenges")
-      .withIndex("by_opponent", (q) => q.eq("opponentId", auth.user._id))
+      .withIndex("by_opponent_status", (q) =>
+        q.eq("opponentId", auth.user._id).eq("status", "pending")
+      )
       .collect();
 
-    // Filter for pending challenges
-    const pendingChallenges = allChallenges.filter(
-      (challenge) =>
-        challenge.status === "pending" ||
-        (!challenge.status &&
-          challenge.currentWordIndex === 0 &&
-          !challenge.challengerAnswered &&
-          !challenge.opponentAnswered)
+    const challengerIds = Array.from(
+      new Set(pendingChallenges.map((challenge) => challenge.challengerId))
     );
+    const challengers = await Promise.all(challengerIds.map((id) => ctx.db.get(id)));
+    const challengersById = new Map(challengerIds.map((id, index) => [id, challengers[index] ?? null]));
 
-    // Populate with challenger info
-    const result = [];
-    for (const challenge of pendingChallenges) {
-      const challenger = await ctx.db.get(challenge.challengerId);
-      result.push({ challenge, challenger });
-    }
-
-    return result;
+    return pendingChallenges.map((challenge) => ({
+      challenge,
+      challenger: challengersById.get(challenge.challengerId) ?? null,
+    }));
   },
 });
 
@@ -300,4 +295,3 @@ export const cancelPendingDuel = mutation({
     await ctx.db.patch(duelId, { status: "cancelled" });
   },
 });
-
