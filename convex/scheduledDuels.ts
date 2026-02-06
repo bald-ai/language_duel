@@ -248,6 +248,13 @@ export const proposeScheduledDuel = mutation({
             createdAt: now,
         });
 
+        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+            trigger: "scheduled_duel_proposal",
+            toUserId: args.recipientId,
+            fromUserId: user._id,
+            scheduledDuelId,
+        });
+
         return { success: true, scheduledDuelId };
     },
 });
@@ -338,6 +345,13 @@ export const acceptScheduledDuel = mutation({
                 scheduledDuelStatus: "accepted",
             },
             createdAt: now,
+        });
+
+        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+            trigger: "scheduled_duel_accepted",
+            toUserId: scheduledDuel.proposerId,
+            fromUserId: user._id,
+            scheduledDuelId: args.scheduledDuelId,
         });
 
         return { success: true };
@@ -439,6 +453,13 @@ export const counterProposeScheduledDuel = mutation({
             createdAt: Date.now(),
         });
 
+        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+            trigger: "scheduled_duel_counter_proposed",
+            toUserId: otherUserId,
+            fromUserId: user._id,
+            scheduledDuelId: args.scheduledDuelId,
+        });
+
         // Dismiss old notification for current user
         const notifications = await ctx.db
             .query("notifications")
@@ -517,6 +538,13 @@ export const declineScheduledDuel = mutation({
                 });
             }
         }
+
+        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+            trigger: "scheduled_duel_declined",
+            toUserId: scheduledDuel.proposerId,
+            fromUserId: user._id,
+            scheduledDuelId: args.scheduledDuelId,
+        });
 
         return { success: true };
     },
@@ -597,6 +625,16 @@ export const cancelScheduledDuel = mutation({
                     status: "dismissed",
                 });
             }
+        }
+
+        const otherUserId = isProposer ? scheduledDuel.recipientId : scheduledDuel.proposerId;
+        if (scheduledDuel.status === "accepted") {
+            await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+                trigger: "scheduled_duel_canceled",
+                toUserId: otherUserId,
+                fromUserId: user._id,
+                scheduledDuelId: args.scheduledDuelId,
+            });
         }
 
         return { success: true };
@@ -983,7 +1021,20 @@ export const getAcceptedScheduledDuels = internalQuery({
     handler: async (ctx) => {
         return await ctx.db
             .query("scheduledDuels")
-            .filter((q) => q.eq(q.field("status"), "accepted"))
+            .withIndex("by_status", (q) => q.eq("status", "accepted"))
+            .collect();
+    },
+});
+
+export const getUpcomingAcceptedDuels = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        return await ctx.db
+            .query("scheduledDuels")
+            .withIndex("by_status_scheduled_time", (q) =>
+                q.eq("status", "accepted").gt("scheduledTime", now)
+            )
             .collect();
     },
 });
@@ -1040,7 +1091,7 @@ export const expireScheduledDuel = internalMutation({
         // Dismiss related notifications for both users
         const notifications = await ctx.db
             .query("notifications")
-            .withIndex("by_type", (q) => q.eq("type", "scheduled_duel"))
+            .withIndex("by_type_only", (q) => q.eq("type", "scheduled_duel"))
             .collect();
 
         for (const notification of notifications) {

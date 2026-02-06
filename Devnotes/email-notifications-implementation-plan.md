@@ -882,53 +882,479 @@ export function ReminderOffsetInput({ label, valueMinutes, disabled, onChange }:
 
 ---
 
-## 9. Implementation Order
+## 9. Testable Architecture
 
-### Phase 1: Foundation (Day 1)
-1. [ ] Add `notificationPreferences` table to schema
-2. [ ] Add `emailNotificationLog` table to schema
-3. [ ] Create `convex/notificationPreferences.ts` with query + mutation
-4. [ ] Create default preferences constant
+### 9.1 Design Principle
 
-### Phase 2: Email Infrastructure (Day 1-2)
-5. [ ] Create `convex/emails/notificationEmails.ts` with central send action
-6. [ ] Create helper queries for idempotency log
-7. [ ] Create email templates (start with 1-2 for testing)
+Follow the existing codebase pattern: **pure functions in `lib/`** that are easily unit-testable, with Convex actions/mutations as thin orchestration wrappers.
 
-### Phase 3: First Trigger End-to-End (Day 2)
-8. [ ] Inject trigger in `proposeScheduledDuel`
-9. [ ] Test: propose duel → email received
-10. [ ] Verify idempotency (no duplicate on retry)
+### 9.2 File Structure
 
-### Phase 4: All Triggers (Day 2-3)
-11. [ ] Inject remaining 5 scheduled duel triggers
-12. [ ] Inject immediate duel trigger
-13. [ ] Inject 3 weekly goal triggers
-14. [ ] Create remaining email templates
+```
+lib/
+  notificationPreferences.ts    ← Pure functions + constants
+  notificationTemplates.ts      ← Pure template rendering
 
-### Phase 5: Cron Reminders (Day 3)
-15. [ ] Create `sendScheduledDuelReminders` action
-16. [ ] Create `sendWeeklyGoalReminders` action
-17. [ ] Register crons in `convex/crons.ts`
-18. [ ] Test reminder delivery
+tests/lib/
+  notificationPreferences.test.ts
+  notificationTemplates.test.ts
 
-### Phase 6: Settings UI (Day 3-4)
-19. [ ] Add Notifications button to settings page
-20. [ ] Create `/settings/notifications` page
-21. [ ] Create toggle and input components
-22. [ ] Wire up to preference mutations
-23. [ ] Test preference changes reflect in email behavior
+convex/
+  notificationPreferences.ts    ← Query + mutation (thin wrappers)
+  emails/
+    notificationEmails.ts       ← Central send action (orchestration only)
+```
 
-### Phase 7: Polish & Verification (Day 4)
-24. [ ] All 12 triggers send emails correctly
-25. [ ] Preferences respected (category + individual toggles)
-26. [ ] Reminder offsets work as configured
-27. [ ] No duplicate emails
-28. [ ] Unsubscribe link works (updates preferences)
+### 9.3 Pure Functions in `lib/notificationPreferences.ts`
+
+```typescript
+// Constants
+export const DEFAULT_NOTIFICATION_PREFS = { ... };
+
+// Types
+export type NotificationTrigger = 
+  | "immediate_duel_challenge"
+  | "scheduled_duel_proposal"
+  | ... ;
+
+export type NotificationPreferences = { ... };
+
+// Pure functions
+export function isNotificationEnabled(
+  trigger: NotificationTrigger,
+  prefs: NotificationPreferences
+): boolean;
+
+export function shouldSendScheduledDuelReminder(
+  duel: { scheduledTime: number; status: string; startedDuelId?: string },
+  now: number,
+  reminderOffsetMinutes: number
+): boolean;
+
+export function shouldSendWeeklyGoalReminder(
+  goal: { expiresAt?: number; status: string },
+  now: number,
+  reminderOffsetMinutes: number
+): boolean;
+
+export function formatScheduledTime(
+  timestamp: number,
+  timezone: string
+): string;
+```
+
+### 9.4 Pure Functions in `lib/notificationTemplates.ts`
+
+```typescript
+export type EmailData = {
+  recipientName: string;
+  senderName?: string;
+  themeName?: string;
+  scheduledTime?: string;
+  hoursLeft?: number;
+  completedCount?: number;
+  totalCount?: number;
+  partnerName?: string;
+  minutesBefore?: number;
+};
+
+export function renderNotificationEmail(
+  trigger: NotificationTrigger,
+  data: EmailData
+): { subject: string; html: string };
+
+export function getSubjectForTrigger(
+  trigger: NotificationTrigger,
+  data: EmailData
+): string;
+
+export function getBodyForTrigger(
+  trigger: NotificationTrigger,
+  data: EmailData
+): string;
+```
+
+### 9.5 Thin Convex Wrapper
+
+The `sendNotificationEmail` action becomes orchestration only:
+
+```typescript
+export const sendNotificationEmail = internalAction({
+  handler: async (ctx, args) => {
+    // 1. Load data from DB
+    const toUser = await ctx.runQuery(...);
+    const prefs = await ctx.runQuery(...);
+    const alreadySent = await ctx.runQuery(...);
+    
+    // 2. Call pure functions for decisions
+    if (!isNotificationEnabled(args.trigger, prefs)) {
+      return { sent: false, reason: "disabled_by_user" };
+    }
+    if (alreadySent) {
+      return { sent: false, reason: "already_sent" };
+    }
+    
+    // 3. Build email data, call pure render function
+    const emailData = buildEmailData(...);
+    const { subject, html } = renderNotificationEmail(args.trigger, emailData);
+    
+    // 4. Send + log
+    await ctx.runAction(internal.emails.internalSendEmail, { ... });
+    await ctx.runMutation(internal.emails.logNotificationSent, { ... });
+    
+    return { sent: true };
+  },
+});
+```
 
 ---
 
-## 10. Verification Checklist
+## 10. Tests
+
+### 10.1 Test Files to Create
+
+| File | Tests |
+|------|-------|
+| `tests/lib/notificationPreferences.test.ts` | Preference logic |
+| `tests/lib/notificationTemplates.test.ts` | Template rendering |
+
+### 10.2 `notificationPreferences.test.ts` Test Cases
+
+```typescript
+describe("isNotificationEnabled", () => {
+  describe("category toggle", () => {
+    it("returns false when category is disabled", () => {
+      const prefs = { ...DEFAULT_NOTIFICATION_PREFS, scheduledDuelsEnabled: false };
+      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);
+    });
+
+    it("returns true when category enabled and trigger enabled", () => {
+      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(true);
+    });
+  });
+
+  describe("individual trigger toggle", () => {
+    it("returns false when category enabled but trigger disabled", () => {
+      const prefs = { 
+        ...DEFAULT_NOTIFICATION_PREFS, 
+        scheduledDuelsEnabled: true,
+        scheduledDuelProposalEnabled: false 
+      };
+      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);
+    });
+  });
+
+  describe("all triggers", () => {
+    it.each([
+      ["immediate_duel_challenge", "immediateDuelsEnabled", "immediateDuelChallengeEnabled"],
+      ["scheduled_duel_proposal", "scheduledDuelsEnabled", "scheduledDuelProposalEnabled"],
+      ["scheduled_duel_accepted", "scheduledDuelsEnabled", "scheduledDuelAcceptedEnabled"],
+      ["scheduled_duel_counter_proposed", "scheduledDuelsEnabled", "scheduledDuelCounterProposedEnabled"],
+      ["scheduled_duel_declined", "scheduledDuelsEnabled", "scheduledDuelDeclinedEnabled"],
+      ["scheduled_duel_canceled", "scheduledDuelsEnabled", "scheduledDuelCanceledEnabled"],
+      ["scheduled_duel_reminder", "scheduledDuelsEnabled", "scheduledDuelReminderEnabled"],
+      ["weekly_goal_invite", "weeklyGoalsEnabled", "weeklyGoalInviteEnabled"],
+      ["weekly_goal_accepted", "weeklyGoalsEnabled", "weeklyGoalAcceptedEnabled"],
+      ["weekly_goal_reminder_1", "weeklyGoalsEnabled", "weeklyGoalReminder1Enabled"],
+      ["weekly_goal_reminder_2", "weeklyGoalsEnabled", "weeklyGoalReminder2Enabled"],
+    ])("%s respects category %s and trigger %s", (trigger, category, triggerKey) => {
+      // Test each trigger maps to correct category/trigger combo
+      const prefsAllEnabled = { ...DEFAULT_NOTIFICATION_PREFS };
+      expect(isNotificationEnabled(trigger, prefsAllEnabled)).toBe(true);
+
+      const prefsCategoryDisabled = { ...DEFAULT_NOTIFICATION_PREFS, [category]: false };
+      expect(isNotificationEnabled(trigger, prefsCategoryDisabled)).toBe(false);
+
+      const prefsTriggerDisabled = { ...DEFAULT_NOTIFICATION_PREFS, [triggerKey]: false };
+      expect(isNotificationEnabled(trigger, prefsTriggerDisabled)).toBe(false);
+    });
+  });
+
+  describe("unknown trigger", () => {
+    it("returns false for unknown trigger", () => {
+      expect(isNotificationEnabled("unknown_trigger" as any, DEFAULT_NOTIFICATION_PREFS)).toBe(false);
+    });
+  });
+});
+
+describe("shouldSendScheduledDuelReminder", () => {
+  const MINUTE = 60 * 1000;
+
+  it("returns true when within reminder window", () => {
+    const duel = { scheduledTime: Date.now() + 10 * MINUTE, status: "accepted" };
+    expect(shouldSendScheduledDuelReminder(duel, Date.now(), 15)).toBe(true);
+  });
+
+  it("returns false when too early for reminder", () => {
+    const duel = { scheduledTime: Date.now() + 60 * MINUTE, status: "accepted" };
+    expect(shouldSendScheduledDuelReminder(duel, Date.now(), 15)).toBe(false);
+  });
+
+  it("returns false when duel already started", () => {
+    const duel = { scheduledTime: Date.now() - 10 * MINUTE, status: "accepted", startedDuelId: "123" };
+    expect(shouldSendScheduledDuelReminder(duel, Date.now(), 15)).toBe(false);
+  });
+
+  it("returns false when duel is declined", () => {
+    const duel = { scheduledTime: Date.now() + 10 * MINUTE, status: "declined" };
+    expect(shouldSendScheduledDuelReminder(duel, Date.now(), 15)).toBe(false);
+  });
+
+  it("returns false when past scheduled time", () => {
+    const duel = { scheduledTime: Date.now() - 5 * MINUTE, status: "accepted" };
+    expect(shouldSendScheduledDuelReminder(duel, Date.now(), 15)).toBe(false);
+  });
+});
+
+describe("shouldSendWeeklyGoalReminder", () => {
+  const HOUR = 60 * 60 * 1000;
+
+  it("returns true when within reminder window", () => {
+    const goal = { expiresAt: Date.now() + 20 * HOUR, status: "active" };
+    expect(shouldSendWeeklyGoalReminder(goal, Date.now(), 24 * 60)).toBe(true);
+  });
+
+  it("returns false when too early for reminder", () => {
+    const goal = { expiresAt: Date.now() + 48 * HOUR, status: "active" };
+    expect(shouldSendWeeklyGoalReminder(goal, Date.now(), 24 * 60)).toBe(false);
+  });
+
+  it("returns false when goal is not active", () => {
+    const goal = { expiresAt: Date.now() + 20 * HOUR, status: "editing" };
+    expect(shouldSendWeeklyGoalReminder(goal, Date.now(), 24 * 60)).toBe(false);
+  });
+
+  it("returns false when goal has no expiresAt", () => {
+    const goal = { status: "active" };
+    expect(shouldSendWeeklyGoalReminder(goal, Date.now(), 24 * 60)).toBe(false);
+  });
+
+  it("returns false when already expired", () => {
+    const goal = { expiresAt: Date.now() - 1 * HOUR, status: "active" };
+    expect(shouldSendWeeklyGoalReminder(goal, Date.now(), 24 * 60)).toBe(false);
+  });
+});
+
+describe("formatScheduledTime", () => {
+  it("formats timestamp in Europe/Bratislava timezone", () => {
+    // 2026-02-03 15:00:00 UTC
+    const timestamp = Date.UTC(2026, 1, 3, 15, 0, 0);
+    const result = formatScheduledTime(timestamp, "Europe/Bratislava");
+    // Bratislava is UTC+1 in winter, so should be 16:00
+    expect(result).toContain("16:00");
+    expect(result).toContain("Feb");
+    expect(result).toContain("3");
+  });
+});
+```
+
+### 10.3 `notificationTemplates.test.ts` Test Cases
+
+```typescript
+describe("renderNotificationEmail", () => {
+  describe("immediate duel challenge", () => {
+    it("renders correct subject and body", () => {
+      const data = { recipientName: "Player", senderName: "Challenger", themeName: "Spanish Verbs" };
+      const { subject, html } = renderNotificationEmail("immediate_duel_challenge", data);
+      
+      expect(subject).toBe("Challenger challenged you to a duel!");
+      expect(html).toContain("Challenger");
+      expect(html).toContain("Spanish Verbs");
+      expect(html).toContain("right now");
+    });
+  });
+
+  describe("scheduled duel proposal", () => {
+    it("renders correct subject and body", () => {
+      const data = { 
+        recipientName: "Player", 
+        senderName: "Proposer", 
+        themeName: "French Nouns",
+        scheduledTime: "Feb 5, 2026 at 14:00"
+      };
+      const { subject, html } = renderNotificationEmail("scheduled_duel_proposal", data);
+      
+      expect(subject).toBe("Proposer wants to schedule a duel");
+      expect(html).toContain("Proposer");
+      expect(html).toContain("French Nouns");
+      expect(html).toContain("Feb 5, 2026 at 14:00");
+    });
+  });
+
+  describe("scheduled duel accepted", () => {
+    it("renders correct subject and body", () => {
+      const data = { 
+        recipientName: "Proposer", 
+        senderName: "Accepter", 
+        themeName: "German Words",
+        scheduledTime: "Feb 6, 2026 at 10:00"
+      };
+      const { subject, html } = renderNotificationEmail("scheduled_duel_accepted", data);
+      
+      expect(subject).toBe("Accepter confirmed your duel!");
+      expect(html).toContain("Accepter");
+      expect(html).toContain("German Words");
+    });
+  });
+
+  describe("scheduled duel reminder", () => {
+    it("renders correct subject and body with minutes", () => {
+      const data = { 
+        recipientName: "Player", 
+        partnerName: "Opponent", 
+        themeName: "Italian Phrases",
+        scheduledTime: "Feb 7, 2026 at 18:00",
+        minutesBefore: 15
+      };
+      const { subject, html } = renderNotificationEmail("scheduled_duel_reminder", data);
+      
+      expect(subject).toBe("Your duel starts in 15 minutes!");
+      expect(html).toContain("Opponent");
+      expect(html).toContain("Italian Phrases");
+    });
+  });
+
+  describe("weekly goal invite", () => {
+    it("renders correct subject and body", () => {
+      const data = { recipientName: "Partner", senderName: "Inviter" };
+      const { subject, html } = renderNotificationEmail("weekly_goal_invite", data);
+      
+      expect(subject).toBe("Inviter invited you to a weekly goal");
+      expect(html).toContain("Inviter");
+      expect(html).toContain("weekly goal");
+    });
+  });
+
+  describe("weekly goal reminder", () => {
+    it("renders reminder 1 with hours left and progress", () => {
+      const data = { 
+        recipientName: "Player", 
+        partnerName: "Partner",
+        hoursLeft: 72,
+        completedCount: 2,
+        totalCount: 5
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_1", data);
+      
+      expect(subject).toBe("72 hours left on your weekly goal!");
+      expect(html).toContain("Partner");
+      expect(html).toContain("2/5");
+    });
+
+    it("renders reminder 2 as final hours", () => {
+      const data = { 
+        recipientName: "Player", 
+        partnerName: "Partner",
+        hoursLeft: 24,
+        completedCount: 3,
+        totalCount: 5
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_2", data);
+      
+      expect(subject).toBe("Final hours for your weekly goal!");
+      expect(html).toContain("3/5");
+    });
+  });
+
+  describe("all triggers render without error", () => {
+    const triggers = [
+      "immediate_duel_challenge",
+      "scheduled_duel_proposal",
+      "scheduled_duel_accepted",
+      "scheduled_duel_counter_proposed",
+      "scheduled_duel_declined",
+      "scheduled_duel_canceled",
+      "scheduled_duel_reminder",
+      "weekly_goal_invite",
+      "weekly_goal_accepted",
+      "weekly_goal_reminder_1",
+      "weekly_goal_reminder_2",
+    ] as const;
+
+    it.each(triggers)("%s renders without throwing", (trigger) => {
+      const data = { 
+        recipientName: "Test", 
+        senderName: "Sender",
+        themeName: "Theme",
+        scheduledTime: "Feb 1, 2026",
+        hoursLeft: 24,
+        completedCount: 1,
+        totalCount: 3,
+        partnerName: "Partner",
+        minutesBefore: 15,
+      };
+      expect(() => renderNotificationEmail(trigger, data)).not.toThrow();
+    });
+  });
+});
+
+describe("getSubjectForTrigger", () => {
+  it("uses sender name in subject when available", () => {
+    const subject = getSubjectForTrigger("immediate_duel_challenge", { senderName: "Alice" });
+    expect(subject).toContain("Alice");
+  });
+});
+```
+
+### 10.4 What We Don't Test
+
+- **Email delivery** — User verifies manually
+- **Convex DB operations** — Covered by Convex's own guarantees
+- **Resend API calls** — External service, not mocked
+
+---
+
+## 11. Implementation Order (Updated)
+
+### Phase 1: Pure Logic + Tests (Day 1)
+1. [ ] Create `lib/notificationPreferences.ts` with types, constants, pure functions
+2. [ ] Create `lib/notificationTemplates.ts` with template rendering
+3. [ ] Create `tests/lib/notificationPreferences.test.ts`
+4. [ ] Create `tests/lib/notificationTemplates.test.ts`
+5. [ ] Run tests, ensure all pass
+
+### Phase 2: Schema + Convex Wrappers (Day 1)
+6. [ ] Add `notificationPreferences` table to schema
+7. [ ] Add `emailNotificationLog` table to schema
+8. [ ] Create `convex/notificationPreferences.ts` with query + mutation
+
+### Phase 3: Email Infrastructure (Day 1-2)
+9. [ ] Create `convex/emails/notificationEmails.ts` with central send action
+10. [ ] Create helper queries for idempotency log
+
+### Phase 4: First Trigger End-to-End (Day 2)
+11. [ ] Inject trigger in `proposeScheduledDuel`
+12. [ ] Manual test: propose duel → email received
+13. [ ] Verify idempotency (no duplicate on retry)
+
+### Phase 5: All Triggers (Day 2-3)
+14. [ ] Inject remaining 5 scheduled duel triggers
+15. [ ] Inject immediate duel trigger
+16. [ ] Inject 3 weekly goal triggers (invite, accepted, reminders)
+
+### Phase 6: Cron Reminders (Day 3)
+17. [ ] Create `sendScheduledDuelReminders` action
+18. [ ] Create `sendWeeklyGoalReminders` action
+19. [ ] Register crons in `convex/crons.ts`
+20. [ ] Manual test reminder delivery
+
+### Phase 7: Settings UI (Day 3-4)
+21. [ ] Add Notifications button to settings page
+22. [ ] Create `/settings/notifications` page
+23. [ ] Create toggle and input components
+24. [ ] Wire up to preference mutations
+
+### Phase 8: Final Verification (Day 4)
+25. [ ] Run full test suite
+26. [ ] Manual verification of all 11 triggers (excluding weekly goal decline)
+27. [ ] Preferences respected (category + individual toggles)
+28. [ ] Reminder offsets work as configured
+29. [ ] No duplicate emails
+
+---
+
+## 12. Verification Checklist
 
 ### Preferences
 - [ ] New user has no prefs row → defaults returned
@@ -946,7 +1372,6 @@ export function ReminderOffsetInput({ label, valueMinutes, disabled, onChange }:
 - [ ] Scheduled duel reminder → both get email at offset
 - [ ] Weekly goal invite → Player B gets email
 - [ ] Weekly goal accepted → Player A gets email
-- [ ] Weekly goal declined → Player A gets email
 - [ ] Weekly goal reminder 1 → both get email at offset
 - [ ] Weekly goal reminder 2 → both get email at offset
 
@@ -967,21 +1392,21 @@ export function ReminderOffsetInput({ label, valueMinutes, disabled, onChange }:
 
 ---
 
-## 11. Open Questions / Decisions Needed
+## 13. Open Questions / Decisions Needed
 
-1. **Weekly goal invite:** Is there an explicit "invite" action, or is it implicit when goal is created with a partner? Need to locate exact mutation.
+1. **Weekly goal invite:** Implicit when goal is created with a partner via `createGoal` mutation.
 
-2. **Weekly goal decline:** Is there a decline action, or does partner just ignore? If no explicit decline, trigger #10 may not apply.
+2. **Weekly goal decline:** No explicit decline exists — delegated to known-issues. Trigger #10 skipped.
 
-3. **Email sender address:** What email/name should appear as sender? e.g., "Language Duel <noreply@languageduel.com>"
+3. **Email sender address:** Using `onboarding@resend.dev` (Resend test domain).
 
-4. **Unsubscribe flow:** One-click unsubscribe to disable all? Or per-category? Link to settings page?
+4. **Unsubscribe flow:** Link to settings page in email footer.
 
-5. **Timezone display:** Scheduled duel times in emails — use Europe/Bratislava as default timezone.
+5. **Timezone display:** Use Europe/Bratislava as default timezone.
 
 ---
 
-## 12. Dependencies
+## 14. Dependencies
 
 - **Existing:** Resend integration (`convex/emails/actions.ts`)
 - **Existing:** User email available via Clerk/users table
@@ -991,7 +1416,7 @@ export function ReminderOffsetInput({ label, valueMinutes, disabled, onChange }:
 
 ---
 
-## 13. Risks & Mitigations
+## 15. Risks & Mitigations
 
 | Risk | Mitigation |
 |------|------------|

@@ -118,6 +118,21 @@ export default function SettingsPage() {
 
         {/* TTS Provider Selector */}
         <TTSProviderSelector />
+
+        {/* Notifications Button */}
+        <button
+          onClick={() => router.push("/settings/notifications")}
+          className="w-full py-4 rounded-2xl text-lg font-bold uppercase tracking-wide transition-colors border-2 flex items-center justify-center gap-3"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
+          data-testid="settings-notifications"
+        >
+          Notifications
+        </button>
+
         {/* Back Button */}
         <button
           onClick={() => router.push("/")}

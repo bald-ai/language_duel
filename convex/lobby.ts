@@ -3,6 +3,7 @@
  */
 
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import {
   getAuthenticatedUser,
@@ -76,6 +77,13 @@ export const createDuel = mutation({
         classicDifficultyPreset: duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
       },
       createdAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+      trigger: "immediate_duel_challenge",
+      toUserId: opponentId,
+      fromUserId: challenger._id,
+      challengeId,
     });
 
     return challengeId;
@@ -296,5 +304,23 @@ export const cancelPendingDuel = mutation({
     }
 
     await ctx.db.patch(duelId, { status: "cancelled" });
+
+    // Delete the associated duel_challenge notification
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type", (q) =>
+        q.eq("type", "duel_challenge").eq("toUserId", duel.opponentId)
+      )
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .collect();
+
+    for (const notification of notifications) {
+      const payload = notification.payload as
+        | { challengeId: typeof duelId }
+        | undefined;
+      if (payload?.challengeId === duelId) {
+        await ctx.db.delete(notification._id);
+      }
+    }
   },
 });

@@ -4,8 +4,8 @@
   "description": "Language learning app for couples",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0B0A14",
-  "theme_color": "#3C34C5",
+  "background_color": "#FFF8F1",
+  "theme_color": "#FB7185",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

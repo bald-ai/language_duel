@@ -109,6 +109,7 @@ export const getCurrentUser = query({
   },
 });
 
+
 /**
  * Generate a unique discriminator for a given nickname
  */

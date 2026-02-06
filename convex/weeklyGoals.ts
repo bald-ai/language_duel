@@ -2,7 +2,8 @@
  * Weekly Goals API - Queries and mutations for collaborative learning goals.
  */
 
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
@@ -16,17 +17,29 @@ async function dismissGoalNotifications(
   ctx: MutationCtx,
   goalId: Id<"weeklyGoals">
 ) {
-  const notifications = await ctx.db
-    .query("notifications")
-    .withIndex("by_type", (q) => q.eq("type", "weekly_plan_invitation"))
-    .collect();
+  const goal = await ctx.db.get(goalId);
+  if (!goal) return;
 
-  for (const notification of notifications) {
-    if (
-      isWeeklyPlanPayload(notification.payload) &&
-      notification.payload.goalId === goalId
-    ) {
-      await ctx.db.patch(notification._id, { status: "dismissed" });
+  const participantIds = [goal.creatorId, goal.partnerId];
+
+  for (const userId of participantIds) {
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q
+          .eq("type", "weekly_plan_invitation")
+          .eq("toUserId", userId)
+          .eq("status", "pending")
+      )
+      .collect();
+
+    for (const notification of notifications) {
+      if (
+        isWeeklyPlanPayload(notification.payload) &&
+        notification.payload.goalId === goalId
+      ) {
+        await ctx.db.patch(notification._id, { status: "dismissed" });
+      }
     }
   }
 }
@@ -418,6 +431,13 @@ export const createGoal = mutation({
       createdAt: now,
     });
 
+    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+      trigger: "weekly_goal_invite",
+      toUserId: partnerId,
+      fromUserId: user._id,
+      weeklyGoalId: goalId,
+    });
+
     return goalId;
   },
 });
@@ -601,6 +621,13 @@ export const lockGoal = mutation({
       updates.status = "active";
       updates.lockedAt = now;
       updates.expiresAt = now + GOAL_DURATION_MS;
+
+      await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+        trigger: "weekly_goal_accepted",
+        toUserId: isCreator ? goal.partnerId : goal.creatorId,
+        fromUserId: user._id,
+        weeklyGoalId: goalId,
+      });
     } else {
       // First lock - update the existing notification with current theme count
       const otherUserId = isCreator ? goal.partnerId : goal.creatorId;
@@ -716,5 +743,19 @@ export const cleanupExpiredGoal = mutation({
       await dismissGoalNotifications(ctx, goalId);
       await ctx.db.delete(goalId);
     }
+  },
+});
+
+// Internal query for reminder crons
+export const getActiveGoalsWithExpiry = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    return await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_expiresAt", (q) =>
+        q.eq("status", "active").gt("expiresAt", now)
+      )
+      .collect();
   },
 });

@@ -9,17 +9,25 @@
  *   npx tsx scripts/dev-tools.ts themes            List all themes with IDs
  *   npx tsx scripts/dev-tools.ts words <themeId>   Show all words in a theme
  *   npx tsx scripts/dev-tools.ts stats             Database statistics
+ *   npx tsx scripts/dev-tools.ts email [to]        Send test email
  * 
  * EXAMPLES:
  *   npx tsx scripts/dev-tools.ts themes
  *   npx tsx scripts/dev-tools.ts words js73x14f7fzrzttmj87jjmjnn57watwx
  *   npx tsx scripts/dev-tools.ts stats
+ *   npx tsx scripts/dev-tools.ts email user@example.com
  * 
  */
 
 import { config } from "dotenv";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
+import {
+  formatEmailErrorOutput,
+  formatEmailSuccessOutput,
+  parseEmailArg,
+  validateEmailFormat,
+} from "../lib/devToolsEmail";
 import type { Id } from "../convex/_generated/dataModel";
 
 // Load .env.local from project root
@@ -106,6 +114,27 @@ async function showStats() {
   }
 }
 
+async function sendTestEmail(toEmailArg?: string) {
+  console.log("\n📧 Send Test Email\n" + "=".repeat(50));
+  const toEmail = parseEmailArg(toEmailArg);
+  if (toEmail && !validateEmailFormat(toEmail)) {
+    console.error(`\n❌ Invalid email format: ${toEmail}`);
+    process.exit(1);
+  }
+  
+  try {
+    const result = await client.action(api.emails.actions.sendTestEmail, {
+      to: toEmail,
+    });
+    
+    console.log(formatEmailSuccessOutput(result).join("\n"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(formatEmailErrorOutput(message));
+    process.exit(1);
+  }
+}
+
 // Main CLI handler
 async function main() {
   const [command, arg] = process.argv.slice(2);
@@ -125,6 +154,9 @@ async function main() {
     case "stats":
       await showStats();
       break;
+    case "email":
+      await sendTestEmail(arg);
+      break;
     default:
       console.log(`
 🛠️  Language Duel Dev Tools
@@ -133,11 +165,14 @@ Commands:
   themes          List all themes with their IDs
   words <id>      Show all words in a specific theme
   stats           Show database statistics
+  email [to]      Send a test email (default: baldai@hey.com)
 
 Examples:
-  npx ts-node scripts/dev-tools.ts themes
-  npx ts-node scripts/dev-tools.ts words jd7abc123...
-  npx ts-node scripts/dev-tools.ts stats
+  npx tsx scripts/dev-tools.ts themes
+  npx tsx scripts/dev-tools.ts words jd7abc123...
+  npx tsx scripts/dev-tools.ts stats
+  npx tsx scripts/dev-tools.ts email
+  npx tsx scripts/dev-tools.ts email user@example.com
       `);
   }
 }

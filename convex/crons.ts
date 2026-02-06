@@ -16,4 +16,16 @@ crons.interval(
     internal.scheduledDuels.autoCleanupScheduledDuels
 );
 
+crons.interval(
+    "send-scheduled-duel-reminders",
+    { minutes: 5 },
+    internal.emails.reminderCrons.sendScheduledDuelReminders
+);
+
+crons.interval(
+    "send-weekly-goal-reminders",
+    { hours: 1 },
+    internal.emails.reminderCrons.sendWeeklyGoalReminders
+);
+
 export default crons;

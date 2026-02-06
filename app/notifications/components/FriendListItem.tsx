@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { colors } from "@/lib/theme";
 import type { FriendWithDetails } from "@/convex/friends";
@@ -32,6 +33,7 @@ export function FriendListItem({
     const itemRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+    const canUseDom = typeof document !== "undefined";
 
     // Handle right-click (desktop)
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -94,6 +96,80 @@ export function FriendListItem({
         setShowConfirmRemove(false);
         onRemoveFriend();
     };
+
+    // Render overlays (context menu + confirm dialog) in a portal to avoid
+    // being affected by transformed/overflow-hidden ancestors (the notification panel).
+    const contextMenu = showMenu ? (
+        <div
+            className="fixed z-[100] py-1 rounded-lg shadow-xl min-w-[160px] animate-scale-in"
+            style={{
+                left: Math.min(
+                    menuPosition.x,
+                    (typeof window !== "undefined" ? window.innerWidth : 0) - 180
+                ),
+                top: menuPosition.y,
+                backgroundColor: colors.background.elevated,
+                border: `1px solid ${colors.neutral.light}30`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <button
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
+                style={{ color: colors.status.danger.DEFAULT }}
+                onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}10`)
+                }
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                onClick={handleRemoveClick}
+                data-testid={`notifications-friend-${friend.friendId}-remove`}
+            >
+                <TrashIcon />
+                Remove Friend
+            </button>
+        </div>
+    ) : null;
+
+    const confirmRemoveDialog = showConfirmRemove ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50">
+            <div
+                className="p-4 rounded-xl max-w-[300px] w-full shadow-2xl animate-scale-in"
+                style={{ backgroundColor: colors.background.elevated }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3
+                    className="text-lg font-semibold mb-2"
+                    style={{ color: colors.text.DEFAULT }}
+                >
+                    Remove Friend?
+                </h3>
+                <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
+                    Are you sure you want to remove{" "}
+                    <strong>{friend.nickname || friend.name}</strong> from your friends?
+                </p>
+                <div className="flex gap-2">
+                    <button
+                        className="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                        style={{
+                            backgroundColor: colors.background.DEFAULT,
+                            color: colors.text.DEFAULT,
+                        }}
+                        onClick={() => setShowConfirmRemove(false)}
+                        data-testid={`notifications-friend-${friend.friendId}-remove-cancel`}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white transition-colors"
+                        style={{ backgroundColor: colors.status.danger.DEFAULT }}
+                        onClick={handleConfirmRemove}
+                        data-testid={`notifications-friend-${friend.friendId}-remove-confirm`}
+                    >
+                        Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    ) : null;
 
     return (
         <>
@@ -218,76 +294,11 @@ export function FriendListItem({
                 </div>
             </div>
 
-            {/* Context Menu */}
-            {showMenu && (
-                <div
-                    className="fixed z-[100] py-1 rounded-lg shadow-xl min-w-[160px] animate-scale-in"
-                    style={{
-                        left: Math.min(menuPosition.x, window.innerWidth - 180),
-                        top: menuPosition.y,
-                        backgroundColor: colors.background.elevated,
-                        border: `1px solid ${colors.neutral.light}30`,
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <button
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
-                        style={{ color: colors.status.danger.DEFAULT }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}10`}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        onClick={handleRemoveClick}
-                        data-testid={`notifications-friend-${friend.friendId}-remove`}
-                    >
-                        <TrashIcon />
-                        Remove Friend
-                    </button>
-                </div>
-            )}
-
-            {/* Confirm Remove Dialog */}
-            {showConfirmRemove && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50">
-                    <div
-                        className="p-4 rounded-xl max-w-[300px] w-full shadow-2xl animate-scale-in"
-                        style={{ backgroundColor: colors.background.elevated }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h3
-                            className="text-lg font-semibold mb-2"
-                            style={{ color: colors.text.DEFAULT }}
-                        >
-                            Remove Friend?
-                        </h3>
-                        <p
-                            className="text-sm mb-4"
-                            style={{ color: colors.text.muted }}
-                        >
-                            Are you sure you want to remove <strong>{friend.nickname || friend.name}</strong> from your friends?
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                className="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-                                style={{
-                                    backgroundColor: colors.background.DEFAULT,
-                                    color: colors.text.DEFAULT,
-                                }}
-                                onClick={() => setShowConfirmRemove(false)}
-                                data-testid={`notifications-friend-${friend.friendId}-remove-cancel`}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white transition-colors"
-                                style={{ backgroundColor: colors.status.danger.DEFAULT }}
-                                onClick={handleConfirmRemove}
-                                data-testid={`notifications-friend-${friend.friendId}-remove-confirm`}
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Overlays */}
+            {canUseDom && contextMenu ? createPortal(contextMenu, document.body) : contextMenu}
+            {canUseDom && confirmRemoveDialog
+                ? createPortal(confirmRemoveDialog, document.body)
+                : confirmRemoveDialog}
         </>
     );
 }
