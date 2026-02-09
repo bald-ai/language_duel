@@ -13,7 +13,7 @@ function getResendClient(): Resend {
     return new Resend(apiKey);
 }
 
-const FROM_EMAIL = "onboarding@resend.dev";
+const FROM_EMAIL = "noreply@language-duel.com";
 
 export const internalSendEmail = internalAction({
     args: {

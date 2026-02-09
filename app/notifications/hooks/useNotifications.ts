@@ -15,11 +15,11 @@ export function useNotifications() {
     // Mutations
     const dismissNotificationMutation = useMutation(api.notifications.dismissNotification);
     const markReadMutation = useMutation(api.notifications.markNotificationRead);
-    const acceptFriendRequestMutation = useMutation(api.notifications.acceptFriendRequestNotification);
-    const rejectFriendRequestMutation = useMutation(api.notifications.rejectFriendRequestNotification);
-    const acceptDuelChallengeMutation = useMutation(api.notifications.acceptDuelChallenge);
-    const declineDuelChallengeMutation = useMutation(api.notifications.declineDuelChallenge);
-    const dismissWeeklyPlanMutation = useMutation(api.notifications.dismissWeeklyPlanInvitation);
+    const acceptFriendRequestMutation = useMutation(api.friends.acceptFriendRequestNotification);
+    const rejectFriendRequestMutation = useMutation(api.friends.rejectFriendRequestNotification);
+    const acceptDuelChallengeMutation = useMutation(api.lobby.acceptDuelChallenge);
+    const declineDuelChallengeMutation = useMutation(api.lobby.declineDuelChallenge);
+    const dismissWeeklyPlanMutation = useMutation(api.weeklyGoals.dismissWeeklyPlanInvitation);
 
     // Scheduled duel mutations
     const acceptScheduledDuelMutation = useMutation(api.scheduledDuels.acceptScheduledDuel);

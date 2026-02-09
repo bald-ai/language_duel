@@ -7,10 +7,10 @@ describe("renderNotificationEmail", () => {
       const data = { recipientName: "Player", senderName: "Challenger", themeName: "Spanish Verbs" };
       const { subject, html } = renderNotificationEmail("immediate_duel_challenge", data);
 
-      expect(subject).toBe("Challenger challenged you to a duel!");
+      expect(subject).toBe("Challenger just threw down the gauntlet!");
       expect(html).toContain("Challenger");
       expect(html).toContain("Spanish Verbs");
-      expect(html).toContain("right now");
+      expect(html).toContain("clock is ticking");
     });
   });
 
@@ -24,7 +24,7 @@ describe("renderNotificationEmail", () => {
       };
       const { subject, html } = renderNotificationEmail("scheduled_duel_proposal", data);
 
-      expect(subject).toBe("Proposer wants to schedule a duel");
+      expect(subject).toBe("Proposer wants to duel -- you in?");
       expect(html).toContain("Proposer");
       expect(html).toContain("French Nouns");
       expect(html).toContain("Feb 5, 2026 at 14:00");
@@ -41,7 +41,7 @@ describe("renderNotificationEmail", () => {
       };
       const { subject, html } = renderNotificationEmail("scheduled_duel_accepted", data);
 
-      expect(subject).toBe("Accepter confirmed your duel!");
+      expect(subject).toBe("It's on! Accepter accepted your duel");
       expect(html).toContain("Accepter");
       expect(html).toContain("German Words");
     });
@@ -58,7 +58,7 @@ describe("renderNotificationEmail", () => {
       };
       const { subject, html } = renderNotificationEmail("scheduled_duel_reminder", data);
 
-      expect(subject).toBe("Your duel starts in 15 minutes!");
+      expect(subject).toBe("15 min until showdown!");
       expect(html).toContain("Opponent");
       expect(html).toContain("Italian Phrases");
     });
@@ -69,7 +69,7 @@ describe("renderNotificationEmail", () => {
       const data = { recipientName: "Partner", senderName: "Inviter" };
       const { subject, html } = renderNotificationEmail("weekly_goal_invite", data);
 
-      expect(subject).toBe("Inviter invited you to a weekly goal");
+      expect(subject).toBe("Inviter dares you to a weekly goal");
       expect(html).toContain("Inviter");
       expect(html).toContain("weekly goal");
     });
@@ -86,7 +86,7 @@ describe("renderNotificationEmail", () => {
       };
       const { subject, html } = renderNotificationEmail("weekly_goal_reminder_1", data);
 
-      expect(subject).toBe("72 hours left on your weekly goal!");
+      expect(subject).toBe("Tick tock -- 72h left on your goal!");
       expect(html).toContain("Partner");
       expect(html).toContain("2/5");
     });
@@ -101,7 +101,7 @@ describe("renderNotificationEmail", () => {
       };
       const { subject, html } = renderNotificationEmail("weekly_goal_reminder_2", data);
 
-      expect(subject).toBe("Final hours for your weekly goal!");
+      expect(subject).toBe("Last chance! Your weekly goal is almost up");
       expect(html).toContain("3/5");
     });
   });

@@ -23,11 +23,9 @@ export default function ClassicDuelPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useUser();
-  const duelId = params.duelId as string;
+  const duelId = typeof params.duelId === "string" ? params.duelId : "";
 
-  const duelData = useQuery(api.duel.getDuel, { 
-    duelId: duelId as Id<"challenges"> 
-  });
+  const duelData = useQuery(api.duel.getDuel, duelId ? { duelId: duelId as Id<"challenges"> } : "skip");
 
   const { 
     duel, 
@@ -53,7 +51,9 @@ export default function ClassicDuelPage() {
 
   let content: React.ReactNode;
 
-  if (!user) {
+  if (!duelId) {
+    content = <FullScreenMessage>Invalid duel link.</FullScreenMessage>;
+  } else if (!user) {
     content = <FullScreenMessage>Sign in first.</FullScreenMessage>;
   } else if (duelData === undefined) {
     content = <FullScreenMessage>Loading duel...</FullScreenMessage>;

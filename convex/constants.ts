@@ -107,6 +107,8 @@ export const LCG_INCREMENT = 12345;
 export const LCG_MODULUS = 0x7fffffff;
 /** Prime used for question index seeding */
 export const QUESTION_INDEX_PRIME = 7919;
+/** XOR mask for seed initialization */
+export const SEED_XOR_MASK = 0xdeadbeef;
 
 // ===========================================
 // Magic String Constants

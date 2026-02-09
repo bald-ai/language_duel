@@ -14,6 +14,7 @@ import {
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
+import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
 
@@ -289,6 +290,10 @@ export async function buildEmailData(
     });
     data.senderName = fromUser?.nickname ?? fromUser?.name ?? "Player";
     data.partnerName = data.senderName;
+
+    const paletteName = fromUser?.selectedColorSet ?? DEFAULT_THEME_NAME;
+    const palette = colorPalettes.find((p) => p.name === paletteName) ?? colorPalettes[0];
+    data.senderPalette = { bg: palette.bg, primary: palette.primary, accent: palette.accent };
   }
 
   if (args.challengeId) {

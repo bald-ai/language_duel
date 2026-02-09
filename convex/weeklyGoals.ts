@@ -759,3 +759,31 @@ export const getActiveGoalsWithExpiry = internalQuery({
       .collect();
   },
 });
+
+export const dismissWeeklyPlanInvitation = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    if (notification.toUserId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    if (notification.type !== "weekly_plan_invitation") {
+      throw new Error("Invalid notification type");
+    }
+
+    await ctx.db.patch(args.notificationId, {
+      status: "dismissed",
+    });
+
+    return { success: true };
+  },
+});

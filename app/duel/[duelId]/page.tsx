@@ -25,14 +25,14 @@ export default function DuelPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useUser();
-  const duelId = params.duelId as string;
+  const duelId = typeof params.duelId === "string" ? params.duelId : "";
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
 
   // TTS audio playback
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
-  const duelData = useQuery(api.duel.getDuel, { duelId: duelId as Id<"challenges"> });
+  const duelData = useQuery(api.duel.getDuel, duelId ? { duelId: duelId as Id<"challenges"> } : "skip");
   const answer = useMutation(api.duel.answerDuel);
   const stopDuel = useMutation(api.duel.stopDuel);
   const requestHint = useMutation(api.duel.requestHint);
@@ -259,6 +259,7 @@ export default function DuelPage() {
 
   // Early returns AFTER all hooks
   if (!user) return <DuelStatusMessage message="Sign in first." tone="warning" />;
+  if (!duelId) return <DuelStatusMessage message="Invalid duel link." tone="danger" />;
   if (duelData === undefined)
     return <DuelStatusMessage message="Loading duel..." showSpinner />;
   if (duelData === null)

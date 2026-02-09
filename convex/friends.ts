@@ -453,3 +453,105 @@ export const removeFriend = mutation({
     return { success: true };
   },
 });
+
+export const acceptFriendRequestNotification = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    if (notification.toUserId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    if (notification.type !== "friend_request") {
+      throw new Error("Invalid notification type");
+    }
+
+    const payload = notification.payload;
+    if (!isFriendRequestPayload(payload)) {
+      throw new Error("Friend request ID not found in notification");
+    }
+    const friendRequestId = payload.friendRequestId;
+
+    const friendRequest = await ctx.db.get(friendRequestId);
+    if (!friendRequest) {
+      throw new Error("Friend request not found");
+    }
+
+    if (friendRequest.status !== "pending") {
+      throw new Error("Friend request is no longer pending");
+    }
+
+    await ctx.db.patch(friendRequestId, {
+      status: "accepted",
+    });
+
+    const now = Date.now();
+    await ctx.db.insert("friends", {
+      userId: friendRequest.senderId,
+      friendId: friendRequest.receiverId,
+      createdAt: now,
+    });
+    await ctx.db.insert("friends", {
+      userId: friendRequest.receiverId,
+      friendId: friendRequest.senderId,
+      createdAt: now,
+    });
+
+    await ctx.db.patch(args.notificationId, {
+      status: "dismissed",
+    });
+
+    return { success: true };
+  },
+});
+
+export const rejectFriendRequestNotification = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    if (notification.toUserId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    if (notification.type !== "friend_request") {
+      throw new Error("Invalid notification type");
+    }
+
+    const payload = notification.payload;
+    if (!isFriendRequestPayload(payload)) {
+      throw new Error("Friend request ID not found in notification");
+    }
+    const friendRequestId = payload.friendRequestId;
+
+    const friendRequest = await ctx.db.get(friendRequestId);
+    if (!friendRequest) {
+      throw new Error("Friend request not found");
+    }
+
+    await ctx.db.patch(friendRequestId, {
+      status: "rejected",
+    });
+
+    await ctx.db.patch(args.notificationId, {
+      status: "dismissed",
+    });
+
+    return { success: true };
+  },
+});

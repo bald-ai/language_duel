@@ -30,10 +30,10 @@ interface HintState {
 export default function DuelLearnPage() {
   const params = useParams();
   const router = useRouter();
-  const duelId = params.duelId as string;
+  const duelId = typeof params.duelId === "string" ? params.duelId : "";
 
   // Fetch duel data
-  const duelData = useQuery(api.duel.getDuel, { duelId: duelId as Id<"challenges"> });
+  const duelData = useQuery(api.duel.getDuel, duelId ? { duelId: duelId as Id<"challenges"> } : "skip");
   const theme = duelData?.theme ?? null;
 
   // Mutations
@@ -299,6 +299,9 @@ export default function DuelLearnPage() {
   };
 
   // Loading states
+  if (!duelId) {
+    return renderMessage("Invalid duel link.", "danger");
+  }
   if (duelData === null) {
     return renderMessage("You're not part of this duel", "danger");
   }

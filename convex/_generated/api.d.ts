@@ -20,6 +20,7 @@ import type * as emails_types from "../emails/types.js";
 import type * as friends from "../friends.js";
 import type * as gameplay from "../gameplay.js";
 import type * as helpers_auth from "../helpers/auth.js";
+import type * as helpers_duelInitialization from "../helpers/duelInitialization.js";
 import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
 import type * as hints from "../hints.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   friends: typeof friends;
   gameplay: typeof gameplay;
   "helpers/auth": typeof helpers_auth;
+  "helpers/duelInitialization": typeof helpers_duelInitialization;
   "helpers/gameLogic": typeof helpers_gameLogic;
   "helpers/index": typeof helpers_index;
   hints: typeof hints;

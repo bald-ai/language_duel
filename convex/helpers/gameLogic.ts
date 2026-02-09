@@ -369,7 +369,9 @@ export function determineInitialLevelSeeded(seed: number): { level: number; newS
 /**
  * Determine Level 2 mode (typing vs multiple choice) - non-deterministic.
  */
-export function determineLevel2Mode(): string {
+export type Level2Mode = "typing" | "multiple_choice";
+
+export function determineLevel2Mode(): Level2Mode {
   return Math.random() < LEVEL_2_TYPING_PROBABILITY
     ? "typing"
     : "multiple_choice";
@@ -378,9 +380,9 @@ export function determineLevel2Mode(): string {
 /**
  * Determine Level 2 mode using seeded PRNG (for mutations).
  */
-export function determineLevel2ModeSeeded(seed: number): { mode: string; newSeed: number } {
+export function determineLevel2ModeSeeded(seed: number): { mode: Level2Mode; newSeed: number } {
   const newSeed = advanceSeed(seed);
-  const mode = (newSeed / LCG_MODULUS) < LEVEL_2_TYPING_PROBABILITY ? "typing" : "multiple_choice";
+  const mode: Level2Mode = (newSeed / LCG_MODULUS) < LEVEL_2_TYPING_PROBABILITY ? "typing" : "multiple_choice";
   return { mode, newSeed };
 }
 

@@ -2,13 +2,9 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { isScheduledDuelPayload } from "./notificationPayloads";
-import {
-    createShuffledWordOrder,
-    initializeWordPoolsSeeded,
-    createInitialWordStates,
-    determineInitialLevelSeeded,
-    determineLevel2ModeSeeded,
-} from "./helpers/gameLogic";
+import { createShuffledWordOrder } from "./helpers/gameLogic";
+import { buildSoloInitState } from "./helpers/duelInitialization";
+import { SEED_XOR_MASK } from "./constants";
 
 // ===========================================
 // Type Definitions
@@ -829,7 +825,7 @@ export const startScheduledDuel = internalMutation({
         const now = Date.now();
 
         // Initialize seed for deterministic random
-        let seed = now ^ 0xdeadbeef;
+        const seed = now ^ SEED_XOR_MASK;
         const wordCount = theme.words.length;
 
         // Create the challenge based on mode
@@ -855,36 +851,7 @@ export const startScheduledDuel = internalMutation({
             });
         } else {
             // Solo mode - initialize word states and pools
-            const challengerPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-            seed = challengerPoolsResult.newSeed;
-
-            const opponentPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-            seed = opponentPoolsResult.newSeed;
-
-            const wordStates = createInitialWordStates(wordCount);
-
-            // Pick first question for each player
-            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-            const challengerFirstWord = challengerPoolsResult.activePool[
-                Math.floor((seed / 0x7fffffff) * challengerPoolsResult.activePool.length)
-            ];
-
-            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-            const opponentFirstWord = opponentPoolsResult.activePool[
-                Math.floor((seed / 0x7fffffff) * opponentPoolsResult.activePool.length)
-            ];
-
-            const challengerLevel = determineInitialLevelSeeded(seed);
-            seed = challengerLevel.newSeed;
-
-            const challengerL2Mode = determineLevel2ModeSeeded(seed);
-            seed = challengerL2Mode.newSeed;
-
-            const opponentLevel = determineInitialLevelSeeded(seed);
-            seed = opponentLevel.newSeed;
-
-            const opponentL2Mode = determineLevel2ModeSeeded(seed);
-            seed = opponentL2Mode.newSeed;
+            const soloState = buildSoloInitState(wordCount, seed);
 
             challengeId = await ctx.db.insert("challenges", {
                 challengerId: scheduledDuel.proposerId,
@@ -900,25 +867,7 @@ export const startScheduledDuel = internalMutation({
                 mode: "solo",
                 createdAt: now,
                 questionStartTime: now,
-                seed,
-                // Challenger state
-                challengerWordStates: wordStates,
-                challengerActivePool: challengerPoolsResult.activePool,
-                challengerRemainingPool: challengerPoolsResult.remainingPool,
-                challengerCurrentWordIndex: challengerFirstWord,
-                challengerCurrentLevel: challengerLevel.level,
-                challengerLevel2Mode: challengerL2Mode.mode,
-                challengerCompleted: false,
-                challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
-                // Opponent state
-                opponentWordStates: [...wordStates],
-                opponentActivePool: opponentPoolsResult.activePool,
-                opponentRemainingPool: opponentPoolsResult.remainingPool,
-                opponentCurrentWordIndex: opponentFirstWord,
-                opponentCurrentLevel: opponentLevel.level,
-                opponentLevel2Mode: opponentL2Mode.mode,
-                opponentCompleted: false,
-                opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
+                ...soloState,
             });
         }
 

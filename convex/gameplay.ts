@@ -3,6 +3,7 @@
  */
 
 import { mutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getDuelParticipant,
@@ -15,10 +16,6 @@ import {
   getPointsForIndex,
   isHardModeIndex,
   isNoneOfTheAboveCorrect,
-  initializeWordPoolsSeeded,
-  createInitialWordStates,
-  determineInitialLevelSeeded,
-  determineLevel2ModeSeeded,
   updateWordStateAfterAnswerSeeded,
   shouldExpandPool,
   expandPoolSeeded,
@@ -27,12 +24,14 @@ import {
   type ClassicDifficultyPreset,
   type WordState,
 } from "./helpers/gameLogic";
+import { buildSoloInitState } from "./helpers/duelInitialization";
 import {
   HINT_PROVIDER_BONUS,
   TIMER_OPTIONS,
   DEFAULT_TIMER_DURATION,
   NONE_OF_THE_ABOVE,
   TIMEOUT_ANSWER,
+  SEED_XOR_MASK,
 } from "./constants";
 
 // ===========================================
@@ -223,7 +222,8 @@ export const timeoutAnswer = mutation({
     const updatedDuel = await ctx.db.get(duelId);
     if (updatedDuel?.challengerAnswered && updatedDuel?.opponentAnswered) {
       const theme = await ctx.db.get(updatedDuel.themeId);
-      const wordCount = theme?.words.length || 0;
+      if (!theme) throw new Error("Theme not found");
+      const wordCount = theme.words.length;
       const nextWordIndex = updatedDuel.currentWordIndex + 1;
 
       if (nextWordIndex >= wordCount) {
@@ -433,62 +433,12 @@ export const initializeDuelChallenge = mutation({
     if (!theme) throw new Error("Theme not found");
 
     const wordCount = theme.words.length;
-    
-    // Initialize seed for deterministic random
-    let seed = duel.seed ?? (Date.now() ^ 0xdeadbeef);
-    
-    const challengerPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-    seed = challengerPoolsResult.newSeed;
-    
-    const opponentPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-    seed = opponentPoolsResult.newSeed;
-    
-    const wordStates = createInitialWordStates(wordCount);
 
-    // Pick first question for each player using seeded PRNG
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const challengerFirstWord =
-      challengerPoolsResult.activePool[
-        Math.floor((seed / 0x7fffffff) * challengerPoolsResult.activePool.length)
-      ];
-    
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const opponentFirstWord =
-      opponentPoolsResult.activePool[
-        Math.floor((seed / 0x7fffffff) * opponentPoolsResult.activePool.length)
-      ];
-
-    const challengerLevel = determineInitialLevelSeeded(seed);
-    seed = challengerLevel.newSeed;
-    
-    const challengerL2Mode = determineLevel2ModeSeeded(seed);
-    seed = challengerL2Mode.newSeed;
-    
-    const opponentLevel = determineInitialLevelSeeded(seed);
-    seed = opponentLevel.newSeed;
-    
-    const opponentL2Mode = determineLevel2ModeSeeded(seed);
-    seed = opponentL2Mode.newSeed;
+    const soloState = buildSoloInitState(wordCount, duel.seed);
 
     await ctx.db.patch(duelId, {
       status: "challenging",
-      seed,
-      challengerWordStates: wordStates,
-      challengerActivePool: challengerPoolsResult.activePool,
-      challengerRemainingPool: challengerPoolsResult.remainingPool,
-      challengerCurrentWordIndex: challengerFirstWord,
-      challengerCurrentLevel: challengerLevel.level,
-      challengerLevel2Mode: challengerL2Mode.mode,
-      challengerCompleted: false,
-      challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
-      opponentWordStates: [...wordStates],
-      opponentActivePool: opponentPoolsResult.activePool,
-      opponentRemainingPool: opponentPoolsResult.remainingPool,
-      opponentCurrentWordIndex: opponentFirstWord,
-      opponentCurrentLevel: opponentLevel.level,
-      opponentLevel2Mode: opponentL2Mode.mode,
-      opponentCompleted: false,
-      opponentStats: { questionsAnswered: 0, correctAnswers: 0 },
+      ...soloState,
     });
   },
 });
@@ -547,7 +497,7 @@ export const submitSoloAnswer = mutation({
     const isCorrect = answer === currentWord.answer;
 
     // Get or initialize seed for deterministic random
-    let seed = duel.seed ?? (Date.now() ^ 0xdeadbeef);
+    let seed = duel.seed ?? (Date.now() ^ SEED_XOR_MASK);
 
     // Find and update word state
     const newWordStates = [...wordStates];
@@ -583,7 +533,7 @@ export const submitSoloAnswer = mutation({
     seed = nextResult.newSeed;
 
     // Build update object
-    const update: Record<string, unknown> = {
+    const update: Partial<Doc<"challenges">> = {
       ...getSoloHintClearFields(),
       seed,
     };
