@@ -497,9 +497,13 @@ export default function ClassicDuelChallenge({
   }, [sendSabotage, duel._id]);
 
   const handlePlayAudio = useCallback(() => {
-    const correctAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
-    playAudio(correctAnswer);
-  }, [frozenData, currentWord.answer, playAudio]);
+    const activeWord = frozenData
+      ? words[wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex]
+      : currentWord;
+    const correctAnswer = activeWord?.answer;
+    if (!correctAnswer || correctAnswer === "done") return;
+    playAudio(`classic-answer-${correctAnswer}`, correctAnswer, activeWord.ttsStorageId);
+  }, [currentWord, frozenData, playAudio, wordOrder, words]);
 
   // Early returns AFTER all hooks are defined
   if (!user) {

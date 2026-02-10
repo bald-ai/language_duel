@@ -9,6 +9,7 @@ const wordValidator = v.object({
   word: v.string(),
   answer: v.string(),
   wrongAnswers: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
 });
 
 const playerRoleValidator = v.union(v.literal("challenger"), v.literal("opponent"));
@@ -164,6 +165,9 @@ export default defineSchema({
     selectedBackground: v.optional(v.string()),
     // Archived themes (hidden from main list)
     archivedThemeIds: v.optional(v.array(v.id("themes"))),
+    // Guard against concurrent theme-level TTS generation runs
+    ttsGenerationLockToken: v.optional(v.string()),
+    ttsGenerationLockExpiresAt: v.optional(v.number()),
     // Presence tracking
     lastSeenAt: v.optional(v.number()),
   })

@@ -39,7 +39,7 @@ interface WordRowData {
   onRevealLetter: (wordKey: string, position: number) => void;
   onRevealFullWord: (wordKey: string, answer: string) => void;
   onResetWord: (wordKey: string) => void;
-  onPlayTTS: (wordKey: string, answer: string) => void;
+  onPlayTTS: (wordKey: string, answer: string, storageId?: WordEntry["ttsStorageId"]) => void;
   setRowSize: (index: number, size: number) => void;
 }
 
@@ -84,7 +84,7 @@ const WordRow = memo(function WordRow({
           onRevealLetter={(position) => data.onRevealLetter(wordKey, position)}
           onRevealFullWord={() => data.onRevealFullWord(wordKey, word.answer)}
           onReset={() => data.onResetWord(wordKey)}
-          onPlayTTS={() => data.onPlayTTS(wordKey, word.answer)}
+          onPlayTTS={() => data.onPlayTTS(wordKey, word.answer, word.ttsStorageId)}
           dataTestIdBase={dataTestIdBase}
         />
       </div>
@@ -267,7 +267,8 @@ export default function StudyPage() {
       onRevealLetter: revealLetter,
       onRevealFullWord: revealFullWord,
       onResetWord: resetWord,
-      onPlayTTS: playTTS,
+      onPlayTTS: (wordKey: string, answer: string, storageId?: WordEntry["ttsStorageId"]) =>
+        playTTS(wordKey, answer, { storageId }),
       setRowSize,
     }),
     [

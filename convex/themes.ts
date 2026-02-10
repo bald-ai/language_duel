@@ -1,8 +1,12 @@
-import { mutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { hasThemeAccess } from "../lib/themeAccess";
+import { TTS_GENERATION_COST } from "../lib/credits/constants";
+import { stripIrr } from "../lib/stringUtils";
+import { reconcileThemeWordTts } from "../lib/themes/tts";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
@@ -10,7 +14,142 @@ const wordValidator = v.object({
   word: v.string(),
   answer: v.string(),
   wrongAnswers: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
 });
+
+const RESEMBLE_BASE_URL = "https://app.resemble.ai/api/v2";
+const RESEMBLE_PROJECT_UUID = "5d2d9092";
+const RESEMBLE_VOICE_UUID = "a253156d";
+const RESEMBLE_TIMEOUT_MS = 30_000;
+const RESEMBLE_MAX_POLL_ATTEMPTS = 30;
+const RESEMBLE_POLL_INTERVAL_MS = 500;
+const TTS_GENERATION_LOCK_MS = 10 * 60 * 1000;
+
+type ThemeWordWithTts = {
+  word: string;
+  answer: string;
+  wrongAnswers: string[];
+  ttsStorageId?: Id<"_storage">;
+};
+
+type GeneratedWordTtsResult = {
+  wordIndex: number;
+  sourceWord: string;
+  sourceAnswer: string;
+  storageId: Id<"_storage">;
+};
+
+function createTtsGenerationLockToken(): string {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `tts-lock-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getResembleApiKey(): string | null {
+  const apiKey = process.env.RESEMBLE_API_KEY;
+  if (!apiKey) return null;
+  const trimmed = apiKey.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getResembleHeaders(apiKey: string) {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function createResembleClip(
+  text: string,
+  signal: AbortSignal,
+  apiKey: string
+): Promise<{ uuid: string; audio_src?: string } | null> {
+  const response = await fetch(
+    `${RESEMBLE_BASE_URL}/projects/${RESEMBLE_PROJECT_UUID}/clips`,
+    {
+      method: "POST",
+      headers: getResembleHeaders(apiKey),
+      body: JSON.stringify({
+        voice_uuid: RESEMBLE_VOICE_UUID,
+        body: text,
+        is_public: false,
+        is_archived: false,
+      }),
+      signal,
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[Theme TTS] Resemble clip create failed:", errorText);
+    return null;
+  }
+
+  const data = await response.json();
+  return data.item || data.data || data;
+}
+
+async function waitForResembleAudio(
+  clipUuid: string,
+  signal: AbortSignal,
+  apiKey: string
+): Promise<string | null> {
+  for (let i = 0; i < RESEMBLE_MAX_POLL_ATTEMPTS; i += 1) {
+    if (signal.aborted) {
+      const abortError = new Error("Aborted");
+      abortError.name = "AbortError";
+      throw abortError;
+    }
+
+    const response = await fetch(
+      `${RESEMBLE_BASE_URL}/projects/${RESEMBLE_PROJECT_UUID}/clips/${clipUuid}`,
+      {
+        method: "GET",
+        headers: getResembleHeaders(apiKey),
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      console.error("[Theme TTS] Resemble clip poll failed");
+      return null;
+    }
+
+    const data = await response.json();
+    const clip = data.item || data.data || data;
+
+    if (clip.audio_src) {
+      return clip.audio_src as string;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, RESEMBLE_POLL_INTERVAL_MS));
+  }
+
+  console.error("[Theme TTS] Resemble clip poll timeout");
+  return null;
+}
+
+async function generateResembleTTS(
+  text: string,
+  signal: AbortSignal,
+  apiKey: string
+): Promise<ArrayBuffer | null> {
+  const clip = await createResembleClip(text, signal, apiKey);
+  if (!clip) return null;
+
+  const audioUrl = clip.audio_src || (await waitForResembleAudio(clip.uuid, signal, apiKey));
+  if (!audioUrl) return null;
+
+  const audioResponse = await fetch(audioUrl, { signal });
+  if (!audioResponse.ok) {
+    console.error("[Theme TTS] Resemble audio download failed");
+    return null;
+  }
+
+  return audioResponse.arrayBuffer();
+}
 
 // Theme with owner details and edit permissions
 export type ThemeWithOwner = Doc<"themes"> & {
@@ -362,6 +501,17 @@ export const getTheme = query({
   },
 });
 
+export const getTtsStorageUrl = query({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args): Promise<string | null> => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+    return ctx.storage.getUrl(args.storageId);
+  },
+});
+
 export const createTheme = mutation({
   args: {
     name: v.string(),
@@ -427,7 +577,35 @@ export const updateTheme = mutation({
 
     if (updates.name !== undefined) filteredUpdates.name = updates.name;
     if (updates.description !== undefined) filteredUpdates.description = updates.description;
-    if (updates.words !== undefined) filteredUpdates.words = updates.words;
+    if (updates.words !== undefined) {
+      const previousWords = theme.words as ThemeWordWithTts[];
+      const reconciledWords = reconcileThemeWordTts(
+        previousWords as Parameters<typeof reconcileThemeWordTts>[0],
+        updates.words as Parameters<typeof reconcileThemeWordTts>[1]
+      ) as ThemeWordWithTts[];
+
+      filteredUpdates.words = reconciledWords;
+
+      const previousStorageIds = new Set(
+        previousWords.map((word) => word.ttsStorageId).filter((id): id is Id<"_storage"> => !!id)
+      );
+      const nextStorageIds = new Set(
+        reconciledWords.map((word) => word.ttsStorageId).filter((id): id is Id<"_storage"> => !!id)
+      );
+
+      const staleStorageIds = [...previousStorageIds].filter((id) => !nextStorageIds.has(id));
+      if (staleStorageIds.length > 0) {
+        await Promise.all(
+          staleStorageIds.map(async (storageId) => {
+            try {
+              await ctx.storage.delete(storageId);
+            } catch (error) {
+              console.error("[Theme TTS] Failed to delete stale storage file:", storageId, error);
+            }
+          })
+        );
+      }
+    }
 
     await ctx.db.patch(themeId, filteredUpdates);
     return await ctx.db.get(themeId);
@@ -509,17 +687,267 @@ export const duplicateTheme = mutation({
     if (!theme) throw new Error("Theme not found");
 
     const newName = `${theme.name.toUpperCase()}(DUPLICATE)`;
+    const duplicatedWords = (theme.words as ThemeWordWithTts[]).map((word) => ({
+      word: word.word,
+      answer: word.answer,
+      wrongAnswers: [...word.wrongAnswers],
+    }));
 
     // Duplicated theme belongs to current user, starts as private
     return await ctx.db.insert("themes", {
       name: newName,
       description: theme.description,
       wordType: theme.wordType || "nouns",
-      words: theme.words,
+      words: duplicatedWords,
       createdAt: Date.now(),
       ownerId: user._id,
       visibility: "private",
     });
+  },
+});
+
+export const applyGeneratedThemeTts = internalMutation({
+  args: {
+    themeId: v.id("themes"),
+    generated: v.array(
+      v.object({
+        wordIndex: v.number(),
+        sourceWord: v.string(),
+        sourceAnswer: v.string(),
+        storageId: v.id("_storage"),
+      })
+    ),
+  },
+  handler: async (ctx, args): Promise<{
+    applied: number;
+    skipped: number;
+    rejectedStorageIds: Id<"_storage">[];
+  }> => {
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) {
+      return {
+        applied: 0,
+        skipped: args.generated.length,
+        rejectedStorageIds: args.generated.map((item) => item.storageId),
+      };
+    }
+
+    const nextWords = [...(theme.words as ThemeWordWithTts[])];
+    const rejectedStorageIds: Id<"_storage">[] = [];
+    let applied = 0;
+    let skipped = 0;
+
+    for (const generated of args.generated as GeneratedWordTtsResult[]) {
+      const currentWord = nextWords[generated.wordIndex];
+      if (
+        !currentWord ||
+        currentWord.word !== generated.sourceWord ||
+        currentWord.answer !== generated.sourceAnswer
+      ) {
+        skipped += 1;
+        rejectedStorageIds.push(generated.storageId);
+        continue;
+      }
+
+      nextWords[generated.wordIndex] = {
+        ...currentWord,
+        ttsStorageId: generated.storageId,
+      };
+      applied += 1;
+    }
+
+    if (applied > 0) {
+      await ctx.db.patch(args.themeId, { words: nextWords });
+    }
+
+    return { applied, skipped, rejectedStorageIds };
+  },
+});
+
+export const generateThemeTTS = action({
+  args: { themeId: v.id("themes") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    totalMissing: number;
+    attempted: number;
+    generated: number;
+    applied: number;
+    skippedStale: number;
+    failed: number;
+    skippedForCredits: number;
+    alreadyUpToDate: boolean;
+  }> => {
+    const resembleApiKey = getResembleApiKey();
+    if (!resembleApiKey) {
+      throw new Error(
+        "Resemble API key missing in Convex environment. Run: npx convex env set RESEMBLE_API_KEY <YOUR_KEY>"
+      );
+    }
+
+    const currentUser = await ctx.runQuery(api.users.getCurrentUser, {});
+    if (!currentUser) {
+      throw new Error("Unauthorized");
+    }
+
+    const theme = await ctx.runQuery(api.themes.getTheme, { themeId: args.themeId });
+    if (!theme) {
+      throw new Error("Theme not found or access denied");
+    }
+
+    const isOwner = !theme.ownerId || theme.ownerId === currentUser._id;
+    const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
+    if (!isOwner && !canEditAsNonOwner) {
+      throw new Error("You don't have permission to edit this theme");
+    }
+
+    const words = theme.words as ThemeWordWithTts[];
+    const missingWords = words
+      .map((word, wordIndex) => ({ ...word, wordIndex }))
+      .filter((word) => !word.ttsStorageId);
+
+    if (missingWords.length === 0) {
+      return {
+        totalMissing: 0,
+        attempted: 0,
+        generated: 0,
+        applied: 0,
+        skippedStale: 0,
+        failed: 0,
+        skippedForCredits: 0,
+        alreadyUpToDate: true,
+      };
+    }
+
+    const maxGenerations = Math.max(0, Math.floor(currentUser.ttsGenerationsRemaining));
+    if (maxGenerations <= 0) {
+      return {
+        totalMissing: missingWords.length,
+        attempted: 0,
+        generated: 0,
+        applied: 0,
+        skippedStale: 0,
+        failed: 0,
+        skippedForCredits: missingWords.length,
+        alreadyUpToDate: false,
+      };
+    }
+
+    const targets = missingWords.slice(0, maxGenerations);
+    const skippedForCredits = Math.max(0, missingWords.length - targets.length);
+    const lockToken = createTtsGenerationLockToken();
+    await ctx.runMutation(internal.users.acquireTtsGenerationLock, {
+      userId: currentUser._id,
+      token: lockToken,
+      lockMs: TTS_GENERATION_LOCK_MS,
+    });
+
+    try {
+      const generationResults = await Promise.allSettled(
+        targets.map(async (target): Promise<GeneratedWordTtsResult> => {
+          const cleanText = stripIrr(target.answer).trim();
+          if (!cleanText) {
+            throw new Error("Answer text is empty");
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), RESEMBLE_TIMEOUT_MS);
+          let audioBuffer: ArrayBuffer | null = null;
+          try {
+            audioBuffer = await generateResembleTTS(cleanText, controller.signal, resembleApiKey);
+          } finally {
+            clearTimeout(timeoutId);
+          }
+
+          if (!audioBuffer) {
+            throw new Error("Resemble TTS generation failed");
+          }
+
+          const storageId = await ctx.storage.store(new Blob([audioBuffer], { type: "audio/wav" }));
+
+          try {
+            await ctx.runMutation(api.users.consumeCredits, {
+              creditType: "tts",
+              cost: TTS_GENERATION_COST,
+            });
+          } catch (error) {
+            try {
+              await ctx.storage.delete(storageId);
+            } catch (deleteError) {
+              console.error("[Theme TTS] Failed to cleanup uncharged file:", storageId, deleteError);
+            }
+            throw error;
+          }
+
+          return {
+            wordIndex: target.wordIndex,
+            sourceWord: target.word,
+            sourceAnswer: target.answer,
+            storageId,
+          };
+        })
+      );
+
+      const successful = generationResults
+        .filter(
+          (result): result is PromiseFulfilledResult<GeneratedWordTtsResult> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+
+      const failed = generationResults.length - successful.length;
+
+      if (successful.length === 0) {
+        return {
+          totalMissing: missingWords.length,
+          attempted: targets.length,
+          generated: 0,
+          applied: 0,
+          skippedStale: 0,
+          failed,
+          skippedForCredits,
+          alreadyUpToDate: false,
+        };
+      }
+
+      const applyResult = await ctx.runMutation(internal.themes.applyGeneratedThemeTts, {
+        themeId: args.themeId,
+        generated: successful,
+      });
+
+      if (applyResult.rejectedStorageIds.length > 0) {
+        await Promise.all(
+          applyResult.rejectedStorageIds.map(async (storageId) => {
+            try {
+              await ctx.storage.delete(storageId);
+            } catch (error) {
+              console.error("[Theme TTS] Failed to delete stale generated file:", storageId, error);
+            }
+          })
+        );
+      }
+
+      return {
+        totalMissing: missingWords.length,
+        attempted: targets.length,
+        generated: successful.length,
+        applied: applyResult.applied,
+        skippedStale: applyResult.skipped,
+        failed,
+        skippedForCredits,
+        alreadyUpToDate: false,
+      };
+    } finally {
+      try {
+        await ctx.runMutation(internal.users.releaseTtsGenerationLock, {
+          userId: currentUser._id,
+          token: lockToken,
+        });
+      } catch (error) {
+        console.error("[Theme TTS] Failed to release generation lock:", error);
+      }
+    }
   },
 });
 

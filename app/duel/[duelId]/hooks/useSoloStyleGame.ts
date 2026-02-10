@@ -6,13 +6,13 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { HINT_BANNER_DURATION_MS, FEEDBACK_SHORT_MS, FEEDBACK_LONG_MS } from "@/lib/constants";
-import { toast } from "sonner";
-import { getResponseErrorMessage } from "@/lib/api/errors";
+import { useTTS } from "@/app/game/hooks/useTTS";
 
 interface Word {
   word: string;
   answer: string;
   wrongAnswers: string[];
+  ttsStorageId?: string;
 }
 
 interface WordState {
@@ -82,9 +82,7 @@ export function useSoloStyleGame({
   const [hintSelectorDismissed, setHintSelectorDismissed] = useState(false);
   const [hintL2SelectorDismissed, setHintL2SelectorDismissed] = useState(false);
 
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPlayedForHintRef = useRef<string | null>(null);
-  const isPlayingTTSRef = useRef(false);
 
   // Flash hint state
   const [showFlashHint, setShowFlashHint] = useState(false);
@@ -96,6 +94,7 @@ export function useSoloStyleGame({
   // Temporary "hint sent" banners
   const [showHintSentBanner, setShowHintSentBanner] = useState(false);
   const [showHintSentBannerL2, setShowHintSentBannerL2] = useState(false);
+  const { playTTS } = useTTS();
 
   // Get player-specific state from duel
   const myWordStates = (isChallenger ? duel.challengerWordStates : duel.opponentWordStates) as WordState[] | undefined;
@@ -280,42 +279,13 @@ export function useSoloStyleGame({
   }, [isHintGiverL2, hintL2Accepted, hintL2Type]);
 
   // Play TTS for hint
-  const playTTSHint = useCallback(async (word: string) => {
-    if (isPlayingTTSRef.current || !word) return;
-    isPlayingTTSRef.current = true;
-    try {
-      const response = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: word, lang: "es" }),
-      });
-      if (!response.ok) {
-        const message = await getResponseErrorMessage(response);
-        throw new Error(message);
-      }
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      if (ttsAudioRef.current) {
-        ttsAudioRef.current.pause();
-        ttsAudioRef.current = null;
-      }
-      const audio = new Audio(audioUrl);
-      ttsAudioRef.current = audio;
-      audio.onended = () => {
-        isPlayingTTSRef.current = false;
-        URL.revokeObjectURL(audioUrl);
-      };
-      audio.onerror = () => {
-        isPlayingTTSRef.current = false;
-        URL.revokeObjectURL(audioUrl);
-      };
-      await audio.play();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to play audio";
-      toast.error(message);
-      isPlayingTTSRef.current = false;
-    }
-  }, []);
+  const playTTSHint = useCallback(
+    (wordKey: string, word: string, storageId?: string) => {
+      if (!word) return;
+      void playTTS(wordKey, word, { storageId });
+    },
+    [playTTS]
+  );
 
   // Auto-play TTS when I requested a hint and helper chose TTS type (L1)
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -323,12 +293,12 @@ export function useSoloStyleGame({
     const hintKey = `L1-${myCurrentWordIndex}`;
     if (iRequestedHint && hintAccepted && hintType === "tts" && currentWord && ttsPlayedForHintRef.current !== hintKey) {
       ttsPlayedForHintRef.current = hintKey;
-      playTTSHint(currentWord.answer);
+      playTTSHint(`solo-hint-${hintKey}`, currentWord.answer, currentWord.ttsStorageId);
     }
     if (!iRequestedHint) {
       ttsPlayedForHintRef.current = null;
     }
-  }, [iRequestedHint, hintAccepted, hintType, currentWord?.answer, myCurrentWordIndex]);
+  }, [currentWord?.answer, currentWord?.ttsStorageId, hintAccepted, hintType, iRequestedHint, myCurrentWordIndex, playTTSHint]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   // Auto-play TTS when I requested a hint and helper chose TTS type (L2)
@@ -337,12 +307,12 @@ export function useSoloStyleGame({
     const hintKey = `L2-${hintL2WordIndex}`;
     if (iRequestedHintL2 && hintL2Accepted && hintL2Type === "tts" && hintL2RequesterWord && ttsPlayedForHintRef.current !== hintKey) {
       ttsPlayedForHintRef.current = hintKey;
-      playTTSHint(hintL2RequesterWord.answer);
+      playTTSHint(`solo-hint-${hintKey}`, hintL2RequesterWord.answer, hintL2RequesterWord.ttsStorageId);
     }
     if (!iRequestedHintL2) {
       ttsPlayedForHintRef.current = null;
     }
-  }, [iRequestedHintL2, hintL2Accepted, hintL2Type, hintL2RequesterWord?.answer, hintL2WordIndex]);
+  }, [hintL2Accepted, hintL2RequesterWord?.answer, hintL2RequesterWord?.ttsStorageId, hintL2Type, hintL2WordIndex, iRequestedHintL2, playTTSHint]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   // Show flash hint when I requested a hint and helper chose flash type

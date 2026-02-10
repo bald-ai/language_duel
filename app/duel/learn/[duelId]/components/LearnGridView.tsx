@@ -10,6 +10,7 @@ import { colors } from "@/lib/theme";
 interface Word {
   word: string;
   answer: string;
+  ttsStorageId?: string;
 }
 
 interface HintState {
@@ -33,7 +34,7 @@ interface LearnGridViewProps {
   onRevealLetter: (wordKey: string, position: number) => void;
   onRevealFullWord: (wordKey: string, answer: string) => void;
   onResetWord: (wordKey: string) => void;
-  onPlayTTS: (index: number, answer: string) => void;
+  onPlayTTS: (index: number, answer: string, storageId?: string) => void;
   onSkip: () => void;
   onExit: () => Promise<void>;
 }
@@ -146,7 +147,7 @@ export function LearnGridView({
                   onResetWord={() => onResetWord(wordKey)}
                   isTTSPlaying={playingWordIndex === index}
                   isTTSDisabled={playingWordIndex !== null}
-                  onPlayTTS={() => onPlayTTS(index, word.answer)}
+                  onPlayTTS={() => onPlayTTS(index, word.answer, word.ttsStorageId)}
                   dataTestIdBase={`duel-learn-word-${index}`}
                 />
               );

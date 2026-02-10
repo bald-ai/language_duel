@@ -1,6 +1,7 @@
 /**
  * Shared types for the Language Duel application.
  */
+import type { Id } from "@/convex/_generated/dataModel";
 
 /**
  * Represents a vocabulary word with its correct answer and wrong options for quizzes.
@@ -9,6 +10,7 @@ export interface WordEntry {
   word: string;
   answer: string;
   wrongAnswers: string[];
+  ttsStorageId?: Id<"_storage">;
 }
 
 /**

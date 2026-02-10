@@ -15,7 +15,7 @@ export interface HintState {
 interface MemoizedWordCardWrapperProps {
   originalIndex: number;
   orderIdx: number;
-  word: { word: string; answer: string };
+  word: { word: string; answer: string; ttsStorageId?: string };
   themeId: string | null;
   isRevealed: boolean;
   hintState: HintState;
@@ -26,7 +26,7 @@ interface MemoizedWordCardWrapperProps {
   revealLetter: (wordKey: string, position: number) => void;
   revealFullWord: (wordKey: string, answer: string) => void;
   resetWord: (wordKey: string) => void;
-  playTTS: (wordIndex: number, spanishWord: string) => void;
+  playTTS: (wordIndex: number, spanishWord: string, storageId?: string) => void;
   handleMouseDown: (e: MouseEvent, orderIdx: number) => void;
   getItemStyle: (orderIdx: number, originalIndex: number) => CSSProperties;
   itemRefs: RefObject<Map<number, HTMLDivElement | null>>;
@@ -81,8 +81,8 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   );
 
   const handlePlayTTS = useCallback(
-    () => playTTS(originalIndex, word.answer),
-    [playTTS, originalIndex, word.answer]
+    () => playTTS(originalIndex, word.answer, word.ttsStorageId),
+    [playTTS, originalIndex, word.answer, word.ttsStorageId]
   );
 
   const handleMouseDownWrapper = useCallback(

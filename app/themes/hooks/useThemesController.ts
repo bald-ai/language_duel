@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
@@ -15,6 +15,8 @@ import {
 } from "@/lib/themes/validators";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
+import { hasMissingThemeTts } from "@/lib/themes/tts";
+import { useTTS } from "@/app/game/hooks/useTTS";
 import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
 import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
 import { useWordEditor } from "./useWordEditor";
@@ -37,8 +39,42 @@ function createSaveRequestId(): string {
   return `theme-save-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function areWordsEqual(left: readonly WordEntry[], right: readonly WordEntry[]): boolean {
+  if (left.length !== right.length) return false;
+
+  for (let i = 0; i < left.length; i += 1) {
+    const leftWord = left[i];
+    const rightWord = right[i];
+
+    if (!leftWord || !rightWord) return false;
+    if (leftWord.word !== rightWord.word) return false;
+    if (leftWord.answer !== rightWord.answer) return false;
+    if ((leftWord.ttsStorageId ?? undefined) !== (rightWord.ttsStorageId ?? undefined)) return false;
+
+    if (leftWord.wrongAnswers.length !== rightWord.wrongAnswers.length) return false;
+    for (let j = 0; j < leftWord.wrongAnswers.length; j += 1) {
+      if (leftWord.wrongAnswers[j] !== rightWord.wrongAnswers[j]) return false;
+    }
+  }
+
+  return true;
+}
+
+function invalidateWordTtsIfNeeded(previousWord: WordEntry, nextWord: WordEntry): WordEntry {
+  const hasWordOrAnswerChange =
+    previousWord.word !== nextWord.word || previousWord.answer !== nextWord.answer;
+
+  if (!hasWordOrAnswerChange || nextWord.ttsStorageId === undefined) {
+    return nextWord;
+  }
+
+  const { ttsStorageId: _dropTtsStorageId, ...withoutTts } = nextWord;
+  return withoutTts;
+}
+
 export function useThemesController() {
   const router = useRouter();
+  const convex = useConvex();
 
   // Friend filter state
   const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
@@ -46,6 +82,8 @@ export function useThemesController() {
   const [showArchived, setShowArchived] = useState(false);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] = useState(false);
+  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
+  const { playTTS, playingWordKey } = useTTS();
 
   // Convex queries - build query args based on filter state
   const queryArgs = useMemo(() => {
@@ -63,6 +101,7 @@ export function useThemesController() {
   const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
   const updateFriendsCanEditMutation = useMutation(api.themes.updateThemeFriendsCanEdit);
   const toggleArchiveMutation = useMutation(api.themes.toggleThemeArchive);
+  const generateThemeTTSAction = useAction(api.themes.generateThemeTTS);
 
   // Custom hooks
   const themeGenerator = useThemeGenerator();
@@ -93,6 +132,21 @@ export function useThemesController() {
   const rawThemes = useMemo(() => rawThemesQuery || [], [rawThemesQuery]);
 
   const themes = rawThemes;
+  const persistedSelectedTheme = useMemo(() => {
+    if (!selectedTheme || selectedTheme._id === "") return null;
+    return rawThemes.find((theme) => theme._id === selectedTheme._id) ?? null;
+  }, [rawThemes, selectedTheme]);
+  const hasUnsavedThemeChanges = useMemo(() => {
+    if (!selectedTheme) return false;
+    if (selectedTheme._id === "") return true;
+    if (!persistedSelectedTheme) return false;
+
+    if (selectedTheme.name !== persistedSelectedTheme.name) {
+      return true;
+    }
+
+    return !areWordsEqual(localWords, persistedSelectedTheme.words as WordEntry[]);
+  }, [localWords, persistedSelectedTheme, selectedTheme]);
 
   // Get selected friend details for display
   const selectedFriend = useMemo(() => {
@@ -144,6 +198,58 @@ export function useThemesController() {
       }
     },
     [selectedTheme, updateFriendsCanEditMutation]
+  );
+
+  const handleGenerateThemeTTS = useCallback(async () => {
+    if (!selectedTheme || selectedTheme.canEdit === false || isGeneratingTTS) return;
+    if (selectedTheme._id === "") {
+      toast.error("Save the theme first before generating TTS");
+      return;
+    }
+    if (hasUnsavedThemeChanges) {
+      toast.error("Save your theme changes first, then generate TTS");
+      return;
+    }
+
+    setIsGeneratingTTS(true);
+    try {
+      const result = await generateThemeTTSAction({ themeId: selectedTheme._id });
+
+      const refreshedTheme = await convex.query(api.themes.getTheme, {
+        themeId: selectedTheme._id,
+      });
+      if (refreshedTheme) {
+        setSelectedTheme((prev) => (prev ? { ...prev, ...refreshedTheme } : prev));
+        setLocalWords([...refreshedTheme.words]);
+      }
+
+      if (result.alreadyUpToDate) {
+        toast.success("TTS is already up to date");
+        return;
+      }
+
+      if (result.failed > 0 || result.skippedStale > 0 || result.skippedForCredits > 0) {
+        toast.warning(
+          `TTS generated with issues. Applied ${result.applied}/${result.totalMissing}.`
+        );
+        return;
+      }
+
+      toast.success(`Generated TTS for ${result.applied} words`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to generate TTS";
+      toast.error(message);
+    } finally {
+      setIsGeneratingTTS(false);
+    }
+  }, [convex, generateThemeTTSAction, hasUnsavedThemeChanges, isGeneratingTTS, selectedTheme]);
+
+  const handlePlayThemeWordTTS = useCallback(
+    (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => {
+      if (!answer) return;
+      void playTTS(`theme-word-tts-${wordIndex}`, answer, { storageId });
+    },
+    [playTTS]
   );
 
   // Friend filter handlers
@@ -488,15 +594,17 @@ export function useThemesController() {
 
     setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const word = { ...updatedWords[wordEditor.editingWordIndex!] };
+      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const word = { ...previousWord };
 
       if (wordEditor.editingField === FIELD_TYPES.WORD) {
         if (wordEditor.generatedWordData) {
-          updatedWords[wordEditor.editingWordIndex!] = wordEditor.generatedWordData;
+          const nextWord = invalidateWordTtsIfNeeded(previousWord, wordEditor.generatedWordData);
+          updatedWords[wordEditor.editingWordIndex!] = nextWord;
         }
       } else if (wordEditor.editingField === FIELD_TYPES.ANSWER) {
         word.answer = wordEditor.generatedValue;
-        updatedWords[wordEditor.editingWordIndex!] = word;
+        updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
       } else {
         word.wrongAnswers = [...word.wrongAnswers];
         word.wrongAnswers[wordEditor.editingWrongIndex] = wordEditor.generatedValue;
@@ -525,7 +633,8 @@ export function useThemesController() {
     // For other fields, save directly
     setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const word = { ...updatedWords[wordEditor.editingWordIndex!] };
+      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const word = { ...previousWord };
 
       if (wordEditor.editingField === FIELD_TYPES.WORD) {
         word.word = wordEditor.manualValue;
@@ -536,7 +645,7 @@ export function useThemesController() {
         word.wrongAnswers[wordEditor.editingWrongIndex] = wordEditor.manualValue;
       }
 
-      updatedWords[wordEditor.editingWordIndex!] = word;
+      updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
       return updatedWords;
     });
 
@@ -549,9 +658,10 @@ export function useThemesController() {
 
     setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const word = { ...updatedWords[wordEditor.editingWordIndex!] };
+      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const word = { ...previousWord };
       word.word = wordEditor.pendingManualWord;
-      updatedWords[wordEditor.editingWordIndex!] = word;
+      updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
       return updatedWords;
     });
 
@@ -572,11 +682,13 @@ export function useThemesController() {
       if (result) {
         setLocalWords((prev) => {
           const updatedWords = [...prev];
-          updatedWords[wordEditor.editingWordIndex!] = {
+          const previousWord = updatedWords[wordEditor.editingWordIndex!];
+          const nextWord = invalidateWordTtsIfNeeded(previousWord, {
             word: wordEditor.pendingManualWord,
             answer: result.answer,
             wrongAnswers: result.wrongAnswers,
-          };
+          });
+          updatedWords[wordEditor.editingWordIndex!] = nextWord;
           return updatedWords;
         });
 
@@ -662,6 +774,11 @@ export function useThemesController() {
       friendsCanEdit: selectedTheme?.friendsCanEdit || false,
       isUpdatingFriendsCanEdit,
       onFriendsCanEditChange: handleFriendsCanEditChange,
+      isGeneratingTTS,
+      isTTSUpToDate: !hasMissingThemeTts(localWords),
+      onGenerateTTS: handleGenerateThemeTTS,
+      playingWordKey,
+      onPlayWordTTS: handlePlayThemeWordTTS,
     }),
     [
       selectedTheme,
@@ -695,6 +812,10 @@ export function useThemesController() {
       handleVisibilityChange,
       isUpdatingFriendsCanEdit,
       handleFriendsCanEditChange,
+      isGeneratingTTS,
+      handleGenerateThemeTTS,
+      playingWordKey,
+      handlePlayThemeWordTTS,
     ]
   );
 

@@ -61,6 +61,12 @@ interface ThemeDetailProps {
   friendsCanEdit?: boolean;
   isUpdatingFriendsCanEdit?: boolean;
   onFriendsCanEditChange?: (canEdit: boolean) => void;
+  // Theme-level TTS generation
+  isGeneratingTTS?: boolean;
+  isTTSUpToDate?: boolean;
+  onGenerateTTS?: () => void;
+  playingWordKey?: string | null;
+  onPlayWordTTS?: (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => void;
 }
 
 const rowActionButtonClassName =
@@ -107,8 +113,10 @@ interface WordCardProps {
   hasDuplicateWrongAnswers: boolean;
   wrongMatchesAnswer: boolean;
   canEdit: boolean;
+  playingWordKey: string | null;
   onEditWord: (wordIndex: number, field: FieldType, wrongIndex?: number) => void;
   onDeleteWord: (index: number) => void;
+  onPlayWordTTS?: (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => void;
 }
 
 const WordCard = memo(function WordCard({
@@ -118,10 +126,15 @@ const WordCard = memo(function WordCard({
   hasDuplicateWrongAnswers,
   wrongMatchesAnswer,
   canEdit,
+  playingWordKey,
   onEditWord,
   onDeleteWord,
+  onPlayWordTTS,
 }: WordCardProps) {
   const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
+  const ttsKey = `theme-word-tts-${index}`;
+  const isPlaying = playingWordKey === ttsKey;
+  const hasGeneratedTts = !!word.ttsStorageId;
 
   const badgeStyle = isDuplicate
     ? {
@@ -198,6 +211,34 @@ const WordCard = memo(function WordCard({
             ⚠
           </span>
         )}
+        <div className="ml-auto">
+          <button
+            onClick={() => {
+              if (!onPlayWordTTS || !hasGeneratedTts) return;
+              onPlayWordTTS(index, word.answer, word.ttsStorageId);
+            }}
+            disabled={!hasGeneratedTts}
+            className="p-1.5 rounded-lg border-2 transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: `${colors.secondary.DEFAULT}1A`,
+              borderColor: `${colors.secondary.DEFAULT}66`,
+              color: colors.secondary.light,
+            }}
+            title={hasGeneratedTts ? "Play generated TTS" : "Generate TTS for this word first"}
+            data-testid={`theme-word-${index}-play-tts`}
+          >
+            {isPlaying ? (
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M4 7.5A1.5 1.5 0 015.5 6H8l3-2v12l-3-2H5.5A1.5 1.5 0 014 12.5v-5z" />
+                <path d="M13.8 6.6a1 1 0 011.4 0 4.8 4.8 0 010 6.8 1 1 0 11-1.4-1.4 2.8 2.8 0 000-4 1 1 0 010-1.4z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Word & Answer Row */}
@@ -299,6 +340,11 @@ export function ThemeDetail({
   friendsCanEdit,
   isUpdatingFriendsCanEdit,
   onFriendsCanEditChange,
+  isGeneratingTTS = false,
+  isTTSUpToDate = true,
+  onGenerateTTS,
+  playingWordKey = null,
+  onPlayWordTTS,
 }: ThemeDetailProps) {
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
   const [editedThemeName, setEditedThemeName] = useState("");
@@ -471,9 +517,9 @@ export function ThemeDetail({
               )}
             </div>
 
-            {/* Visibility toggle for owner */}
-            {isOwner && onVisibilityChange && (
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Visibility toggle for owner */}
+              {isOwner && onVisibilityChange && (
                 <div
                   className="inline-flex rounded-xl overflow-hidden border-2"
                   style={{ borderColor: colors.primary.dark }}
@@ -497,30 +543,63 @@ export function ThemeDetail({
                     Shared
                   </button>
                 </div>
+              )}
 
-                {/* Lock/Unlock toggle - only shown when shared */}
-                {visibility === "shared" && onFriendsCanEditChange && (
+              {/* Lock/Unlock toggle - only shown when shared */}
+              {isOwner && visibility === "shared" && onFriendsCanEditChange && (
+                <button
+                  onClick={() => onFriendsCanEditChange(!friendsCanEdit)}
+                  disabled={isUpdatingFriendsCanEdit}
+                  title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
+                  className="p-1.5 rounded-xl border-2 transition hover:brightness-110 disabled:opacity-50"
+                  style={lockButtonStyle}
+                  data-testid="theme-friends-can-edit"
+                >
+                  {friendsCanEdit ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
+              {canEdit && onGenerateTTS && (
+                <>
                   <button
-                    onClick={() => onFriendsCanEditChange(!friendsCanEdit)}
-                    disabled={isUpdatingFriendsCanEdit}
-                    title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
-                    className="p-1.5 rounded-xl border-2 transition hover:brightness-110 disabled:opacity-50"
-                    style={lockButtonStyle}
-                    data-testid="theme-friends-can-edit"
+                    onClick={onGenerateTTS}
+                    disabled={isGeneratingTTS}
+                    className="px-3 py-1 text-xs sm:text-sm font-medium rounded-xl border-2 transition hover:brightness-110 disabled:opacity-60"
+                    style={secondaryAccentStyle}
+                    data-testid="theme-generate-tts"
                   >
-                    {friendsCanEdit ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {isGeneratingTTS ? "Generating TTS..." : "Generate TTS"}
                   </button>
-                )}
-              </div>
-            )}
+                  <span
+                    className="px-2 py-1 rounded-lg border text-[11px] sm:text-xs font-medium"
+                    style={
+                      isTTSUpToDate
+                        ? {
+                            backgroundColor: `${colors.status.success.DEFAULT}1A`,
+                            borderColor: `${colors.status.success.DEFAULT}66`,
+                            color: colors.status.success.light,
+                          }
+                        : {
+                            backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+                            borderColor: `${colors.status.warning.DEFAULT}66`,
+                            color: colors.status.warning.light,
+                          }
+                    }
+                    data-testid="theme-tts-status"
+                  >
+                    {isTTSUpToDate ? "TTS up to date" : "TTS not up to date"}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -558,8 +637,10 @@ export function ThemeDetail({
                   hasDuplicateWrongAnswers={hasDuplicateWrongAnswers}
                   wrongMatchesAnswer={wrongMatchesAnswer}
                   canEdit={canEdit}
+                  playingWordKey={playingWordKey}
                   onEditWord={onEditWord}
                   onDeleteWord={onDeleteWord}
+                  onPlayWordTTS={onPlayWordTTS}
                 />
               );
             })}

@@ -14,6 +14,7 @@ interface DragState {
   dropIndex: number | null;
   // Keep mousePos for backward compatibility, but it only updates on drag start now
   mousePos: { x: number; y: number };
+  dragOffset: { x: number; y: number };
 }
 
 interface UseDraggableListReturn<T> {
@@ -39,6 +40,7 @@ export function useDraggableList<T>(
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   // mousePos is now only set once at drag start (for initial positioning)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [dragOffsetState, setDragOffsetState] = useState({ x: 0, y: 0 });
   
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
@@ -61,10 +63,12 @@ export function useDraggableList<T>(
     if (target.closest("button") || target.closest("input")) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    dragOffset.current = {
+    const nextDragOffset = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
+    dragOffset.current = nextDragOffset;
+    setDragOffsetState(nextDragOffset);
     
     // Cache all item heights ONCE at drag start - eliminates layout thrashing during drag
     const heights: number[] = [];
@@ -197,7 +201,8 @@ export function useDraggableList<T>(
     draggedIndex,
     dropIndex,
     mousePos,
-  }), [draggedIndex, dropIndex, mousePos]);
+    dragOffset: dragOffsetState,
+  }), [draggedIndex, dropIndex, mousePos, dragOffsetState]);
 
   return {
     order,
@@ -211,4 +216,3 @@ export function useDraggableList<T>(
     getItemStyle,
   };
 }
-

@@ -3,11 +3,9 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { SOLO_TIMER_OPTIONS } from "./constants";
-import { toast } from "sonner";
-import { getResponseErrorMessage } from "@/lib/api/errors";
 import { formatDuration, stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components/WordCard";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
@@ -17,6 +15,7 @@ import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { buttonStyles, colors } from "@/lib/theme";
+import { useTTS } from "@/app/game/hooks/useTTS";
 
 const DEFAULT_HINT_STATE = Object.freeze({
   hintCount: 0,
@@ -119,9 +118,7 @@ export default function LearnPhasePage() {
   const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
   const [isRevealed, setIsRevealed] = useState(true);
 
-  // TTS state
-  const [playingWordIndex, setPlayingWordIndex] = useState<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { playingWordKey, playTTS } = useTTS();
 
   // Confidence level per word
   const [confidenceLevels, setConfidenceLevels] = useState<Record<string, number>>({});
@@ -137,7 +134,6 @@ export default function LearnPhasePage() {
     containerRef,
     itemRefs,
     dragLayerRef,
-    dragOffset,
     handleMouseDown,
     getItemStyle,
   } = useDraggableList<number>(initialOrder, {
@@ -201,6 +197,14 @@ export default function LearnPhasePage() {
 
   const resetAll = useCallback(() => setHintStates({}), []);
 
+  const playingWordIndex = useMemo(() => {
+    if (!playingWordKey || !playingWordKey.startsWith("solo-learn-")) {
+      return null;
+    }
+    const parsed = Number.parseInt(playingWordKey.replace("solo-learn-", ""), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [playingWordKey]);
+
   // --- Timer logic ---
   const handleStart = useCallback(() => {
     setTimeRemaining(duration);
@@ -228,46 +232,12 @@ export default function LearnPhasePage() {
   }, [timeRemaining, isStarted, router, sessionId, themeId]);
 
   // --- TTS ---
-  const playTTS = useCallback(async (wordIndex: number, spanishWord: string) => {
-    if (playingWordIndex !== null) return;
-
-    setPlayingWordIndex(wordIndex);
-    try {
-      const response = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: spanishWord }),
-      });
-
-      if (!response.ok) {
-        const message = await getResponseErrorMessage(response);
-        throw new Error(message);
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      if (audioRef.current) audioRef.current.pause();
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setPlayingWordIndex(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-      audio.onerror = () => {
-        setPlayingWordIndex(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to play audio";
-      toast.error(message);
-      setPlayingWordIndex(null);
-    }
-  }, [playingWordIndex]);
+  const playWordTTS = useCallback(
+    (wordIndex: number, spanishWord: string, storageId?: string) => {
+      void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId });
+    },
+    [playTTS]
+  );
 
   // --- Navigation ---
   const handleSkip = useCallback(() => {
@@ -581,7 +551,7 @@ export default function LearnPhasePage() {
                     revealLetter={revealLetter}
                     revealFullWord={revealFullWord}
                     resetWord={resetWord}
-                    playTTS={playTTS}
+                    playTTS={playWordTTS}
                     handleMouseDown={handleMouseDown}
                     getItemStyle={getItemStyle}
                     itemRefs={itemRefs}
@@ -601,8 +571,7 @@ export default function LearnPhasePage() {
               // Initial position set here, subsequent moves use transform via ref
               left: 0,
               top: 0,
-              transform: `translate3d(${dragState.mousePos.x - dragOffset.current.x}px, ${dragState.mousePos.y - dragOffset.current.y}px, 0)`,
-              width: containerRef.current?.offsetWidth,
+              transform: `translate3d(${dragState.mousePos.x - dragState.dragOffset.x}px, ${dragState.mousePos.y - dragState.dragOffset.y}px, 0)`,
             }}
           >
             {(() => {

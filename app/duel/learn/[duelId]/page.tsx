@@ -7,10 +7,10 @@ import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { getResponseErrorMessage } from "@/lib/api/errors";
 import { TIMER_GREEN_THRESHOLD, TIMER_YELLOW_THRESHOLD } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+import { useTTS } from "@/app/game/hooks/useTTS";
 
 const TimerSelectionView = dynamic(
   () => import("./components/TimerSelectionView").then((mod) => mod.TimerSelectionView),
@@ -45,9 +45,8 @@ export default function DuelLearnPage() {
   // Local state
   const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
   const [isRevealed, setIsRevealed] = useState(true);
-  const [playingWordIndex, setPlayingWordIndex] = useState<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const hasInitializedRef = useRef(false);
+  const { playingWordKey, playTTS } = useTTS();
 
   // Extract duel data
   const duel = duelData?.duel;
@@ -71,10 +70,7 @@ export default function DuelLearnPage() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!learnStartTime || !confirmedDuration) {
-      setTimeRemaining(null);
-      return;
-    }
+    if (!learnStartTime || !confirmedDuration) return;
 
     const updateTimer = () => {
       const elapsed = Math.floor((Date.now() - learnStartTime) / 1000);
@@ -87,10 +83,11 @@ export default function DuelLearnPage() {
 
     return () => clearInterval(interval);
   }, [learnStartTime, confirmedDuration]);
+  const displayTimeRemaining = learnStartTime && confirmedDuration ? timeRemaining : null;
 
   // Navigate to challenge when timer ends
   useEffect(() => {
-    if (timeRemaining === 0 && !hasInitializedRef.current) {
+    if (displayTimeRemaining === 0 && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
       initializeChallenge({ duelId: duel?._id as Id<"challenges"> })
         .then(() => {
@@ -98,7 +95,7 @@ export default function DuelLearnPage() {
         })
         .catch(console.error);
     }
-  }, [timeRemaining, duel?._id, duelId, router, initializeChallenge]);
+  }, [displayTimeRemaining, duel?._id, duelId, router, initializeChallenge]);
 
   // Redirect if status changed
   useEffect(() => {
@@ -154,47 +151,16 @@ export default function DuelLearnPage() {
     setHintStates({});
   };
 
-  // TTS function
-  const playTTS = async (wordIndex: number, spanishWord: string) => {
-    if (playingWordIndex !== null) return;
-
-    setPlayingWordIndex(wordIndex);
-    try {
-      const response = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: spanishWord }),
-      });
-
-      if (!response.ok) {
-        const message = await getResponseErrorMessage(response);
-        throw new Error(message);
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      if (audioRef.current) audioRef.current.pause();
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
-        setPlayingWordIndex(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.onerror = () => {
-        setPlayingWordIndex(null);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to play audio";
-      toast.error(message);
-      setPlayingWordIndex(null);
+  const playingWordIndex = (() => {
+    if (!playingWordKey || !playingWordKey.startsWith("duel-learn-")) {
+      return null;
     }
+    const parsed = Number.parseInt(playingWordKey.replace("duel-learn-", ""), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  })();
+
+  const playWordTTS = (wordIndex: number, spanishWord: string, storageId?: string) => {
+    void playTTS(`duel-learn-${wordIndex}`, spanishWord, { storageId });
   };
 
   // Handle timer selection
@@ -246,8 +212,8 @@ export default function DuelLearnPage() {
   };
 
   const getTimerColor = () => {
-    if (!timeRemaining || !confirmedDuration) return colors.text.DEFAULT;
-    const percentage = timeRemaining / confirmedDuration;
+    if (!displayTimeRemaining || !confirmedDuration) return colors.text.DEFAULT;
+    const percentage = displayTimeRemaining / confirmedDuration;
     if (percentage > TIMER_GREEN_THRESHOLD) return colors.status.success.light;
     if (percentage > TIMER_YELLOW_THRESHOLD) return colors.status.warning.light;
     return colors.status.danger.light;
@@ -339,17 +305,17 @@ export default function DuelLearnPage() {
       opponentName={opponent?.name}
       words={theme.words}
       duelId={duelId}
-      timeRemaining={timeRemaining}
+        timeRemaining={displayTimeRemaining}
       timerColor={getTimerColor()}
       isRevealed={isRevealed}
-      playingWordIndex={playingWordIndex}
+        playingWordIndex={playingWordIndex}
       getHintState={getHintState}
       onToggleRevealed={() => setIsRevealed(!isRevealed)}
       onResetAll={resetAll}
       onRevealLetter={revealLetter}
       onRevealFullWord={revealFullWord}
       onResetWord={resetWord}
-      onPlayTTS={playTTS}
+        onPlayTTS={playWordTTS}
       onSkip={handleSkip}
       onExit={handleExit}
     />

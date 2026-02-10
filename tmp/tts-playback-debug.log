@@ -1,0 +1,20 @@
+{"ts":"2026-02-10T09:41:31.386Z","event":"storage_lookup_success","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","storageId":"kg27g8aq7p579pedtb4zdm9zw980wmq1","durationMs":148}}
+{"ts":"2026-02-10T09:41:31.390Z","event":"cache_lookup","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","cacheKey":"storage:kg27g8aq7p579pedtb4zdm9zw980wmq1","hit":false}}
+{"ts":"2026-02-10T09:41:31.392Z","event":"play_start","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","provider":"resemble","hasStorageId":true,"storageId":"kg27g8aq7p579pedtb4zdm9zw980wmq1","cacheKey":"storage:kg27g8aq7p579pedtb4zdm9zw980wmq1","textLength":8,"textPreview":"el padre"}}
+{"ts":"2026-02-10T09:41:31.393Z","event":"storage_lookup_start","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","storageId":"kg27g8aq7p579pedtb4zdm9zw980wmq1"}}
+{"ts":"2026-02-10T09:41:31.396Z","event":"audio_play_started","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","durationMs":573,"source":"storage"}}
+{"ts":"2026-02-10T09:41:32.077Z","event":"audio_ended","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-father-el padre","durationMs":2110}}
+{"ts":"2026-02-10T09:41:32.612Z","event":"cache_lookup","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","cacheKey":"storage:kg24ahww9cxye1ra25wx4ka0fs80w2y9","hit":false}}
+{"ts":"2026-02-10T09:41:32.608Z","event":"play_start","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","provider":"resemble","hasStorageId":true,"storageId":"kg24ahww9cxye1ra25wx4ka0fs80w2y9","cacheKey":"storage:kg24ahww9cxye1ra25wx4ka0fs80w2y9","textLength":8,"textPreview":"la madre"}}
+{"ts":"2026-02-10T09:41:32.618Z","event":"storage_lookup_start","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","storageId":"kg24ahww9cxye1ra25wx4ka0fs80w2y9"}}
+{"ts":"2026-02-10T09:41:32.706Z","event":"storage_lookup_success","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","storageId":"kg24ahww9cxye1ra25wx4ka0fs80w2y9","durationMs":135}}
+{"ts":"2026-02-10T09:41:33.121Z","event":"audio_play_started","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","durationMs":535,"source":"storage"}}
+{"ts":"2026-02-10T09:41:34.409Z","event":"audio_ended","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","durationMs":1814}}
+{"ts":"2026-02-10T09:45:28.207Z","event":"audio_element_error","data":{"wordKey":"js79x8fytagc88d12bdbwp8rnn7wsz7y-mother-la madre","durationMs":235301,"source":"storage"}}
+{"ts":"2026-02-10T10:09:07.383Z","event":"storage_lookup_start","data":{"wordKey":"theme-word-tts-0","storageId":"kg22db69fb0rqm1qkq9ay4ba5x80wbqc"}}
+{"ts":"2026-02-10T10:09:07.395Z","event":"play_start","data":{"wordKey":"theme-word-tts-0","provider":"resemble","hasStorageId":true,"storageId":"kg22db69fb0rqm1qkq9ay4ba5x80wbqc","cacheKey":"storage:kg22db69fb0rqm1qkq9ay4ba5x80wbqc","textLength":8,"textPreview":"el padre"}}
+{"ts":"2026-02-10T10:09:07.392Z","event":"cache_lookup","data":{"wordKey":"theme-word-tts-0","cacheKey":"storage:kg22db69fb0rqm1qkq9ay4ba5x80wbqc","hit":false}}
+{"ts":"2026-02-10T10:09:07.401Z","event":"storage_lookup_success","data":{"wordKey":"theme-word-tts-0","storageId":"kg22db69fb0rqm1qkq9ay4ba5x80wbqc","durationMs":137}}
+{"ts":"2026-02-10T10:09:07.480Z","event":"audio_play_started","data":{"wordKey":"theme-word-tts-0","durationMs":778,"source":"storage"}}
+{"ts":"2026-02-10T10:09:09.112Z","event":"audio_ended","data":{"wordKey":"theme-word-tts-0","durationMs":2400}}
+{"ts":"2026-02-10T10:34:57.122Z","event":"audio_element_error","data":{"wordKey":"theme-word-tts-0","durationMs":1549933,"source":"storage"}}

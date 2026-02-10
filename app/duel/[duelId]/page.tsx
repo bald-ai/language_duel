@@ -233,10 +233,15 @@ export default function DuelPage() {
   );
 
   const handlePlayAudio = useCallback(() => {
-    const correctAnswer = frozenData ? frozenData.correctAnswer : currentWord.answer;
+    const activeWord = frozenData
+      ? words[wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex]
+      : currentWord;
+    const correctAnswer = activeWord?.answer;
     if (!correctAnswer || correctAnswer === "done") return;
-    playTTS(`answer-${correctAnswer}`, correctAnswer);
-  }, [frozenData, currentWord.answer, playTTS]);
+    playTTS(`duel-answer-${correctAnswer}`, correctAnswer, {
+      storageId: activeWord?.ttsStorageId,
+    });
+  }, [currentWord, frozenData, playTTS, wordOrder, words]);
 
   const handlePauseCountdown = useCallback(() => {
     if (!duel) return;

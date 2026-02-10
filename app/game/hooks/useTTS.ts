@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { stripIrr } from "@/lib/stringUtils";
@@ -17,9 +18,10 @@ type TtsProvider = "resemble" | "elevenlabs";
 export function useTTS() {
   const [playingWordKey, setPlayingWordKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const cacheRef = useRef<Map<string, string>>(new Map());
+  const cacheRef = useRef<Map<string, { url: string; revokeOnCleanup: boolean }>>(new Map());
   const prevProviderRef = useRef<TtsProvider | null>(null);
   const maxCacheSize = 25;
+  const convex = useConvex();
 
   // Get the current user's TTS provider preference
   const currentUser = useQuery(api.users.getCurrentUser);
@@ -29,8 +31,10 @@ export function useTTS() {
   useEffect(() => {
     if (prevProviderRef.current !== null && prevProviderRef.current !== provider) {
       // Provider changed - clear entire cache
-      for (const url of cacheRef.current.values()) {
-        URL.revokeObjectURL(url);
+      for (const entry of cacheRef.current.values()) {
+        if (entry.revokeOnCleanup) {
+          URL.revokeObjectURL(entry.url);
+        }
       }
       cacheRef.current.clear();
     }
@@ -46,23 +50,44 @@ export function useTTS() {
       }
 
       cacheRef.current.delete(oldestKey);
-      URL.revokeObjectURL(oldestUrl);
+      if (oldestUrl.revokeOnCleanup) {
+        URL.revokeObjectURL(oldestUrl.url);
+      }
     }
   }, [maxCacheSize]);
 
-  const playTTS = useCallback(async (wordKey: string, text: string) => {
-    if (playingWordKey === wordKey) return;
+  const playTTS = useCallback(async (
+    wordKey: string,
+    text: string,
+    options?: { storageId?: Id<"_storage"> | string }
+  ) => {
+    if (!text || playingWordKey === wordKey) return;
 
     setPlayingWordKey(wordKey);
 
     const cleanText = stripIrr(text);
-    // Include provider in cache key to avoid stale audio from different providers
-    const cacheKey = `${provider}:${cleanText}`;
+    const storageCacheKey = options?.storageId ? `storage:${options.storageId}` : null;
+    const liveCacheKey = `live:${provider}:${cleanText}`;
+    const cacheKey = storageCacheKey ?? liveCacheKey;
 
     try {
-      let audioUrl = cacheRef.current.get(cacheKey);
+      let cacheEntry = cacheRef.current.get(cacheKey);
 
-      if (!audioUrl) {
+      if (!cacheEntry && options?.storageId) {
+        try {
+          const storageUrl = await convex.query(api.themes.getTtsStorageUrl, {
+            storageId: options.storageId as Id<"_storage">,
+          });
+          if (storageUrl) {
+            cacheEntry = { url: storageUrl, revokeOnCleanup: false };
+            cacheRef.current.set(cacheKey, cacheEntry);
+          }
+        } catch {
+          // Storage URL lookup failure should fall back to live generation.
+        }
+      }
+
+      if (!cacheEntry) {
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -75,20 +100,21 @@ export function useTTS() {
         }
 
         const audioBlob = await response.blob();
-        audioUrl = URL.createObjectURL(audioBlob);
-        cacheRef.current.set(cacheKey, audioUrl);
+        const liveAudioUrl = URL.createObjectURL(audioBlob);
+        cacheEntry = { url: liveAudioUrl, revokeOnCleanup: true };
+        cacheRef.current.set(cacheKey, cacheEntry);
         trimCache();
       } else {
         // Move to end for LRU behavior
         cacheRef.current.delete(cacheKey);
-        cacheRef.current.set(cacheKey, audioUrl);
+        cacheRef.current.set(cacheKey, cacheEntry);
       }
 
       if (audioRef.current) {
         audioRef.current.pause();
       }
 
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(cacheEntry.url);
       audioRef.current = audio;
 
       audio.onended = () => {
@@ -105,7 +131,7 @@ export function useTTS() {
       toast.error(message);
       setPlayingWordKey(null);
     }
-  }, [playingWordKey, provider, trimCache]);
+  }, [convex, playingWordKey, provider, trimCache]);
 
   const isPlaying = playingWordKey !== null;
 
@@ -118,8 +144,10 @@ export function useTTS() {
         audioRef.current.src = "";
       }
 
-      for (const url of cache.values()) {
-        URL.revokeObjectURL(url);
+      for (const entry of cache.values()) {
+        if (entry.revokeOnCleanup) {
+          URL.revokeObjectURL(entry.url);
+        }
       }
 
       cache.clear();

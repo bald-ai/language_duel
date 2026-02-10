@@ -12,6 +12,7 @@ import {
 import { buttonStyles, colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
 import { ThemeCardMenu } from "./ThemeCardMenu";
+import { hasMissingThemeTts } from "@/lib/themes/tts";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -85,6 +86,11 @@ const ThemeCard = memo(function ThemeCard({
     !theme.isOwner && theme.ownerNickname
       ? ` • by ${theme.ownerNickname}`
       : "";
+  const hasMissingTts = hasMissingThemeTts(theme.words);
+  const ttsStatusLabel = hasMissingTts ? "TTS missing" : "TTS up to date";
+  const ttsStatusTitle = hasMissingTts
+    ? "Some words are missing pre-generated TTS"
+    : "All words have pre-generated TTS";
 
   return (
     <div
@@ -116,17 +122,46 @@ const ThemeCard = memo(function ThemeCard({
             {theme.words.length} words • {categoryLabel} • {visibilityLabel}{ownerInfo}
           </div>
         </button>
-        <ThemeCardMenu
-          themeId={theme._id}
-          themeName={theme.name}
-          isOwner={theme.isOwner}
-          isDeleting={isDeleting}
-          isDuplicating={isDuplicating}
-          onDuplicate={onDuplicateTheme}
-          onDelete={onDeleteTheme}
-          isArchived={isArchived}
-          onToggleArchive={onToggleArchive}
-        />
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
+            style={{
+              backgroundColor: hasMissingTts
+                ? `${colors.status.warning.DEFAULT}1A`
+                : `${colors.status.success.DEFAULT}1A`,
+              borderColor: hasMissingTts
+                ? colors.status.warning.dark
+                : colors.status.success.dark,
+              color: hasMissingTts
+                ? colors.status.warning.light
+                : colors.status.success.light,
+            }}
+            title={ttsStatusTitle}
+            data-testid={`theme-tts-status-${theme._id}`}
+          >
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{
+                backgroundColor: hasMissingTts
+                  ? colors.status.warning.DEFAULT
+                  : colors.status.success.DEFAULT,
+              }}
+              aria-hidden="true"
+            />
+            {ttsStatusLabel}
+          </span>
+          <ThemeCardMenu
+            themeId={theme._id}
+            themeName={theme.name}
+            isOwner={theme.isOwner}
+            isDeleting={isDeleting}
+            isDuplicating={isDuplicating}
+            onDuplicate={onDuplicateTheme}
+            onDelete={onDeleteTheme}
+            isArchived={isArchived}
+            onToggleArchive={onToggleArchive}
+          />
+        </div>
       </div>
     </div>
   );
