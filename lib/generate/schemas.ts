@@ -1,5 +1,7 @@
 // JSON schemas for structured output from OpenAI (responses API json_schema format)
 
+import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
+
 export const themeSchema = {
   type: "object" as const,
   properties: {
@@ -13,15 +15,15 @@ export const themeSchema = {
           wrongAnswers: {
             type: "array" as const,
             items: { type: "string" as const },
-            minItems: 6,
-            maxItems: 6,
+            minItems: WRONG_ANSWER_COUNT,
+            maxItems: WRONG_ANSWER_COUNT,
           },
         },
         required: ["word", "answer", "wrongAnswers"],
         additionalProperties: false,
       },
-      minItems: 10,
-      maxItems: 10,
+      minItems: THEME_WORD_COUNT,
+      maxItems: THEME_WORD_COUNT,
     },
   },
   required: ["words"],
@@ -36,8 +38,8 @@ export const wordSchema = {
     wrongAnswers: {
       type: "array" as const,
       items: { type: "string" as const },
-      minItems: 6,
-      maxItems: 6,
+      minItems: WRONG_ANSWER_COUNT,
+      maxItems: WRONG_ANSWER_COUNT,
     },
   },
   required: ["word", "answer", "wrongAnswers"],
@@ -70,8 +72,8 @@ export const answerAndWrongsSchema = {
     wrongAnswers: {
       type: "array" as const,
       items: { type: "string" as const },
-      minItems: 6,
-      maxItems: 6,
+      minItems: WRONG_ANSWER_COUNT,
+      maxItems: WRONG_ANSWER_COUNT,
     },
   },
   required: ["answer", "wrongAnswers"],
@@ -93,8 +95,8 @@ export function createRandomWordsSchema(count: number) {
             wrongAnswers: {
               type: "array" as const,
               items: { type: "string" as const },
-              minItems: 6,
-              maxItems: 6,
+              minItems: WRONG_ANSWER_COUNT,
+              maxItems: WRONG_ANSWER_COUNT,
             },
           },
           required: ["word", "answer", "wrongAnswers"],
@@ -108,5 +110,4 @@ export function createRandomWordsSchema(count: number) {
     additionalProperties: false,
   };
 }
-
 

@@ -75,6 +75,22 @@ describe("renderNotificationEmail", () => {
     });
   });
 
+  describe("weekly goal locked", () => {
+    it("renders correct subject and body", () => {
+      const data = {
+        recipientName: "Partner",
+        senderName: "Inviter",
+        completedCount: 1,
+        totalCount: 5,
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_locked", data);
+
+      expect(subject).toBe("Inviter locked the weekly goal");
+      expect(html).toContain("Inviter");
+      expect(html).toContain("1/5");
+    });
+  });
+
   describe("weekly goal reminder", () => {
     it("renders reminder 1 with hours left and progress", () => {
       const data = {
@@ -116,6 +132,7 @@ describe("renderNotificationEmail", () => {
       "scheduled_duel_canceled",
       "scheduled_duel_reminder",
       "weekly_goal_invite",
+      "weekly_goal_locked",
       "weekly_goal_accepted",
       "weekly_goal_declined",
       "weekly_goal_reminder_1",

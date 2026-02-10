@@ -17,7 +17,8 @@ export const getMyNotificationPreferences = query({
       return { ...DEFAULT_NOTIFICATION_PREFS, userId: user._id, isDefault: true };
     }
 
-    return { ...prefs, isDefault: false };
+    // Merge defaults so newly added fields get sensible values for older rows.
+    return { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: user._id, isDefault: false };
   },
 });
 
@@ -29,7 +30,9 @@ export const getByUserId = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
 
-    return prefs ?? { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+    return prefs
+      ? { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: args.userId }
+      : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
   },
 });
 
@@ -49,10 +52,12 @@ export const setMyNotificationPreferences = mutation({
     scheduledDuelCanceledEnabled: v.boolean(),
     scheduledDuelReminderEnabled: v.boolean(),
     scheduledDuelReminderOffsetMinutes: v.number(),
+    scheduledDuelReadyEnabled: v.boolean(),
 
     weeklyGoalsEnabled: v.boolean(),
     weeklyGoalInviteEnabled: v.boolean(),
     weeklyGoalAcceptedEnabled: v.boolean(),
+    weeklyGoalLockedEnabled: v.boolean(),
     weeklyGoalDeclinedEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),

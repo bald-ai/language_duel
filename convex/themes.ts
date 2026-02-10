@@ -369,9 +369,24 @@ export const createTheme = mutation({
     words: v.array(wordValidator),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+    saveRequestId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
     const { user } = await getAuthenticatedUser(ctx);
+
+    if (args.saveRequestId) {
+      const saveRequestId = args.saveRequestId;
+      const existingTheme = await ctx.db
+        .query("themes")
+        .withIndex("by_owner_save_request", (q) =>
+          q.eq("ownerId", user._id).eq("saveRequestId", saveRequestId)
+        )
+        .first();
+
+      if (existingTheme) {
+        return existingTheme._id;
+      }
+    }
 
     return await ctx.db.insert("themes", {
       name: args.name,
@@ -381,6 +396,7 @@ export const createTheme = mutation({
       createdAt: Date.now(),
       ownerId: user._id,
       visibility: args.visibility || "private",
+      saveRequestId: args.saveRequestId,
     });
   },
 });

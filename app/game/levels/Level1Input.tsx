@@ -88,29 +88,43 @@ export function Level1Input({
       handleConfirm();
     } else if (e.key === "Backspace") {
       e.preventDefault();
-      if (cursorPosition > 0) {
+      if (letterSlots.length === 0) return;
+
+      const currentIndex = Math.min(Math.max(cursorPosition, 0), letterSlots.length - 1);
+      const currentChar = typedLetters[currentIndex] || "";
+
+      // First backspace clears current highlighted slot.
+      if (currentChar) {
         const newTyped = [...typedLetters];
-        newTyped.splice(cursorPosition - 1, 1);
+        while (newTyped.length <= currentIndex) newTyped.push("");
+        newTyped[currentIndex] = "";
         setTypedLetters(newTyped);
-        setCursorPosition(cursorPosition - 1);
+        return;
+      }
+
+      // Repeated backspace walks left and clears in reverse order.
+      if (currentIndex > 0) {
+        const previousIndex = currentIndex - 1;
+        const newTyped = [...typedLetters];
+        while (newTyped.length <= previousIndex) newTyped.push("");
+        newTyped[previousIndex] = "";
+        setTypedLetters(newTyped);
+        setCursorPosition(previousIndex);
       }
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       if (cursorPosition > 0) setCursorPosition(cursorPosition - 1);
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
-      if (cursorPosition < typedLetters.length) setCursorPosition(cursorPosition + 1);
+      if (cursorPosition < letterSlots.length - 1) setCursorPosition(cursorPosition + 1);
     } else if (e.key.length === 1 && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(e.key)) {
       e.preventDefault();
       if (cursorPosition < letterSlots.length) {
         const newTyped = [...typedLetters];
-        if (cursorPosition < newTyped.length) {
-          newTyped[cursorPosition] = e.key;
-        } else {
-          newTyped.push(e.key);
-        }
+        while (newTyped.length <= cursorPosition) newTyped.push("");
+        newTyped[cursorPosition] = e.key;
         setTypedLetters(newTyped);
-        setCursorPosition(Math.min(cursorPosition + 1, letterSlots.length));
+        setCursorPosition(Math.min(cursorPosition + 1, letterSlots.length - 1));
       }
     }
   };
@@ -213,13 +227,37 @@ export function Level1Input({
 
       const typedChar = typedLetters[slotIdx] || "";
       const isRevealed = revealedPositions.has(slotIdx);
-      const _isCorrect = normalizeAccents(typedChar) === normalizeAccents(slot.char);
+      const hasTypedChar = typedChar.length > 0;
+      const isCorrect = normalizeAccents(typedChar) === normalizeAccents(slot.char);
       const isCursor = cursorPosition === slotIdx;
 
       const letterStyle = {
         color: colors.text.DEFAULT,
         fontFamily: "system-ui, -apple-system, sans-serif",
       };
+
+      const incorrectUnderlineColor = "#DC2626";
+      const underlineColor = hasTypedChar
+        ? (isCorrect ? colors.status.success.DEFAULT : incorrectUnderlineColor)
+        : colors.primary.dark;
+
+      const hintButtonStyle = {
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        color: colors.text.DEFAULT,
+      };
+
+      const selectedLetterBoxStyle = isCursor
+        ? {
+          backgroundColor: `${colors.secondary.DEFAULT}1A`,
+          borderColor: colors.secondary.DEFAULT,
+          boxShadow: `0 0 0 1px ${colors.secondary.DEFAULT}33`,
+        }
+        : {
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          boxShadow: "none",
+        };
 
       currentWordSlots.push(
         <div key={slotIdx} className="flex flex-col items-center">
@@ -234,42 +272,26 @@ export function Level1Input({
                 }`
             }
             data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${slotIdx}-hint` : undefined}
-            style={
-              !isDuelMode
-                ? isRevealed
-                  ? {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.neutral.dark,
-                    color: colors.text.muted,
-                  }
-                  : {
-                    backgroundColor: colors.background.elevated,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.DEFAULT,
-                  }
-                : isRevealed
-                  ? {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.neutral.dark,
-                    color: colors.text.muted,
-                  }
-                  : {
-                    backgroundColor: colors.background.elevated,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.DEFAULT,
-                  }
-            }
+            style={hintButtonStyle}
           >
             H
           </button>
           <div
+            onClick={() => handleSlotDoubleClick(slotIdx)}
             onDoubleClick={() => handleSlotDoubleClick(slotIdx)}
-            className="w-8 h-10 flex items-center justify-center border-b-2 cursor-text"
-            style={{ borderColor: isCursor ? colors.secondary.DEFAULT : colors.primary.dark }}
+            className="w-8 h-10 flex items-center justify-center border-b-[3px] cursor-text"
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${slotIdx}-slot` : undefined}
+            style={{ borderColor: underlineColor }}
           >
-            <span className="text-xl font-bold" style={letterStyle}>
-              {isRevealed ? slot.char.toUpperCase() : typedChar.toUpperCase()}
-            </span>
+            <div
+              className="w-7 h-7 rounded-md border flex items-center justify-center transition"
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-letter-${slotIdx}-box` : undefined}
+              style={selectedLetterBoxStyle}
+            >
+              <span className="text-xl font-bold" style={letterStyle}>
+                {isRevealed ? slot.char.toUpperCase() : typedChar.toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
       );

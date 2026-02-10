@@ -28,6 +28,7 @@ interface NotificationData {
         mode?: string;
         isCounterProposal?: boolean;
         themeCount?: number;
+        event?: "invite" | "partner_locked" | "goal_activated";
         scheduledDuelStatus?: string;
         startedDuelId?: Id<"challenges">;
         proposerReady?: boolean;
@@ -196,6 +197,54 @@ export function NotificationItem({
                 };
 
             case NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION:
+                if (payload?.event === "partner_locked") {
+                    return {
+                        icon: <CalendarIcon />,
+                        message: `${userName} locked their weekly goal. Your turn.`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onViewWeeklyPlan}
+                                    variant="accept"
+                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                >
+                                    View
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onDismissWeeklyPlan}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                >
+                                    Dismiss
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
+                if (payload?.event === "goal_activated") {
+                    return {
+                        icon: <CalendarIcon />,
+                        message: `${userName} locked the weekly goal. It is now active.`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onViewWeeklyPlan}
+                                    variant="accept"
+                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                >
+                                    View
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onDismissWeeklyPlan}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                >
+                                    Dismiss
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
                 return {
                     icon: <CalendarIcon />,
                     message: `${userName} invited you to a weekly plan`,

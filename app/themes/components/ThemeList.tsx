@@ -10,6 +10,7 @@ import {
   type VariableSizeList,
 } from "react-window";
 import { buttonStyles, colors } from "@/lib/theme";
+import { BackButton } from "@/app/components/BackButton";
 import { ThemeCardMenu } from "./ThemeCardMenu";
 
 interface ThemeListProps {
@@ -33,16 +34,6 @@ interface ThemeListProps {
 
 const actionButtonClassName =
   "w-full bg-gradient-to-b border-t-2 border-b-3 border-x-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-md";
-
-const primaryActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
-  borderTopColor: buttonStyles.primary.border.top,
-  borderBottomColor: buttonStyles.primary.border.bottom,
-  borderLeftColor: buttonStyles.primary.border.sides,
-  borderRightColor: buttonStyles.primary.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
 
 const ctaActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
@@ -474,14 +465,11 @@ export function ThemeList({
         </div>
       </div>
 
-      <button
+      <BackButton
         onClick={onBack}
-        className={`${actionButtonClassName} animate-slide-up delay-300`}
-        style={primaryActionStyle}
-        data-testid="themes-back"
-      >
-        Back
-      </button>
+        className="animate-slide-up delay-300"
+        dataTestId="themes-back"
+      />
     </>
   );
 }

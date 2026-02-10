@@ -3,7 +3,7 @@
  */
 
 import { query, mutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import {
   getAuthenticatedUser,
@@ -35,9 +35,9 @@ export const createDuel = mutation({
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) throw new Error("Opponent not found");
 
-    // Verify theme exists
-    const theme = await ctx.db.get(themeId);
-    if (!theme) throw new Error("Theme not found");
+    // Verify theme exists and challenger has access to it
+    const theme = await ctx.runQuery(api.themes.getTheme, { themeId });
+    if (!theme) throw new Error("Theme not found or access denied");
 
     // Create shuffled word order
     const wordOrder = createShuffledWordOrder(theme.words.length);

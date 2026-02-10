@@ -123,6 +123,12 @@ export default function NotificationSettingsPage() {
               disabled={!prefs.scheduledDuelsEnabled}
               onChange={(v) => updatePrefs({ scheduledDuelReminderEnabled: v })}
             />
+            <NotificationToggle
+              label="Opponent ready"
+              enabled={prefs.scheduledDuelReadyEnabled}
+              disabled={!prefs.scheduledDuelsEnabled}
+              onChange={(v) => updatePrefs({ scheduledDuelReadyEnabled: v })}
+            />
             <ReminderOffsetInput
               label="Remind me before"
               valueMinutes={prefs.scheduledDuelReminderOffsetMinutes}
@@ -149,6 +155,12 @@ export default function NotificationSettingsPage() {
               enabled={prefs.weeklyGoalAcceptedEnabled}
               disabled={!prefs.weeklyGoalsEnabled}
               onChange={(v) => updatePrefs({ weeklyGoalAcceptedEnabled: v })}
+            />
+            <NotificationToggle
+              label="Partner locked goal"
+              enabled={prefs.weeklyGoalLockedEnabled}
+              disabled={!prefs.weeklyGoalsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalLockedEnabled: v })}
             />
             <NotificationToggle
               label="Goal invite declined"

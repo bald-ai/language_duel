@@ -11,6 +11,7 @@ import {
   doesWrongAnswerMatchCorrect,
 } from "@/lib/themes/validators";
 import { buttonStyles, colors } from "@/lib/theme";
+import { BackButton } from "@/app/components/BackButton";
 import type { FieldType } from "../constants";
 import { THEME_NAME_MAX_LENGTH } from "../constants";
 import { AddWordModal } from "./AddWordModal";
@@ -29,6 +30,7 @@ interface ThemeDetailProps {
   onEditWord: (wordIndex: number, field: FieldType, wrongIndex?: number) => void;
   onSave: () => void;
   onCancel: () => void;
+  isSaving?: boolean;
   // Add word modal
   showAddWordModal: boolean;
   onShowAddWordModal: (show: boolean) => void;
@@ -63,16 +65,6 @@ interface ThemeDetailProps {
 
 const rowActionButtonClassName =
   "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-2xl py-2.5 px-4 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
-
-const primaryActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
-  borderTopColor: buttonStyles.primary.border.top,
-  borderBottomColor: buttonStyles.primary.border.bottom,
-  borderLeftColor: buttonStyles.primary.border.sides,
-  borderRightColor: buttonStyles.primary.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
 
 const ctaActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
@@ -288,6 +280,7 @@ export function ThemeDetail({
   onEditWord,
   onSave,
   onCancel,
+  isSaving = false,
   showAddWordModal,
   onShowAddWordModal,
   addWordState,
@@ -332,6 +325,7 @@ export function ThemeDetail({
   );
   const hasThemeIssues =
     hasDuplicateWords || hasThemeDuplicateWrongAnswers || hasThemeWrongMatchingAnswer;
+  const isSaveDisabled = hasThemeIssues || isSaving;
 
   const visibilityButtonClassName =
     "px-3 py-1 text-xs sm:text-sm font-medium transition hover:brightness-110 disabled:opacity-50";
@@ -587,16 +581,17 @@ export function ThemeDetail({
               <>
                 <button
                   onClick={onSave}
-                  disabled={hasThemeIssues}
+                  disabled={isSaveDisabled}
                   className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={ctaActionStyle}
                   data-testid="theme-save"
                 >
-                  Save
+                  {isSaving ? "Saving..." : "Save"}
                 </button>
                 <button
                   onClick={onCancel}
-                  className={outlineButtonClassName}
+                  disabled={isSaving}
+                  className={`${outlineButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={outlineButtonStyle}
                   data-testid="theme-cancel"
                 >
@@ -604,14 +599,7 @@ export function ThemeDetail({
                 </button>
               </>
             ) : (
-              <button
-                onClick={onCancel}
-                className={rowActionButtonClassName}
-                style={primaryActionStyle}
-                data-testid="theme-back"
-              >
-                Back
-              </button>
+              <BackButton onClick={onCancel} dataTestId="theme-back" />
             )}
           </div>
           {canEdit && hasThemeIssues && (

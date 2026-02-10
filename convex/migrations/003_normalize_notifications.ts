@@ -47,7 +47,13 @@ const pickWeeklyPlanPayload = (payload: Record<string, unknown>) => {
   const goalId = asId<"weeklyGoals">(payload.goalId);
   if (!goalId) return null;
   const themeCount = isNumber(payload.themeCount) ? payload.themeCount : undefined;
-  return { goalId, themeCount };
+  const event =
+    payload.event === "invite" ||
+    payload.event === "partner_locked" ||
+    payload.event === "goal_activated"
+      ? (payload.event as "invite" | "partner_locked" | "goal_activated")
+      : undefined;
+  return { goalId, themeCount, event };
 };
 
 const pickDuelChallengePayload = (payload: Record<string, unknown>) => {
@@ -104,11 +110,13 @@ const normalizePayload = async (
       return {
         goalId: normalized.goalId,
         themeCount: goal ? goal.themes.length : 0,
+        event: normalized.event,
       };
     }
     return {
       goalId: normalized.goalId,
       themeCount: normalized.themeCount,
+      event: normalized.event,
     };
   }
 

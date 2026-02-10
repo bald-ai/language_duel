@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { Level1Input } from "@/app/game/levels/Level1Input";
 import { AUTO_COMPLETE_DELAY_MS } from "@/app/game/levels/constants";
+import { colors } from "@/lib/theme";
 
 describe("Level1Input", () => {
   const answer = "hola";
@@ -134,5 +135,50 @@ describe("Level1Input", () => {
 
     fireEvent.click(screen.getByTestId("level1-hint-request-again"));
     expect(onRequestHint).toHaveBeenCalledTimes(1);
+  });
+
+  it("supports slot navigation with selected letter box and reverse-order backspace flow", () => {
+    render(
+      <Level1Input
+        answer={answer}
+        onCorrect={vi.fn()}
+        onSkip={vi.fn()}
+        mode="solo"
+        dataTestIdBase="level1"
+      />
+    );
+
+    const input = screen.getByRole("textbox");
+    const box0 = screen.getByTestId("level1-letter-0-box");
+    const box1 = screen.getByTestId("level1-letter-1-box");
+    const box2 = screen.getByTestId("level1-letter-2-box");
+
+    expect(box0).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box0).not.toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+
+    fireEvent.keyDown(input, { key: "x" });
+    expect(box1).toHaveTextContent("X");
+
+    fireEvent.keyDown(input, { key: "ArrowLeft" });
+    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    fireEvent.keyDown(input, { key: "o" });
+    expect(box1).toHaveTextContent("O");
+
+    fireEvent.keyDown(input, { key: "l" });
+    expect(box2).toHaveTextContent("L");
+
+    fireEvent.keyDown(input, { key: "ArrowLeft" });
+    expect(box2).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+
+    fireEvent.keyDown(input, { key: "Backspace" });
+    expect(box2).not.toHaveTextContent("L");
+    expect(box2).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+
+    fireEvent.keyDown(input, { key: "Backspace" });
+    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box1).not.toHaveTextContent("O");
   });
 });

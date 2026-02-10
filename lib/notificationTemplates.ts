@@ -45,8 +45,12 @@ export function getSubjectForTrigger(
       return `Duel canceled -- someone got cold feet`;
     case "scheduled_duel_reminder":
       return `${data.minutesBefore ?? 0} min until showdown!`;
+    case "scheduled_duel_ready":
+      return `${sender} is ready -- are you?`;
     case "weekly_goal_invite":
       return `${sender} dares you to a weekly goal`;
+    case "weekly_goal_locked":
+      return `${sender} locked the weekly goal`;
     case "weekly_goal_accepted":
       return `${sender} is IN -- weekly goal activated!`;
     case "weekly_goal_declined":
@@ -112,10 +116,22 @@ export function getBodyForTrigger(
         body: `Your duel with ${partner} on <strong>${theme}</strong> kicks off at <strong>${time}</strong>. That's just <strong>${data.minutesBefore ?? 0} minutes</strong> from now. Get in there!`,
         cta: "Open Language Duel",
       };
+    case "scheduled_duel_ready":
+      return {
+        heading: `Your opponent is warmed up!`,
+        body: `${sender} just hit "Ready" for your duel on <strong>${theme}</strong> at <strong>${time}</strong>. They're waiting for you -- don't keep them hanging!`,
+        cta: "Open Language Duel",
+      };
     case "weekly_goal_invite":
       return {
         heading: `You've been challenged`,
         body: `${sender} wants to team up (or compete?) on a weekly goal. Think you can keep up? Open the app to see the details and make it official.`,
+        cta: "Open Language Duel",
+      };
+    case "weekly_goal_locked":
+      return {
+        heading: `Your partner locked in`,
+        body: `${sender} just locked their side of the weekly goal. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app and lock too when you're ready.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_accepted":

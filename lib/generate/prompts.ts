@@ -1,12 +1,11 @@
 // Prompt builders for /api/generate.
 // Kept as pure functions (no OpenAI imports) so they are easy to test later.
 
+import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
+
 // ============================================================================
 // Shared Constants - DRY prompt fragments
 // ============================================================================
-
-const WRONG_ANSWER_COUNT = 6;
-const THEME_WORD_COUNT = 10;
 
 const WRONG_ANSWER_REQUIREMENTS = `- Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish words

@@ -19,6 +19,7 @@ import {
   wordSchema,
   wrongAnswerSchema,
 } from "@/lib/generate/schemas";
+import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
 
 export const runtime = 'nodejs';
@@ -27,7 +28,7 @@ const OPENAI_MODEL = "gpt-5.1-2025-11-13" as const;
 const OPENAI_REASONING_EFFORT = "low" as const;
 
 const RANDOM_WORDS_MIN_COUNT = 1;
-const RANDOM_WORDS_MAX_COUNT = 10;
+const RANDOM_WORDS_MAX_COUNT = THEME_WORD_COUNT;
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 
 type WordWithChoices = { word: string; answer: string; wrongAnswers: string[] };
@@ -213,8 +214,8 @@ export async function POST(request: NextRequest) {
         : buildThemeSystemPrompt(body.themeName, body.themePrompt);
 
       const userMessage = body.wordType === "verbs"
-        ? `Generate 10 Spanish verbs for the theme "${body.themeName}".`
-        : `Generate 10 Spanish vocabulary words for the theme "${body.themeName}".`;
+        ? `Generate ${THEME_WORD_COUNT} Spanish verbs for the theme "${body.themeName}".`
+        : `Generate ${THEME_WORD_COUNT} Spanish vocabulary words for the theme "${body.themeName}".`;
 
       const messages = buildMessages({
         systemPrompt,
@@ -306,7 +307,7 @@ export async function POST(request: NextRequest) {
 
       const messages = buildMessages({
         systemPrompt,
-        userMessage: `Generate the Spanish translation and 6 wrong answers for "${newWord}".`,
+        userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
       });
 
       const parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
@@ -335,7 +336,7 @@ export async function POST(request: NextRequest) {
 
       const messages = buildMessages({
         systemPrompt,
-        userMessage: `Generate the Spanish translation and 6 wrong answers for "${newWord}".`,
+        userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
       });
 
       const parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {

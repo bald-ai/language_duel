@@ -440,6 +440,7 @@ export default function SoloChallengePage() {
           <>
             {session.questionLevel === 0 && (
               <Level0Input
+                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 word={currentWord.word}
                 answer={currentWord.answer}
                 onGotIt={handleLevel0GotIt}

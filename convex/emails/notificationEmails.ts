@@ -25,7 +25,9 @@ export const getNotificationPreferencesByUserId = internalQuery({
       .query("notificationPreferences")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
-    return prefs ?? { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+    return prefs
+      ? { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: args.userId }
+      : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
   },
 });
 
@@ -75,7 +77,9 @@ export const checkNotificationSent = internalQuery({
       v.literal("scheduled_duel_declined"),
       v.literal("scheduled_duel_canceled"),
       v.literal("scheduled_duel_reminder"),
+      v.literal("scheduled_duel_ready"),
       v.literal("weekly_goal_invite"),
+      v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_declined"),
       v.literal("weekly_goal_reminder_1"),
@@ -160,7 +164,9 @@ export const logNotificationSent = internalMutation({
       v.literal("scheduled_duel_declined"),
       v.literal("scheduled_duel_canceled"),
       v.literal("scheduled_duel_reminder"),
+      v.literal("scheduled_duel_ready"),
       v.literal("weekly_goal_invite"),
+      v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_declined"),
       v.literal("weekly_goal_reminder_1"),
@@ -194,7 +200,9 @@ export const sendNotificationEmail = internalAction({
       v.literal("scheduled_duel_declined"),
       v.literal("scheduled_duel_canceled"),
       v.literal("scheduled_duel_reminder"),
+      v.literal("scheduled_duel_ready"),
       v.literal("weekly_goal_invite"),
+      v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_declined"),
       v.literal("weekly_goal_reminder_1"),

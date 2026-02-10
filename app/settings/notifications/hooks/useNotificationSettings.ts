@@ -39,12 +39,16 @@ export function useNotificationSettings() {
             updates.scheduledDuelReminderEnabled ?? prefs.scheduledDuelReminderEnabled,
           scheduledDuelReminderOffsetMinutes:
             updates.scheduledDuelReminderOffsetMinutes ?? prefs.scheduledDuelReminderOffsetMinutes,
+          scheduledDuelReadyEnabled:
+            updates.scheduledDuelReadyEnabled ?? prefs.scheduledDuelReadyEnabled,
 
           weeklyGoalsEnabled: updates.weeklyGoalsEnabled ?? prefs.weeklyGoalsEnabled,
           weeklyGoalInviteEnabled:
             updates.weeklyGoalInviteEnabled ?? prefs.weeklyGoalInviteEnabled,
           weeklyGoalAcceptedEnabled:
             updates.weeklyGoalAcceptedEnabled ?? prefs.weeklyGoalAcceptedEnabled,
+          weeklyGoalLockedEnabled:
+            updates.weeklyGoalLockedEnabled ?? prefs.weeklyGoalLockedEnabled,
           weeklyGoalDeclinedEnabled:
             updates.weeklyGoalDeclinedEnabled ?? prefs.weeklyGoalDeclinedEnabled,
           weeklyGoalReminder1Enabled:

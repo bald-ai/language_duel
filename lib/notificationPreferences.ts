@@ -11,7 +11,9 @@ export const NOTIFICATION_TRIGGERS = [
   "scheduled_duel_declined",
   "scheduled_duel_canceled",
   "scheduled_duel_reminder",
+  "scheduled_duel_ready",
   "weekly_goal_invite",
+  "weekly_goal_locked",
   "weekly_goal_accepted",
   "weekly_goal_declined",
   "weekly_goal_reminder_1",
@@ -59,9 +61,17 @@ export function isNotificationEnabled(
       category: "scheduledDuelsEnabled",
       trigger: "scheduledDuelReminderEnabled",
     },
+    scheduled_duel_ready: {
+      category: "scheduledDuelsEnabled",
+      trigger: "scheduledDuelReadyEnabled",
+    },
     weekly_goal_invite: {
       category: "weeklyGoalsEnabled",
       trigger: "weeklyGoalInviteEnabled",
+    },
+    weekly_goal_locked: {
+      category: "weeklyGoalsEnabled",
+      trigger: "weeklyGoalLockedEnabled",
     },
     weekly_goal_accepted: {
       category: "weeklyGoalsEnabled",

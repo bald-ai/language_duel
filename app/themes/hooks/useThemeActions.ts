@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -34,23 +34,30 @@ export function useThemeActions() {
 
   const [deletingThemeId, setDeletingThemeId] = useState<Id<"themes"> | null>(null);
   const [duplicatingThemeId, setDuplicatingThemeId] = useState<Id<"themes"> | null>(null);
+  const createInFlightRef = useRef(false);
+  const updateInFlightRef = useRef(false);
 
   const create = useCallback(
     async (
       name: string,
       description: string,
       words: WordEntry[],
-      wordType: "nouns" | "verbs"
+      wordType: "nouns" | "verbs",
+      saveRequestId?: string
     ): Promise<ActionResult> => {
+      if (createInFlightRef.current) return { ok: false, error: "Already creating" };
+      createInFlightRef.current = true;
       setState((prev) => ({ ...prev, isCreating: true, error: null }));
       try {
-        const themeId = await createTheme({ name, description, words, wordType });
+        const themeId = await createTheme({ name, description, words, wordType, saveRequestId });
         setState((prev) => ({ ...prev, isCreating: false }));
         return { ok: true, themeId };
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Failed to create theme";
         setState((prev) => ({ ...prev, isCreating: false, error: msg }));
         return { ok: false, error: msg };
+      } finally {
+        createInFlightRef.current = false;
       }
     },
     [createTheme]
@@ -62,6 +69,8 @@ export function useThemeActions() {
       name: string,
       words: WordEntry[]
     ): Promise<ActionResult> => {
+      if (updateInFlightRef.current) return { ok: false, error: "Already saving" };
+      updateInFlightRef.current = true;
       setState((prev) => ({ ...prev, isUpdating: true, error: null }));
       try {
         await updateTheme({ themeId, name: name.toUpperCase(), words });
@@ -71,6 +80,8 @@ export function useThemeActions() {
         const msg = e instanceof Error ? e.message : "Failed to save theme";
         setState((prev) => ({ ...prev, isUpdating: false, error: msg }));
         return { ok: false, error: msg };
+      } finally {
+        updateInFlightRef.current = false;
       }
     },
     [updateTheme]
@@ -128,4 +139,3 @@ export function useThemeActions() {
     duplicate,
   };
 }
-

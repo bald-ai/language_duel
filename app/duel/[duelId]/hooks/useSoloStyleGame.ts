@@ -65,6 +65,7 @@ export function useSoloStyleGame({
   const [opponentAnswerFeedback, setOpponentAnswerFeedback] = useState<"correct" | "wrong" | null>(null);
   const [opponentLastAnsweredWord, setOpponentLastAnsweredWord] = useState<string | null>(null);
   const [opponentFeedbackMessage, setOpponentFeedbackMessage] = useState<string | null>(null);
+  const opponentFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opponentWordFailCountsRef = useRef<Record<number, number>>({});
   const prevOpponentStatsRef = useRef<{
     questionsAnswered: number;
@@ -89,6 +90,8 @@ export function useSoloStyleGame({
   const [showFlashHint, setShowFlashHint] = useState(false);
   const [flashHintAnswer, setFlashHintAnswer] = useState<string | null>(null);
   const flashHintShownRef = useRef<string | null>(null);
+  const flashHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashHintL2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Temporary "hint sent" banners
   const [showHintSentBanner, setShowHintSentBanner] = useState(false);
@@ -169,6 +172,10 @@ export function useSoloStyleGame({
   // Opponent answer feedback effect
   useEffect(() => {
     if (!theirStats || theirCurrentWordIndex === undefined || theirCurrentLevel === undefined) {
+      if (opponentFeedbackTimerRef.current) {
+        clearTimeout(opponentFeedbackTimerRef.current);
+        opponentFeedbackTimerRef.current = null;
+      }
       prevOpponentStatsRef.current = null;
       return;
     }
@@ -193,10 +200,14 @@ export function useSoloStyleGame({
         setOpponentFeedbackMessage(null);
       }
 
-      setTimeout(() => {
+      if (opponentFeedbackTimerRef.current) {
+        clearTimeout(opponentFeedbackTimerRef.current);
+      }
+      opponentFeedbackTimerRef.current = setTimeout(() => {
         setOpponentAnswerFeedback(null);
         setOpponentLastAnsweredWord(null);
         setOpponentFeedbackMessage(null);
+        opponentFeedbackTimerRef.current = null;
       }, 1500);
     }
 
@@ -205,6 +216,13 @@ export function useSoloStyleGame({
       correctAnswers: theirStats.correctAnswers,
       wordIndex: theirCurrentWordIndex,
       level: theirCurrentLevel,
+    };
+
+    return () => {
+      if (opponentFeedbackTimerRef.current) {
+        clearTimeout(opponentFeedbackTimerRef.current);
+        opponentFeedbackTimerRef.current = null;
+      }
     };
   }, [theirStats, theirCurrentWordIndex, theirCurrentLevel, theme.words]);
 
@@ -335,14 +353,25 @@ export function useSoloStyleGame({
       flashHintShownRef.current = hintKey;
       setFlashHintAnswer(currentWord.answer);
       setShowFlashHint(true);
-      setTimeout(() => {
+      if (flashHintTimerRef.current) {
+        clearTimeout(flashHintTimerRef.current);
+      }
+      flashHintTimerRef.current = setTimeout(() => {
         setShowFlashHint(false);
         setFlashHintAnswer(null);
+        flashHintTimerRef.current = null;
       }, 500);
     }
     if (!iRequestedHint) {
       flashHintShownRef.current = null;
     }
+
+    return () => {
+      if (flashHintTimerRef.current) {
+        clearTimeout(flashHintTimerRef.current);
+        flashHintTimerRef.current = null;
+      }
+    };
   }, [iRequestedHint, hintAccepted, hintType, currentWord?.answer, myCurrentWordIndex]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -354,14 +383,25 @@ export function useSoloStyleGame({
       flashHintShownRef.current = hintKey;
       setFlashHintAnswer(hintL2RequesterWord.answer);
       setShowFlashHint(true);
-      setTimeout(() => {
+      if (flashHintL2TimerRef.current) {
+        clearTimeout(flashHintL2TimerRef.current);
+      }
+      flashHintL2TimerRef.current = setTimeout(() => {
         setShowFlashHint(false);
         setFlashHintAnswer(null);
+        flashHintL2TimerRef.current = null;
       }, 500);
     }
     if (!iRequestedHintL2) {
       flashHintShownRef.current = null;
     }
+
+    return () => {
+      if (flashHintL2TimerRef.current) {
+        clearTimeout(flashHintL2TimerRef.current);
+        flashHintL2TimerRef.current = null;
+      }
+    };
   }, [iRequestedHintL2, hintL2Accepted, hintL2Type, hintL2RequesterWord?.answer, hintL2WordIndex]);
   /* eslint-enable react-hooks/exhaustive-deps */
 

@@ -9,7 +9,6 @@ import {
   UserButton,
   useAuth
 } from "@clerk/nextjs";
-import { colors } from "@/lib/theme";
 import Image from "next/image";
 import { useNotifications, useNotificationPanel } from "@/app/notifications/hooks";
 import { NotificationPanel } from "@/app/notifications/components";
@@ -78,7 +77,7 @@ export function LeftNavButtons() {
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Notifications & Friends"
           aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
-          style={{ color: colors.text.DEFAULT }}
+          style={{ color: "var(--color-text)" }}
           data-testid="nav-notifications"
         >
           <BellFriendsIcon />
@@ -89,10 +88,11 @@ export function LeftNavButtons() {
           <span
             className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center border-2 pointer-events-none animate-pulse"
             style={{
-              backgroundColor: colors.cta.DEFAULT,
-              borderColor: colors.background.elevated,
-              color: colors.text.DEFAULT,
-              boxShadow: `0 0 6px ${colors.cta.DEFAULT}80`,
+              backgroundColor: "var(--color-cta)",
+              borderColor: "var(--color-background-elevated)",
+              color: "var(--color-text)",
+              boxShadow:
+                "0 0 6px color-mix(in srgb, var(--color-cta) 55%, transparent)",
             }}
           >
             {notificationCount > 9 ? "9+" : notificationCount}
@@ -106,7 +106,7 @@ export function LeftNavButtons() {
           onClick={() => router.push("/goals")}
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Weekly Goals"
-          style={{ color: colors.text.DEFAULT }}
+          style={{ color: "var(--color-text)" }}
           data-testid="nav-goals"
         >
           <GoalIcon />
@@ -162,9 +162,9 @@ export function AuthButtons() {
           <button
             className="px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors"
             style={{
-              backgroundColor: colors.secondary.DEFAULT,
-              borderColor: colors.secondary.light,
-              color: colors.text.DEFAULT,
+              backgroundColor: "var(--color-secondary)",
+              borderColor: "var(--color-secondary-light)",
+              color: "var(--color-text)",
             }}
             data-testid="auth-sign-in"
           >
@@ -175,9 +175,9 @@ export function AuthButtons() {
           <button
             className="px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors"
             style={{
-              backgroundColor: colors.cta.DEFAULT,
-              borderColor: colors.cta.light,
-              color: colors.text.DEFAULT,
+              backgroundColor: "var(--color-cta)",
+              borderColor: "var(--color-cta-light)",
+              color: "var(--color-text)",
             }}
             data-testid="auth-sign-up"
           >

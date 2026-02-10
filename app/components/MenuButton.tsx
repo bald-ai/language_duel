@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { buttonStyles, colors, type ButtonVariant } from "@/lib/theme";
+import type { ButtonVariant } from "@/lib/theme";
 
 interface MenuButtonProps {
   onClick: () => void;
@@ -19,7 +19,16 @@ interface MenuButtonProps {
  * Colors are defined in lib/theme.ts - change them there to update everywhere.
  */
 export function MenuButton({ onClick, children, badge, variant = "primary", dataTestId }: MenuButtonProps) {
-  const styles = buttonStyles[variant];
+  const isCta = variant === "cta";
+  const varPrefix = isCta ? "cta" : "primary";
+  const fromVar = `var(--color-${varPrefix})`;
+  const toVar = `var(--color-${varPrefix}-dark)`;
+  const hoverFromVar = `var(--color-${varPrefix}-light)`;
+  const hoverToVar = `var(--color-${varPrefix})`;
+  const borderTopVar = `var(--color-${varPrefix}-light)`;
+  const borderBottomVar = `var(--color-${varPrefix}-dark)`;
+  const borderSidesVar = `var(--color-${varPrefix})`;
+  const glowVar = `color-mix(in srgb, var(--color-${varPrefix}) 45%, transparent)`;
 
   return (
     <div className="relative group">
@@ -39,12 +48,12 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
         "
         style={{ 
           // Gradient background
-          backgroundImage: `linear-gradient(to bottom, ${styles.gradient.from}, ${styles.gradient.to})`,
+          backgroundImage: `linear-gradient(to bottom, ${fromVar}, ${toVar})`,
           // Border colors
-          borderTopColor: styles.border.top,
-          borderBottomColor: styles.border.bottom,
-          borderLeftColor: styles.border.sides,
-          borderRightColor: styles.border.sides,
+          borderTopColor: borderTopVar,
+          borderBottomColor: borderBottomVar,
+          borderLeftColor: borderSidesVar,
+          borderRightColor: borderSidesVar,
           // Text color - white
           color: "white",
           // Text shadow
@@ -52,11 +61,11 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
           letterSpacing: "0.15em",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${styles.gradientHover.from}, ${styles.gradientHover.to})`;
-          e.currentTarget.style.boxShadow = `0 0 30px ${styles.glow}`;
+          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${hoverFromVar}, ${hoverToVar})`;
+          e.currentTarget.style.boxShadow = `0 0 30px ${glowVar}`;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${styles.gradient.from}, ${styles.gradient.to})`;
+          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${fromVar}, ${toVar})`;
           e.currentTarget.style.boxShadow = "";
         }}
       >
@@ -68,8 +77,8 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
         <div 
           className="absolute -top-2 -right-2 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold leading-none shadow-lg border-2"
           style={{
-            backgroundColor: colors.cta.DEFAULT,
-            borderColor: colors.cta.lighter,
+            backgroundColor: "var(--color-cta)",
+            borderColor: "var(--color-cta-light)",
           }}
         >
           {badge}

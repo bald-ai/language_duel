@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters, buildAnagramWithSpaces } from "@/lib/prng";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { DUEL_CORRECT_DELAY_MS, NAVIGATE_ENABLE_DELAY_MS } from "./constants";
 import type { Level3Props, HintProps } from "./types";
 import { buttonStyles, colors } from "@/lib/theme";
+import { useTwoOptionKeyboard } from "./hooks/useTwoOptionKeyboard";
 
 interface Level3ExtendedProps extends Level3Props, HintProps {
   onRequestHint?: () => void;
@@ -40,7 +41,6 @@ export function Level3Input({
   
   // Solo mode TTS state - using shared hook
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
-  const [selectedOption, setSelectedOption] = useState<"listen" | "continue">("continue");
   const [canNavigate, setCanNavigate] = useState(false);
 
   // Determine if we're in duel mode (explicit prop or inferred from hint system)
@@ -82,28 +82,19 @@ export function Level3Input({
     onCorrect(cleanAnswer);
   };
 
-  // Keyboard navigation for Listen/Continue selection (solo mode)
-  useEffect(() => {
-    if (isDuelMode) return;
-    const shouldListen = isCorrectAnswer && !isPlayingAudio && canNavigate;
-    if (!shouldListen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        setSelectedOption((prev) => (prev === "listen" ? "continue" : "listen"));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (selectedOption === "listen") {
-          handlePlayAudio();
-        } else {
-          handleContinue();
-        }
+  const canKeyboardNavigate = !isDuelMode && isCorrectAnswer && !isPlayingAudio && canNavigate;
+  const { selectedOption, setSelectedOption } = useTwoOptionKeyboard({
+    enabled: canKeyboardNavigate,
+    primaryOption: "listen",
+    secondaryOption: "continue",
+    defaultOption: "continue",
+    onConfirm: (option) => {
+      if (option === "listen") {
+        handlePlayAudio();
+      } else {
+        handleContinue();
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    },
   });
 
   return (
@@ -284,7 +275,10 @@ export function Level3Input({
             </div>
             <div className="flex gap-3">
               <button
-                onClick={handlePlayAudio}
+                onClick={() => {
+                  setSelectedOption("listen");
+                  handlePlayAudio();
+                }}
                 disabled={isPlayingAudio}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-60"
                 style={
@@ -311,7 +305,10 @@ export function Level3Input({
                 <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
               </button>
               <button
-                onClick={handleContinue}
+                onClick={() => {
+                  setSelectedOption("continue");
+                  handleContinue();
+                }}
                 disabled={isPlayingAudio}
                 className="px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-50"
                 style={

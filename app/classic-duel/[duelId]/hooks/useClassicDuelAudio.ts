@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import { stripIrr } from "@/lib/stringUtils";
 
 export function useClassicDuelAudio() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -26,12 +27,13 @@ export function useClassicDuelAudio() {
     async (text: string) => {
       if (isPlayingAudio || !text || text === "done") return;
 
+      const cleanText = stripIrr(text);
       setIsPlayingAudio(true);
       try {
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: cleanText }),
         });
 
         if (!response.ok) {

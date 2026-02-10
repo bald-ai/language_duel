@@ -29,6 +29,14 @@ interface DeleteConfirmState {
   wordName?: string;
 }
 
+function createSaveRequestId(): string {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `theme-save-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function useThemesController() {
   const router = useRouter();
 
@@ -72,6 +80,7 @@ export function useThemesController() {
     themeName: string;
     description: string;
     wordType: "nouns" | "verbs";
+    saveRequestId: string;
   } | null>(null);
 
   // Modal state
@@ -167,7 +176,11 @@ export function useThemesController() {
       setSelectedTheme(null);
       setLocalWords([]);
     } else {
-      router.push("/");
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push("/");
+      }
     }
   }, [viewMode, wordEditor, router]);
 
@@ -244,6 +257,7 @@ export function useThemesController() {
         themeName: themeGenerator.themeName,
         description: `Generated theme for: ${themeGenerator.themeName}`,
         wordType: themeGenerator.wordType,
+        saveRequestId: createSaveRequestId(),
       };
       setPendingThemeData(pendingData);
 
@@ -320,6 +334,7 @@ export function useThemesController() {
 
   const handleSaveTheme = useCallback(async () => {
     if (!selectedTheme || selectedTheme.canEdit === false) return;
+    if (themeActions.isCreating || themeActions.isUpdating) return;
 
     if (checkThemeForDuplicateWords(localWords)) {
       toast.error(
@@ -351,7 +366,8 @@ export function useThemesController() {
         selectedTheme.name,
         pendingThemeData.description,
         localWords,
-        pendingThemeData.wordType
+        pendingThemeData.wordType,
+        pendingThemeData.saveRequestId
       );
       if (result.ok) {
         setPendingThemeData(null);
@@ -617,6 +633,7 @@ export function useThemesController() {
       onEditWord: handleEditWord,
       onSave: handleSaveTheme,
       onCancel: handleCancelTheme,
+      isSaving: themeActions.isCreating || themeActions.isUpdating,
       onToggleArchive: handleToggleArchive,
       isArchived: showArchived,
       showAddWordModal,
@@ -654,6 +671,8 @@ export function useThemesController() {
       handleEditWord,
       handleSaveTheme,
       handleCancelTheme,
+      themeActions.isCreating,
+      themeActions.isUpdating,
       handleToggleArchive,
       showArchived,
       showAddWordModal,
@@ -820,5 +839,3 @@ export function useThemesController() {
     wordEditorState: wordEditor,
   };
 }
-
-

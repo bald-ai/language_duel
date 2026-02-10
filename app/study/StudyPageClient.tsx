@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { WordEntry } from "@/lib/types";
@@ -9,6 +9,7 @@ import { StudyHeader } from "./components/StudyHeader";
 import { WordItem } from "./components/WordItem";
 import { useTTS } from "./hooks/useTTS";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { BackButton } from "@/app/components/BackButton";
 import { colors } from "@/lib/theme";
 import { stripIrr } from "@/lib/stringUtils";
 import {
@@ -92,7 +93,6 @@ const WordRow = memo(function WordRow({
 });
 
 export default function StudyPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const themes = useQuery(api.themes.getThemes, {});
   const themeList = useMemo(() => themes ?? [], [themes]);
@@ -302,27 +302,19 @@ export default function StudyPage() {
     []
   );
 
-  const handleExit = useCallback(async () => {
-    router.push("/");
-  }, [router]);
-
   return (
-    <ThemedPage>
-      <main className="relative z-10 flex-1 min-h-0 flex flex-col">
-        <div className="px-6 pt-6 pb-4">
-          <div className="max-w-xl mx-auto">
-            <StudyHeader
-              themes={themeList}
-              selectedTheme={selectedTheme}
-              onThemeChange={handleThemeChange}
-              isAllRevealed={isAllRevealed}
-              onToggleRevealAll={handleToggleRevealAll}
-            />
-          </div>
-        </div>
+    <ThemedPage className="h-dvh overflow-hidden">
+      <main className="relative z-10 flex-1 min-h-0 flex flex-col px-6 pt-6 pb-4">
+        <div className="w-full max-w-xl mx-auto flex-1 min-h-0 flex flex-col">
+          <StudyHeader
+            themes={themeList}
+            selectedTheme={selectedTheme}
+            onThemeChange={handleThemeChange}
+            isAllRevealed={isAllRevealed}
+            onToggleRevealAll={handleToggleRevealAll}
+          />
 
-        <div className="flex-1 min-h-0 px-6 pb-4 flex flex-col">
-          <div className="max-w-xl mx-auto w-full flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 pt-4 flex flex-col">
             <div
               className="w-full rounded-3xl border-2 p-4 flex-1 min-h-0 overflow-hidden backdrop-blur-sm"
               style={{
@@ -357,22 +349,10 @@ export default function StudyPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="px-6 pb-8">
-          <div className="max-w-xl mx-auto">
-            <button
-              onClick={handleExit}
-              className="w-full border-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-              data-testid="study-back"
-            >
-              Back
-            </button>
+          {/* Bottom dock (in the flex layout) so Back is visible without page scroll. */}
+          <div className="pt-4 flex-shrink-0">
+            <BackButton dataTestId="study-back" />
           </div>
         </div>
       </main>

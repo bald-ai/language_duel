@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import { stripIrr } from "@/lib/stringUtils";
 
 type TtsProvider = "resemble" | "elevenlabs";
 
@@ -54,8 +55,9 @@ export function useTTS() {
 
     setPlayingWordKey(wordKey);
 
+    const cleanText = stripIrr(text);
     // Include provider in cache key to avoid stale audio from different providers
-    const cacheKey = `${provider}:${text}`;
+    const cacheKey = `${provider}:${cleanText}`;
 
     try {
       let audioUrl = cacheRef.current.get(cacheKey);
@@ -64,7 +66,7 @@ export function useTTS() {
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: cleanText }),
         });
 
         if (!response.ok) {

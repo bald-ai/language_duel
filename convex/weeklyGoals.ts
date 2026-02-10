@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
+import type { NotificationPayload } from "./schema";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 5;
@@ -42,6 +43,54 @@ async function dismissGoalNotifications(
       }
     }
   }
+}
+
+async function upsertWeeklyPlanNotificationForGoal(
+  ctx: MutationCtx,
+  args: {
+    toUserId: Id<"users">;
+    fromUserId: Id<"users">;
+    goalId: Id<"weeklyGoals">;
+    themeCount: number;
+    event: "invite" | "partner_locked" | "goal_activated";
+    createdAt: number;
+  }
+) {
+  const existing = await ctx.db
+    .query("notifications")
+    .withIndex("by_type", (q) =>
+      q.eq("type", "weekly_plan_invitation").eq("toUserId", args.toUserId)
+    )
+    .collect();
+
+  const matching = existing.find(
+    (n) => isWeeklyPlanPayload(n.payload) && n.payload.goalId === args.goalId
+  );
+
+  const payload: NotificationPayload = {
+    goalId: args.goalId,
+    themeCount: args.themeCount,
+    event: args.event,
+  };
+
+  if (matching) {
+    await ctx.db.patch(matching._id, {
+      fromUserId: args.fromUserId,
+      payload,
+      status: "pending",
+      createdAt: args.createdAt,
+    });
+    return;
+  }
+
+  await ctx.db.insert("notifications", {
+    type: "weekly_plan_invitation",
+    fromUserId: args.fromUserId,
+    toUserId: args.toUserId,
+    status: "pending",
+    payload,
+    createdAt: args.createdAt,
+  });
 }
 
 // Types
@@ -427,6 +476,7 @@ export const createGoal = mutation({
       payload: {
         goalId,
         themeCount: 0,
+        event: "invite",
       },
       createdAt: now,
     });
@@ -622,6 +672,16 @@ export const lockGoal = mutation({
       updates.lockedAt = now;
       updates.expiresAt = now + GOAL_DURATION_MS;
 
+      // Notify the other user (the one who locked first) in the UI.
+      await upsertWeeklyPlanNotificationForGoal(ctx, {
+        toUserId: isCreator ? goal.partnerId : goal.creatorId,
+        fromUserId: user._id,
+        goalId,
+        themeCount: goal.themes.length,
+        event: "goal_activated",
+        createdAt: now,
+      });
+
       await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
         trigger: "weekly_goal_accepted",
         toUserId: isCreator ? goal.partnerId : goal.creatorId,
@@ -632,30 +692,21 @@ export const lockGoal = mutation({
       // First lock - update the existing notification with current theme count
       const otherUserId = isCreator ? goal.partnerId : goal.creatorId;
 
-      // Find the existing weekly_plan_invitation notification for this goal
-      const existingNotification = await ctx.db
-        .query("notifications")
-        .withIndex("by_recipient", (q) =>
-          q.eq("toUserId", otherUserId).eq("status", "pending")
-        )
-        .filter((q) => q.eq(q.field("type"), "weekly_plan_invitation"))
-        .collect();
+      await upsertWeeklyPlanNotificationForGoal(ctx, {
+        toUserId: otherUserId,
+        fromUserId: user._id,
+        goalId,
+        themeCount: goal.themes.length,
+        event: "partner_locked",
+        createdAt: now,
+      });
 
-      const notificationForThisGoal = existingNotification.find(
-        (n) => isWeeklyPlanPayload(n.payload) && n.payload.goalId === goalId
-      );
-
-      if (notificationForThisGoal) {
-        // Update existing notification with refreshed payload
-        await ctx.db.patch(notificationForThisGoal._id, {
-          fromUserId: user._id,
-          payload: {
-            goalId,
-            themeCount: goal.themes.length,
-          },
-          createdAt: now,
-        });
-      }
+      await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+        trigger: "weekly_goal_locked",
+        toUserId: otherUserId,
+        fromUserId: user._id,
+        weeklyGoalId: goalId,
+      });
     }
 
     await ctx.db.patch(goalId, updates);

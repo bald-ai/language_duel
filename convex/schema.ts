@@ -97,6 +97,13 @@ export const notificationPayloadValidator = v.union(
   v.object({
     goalId: v.id("weeklyGoals"),
     themeCount: v.number(),
+    event: v.optional(
+      v.union(
+        v.literal("invite"),
+        v.literal("partner_locked"),
+        v.literal("goal_activated")
+      )
+    ),
   }),
   v.object({
     challengeId: v.id("challenges"),
@@ -127,7 +134,9 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("scheduled_duel_declined"),
   v.literal("scheduled_duel_canceled"),
   v.literal("scheduled_duel_reminder"),
+  v.literal("scheduled_duel_ready"),
   v.literal("weekly_goal_invite"),
+  v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
   v.literal("weekly_goal_declined"),
   v.literal("weekly_goal_reminder_1"),
@@ -173,10 +182,12 @@ export default defineSchema({
     ownerId: v.optional(v.id("users")),
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
     friendsCanEdit: v.optional(v.boolean()),
+    saveRequestId: v.optional(v.string()),
   })
     .index("by_owner", ["ownerId"])
     .index("by_visibility", ["visibility"])
-    .index("by_visibility_owner", ["visibility", "ownerId"]),
+    .index("by_visibility_owner", ["visibility", "ownerId"])
+    .index("by_owner_save_request", ["ownerId", "saveRequestId"]),
 
   // -------------------------------------------
   // Friend Requests Table
@@ -364,11 +375,13 @@ export default defineSchema({
     scheduledDuelCanceledEnabled: v.boolean(),
     scheduledDuelReminderEnabled: v.boolean(),
     scheduledDuelReminderOffsetMinutes: v.number(),
+    scheduledDuelReadyEnabled: v.boolean(),
 
     // Weekly Goals
     weeklyGoalsEnabled: v.boolean(),
     weeklyGoalInviteEnabled: v.boolean(),
     weeklyGoalAcceptedEnabled: v.boolean(),
+    weeklyGoalLockedEnabled: v.boolean(),
     weeklyGoalDeclinedEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),

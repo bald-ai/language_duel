@@ -71,17 +71,17 @@ export function DeleteGoalButton({ onDelete }: DeleteGoalButtonProps) {
 
     // Default delete button
     return (
-    <button
-        onClick={() => setShowConfirm(true)}
-        className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors border-2"
-        style={{
-            backgroundColor: colors.background.elevated,
-            borderColor: colors.status.danger.DEFAULT,
-            color: colors.status.danger.light,
-        }}
-        data-testid="goals-delete"
-    >
-        Cancel Goal
-    </button>
-    );
-}
+	    <button
+	        onClick={() => setShowConfirm(true)}
+	        className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors border-2"
+	        style={{
+	            backgroundColor: colors.background.elevated,
+	            borderColor: colors.status.danger.DEFAULT,
+	            color: colors.status.danger.light,
+	        }}
+	        data-testid="goals-delete"
+	    >
+	        Delete Goal
+	    </button>
+	    );
+	}

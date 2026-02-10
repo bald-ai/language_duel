@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
 import { toast } from "sonner";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { BackButton } from "@/app/components/BackButton";
 import { PartnerSelector } from "./components/PartnerSelector";
 import { GoalThemeList } from "./components/GoalThemeList";
 import { LockButton } from "./components/LockButton";
@@ -207,7 +208,7 @@ export default function GoalsPage() {
       await deleteGoal({ goalId: selectedPlan.goal._id });
       setSelectedPlanId(null);
       // Query will auto-refresh
-      toast.success("Goal cancelled");
+      toast.success("Goal deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete goal");
     }
@@ -540,18 +541,7 @@ export default function GoalsPage() {
         )}
 
         {/* Back Button */}
-        <button
-          onClick={() => router.push("/")}
-          className="w-full py-4 rounded-2xl text-xl font-bold uppercase tracking-wide transition-colors border-2"
-          style={{
-            backgroundColor: colors.background.elevated,
-            borderColor: colors.primary.dark,
-            color: colors.text.DEFAULT,
-          }}
-          data-testid="goals-back-menu"
-        >
-          Back to Menu
-        </button>
+        <BackButton onClick={() => router.push("/")} label="Back to Menu" dataTestId="goals-back-menu" />
       </div>
     </ThemedPage>
   );

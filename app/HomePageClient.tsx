@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -9,7 +9,6 @@ import { useDuelLobby } from "@/hooks/useDuelLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
-import { colors } from "@/lib/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 
 // Decorative icons for menu items - use CSS variable for stroke color
@@ -71,6 +70,8 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lobby = useDuelLobby();
+  const handledSoloDeepLinkRef = useRef<string | null>(null);
+  const { openSoloModal } = lobby;
   
   const openSoloParam = searchParams.get("openSolo");
   const themeIdParam = searchParams.get("themeId");
@@ -81,11 +82,23 @@ export default function Home() {
   const soloInitialMode = openSoloParam === "true" && soloModeParam === "challenge_only"
     ? "challenge_only"
     : undefined;
+  const soloDeepLinkKey = openSoloParam === "true"
+    ? `${themeIdParam ?? ""}:${soloModeParam ?? ""}`
+    : null;
+
   useEffect(() => {
-    if (soloThemeId) {
-      lobby.openSoloModal();
+    if (!soloThemeId || !soloDeepLinkKey) {
+      handledSoloDeepLinkRef.current = null;
+      return;
     }
-  }, [soloThemeId, lobby]);
+
+    if (handledSoloDeepLinkRef.current === soloDeepLinkKey) {
+      return;
+    }
+
+    handledSoloDeepLinkRef.current = soloDeepLinkKey;
+    openSoloModal();
+  }, [soloThemeId, soloDeepLinkKey, openSoloModal]);
 
   const handleCloseSoloModal = () => {
     lobby.closeSoloModal();
@@ -118,7 +131,8 @@ export default function Home() {
             className="title-text-outline"
             data-text="Language"
             style={{
-              backgroundImage: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`,
+              backgroundImage:
+                "linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-light) 50%, var(--color-primary-dark) 100%)",
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -131,7 +145,8 @@ export default function Home() {
             className="title-text-outline-accent"
             data-text="Duel"
             style={{
-              backgroundImage: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`,
+              backgroundImage:
+                "linear-gradient(135deg, var(--color-cta-dark) 0%, var(--color-cta-light) 50%, var(--color-cta-dark) 100%)",
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -143,7 +158,7 @@ export default function Home() {
 
         <p
           className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
-          style={{ color: colors.text.DEFAULT }}
+          style={{ color: "var(--color-text)" }}
         >
           Achieve <b><u>oral mastery</u></b> and find out
           <br />

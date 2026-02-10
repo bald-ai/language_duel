@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { isScheduledDuelPayload } from "./notificationPayloads";
 import { createShuffledWordOrder } from "./helpers/gameLogic";
 import { buildSoloInitState } from "./helpers/duelInitialization";
@@ -207,10 +207,12 @@ export const proposeScheduledDuel = mutation({
             throw new Error("Recipient is not a friend");
         }
 
-        // Validate theme exists
-        const theme = await ctx.db.get(args.themeId);
+        // Validate theme exists and proposer can access it
+        const theme = await ctx.runQuery(api.themes.getTheme, {
+            themeId: args.themeId,
+        });
         if (!theme) {
-            throw new Error("Theme not found");
+            throw new Error("Theme not found or access denied");
         }
 
         const now = Date.now();
@@ -417,9 +419,11 @@ export const counterProposeScheduledDuel = mutation({
         }
 
         if (args.newThemeId !== undefined) {
-            const theme = await ctx.db.get(args.newThemeId);
+            const theme = await ctx.runQuery(api.themes.getTheme, {
+                themeId: args.newThemeId,
+            });
             if (!theme) {
-                throw new Error("Theme not found");
+                throw new Error("Theme not found or access denied");
             }
             updates.themeId = args.newThemeId;
         }
@@ -705,6 +709,15 @@ export const setReadyForScheduledDuel = mutation({
         }
 
         await ctx.db.patch(args.scheduledDuelId, updates);
+
+        const opponentId = isProposer ? scheduledDuel.recipientId : scheduledDuel.proposerId;
+
+        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+            trigger: "scheduled_duel_ready",
+            toUserId: opponentId,
+            fromUserId: user._id,
+            scheduledDuelId: args.scheduledDuelId,
+        });
 
         // Check if both players are now ready
         const proposerReady = isProposer ? true : scheduledDuel.proposerReady;

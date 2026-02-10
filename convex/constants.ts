@@ -29,7 +29,7 @@ export const POOL_EXPANSION_THRESHOLD = 0.65;
 export const POOL_EXPANSION_SIZE = 2;
 
 // ===========================================
-// Level Probabilities
+// Level Probabilities (solo-style duel mode) [NOT ACTIVE] — not currently used in app, kept for future revisit.
 // ===========================================
 /** Probability of starting at Level 1 (vs Level 2) */
 export const LEVEL_1_START_PROBABILITY = 0.66;
