@@ -1,17 +1,13 @@
 const authConfig = {
   providers: [
     {
-      domain: "https://polite-calf-97.clerk.accounts.dev",
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
       applicationID: "convex",
     },
   ],
 };
 
 export default authConfig;
-
-
-
-
 
 
 

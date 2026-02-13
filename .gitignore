@@ -60,3 +60,6 @@ public/worker-*.js.map
 thoughtnotebook.md
 
 
+
+# Local Netlify folder
+.netlify
