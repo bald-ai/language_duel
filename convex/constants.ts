@@ -134,3 +134,14 @@ export const MAX_FRIEND_REQUESTS = 100;
 /** Default nickname for new users */
 export const DEFAULT_NICKNAME = "NewPlayer";
 
+// ===========================================
+// Notification Cleanup TTLs
+// ===========================================
+/** Expire unanswered duel challenge notifications after 60 minutes */
+export const DUEL_CHALLENGE_TTL_MS = 60 * 60 * 1000;
+
+/** Expire pending friend requests after 7 days */
+export const FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Expire editing weekly goals after 7 days */
+export const WEEKLY_GOAL_EDITING_TTL_MS = 7 * 24 * 60 * 60 * 1000;

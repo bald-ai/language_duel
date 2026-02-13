@@ -28,4 +28,16 @@ crons.interval(
     internal.emails.reminderCrons.sendWeeklyGoalReminders
 );
 
+crons.interval(
+    "cleanup-friend-requests",
+    { hours: 24 },
+    internal.friends.cleanupExpiredFriendRequests
+);
+
+crons.interval(
+    "cleanup-weekly-goals",
+    { hours: 24 },
+    internal.weeklyGoals.cleanupExpiredGoals
+);
+
 export default crons;

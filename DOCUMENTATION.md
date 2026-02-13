@@ -259,3 +259,15 @@ import { colors } from "@/lib/theme";
 #### 4. Automatic Adaptation
 
 Components using the `colors` object automatically update when the user switches palettes. No re-renders or prop changes needed - the mutable color object is updated in place.
+
+---
+
+## Backend Cleanup Notes
+
+- Scheduled duels are auto-cleaned every 5 minutes via `convex/crons.ts` -> `internal.scheduledDuels.autoCleanupScheduledDuels`.
+- The same scheduled cleanup pass also dismisses stale `duel_challenge` notifications and cancels unresolved pending challenges after 60 minutes.
+- Pending friend requests are auto-rejected once older than 7 days and related notifications are dismissed (daily cron).
+- Weekly goals are auto-cleaned daily:
+  - `active` goals expire by `expiresAt`.
+  - `editing` goals expire 7 days after `createdAt`.
+  - related weekly plan notifications are dismissed.

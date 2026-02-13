@@ -2,7 +2,7 @@
  * Lobby mutations for duel creation, acceptance, rejection, and cancellation.
  */
 
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import {
@@ -13,7 +13,8 @@ import {
 import { createShuffledWordOrder } from "./helpers/gameLogic";
 import { buildSoloInitState } from "./helpers/duelInitialization";
 import { isDuelChallengePayload } from "./notificationPayloads";
-import { SEED_XOR_MASK } from "./constants";
+import { DUEL_CHALLENGE_TTL_MS, SEED_XOR_MASK } from "./constants";
+import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 
 export const createDuel = mutation({
   args: {
@@ -253,18 +254,21 @@ export const cancelPendingDuel = mutation({
 
     await ctx.db.patch(duelId, { status: "cancelled" });
 
-    // Delete the associated duel_challenge notification
+    // Dismiss the associated duel_challenge notification
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_type", (q) =>
         q.eq("type", "duel_challenge").eq("toUserId", duel.opponentId)
       )
-      .filter((q) => q.eq(q.field("status"), "pending"))
       .collect();
 
     for (const notification of notifications) {
-      if (isDuelChallengePayload(notification.payload) && notification.payload.challengeId === duelId) {
-        await ctx.db.delete(notification._id);
+      if (
+        (notification.status === "pending" || notification.status === "read") &&
+        isDuelChallengePayload(notification.payload) &&
+        notification.payload.challengeId === duelId
+      ) {
+        await ctx.db.patch(notification._id, { status: "dismissed" });
       }
     }
   },
@@ -377,5 +381,51 @@ export const declineDuelChallenge = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Auto-dismiss stale duel challenge notifications and cancel unresolved challenges.
+ */
+export const cleanupExpiredDuelChallenges = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cutoff = now - DUEL_CHALLENGE_TTL_MS;
+
+    const expiredPendingNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status_createdAt", (q) =>
+        q.eq("type", "duel_challenge").eq("status", "pending").lt("createdAt", cutoff)
+      )
+      .collect();
+
+    const expiredReadNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status_createdAt", (q) =>
+        q.eq("type", "duel_challenge").eq("status", "read").lt("createdAt", cutoff)
+      )
+      .collect();
+
+    const notifications = [...expiredPendingNotifications, ...expiredReadNotifications];
+    const resolvedChallengeIds = new Set<string>();
+
+    for (const notification of notifications) {
+      if (!isCreatedAtExpired(notification.createdAt, now, DUEL_CHALLENGE_TTL_MS)) continue;
+      if (!isDuelChallengePayload(notification.payload)) continue;
+
+      const challengeId = notification.payload.challengeId;
+      const challengeKey = String(challengeId);
+
+      if (!resolvedChallengeIds.has(challengeKey)) {
+        const challenge = await ctx.db.get(challengeId);
+        if (challenge?.status === "pending") {
+          await ctx.db.patch(challengeId, { status: "cancelled" });
+        }
+        resolvedChallengeIds.add(challengeKey);
+      }
+
+      await ctx.db.patch(notification._id, { status: "dismissed" });
+    }
   },
 });

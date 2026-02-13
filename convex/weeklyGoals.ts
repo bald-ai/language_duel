@@ -2,13 +2,15 @@
  * Weekly Goals API - Queries and mutations for collaborative learning goals.
  */
 
-import { mutation, query, type MutationCtx, internalQuery } from "./_generated/server";
+import { mutation, query, type MutationCtx, internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
+import { WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
+import { isCreatedAtExpired, isGoalPastExpiry } from "../lib/cleanupExpiry";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 5;
@@ -24,7 +26,7 @@ async function dismissGoalNotifications(
   const participantIds = [goal.creatorId, goal.partnerId];
 
   for (const userId of participantIds) {
-    const notifications = await ctx.db
+    const pendingNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_type_status", (q) =>
         q
@@ -34,6 +36,18 @@ async function dismissGoalNotifications(
       )
       .collect();
 
+    const readNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q
+          .eq("type", "weekly_plan_invitation")
+          .eq("toUserId", userId)
+          .eq("status", "read")
+      )
+      .collect();
+
+    const notifications = [...pendingNotifications, ...readNotifications];
+
     for (const notification of notifications) {
       if (
         isWeeklyPlanPayload(notification.payload) &&
@@ -41,6 +55,45 @@ async function dismissGoalNotifications(
       ) {
         await ctx.db.patch(notification._id, { status: "dismissed" });
       }
+    }
+  }
+}
+
+async function dismissGoalNotificationsForParticipants(
+  ctx: MutationCtx,
+  participantIds: Id<"users">[],
+  goalIds: Id<"weeklyGoals">[]
+) {
+  if (participantIds.length === 0 || goalIds.length === 0) return;
+
+  const goalIdSet = new Set(goalIds.map((id) => String(id)));
+
+  for (const userId of participantIds) {
+    const pendingNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q
+          .eq("type", "weekly_plan_invitation")
+          .eq("toUserId", userId)
+          .eq("status", "pending")
+      )
+      .collect();
+
+    const readNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status", (q) =>
+        q
+          .eq("type", "weekly_plan_invitation")
+          .eq("toUserId", userId)
+          .eq("status", "read")
+      )
+      .collect();
+
+    const notifications = [...pendingNotifications, ...readNotifications];
+    for (const notification of notifications) {
+      if (!isWeeklyPlanPayload(notification.payload)) continue;
+      if (!goalIdSet.has(String(notification.payload.goalId))) continue;
+      await ctx.db.patch(notification._id, { status: "dismissed" });
     }
   }
 }
@@ -808,6 +861,60 @@ export const getActiveGoalsWithExpiry = internalQuery({
         q.eq("status", "active").gt("expiresAt", now)
       )
       .collect();
+  },
+});
+
+/**
+ * Internal cron cleanup for expired weekly goals.
+ * - Active goals expire by expiresAt.
+ * - Editing goals expire by createdAt + TTL.
+ */
+export const cleanupExpiredGoals = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const editingCutoff = now - WEEKLY_GOAL_EDITING_TTL_MS;
+
+    const expiredActiveGoals = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_expiresAt", (q) =>
+        q.eq("status", "active").lt("expiresAt", now)
+      )
+      .collect();
+
+    const editingGoals = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_createdAt", (q) =>
+        q.eq("status", "editing").lt("createdAt", editingCutoff)
+      )
+      .collect();
+
+    const goalsToDelete = [
+      ...expiredActiveGoals.filter((goal) => isGoalPastExpiry(goal.expiresAt, now)),
+      ...editingGoals.filter((goal) =>
+        isCreatedAtExpired(goal.createdAt, now, WEEKLY_GOAL_EDITING_TTL_MS)
+      ),
+    ];
+
+    if (goalsToDelete.length === 0) return;
+
+    const participantIdSet = new Set<Id<"users">>();
+    const goalIds: Id<"weeklyGoals">[] = [];
+    for (const goal of goalsToDelete) {
+      goalIds.push(goal._id);
+      participantIdSet.add(goal.creatorId);
+      participantIdSet.add(goal.partnerId);
+    }
+
+    await dismissGoalNotificationsForParticipants(
+      ctx,
+      Array.from(participantIdSet),
+      goalIds
+    );
+
+    for (const goal of goalsToDelete) {
+      await ctx.db.delete(goal._id);
+    }
   },
 });
 

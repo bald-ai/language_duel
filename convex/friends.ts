@@ -1,9 +1,11 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isUserOnline } from "./users";
 import { isFriendRequestPayload } from "./notificationPayloads";
+import { FRIEND_REQUEST_TTL_MS } from "./constants";
+import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 
 // Friend with user details
 export type FriendWithDetails = {
@@ -451,6 +453,55 @@ export const removeFriend = mutation({
     if (friendship2) await ctx.db.delete(friendship2._id);
 
     return { success: true };
+  },
+});
+
+/**
+ * Auto-reject stale pending friend requests and dismiss related notifications.
+ */
+export const cleanupExpiredFriendRequests = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cutoff = now - FRIEND_REQUEST_TTL_MS;
+    const requests = await ctx.db
+      .query("friendRequests")
+      .withIndex("by_status_createdAt", (q) =>
+        q.eq("status", "pending").lt("createdAt", cutoff)
+      )
+      .collect();
+    const expiredPendingRequestIds = new Set<string>();
+
+    for (const request of requests) {
+      if (!isCreatedAtExpired(request.createdAt, now, FRIEND_REQUEST_TTL_MS)) continue;
+
+      await ctx.db.patch(request._id, { status: "rejected" });
+      expiredPendingRequestIds.add(String(request._id));
+    }
+
+    if (expiredPendingRequestIds.size === 0) return;
+
+    const expiredPendingNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status_createdAt", (q) =>
+        q.eq("type", "friend_request").eq("status", "pending").lt("createdAt", cutoff)
+      )
+      .collect();
+
+    const expiredReadNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_type_status_createdAt", (q) =>
+        q.eq("type", "friend_request").eq("status", "read").lt("createdAt", cutoff)
+      )
+      .collect();
+
+    const notifications = [...expiredPendingNotifications, ...expiredReadNotifications];
+    for (const notification of notifications) {
+      if (!isFriendRequestPayload(notification.payload)) continue;
+      if (!expiredPendingRequestIds.has(String(notification.payload.friendRequestId))) continue;
+
+      await ctx.db.patch(notification._id, { status: "dismissed" });
+    }
   },
 });
 

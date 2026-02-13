@@ -204,7 +204,8 @@ export default defineSchema({
   })
     .index("by_receiver", ["receiverId", "status"])
     .index("by_sender_status", ["senderId", "status"])
-    .index("by_sender", ["senderId"]),
+    .index("by_sender", ["senderId"])
+    .index("by_status_createdAt", ["status", "createdAt"]),
 
   // -------------------------------------------
   // Friends Table (bidirectional)
@@ -342,6 +343,7 @@ export default defineSchema({
     .index("by_creator", ["creatorId"])
     .index("by_partner", ["partnerId"])
     .index("by_status", ["status"])
+    .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_status_expiresAt", ["status", "expiresAt"]),
 
   // -------------------------------------------
@@ -358,7 +360,8 @@ export default defineSchema({
     .index("by_recipient", ["toUserId", "status"])
     .index("by_type_status", ["type", "toUserId", "status"])
     .index("by_type", ["type", "toUserId"])
-    .index("by_type_only", ["type"]),
+    .index("by_type_only", ["type"])
+    .index("by_type_status_createdAt", ["type", "status", "createdAt"]),
 
   // -------------------------------------------
   // Notification Preferences Table

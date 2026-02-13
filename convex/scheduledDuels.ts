@@ -927,6 +927,14 @@ export const autoCleanupScheduledDuels = internalAction({
         const READY_STATE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
         const GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 hour
 
+        // Reuse the same frequent cleanup job for stale duel challenges.
+        // Do not block scheduled duel cleanup if challenge cleanup fails.
+        try {
+            await ctx.runMutation(internal.lobby.cleanupExpiredDuelChallenges, {});
+        } catch (error) {
+            console.error("cleanupExpiredDuelChallenges failed", error);
+        }
+
         // We need to use internal mutations from an action
         // Query all accepted scheduled duels
         const acceptedDuels = await ctx.runQuery(internal.scheduledDuels.getAcceptedScheduledDuels, {});
