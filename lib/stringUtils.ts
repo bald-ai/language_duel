@@ -3,12 +3,11 @@
  */
 
 /**
- * Strips the (Irr) marker and legacy * marker from verbs
+ * Strips the (Irr) marker from verbs
  */
 export const stripIrr = (str: string): string => {
   return str
     .replace(/\(irr\)$/i, "") // Strip (Irr) marker (case-insensitive)
-    .replace(/\*$/, "")      // Still strip * for backward compatibility
     .trim();
 };
 
@@ -38,4 +37,3 @@ export function formatDuration(seconds: number): string {
   }
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-

@@ -6,7 +6,6 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Future-AI clarity: make intent obvious, keep logic easy to find, and add short comments only when the behavior is not self-evident.
 - Feature-first organization: keep code with the feature unless it is truly shared.
 - Consistent naming: use stable, descriptive names; avoid old/new/temp/v2/fixed; keep naming patterns uniform within a feature.
-- Language glossary is the shared source of truth: consult `LANGUAGE.md` for UI/screens/flows. Update it only when the user asks or after a confirmed misunderstanding.
 - Separation by layer: pages wire, components render UI, hooks orchestrate state, lib holds pure logic. Keep core rules testable without React.
 - Name non-obvious or repeated numbers in `constants.ts`; trivial UI math can stay inline.
 - Explicit input validation and clear errors at boundaries (APIs, external data, user input).

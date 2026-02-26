@@ -98,6 +98,7 @@ describe("Level1Input", () => {
         answer={answer}
         onCorrect={vi.fn()}
         onSkip={vi.fn()}
+        mode="duel"
         hintRequested
         hintAccepted={false}
         canRequestHint={false}
@@ -122,6 +123,7 @@ describe("Level1Input", () => {
         answer={answer}
         onCorrect={vi.fn()}
         onSkip={vi.fn()}
+        mode="duel"
         hintRequested
         hintAccepted
         hintType="letters"

@@ -1,7 +1,5 @@
 /**
- * Duel module - Re-exports all duel-related mutations and queries.
- * 
- * This file maintains backward compatibility by re-exporting from split modules:
+ * Duel module - Re-exports all duel-related mutations and queries:
  * - lobby.ts: Duel creation, acceptance, rejection, cancellation
  * - gameplay.ts: Answer submission, timer controls, countdown management
  * - hints.ts: Classic and solo-style hint systems

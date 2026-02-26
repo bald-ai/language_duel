@@ -78,7 +78,7 @@ export const colorPalettes: ColorPalette[] = [
 ];
 
 // =============================================================================
-// THEME SHAPES (maintained for backward compatibility)
+// THEME SHAPES
 // =============================================================================
 
 type ThemeColors = {
@@ -190,10 +190,6 @@ export const themes = colorPalettes.reduce(
   },
   {} as Record<string, ThemeDefinition>
 );
-
-// Add backward-compatible "default" and "forest" aliases
-themes["default"] = themes["playful-duo"];
-themes["forest"] = themes["toybox-adventure"];
 
 export type ThemeName = string;
 export const DEFAULT_THEME_NAME = "playful-duo";

@@ -36,8 +36,7 @@ export function Level1Input({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Determine if we're in duel mode (explicit prop or inferred from hint system)
-  const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
+  const isDuelMode = mode === "duel";
 
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
 

@@ -21,8 +21,8 @@ interface ThemeDetailProps {
   theme: Doc<"themes"> & {
     ownerNickname?: string;
     ownerDiscriminator?: number;
-    isOwner?: boolean;
-    canEdit?: boolean;
+    isOwner: boolean;
+    canEdit: boolean;
   };
   localWords: WordEntry[];
   onThemeNameChange: (name: string) => void;
@@ -349,8 +349,8 @@ export function ThemeDetail({
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
   const [editedThemeName, setEditedThemeName] = useState("");
 
-  const isOwner = theme.isOwner !== false; // Default to true for backward compatibility
-  const canEdit = theme.canEdit !== false; // Default to true for backward compatibility
+  const isOwner = theme.isOwner;
+  const canEdit = theme.canEdit;
   const ownerDisplay = theme.ownerNickname && theme.ownerDiscriminator
     ? `${theme.ownerNickname}#${theme.ownerDiscriminator}`
     : null;

@@ -12,7 +12,7 @@ interface UseDraggableListOptions {
 interface DragState {
   draggedIndex: number | null;
   dropIndex: number | null;
-  // Keep mousePos for backward compatibility, but it only updates on drag start now
+  // mousePos is only updated on drag start
   mousePos: { x: number; y: number };
   dragOffset: { x: number; y: number };
 }

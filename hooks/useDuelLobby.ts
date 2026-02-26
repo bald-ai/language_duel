@@ -213,7 +213,7 @@ export function useDuelStatusWatcher({
 }
 
 // ============================================================================
-// useDuelLobby - Composed hook (maintains backward compatibility)
+// useDuelLobby - Composed hook
 // ============================================================================
 
 export function useDuelLobby() {

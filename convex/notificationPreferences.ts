@@ -17,8 +17,7 @@ export const getMyNotificationPreferences = query({
       return { ...DEFAULT_NOTIFICATION_PREFS, userId: user._id, isDefault: true };
     }
 
-    // Merge defaults so newly added fields get sensible values for older rows.
-    return { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: user._id, isDefault: false };
+    return { ...prefs, userId: user._id, isDefault: false };
   },
 });
 
@@ -30,9 +29,7 @@ export const getByUserId = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
 
-    return prefs
-      ? { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: args.userId }
-      : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+    return prefs ? { ...prefs, userId: args.userId } : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
   },
 });
 

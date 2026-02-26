@@ -33,8 +33,7 @@ export function Level2MultipleChoice({
   const [submitted, setSubmitted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Determine if we're in duel mode (explicit prop or inferred from hint system)
-  const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
+  const isDuelMode = mode === "duel";
 
   // Shuffle options: 4 wrong + 1 correct
   const options = useMemo(() => {

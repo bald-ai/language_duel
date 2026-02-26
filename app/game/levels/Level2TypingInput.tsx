@@ -33,8 +33,7 @@ export function Level2TypingInput({
   const [anagramResult, setAnagramResult] = useState<"correct" | "wrong" | null>(null);
   const dragIndexRef = useRef<number | null>(null);
 
-  // Determine if we're in duel mode (explicit prop or inferred from hint system)
-  const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
+  const isDuelMode = mode === "duel";
   const hintIsAnagram = hintAccepted && hintType === "anagram";
 
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);

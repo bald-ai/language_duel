@@ -46,7 +46,7 @@ const ACTIVE_GOAL_STATUSES = ["editing", "active"] as const;
 export function hasThemeAccess(params: ThemeAccessParams): boolean {
     const { userId, theme, challenges, scheduledDuels, weeklyGoals, friendships } = params;
 
-    if (isOwnerOrLegacy(userId, theme)) {
+    if (isOwner(userId, theme)) {
         return true;
     }
 
@@ -69,8 +69,8 @@ export function hasThemeAccess(params: ThemeAccessParams): boolean {
     return false;
 }
 
-function isOwnerOrLegacy(userId: Id<"users">, theme: ThemeAccessData): boolean {
-    return !theme.ownerId || theme.ownerId === userId;
+function isOwner(userId: Id<"users">, theme: ThemeAccessData): boolean {
+    return theme.ownerId === userId;
 }
 
 function hasAccessViaChallenge(

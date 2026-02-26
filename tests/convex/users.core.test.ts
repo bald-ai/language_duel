@@ -348,7 +348,7 @@ describe("users core handlers", () => {
     ).rejects.toThrow("Cannot sync user for another identity");
   });
 
-  it("syncUser existing user fills missing nickname/discriminator", async () => {
+  it("syncUser existing user does not backfill nickname/discriminator", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc({
@@ -374,8 +374,8 @@ describe("users core handlers", () => {
 
     const updated = db.users.find((user) => user._id === id);
     expect(id).toBe("user_1");
-    expect(updated?.nickname).toBe("John__");
-    expect(typeof updated?.discriminator).toBe("number");
+    expect(updated?.nickname).toBeUndefined();
+    expect(updated?.discriminator).toBeUndefined();
   });
 
   it("syncUser existing user resets monthly credits when needed", async () => {

@@ -10,7 +10,7 @@ export type GameMode = "solo" | "duel";
 export interface BaseLevelProps {
   answer: string;
   onSkip: () => void;
-  mode?: GameMode; // Explicit mode prop (optional for backwards compatibility)
+  mode: GameMode;
   dataTestIdBase?: string;
 }
 

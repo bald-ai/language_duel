@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { stripIrr, normalizeAccents, formatDuration } from "@/lib/stringUtils";
 
 describe("stringUtils", () => {
-  it("stripIrr removes (irr) and legacy * markers", () => {
+  it("stripIrr removes the (irr) marker and trims whitespace", () => {
     expect(stripIrr("hablar (Irr)")).toBe("hablar");
-    expect(stripIrr("comer*")).toBe("comer");
+    expect(stripIrr("comer*")).toBe("comer*");
     expect(stripIrr("beber (irr)")).toBe("beber");
     expect(stripIrr("  hola  ")).toBe("hola");
   });

@@ -28,8 +28,8 @@ const baseTheme = {
 type ThemeDetailTheme = Doc<"themes"> & {
   ownerNickname?: string;
   ownerDiscriminator?: number;
-  isOwner?: boolean;
-  canEdit?: boolean;
+  isOwner: boolean;
+  canEdit: boolean;
 };
 
 function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {

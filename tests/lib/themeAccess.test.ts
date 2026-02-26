@@ -35,7 +35,7 @@ describe("hasThemeAccess", () => {
             expect(hasThemeAccess(params)).toBe(true);
         });
 
-        it("grants access for legacy themes without owner", () => {
+        it("denies owner access when theme has no owner", () => {
             const params = makeParams({
                 theme: {
                     themeId: themeId("theme1"),
@@ -43,7 +43,7 @@ describe("hasThemeAccess", () => {
                     visibility: "private",
                 },
             });
-            expect(hasThemeAccess(params)).toBe(true);
+            expect(hasThemeAccess(params)).toBe(false);
         });
     });
 

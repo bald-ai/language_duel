@@ -218,19 +218,10 @@ export const getThemes = query({
     let themes: Doc<"themes">[] = [];
 
     if (args.myThemesOnly) {
-      // Query 1: User's own themes via by_owner index
-      const ownedThemes = await ctx.db
+      themes = await ctx.db
         .query("themes")
         .withIndex("by_owner", (q) => q.eq("ownerId", currentUserId))
         .collect();
-
-      // Query 2: Legacy themes without owner (ownerId is undefined)
-      const legacyThemes = await ctx.db
-        .query("themes")
-        .withIndex("by_owner", (q) => q.eq("ownerId", undefined))
-        .collect();
-
-      themes = [...ownedThemes, ...legacyThemes];
     } else if (args.filterByFriendId) {
       // Verify they are friends first
       const friendship = await ctx.db
@@ -250,7 +241,7 @@ export const getThemes = query({
         themes = friendThemes.filter((t) => t.visibility === "shared");
       }
     } else {
-      // Default view: own themes + legacy themes + friend's shared themes
+      // Default view: own themes + friend's shared themes
 
       // Query 1: User's own themes
       const ownedThemes = await ctx.db
@@ -258,13 +249,7 @@ export const getThemes = query({
         .withIndex("by_owner", (q) => q.eq("ownerId", currentUserId))
         .collect();
 
-      // Query 2: Legacy themes without owner
-      const legacyThemes = await ctx.db
-        .query("themes")
-        .withIndex("by_owner", (q) => q.eq("ownerId", undefined))
-        .collect();
-
-      // Query 3: Friend's shared themes
+      // Query 2: Friend's shared themes
       const friendships = await ctx.db
         .query("friends")
         .withIndex("by_user", (q) => q.eq("userId", currentUserId))
@@ -288,7 +273,7 @@ export const getThemes = query({
         friendSharedThemes.push(...batchResults.flat());
       }
 
-      // Query 4: Themes from active scheduled duels
+      // Query 3: Themes from active scheduled duels
       const scheduledAsProposer = await ctx.db
         .query("scheduledDuels")
         .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
@@ -302,7 +287,7 @@ export const getThemes = query({
       );
       const scheduledThemeIds = activeScheduledDuels.map((sd) => sd.themeId);
 
-      // Query 5: Themes from active weekly goals
+      // Query 4: Themes from active weekly goals
       const goalsAsCreator = await ctx.db
         .query("weeklyGoals")
         .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
@@ -324,7 +309,7 @@ export const getThemes = query({
       const validAccessThemes = accessThemes.filter((t): t is Doc<"themes"> => t !== null);
 
       // Merge all results and dedupe by themeId
-      const allThemes = [...ownedThemes, ...legacyThemes, ...friendSharedThemes, ...validAccessThemes];
+      const allThemes = [...ownedThemes, ...friendSharedThemes, ...validAccessThemes];
       const themeMap = new Map<string, Doc<"themes">>();
       for (const theme of allThemes) {
         themeMap.set(theme._id.toString(), theme);
@@ -356,7 +341,7 @@ export const getThemes = query({
         }
       }
 
-      const isOwner = theme.ownerId?.toString() === currentUserId.toString() || !theme.ownerId;
+      const isOwner = theme.ownerId?.toString() === currentUserId.toString();
       // canEdit: owner can always edit, friends can edit if theme is shared AND friendsCanEdit is true
       const canEdit = isOwner || (theme.visibility === "shared" && theme.friendsCanEdit === true);
 
@@ -549,7 +534,7 @@ export const updateTheme = mutation({
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
 
-    const isOwner = !theme.ownerId || theme.ownerId === user._id;
+    const isOwner = theme.ownerId === user._id;
     const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
 
     if (!isOwner && !canEditAsNonOwner) {
@@ -615,8 +600,7 @@ export const updateThemeVisibility = mutation({
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
 
-    // Allow update if user is owner OR theme has no owner (legacy)
-    if (theme.ownerId && theme.ownerId !== user._id) {
+    if (theme.ownerId !== user._id) {
       throw new Error("You can only change visibility of your own themes");
     }
 
@@ -640,7 +624,7 @@ export const updateThemeFriendsCanEdit = mutation({
     if (!theme) throw new Error("Theme not found");
 
     // Only owner can change this setting
-    if (theme.ownerId && theme.ownerId !== user._id) {
+    if (theme.ownerId !== user._id) {
       throw new Error("You can only change edit permissions of your own themes");
     }
 
@@ -658,8 +642,7 @@ export const deleteTheme = mutation({
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
 
-    // Allow delete if user is owner OR theme has no owner (legacy)
-    if (theme.ownerId && theme.ownerId !== user._id) {
+    if (theme.ownerId !== user._id) {
       throw new Error("You can only delete your own themes");
     }
 
@@ -788,7 +771,7 @@ export const generateThemeTTS = action({
       throw new Error("Theme not found or access denied");
     }
 
-    const isOwner = !theme.ownerId || theme.ownerId === currentUser._id;
+    const isOwner = theme.ownerId === currentUser._id;
     const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
     if (!isOwner && !canEditAsNonOwner) {
       throw new Error("You don't have permission to edit this theme");

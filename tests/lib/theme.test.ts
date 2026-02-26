@@ -18,9 +18,11 @@ describe("theme", () => {
     expect(isThemeName("unknown-theme")).toBe(false);
   });
 
-  it("themes include default and forest aliases", () => {
-    expect(themes.default).toBe(themes["playful-duo"]);
-    expect(themes.forest).toBe(themes["toybox-adventure"]);
+  it("themes do not include legacy aliases", () => {
+    expect(themes.default).toBeUndefined();
+    expect(themes.forest).toBeUndefined();
+    expect(isThemeName("default")).toBe(false);
+    expect(isThemeName("forest")).toBe(false);
   });
 
   it("themeOptions align with palettes", () => {

@@ -11,7 +11,6 @@ import { useTwoOptionKeyboard } from "./hooks/useTwoOptionKeyboard";
 
 interface Level3ExtendedProps extends Level3Props, HintProps {
   onRequestHint?: () => void;
-  mode?: "solo" | "duel";
 }
 
 /**
@@ -43,8 +42,7 @@ export function Level3Input({
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
   const [canNavigate, setCanNavigate] = useState(false);
 
-  // Determine if we're in duel mode (explicit prop or inferred from hint system)
-  const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
+  const isDuelMode = mode === "duel";
   
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
   const normalizedCleanAnswer = useMemo(

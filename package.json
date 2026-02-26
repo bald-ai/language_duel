@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "generate:manifest": "tsx scripts/generate-manifest.ts",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest --configLoader runner",
+    "test:run": "vitest run --configLoader runner",
+    "test:coverage": "vitest run --coverage --configLoader runner",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -38,7 +38,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
-    "jsdom": "^27.4.0",
+    "jsdom": "26.1.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

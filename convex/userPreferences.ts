@@ -10,9 +10,6 @@ const VALID_COLOR_SETS = [
   "warm-mischief",
   "friendly-rivalry",
   "candy-coop",
-  // Backward compatibility aliases
-  "default",
-  "forest",
 ] as const;
 
 /**

@@ -16,9 +16,6 @@ type ColorSetContextValue = {
   colorSetName: ThemeName;
   setColorSet: (colorSetName: ThemeName) => void;
   isLoading: boolean;
-  // Backward-compatible aliases
-  themeName: ThemeName;
-  setTheme: (themeName: ThemeName) => void;
 };
 
 const ColorSetContext = createContext<ColorSetContextValue | undefined>(undefined);
@@ -94,9 +91,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       colorSetName,
       setColorSet: handleSetColorSet,
       isLoading: userPreferences === undefined,
-      // Backward-compatible aliases
-      themeName: colorSetName,
-      setTheme: handleSetColorSet,
     }),
     [colorSetName, handleSetColorSet, userPreferences]
   );
@@ -119,6 +113,3 @@ export function useColorSet() {
 
   return context;
 }
-
-// Backward-compatible alias
-export const useTheme = useColorSet;

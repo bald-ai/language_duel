@@ -323,19 +323,7 @@ export const syncUser = mutation({
       .first();
 
     if (existingUser) {
-      // If existing user doesn't have nickname, assign one (migration path)
       const updates: Partial<Doc<"users">> = {};
-
-      if (!existingUser.nickname) {
-        const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
-        const validNickname =
-          nickname.length >= NICKNAME_MIN_LENGTH
-            ? nickname.slice(0, NICKNAME_MAX_LENGTH)
-            : DEFAULT_NICKNAME;
-        const discriminator = await generateDiscriminator(ctx, validNickname);
-        updates.nickname = validNickname;
-        updates.discriminator = discriminator;
-      }
 
       const normalizedCredits = normalizeCreditState(existingUser);
       if (normalizedCredits.shouldReset) {

@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import type { WordEntry } from "@/lib/types";
 import { StudyHeader } from "./components/StudyHeader";
 import { WordItem } from "./components/WordItem";
-import { useTTS } from "./hooks/useTTS";
+import { useTTS } from "@/app/game/hooks/useTTS";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { BackButton } from "@/app/components/BackButton";
 import { colors } from "@/lib/theme";
