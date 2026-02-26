@@ -154,13 +154,13 @@ export function RightNavButtons() {
 }
 
 // Auth buttons for sign in/up (shown when not signed in)
-export function AuthButtons() {
+export function AuthButtons({ flash }: { flash?: boolean }) {
   return (
     <div className="flex items-center gap-3 relative">
       <SignedOut>
         <SignInButton mode="modal">
           <button
-            className="px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors"
+            className={`px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors ${flash ? "auth-hint-flash" : ""}`}
             style={{
               backgroundColor: "var(--color-secondary)",
               borderColor: "var(--color-secondary-light)",
@@ -173,7 +173,7 @@ export function AuthButtons() {
         </SignInButton>
         <SignUpButton mode="modal">
           <button
-            className="px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors"
+            className={`px-4 py-2 rounded-lg border-2 font-bold shadow-lg transition-colors ${flash ? "auth-hint-flash" : ""}`}
             style={{
               backgroundColor: "var(--color-cta)",
               borderColor: "var(--color-cta-light)",

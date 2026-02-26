@@ -24,6 +24,19 @@ import {
   NONE_OF_THE_ABOVE,
 } from "./constants";
 
+const soloHintTypeValidator = v.union(
+  v.literal("letters"),
+  v.literal("tts"),
+  v.literal("flash"),
+  v.literal("anagram")
+);
+
+const soloHintL2TypeValidator = v.union(
+  v.literal("eliminate"),
+  v.literal("tts"),
+  v.literal("flash")
+);
+
 // ===========================================
 // Classic Mode Hint System
 // ===========================================
@@ -257,7 +270,7 @@ export const updateSoloHintState = mutation({
 export const acceptSoloHint = mutation({
   args: {
     duelId: v.id("challenges"),
-    hintType: v.string(),
+    hintType: soloHintTypeValidator,
   },
   handler: async (ctx, { duelId, hintType }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
@@ -266,9 +279,6 @@ export const acceptSoloHint = mutation({
     // Can only accept if the OTHER player requested
     if (duel.soloHintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
     if (duel.soloHintAccepted) throw new Error("Hint already accepted");
-
-    const allowedHintTypes = ["letters", "tts", "flash", "anagram"];
-    if (!allowedHintTypes.includes(hintType)) throw new Error("Invalid hint type");
 
     await ctx.db.patch(duelId, {
       soloHintAccepted: true,
@@ -372,7 +382,7 @@ export const requestSoloHintL2 = mutation({
 export const acceptSoloHintL2 = mutation({
   args: {
     duelId: v.id("challenges"),
-    hintType: v.string(),
+    hintType: soloHintL2TypeValidator,
   },
   handler: async (ctx, { duelId, hintType }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
@@ -446,4 +456,3 @@ export const cancelSoloHintL2 = mutation({
     });
   },
 });
-

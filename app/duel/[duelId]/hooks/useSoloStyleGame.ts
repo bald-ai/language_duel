@@ -442,7 +442,10 @@ export function useSoloStyleGame({
   const handleAcceptHint = useCallback(
     async (hintTypeArg: string) => {
       try {
-        await acceptSoloHint({ duelId: duel._id, hintType: hintTypeArg });
+        await acceptSoloHint({
+          duelId: duel._id,
+          hintType: hintTypeArg as "letters" | "tts" | "flash" | "anagram",
+        });
       } catch (error) {
         console.error("Failed to accept hint:", error);
       }
@@ -495,7 +498,10 @@ export function useSoloStyleGame({
   const handleAcceptHintL2 = useCallback(
     async (hintTypeArg: string) => {
       try {
-        await acceptSoloHintL2({ duelId: duel._id, hintType: hintTypeArg });
+        await acceptSoloHintL2({
+          duelId: duel._id,
+          hintType: hintTypeArg as "eliminate" | "tts" | "flash",
+        });
       } catch (error) {
         console.error("Failed to accept L2 hint:", error);
       }

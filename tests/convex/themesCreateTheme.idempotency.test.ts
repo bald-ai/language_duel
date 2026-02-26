@@ -160,4 +160,93 @@ describe("themes.createTheme idempotency", () => {
     expect(secondId).not.toBe(firstId);
     expect(db.themes).toHaveLength(2);
   });
+
+  it("normalizes and uppercases theme name before insert", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await handler(ctx, {
+      name: "  animals  ",
+      description: "Generated theme for animals",
+      words: validWords,
+      wordType: "nouns" as const,
+      visibility: "private" as const,
+    });
+
+    expect(db.themes[0]?.name).toBe("ANIMALS");
+  });
+
+  it("rejects duplicate words at create boundary", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await expect(
+      handler(ctx, {
+        name: "ANIMALS",
+        description: "Generated theme for animals",
+        words: [
+          {
+            word: "cat",
+            answer: "kocka",
+            wrongAnswers: ["strom", "auto", "more"],
+          },
+          {
+            word: " cat ",
+            answer: "macka",
+            wrongAnswers: ["dom", "most", "pole"],
+          },
+        ],
+        wordType: "nouns" as const,
+        visibility: "private" as const,
+      })
+    ).rejects.toThrow("Duplicate word found");
+  });
+
+  it("rejects wrong answers that match the correct answer", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await expect(
+      handler(ctx, {
+        name: "VERBS",
+        description: "Generated theme for verbs",
+        words: [
+          {
+            word: "go",
+            answer: "ir(Irr)",
+            wrongAnswers: ["ir", "venir", "hablar"],
+          },
+        ],
+        wordType: "verbs" as const,
+        visibility: "private" as const,
+      })
+    ).rejects.toThrow("wrong answers must not match the correct answer");
+  });
 });

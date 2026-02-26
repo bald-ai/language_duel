@@ -47,6 +47,10 @@ export function Level3Input({
   const isDuelMode = mode === "duel" || (mode === undefined && (canRequestHint !== undefined || hintRequested !== undefined));
   
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
+  const normalizedCleanAnswer = useMemo(
+    () => normalizeAccents(cleanAnswer),
+    [cleanAnswer]
+  );
   const hasMultipleWords = cleanAnswer.split(" ").length > 1;
   const showAnagramHint = hintAccepted && hintType === "anagram";
   
@@ -57,18 +61,21 @@ export function Level3Input({
   }, [cleanAnswer, showAnagramHint]);
 
   const handleSubmit = () => {
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) return;
+
     setSubmitted(true);
-    if (normalizeAccents(inputValue) === normalizeAccents(cleanAnswer)) {
+    if (normalizeAccents(trimmedInput) === normalizedCleanAnswer) {
       setIsCorrectAnswer(true);
       if (isDuelMode) {
         // Duel mode: auto-continue after delay
-        setTimeout(() => onCorrect(inputValue), DUEL_CORRECT_DELAY_MS);
+        setTimeout(() => onCorrect(trimmedInput), DUEL_CORRECT_DELAY_MS);
       } else {
         // Solo mode: enable keyboard navigation for listen/continue
         setTimeout(() => setCanNavigate(true), NAVIGATE_ENABLE_DELAY_MS);
       }
     } else {
-      onWrong(inputValue);
+      onWrong(trimmedInput);
     }
   };
 
@@ -109,7 +116,12 @@ export function Level3Input({
         type="text"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !submitted && inputValue.trim()) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
         disabled={submitted}
         className={`w-full max-w-xs px-4 py-3 text-lg text-center border-2 focus:outline-none ${
           isDuelMode ? "rounded-lg" : "rounded-2xl"

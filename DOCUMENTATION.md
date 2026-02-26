@@ -31,6 +31,35 @@ For pure CSS needs (animations, patterns), CSS variables are defined in `app/glo
 
 ---
 
+## Validation Contract
+
+Use these rules for every new input path:
+
+1. **Backend is the source of truth.**  
+   UI validation is for fast feedback only. Every write/API boundary must re-validate.
+
+2. **Use shared constants.**  
+   Theme-related limits must come from `lib/themes/constants.ts`.  
+   Background options must come from `lib/preferences/backgrounds.ts`.
+
+3. **Validate and normalize at boundaries.**  
+   Normalize (`trim`, casing policy) first, then validate, then persist or call external services.
+
+4. **Never let malformed input become a server error.**  
+   Invalid client payloads return `4xx` with clear messages.  
+   `500` is reserved for genuine server/runtime failures.
+
+5. **Keep submit paths consistent.**  
+   Keyboard submit and button submit must go through the same validation path.
+
+6. **Every validation change needs tests.**  
+   Add/adjust focused tests for:
+   - request validation (`/api/generate`, `/api/tts`)
+   - Convex write boundaries (`createTheme`, `updateTheme`)
+   - keyboard/button parity in inputs
+
+---
+
 ## File Structure
 
 ```

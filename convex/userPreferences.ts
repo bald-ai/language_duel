@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { isValidBackground } from "../lib/preferences/backgrounds";
 
 // Valid color set names (must match colorPalettes in lib/theme.ts)
 const VALID_COLOR_SETS = [
@@ -13,9 +14,6 @@ const VALID_COLOR_SETS = [
   "default",
   "forest",
 ] as const;
-
-// Valid background image filenames
-const VALID_BACKGROUNDS = ["background.jpg", "background_2.jpg"] as const;
 
 /**
  * Get current user's preferences (color set and background)
@@ -69,7 +67,7 @@ export const updateBackgroundPreference = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     // Validate background filename
-    if (!VALID_BACKGROUNDS.includes(args.background as typeof VALID_BACKGROUNDS[number])) {
+    if (!isValidBackground(args.background)) {
       throw new Error(`Invalid background: ${args.background}`);
     }
 

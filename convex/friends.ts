@@ -21,18 +21,6 @@ export type FriendWithDetails = {
   lastSeenAt?: number;
 };
 
-// Friend request with sender details (for received requests)
-export type FriendRequestWithDetails = {
-  requestId: Id<"friendRequests">;
-  senderId: Id<"users">;
-  nickname?: string;
-  discriminator?: number;
-  name?: string;
-  email: string;
-  imageUrl?: string;
-  createdAt: number;
-};
-
 // Sent friend request with receiver details
 export type SentRequestWithDetails = {
   requestId: Id<"friendRequests">;
@@ -60,39 +48,6 @@ async function loadUsersById(
   });
   return usersById;
 }
-
-/**
- * Get pending friend requests received by current user
- */
-export const getFriendRequests = query({
-  args: {},
-  handler: async (ctx): Promise<FriendRequestWithDetails[]> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return [];
-
-    const requests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_receiver", (q) => q.eq("receiverId", auth.user._id).eq("status", "pending"))
-      .collect();
-
-    const sendersById = await loadUsersById(ctx, requests.map((request) => request.senderId));
-
-    return requests.flatMap((request) => {
-      const sender = sendersById.get(request.senderId);
-      if (!sender) return [];
-      return [{
-        requestId: request._id,
-        senderId: sender._id,
-        nickname: sender.nickname,
-        discriminator: sender.discriminator,
-        name: sender.name,
-        email: sender.email,
-        imageUrl: sender.imageUrl,
-        createdAt: request.createdAt,
-      }];
-    });
-  },
-});
 
 /**
  * Get friend requests sent by current user
@@ -168,51 +123,6 @@ export const getFriends = query({
       // Both same status, sort by lastSeenAt descending
       return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
     });
-  },
-});
-
-/**
- * Check friendship status between current user and another user
- */
-export const getFriendshipStatus = query({
-  args: {
-    userId: v.id("users"),
-  },
-  handler: async (ctx, args): Promise<"friends" | "pending_sent" | "pending_received" | "none"> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return "none";
-
-    // Check if already friends
-    const friendship = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", auth.user._id))
-      .filter((q) => q.eq(q.field("friendId"), args.userId))
-      .first();
-
-    if (friendship) return "friends";
-
-    // Check for pending request sent by current user
-    const sentRequest = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_sender_status", (q) => q.eq("senderId", auth.user._id).eq("status", "pending"))
-      .filter((q) => q.and(
-        q.eq(q.field("receiverId"), args.userId),
-        q.eq(q.field("status"), "pending")
-      ))
-      .first();
-
-    if (sentRequest) return "pending_sent";
-
-    // Check for pending request received from other user
-    const receivedRequest = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_receiver", (q) => q.eq("receiverId", auth.user._id).eq("status", "pending"))
-      .filter((q) => q.eq(q.field("senderId"), args.userId))
-      .first();
-
-    if (receivedRequest) return "pending_received";
-
-    return "none";
   },
 });
 

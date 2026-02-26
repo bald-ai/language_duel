@@ -12,7 +12,7 @@ import { toast } from "sonner";
 // Types
 // ============================================================================
 
-export type ModalState = "none" | "duel" | "solo" | "soloStyleDuel" | "unifiedDuel" | "waiting";
+export type ModalState = "none" | "solo" | "unifiedDuel" | "waiting";
 
 export interface CreateDuelOptions {
   opponentId: Id<"users">;
@@ -45,8 +45,6 @@ export function useDuelData() {
     pendingClassicDuels,
     pendingSoloStyleDuels,
     pendingCount: pendingDuels?.length || 0,
-    pendingClassicCount: pendingClassicDuels?.length || 0,
-    pendingSoloStyleCount: pendingSoloStyleDuels?.length || 0,
   };
 }
 
@@ -57,9 +55,7 @@ export function useDuelData() {
 export function useDuelModals() {
   const [modalState, setModalState] = useState<ModalState>("none");
 
-  const openDuelModal = useCallback(() => setModalState("duel"), []);
   const openSoloModal = useCallback(() => setModalState("solo"), []);
-  const openSoloStyleDuelModal = useCallback(() => setModalState("soloStyleDuel"), []);
   const openUnifiedDuelModal = useCallback(() => setModalState("unifiedDuel"), []);
   const openWaitingModal = useCallback(() => setModalState("waiting"), []);
 
@@ -69,14 +65,10 @@ export function useDuelModals() {
 
   return {
     modalState,
-    showDuelModal: modalState === "duel",
     showSoloModal: modalState === "solo",
-    showSoloStyleDuelModal: modalState === "soloStyleDuel",
     showUnifiedDuelModal: modalState === "unifiedDuel",
     showWaitingModal: modalState === "waiting",
-    openDuelModal,
     openSoloModal,
-    openSoloStyleDuelModal,
     openUnifiedDuelModal,
     openWaitingModal,
     closeModal,
@@ -305,13 +297,9 @@ export function useDuelLobby() {
     pendingClassicDuels: data.pendingClassicDuels,
     pendingSoloStyleDuels: data.pendingSoloStyleDuels,
     pendingCount: data.pendingCount,
-    pendingClassicCount: data.pendingClassicCount,
-    pendingSoloStyleCount: data.pendingSoloStyleCount,
 
     // Modal states
-    showDuelModal: modals.showDuelModal,
     showSoloModal: modals.showSoloModal,
-    showSoloStyleDuelModal: modals.showSoloStyleDuelModal,
     showUnifiedDuelModal: modals.showUnifiedDuelModal,
     showWaitingModal: modals.showWaitingModal,
     isJoiningDuel: isJoiningDuel,
@@ -321,12 +309,8 @@ export function useDuelLobby() {
     isCancellingDuel: actions.isCancellingDuel,
 
     // Modal handlers
-    openDuelModal: modals.openDuelModal,
-    closeDuelModal: modals.closeModal,
     openSoloModal: modals.openSoloModal,
     closeSoloModal: modals.closeModal,
-    openSoloStyleDuelModal: modals.openSoloStyleDuelModal,
-    closeSoloStyleDuelModal: modals.closeModal,
     openUnifiedDuelModal: modals.openUnifiedDuelModal,
     closeUnifiedDuelModal: modals.closeModal,
 

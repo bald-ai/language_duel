@@ -150,19 +150,6 @@ export function isDuelChallenging(duel: Doc<"challenges">): boolean {
 }
 
 /**
- * Get player-specific field from duel based on role.
- * This helps reduce the challenger/opponent branching boilerplate.
- */
-export function getPlayerField<K extends keyof Doc<"challenges">>(
-  duel: Doc<"challenges">,
-  role: PlayerRole,
-  challengerKey: K,
-  opponentKey: K
-): Doc<"challenges">[K] {
-  return role === "challenger" ? duel[challengerKey] : duel[opponentKey];
-}
-
-/**
  * Check if a player has answered the current question.
  */
 export function hasPlayerAnswered(
@@ -173,4 +160,3 @@ export function hasPlayerAnswered(
     ? duel.challengerAnswered
     : duel.opponentAnswered;
 }
-

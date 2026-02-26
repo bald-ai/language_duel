@@ -16,7 +16,9 @@ import {
 
 interface User {
   _id: Id<"users">;
-  email?: string;
+  name?: string;
+  nickname?: string;
+  discriminator?: number;
 }
 
 interface Theme {
@@ -27,7 +29,7 @@ interface Theme {
 
 interface PendingDuel {
   challenge: { _id: Id<"challenges">; mode: "classic" | "solo" };
-  challenger: { email?: string } | null;
+  challenger: { name?: string; nickname?: string; discriminator?: number } | null;
 }
 
 interface CreateDuelOptions {
@@ -54,6 +56,17 @@ interface UnifiedDuelModalProps {
 type DuelMode = "classic" | "solo";
 
 const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semibold";
+
+function formatUserLabel(user: { name?: string; nickname?: string; discriminator?: number } | null): string {
+  if (!user) return "Unknown";
+  if (user.nickname) {
+    const discriminator = user.discriminator !== undefined
+      ? `#${user.discriminator.toString().padStart(4, "0")}`
+      : "";
+    return `${user.nickname}${discriminator}`;
+  }
+  return user.name || "Unknown";
+}
 
 export function UnifiedDuelModal({
   users,
@@ -136,7 +149,7 @@ export function UnifiedDuelModal({
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-emphasis truncate" style={{ color: colors.text.DEFAULT }}>
-                        {challenger?.email || "Unknown"}
+                        {formatUserLabel(challenger)}
                       </p>
                       <p className="text-xs" style={{ color: colors.text.muted }}>
                         {duel.mode === "classic" ? "Classic Duel" : "Solo Style"}
@@ -316,13 +329,13 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
               }}
               data-testid={`duel-modal-opponent-${user._id}`}
             >
-              <div
-                className="font-semibold text-sm truncate"
-                style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
-                title={user.email || "Unknown"}
-              >
-                {user.email || "Unknown"}
-              </div>
+                <div
+                  className="font-semibold text-sm truncate"
+                  style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
+                  title={formatUserLabel(user)}
+                >
+                  {formatUserLabel(user)}
+                </div>
               {isSelected && (
                 <div
                   className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
@@ -350,7 +363,7 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
             color: colors.text.muted,
           }}
         >
-          Selected: <span style={{ color: colors.cta.light }}>{selectedOpponent.email || "Unknown"}</span>
+          Selected: <span style={{ color: colors.cta.light }}>{formatUserLabel(selectedOpponent)}</span>
         </div>
       )}
     </div>

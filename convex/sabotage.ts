@@ -6,19 +6,10 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getDuelParticipant, isDuelActive } from "./helpers/auth";
 import {
-  SABOTAGE_EFFECTS,
   MAX_SABOTAGES_PER_DUEL,
   SABOTAGE_STICKY_DURATION_MS,
   SABOTAGE_FALLBACK_DURATION_MS,
-  type SabotageEffect,
 } from "./constants";
-
-/**
- * Validate that an effect is a valid sabotage type.
- */
-function isValidSabotageEffect(effect: string): effect is SabotageEffect {
-  return (SABOTAGE_EFFECTS as readonly string[]).includes(effect);
-}
 
 /**
  * Check if a sabotage effect is currently active.
@@ -52,18 +43,18 @@ function isSabotageActive(params: {
 export const sendSabotage = mutation({
   args: {
     duelId: v.id("challenges"),
-    effect: v.string(),
+    effect: v.union(
+      v.literal("sticky"),
+      v.literal("bounce"),
+      v.literal("trampoline"),
+      v.literal("reverse")
+    ),
   },
   handler: async (ctx, { duelId, effect }) => {
     const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (!isDuelActive(duel)) {
       throw new Error("Challenge is not active");
-    }
-
-    // Validate effect type
-    if (!isValidSabotageEffect(effect)) {
-      throw new Error("Invalid sabotage effect");
     }
 
     // Check sabotage usage limit
@@ -116,4 +107,3 @@ export const sendSabotage = mutation({
     }
   },
 });
-

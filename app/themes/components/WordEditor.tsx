@@ -1,8 +1,15 @@
 "use client";
 
-import { EDIT_MODES, CUSTOM_INSTRUCTIONS_MAX_LENGTH, type EditMode, type FieldType } from "../constants";
+import { EDIT_MODES, type EditMode, type FieldType } from "../constants";
 import { RegenerateConfirmModal } from "./RegenerateConfirmModal";
 import { buttonStyles, colors } from "@/lib/theme";
+import {
+  CUSTOM_INSTRUCTIONS_MAX_LENGTH,
+  THEME_ANSWER_INPUT_MAX_LENGTH,
+  THEME_USER_FEEDBACK_MAX_LENGTH,
+  THEME_WORD_INPUT_MAX_LENGTH,
+  THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
+} from "@/lib/themes/constants";
 
 interface WordEditorProps {
   editingField: FieldType;
@@ -89,6 +96,13 @@ export function WordEditor({
       : editingField === "answer"
         ? "Answer"
         : `Wrong ${editingWrongIndex + 1}`;
+
+  const manualMaxLength =
+    editingField === "word"
+      ? THEME_WORD_INPUT_MAX_LENGTH
+      : editingField === "answer"
+        ? THEME_ANSWER_INPUT_MAX_LENGTH
+        : THEME_WRONG_ANSWER_INPUT_MAX_LENGTH;
 
   return (
     <>
@@ -259,7 +273,11 @@ export function WordEditor({
                 </div>
                 <textarea
                   value={userFeedback}
-                  onChange={(e) => onUserFeedbackChange(e.target.value)}
+                  onChange={(e) => {
+                    if (e.target.value.length <= THEME_USER_FEEDBACK_MAX_LENGTH) {
+                      onUserFeedbackChange(e.target.value);
+                    }
+                  }}
                   placeholder="e.g. Make the wrong answer more challenging"
                   className="w-full p-3 border-2 rounded-xl text-sm focus:outline-none resize-none placeholder:opacity-60"
                   style={{
@@ -268,8 +286,12 @@ export function WordEditor({
                     color: colors.text.DEFAULT,
                   }}
                   rows={3}
+                  maxLength={THEME_USER_FEEDBACK_MAX_LENGTH}
                   data-testid="word-editor-user-feedback"
                 />
+                <div className="text-xs text-right mt-1" style={{ color: colors.text.muted }}>
+                  {userFeedback.length}/{THEME_USER_FEEDBACK_MAX_LENGTH}
+                </div>
               </div>
             )}
 
@@ -315,16 +337,24 @@ export function WordEditor({
               <input
                 type="text"
                 value={manualValue}
-                onChange={(e) => onManualValueChange(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= manualMaxLength) {
+                    onManualValueChange(e.target.value);
+                  }
+                }}
                 className="w-full p-4 border-2 rounded-xl text-lg focus:outline-none"
                 style={{
                   backgroundColor: colors.background.DEFAULT,
                   borderColor: colors.primary.dark,
                   color: colors.text.DEFAULT,
                 }}
+                maxLength={manualMaxLength}
                 autoFocus
                 data-testid="word-editor-manual-input"
               />
+              <div className="text-xs text-right mt-1" style={{ color: colors.text.muted }}>
+                {manualValue.length}/{manualMaxLength}
+              </div>
             </div>
 
             {/* Action Buttons */}

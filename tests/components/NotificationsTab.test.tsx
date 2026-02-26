@@ -1,11 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { NotificationsTab } from "@/app/notifications/components/NotificationsTab";
 import { NOTIFICATION_TYPES } from "@/app/notifications/constants";
 
 const pushMock = vi.fn();
 const useNotificationsMock = vi.fn();
 const useScheduledDuelMock = vi.fn();
+const toastSuccessMock = vi.fn();
+const toastErrorMock = vi.fn();
+const toastInfoMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -13,9 +16,9 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("sonner", () => ({
   toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+    error: (...args: unknown[]) => toastErrorMock(...args),
+    info: (...args: unknown[]) => toastInfoMock(...args),
   },
 }));
 
@@ -44,6 +47,9 @@ const notification = {
 describe("NotificationsTab theme actions", () => {
   beforeEach(() => {
     pushMock.mockClear();
+    toastSuccessMock.mockClear();
+    toastErrorMock.mockClear();
+    toastInfoMock.mockClear();
     useNotificationsMock.mockReturnValue({
       notifications: [notification],
       notificationCount: 1,
@@ -67,6 +73,119 @@ describe("NotificationsTab theme actions", () => {
       cancelScheduledDuel: vi.fn(),
       scheduledDuels: [],
     });
+  });
+
+  it("renders loading state while notifications are being fetched", () => {
+    useNotificationsMock.mockReturnValue({
+      notifications: [],
+      notificationCount: 0,
+      isLoading: true,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    const { container } = render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(container.querySelector(".animate-spin")).not.toBeNull();
+  });
+
+  it("renders empty state when there are no notifications", () => {
+    useNotificationsMock.mockReturnValue({
+      notifications: [],
+      notificationCount: 0,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(screen.getByTestId("notifications-empty-state")).toBeInTheDocument();
+  });
+
+  it("shows both ready-state success messages", async () => {
+    const setReadyMock = vi
+      .fn()
+      .mockResolvedValueOnce({ bothReady: true })
+      .mockResolvedValueOnce({ bothReady: false });
+
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          ...notification,
+          payload: {
+            ...notification.payload,
+            scheduledDuelStatus: "accepted",
+          },
+        },
+      ],
+      notificationCount: 1,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+    useScheduledDuelMock.mockReturnValue({
+      setReady: setReadyMock,
+      cancelReady: vi.fn(),
+      cancelScheduledDuel: vi.fn(),
+      scheduledDuels: [
+        {
+          _id: "sched_1",
+          isProposer: true,
+          proposerReady: false,
+          recipientReady: false,
+        },
+      ],
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    fireEvent.click(await screen.findByTestId("notification-notif_1-set-ready"));
+    await waitFor(() => {
+      expect(setReadyMock).toHaveBeenCalledTimes(1);
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Both players ready! Starting duel..."
+    );
+
+    fireEvent.click(await screen.findByTestId("notification-notif_1-set-ready"));
+    await waitFor(() => {
+      expect(setReadyMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "You're ready! Waiting for opponent..."
+    );
   });
 
   it("navigates to study when selecting Solo Study", () => {

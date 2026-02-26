@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -64,10 +64,27 @@ const JoiningModal = dynamic(
 );
 
 export default function Home() {
-  useUser();
+  const { isSignedIn } = useUser();
   useSyncUser();
 
   const router = useRouter();
+  const [flashAuth, setFlashAuth] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const guardAuth = useCallback(
+    (action: () => void) => {
+      if (!isSignedIn) {
+        setFlashAuth(false);
+        // Force re-trigger by toggling off then on in next frame
+        requestAnimationFrame(() => setFlashAuth(true));
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setFlashAuth(false), 750);
+        return;
+      }
+      action();
+    },
+    [isSignedIn],
+  );
   const searchParams = useSearchParams();
   const lobby = useDuelLobby();
   const handledSoloDeepLinkRef = useRef<string | null>(null);
@@ -113,7 +130,7 @@ export default function Home() {
 
       {/* Top-right auth buttons (Settings, User) */}
       <div className="absolute top-3 right-2 sm:right-4 z-20">
-        <AuthButtons />
+        <AuthButtons flash={flashAuth} />
       </div>
 
       {/* Top Section: Title */}
@@ -174,28 +191,28 @@ export default function Home() {
         <nav className="w-full flex flex-col gap-2.5">
           {/* All standard buttons use primary */}
           <div className="animate-slide-up delay-300">
-            <MenuButton onClick={() => router.push("/study")} dataTestId="home-study">
+            <MenuButton onClick={() => guardAuth(() => router.push("/study"))} dataTestId="home-study">
               <StudyIcon />
               Study
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-400">
-            <MenuButton onClick={lobby.openSoloModal} dataTestId="home-solo-challenge">
+            <MenuButton onClick={() => guardAuth(lobby.openSoloModal)} dataTestId="home-solo-challenge">
               <SoloIcon />
               Solo Challenge
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-500">
-            <MenuButton onClick={lobby.openUnifiedDuelModal} dataTestId="home-duel">
+            <MenuButton onClick={() => guardAuth(lobby.openUnifiedDuelModal)} dataTestId="home-duel">
               <DuelIcon />
               Duel
             </MenuButton>
           </div>
 
           <div className="animate-slide-up delay-600">
-            <MenuButton onClick={() => router.push("/themes")} dataTestId="home-manage-themes">
+            <MenuButton onClick={() => guardAuth(() => router.push("/themes"))} dataTestId="home-manage-themes">
               <ThemesIcon />
               Manage Themes
             </MenuButton>

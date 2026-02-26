@@ -1,6 +1,7 @@
 "use client";
 
 import { buttonStyles, colors } from "@/lib/theme";
+import { THEME_WORD_INPUT_MAX_LENGTH } from "@/lib/themes/constants";
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -69,7 +70,11 @@ export function AddWordModal({
           <input
             type="text"
             value={newWordInput}
-            onChange={(e) => onInputChange(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= THEME_WORD_INPUT_MAX_LENGTH) {
+                onInputChange(e.target.value);
+              }
+            }}
             placeholder="Enter an English word..."
             className="w-full p-4 border-2 rounded-xl focus:outline-none placeholder:opacity-60"
             style={{
@@ -77,6 +82,7 @@ export function AddWordModal({
               borderColor: colors.primary.dark,
               color: colors.text.DEFAULT,
             }}
+            maxLength={THEME_WORD_INPUT_MAX_LENGTH}
             disabled={isAdding}
             autoFocus
             onKeyDown={(e) => {
@@ -86,6 +92,9 @@ export function AddWordModal({
             }}
             data-testid="theme-add-word-input"
           />
+          <p className="text-xs mt-1 text-right" style={{ color: colors.text.muted }}>
+            {newWordInput.length}/{THEME_WORD_INPUT_MAX_LENGTH}
+          </p>
         </div>
 
         {error && (

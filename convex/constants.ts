@@ -7,7 +7,6 @@
 // Query Limits
 // ===========================================
 export const MAX_USERS_QUERY = 100;
-export const MAX_THEMES_QUERY = 100;
 
 // ===========================================
 // Timer Options (Learn Phase)
@@ -57,6 +56,14 @@ export const MAX_ELIMINATED_OPTIONS_CLASSIC = 2;
 
 /** Maximum wrong options that can be eliminated (L2 multiple choice) */
 export const MAX_ELIMINATED_OPTIONS_L2 = 2;
+
+/** Allowed hint types for solo-style L1/L3 hints */
+export const SOLO_HINT_TYPES = ["letters", "tts", "flash", "anagram"] as const;
+export type SoloHintType = (typeof SOLO_HINT_TYPES)[number];
+
+/** Allowed hint types for solo-style L2 hints */
+export const SOLO_HINT_L2_TYPES = ["eliminate", "tts", "flash"] as const;
+export type SoloHintL2Type = (typeof SOLO_HINT_L2_TYPES)[number];
 
 // ===========================================
 // Sabotage System
@@ -127,12 +134,6 @@ export const DISCRIMINATOR_MIN = 1000;
 
 /** Maximum discriminator value (inclusive) */
 export const DISCRIMINATOR_MAX = 9999;
-
-/** Maximum friend requests a user can have */
-export const MAX_FRIEND_REQUESTS = 100;
-
-/** Default nickname for new users */
-export const DEFAULT_NICKNAME = "NewPlayer";
 
 // ===========================================
 // Notification Cleanup TTLs

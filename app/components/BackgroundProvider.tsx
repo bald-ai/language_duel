@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { DEFAULT_BACKGROUND, isValidBackground } from "@/lib/preferences/backgrounds";
 
-const DEFAULT_BACKGROUND = "background.jpg";
 const BACKGROUND_STORAGE_KEY = "language-duel-background";
 
 type BackgroundContextValue = {
@@ -29,7 +29,7 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!hasHydrated) {
       const storedBackground = window.localStorage.getItem(BACKGROUND_STORAGE_KEY);
-      if (storedBackground) {
+      if (storedBackground && isValidBackground(storedBackground)) {
         // Defer state update to avoid synchronous setState in effect
         queueMicrotask(() => setBackgroundState(storedBackground));
       }
@@ -41,7 +41,11 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (hasHydrated && userPreferences && !hasAppliedServerPref) {
       const serverBackground = userPreferences.selectedBackground;
-      if (serverBackground && serverBackground !== background) {
+      if (
+        serverBackground &&
+        isValidBackground(serverBackground) &&
+        serverBackground !== background
+      ) {
         // Defer state update to avoid synchronous setState in effect
         queueMicrotask(() => {
           setBackgroundState(serverBackground);
@@ -55,6 +59,10 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
 
   const handleSetBackground = useCallback(
     (nextBackground: string) => {
+      if (!isValidBackground(nextBackground)) {
+        return;
+      }
+
       setBackgroundState((current) => {
         if (nextBackground === current) {
           return current;

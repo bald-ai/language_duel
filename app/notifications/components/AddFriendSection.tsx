@@ -104,7 +104,7 @@ export function AddFriendSection() {
                                                 className="w-full h-full rounded-full object-cover"
                                             />
                                         ) : (
-                                            (user.nickname?.[0] || user.email[0]).toUpperCase()
+                                            (user.nickname?.[0] || user.name?.[0] || "?").toUpperCase()
                                         )}
                                     </div>
 
@@ -114,8 +114,8 @@ export function AddFriendSection() {
                                             className="text-sm font-medium truncate"
                                             style={{ color: colors.text.DEFAULT }}
                                         >
-                                            {user.nickname || user.name || user.email}
-                                            {user.discriminator && (
+                                            {user.nickname || user.name || "Unknown user"}
+                                            {user.nickname && user.discriminator && (
                                                 <span style={{ color: colors.text.muted }}>
                                                     #{user.discriminator.toString().padStart(4, '0')}
                                                 </span>

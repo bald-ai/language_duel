@@ -30,8 +30,6 @@ export function Level2TypingInput({
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [anagramLetters, setAnagramLetters] = useState<string[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [anagramNonce, setAnagramNonce] = useState(0);
   const [anagramResult, setAnagramResult] = useState<"correct" | "wrong" | null>(null);
   const dragIndexRef = useRef<number | null>(null);
 
@@ -40,6 +38,10 @@ export function Level2TypingInput({
   const hintIsAnagram = hintAccepted && hintType === "anagram";
 
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
+  const normalizedCleanAnswer = useMemo(
+    () => normalizeAccents(cleanAnswer),
+    [cleanAnswer]
+  );
 
   const letterSlots = useMemo(() => {
     const slots: { char: string; originalIndex: number }[] = [];
@@ -59,12 +61,15 @@ export function Level2TypingInput({
   const effectiveAnagramLetters = anagramLetters.length ? anagramLetters : anagramBase;
 
   const handleSubmit = () => {
+    const trimmedInput = inputValue.trim();
+    if (!trimmedInput) return;
+
     setSubmitted(true);
     setAnagramResult(null);
-    if (normalizeAccents(inputValue) === normalizeAccents(answer)) {
-      onCorrect(inputValue);
+    if (normalizeAccents(trimmedInput) === normalizedCleanAnswer) {
+      onCorrect(trimmedInput);
     } else {
-      onWrong(inputValue);
+      onWrong(trimmedInput);
     }
   };
 
@@ -115,11 +120,7 @@ export function Level2TypingInput({
 
   const handleShuffleAnagram = () => {
     if (submitted) return;
-    setAnagramNonce((n) => {
-      const next = n + 1;
-      setAnagramLetters(generateAnagramLetters(cleanAnswer, next));
-      return next;
-    });
+    setAnagramLetters(generateAnagramLetters(cleanAnswer, Date.now()));
   };
 
   const words = cleanAnswer.split(" ");
@@ -298,7 +299,12 @@ export function Level2TypingInput({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !submitted && handleSubmit()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !submitted && inputValue.trim()) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             disabled={submitted}
             className={`w-full max-w-xs px-4 py-3 text-lg text-center border-2 focus:outline-none ${
               isDuelMode ? "rounded-lg" : "rounded-2xl"
@@ -357,7 +363,7 @@ export function Level2TypingInput({
               </button>
             </div>
           )}
-          {submitted && normalizeAccents(inputValue) !== normalizeAccents(cleanAnswer) && (
+          {submitted && normalizeAccents(inputValue.trim()) !== normalizedCleanAnswer && (
             <div style={{ color: colors.status.danger.light }}>
               Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>

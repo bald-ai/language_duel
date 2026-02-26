@@ -9,7 +9,6 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   isNotificationEnabled,
-  DEFAULT_NOTIFICATION_PREFS,
   formatScheduledTime,
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
@@ -17,19 +16,6 @@ import { renderNotificationEmail, type EmailData } from "../../lib/notificationT
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
-
-export const getNotificationPreferencesByUserId = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const prefs = await ctx.db
-      .query("notificationPreferences")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
-    return prefs
-      ? { ...DEFAULT_NOTIFICATION_PREFS, ...prefs, userId: args.userId }
-      : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
-  },
-});
 
 export const getUserById = internalQuery({
   args: { id: v.id("users") },

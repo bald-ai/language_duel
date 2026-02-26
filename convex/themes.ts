@@ -7,6 +7,13 @@ import { hasThemeAccess } from "../lib/themeAccess";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
 import { reconcileThemeWordTts } from "../lib/themes/tts";
+import {
+  normalizeSaveRequestId,
+  normalizeThemeDescription,
+  normalizeThemeName,
+  normalizeThemeWords,
+} from "../lib/themes/serverValidation";
+import { THEME_NAME_MAX_LENGTH } from "../lib/themes/constants";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
@@ -24,6 +31,7 @@ const RESEMBLE_TIMEOUT_MS = 30_000;
 const RESEMBLE_MAX_POLL_ATTEMPTS = 30;
 const RESEMBLE_POLL_INTERVAL_MS = 500;
 const TTS_GENERATION_LOCK_MS = 10 * 60 * 1000;
+const DUPLICATE_THEME_SUFFIX = "(DUPLICATE)";
 
 type ThemeWordWithTts = {
   word: string;
@@ -59,6 +67,22 @@ function getResembleHeaders(apiKey: string) {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
+}
+
+function buildDuplicateThemeName(originalName: string): string {
+  const normalizedBaseName = originalName.trim().toUpperCase();
+  if (
+    normalizedBaseName.length + DUPLICATE_THEME_SUFFIX.length <=
+    THEME_NAME_MAX_LENGTH
+  ) {
+    return `${normalizedBaseName}${DUPLICATE_THEME_SUFFIX}`;
+  }
+
+  const maxBaseLength = Math.max(
+    1,
+    THEME_NAME_MAX_LENGTH - DUPLICATE_THEME_SUFFIX.length
+  );
+  return `${normalizedBaseName.slice(0, maxBaseLength)}${DUPLICATE_THEME_SUFFIX}`;
 }
 
 async function createResembleClip(
@@ -349,51 +373,6 @@ export const getThemes = query({
   },
 });
 
-/**
- * Get only themes owned by current user
- */
-export const getMyThemes = query({
-  args: {},
-  handler: async (ctx): Promise<Doc<"themes">[]> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return [];
-
-    return await ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", auth.user._id))
-      .collect();
-  },
-});
-
-/**
- * Get shared themes from a specific friend
- */
-export const getFriendThemes = query({
-  args: {
-    friendId: v.id("users"),
-  },
-  handler: async (ctx, args): Promise<Doc<"themes">[]> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return [];
-
-    // Verify they are friends
-    const friendship = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", auth.user._id))
-      .filter((q) => q.eq(q.field("friendId"), args.friendId))
-      .first();
-
-    if (!friendship) return [];
-
-    const themes = await ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", args.friendId))
-      .collect();
-
-    return themes.filter((t) => t.visibility === "shared");
-  },
-});
-
 export const getTheme = query({
   args: { themeId: v.id("themes") },
   handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
@@ -523,13 +502,18 @@ export const createTheme = mutation({
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
     const { user } = await getAuthenticatedUser(ctx);
+    const normalizedName = normalizeThemeName(args.name);
+    const normalizedDescription = normalizeThemeDescription(args.description);
+    const normalizedWords = normalizeThemeWords(args.words as ThemeWordWithTts[]);
+    const normalizedSaveRequestId = args.saveRequestId
+      ? normalizeSaveRequestId(args.saveRequestId)
+      : undefined;
 
-    if (args.saveRequestId) {
-      const saveRequestId = args.saveRequestId;
+    if (normalizedSaveRequestId) {
       const existingTheme = await ctx.db
         .query("themes")
         .withIndex("by_owner_save_request", (q) =>
-          q.eq("ownerId", user._id).eq("saveRequestId", saveRequestId)
+          q.eq("ownerId", user._id).eq("saveRequestId", normalizedSaveRequestId)
         )
         .first();
 
@@ -539,14 +523,14 @@ export const createTheme = mutation({
     }
 
     return await ctx.db.insert("themes", {
-      name: args.name,
-      description: args.description,
+      name: normalizedName,
+      description: normalizedDescription,
       wordType: args.wordType || "nouns",
-      words: args.words,
+      words: normalizedWords,
       createdAt: Date.now(),
       ownerId: user._id,
       visibility: args.visibility || "private",
-      saveRequestId: args.saveRequestId,
+      saveRequestId: normalizedSaveRequestId,
     });
   },
 });
@@ -575,13 +559,18 @@ export const updateTheme = mutation({
     const { themeId, ...updates } = args;
     const filteredUpdates: Record<string, unknown> = {};
 
-    if (updates.name !== undefined) filteredUpdates.name = updates.name;
-    if (updates.description !== undefined) filteredUpdates.description = updates.description;
+    if (updates.name !== undefined) {
+      filteredUpdates.name = normalizeThemeName(updates.name);
+    }
+    if (updates.description !== undefined) {
+      filteredUpdates.description = normalizeThemeDescription(updates.description);
+    }
     if (updates.words !== undefined) {
+      const normalizedWords = normalizeThemeWords(updates.words as ThemeWordWithTts[]);
       const previousWords = theme.words as ThemeWordWithTts[];
       const reconciledWords = reconcileThemeWordTts(
         previousWords as Parameters<typeof reconcileThemeWordTts>[0],
-        updates.words as Parameters<typeof reconcileThemeWordTts>[1]
+        normalizedWords as Parameters<typeof reconcileThemeWordTts>[1]
       ) as ThemeWordWithTts[];
 
       filteredUpdates.words = reconciledWords;
@@ -686,19 +675,22 @@ export const duplicateTheme = mutation({
     const theme = await ctx.db.get(args.themeId);
     if (!theme) throw new Error("Theme not found");
 
-    const newName = `${theme.name.toUpperCase()}(DUPLICATE)`;
+    const newName = buildDuplicateThemeName(theme.name);
     const duplicatedWords = (theme.words as ThemeWordWithTts[]).map((word) => ({
       word: word.word,
       answer: word.answer,
       wrongAnswers: [...word.wrongAnswers],
     }));
+    const normalizedName = normalizeThemeName(newName);
+    const normalizedDescription = normalizeThemeDescription(theme.description);
+    const normalizedWords = normalizeThemeWords(duplicatedWords);
 
     // Duplicated theme belongs to current user, starts as private
     return await ctx.db.insert("themes", {
-      name: newName,
-      description: theme.description,
+      name: normalizedName,
+      description: normalizedDescription,
       wordType: theme.wordType || "nouns",
-      words: duplicatedWords,
+      words: normalizedWords,
       createdAt: Date.now(),
       ownerId: user._id,
       visibility: "private",

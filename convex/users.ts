@@ -2,7 +2,13 @@ import { internalMutation, mutation, query, type QueryCtx, type MutationCtx } fr
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
-import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX, DEFAULT_NICKNAME } from "./constants";
+import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX } from "./constants";
+import {
+  DEFAULT_NICKNAME,
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  NICKNAME_REGEX,
+} from "../lib/users/constants";
 import {
   LLM_MONTHLY_CREDITS,
   TTS_MONTHLY_GENERATIONS,
@@ -15,7 +21,6 @@ import {
 export type PublicUser = {
   _id: Id<"users">;
   name?: string;
-  email: string;
   imageUrl?: string;
   nickname?: string;
   discriminator?: number;
@@ -74,7 +79,6 @@ export const getUsers = query({
       .map((u) => ({
         _id: u._id,
         name: u.name,
-        email: u.email,
         imageUrl: u.imageUrl,
         nickname: u.nickname,
         discriminator: u.discriminator,
@@ -159,25 +163,43 @@ export const updateNickname = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
+    const nextNickname = args.nickname.trim();
 
-    // Validate nickname format (alphanumeric + underscore, 3-20 chars)
-    const nicknameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!nicknameRegex.test(args.nickname)) {
+    if (!nextNickname) {
+      throw new Error(
+        `Nickname must be between ${NICKNAME_MIN_LENGTH} and ${NICKNAME_MAX_LENGTH} characters`
+      );
+    }
+
+    if (nextNickname === user.nickname) {
+      return {
+        nickname: user.nickname,
+        discriminator: user.discriminator,
+      };
+    }
+
+    // Validate nickname format (alphanumeric + underscore, shared length bounds)
+    if (!NICKNAME_REGEX.test(nextNickname)) {
       throw new Error("Nickname can only contain letters, numbers, and underscores");
     }
-    if (args.nickname.length < 3 || args.nickname.length > 20) {
-      throw new Error("Nickname must be between 3 and 20 characters");
+    if (
+      nextNickname.length < NICKNAME_MIN_LENGTH ||
+      nextNickname.length > NICKNAME_MAX_LENGTH
+    ) {
+      throw new Error(
+        `Nickname must be between ${NICKNAME_MIN_LENGTH} and ${NICKNAME_MAX_LENGTH} characters`
+      );
     }
 
     // Generate new discriminator for the new nickname
-    const discriminator = await generateDiscriminator(ctx, args.nickname);
+    const discriminator = await generateDiscriminator(ctx, nextNickname);
 
     await ctx.db.patch(user._id, {
-      nickname: args.nickname,
+      nickname: nextNickname,
       discriminator,
     });
 
-    return { nickname: args.nickname, discriminator };
+    return { nickname: nextNickname, discriminator };
   },
 });
 
@@ -265,7 +287,6 @@ export const searchUsers = query({
       .map((u) => ({
         _id: u._id,
         name: u.name,
-        email: u.email,
         imageUrl: u.imageUrl,
         nickname: u.nickname,
         discriminator: u.discriminator,
@@ -307,7 +328,10 @@ export const syncUser = mutation({
 
       if (!existingUser.nickname) {
         const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
-        const validNickname = nickname.length >= 3 ? nickname.slice(0, 20) : DEFAULT_NICKNAME;
+        const validNickname =
+          nickname.length >= NICKNAME_MIN_LENGTH
+            ? nickname.slice(0, NICKNAME_MAX_LENGTH)
+            : DEFAULT_NICKNAME;
         const discriminator = await generateDiscriminator(ctx, validNickname);
         updates.nickname = validNickname;
         updates.discriminator = discriminator;
@@ -328,7 +352,10 @@ export const syncUser = mutation({
 
     // For new users, generate nickname from first name or default
     const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
-    const validNickname = nickname.length >= 3 ? nickname.slice(0, 20) : DEFAULT_NICKNAME;
+    const validNickname =
+      nickname.length >= NICKNAME_MIN_LENGTH
+        ? nickname.slice(0, NICKNAME_MAX_LENGTH)
+        : DEFAULT_NICKNAME;
     const discriminator = await generateDiscriminator(ctx, validNickname);
     const creditsMonth = getCurrentMonthKey();
 

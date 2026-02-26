@@ -2,6 +2,13 @@ import { useState, useCallback } from "react";
 import { generateField, regenerateForWord, type WordType, type FieldType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { EDIT_MODES, type EditMode } from "../constants";
+import {
+  CUSTOM_INSTRUCTIONS_MAX_LENGTH,
+  THEME_ANSWER_INPUT_MAX_LENGTH,
+  THEME_USER_FEEDBACK_MAX_LENGTH,
+  THEME_WORD_INPUT_MAX_LENGTH,
+  THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
+} from "@/lib/themes/constants";
 
 interface ConversationMessage {
   role: "user" | "assistant";
@@ -81,15 +88,36 @@ export function useWordEditor() {
   }, []);
 
   const setManualValue = useCallback((value: string) => {
-    setState((prev) => ({ ...prev, manualValue: value }));
+    setState((prev) => {
+      const maxLength =
+        prev.editingField === "word"
+          ? THEME_WORD_INPUT_MAX_LENGTH
+          : prev.editingField === "answer"
+            ? THEME_ANSWER_INPUT_MAX_LENGTH
+            : THEME_WRONG_ANSWER_INPUT_MAX_LENGTH;
+
+      if (value.length > maxLength) {
+        return prev;
+      }
+
+      return { ...prev, manualValue: value };
+    });
   }, []);
 
   const setUserFeedback = useCallback((feedback: string) => {
-    setState((prev) => ({ ...prev, userFeedback: feedback }));
+    setState((prev) =>
+      feedback.length <= THEME_USER_FEEDBACK_MAX_LENGTH
+        ? { ...prev, userFeedback: feedback }
+        : prev
+    );
   }, []);
 
   const setCustomInstructions = useCallback((instructions: string) => {
-    setState((prev) => ({ ...prev, customInstructions: instructions }));
+    setState((prev) =>
+      instructions.length <= CUSTOM_INSTRUCTIONS_MAX_LENGTH
+        ? { ...prev, customInstructions: instructions }
+        : prev
+    );
   }, []);
 
   const goToManual = useCallback(() => {
@@ -266,4 +294,3 @@ export function useWordEditor() {
     regenerateAnswersForWord,
   };
 }
-

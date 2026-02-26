@@ -370,31 +370,6 @@ export const purgeExpiredGoalsForUser = mutation({
 });
 
 /**
- * Get pending goal invite count for badge display.
- * Returns the number of goals where user is partner and status is "editing" and partner hasn't locked.
- */
-export const getPendingGoalInviteCount = query({
-  args: {},
-  handler: async (ctx): Promise<number> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return 0;
-
-    const pendingGoals = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", auth.user._id))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("partnerLocked"), false)
-        )
-      )
-      .collect();
-
-    return pendingGoals.length;
-  },
-});
-
-/**
  * Get themes that can be added to a goal.
  * Returns shared themes owned by either the creator or partner.
  */

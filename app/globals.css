@@ -101,6 +101,21 @@ body {
   animation: pulse-glow 3s ease-in-out infinite;
 }
 
+/* "Look here!" flash for auth buttons when logged-out user clicks a protected action */
+@keyframes auth-hint-flash {
+  0%   { transform: scale(1);   filter: brightness(1);    }
+  15%  { transform: scale(1.18); filter: brightness(1.25); }
+  30%  { transform: scale(0.95); filter: brightness(0.95); }
+  45%  { transform: scale(1.12); filter: brightness(1.15); }
+  60%  { transform: scale(0.98); filter: brightness(1);    }
+  75%  { transform: scale(1.06); filter: brightness(1.08); }
+  100% { transform: scale(1);   filter: brightness(1);    }
+}
+
+.auth-hint-flash {
+  animation: auth-hint-flash 0.7s ease-in-out;
+}
+
 /* Staggered entrance animations */
 @keyframes slide-up-fade {
   from {

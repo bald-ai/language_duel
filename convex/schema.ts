@@ -45,10 +45,30 @@ const playerStatsValidator = v.object({
   correctAnswers: v.number(),
 });
 
+const sabotageEffectValidator = v.union(
+  v.literal("sticky"),
+  v.literal("bounce"),
+  v.literal("trampoline"),
+  v.literal("reverse")
+);
+
 const sabotageValidator = v.object({
-  effect: v.string(),
+  effect: sabotageEffectValidator,
   timestamp: v.number(),
 });
+
+const soloHintTypeValidator = v.union(
+  v.literal("letters"),
+  v.literal("tts"),
+  v.literal("flash"),
+  v.literal("anagram")
+);
+
+const soloHintL2TypeValidator = v.union(
+  v.literal("eliminate"),
+  v.literal("tts"),
+  v.literal("flash")
+);
 
 const learnTimerSelectionValidator = v.object({
   challengerSelection: v.optional(v.number()),
@@ -297,7 +317,7 @@ export default defineSchema({
     soloHintAccepted: v.optional(v.boolean()),
     soloHintRequesterState: v.optional(soloHintRequesterStateValidator),
     soloHintRevealedPositions: v.optional(v.array(v.number())),
-    soloHintType: v.optional(v.string()),
+    soloHintType: v.optional(soloHintTypeValidator),
 
     // === Solo Mode: L2 Multiple Choice Hint System ===
     soloHintL2RequestedBy: v.optional(playerRoleValidator),
@@ -305,7 +325,7 @@ export default defineSchema({
     soloHintL2WordIndex: v.optional(v.number()),
     soloHintL2Options: v.optional(v.array(v.string())),
     soloHintL2EliminatedOptions: v.optional(v.array(v.string())),
-    soloHintL2Type: v.optional(v.string()),
+    soloHintL2Type: v.optional(soloHintL2TypeValidator),
 
     // === Seeded PRNG for Deterministic Random ===
     seed: v.optional(v.number()),

@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
-import { notificationPayloadValidator, notificationTypeValidator } from "./schema";
+import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 
@@ -13,8 +12,6 @@ export type NotificationType =
     | "weekly_plan_invitation"
     | "scheduled_duel"
     | "duel_challenge";
-
-export type NotificationStatus = "pending" | "read" | "dismissed";
 
 // ===========================================
 // Queries
@@ -104,65 +101,9 @@ export const getNotificationCount = query({
     },
 });
 
-/**
- * Get notifications filtered by specific type
- */
-export const getNotificationsByType = query({
-    args: {
-        type: notificationTypeValidator,
-    },
-    handler: async (ctx, args) => {
-        const auth = await getAuthenticatedUserOrNull(ctx);
-        if (!auth) return [];
-
-        const pendingNotifications = await ctx.db
-            .query("notifications")
-            .withIndex("by_type_status", (q) =>
-                q.eq("type", args.type).eq("toUserId", auth.user._id).eq("status", "pending")
-            )
-            .collect();
-
-        const readNotifications = await ctx.db
-            .query("notifications")
-            .withIndex("by_type_status", (q) =>
-                q.eq("type", args.type).eq("toUserId", auth.user._id).eq("status", "read")
-            )
-            .collect();
-
-        const activeNotifications = [...pendingNotifications, ...readNotifications];
-        const enrichedNotifications = await enrichNotificationsWithSender(ctx, activeNotifications);
-
-        return enrichedNotifications.sort((a, b) => b.createdAt - a.createdAt);
-    },
-});
-
 // ===========================================
 // Mutations
 // ===========================================
-
-/**
- * Internal helper to create notifications (used by other modules)
- */
-export const createNotification = internalMutation({
-    args: {
-        type: notificationTypeValidator,
-        fromUserId: v.id("users"),
-        toUserId: v.id("users"),
-        payload: v.optional(notificationPayloadValidator),
-    },
-    handler: async (ctx, args) => {
-        const notificationId = await ctx.db.insert("notifications", {
-            type: args.type,
-            fromUserId: args.fromUserId,
-            toUserId: args.toUserId,
-            status: "pending",
-            payload: args.payload,
-            createdAt: Date.now(),
-        });
-
-        return notificationId;
-    },
-});
 
 /**
  * Dismiss a notification (removes from list)

@@ -412,13 +412,6 @@ export function calculateNextLevelOnCorrectSeeded(
 }
 
 /**
- * Calculate next level after an incorrect answer.
- */
-export function calculateNextLevelOnIncorrect(currentLevel: number): number {
-  return Math.max(1, currentLevel - 1);
-}
-
-/**
  * Update word state after answering (non-deterministic).
  */
 export function updateWordStateAfterAnswer(
@@ -611,4 +604,3 @@ export function updatePlayerStats(
     correctAnswers: isCorrect ? stats.correctAnswers + 1 : stats.correctAnswers,
   };
 }
-

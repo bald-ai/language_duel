@@ -21,68 +21,22 @@ import {
 } from "@/lib/generate/schemas";
 import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
+import {
+  parseGenerateRequest,
+  type GenerateRequest,
+} from "@/lib/generate/requestValidation";
 
 export const runtime = 'nodejs';
 
 const OPENAI_MODEL = "gpt-5.1-2025-11-13" as const;
 const OPENAI_REASONING_EFFORT = "low" as const;
 
-const RANDOM_WORDS_MIN_COUNT = 1;
-const RANDOM_WORDS_MAX_COUNT = THEME_WORD_COUNT;
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 
 type WordWithChoices = { word: string; answer: string; wrongAnswers: string[] };
 type AnswerOnly = { answer: string };
 type WrongAnswerOnly = { wrongAnswer: string };
 type FieldGeneratedData = WordWithChoices | AnswerOnly | WrongAnswerOnly;
-
-interface GenerateThemeRequest {
-  type: "theme";
-  themeName: string;
-  themePrompt?: string; // Optional additional specification for word generation
-  wordType?: "nouns" | "verbs"; // Type of words to generate
-  history?: { role: "user" | "assistant"; content: string }[];
-}
-
-interface RegenerateFieldRequest {
-  type: "field";
-  fieldType: "word" | "answer" | "wrong";
-  themeName: string;
-  wordType?: "nouns" | "verbs"; // Type of words in the theme
-  currentWord: string;
-  currentAnswer: string;
-  currentWrongAnswers: string[];
-  fieldIndex?: number; // For wrong answers, which one (0-5)
-  existingWords?: string[]; // All other words in the theme to avoid duplicates
-  rejectedWords?: string[]; // Previously rejected suggestions to avoid repeating
-  history?: { role: "user" | "assistant"; content: string }[];
-  customInstructions?: string; // Optional user specifications for the generation
-}
-
-interface RegenerateForWordRequest {
-  type: "regenerate-for-word";
-  themeName: string;
-  wordType?: "nouns" | "verbs"; // Type of words in the theme
-  newWord: string; // The manually edited English word
-}
-
-interface AddWordRequest {
-  type: "add-word";
-  themeName: string;
-  wordType?: "nouns" | "verbs"; // Type of words in the theme
-  newWord: string; // The English word to add
-  existingWords: string[]; // All existing words in the theme to avoid duplicates
-}
-
-interface GenerateRandomWordsRequest {
-  type: "generate-random-words";
-  themeName: string;
-  wordType?: "nouns" | "verbs"; // Type of words in the theme
-  count: number; // Number of words to generate (1-10)
-  existingWords: string[]; // All existing words in the theme to avoid duplicates
-}
-
-type GenerateRequest = GenerateThemeRequest | RegenerateFieldRequest | RegenerateForWordRequest | AddWordRequest | GenerateRandomWordsRequest;
 
 type ChatMessage = OpenAI.Chat.ChatCompletionMessageParam;
 type JsonSchema = Record<string, unknown>;
@@ -178,24 +132,16 @@ async function callOpenAIJson<T>(
 }
 
 export async function POST(request: NextRequest) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPEN_AI_API_KEY,
-    baseURL: "https://api.openai.com/v1",
-  });
-
   try {
-    const body: GenerateRequest = await request.json();
-
-    const isKnownType =
-      body.type === "theme" ||
-      body.type === "field" ||
-      body.type === "regenerate-for-word" ||
-      body.type === "add-word" ||
-      body.type === "generate-random-words";
-
-    if (!isKnownType) {
-      return NextResponse.json({ success: false, error: "Invalid request type" }, { status: 400 });
+    const rawBody = await request.json().catch(() => null);
+    const parsedRequest = parseGenerateRequest(rawBody);
+    if (!parsedRequest.ok) {
+      return NextResponse.json(
+        { success: false, error: parsedRequest.error },
+        { status: 400 }
+      );
     }
+    const body: GenerateRequest = parsedRequest.data;
 
     const creditCost = body.type === "theme" ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
     let convexClient: ConvexHttpClient;
@@ -206,6 +152,11 @@ export async function POST(request: NextRequest) {
       const status = message === "Unauthorized" ? 401 : message === "Convex URL not configured" ? 500 : 402;
       return NextResponse.json({ success: false, error: message }, { status });
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPEN_AI_API_KEY,
+      baseURL: "https://api.openai.com/v1",
+    });
 
     if (body.type === "theme") {
       // Generate full theme - select prompt based on wordType
@@ -365,11 +316,7 @@ export async function POST(request: NextRequest) {
     if (body.type === "generate-random-words") {
       const { themeName, wordType, count, existingWords } = body;
 
-      // Validate count
-      const validCount = Math.min(
-        Math.max(Math.floor(count), RANDOM_WORDS_MIN_COUNT),
-        RANDOM_WORDS_MAX_COUNT
-      );
+      const validCount = count;
 
       const systemPrompt = buildGenerateRandomWordsPrompt(themeName, validCount, existingWords, wordType || "nouns");
 

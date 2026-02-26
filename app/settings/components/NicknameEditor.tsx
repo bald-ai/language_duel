@@ -34,13 +34,17 @@ export function NicknameEditor({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      const success = await onUpdate(nickname.trim());
+      const trimmedNickname = nickname.trim();
+      if (!trimmedNickname) return;
+      if (trimmedNickname === (currentNickname || "")) return;
+
+      const success = await onUpdate(trimmedNickname);
       if (success) {
         // Reset to show new nickname from server
-        setNickname(nickname.trim());
+        setNickname(trimmedNickname);
       }
     },
-    [nickname, onUpdate]
+    [nickname, currentNickname, onUpdate]
   );
 
   const hasChanged = nickname.trim() !== (currentNickname || "");

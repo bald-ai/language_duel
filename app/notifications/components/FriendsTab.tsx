@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
@@ -29,7 +28,6 @@ interface FriendsTabProps {
  * - Right-click/long-press context menu for actions
  */
 export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
-    const _router = useRouter();
     const friends = useQuery(api.friends.getFriends);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);

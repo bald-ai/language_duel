@@ -22,11 +22,6 @@ const hasScheduledDuelId = (
 ): payload is { scheduledDuelId: Id<"scheduledDuels"> } =>
     isRecord(payload) && "scheduledDuelId" in payload;
 
-const hasChallengeId = (
-    payload: unknown
-): payload is { challengeId: Id<"challenges"> } =>
-    isRecord(payload) && "challengeId" in payload;
-
 const hasGoalId = (
     payload: unknown
 ): payload is { goalId: Id<"weeklyGoals"> } =>
@@ -77,7 +72,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleAcceptDuelChallenge = async (notificationId: Id<"notifications">, challengeId?: Id<"challenges">, mode?: string) => {
+    const handleAcceptDuelChallenge = async (notificationId: Id<"notifications">, mode?: string) => {
         try {
             const result = await actions.acceptDuelChallenge(notificationId);
             toast.success("Challenge accepted!");
@@ -250,9 +245,6 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                 const scheduledDuelId = hasScheduledDuelId(payload)
                     ? payload.scheduledDuelId
                     : undefined;
-                const challengeId = hasChallengeId(payload)
-                    ? payload.challengeId
-                    : undefined;
                 const duelMode = hasMode(payload) ? payload.mode : undefined;
                 const goalId = hasGoalId(payload) ? payload.goalId : undefined;
 
@@ -267,7 +259,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         onAcceptFriendRequest={() => handleAcceptFriendRequest(notification._id)}
                         onRejectFriendRequest={() => handleRejectFriendRequest(notification._id)}
                         onAcceptDuelChallenge={() =>
-                            handleAcceptDuelChallenge(notification._id, challengeId, duelMode)
+                            handleAcceptDuelChallenge(notification._id, duelMode)
                         }
                         onDeclineDuelChallenge={() => handleDeclineDuelChallenge(notification._id)}
                         onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}

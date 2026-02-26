@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -13,7 +13,7 @@ import { v } from "convex/values";
  * 3. Enter the userId (e.g., "jd7abc123...")
  * 4. Run the mutation
  */
-export const deleteUserFully = mutation({
+export const deleteUserFully = internalMutation({
     args: {
         userId: v.id("users"),
     },

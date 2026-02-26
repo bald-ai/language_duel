@@ -1,3 +1,9 @@
+import {
+  CUSTOM_INSTRUCTIONS_MAX_LENGTH,
+  THEME_NAME_MAX_LENGTH,
+  THEME_PROMPT_MAX_LENGTH,
+} from "@/lib/themes/constants";
+
 export const VIEW_MODES = {
   LIST: "list",
   DETAIL: "detail",
@@ -30,9 +36,12 @@ export const FIELD_TYPES = {
 export type FieldType = (typeof FIELD_TYPES)[keyof typeof FIELD_TYPES];
 
 // Magic number constants
-export const THEME_NAME_MAX_LENGTH = 25;
-export const THEME_PROMPT_MAX_LENGTH = 250;
-export const CUSTOM_INSTRUCTIONS_MAX_LENGTH = 250;
 export const DEFAULT_RANDOM_WORD_COUNT = 5;
 export const MAX_RANDOM_WORD_COUNT = 10;
 export const GENERATED_WORDS_COUNT = 10;
+
+export {
+  CUSTOM_INSTRUCTIONS_MAX_LENGTH,
+  THEME_NAME_MAX_LENGTH,
+  THEME_PROMPT_MAX_LENGTH,
+};
