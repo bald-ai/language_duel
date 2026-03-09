@@ -4,4 +4,4 @@
 
 export * from "./auth";
 export * from "./gameLogic";
-
+export * from "./users";

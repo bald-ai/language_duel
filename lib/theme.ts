@@ -270,11 +270,11 @@ export const semanticColors: SemanticColors = {
 };
 
 const applySemanticColors = (target: SemanticColors, themeColors: ThemeColors) => {
-  target.buttonPrimary = colors.primary;
-  target.buttonCta = colors.cta;
+  target.buttonPrimary = themeColors.primary;
+  target.buttonCta = themeColors.cta;
   target.badge = themeColors.cta.DEFAULT;
   target.badgeBorder = themeColors.cta.lighter;
-  target.accent = colors.neutral;
+  target.accent = themeColors.neutral;
   target.pageBg = themeColors.background.DEFAULT;
   target.cardBg = themeColors.background.elevated;
 };

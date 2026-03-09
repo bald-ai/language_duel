@@ -69,4 +69,16 @@ describe("theme", () => {
     expect(semanticColors.badge).toBe(colors.cta.DEFAULT);
     expect(buttonStyles.primary.gradient.from).toBe(colors.primary.DEFAULT);
   });
+
+  it("semantic role objects stay in sync after switching themes", () => {
+    const alternateTheme =
+      colorPalettes.find((palette) => palette.name !== DEFAULT_THEME_NAME)?.name ??
+      DEFAULT_THEME_NAME;
+
+    applyTheme(alternateTheme);
+
+    expect(semanticColors.buttonPrimary.DEFAULT).toBe(colors.primary.DEFAULT);
+    expect(semanticColors.buttonCta.DEFAULT).toBe(colors.cta.DEFAULT);
+    expect(semanticColors.accent.DEFAULT).toBe(colors.neutral.DEFAULT);
+  });
 });

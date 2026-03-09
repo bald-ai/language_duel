@@ -3,6 +3,7 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { loadUsersById } from "./helpers/users";
 import { hasThemeAccess } from "../lib/themeAccess";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
@@ -183,23 +184,6 @@ export type ThemeWithOwner = Doc<"themes"> & {
   canEdit: boolean;
 };
 
-type UserDoc = Doc<"users">;
-
-async function loadOwnersByThemes(
-  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
-  themes: Doc<"themes">[]
-) {
-  const ownerIds = Array.from(
-    new Set(themes.map((theme) => theme.ownerId).filter(Boolean) as Id<"users">[])
-  );
-  const owners = await Promise.all(ownerIds.map((id) => ctx.db.get(id)));
-  const ownersById = new Map<Id<"users">, UserDoc | null>();
-  ownerIds.forEach((id, index) => {
-    ownersById.set(id, owners[index] ?? null);
-  });
-  return ownersById;
-}
-
 export const getThemes = query({
   args: {
     filterByFriendId: v.optional(v.id("users")),
@@ -325,7 +309,10 @@ export const getThemes = query({
       themes = themes.filter((t) => !archivedIds.has(t._id));
     }
 
-    const ownersById = await loadOwnersByThemes(ctx, themes);
+    const ownerIds = themes
+      .map((theme) => theme.ownerId)
+      .filter((ownerId): ownerId is Id<"users"> => ownerId !== undefined);
+    const ownersById = await loadUsersById(ctx, ownerIds);
 
     // Enrich with owner details and edit permissions
     const themesWithOwner: ThemeWithOwner[] = [];

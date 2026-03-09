@@ -185,13 +185,14 @@ function clamp(value: number, min: number, max: number): number {
  */
 export function derivePrimaryShades(baseColor: string): PrimaryShades {
   const { h, s, l } = hexToHsl(baseColor);
+  const { r, g, b } = hexToRgb(baseColor);
 
   return {
     DEFAULT: baseColor.toUpperCase(),
     light: hslToHex(h, clamp(s + 5, 0, 100), clamp(l + 10, 0, 100)),
     dark: hslToHex(h, clamp(s + 5, 0, 100), clamp(l - 15, 0, 100)),
     darkest: hslToHex(h, clamp(s + 8, 0, 100), clamp(l - 25, 0, 100)),
-    glow: `rgba(${hexToRgb(baseColor).r}, ${hexToRgb(baseColor).g}, ${hexToRgb(baseColor).b}, 0.4)`,
+    glow: `rgba(${r}, ${g}, ${b}, 0.4)`,
   };
 }
 
@@ -201,6 +202,7 @@ export function derivePrimaryShades(baseColor: string): PrimaryShades {
  */
 export function deriveCtaShades(baseColor: string): CtaShades {
   const { h, s, l } = hexToHsl(baseColor);
+  const { r, g, b } = hexToRgb(baseColor);
 
   return {
     DEFAULT: baseColor.toUpperCase(),
@@ -208,7 +210,7 @@ export function deriveCtaShades(baseColor: string): CtaShades {
     lighter: hslToHex(h, clamp(s - 5, 0, 100), clamp(l + 18, 0, 100)),
     dark: hslToHex(h, clamp(s + 5, 0, 100), clamp(l - 15, 0, 100)),
     darkest: hslToHex(h, clamp(s + 8, 0, 100), clamp(l - 25, 0, 100)),
-    glow: `rgba(${hexToRgb(baseColor).r}, ${hexToRgb(baseColor).g}, ${hexToRgb(baseColor).b}, 0.5)`,
+    glow: `rgba(${r}, ${g}, ${b}, 0.5)`,
   };
 }
 

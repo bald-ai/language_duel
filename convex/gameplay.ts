@@ -2,8 +2,8 @@
  * Gameplay mutations for answering questions, timer management, and countdown controls.
  */
 
-import { mutation } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import { mutation, type MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getDuelParticipant,
@@ -66,6 +66,39 @@ function getSoloHintClearFields(): Record<string, undefined> {
     soloHintL2EliminatedOptions: undefined,
     soloHintL2Type: undefined,
   };
+}
+
+async function advanceClassicDuelIfBothAnswered(
+  ctx: MutationCtx,
+  duelId: Id<"challenges">,
+  duel: Doc<"challenges">,
+  wordCount: number
+): Promise<void> {
+  if (!duel.challengerAnswered || !duel.opponentAnswered) {
+    return;
+  }
+
+  const nextWordIndex = duel.currentWordIndex + 1;
+
+  if (nextWordIndex >= wordCount) {
+    await ctx.db.patch(duelId, {
+      status: "completed",
+      currentWordIndex: nextWordIndex,
+      challengerAnswered: false,
+      opponentAnswered: false,
+      questionStartTime: undefined,
+      ...getHintClearFields(),
+    });
+    return;
+  }
+
+  await ctx.db.patch(duelId, {
+    currentWordIndex: nextWordIndex,
+    challengerAnswered: false,
+    opponentAnswered: false,
+    questionStartTime: Date.now(),
+    ...getHintClearFields(),
+  });
 }
 
 // ===========================================
@@ -160,29 +193,8 @@ export const answerDuel = mutation({
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel?.challengerAnswered && updatedDuel?.opponentAnswered) {
-      const nextWordIndex = updatedDuel.currentWordIndex + 1;
-
-      if (nextWordIndex >= wordCount) {
-        // Challenge completed
-        await ctx.db.patch(duelId, {
-          status: "completed",
-          currentWordIndex: nextWordIndex,
-          challengerAnswered: false,
-          opponentAnswered: false,
-          questionStartTime: undefined,
-          ...getHintClearFields(),
-        });
-      } else {
-        // Continue to next word
-        await ctx.db.patch(duelId, {
-          currentWordIndex: nextWordIndex,
-          challengerAnswered: false,
-          opponentAnswered: false,
-          questionStartTime: Date.now(),
-          ...getHintClearFields(),
-        });
-      }
+    if (updatedDuel) {
+      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
     }
   },
 });
@@ -220,30 +232,10 @@ export const timeoutAnswer = mutation({
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel?.challengerAnswered && updatedDuel?.opponentAnswered) {
+    if (updatedDuel) {
       const theme = await ctx.db.get(updatedDuel.themeId);
       if (!theme) throw new Error("Theme not found");
-      const wordCount = theme.words.length;
-      const nextWordIndex = updatedDuel.currentWordIndex + 1;
-
-      if (nextWordIndex >= wordCount) {
-        await ctx.db.patch(duelId, {
-          status: "completed",
-          currentWordIndex: nextWordIndex,
-          challengerAnswered: false,
-          opponentAnswered: false,
-          questionStartTime: undefined,
-          ...getHintClearFields(),
-        });
-      } else {
-        await ctx.db.patch(duelId, {
-          currentWordIndex: nextWordIndex,
-          challengerAnswered: false,
-          opponentAnswered: false,
-          questionStartTime: Date.now(),
-          ...getHintClearFields(),
-        });
-      }
+      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, theme.words.length);
     }
   },
 });

@@ -1,7 +1,8 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { loadUsersById } from "./helpers/users";
 import { isUserOnline } from "./users";
 import { isFriendRequestPayload } from "./notificationPayloads";
 import { FRIEND_REQUEST_TTL_MS } from "./constants";
@@ -33,21 +34,6 @@ export type SentRequestWithDetails = {
   imageUrl?: string;
   createdAt: number;
 };
-
-type UserDoc = Doc<"users">;
-
-async function loadUsersById(
-  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
-  userIds: Id<"users">[]
-) {
-  const uniqueIds = Array.from(new Set(userIds));
-  const users = await Promise.all(uniqueIds.map((id) => ctx.db.get(id)));
-  const usersById = new Map<Id<"users">, UserDoc | null>();
-  uniqueIds.forEach((id, index) => {
-    usersById.set(id, users[index] ?? null);
-  });
-  return usersById;
-}
 
 /**
  * Get friend requests sent by current user

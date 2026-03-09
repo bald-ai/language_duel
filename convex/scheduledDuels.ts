@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { isScheduledDuelPayload } from "./notificationPayloads";
+import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { createShuffledWordOrder } from "./helpers/gameLogic";
 import { buildSoloInitState } from "./helpers/duelInitialization";
 import { SEED_XOR_MASK } from "./constants";
@@ -26,19 +27,11 @@ export type ScheduledDuelStatus =
 export const getScheduledDuels = query({
     args: {},
     handler: async (ctx) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
+        const auth = await getAuthenticatedUserOrNull(ctx);
+        if (!auth) {
             return [];
         }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            return [];
-        }
+        const user = auth.user;
 
         // Get duels where user is proposer
         const asProposer = await ctx.db
@@ -54,9 +47,8 @@ export const getScheduledDuels = query({
 
         // Combine and deduplicate
         const allDuels = [...asProposer, ...asRecipient];
-        const uniqueDuels = allDuels.filter(
-            (duel, index, self) =>
-                index === self.findIndex((d) => d._id === duel._id)
+        const uniqueDuels = Array.from(
+            new Map(allDuels.map((duel) => [duel._id, duel])).values()
         );
 
         // Enrich with user and theme info
@@ -102,19 +94,11 @@ export const getScheduledDuelById = query({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
+        const auth = await getAuthenticatedUserOrNull(ctx);
+        if (!auth) {
             return null;
         }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            return null;
-        }
+        const user = auth.user;
 
         const duel = await ctx.db.get(args.scheduledDuelId);
         if (!duel) {
@@ -171,19 +155,7 @@ export const proposeScheduledDuel = mutation({
         ),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         // Validate scheduled time is in the future
         if (args.scheduledTime <= Date.now()) {
@@ -265,19 +237,7 @@ export const acceptScheduledDuel = mutation({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {
@@ -366,19 +326,7 @@ export const counterProposeScheduledDuel = mutation({
         newThemeId: v.optional(v.id("themes")),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {
@@ -491,19 +439,7 @@ export const declineScheduledDuel = mutation({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {
@@ -560,19 +496,7 @@ export const cancelScheduledDuel = mutation({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {
@@ -653,19 +577,7 @@ export const setReadyForScheduledDuel = mutation({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {
@@ -744,19 +656,7 @@ export const cancelReadyForScheduledDuel = mutation({
         scheduledDuelId: v.id("scheduledDuels"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) {
-            throw new Error("Not authenticated");
-        }
-
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-            .unique();
-
-        if (!user) {
-            throw new Error("User not found");
-        }
+        const { user } = await getAuthenticatedUser(ctx);
 
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) {

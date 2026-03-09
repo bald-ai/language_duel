@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { loadUsersById } from "./helpers/users";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
 import { WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
@@ -156,31 +157,12 @@ export interface GoalWithUsers {
   viewerRole: GoalRole;
 }
 
-type UserDoc = Doc<"users">;
 type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
 
-const toUserSummary = (user: UserDoc | null): UserSummary | null => {
+const toUserSummary = (user: Doc<"users"> | null): UserSummary | null => {
   if (!user) return null;
   return { _id: user._id, nickname: user.nickname, email: user.email };
 };
-
-async function loadUsersByGoalParticipants(
-  ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
-  goals: Doc<"weeklyGoals">[]
-) {
-  const userIds = new Set<Id<"users">>();
-  for (const goal of goals) {
-    userIds.add(goal.creatorId);
-    userIds.add(goal.partnerId);
-  }
-  const idList = Array.from(userIds);
-  const users = await Promise.all(idList.map((id) => ctx.db.get(id)));
-  const usersById = new Map<Id<"users">, UserDoc | null>();
-  idList.forEach((id, index) => {
-    usersById.set(id, users[index] ?? null);
-  });
-  return usersById;
-}
 
 function filterNonExpiredGoals(
   goals: Doc<"weeklyGoals">[],
@@ -253,7 +235,8 @@ export const getAllActiveGoals = query({
     const activeGoalsAsPartner = filterNonExpiredGoals(goalsAsPartner, now);
 
     const allActiveGoals = [...activeGoalsAsCreator, ...activeGoalsAsPartner];
-    const usersById = await loadUsersByGoalParticipants(ctx, allActiveGoals);
+    const participantIds = allActiveGoals.flatMap((goal) => [goal.creatorId, goal.partnerId]);
+    const usersById = await loadUsersById(ctx, participantIds);
 
     for (const goal of activeGoalsAsCreator) {
       results.push({

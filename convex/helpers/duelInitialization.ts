@@ -4,16 +4,13 @@ import {
   createInitialWordStates,
   determineInitialLevelSeeded,
   determineLevel2ModeSeeded,
+  advanceSeed,
   type Level2Mode,
 } from "./gameLogic";
-import { LCG_MULTIPLIER, LCG_INCREMENT, LCG_MODULUS, SEED_XOR_MASK } from "../constants";
-
-function nextSeed(seed: number): number {
-  return (seed * LCG_MULTIPLIER + LCG_INCREMENT) & LCG_MODULUS;
-}
+import { SEED_XOR_MASK } from "../constants";
 
 function pickFromPool(pool: number[], seed: number): { index: number; newSeed: number } {
-  const s = nextSeed(seed);
+  const s = advanceSeed(seed);
   const index = pool[s % pool.length];
   return { index, newSeed: s };
 }
