@@ -29,7 +29,7 @@ import { ApiRouteError, resolveApiError } from "@/lib/api/serverErrors";
 
 export const runtime = 'nodejs';
 
-const OPENAI_MODEL = "gpt-5.1-2025-11-13" as const;
+const OPENAI_MODEL = "gpt-5.4-2026-03-05" as const;
 const OPENAI_REASONING_EFFORT = "low" as const;
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
