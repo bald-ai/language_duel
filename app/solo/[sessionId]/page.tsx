@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/lib/stringUtils";
 
@@ -109,7 +109,12 @@ export default function SoloChallengePage() {
   });
 
   // Navigation
-  const handleExit = () => router.push("/");
+  const handleExit = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    router.push("/");
+  }, [router]);
 
   const baseCardStyle = {
     backgroundColor: colors.background.elevated,
@@ -323,7 +328,13 @@ export default function SoloChallengePage() {
     />
   ) : (
     <>
-      <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
+      <div
+        className="w-full flex justify-end animate-slide-up delay-100"
+        style={{
+          paddingTop: "max(1rem, var(--sat))",
+          paddingRight: "max(0px, var(--sar))",
+        }}
+      >
         <button
           onClick={handleExit}
           className="px-5 py-3 rounded-xl border-2 border-b-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"

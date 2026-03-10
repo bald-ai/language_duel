@@ -238,6 +238,10 @@ Preferences are synced on login - Convex data takes priority over localStorage.
 
 Clerk's styling (colors for login/signup modals) is handled separately in `app/layout.tsx` within the `<ClerkProvider>` appearance prop.
 
+### Mobile Safe Areas
+
+The app opts into edge-to-edge rendering via `viewportFit: "cover"` in `app/layout.tsx`. Any persistent top-edge controls, especially exit/back buttons on gameplay screens, must respect the safe-area variables from `app/globals.css` (`--sat`, `--sar`) instead of using raw `top-*` / `right-*` positioning alone.
+
 This is intentionally kept separate from the main theme system as it is a third-party configuration that rarely needs iteration compared to the main UI.
 
 ---
