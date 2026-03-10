@@ -7,6 +7,8 @@ import { colors } from "@/lib/theme";
 import { AUTO_COMPLETE_DELAY_MS, CURSOR_MOVE_DELAY_MS } from "./constants";
 import type { Level1Props } from "./types";
 
+const LETTER_INPUT_REGEX = /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/;
+
 /**
  * Level 1 - Guided Typing with letter slots
  * Works for both solo study and duel modes
@@ -33,6 +35,7 @@ export function Level1Input({
   const [revealedPositions, setRevealedPositions] = useState<Set<number>>(new Set());
   const [cursorPosition, setCursorPosition] = useState(0);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const [inputBuffer, setInputBuffer] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -81,50 +84,96 @@ export function Level1Input({
     }
   };
 
+  const handleBackspace = () => {
+    if (letterSlots.length === 0) return;
+
+    const currentIndex = Math.min(Math.max(cursorPosition, 0), letterSlots.length - 1);
+    const currentChar = typedLetters[currentIndex] || "";
+
+    // First backspace clears current highlighted slot.
+    if (currentChar) {
+      const newTyped = [...typedLetters];
+      while (newTyped.length <= currentIndex) newTyped.push("");
+      newTyped[currentIndex] = "";
+      setTypedLetters(newTyped);
+      return;
+    }
+
+    // Repeated backspace walks left and clears in reverse order.
+    if (currentIndex > 0) {
+      const previousIndex = currentIndex - 1;
+      const newTyped = [...typedLetters];
+      while (newTyped.length <= previousIndex) newTyped.push("");
+      newTyped[previousIndex] = "";
+      setTypedLetters(newTyped);
+      setCursorPosition(previousIndex);
+    }
+  };
+
+  const handleTextEntry = (rawText: string) => {
+    if (!rawText) return;
+
+    const nextTyped = [...typedLetters];
+    let nextCursor = cursorPosition;
+    let hasChanges = false;
+
+    for (const char of Array.from(rawText)) {
+      if (!LETTER_INPUT_REGEX.test(char)) continue;
+      if (nextCursor >= letterSlots.length) break;
+
+      while (nextTyped.length <= nextCursor) nextTyped.push("");
+      nextTyped[nextCursor] = char;
+      nextCursor = Math.min(nextCursor + 1, letterSlots.length - 1);
+      hasChanges = true;
+    }
+
+    if (!hasChanges) return;
+
+    setTypedLetters(nextTyped);
+    setCursorPosition(nextCursor);
+  };
+
+  const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const nativeEvent = e.nativeEvent as InputEvent;
+
+    if (nativeEvent.inputType === "deleteContentBackward") {
+      e.preventDefault();
+      handleBackspace();
+      setInputBuffer("");
+      return;
+    }
+
+    if (nativeEvent.data) {
+      e.preventDefault();
+      handleTextEntry(nativeEvent.data);
+      setInputBuffer("");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
+    if (!nextValue) {
+      setInputBuffer("");
+      return;
+    }
+
+    handleTextEntry(nextValue);
+    setInputBuffer("");
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (isDuelMode && e.key === "Enter") {
       e.preventDefault();
       handleConfirm();
     } else if (e.key === "Backspace") {
       e.preventDefault();
-      if (letterSlots.length === 0) return;
-
-      const currentIndex = Math.min(Math.max(cursorPosition, 0), letterSlots.length - 1);
-      const currentChar = typedLetters[currentIndex] || "";
-
-      // First backspace clears current highlighted slot.
-      if (currentChar) {
-        const newTyped = [...typedLetters];
-        while (newTyped.length <= currentIndex) newTyped.push("");
-        newTyped[currentIndex] = "";
-        setTypedLetters(newTyped);
-        return;
-      }
-
-      // Repeated backspace walks left and clears in reverse order.
-      if (currentIndex > 0) {
-        const previousIndex = currentIndex - 1;
-        const newTyped = [...typedLetters];
-        while (newTyped.length <= previousIndex) newTyped.push("");
-        newTyped[previousIndex] = "";
-        setTypedLetters(newTyped);
-        setCursorPosition(previousIndex);
-      }
+      handleBackspace();
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       if (cursorPosition > 0) setCursorPosition(cursorPosition - 1);
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
       if (cursorPosition < letterSlots.length - 1) setCursorPosition(cursorPosition + 1);
-    } else if (e.key.length === 1 && /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(e.key)) {
-      e.preventDefault();
-      if (cursorPosition < letterSlots.length) {
-        const newTyped = [...typedLetters];
-        while (newTyped.length <= cursorPosition) newTyped.push("");
-        newTyped[cursorPosition] = e.key;
-        setTypedLetters(newTyped);
-        setCursorPosition(Math.min(cursorPosition + 1, letterSlots.length - 1));
-      }
     }
   };
 
@@ -322,8 +371,15 @@ export function Level1Input({
         <input
           ref={inputRef}
           type="text"
+          value={inputBuffer}
           className="absolute opacity-0 pointer-events-none"
+          onBeforeInput={handleBeforeInput}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
           autoFocus
         />
       </div>

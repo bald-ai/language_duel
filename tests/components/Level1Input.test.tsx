@@ -9,7 +9,7 @@ describe("Level1Input", () => {
 
   const typeAnswer = (input: HTMLElement) => {
     ["h", "o", "l", "a"].forEach((key) => {
-      fireEvent.keyDown(input, { key });
+      fireEvent.change(input, { target: { value: key } });
     });
   };
 
@@ -161,15 +161,15 @@ describe("Level1Input", () => {
     expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
     expect(box0).not.toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
 
-    fireEvent.keyDown(input, { key: "x" });
+    fireEvent.change(input, { target: { value: "x" } });
     expect(box1).toHaveTextContent("X");
 
     fireEvent.keyDown(input, { key: "ArrowLeft" });
     expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
-    fireEvent.keyDown(input, { key: "o" });
+    fireEvent.change(input, { target: { value: "o" } });
     expect(box1).toHaveTextContent("O");
 
-    fireEvent.keyDown(input, { key: "l" });
+    fireEvent.change(input, { target: { value: "l" } });
     expect(box2).toHaveTextContent("L");
 
     fireEvent.keyDown(input, { key: "ArrowLeft" });
@@ -182,5 +182,29 @@ describe("Level1Input", () => {
     fireEvent.keyDown(input, { key: "Backspace" });
     expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
     expect(box1).not.toHaveTextContent("O");
+  });
+
+  it("accepts mobile-style text entry through change events", () => {
+    render(
+      <Level1Input
+        answer={answer}
+        onCorrect={vi.fn()}
+        onSkip={vi.fn()}
+        mode="solo"
+        dataTestIdBase="level1"
+      />
+    );
+
+    const input = screen.getByRole("textbox");
+
+    fireEvent.change(input, { target: { value: "h" } });
+    fireEvent.change(input, { target: { value: "o" } });
+    fireEvent.change(input, { target: { value: "l" } });
+    fireEvent.change(input, { target: { value: "a" } });
+
+    expect(screen.getByTestId("level1-letter-0-box")).toHaveTextContent("H");
+    expect(screen.getByTestId("level1-letter-1-box")).toHaveTextContent("O");
+    expect(screen.getByTestId("level1-letter-2-box")).toHaveTextContent("L");
+    expect(screen.getByTestId("level1-letter-3-box")).toHaveTextContent("A");
   });
 });

@@ -58,6 +58,10 @@ Use these rules for every new input path:
    - Convex write boundaries (`createTheme`, `updateTheme`)
    - keyboard/button parity in inputs
 
+### Gameplay Input Note
+
+Level 1 guided typing (`app/game/levels/Level1Input.tsx`) now accepts text through input/change events in addition to keyboard navigation keys. Keep mobile virtual-keyboard support in the same path as desktop text entry; reserve `keydown` handling there for navigation and confirm actions.
+
 ---
 
 ## File Structure

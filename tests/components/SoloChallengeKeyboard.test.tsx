@@ -84,7 +84,7 @@ describe("Solo Challenge keyboard coverage", () => {
     expect(onGotIt).not.toHaveBeenCalled();
   });
 
-  it("LV1 accepts keyboard letters and auto-completes in solo mode", () => {
+  it("LV1 accepts text entry and auto-completes in solo mode", () => {
     vi.useFakeTimers();
     const onCorrect = vi.fn();
 
@@ -102,7 +102,7 @@ describe("Solo Challenge keyboard coverage", () => {
     expect(input).toHaveFocus();
 
     ["h", "o", "l", "a"].forEach((key) => {
-      fireEvent.keyDown(input, { key });
+      fireEvent.change(input, { target: { value: key } });
     });
 
     act(() => {
