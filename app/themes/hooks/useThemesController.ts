@@ -159,6 +159,11 @@ export function useThemesController() {
     async (visibility: "private" | "shared") => {
       if (!selectedTheme || selectedTheme.isOwner === false) return;
 
+      if (selectedTheme._id === "") {
+        setSelectedTheme((prev) => (prev ? { ...prev, visibility } : null));
+        return;
+      }
+
       setIsUpdatingVisibility(true);
       try {
         await updateVisibilityMutation({
@@ -181,6 +186,11 @@ export function useThemesController() {
   const handleFriendsCanEditChange = useCallback(
     async (friendsCanEdit: boolean) => {
       if (!selectedTheme || selectedTheme.isOwner === false) return;
+
+      if (selectedTheme._id === "") {
+        setSelectedTheme((prev) => (prev ? { ...prev, friendsCanEdit } : null));
+        return;
+      }
 
       setIsUpdatingFriendsCanEdit(true);
       try {
@@ -473,7 +483,8 @@ export function useThemesController() {
         pendingThemeData.description,
         localWords,
         pendingThemeData.wordType,
-        pendingThemeData.saveRequestId
+        pendingThemeData.saveRequestId,
+        selectedTheme.visibility
       );
       if (result.ok) {
         setPendingThemeData(null);

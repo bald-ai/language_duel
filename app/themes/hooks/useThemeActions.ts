@@ -43,13 +43,14 @@ export function useThemeActions() {
       description: string,
       words: WordEntry[],
       wordType: "nouns" | "verbs",
-      saveRequestId?: string
+      saveRequestId?: string,
+      visibility?: "private" | "shared"
     ): Promise<ActionResult> => {
       if (createInFlightRef.current) return { ok: false, error: "Already creating" };
       createInFlightRef.current = true;
       setState((prev) => ({ ...prev, isCreating: true, error: null }));
       try {
-        const themeId = await createTheme({ name, description, words, wordType, saveRequestId });
+        const themeId = await createTheme({ name, description, words, wordType, saveRequestId, visibility });
         setState((prev) => ({ ...prev, isCreating: false }));
         return { ok: true, themeId };
       } catch (e) {
