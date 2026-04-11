@@ -1,4 +1,3 @@
-// [NOT ACTIVE] Solo-style duel mode is not currently used in the app. Kept for future revisit.
 import {
   initializeWordPoolsSeeded,
   createInitialWordStates,
