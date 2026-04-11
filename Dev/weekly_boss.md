@@ -11,8 +11,8 @@
 
 ### Weekly Goal Changes
 
-- **Minimum 2 themes** to create a weekly goal (bosses need enough material to draw from).
-- **Custom end date** — Date picker to set when the goal ends. Midpoint is always auto-calculated as half the total duration rounded down (e.g. 7 days → day 3). The end date can be edited while the goal is still in progress, but not once the goal is boss-ready or the end date has been reached.
+- **Minimum 2 themes** to lock a weekly goal (bosses need enough material to draw from).
+- **Custom end date** — Date picker to set when the goal ends. Midpoint is always auto-calculated as half the total duration rounded down (e.g. 7 days → day 3). The end date can be edited while the goal is still in progress, but not once the big boss becomes available or the end date has been reached.
 - **Manual trigger** — If both players finish themes ahead of schedule, they can trigger boss/mini boss early instead of waiting for the date.
 - **Progression lock** — Mini boss must be completed before the big boss unlocks.
 - **Theme completion rule** — A theme counts as completed only when **both players** have it checked off.
@@ -67,7 +67,7 @@ The boss requires pulling words from multiple themes into a single session. This
 
 These choices keep scope tight and give us a shippable version fast:
 
-- **Boss v1 is a goal-specific solo challenge** using multiple themes. Both players can do it from the same weekly goal, but they do not need to be online at the same time.
+- **Boss v1 is a goal-specific classic duel** using multiple themes. Both players play it together in real time. A separate solo practice option exists, but practice does not affect boss progression.
 - **No fail state in v1.** The boss should feel climactic, not punishing. We can add lives later if the feature already proves fun.
 - **Use the existing exercise flow first.** The first release should prove multi-theme + goal progression works before mixing in the full VARIETY.md system.
 - **Adaptive boss length.** Use a capped subset, not every word. Example rule for v1: target 20 words for mini boss, 30 words for big boss, sampled across eligible themes. If fewer words are available than the cap, use all available words.
@@ -76,7 +76,7 @@ These choices keep scope tight and give us a shippable version fast:
 - **Mini boss early unlock = `floor(total themes / 2)` completed themes.**
 - **Big boss early unlock = all themes completed + mini boss done.**
 - **Boss retries are unlimited.** Once mini boss or big boss is `available`, players can start and restart it as many times as they want.
-- **A boss is defeated only by a 100% run.** Any attempt below 100% leaves the boss `available`.
+- **A boss is defeated only by a perfect run.** For live boss duels, that means both players answer every boss question correctly. The normal duel score can still be shown, but boss completion is based on perfect correctness, not weighted points.
 - **End date edits are allowed only while the goal is still in progress.** Once all themes are completed or the end date has been reached, the date is frozen.
 - **Midpoint is always derived, never stored.** It equals `floor(duration / 2)` days from start. If the end date changes while still editable, midpoint updates automatically. Once the end date is frozen, midpoint is frozen too.
 - **After the end date is reached, unfinished goals stay visible for up to 48 hours, then auto-delete.**
@@ -92,7 +92,7 @@ Goal: remove ambiguity before touching schema or gameplay.
 
 What to decide and document:
 
-- Boss v1 = solo challenge launched from weekly goals.
+- Boss v1 = classic-mode duel launched from weekly goals, with optional solo practice.
 - Minimum 2 themes required before a goal can be locked.
 - Weekly goal gets an explicit **end date** chosen during setup.
 - End date can be edited only while the goal is still in progress. Once all themes are completed or the end date has been reached, it becomes read-only.
@@ -101,8 +101,9 @@ What to decide and document:
 - Mini boss unlocks at midpoint or early once `floor(total themes / 2)` themes are completed.
 - Big boss unlocks at end date or early only after mini boss is completed and all themes are completed.
 - Once a boss is `available`, players can retry it unlimited times.
-- A boss becomes `completed` only when an attempt scores 100%.
-- Attempts below 100% do not create a new boss state; they simply leave the boss `available` for another retry.
+- A boss becomes `completed` only on a perfect run.
+- For live boss duels, a perfect run means both players answered every boss question correctly. The normal duel score can still be displayed, but it is not the source of truth for boss completion.
+- Attempts below a perfect run do not create a new boss state; they simply leave the boss `available` for another retry.
 - Weekly goal `completed` means the big boss was defeated.
 - If the end date passes without boss completion, keep the goal around for up to 48 hours, then auto-delete the goal and all associated boss session/challenge records.
 - If the boss word cap is higher than the available merged word pool, use all available words instead of padding or failing.
@@ -123,7 +124,7 @@ The big boss starts locked. It becomes available when all three of these are tru
 A player can start a boss only when that boss's status is `available`. If the status is `locked` or `completed`, the button is disabled. While a boss is `available`, players may retry it as many times as they want.
 
 **Boss completion — what counts as defeating it?**
-A boss is defeated only by a 100% run. Any attempt below 100% does not complete the boss and simply leaves it `available` for another retry. We do not need best-score or latest-attempt tracking for v1.
+A boss is defeated only by a perfect run. For live boss duels, that means both players answered every boss question correctly. The normal duel score can still be shown to players, but it does not determine boss completion. Any attempt below a perfect run does not complete the boss and simply leaves it `available` for another retry. We do not need best-score or latest-attempt tracking for v1.
 
 **End date — when can it be edited?**
 The end date can be changed only while the goal status is `active` and the big boss status is still `locked`. Once all themes are completed, the end date is reached, or the big boss becomes available — whichever comes first — the end date becomes read-only.
@@ -361,7 +362,7 @@ Goal: connect weekly goals to actual playable multi-theme sessions.
 #### Decisions from review
 
 - **Boss = classic-mode duel.** Both players must be online and play together. This matches the core insight that in-person/co-op play is where the fun lives.
-- **Both players must score 100%.** If either player gets a question wrong, the attempt fails. The duel completes normally (shows scores), but the boss stays available for retry.
+- **Both players must be perfect.** If either player gets a boss question wrong, the attempt fails. The duel completes normally (and can still show the usual score), but the boss stays available for retry.
 - **Solo practice option.** Players can practice the boss words solo without affecting boss progression. This lets them prepare before the real attempt.
 - **Duel invitation flow.** One player taps "Start Boss" → creates a classic duel invitation for the partner. Partner accepts → duel starts. Same flow as existing immediate duels.
 
@@ -377,8 +378,8 @@ Goal: connect weekly goals to actual playable multi-theme sessions.
   - Validate the caller is a participant.
   - Validate the relevant boss status is `available` (using `getEffectiveMiniBossStatus` / `getEffectiveBossStatus`).
   - Load all themes from the goal.
-  - Sample words: 20 for mini boss, 30 for big boss. If fewer words available, use all.
-  - Create a classic-mode challenge via `buildChallengeBase` with `weeklyGoalId` and `bossType` set.
+  - Build the eligible merged word pool, then sample words: 20 for mini boss, 30 for big boss. If fewer words are available, use all.
+  - Create a classic-mode challenge from that sampled boss word set, with `weeklyGoalId` and `bossType` set.
   - Send a duel invitation notification to the partner.
   - Return the challenge ID.
 
@@ -388,7 +389,7 @@ Goal: connect weekly goals to actual playable multi-theme sessions.
   - No notification — it's a solo practice run.
   - Return the challenge ID.
 
-#### 100% detection
+#### Perfect-run detection
 
 When a classic duel completes and has `weeklyGoalId` + `bossType`:
 - Check if both players answered every question correctly.
@@ -398,8 +399,8 @@ When a classic duel completes and has `weeklyGoalId` + `bossType`:
 
 #### Boss intro screen
 
-- New route: `app/boss/[goalId]/page.tsx` (or similar).
-- Receives `goalId` and `bossType` (mini/big) as params.
+- New route: `app/boss/[goalId]/[bossType]/page.tsx`.
+- Receives both `goalId` and `bossType` (`mini` / `big`) as route params.
 - Shows:
   - Boss name: "Mini Boss" or "Big Boss".
   - Theme count and word count.
@@ -420,7 +421,7 @@ When a classic duel completes and has `weeklyGoalId` + `bossType`:
 - Mini boss cap: 20 words.
 - Big boss cap: 30 words.
 - Words are sampled across all goal themes. If the merged pool is smaller than the cap, use all available words.
-- Sampling uses the existing shuffled word order from `buildChallengeBase`.
+- Sampling happens first from the eligible merged word pool. After that, `buildChallengeBase` shuffles the sampled boss word set into final play order.
 
 #### Breakpoint
 
@@ -428,8 +429,8 @@ When a classic duel completes and has `weeklyGoalId` + `bossType`:
 - Do not start variety work until this feels stable and understandable.
 - Run lint, typecheck, and end-to-end manual verification for:
   - mini boss duel launch + partner invitation
-  - mini boss completion with 100% → goal updated
-  - mini boss failure (<100%) → boss stays available
+  - mini boss completion with a perfect run → goal updated
+  - mini boss failure (not perfect) → boss stays available
   - solo practice run → no effect on boss status
   - big boss unlock after mini boss completion + all themes done
   - big boss completion → goal completed + notification
@@ -474,7 +475,7 @@ Breakpoint:
 - The app derives midpoint as `floor(duration / 2)` days from start — never stored, always computed.
 - Mini boss and big boss have backend-enforced unlock rules.
 - A player can manually trigger them only when allowed.
-- Available bosses can be retried unlimited times until a 100% run is achieved.
+- Available bosses can be retried unlimited times until a perfect run is achieved.
 - Mini boss and big boss launch real multi-theme sessions.
 - Completing mini boss affects big boss availability.
 - Completing big boss marks the weekly goal `completed`.
