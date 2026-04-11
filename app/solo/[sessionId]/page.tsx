@@ -483,7 +483,16 @@ export default function SoloChallengePage() {
         {!showFeedback && (
           <>
             {session.questionLevel === 0 && (
-              <Level0Input
+              <>
+                {hasMultipleThemes && "themeName" in currentWord && typeof currentWord.themeName === "string" && (
+                  <div
+                    className="text-xs uppercase tracking-[0.25em] mb-2 text-center"
+                    style={{ color: colors.text.muted }}
+                  >
+                    {currentWord.themeName}
+                  </div>
+                )}
+                <Level0Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 word={currentWord.word}
                 answer={currentWord.answer}
@@ -491,6 +500,7 @@ export default function SoloChallengePage() {
                 onNotYet={handleLevel0NotYet}
                 dataTestIdBase="solo-challenge-level0"
               />
+              </>
             )}
 
             {session.questionLevel === 1 && (

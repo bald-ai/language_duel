@@ -87,7 +87,6 @@ export const createDuel = mutation({
       status: "pending",
       payload: {
         challengeId,
-        themeId: resolvedThemes.length === 1 ? resolvedThemes[0]._id : undefined,
         themeName: themeSummary,
         mode: challengeBase.mode,
         classicDifficultyPreset: challengeBase.classicDifficultyPreset,
