@@ -23,6 +23,7 @@ import type * as helpers_auth from "../helpers/auth.js";
 import type * as helpers_duelInitialization from "../helpers/duelInitialization.js";
 import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
+import type * as helpers_users from "../helpers/users.js";
 import type * as hints from "../hints.js";
 import type * as lobby from "../lobby.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   "helpers/duelInitialization": typeof helpers_duelInitialization;
   "helpers/gameLogic": typeof helpers_gameLogic;
   "helpers/index": typeof helpers_index;
+  "helpers/users": typeof helpers_users;
   hints: typeof hints;
   lobby: typeof lobby;
   notificationPayloads: typeof notificationPayloads;
