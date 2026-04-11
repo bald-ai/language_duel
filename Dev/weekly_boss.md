@@ -257,48 +257,64 @@ Steps 1–5 are backend, can be verified independently. Steps 6–7 are frontend
 
 Goal: teach weekly goals about time windows and boss progression.
 
-Scope:
+#### Decisions from review
 
-- Extend weekly goal data with:
-  - lifecycle status that clearly distinguishes `editing`, `active`, `expired`, and `completed`
-  - `endDate`
-  - `miniBossStatus`
-  - `bossStatus`
-  - optional timestamps for when each became available/completed/triggered
-- Support boss attempts/retries without introducing extra boss statuses beyond `locked`, `available`, and `completed`.
-- Add support for a short post-end grace window before cleanup so expired unfinished goals are still visible for up to 48 hours. After the grace window, delete the goal and all associated boss session/challenge records.
-- Replace the fixed 7-day assumption with a user-selected end date.
-- Enforce minimum 2 themes before lock/activation.
-- Add backend functions that answer:
-  - is mini boss available?
-  - is big boss available?
-  - can manual trigger be used right now?
-  - can the end date still be edited right now?
-- Keep all progression checks on the backend as source of truth.
+- **No active goals exist**, so no migration needed — schema changes apply to new goals only.
+- **`expiresAt` → `endDate`**: Replace the old `expiresAt` field (auto-computed as `lockedAt + 7 days`) with a user-selected `endDate`. Remove `GOAL_DURATION_MS`.
+- **48h grace window is derived, not stored.** Grace deadline = `endDate + 48h`. The 48h activates when `endDate` passes and the big boss has not been completed. If the boss is completed before `endDate`, the goal moves to `completed` and the 48h never triggers.
+- **No boss timestamps.** Just the status enum (`locked | available | completed`) for both `miniBossStatus` and `bossStatus`. No `availableAt`, `completedAt`, or `triggeredAt`.
+- **Minimum 2 themes enforced at lock time.** A player cannot lock a goal that has fewer than 2 themes. Goals start in `editing` with themes added incrementally, so creation itself has no minimum.
 
-Concrete code areas likely involved:
+#### Schema changes to `weeklyGoals`
 
-- `convex/schema.ts`
-- `convex/weeklyGoals.ts`
-- `app/goals/constants.ts`
-- `app/goals/page.tsx`
+- Replace `expiresAt` with `endDate` (user-selected, required once active).
+- Add `"expired"` to the status union: `editing | active | expired | completed`.
+- Add `miniBossStatus: locked | available | completed` (defaults to `locked`).
+- Add `bossStatus: locked | available | completed` (defaults to `locked`).
+- Update index from `by_status_expiresAt` to `by_status_endDate`.
+
+#### Backend logic
+
+- Remove `GOAL_DURATION_MS` constant.
+- `endDate` is set during goal editing, required before locking.
+- Enforce minimum 2 themes at lock time.
+- `endDate` is editable only while `status === "active"` and `bossStatus === "locked"`.
+- Midpoint = `floor(duration / 2)` days from `lockedAt`, always derived at read time.
+- Cron two-pass expiry:
+  - Active goals where `endDate < now` and `bossStatus !== "completed"` → mark as `expired`.
+  - Expired goals where `endDate + 48h < now` → delete goal and all associated boss session/challenge records.
+- Backend query functions:
+  - `isMiniBossAvailable` — checks midpoint date or `floor(total themes / 2)` themes completed.
+  - `isBigBossAvailable` — checks mini boss completed + all themes completed + (end date reached or all themes done early).
+  - `canEditEndDate` — checks `status === "active"` and `bossStatus === "locked"`.
+  - `canTriggerBoss(which)` — checks the relevant boss status is `available`.
+- All progression checks live on the backend as source of truth.
+
+#### Concrete code areas
+
+- `convex/schema.ts` — replace `expiresAt` with `endDate`, add boss status fields, update index
+- `convex/weeklyGoals.ts` — lock validation, end date editing, boss availability queries, expiry logic
+- `convex/constants.ts` — remove `GOAL_DURATION_MS`, add `GRACE_PERIOD_MS`
+- `app/goals/constants.ts` — update if it references expiry
 - notification/reminder logic that currently assumes `expiresAt`
 
-Recommended rule split:
+#### Rule split
 
 - Goal lifecycle stays separate from boss lifecycle.
 - Weekly goal remains the container.
-- Boss progression becomes a nested state machine inside that container.
-- `completed` should mean the weekly goal itself is finished, not merely that all themes were checked off. Theme completion and boss completion remain separate pieces of state.
-- For v1, attempt history only needs to support retries and final completion. No best-score or latest-attempt UX is required.
+- Boss progression is a nested state machine inside that container.
+- `completed` means the weekly goal itself is finished (big boss defeated), not merely that all themes were checked off.
 
-Breakpoint:
+#### Breakpoint
 
 - Shipable checkpoint: weekly goals can be created with an end date, locked with 2+ themes, and queried with correct mini boss / boss availability states.
 - Verify:
+  - locking with fewer than 2 themes is rejected
   - invalid dates are rejected cleanly
   - midpoint is calculated correctly
   - boss unlock state changes correctly as themes are completed
+  - expired goals are visible for 48h after `endDate`, then deleted
+  - `endDate` becomes read-only when `bossStatus` leaves `locked`
 - Run lint, typecheck, and weekly goal tests before Phase 3.
 
 ### Phase 3 — Add Goal UI for Planning and Progression
