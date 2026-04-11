@@ -13,14 +13,13 @@
 
 - **Minimum 2 themes** to lock a weekly goal (bosses need enough material to draw from).
 - **Custom end date** — Date picker to set when the goal ends. Midpoint is always auto-calculated as half the total duration rounded down (e.g. 7 days → day 3). The end date can be edited while the goal is still in progress, but not once the big boss becomes available or the end date has been reached.
-- **Manual trigger** — If both players finish themes ahead of schedule, they can trigger boss/mini boss early instead of waiting for the date.
+- **Manual trigger** — Once enough themes are completed, players can trigger boss/mini boss. No date gate — progression is theme-driven.
 - **Progression lock** — Mini boss must be completed before the big boss unlocks.
 - **Theme completion rule** — A theme counts as completed only when **both players** have it checked off.
 
 ### Mini Boss (Midpoint)
 
-- Fires at the halfway date (auto-calculated) or triggered manually.
-- Early unlock happens when **floor(total themes / 2)** themes are completed by both players.
+- Unlocks when **floor(total themes / 2)** themes are completed by both players. The midpoint date is shown as a reference but does not trigger the unlock.
 - Draws from the completed themes available at that point.
 - Lighter than the boss. Tests retention of the first half of the week.
 
@@ -285,8 +284,8 @@ Goal: teach weekly goals about time windows and boss progression.
   - Active goals where `endDate < now` and `bossStatus !== "completed"` → mark as `expired`.
   - Expired goals where `endDate + 48h < now` → delete goal and all associated boss session/challenge records.
 - Backend query functions:
-  - `isMiniBossAvailable` — checks midpoint date or `floor(total themes / 2)` themes completed.
-  - `isBigBossAvailable` — checks mini boss completed + all themes completed + (end date reached or all themes done early).
+  - `isMiniBossAvailable` — checks `floor(total themes / 2)` themes completed.
+  - `isBigBossAvailable` — checks mini boss completed + all themes completed.
   - `canEditEndDate` — checks `status === "active"` and `bossStatus === "locked"`.
   - `canTriggerBoss(which)` — checks the relevant boss status is `available`.
 - All progression checks live on the backend as source of truth.
@@ -368,9 +367,8 @@ Goal: connect weekly goals to actual playable multi-theme sessions.
 
 #### Schema changes
 
-- Add `weeklyGoalId: v.optional(v.id("weeklyGoals"))` to challenges table — links a boss duel back to its goal.
-- Add `bossType: v.optional(v.union(v.literal("mini"), v.literal("big")))` to challenges table — distinguishes mini boss from big boss attempts.
-- Practice runs do NOT set these fields — they're regular solo challenges with no goal link.
+- Add `weeklyGoalId: v.optional(v.id("weeklyGoals"))` to challenges table — links a boss duel or practice session back to its goal (used for cleanup).
+- Add `bossType: v.optional(v.union(v.literal("mini"), v.literal("big")))` to challenges table — distinguishes real boss attempts from practice. Only set on real boss duels, not practice runs.
 
 #### Backend mutations
 
@@ -385,7 +383,7 @@ Goal: connect weekly goals to actual playable multi-theme sessions.
 
 - `startBossPractice(goalId, bossType: "mini" | "big")`:
   - Same word sampling logic.
-  - Create a solo-mode challenge WITHOUT `weeklyGoalId` / `bossType`.
+  - Create a solo-mode challenge with `weeklyGoalId` set (for cleanup) but WITHOUT `bossType` (so it's not treated as a real boss attempt).
   - No notification — it's a solo practice run.
   - Return the challenge ID.
 
