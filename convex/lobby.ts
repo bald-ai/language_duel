@@ -10,10 +10,12 @@ import {
   getAuthenticatedUserOrNull,
   getDuelParticipant,
 } from "./helpers/auth";
-import { createShuffledWordOrder } from "./helpers/gameLogic";
-import { buildSoloInitState } from "./helpers/duelInitialization";
+import {
+  buildChallengeBase,
+  buildChallengeStartState,
+} from "./helpers/challengeCreation";
 import { isDuelChallengePayload } from "./notificationPayloads";
-import { DUEL_CHALLENGE_TTL_MS, SEED_XOR_MASK } from "./constants";
+import { DUEL_CHALLENGE_TTL_MS } from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 
 export const createDuel = mutation({
@@ -40,26 +42,20 @@ export const createDuel = mutation({
     const theme = await ctx.runQuery(api.themes.getTheme, { themeId });
     if (!theme) throw new Error("Theme not found or access denied");
 
-    // Create shuffled word order
-    const wordOrder = createShuffledWordOrder(theme.words.length);
-    const duelMode = mode || "solo";
     const now = Date.now();
-
-    const challengeId = await ctx.db.insert("challenges", {
+    const challengeBase = buildChallengeBase({
       challengerId: challenger._id,
       opponentId,
       themeId,
-      currentWordIndex: 0,
-      wordOrder,
-      challengerAnswered: false,
-      opponentAnswered: false,
-      challengerScore: 0,
-      opponentScore: 0,
-      status: "pending",
-      mode: duelMode,
-      classicDifficultyPreset:
-        duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
+      wordCount: theme.words.length,
+      mode,
+      classicDifficultyPreset,
       createdAt: now,
+    });
+
+    const challengeId = await ctx.db.insert("challenges", {
+      ...challengeBase,
+      status: "pending",
     });
 
     // Create notification for the opponent
@@ -71,8 +67,8 @@ export const createDuel = mutation({
       payload: {
         challengeId,
         themeName: theme.name,
-        mode: duelMode,
-        classicDifficultyPreset: duelMode === "classic" ? classicDifficultyPreset || "easy" : undefined,
+        mode: challengeBase.mode,
+        classicDifficultyPreset: challengeBase.classicDifficultyPreset,
       },
       createdAt: now,
     });
@@ -185,27 +181,14 @@ export const acceptDuel = mutation({
 
     const wordCount = theme.words.length;
 
-    // Initialize seed for deterministic random
-    const seed = Date.now() ^ SEED_XOR_MASK;
+    const now = Date.now();
+    const startState = buildChallengeStartState({
+      mode: duel.mode,
+      wordCount,
+      now,
+    });
 
-    // Check if this is a classic mode duel
-    if (duel.mode === "classic") {
-      // Classic mode: set status to "accepted" and initialize timer
-      await ctx.db.patch(duelId, {
-        status: "accepted",
-        questionStartTime: Date.now(),
-        seed,
-      });
-    } else {
-      // Solo mode: skip learning phase - go directly to challenging
-      const soloState = buildSoloInitState(wordCount, seed);
-
-      await ctx.db.patch(duelId, {
-        status: "challenging",
-        questionStartTime: Date.now(),
-        ...soloState,
-      });
-    }
+    await ctx.db.patch(duelId, startState);
   },
 });
 
@@ -315,23 +298,14 @@ export const acceptDuelChallenge = mutation({
     }
 
     const wordCount = theme.words.length;
-    const seed = Date.now() ^ SEED_XOR_MASK;
+    const now = Date.now();
+    const startState = buildChallengeStartState({
+      mode: challenge.mode,
+      wordCount,
+      now,
+    });
 
-    if (challenge.mode === "classic") {
-      await ctx.db.patch(challengeId, {
-        status: "accepted",
-        questionStartTime: Date.now(),
-        seed,
-      });
-    } else {
-      const soloState = buildSoloInitState(wordCount, seed);
-
-      await ctx.db.patch(challengeId, {
-        status: "challenging",
-        questionStartTime: Date.now(),
-        ...soloState,
-      });
-    }
+    await ctx.db.patch(challengeId, startState);
 
     await ctx.db.patch(args.notificationId, {
       status: "dismissed",

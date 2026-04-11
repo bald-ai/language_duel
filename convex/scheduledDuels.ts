@@ -3,9 +3,10 @@ import { query, mutation, internalMutation, internalAction, internalQuery } from
 import { api, internal } from "./_generated/api";
 import { isScheduledDuelPayload } from "./notificationPayloads";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { createShuffledWordOrder } from "./helpers/gameLogic";
-import { buildSoloInitState } from "./helpers/duelInitialization";
-import { SEED_XOR_MASK } from "./constants";
+import {
+    buildChallengeBase,
+    buildChallengeStartState,
+} from "./helpers/challengeCreation";
 
 // ===========================================
 // Type Definitions
@@ -732,57 +733,28 @@ export const startScheduledDuel = internalMutation({
             throw new Error("Theme not found");
         }
 
-        // Create duel using same logic as lobby.ts createDuel
-        const wordOrder = createShuffledWordOrder(theme.words.length);
-        const duelMode = scheduledDuel.mode || "classic";
         const now = Date.now();
-
-        // Initialize seed for deterministic random
-        const seed = now ^ SEED_XOR_MASK;
         const wordCount = theme.words.length;
+        const challengeBase = buildChallengeBase({
+            challengerId: scheduledDuel.proposerId,
+            opponentId: scheduledDuel.recipientId,
+            themeId: scheduledDuel.themeId,
+            wordCount,
+            mode: scheduledDuel.mode,
+            classicDifficultyPreset: scheduledDuel.classicDifficultyPreset,
+            createdAt: now,
+        });
+        const startState = buildChallengeStartState({
+            mode: scheduledDuel.mode,
+            wordCount,
+            now,
+        });
+        const duelMode = challengeBase.mode;
 
-        // Create the challenge based on mode
-        let challengeId;
-
-        if (duelMode === "classic") {
-            challengeId = await ctx.db.insert("challenges", {
-                challengerId: scheduledDuel.proposerId,
-                opponentId: scheduledDuel.recipientId,
-                themeId: scheduledDuel.themeId,
-                currentWordIndex: 0,
-                wordOrder,
-                challengerAnswered: false,
-                opponentAnswered: false,
-                challengerScore: 0,
-                opponentScore: 0,
-                status: "accepted",
-                mode: "classic",
-                classicDifficultyPreset: scheduledDuel.classicDifficultyPreset || "easy",
-                createdAt: now,
-                questionStartTime: now,
-                seed,
-            });
-        } else {
-            // Solo mode - initialize word states and pools
-            const soloState = buildSoloInitState(wordCount, seed);
-
-            challengeId = await ctx.db.insert("challenges", {
-                challengerId: scheduledDuel.proposerId,
-                opponentId: scheduledDuel.recipientId,
-                themeId: scheduledDuel.themeId,
-                currentWordIndex: 0,
-                wordOrder,
-                challengerAnswered: false,
-                opponentAnswered: false,
-                challengerScore: 0,
-                opponentScore: 0,
-                status: "challenging",
-                mode: "solo",
-                createdAt: now,
-                questionStartTime: now,
-                ...soloState,
-            });
-        }
+        const challengeId = await ctx.db.insert("challenges", {
+            ...challengeBase,
+            ...startState,
+        });
 
         // Update scheduled duel with started duel ID
         await ctx.db.patch(args.scheduledDuelId, {
