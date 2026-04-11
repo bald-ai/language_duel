@@ -350,17 +350,17 @@ export async function buildEmailData(
         id: partnerId,
       });
       data.partnerName = partner?.nickname ?? partner?.name ?? data.partnerName;
-      if (goal.expiresAt) {
-        data.scheduledTime = formatScheduledTime(goal.expiresAt, DEFAULT_TIMEZONE);
+      if (goal.endDate) {
+        data.scheduledTime = formatScheduledTime(goal.endDate, DEFAULT_TIMEZONE);
       }
       data.completedCount = goal.themes.filter((theme: { creatorCompleted: boolean; partnerCompleted: boolean }) =>
         args.toUser._id === goal.creatorId ? theme.creatorCompleted : theme.partnerCompleted
       ).length;
       data.totalCount = goal.themes.length;
-      if (goal.expiresAt) {
+      if (goal.endDate) {
         data.hoursLeft = Math.max(
           0,
-          Math.round((goal.expiresAt - Date.now()) / (60 * 60 * 1000))
+          Math.round((goal.endDate - Date.now()) / (60 * 60 * 1000))
         );
       }
     }

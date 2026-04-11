@@ -14,8 +14,25 @@ export function isCreatedAtExpired(
 }
 
 /**
- * Returns true when a weekly goal with expiresAt is already past due.
+ * Returns true once the goal end date has passed.
  */
-export function isGoalPastExpiry(expiresAt: number | undefined, now: number): boolean {
-  return typeof expiresAt === "number" && expiresAt < now;
+export function isGoalPastEndDate(
+  endDate: number | undefined,
+  now: number
+): boolean {
+  return typeof endDate === "number" && endDate < now;
+}
+
+/**
+ * Returns true once the goal has moved past its post-end-date grace window.
+ */
+export function isGoalPastGracePeriod(
+  endDate: number | undefined,
+  now: number,
+  gracePeriodMs: number
+): boolean {
+  return (
+    typeof endDate === "number" &&
+    endDate + gracePeriodMs < now
+  );
 }

@@ -14,6 +14,7 @@ interface GoalThemeListProps {
   themes: GoalTheme[];
   viewerRole: "creator" | "partner";
   isEditing: boolean;
+  canToggle: boolean;
   onToggle: (themeId: Id<"themes">) => void;
   onRemove: (themeId: Id<"themes">) => void;
 }
@@ -22,6 +23,7 @@ export function GoalThemeList({
   themes,
   viewerRole,
   isEditing,
+  canToggle,
   onToggle,
   onRemove,
 }: GoalThemeListProps) {
@@ -119,6 +121,7 @@ export function GoalThemeList({
             {/* Checkbox for completion */}
             <button
               onClick={() => onToggle(theme.themeId)}
+              disabled={!canToggle}
               className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all hover:scale-105"
               style={{
                 borderColor: viewerCompleted
@@ -128,7 +131,13 @@ export function GoalThemeList({
                   ? colors.status.success.DEFAULT
                   : "transparent",
               }}
-              title={viewerCompleted ? "Mark incomplete" : "Mark complete"}
+              title={
+                !canToggle
+                  ? "Theme progress can only be changed while the goal is active"
+                  : viewerCompleted
+                    ? "Mark incomplete"
+                    : "Mark complete"
+              }
               data-testid={`goal-theme-toggle-${theme.themeId}`}
             >
               {viewerCompleted && (

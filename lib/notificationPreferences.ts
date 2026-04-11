@@ -113,17 +113,18 @@ export function shouldSendScheduledDuelReminder(
 }
 
 export function shouldSendWeeklyGoalReminder(
-  goal: { expiresAt?: number; status: string },
+  goal: { endDate?: number; status: string; bossStatus?: string },
   now: number,
   reminderOffsetMinutes: number,
   windowMs = 60 * 60 * 1000
 ): boolean {
   if (goal.status !== "active") return false;
-  if (!goal.expiresAt) return false;
-  if (goal.expiresAt <= now) return false;
+  if (goal.bossStatus === "completed") return false;
+  if (!goal.endDate) return false;
+  if (goal.endDate <= now) return false;
 
   const offsetMs = reminderOffsetMinutes * 60 * 1000;
-  const reminderTime = goal.expiresAt - offsetMs;
+  const reminderTime = goal.endDate - offsetMs;
   return reminderTime <= now && reminderTime >= now - windowMs;
 }
 

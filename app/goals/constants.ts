@@ -1,3 +1,5 @@
+import { MIN_THEMES_PER_GOAL } from "@/lib/weeklyGoals";
+
 // Weekly Goals constants
 
 /**
@@ -8,6 +10,6 @@
 export const MAX_THEMES_PER_GOAL = 5;
 
 /**
- * Duration of a weekly goal in days (from when both partners lock).
+ * Minimum number of themes required before a weekly goal can be locked.
  */
-export const GOAL_DURATION_DAYS = 7;
+export const MIN_THEMES_TO_LOCK_GOAL = MIN_THEMES_PER_GOAL;

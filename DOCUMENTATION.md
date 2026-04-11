@@ -305,7 +305,8 @@ Components using the `colors` object automatically update when the user switches
 - The same scheduled cleanup pass also dismisses stale `duel_challenge` notifications and cancels unresolved pending challenges after 60 minutes.
 - Pending friend requests are auto-rejected once older than 7 days and related notifications are dismissed (daily cron).
 - Weekly goals are auto-cleaned daily:
-  - `active` goals expire by `expiresAt`.
+  - `active` goals switch to `expired` once `endDate` passes.
+  - `expired` goals stay visible for a 48 hour grace window, then are deleted.
   - `editing` goals expire 7 days after `createdAt`.
   - related weekly plan notifications are dismissed.
 

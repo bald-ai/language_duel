@@ -358,42 +358,81 @@ Breakpoint:
 
 Goal: connect weekly goals to actual playable multi-theme sessions.
 
-Scope:
+#### Decisions from review
 
-- Add boss-launch backend mutations:
-  - start mini boss
-  - start big boss
-- Add retry support for available bosses. A sub-100% result should leave the boss retryable instead of creating a terminal failure state.
-- Enforce prerequisites in those mutations.
-- Create a boss intro/lobby screen that feels distinct from a normal duel.
-- Start a multi-theme solo challenge from the weekly goal using the Phase 1 session foundation.
-- Persist completion back onto the weekly goal so progression unlocks the next step.
+- **Boss = classic-mode duel.** Both players must be online and play together. This matches the core insight that in-person/co-op play is where the fun lives.
+- **Both players must score 100%.** If either player gets a question wrong, the attempt fails. The duel completes normally (shows scores), but the boss stays available for retry.
+- **Solo practice option.** Players can practice the boss words solo without affecting boss progression. This lets them prepare before the real attempt.
+- **Duel invitation flow.** One player taps "Start Boss" → creates a classic duel invitation for the partner. Partner accepts → duel starts. Same flow as existing immediate duels.
 
-Recommended v1 flow:
+#### Schema changes
 
-- Player opens weekly goal.
-- If mini boss is available, tap `Start Mini Boss`.
-- App opens boss intro screen with theme count, word count, and "this is a checkpoint" framing.
-- If the attempt scores below 100%, the boss stays available and can be restarted.
-- Completing mini boss with a 100% run updates the goal and unlocks big boss when timing/prereqs are met.
-- Big boss uses the same core engine with a larger word cap.
-- Completing big boss with a 100% run marks the weekly goal `completed`, closes it, and sends the celebratory completion notification/message.
-- If the merged word pool is smaller than the configured cap, the boss simply uses the full pool.
+- Add `weeklyGoalId: v.optional(v.id("weeklyGoals"))` to challenges table — links a boss duel back to its goal.
+- Add `bossType: v.optional(v.union(v.literal("mini"), v.literal("big")))` to challenges table — distinguishes mini boss from big boss attempts.
+- Practice runs do NOT set these fields — they're regular solo challenges with no goal link.
 
-Concrete code areas likely involved:
+#### Backend mutations
 
-- `convex/weeklyGoals.ts`
-- duel/solo launch entry points
-- new boss-specific screen under `app/`
+- `startBossDuel(goalId, bossType: "mini" | "big")`:
+  - Validate the caller is a participant.
+  - Validate the relevant boss status is `available` (using `getEffectiveMiniBossStatus` / `getEffectiveBossStatus`).
+  - Load all themes from the goal.
+  - Sample words: 20 for mini boss, 30 for big boss. If fewer words available, use all.
+  - Create a classic-mode challenge via `buildChallengeBase` with `weeklyGoalId` and `bossType` set.
+  - Send a duel invitation notification to the partner.
+  - Return the challenge ID.
 
-Breakpoint:
+- `startBossPractice(goalId, bossType: "mini" | "big")`:
+  - Same word sampling logic.
+  - Create a solo-mode challenge WITHOUT `weeklyGoalId` / `bossType`.
+  - No notification — it's a solo practice run.
+  - Return the challenge ID.
+
+#### 100% detection
+
+When a classic duel completes and has `weeklyGoalId` + `bossType`:
+- Check if both players answered every question correctly.
+- If yes → patch the goal's `miniBossStatus` or `bossStatus` to `"completed"`.
+- If big boss completed → also set goal `status` to `"completed"` and send celebratory notification.
+- If no → duel ends normally, boss stays available.
+
+#### Boss intro screen
+
+- New route: `app/boss/[goalId]/page.tsx` (or similar).
+- Receives `goalId` and `bossType` (mini/big) as params.
+- Shows:
+  - Boss name: "Mini Boss" or "Big Boss".
+  - Theme count and word count.
+  - Framing: "Checkpoint" for mini boss, "Final Boss" for big boss.
+- Two actions:
+  - **"Challenge Partner"** (primary) — calls `startBossDuel`, navigates to the classic duel lobby. No learn phase — classic mode goes straight to questions.
+  - **"Practice Solo"** (secondary) — calls `startBossPractice`, navigates into the existing solo flow which already has the learn-first-or-challenge-right-away choice built in. Does not affect boss progression.
+
+#### UI wiring
+
+- Boss card tap → navigate to boss intro screen with `goalId` and `bossType`.
+- Boss intro "Challenge Partner" → calls `startBossDuel`, navigates to the duel lobby. Partner receives a duel invitation notification and accepts to join.
+- Boss intro "Practice Solo" → calls `startBossPractice`, navigates to the solo session (reuses existing solo flow with learn/challenge choice).
+- Partner receives duel notification → accepts → both enter the classic duel.
+
+#### Word sampling
+
+- Mini boss cap: 20 words.
+- Big boss cap: 30 words.
+- Words are sampled across all goal themes. If the merged pool is smaller than the cap, use all available words.
+- Sampling uses the existing shuffled word order from `buildChallengeBase`.
+
+#### Breakpoint
 
 - Shipable checkpoint: end-to-end mini boss flow works from a real weekly goal.
 - Do not start variety work until this feels stable and understandable.
 - Run lint, typecheck, and end-to-end manual verification for:
-  - mini boss launch
-  - mini boss completion
-  - big boss unlock after prerequisites
+  - mini boss duel launch + partner invitation
+  - mini boss completion with 100% → goal updated
+  - mini boss failure (<100%) → boss stays available
+  - solo practice run → no effect on boss status
+  - big boss unlock after mini boss completion + all themes done
+  - big boss completion → goal completed + notification
 
 ### Phase 5 — Layer In Boss Variety
 

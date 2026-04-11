@@ -48,7 +48,7 @@ export const sendWeeklyGoalReminders = internalAction({
     const now = Date.now();
 
     const activeGoals = await ctx.runQuery(
-      internal.weeklyGoals.getActiveGoalsWithExpiry,
+      internal.weeklyGoals.getActiveGoalsWithEndDate,
       {}
     );
 

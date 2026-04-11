@@ -146,3 +146,6 @@ export const FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Expire editing weekly goals after 7 days */
 export const WEEKLY_GOAL_EDITING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Keep expired weekly goals visible for 48 hours before deleting them */
+export const GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;

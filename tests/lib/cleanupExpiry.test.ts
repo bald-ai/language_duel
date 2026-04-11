@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isCreatedAtExpired, isGoalPastExpiry } from "@/lib/cleanupExpiry";
+import {
+  isCreatedAtExpired,
+  isGoalPastEndDate,
+  isGoalPastGracePeriod,
+} from "@/lib/cleanupExpiry";
 
 describe("cleanupExpiry", () => {
   describe("isCreatedAtExpired", () => {
@@ -28,17 +32,35 @@ describe("cleanupExpiry", () => {
     });
   });
 
-  describe("isGoalPastExpiry", () => {
-    it("returns false when expiresAt is undefined", () => {
-      expect(isGoalPastExpiry(undefined, 1_000_000)).toBe(false);
+  describe("isGoalPastEndDate", () => {
+    it("returns false when endDate is undefined", () => {
+      expect(isGoalPastEndDate(undefined, 1_000_000)).toBe(false);
     });
 
-    it("returns false when expiresAt equals now", () => {
-      expect(isGoalPastExpiry(1_000_000, 1_000_000)).toBe(false);
+    it("returns false when endDate equals now", () => {
+      expect(isGoalPastEndDate(1_000_000, 1_000_000)).toBe(false);
     });
 
-    it("returns true when expiresAt is in the past", () => {
-      expect(isGoalPastExpiry(999_999, 1_000_000)).toBe(true);
+    it("returns true when endDate is in the past", () => {
+      expect(isGoalPastEndDate(999_999, 1_000_000)).toBe(true);
+    });
+  });
+
+  describe("isGoalPastGracePeriod", () => {
+    it("returns false when endDate is undefined", () => {
+      expect(isGoalPastGracePeriod(undefined, 1_000_000, 60_000)).toBe(false);
+    });
+
+    it("returns false before the grace boundary", () => {
+      expect(isGoalPastGracePeriod(950_001, 1_000_000, 50_000)).toBe(false);
+    });
+
+    it("returns false at the grace boundary", () => {
+      expect(isGoalPastGracePeriod(950_000, 1_000_000, 50_000)).toBe(false);
+    });
+
+    it("returns true after the grace boundary", () => {
+      expect(isGoalPastGracePeriod(949_999, 1_000_000, 50_000)).toBe(true);
     });
   });
 });

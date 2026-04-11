@@ -7,7 +7,6 @@ import {
   summarizeThemeNames,
   summarizeThemes,
   type SessionThemeInput,
-  type SessionWordEntry,
 } from "@/lib/sessionWords";
 
 const themeId = (id: string) => id as Id<"themes">;

@@ -15,7 +15,8 @@ import { GoalThemeList } from "./components/GoalThemeList";
 import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
 import { PlanSwitcher } from "./components/PlanSwitcher";
-import { MAX_THEMES_PER_GOAL } from "./constants";
+import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
+import { getMiniBossUnlockThreshold } from "@/lib/weeklyGoals";
 
 // Local storage key for remembering last viewed plan
 const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
@@ -31,12 +32,59 @@ function formatDate(timestamp: number): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function formatDateInputValue(timestamp: number | undefined): string {
+  if (typeof timestamp !== "number") return "";
+
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toLocalEndOfDayTimestamp(dateValue: string): number | null {
+  if (!dateValue) return null;
+
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if ([year, month, day].some((value) => Number.isNaN(value))) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+}
+
+function formatGoalStatus(status: "editing" | "active" | "expired" | "completed"): string {
+  switch (status) {
+    case "editing":
+      return "Planning";
+    case "active":
+      return "Active";
+    case "expired":
+      return "Expired";
+    case "completed":
+      return "Completed";
+  }
+}
+
+function formatBossStatus(status: "locked" | "available" | "completed"): string {
+  switch (status) {
+    case "locked":
+      return "Locked";
+    case "available":
+      return "Ready";
+    case "completed":
+      return "Done";
+  }
+}
+
 export default function GoalsPage() {
   const router = useRouter();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<Id<"users"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showCreationFlow, setShowCreationFlow] = useState(false);
+  const [endDateInput, setEndDateInput] = useState("");
+  const [isSavingEndDate, setIsSavingEndDate] = useState(false);
 
   // All plans state
   const [selectedPlanId, setSelectedPlanId] = useState<Id<"weeklyGoals"> | null>(null);
@@ -56,9 +104,9 @@ export default function GoalsPage() {
   const removeTheme = useMutation(api.weeklyGoals.removeTheme);
   const toggleCompletion = useMutation(api.weeklyGoals.toggleCompletion);
   const lockGoal = useMutation(api.weeklyGoals.lockGoal);
-  const completeGoal = useMutation(api.weeklyGoals.completeGoal);
   const deleteGoal = useMutation(api.weeklyGoals.deleteGoal);
   const purgeExpiredGoals = useMutation(api.weeklyGoals.purgeExpiredGoalsForUser);
+  const setGoalEndDate = useMutation(api.weeklyGoals.setGoalEndDate);
 
   // Initial selection and periodic expiry cleanup
   useEffect(() => {
@@ -84,6 +132,10 @@ export default function GoalsPage() {
       localStorage.setItem(LAST_PLAN_KEY, selectedPlanId);
     }
   }, [selectedPlanId]);
+
+  useEffect(() => {
+    setEndDateInput(formatDateInputValue(selectedPlan?.goal?.endDate));
+  }, [selectedPlan?.goal?.endDate, selectedPlan?.goal?._id]);
 
   // Ensure a valid plan is always selected when plans exist
   useEffect(() => {
@@ -181,24 +233,21 @@ export default function GoalsPage() {
 
   const handleLock = async () => {
     if (!selectedPlan?.goal) return;
+
+    if (selectedPlan.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) {
+      toast.error(`Add at least ${MIN_THEMES_TO_LOCK_GOAL} themes before locking.`);
+      return;
+    }
+    if (typeof selectedPlan.goal.endDate !== "number") {
+      toast.error("Pick an end date before locking.");
+      return;
+    }
+
     try {
       await lockGoal({ goalId: selectedPlan.goal._id });
-      // Query will auto-refresh
       toast.success("Goal locked!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to lock goal");
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!selectedPlan?.goal) return;
-    try {
-      await completeGoal({ goalId: selectedPlan.goal._id });
-      setSelectedPlanId(null);
-      // Query will auto-refresh
-      toast.success("Goal completed! Create a new one.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to complete goal");
     }
   };
 
@@ -211,6 +260,25 @@ export default function GoalsPage() {
       toast.success("Goal deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete goal");
+    }
+  };
+
+  const handleSaveEndDate = async (dateValue: string) => {
+    if (!selectedPlan?.goal) return;
+
+    const timestamp = toLocalEndOfDayTimestamp(dateValue);
+    if (timestamp == null) return;
+
+    setIsSavingEndDate(true);
+    try {
+      await setGoalEndDate({
+        goalId: selectedPlan.goal._id,
+        endDate: timestamp,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save end date");
+    } finally {
+      setIsSavingEndDate(false);
     }
   };
 
@@ -243,27 +311,32 @@ export default function GoalsPage() {
   // Determine current state
   const hasPlans = allPlans.length > 0;
   const hasPlanSelected = selectedPlan != null; // handles both null and undefined
-  const isEditing = hasPlanSelected && selectedPlan.goal.status === "editing";
-  const isActive = hasPlanSelected && selectedPlan.goal.status === "active";
-  const canAddThemes = isEditing && hasPlanSelected && selectedPlan.goal.themes.length < MAX_THEMES_PER_GOAL;
-  const viewerLocked = hasPlanSelected && (
-    (selectedPlan.viewerRole === "creator" && selectedPlan.goal.creatorLocked) ||
-    (selectedPlan.viewerRole === "partner" && selectedPlan.goal.partnerLocked)
-  );
-  const partnerLocked = hasPlanSelected && (
-    (selectedPlan.viewerRole === "creator" && selectedPlan.goal.partnerLocked) ||
-    (selectedPlan.viewerRole === "partner" && selectedPlan.goal.creatorLocked)
-  );
-
-  // Check if all themes are completed by both users
-  const allCompleted =
+  const effectiveStatus = selectedPlan?.effectiveStatus;
+  const isEditing = effectiveStatus === "editing";
+  const isActive = effectiveStatus === "active";
+  const isExpired = effectiveStatus === "expired";
+  const canAddThemes =
+    isEditing &&
     hasPlanSelected &&
-    selectedPlan.goal.themes.length > 0 &&
-    selectedPlan.goal.themes.every((t) => t.creatorCompleted && t.partnerCompleted);
-
-  // Date range display - only show for active goals with real dates
-  const startDate = selectedPlan?.goal?.lockedAt ? formatDate(selectedPlan.goal.lockedAt) : null;
-  const endDate = selectedPlan?.goal?.expiresAt ? formatDate(selectedPlan.goal.expiresAt) : null;
+    selectedPlan.goal.themes.length < MAX_THEMES_PER_GOAL;
+  const viewerLocked =
+    hasPlanSelected &&
+    ((selectedPlan.viewerRole === "creator" && selectedPlan.goal.creatorLocked) ||
+      (selectedPlan.viewerRole === "partner" && selectedPlan.goal.partnerLocked));
+  const partnerLocked =
+    hasPlanSelected &&
+    ((selectedPlan.viewerRole === "creator" && selectedPlan.goal.partnerLocked) ||
+      (selectedPlan.viewerRole === "partner" && selectedPlan.goal.creatorLocked));
+  const hasEnoughThemesToLock =
+    hasPlanSelected && selectedPlan.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
+  const hasEndDate = hasPlanSelected && typeof selectedPlan.goal.endDate === "number";
+  const canEditEndDate = Boolean(selectedPlan?.canEditEndDate);
+  const startDate = selectedPlan?.goal?.lockedAt
+    ? formatDate(selectedPlan.goal.lockedAt)
+    : null;
+  const endDate = selectedPlan?.goal?.endDate
+    ? formatDate(selectedPlan.goal.endDate)
+    : null;
 
   return (
     <ThemedPage className="px-4 py-6">
@@ -328,7 +401,7 @@ export default function GoalsPage() {
                 Create a Weekly Goal
               </h2>
               <p style={{ color: colors.text.muted }} className="text-sm">
-                Pick a partner and select themes to practice together for a week
+                Pick a partner, choose themes, and set a finish date for your shared plan
               </p>
             </div>
 
@@ -414,10 +487,14 @@ export default function GoalsPage() {
                     className="text-sm font-bold"
                     style={{ color: colors.text.DEFAULT }}
                   >
-                    {startDate && endDate ? `${startDate} to ${endDate}` : "Planning Phase"}
+                    {startDate && endDate
+                      ? `${startDate} to ${endDate}`
+                      : endDate
+                        ? `Ends ${endDate}`
+                        : "Planning Phase"}
                   </p>
                   <p className="text-xs" style={{ color: colors.text.muted }}>
-                    {isEditing ? "Not started yet" : "Active"}
+                    {formatGoalStatus(selectedPlan.effectiveStatus)}
                   </p>
                 </div>
 
@@ -449,11 +526,166 @@ export default function GoalsPage() {
               </div>
             </section>
 
+            <section
+              className="rounded-2xl border-2 p-4 space-y-4"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p
+                    className="text-sm font-bold uppercase tracking-wide"
+                    style={{ color: colors.text.DEFAULT }}
+                  >
+                    Goal Timing
+                  </p>
+                  <p className="text-sm" style={{ color: colors.text.muted }}>
+                    Pick an end date. The mini boss checkpoint is calculated automatically.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                    Midpoint
+                  </p>
+                  <p className="text-sm font-semibold" style={{ color: colors.text.DEFAULT }}>
+                    {selectedPlan.midpointAt
+                      ? `${isEditing ? "~" : ""}${formatDate(selectedPlan.midpointAt)}`
+                      : "Pick an end date"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label>
+                  <span className="sr-only">End date</span>
+                  <input
+                    type="date"
+                    value={endDateInput}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setEndDateInput(value);
+                      if (value && value !== formatDateInputValue(selectedPlan.goal.endDate)) {
+                        void handleSaveEndDate(value);
+                      }
+                    }}
+                    disabled={!canEditEndDate || isSavingEndDate}
+                    className="w-full rounded-xl border-2 px-3 py-3 disabled:opacity-60"
+                    style={{
+                      backgroundColor: colors.background.DEFAULT,
+                      borderColor: colors.primary.dark,
+                      color: colors.text.DEFAULT,
+                    }}
+                    data-testid="goals-end-date-input"
+                  />
+                </label>
+              </div>
+
+              {!canEditEndDate && (
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  {isExpired
+                    ? "This goal has expired. It will stay visible for the 48-hour grace window."
+                    : "This end date is now read-only."}
+                </p>
+              )}
+            </section>
+
+            <section
+              className="rounded-2xl border-2 p-4 space-y-3"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <p
+                  className="text-sm font-bold uppercase tracking-wide"
+                  style={{ color: colors.text.DEFAULT }}
+                >
+                  Boss Progress
+                </p>
+                <p className="text-sm" style={{ color: colors.text.muted }}>
+                  Shared themes: {selectedPlan.completedThemeCount}/{selectedPlan.goal.themes.length}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (selectedPlan.miniBossStatus === "available") {
+                      toast.info("Mini boss launch coming in the next update!");
+                    }
+                  }}
+                  disabled={selectedPlan.miniBossStatus !== "available"}
+                  className="flex-1 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:opacity-60"
+                  style={{
+                    borderColor: selectedPlan.miniBossStatus === "available"
+                      ? colors.cta.DEFAULT
+                      : colors.primary.dark,
+                    backgroundColor: selectedPlan.miniBossStatus === "available"
+                      ? `${colors.cta.DEFAULT}15`
+                      : colors.background.DEFAULT,
+                  }}
+                  data-testid="goals-mini-boss-trigger"
+                >
+                  <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                    Mini Boss
+                  </p>
+                  <p className="font-semibold" style={{ color: colors.text.DEFAULT }}>
+                    {formatBossStatus(selectedPlan.miniBossStatus)}
+                  </p>
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedPlan.bossStatus === "available") {
+                      toast.info("Big boss launch coming in the next update!");
+                    }
+                  }}
+                  disabled={selectedPlan.bossStatus !== "available"}
+                  className="flex-1 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:opacity-60"
+                  style={{
+                    borderColor: selectedPlan.bossStatus === "available"
+                      ? colors.cta.DEFAULT
+                      : colors.primary.dark,
+                    backgroundColor: selectedPlan.bossStatus === "available"
+                      ? `${colors.cta.DEFAULT}15`
+                      : colors.background.DEFAULT,
+                  }}
+                  data-testid="goals-big-boss-trigger"
+                >
+                  <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                    Big Boss
+                  </p>
+                  <p className="font-semibold" style={{ color: colors.text.DEFAULT }}>
+                    {formatBossStatus(selectedPlan.bossStatus)}
+                  </p>
+                </button>
+              </div>
+              {!isEditing && selectedPlan.miniBossStatus === "locked" && (
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  Mini boss unlocks at the midpoint{selectedPlan.midpointAt ? ` (${formatDate(selectedPlan.midpointAt)})` : ""} or when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
+                </p>
+              )}
+              {!isEditing && selectedPlan.miniBossStatus !== "locked" && selectedPlan.bossStatus === "locked" && (
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  {selectedPlan.miniBossStatus === "available"
+                    ? "Tap Mini Boss to start! Complete it to unlock the big boss."
+                    : "Complete all themes to unlock the big boss."}
+                </p>
+              )}
+              {isEditing && (
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  Lock the goal with at least {MIN_THEMES_TO_LOCK_GOAL} themes and an end date to start boss tracking.
+                </p>
+              )}
+            </section>
+
             {/* Theme List */}
             <GoalThemeList
               themes={selectedPlan.goal.themes}
               viewerRole={selectedPlan.viewerRole}
               isEditing={isEditing}
+              canToggle={isActive}
               onToggle={handleToggleCompletion}
               onRemove={handleRemoveTheme}
             />
@@ -486,10 +718,19 @@ export default function GoalsPage() {
 
             {/* Lock Button (only in editing mode, if user hasn't locked) */}
             {isEditing && !viewerLocked && (
-              <LockButton
-                partnerLocked={partnerLocked}
-                onLock={handleLock}
-              />
+              <>
+                <LockButton
+                  partnerLocked={partnerLocked}
+                  onLock={handleLock}
+                />
+                {(!hasEnoughThemesToLock || !hasEndDate) && (
+                  <p className="text-center text-sm" style={{ color: colors.text.muted }}>
+                    {!hasEnoughThemesToLock
+                      ? `Add at least ${MIN_THEMES_TO_LOCK_GOAL} themes before locking.`
+                      : "Choose an end date before locking."}
+                  </p>
+                )}
+              </>
             )}
 
             {/* Delete Button (only in editing mode, if user hasn't locked) */}
@@ -512,20 +753,21 @@ export default function GoalsPage() {
               </div>
             )}
 
-            {/* Complete Goal Button (when all checked or expired) */}
-            {isActive && allCompleted && (
-              <button
-                onClick={handleComplete}
-                className="w-full py-3 rounded-xl font-bold uppercase tracking-wider transition-colors"
+            {isExpired && (
+              <div
+                className="text-center py-4 rounded-xl border-2"
                 style={{
-                  backgroundColor: colors.primary.DEFAULT,
-                  color: "white",
-                  textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.status.warning.DEFAULT,
                 }}
-                data-testid="goals-complete"
               >
-                Complete Goal
-              </button>
+                <p style={{ color: colors.text.DEFAULT }}>
+                  This goal expired before the big boss was defeated.
+                </p>
+                <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
+                  It will be removed automatically after the 48-hour grace window.
+                </p>
+              </div>
             )}
           </>
         )}

@@ -10,12 +10,26 @@ import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth
 import { loadUsersById } from "./helpers/users";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
-import { WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
-import { isCreatedAtExpired, isGoalPastExpiry } from "../lib/cleanupExpiry";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
+import {
+  isCreatedAtExpired,
+  isGoalPastEndDate,
+  isGoalPastGracePeriod,
+} from "../lib/cleanupExpiry";
+import {
+  canEditGoalEndDate,
+  countCompletedThemes,
+  getEffectiveBossStatus,
+  getEffectiveGoalStatus,
+  getEffectiveMiniBossStatus,
+  getGoalMidpointAt,
+  MIN_THEMES_PER_GOAL,
+  type WeeklyGoalBossStatus,
+  type WeeklyGoalLifecycleStatus,
+} from "../lib/weeklyGoals";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 5;
-const GOAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 async function dismissGoalNotifications(
   ctx: MutationCtx,
@@ -155,6 +169,12 @@ export interface GoalWithUsers {
   creator: { _id: Id<"users">; nickname?: string; email: string } | null;
   partner: { _id: Id<"users">; nickname?: string; email: string } | null;
   viewerRole: GoalRole;
+  effectiveStatus: WeeklyGoalLifecycleStatus;
+  miniBossStatus: WeeklyGoalBossStatus;
+  bossStatus: WeeklyGoalBossStatus;
+  midpointAt: number | null;
+  completedThemeCount: number;
+  canEditEndDate: boolean;
 }
 
 type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
@@ -164,11 +184,50 @@ const toUserSummary = (user: Doc<"users"> | null): UserSummary | null => {
   return { _id: user._id, nickname: user.nickname, email: user.email };
 };
 
-function filterNonExpiredGoals(
-  goals: Doc<"weeklyGoals">[],
+function shouldIncludeGoal(
+  goal: Doc<"weeklyGoals">,
   now: number
-): Doc<"weeklyGoals">[] {
-  return goals.filter((goal) => !goal.expiresAt || goal.expiresAt >= now);
+): boolean {
+  const effectiveStatus = getEffectiveGoalStatus(goal, now);
+
+  if (effectiveStatus === "completed") {
+    return false;
+  }
+
+  if (effectiveStatus === "editing") {
+    return true;
+  }
+
+  return !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS);
+}
+
+function buildGoalWithUsers(
+  goal: Doc<"weeklyGoals">,
+  usersById: Map<Id<"users">, Doc<"users"> | null>,
+  viewerRole: GoalRole,
+  now: number
+): GoalWithUsers {
+  const miniBossStatus = getEffectiveMiniBossStatus(goal, now);
+  const bossStatus = getEffectiveBossStatus(goal, now, miniBossStatus);
+
+  return {
+    goal,
+    creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
+    partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
+    viewerRole,
+    effectiveStatus: getEffectiveGoalStatus(goal, now),
+    miniBossStatus,
+    bossStatus,
+    midpointAt: getGoalMidpointAt(goal.lockedAt ?? now, goal.endDate),
+    completedThemeCount: countCompletedThemes(goal.themes),
+    canEditEndDate: canEditGoalEndDate(goal, now),
+  };
+}
+
+function validateEndDateTimestamp(endDate: number): void {
+  if (!Number.isFinite(endDate)) {
+    throw new Error("Invalid end date");
+  }
 }
 
 /**
@@ -195,7 +254,7 @@ function sortGoalsByRecency(goals: GoalWithUsers[]): GoalWithUsers[] {
 // =============================================================================
 
 /**
- * Get all the user's active or editing goals.
+ * Get all weekly goals that should still be visible to the current user.
  * Returns an array of goals where the user is either creator or partner.
  */
 export const getAllActiveGoals = query({
@@ -215,11 +274,14 @@ export const getAllActiveGoals = query({
       .filter((q) =>
         q.or(
           q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("status"), "expired")
         )
       )
       .collect();
-    const activeGoalsAsCreator = filterNonExpiredGoals(goalsAsCreator, now);
+    const visibleGoalsAsCreator = goalsAsCreator.filter((goal) =>
+      shouldIncludeGoal(goal, now)
+    );
 
     // Get all goals where user is partner
     const goalsAsPartner = await ctx.db
@@ -228,32 +290,28 @@ export const getAllActiveGoals = query({
       .filter((q) =>
         q.or(
           q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active")
+          q.eq(q.field("status"), "active"),
+          q.eq(q.field("status"), "expired")
         )
       )
       .collect();
-    const activeGoalsAsPartner = filterNonExpiredGoals(goalsAsPartner, now);
+    const visibleGoalsAsPartner = goalsAsPartner.filter((goal) =>
+      shouldIncludeGoal(goal, now)
+    );
 
-    const allActiveGoals = [...activeGoalsAsCreator, ...activeGoalsAsPartner];
-    const participantIds = allActiveGoals.flatMap((goal) => [goal.creatorId, goal.partnerId]);
+    const allVisibleGoals = [...visibleGoalsAsCreator, ...visibleGoalsAsPartner];
+    const participantIds = allVisibleGoals.flatMap((goal) => [
+      goal.creatorId,
+      goal.partnerId,
+    ]);
     const usersById = await loadUsersById(ctx, participantIds);
 
-    for (const goal of activeGoalsAsCreator) {
-      results.push({
-        goal,
-        creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
-        partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
-        viewerRole: "creator",
-      });
+    for (const goal of visibleGoalsAsCreator) {
+      results.push(buildGoalWithUsers(goal, usersById, "creator", now));
     }
 
-    for (const goal of activeGoalsAsPartner) {
-      results.push({
-        goal,
-        creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
-        partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
-        viewerRole: "partner",
-      });
+    for (const goal of visibleGoalsAsPartner) {
+      results.push(buildGoalWithUsers(goal, usersById, "partner", now));
     }
 
     // Sort results for consistent ordering: lockedAt desc, then createdAt desc
@@ -282,25 +340,12 @@ export const getGoalById = query({
     const isPartner = goal.partnerId === userId;
     if (!isCreator && !isPartner) return null;
 
-    // Check if goal is expired (return null, but don't delete - that's done via mutation)
-    if (goal.expiresAt && goal.expiresAt < now) {
+    if (!shouldIncludeGoal(goal, now)) {
       return null;
     }
 
-    // Only return active or editing goals
-    if (goal.status !== "active" && goal.status !== "editing") return null;
-
-    const [creator, partner] = await Promise.all([
-      ctx.db.get(goal.creatorId),
-      ctx.db.get(goal.partnerId),
-    ]);
-
-    return {
-      goal,
-      creator: toUserSummary(creator),
-      partner: toUserSummary(partner),
-      viewerRole: isCreator ? "creator" : "partner",
-    };
+    const usersById = await loadUsersById(ctx, [goal.creatorId, goal.partnerId]);
+    return buildGoalWithUsers(goal, usersById, isCreator ? "creator" : "partner", now);
   },
 });
 
@@ -310,13 +355,14 @@ export const getGoalById = query({
  */
 export const purgeExpiredGoalsForUser = mutation({
   args: {},
-  handler: async (ctx): Promise<{ deletedCount: number }> => {
+  handler: async (ctx): Promise<{ deletedCount: number; expiredCount: number }> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return { deletedCount: 0 };
+    if (!auth) return { deletedCount: 0, expiredCount: 0 };
 
     const userId = auth.user._id;
     const now = Date.now();
     let deletedCount = 0;
+    let expiredCount = 0;
 
     // Get all goals where user is creator
     const goalsAsCreator = await ctx.db
@@ -339,16 +385,23 @@ export const purgeExpiredGoalsForUser = mutation({
       return true;
     });
 
-    // Delete expired goals and dismiss their notifications
+    // Sync expired goals and delete anything past the grace window.
     for (const goal of uniqueGoals) {
-      if (goal.expiresAt && goal.expiresAt < now) {
+      const effectiveStatus = getEffectiveGoalStatus(goal, now);
+
+      if (effectiveStatus === "expired" && goal.status !== "expired") {
+        await ctx.db.patch(goal._id, { status: "expired" });
+        expiredCount++;
+      }
+
+      if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
         await dismissGoalNotifications(ctx, goal._id);
         await ctx.db.delete(goal._id);
         deletedCount++;
       }
     }
 
-    return { deletedCount };
+    return { deletedCount, expiredCount };
   },
 });
 
@@ -441,7 +494,9 @@ export const createGoal = mutation({
         )
       )
       .collect();
-    const activeUserAsCreator = filterNonExpiredGoals(existingGoalUserAsCreator, now);
+    const activeUserAsCreator = existingGoalUserAsCreator.filter((goal) =>
+      shouldIncludeGoal(goal, now)
+    );
 
     if (activeUserAsCreator.length > 0) {
       throw new Error("You already have an active goal with this partner");
@@ -461,7 +516,9 @@ export const createGoal = mutation({
         )
       )
       .collect();
-    const activeUserAsPartner = filterNonExpiredGoals(existingGoalUserAsPartner, now);
+    const activeUserAsPartner = existingGoalUserAsPartner.filter((goal) =>
+      shouldIncludeGoal(goal, now)
+    );
 
     if (activeUserAsPartner.length > 0) {
       throw new Error("You already have an active goal with this partner");
@@ -474,6 +531,8 @@ export const createGoal = mutation({
       themes: [],
       creatorLocked: false,
       partnerLocked: false,
+      miniBossStatus: "locked",
+      bossStatus: "locked",
       status: "editing",
       createdAt: now,
     });
@@ -598,6 +657,43 @@ export const removeTheme = mutation({
 });
 
 /**
+ * Set or update the goal end date.
+ */
+export const setGoalEndDate = mutation({
+  args: {
+    goalId: v.id("weeklyGoals"),
+    endDate: v.number(),
+  },
+  handler: async (ctx, { goalId, endDate }) => {
+    const { user } = await getAuthenticatedUser(ctx);
+    const goal = await ctx.db.get(goalId);
+
+    if (!goal) throw new Error("Goal not found");
+
+    const isCreator = goal.creatorId === user._id;
+    const isPartner = goal.partnerId === user._id;
+    if (!isCreator && !isPartner) throw new Error("Not authorized");
+
+    validateEndDateTimestamp(endDate);
+
+    const now = Date.now();
+    if (endDate <= now) {
+      throw new Error("End date must be in the future");
+    }
+
+    if (!canEditGoalEndDate(goal, now)) {
+      throw new Error("End date can no longer be changed");
+    }
+
+    if (goal.lockedAt && endDate <= goal.lockedAt) {
+      throw new Error("End date must be after the start date");
+    }
+
+    await ctx.db.patch(goalId, { endDate });
+  },
+});
+
+/**
  * Toggle completion status for a theme.
  */
 export const toggleCompletion = mutation({
@@ -665,6 +761,14 @@ export const lockGoal = mutation({
     if (isPartner && goal.partnerLocked)
       throw new Error("You already locked this goal");
 
+    if (goal.themes.length < MIN_THEMES_PER_GOAL) {
+      throw new Error(`Add at least ${MIN_THEMES_PER_GOAL} themes before locking`);
+    }
+
+    if (typeof goal.endDate !== "number") {
+      throw new Error("Choose an end date before locking");
+    }
+
     // Update lock status
     const updates: Partial<Doc<"weeklyGoals">> = isCreator
       ? { creatorLocked: true }
@@ -677,11 +781,14 @@ export const lockGoal = mutation({
 
     const now = Date.now();
 
+    if (goal.endDate <= now) {
+      throw new Error("End date must be in the future");
+    }
+
     if (bothLocked) {
       // Both are now locked - activate the goal
       updates.status = "active";
       updates.lockedAt = now;
-      updates.expiresAt = now + GOAL_DURATION_MS;
 
       // Notify the other user (the one who locked first) in the UI.
       await upsertWeeklyPlanNotificationForGoal(ctx, {
@@ -759,8 +866,7 @@ export const deleteGoal = mutation({
 });
 
 /**
- * Complete and delete a goal.
- * Called when all themes are checked or when time expires.
+ * Mark a goal as completed once the big boss has been defeated.
  */
 export const completeGoal = mutation({
   args: {
@@ -777,8 +883,11 @@ export const completeGoal = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    await dismissGoalNotifications(ctx, goalId);
-    await ctx.db.delete(goalId);
+    if (goal.bossStatus !== "completed") {
+      throw new Error("The big boss must be completed first");
+    }
+
+    await ctx.db.patch(goalId, { status: "completed" });
   },
 });
 
@@ -800,8 +909,14 @@ export const cleanupExpiredGoal = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Only delete if expired
-    if (goal.expiresAt && goal.expiresAt < Date.now()) {
+    const now = Date.now();
+
+    if (getEffectiveGoalStatus(goal, now) === "expired" && goal.status !== "expired") {
+      await ctx.db.patch(goalId, { status: "expired" });
+      return;
+    }
+
+    if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
       await dismissGoalNotifications(ctx, goalId);
       await ctx.db.delete(goalId);
     }
@@ -809,14 +924,14 @@ export const cleanupExpiredGoal = mutation({
 });
 
 // Internal query for reminder crons
-export const getActiveGoalsWithExpiry = internalQuery({
+export const getActiveGoalsWithEndDate = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     return await ctx.db
       .query("weeklyGoals")
-      .withIndex("by_status_expiresAt", (q) =>
-        q.eq("status", "active").gt("expiresAt", now)
+      .withIndex("by_status_endDate", (q) =>
+        q.eq("status", "active").gt("endDate", now)
       )
       .collect();
   },
@@ -824,7 +939,8 @@ export const getActiveGoalsWithExpiry = internalQuery({
 
 /**
  * Internal cron cleanup for expired weekly goals.
- * - Active goals expire by expiresAt.
+ * - Active goals move to expired once endDate passes.
+ * - Expired goals are deleted after a 48 hour grace period.
  * - Editing goals expire by createdAt + TTL.
  */
 export const cleanupExpiredGoals = internalMutation({
@@ -833,10 +949,17 @@ export const cleanupExpiredGoals = internalMutation({
     const now = Date.now();
     const editingCutoff = now - WEEKLY_GOAL_EDITING_TTL_MS;
 
-    const expiredActiveGoals = await ctx.db
+    const activeGoalsPastEndDate = await ctx.db
       .query("weeklyGoals")
-      .withIndex("by_status_expiresAt", (q) =>
-        q.eq("status", "active").lt("expiresAt", now)
+      .withIndex("by_status_endDate", (q) =>
+        q.eq("status", "active").lt("endDate", now)
+      )
+      .collect();
+
+    const expiredGoalsPastGrace = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_endDate", (q) =>
+        q.eq("status", "expired").lt("endDate", now - GRACE_PERIOD_MS)
       )
       .collect();
 
@@ -848,17 +971,37 @@ export const cleanupExpiredGoals = internalMutation({
       .collect();
 
     const goalsToDelete = [
-      ...expiredActiveGoals.filter((goal) => isGoalPastExpiry(goal.expiresAt, now)),
+      ...activeGoalsPastEndDate.filter((goal) =>
+        isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
+      ),
+      ...expiredGoalsPastGrace,
       ...editingGoals.filter((goal) =>
         isCreatedAtExpired(goal.createdAt, now, WEEKLY_GOAL_EDITING_TTL_MS)
       ),
     ];
 
+    const goalsToExpire = activeGoalsPastEndDate.filter(
+      (goal) => !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
+    );
+
+    for (const goal of goalsToExpire) {
+      await ctx.db.patch(goal._id, { status: "expired" });
+    }
+
     if (goalsToDelete.length === 0) return;
+
+    // Deduplicate — a goal could appear in multiple query results.
+    const seen = new Set<string>();
+    const uniqueGoalsToDelete = goalsToDelete.filter((g) => {
+      const key = String(g._id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     const participantIdSet = new Set<Id<"users">>();
     const goalIds: Id<"weeklyGoals">[] = [];
-    for (const goal of goalsToDelete) {
+    for (const goal of uniqueGoalsToDelete) {
       goalIds.push(goal._id);
       participantIdSet.add(goal.creatorId);
       participantIdSet.add(goal.partnerId);
@@ -870,7 +1013,7 @@ export const cleanupExpiredGoals = internalMutation({
       goalIds
     );
 
-    for (const goal of goalsToDelete) {
+    for (const goal of uniqueGoalsToDelete) {
       await ctx.db.delete(goal._id);
     }
   },

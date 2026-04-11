@@ -120,6 +120,12 @@ const scheduledDuelStatusValidator = v.union(
   v.literal("declined")
 );
 
+const weeklyGoalBossStatusValidator = v.union(
+  v.literal("locked"),
+  v.literal("available"),
+  v.literal("completed")
+);
+
 export const notificationPayloadValidator = v.union(
   v.object({
     friendRequestId: v.id("friendRequests"),
@@ -362,10 +368,13 @@ export default defineSchema({
     creatorLocked: v.boolean(),
     partnerLocked: v.boolean(),
     lockedAt: v.optional(v.number()),
-    expiresAt: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    miniBossStatus: weeklyGoalBossStatusValidator,
+    bossStatus: weeklyGoalBossStatusValidator,
     status: v.union(
       v.literal("editing"),
       v.literal("active"),
+      v.literal("expired"),
       v.literal("completed")
     ),
     createdAt: v.number(),
@@ -374,7 +383,7 @@ export default defineSchema({
     .index("by_partner", ["partnerId"])
     .index("by_status", ["status"])
     .index("by_status_createdAt", ["status", "createdAt"])
-    .index("by_status_expiresAt", ["status", "expiresAt"]),
+    .index("by_status_endDate", ["status", "endDate"]),
 
   // -------------------------------------------
   // Notifications Table

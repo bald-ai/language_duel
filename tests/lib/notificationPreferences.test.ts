@@ -139,31 +139,37 @@ describe("notificationPreferences", () => {
 
     it("returns true when within reminder window", () => {
       const now = Date.now();
-      const goal = { expiresAt: now + 24 * HOUR, status: "active" };
+      const goal = { endDate: now + 24 * HOUR, status: "active", bossStatus: "locked" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(true);
     });
 
     it("returns false when too early for reminder", () => {
       const now = Date.now();
-      const goal = { expiresAt: now + 48 * HOUR, status: "active" };
+      const goal = { endDate: now + 48 * HOUR, status: "active", bossStatus: "locked" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when goal is not active", () => {
       const now = Date.now();
-      const goal = { expiresAt: now + 20 * HOUR, status: "editing" };
+      const goal = { endDate: now + 20 * HOUR, status: "editing", bossStatus: "locked" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
-    it("returns false when goal has no expiresAt", () => {
+    it("returns false when goal has no endDate", () => {
       const now = Date.now();
-      const goal = { status: "active" };
+      const goal = { status: "active", bossStatus: "locked" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when already expired", () => {
       const now = Date.now();
-      const goal = { expiresAt: now - 1 * HOUR, status: "active" };
+      const goal = { endDate: now - 1 * HOUR, status: "active", bossStatus: "locked" };
+      expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
+    });
+
+    it("returns false when the big boss is already completed", () => {
+      const now = Date.now();
+      const goal = { endDate: now + 24 * HOUR, status: "active", bossStatus: "completed" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
   });
