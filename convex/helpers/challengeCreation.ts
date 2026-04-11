@@ -14,7 +14,8 @@ export type ChallengeMode = "solo" | "classic";
 export interface BuildChallengeBaseArgs {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
-  themes: SessionThemeInput[];
+  themes?: SessionThemeInput[];
+  sessionWords?: SessionWordEntry[];
   createdAt: number;
   mode?: ChallengeMode;
   classicDifficultyPreset?: ClassicDifficultyPreset;
@@ -60,7 +61,13 @@ export function resolveClassicDifficultyPreset(
 
 export function buildChallengeBase(args: BuildChallengeBaseArgs): ChallengeBaseFields {
   const mode = resolveChallengeMode(args.mode);
-  const sessionWords = buildSessionWords(args.themes);
+  const sessionWords = args.sessionWords
+    ? [...args.sessionWords]
+    : buildSessionWords(args.themes ?? []);
+
+  if (sessionWords.length === 0) {
+    throw new Error("Challenge requires at least one session word");
+  }
 
   return {
     challengerId: args.challengerId,

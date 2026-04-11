@@ -28,7 +28,7 @@ interface NotificationData {
         mode?: string;
         isCounterProposal?: boolean;
         themeCount?: number;
-        event?: "invite" | "partner_locked" | "goal_activated";
+        event?: "invite" | "partner_locked" | "goal_activated" | "goal_completed";
         scheduledDuelStatus?: string;
         startedDuelId?: Id<"challenges">;
         proposerReady?: boolean;
@@ -240,6 +240,23 @@ export function NotificationItem({
                                     dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
                                 >
                                     Dismiss
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
+                if (payload?.event === "goal_completed") {
+                    return {
+                        icon: <CalendarIcon />,
+                        message: `You and ${userName} defeated the weekly goal. Nice work.`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onDismissWeeklyPlan}
+                                    variant="accept"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                >
+                                    Nice
                                 </ActionButton>
                             </div>
                         ),

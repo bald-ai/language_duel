@@ -115,7 +115,7 @@ Deliverables:
 - Plain-English unlock rules (backend and UI must use the same logic):
 
 **Mini Boss — when does it become available?**
-The mini boss starts locked. It becomes available when either of these is true: (a) the current date has reached or passed the midpoint date, or (b) at least `floor(total themes / 2)` themes are completed (both players checked off).
+The mini boss starts locked. It becomes available when `floor(total themes / 2)` themes are completed (both players checked off). The midpoint date is informational only — it does not unlock the mini boss by itself. This guarantees the mini boss always has completed themes to draw words from.
 
 **Big Boss — when does it become available?**
 The big boss starts locked. It becomes available when all three of these are true: (1) the mini boss has been completed, (2) all themes in the goal are completed (both players checked off on every theme), and (3) the current date has reached or passed the end date — or all themes are completed (the date gate is waived if themes are done early).
@@ -418,9 +418,10 @@ When a classic duel completes and has `weeklyGoalId` + `bossType`:
 
 #### Word sampling
 
-- Mini boss cap: 20 words.
-- Big boss cap: 30 words.
-- Words are sampled across all goal themes. If the merged pool is smaller than the cap, use all available words.
+- Mini boss draws from **completed themes only** (both players checked off). The unlock rule guarantees at least 1 completed theme.
+- Big boss draws from **all themes** in the goal.
+- Mini boss cap: 20 words. Big boss cap: 30 words.
+- If the pool is smaller than the cap, use all available words.
 - Sampling happens first from the eligible merged word pool. After that, `buildChallengeBase` shuffles the sampled boss word set into final play order.
 
 #### Breakpoint

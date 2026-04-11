@@ -34,6 +34,7 @@ import {
   SEED_XOR_MASK,
 } from "./constants";
 import { getChallengeSessionWords } from "./helpers/sessionWords";
+import { completeWeeklyGoalBoss } from "./weeklyGoals";
 
 // ===========================================
 // Helper: Clear hint state on question advance
@@ -90,6 +91,17 @@ async function advanceClassicDuelIfBothAnswered(
       questionStartTime: undefined,
       ...getHintClearFields(),
     });
+
+    if (duel.weeklyGoalId && duel.bossType) {
+      const goal = await ctx.db.get(duel.weeklyGoalId);
+      const wasPerfectRun =
+        duel.challengerPerfectRun === true &&
+        duel.opponentPerfectRun === true;
+
+      if (goal && wasPerfectRun) {
+        await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
+      }
+    }
     return;
   }
 
@@ -179,6 +191,9 @@ export const answerDuel = mutation({
           challengerScore: newMyScore,
           opponentScore: otherScore + hintBonus,
           challengerLastAnswer: selectedAnswer,
+          ...(duel.weeklyGoalId && duel.bossType && !isCorrect
+            ? { challengerPerfectRun: false }
+            : {}),
         });
       } else {
         await ctx.db.patch(duelId, {
@@ -186,6 +201,9 @@ export const answerDuel = mutation({
           opponentScore: newMyScore,
           challengerScore: otherScore + hintBonus,
           opponentLastAnswer: selectedAnswer,
+          ...(duel.weeklyGoalId && duel.bossType && !isCorrect
+            ? { opponentPerfectRun: false }
+            : {}),
         });
       }
     }
@@ -220,11 +238,17 @@ export const timeoutAnswer = mutation({
         await ctx.db.patch(duelId, {
           challengerAnswered: true,
           challengerLastAnswer: TIMEOUT_ANSWER,
+          ...(duel.weeklyGoalId && duel.bossType
+            ? { challengerPerfectRun: false }
+            : {}),
         });
       } else {
         await ctx.db.patch(duelId, {
           opponentAnswered: true,
           opponentLastAnswer: TIMEOUT_ANSWER,
+          ...(duel.weeklyGoalId && duel.bossType
+            ? { opponentPerfectRun: false }
+            : {}),
         });
       }
     }

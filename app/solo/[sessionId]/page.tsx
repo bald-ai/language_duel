@@ -62,6 +62,7 @@ export default function SoloChallengePage() {
   const searchParams = useSearchParams();
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
+  const challengeId = searchParams.get("challengeId");
   const confidenceParam = searchParams.get("confidence");
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
@@ -92,7 +93,11 @@ export default function SoloChallengePage() {
     }
   }, [confidenceParam]);
 
-  const allThemes = useQuery(api.themes.getThemes, {});
+  const practiceSession = useQuery(
+    api.weeklyGoals.getBossPracticeSession,
+    challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
+  );
+  const allThemes = useQuery(api.themes.getThemes, challengeId ? "skip" : {});
   const selectedThemes = useMemo(() => {
     if (!allThemes) return [];
     const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
@@ -103,12 +108,12 @@ export default function SoloChallengePage() {
       });
   }, [allThemes, requestedThemeIds]);
   const sessionWords = useMemo(
-    () => buildSessionWords(selectedThemes),
-    [selectedThemes]
+    () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
+    [practiceSession?.sessionWords, selectedThemes]
   );
   const themeSummary = useMemo(
-    () => summarizeThemes(selectedThemes),
-    [selectedThemes]
+    () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
+    [practiceSession?.themeSummary, selectedThemes]
   );
   const hasMultipleThemes = useMemo(
     () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
@@ -148,7 +153,7 @@ export default function SoloChallengePage() {
   };
 
   // Loading states
-  if (requestedThemeIds.length === 0) {
+  if (!challengeId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -187,7 +192,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (allThemes === undefined) {
+  if ((challengeId && practiceSession === undefined) || (!challengeId && allThemes === undefined)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -214,7 +219,39 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (selectedThemes.length !== requestedThemeIds.length) {
+  if (challengeId && practiceSession === null) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              This practice session is no longer available
+            </p>
+            <button
+              onClick={handleExit}
+              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      </ThemedPage>
+    );
+  }
+
+  if (!challengeId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">

@@ -613,7 +613,7 @@ export default function GoalsPage() {
                 <button
                   onClick={() => {
                     if (selectedPlan.miniBossStatus === "available") {
-                      toast.info("Mini boss launch coming in the next update!");
+                      router.push(`/boss/${selectedPlan.goal._id}/mini`);
                     }
                   }}
                   disabled={selectedPlan.miniBossStatus !== "available"}
@@ -638,7 +638,7 @@ export default function GoalsPage() {
                 <button
                   onClick={() => {
                     if (selectedPlan.bossStatus === "available") {
-                      toast.info("Big boss launch coming in the next update!");
+                      router.push(`/boss/${selectedPlan.goal._id}/big`);
                     }
                   }}
                   disabled={selectedPlan.bossStatus !== "available"}

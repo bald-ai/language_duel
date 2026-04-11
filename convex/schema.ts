@@ -35,6 +35,7 @@ const duelStatusValidator = v.union(
 );
 
 const duelModeValidator = v.union(v.literal("solo"), v.literal("classic"));
+const bossTypeValidator = v.union(v.literal("mini"), v.literal("big"));
 
 const classicDifficultyPresetValidator = v.union(
   v.literal("easy"),
@@ -137,7 +138,8 @@ export const notificationPayloadValidator = v.union(
       v.union(
         v.literal("invite"),
         v.literal("partner_locked"),
-        v.literal("goal_activated")
+        v.literal("goal_activated"),
+        v.literal("goal_completed")
       )
     ),
   }),
@@ -262,6 +264,8 @@ export default defineSchema({
     opponentId: v.id("users"),
     themeIds: v.array(v.id("themes")),
     sessionWords: v.array(sessionWordValidator),
+    weeklyGoalId: v.optional(v.id("weeklyGoals")),
+    bossType: v.optional(bossTypeValidator),
     status: duelStatusValidator,
     mode: v.optional(duelModeValidator),
     createdAt: v.number(),
@@ -273,6 +277,8 @@ export default defineSchema({
     opponentAnswered: v.boolean(),
     challengerScore: v.number(),
     opponentScore: v.number(),
+    challengerPerfectRun: v.optional(v.boolean()),
+    opponentPerfectRun: v.optional(v.boolean()),
     classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
 
     // === Classic Mode: Timer State ===
@@ -349,7 +355,8 @@ export default defineSchema({
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])
     .index("by_opponent_status", ["opponentId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_weeklyGoalId", ["weeklyGoalId"]),
 
   // -------------------------------------------
   // Weekly Goals Table

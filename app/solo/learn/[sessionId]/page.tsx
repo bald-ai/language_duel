@@ -104,6 +104,7 @@ export default function LearnPhasePage() {
   const sessionId = params.sessionId as string;
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
+  const challengeId = searchParams.get("challengeId");
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
       return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
@@ -111,8 +112,13 @@ export default function LearnPhasePage() {
     return themeId ? [themeId as Id<"themes">] : [];
   }, [themeId, themeIdsParam]);
   const themeIdsKey = useMemo(() => requestedThemeIds.join(","), [requestedThemeIds]);
+  const sessionSourceKey = challengeId ? `boss:${challengeId}` : themeIdsKey || "no-theme";
 
-  const allThemes = useQuery(api.themes.getThemes, {});
+  const practiceSession = useQuery(
+    api.weeklyGoals.getBossPracticeSession,
+    challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
+  );
+  const allThemes = useQuery(api.themes.getThemes, challengeId ? "skip" : {});
   const selectedThemes = useMemo(() => {
     if (!allThemes) return [];
     const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
@@ -122,8 +128,14 @@ export default function LearnPhasePage() {
         return theme ? [theme] : [];
       });
   }, [allThemes, requestedThemeIds]);
-  const sessionWords = useMemo(() => buildSessionWords(selectedThemes), [selectedThemes]);
-  const themeSummary = useMemo(() => summarizeThemes(selectedThemes), [selectedThemes]);
+  const sessionWords = useMemo(
+    () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
+    [practiceSession?.sessionWords, selectedThemes]
+  );
+  const themeSummary = useMemo(
+    () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
+    [practiceSession?.themeSummary, selectedThemes]
+  );
 
   // Timer state
   const [duration, setDuration] = useState(DEFAULT_DURATION);
@@ -157,7 +169,7 @@ export default function LearnPhasePage() {
     gap,
   });
 
-  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${themeIdsKey || "no-theme"}`;
+  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${sessionSourceKey}`;
 
   useEffect(() => {
     try {
@@ -244,13 +256,17 @@ export default function LearnPhasePage() {
   useEffect(() => {
     if (timeRemaining === 0 && isStarted) {
       const params = new URLSearchParams();
-      if (requestedThemeIds.length === 1) {
+      if (challengeId) {
+        params.set("challengeId", challengeId);
+      } else if (requestedThemeIds.length === 1) {
         params.set("themeId", requestedThemeIds[0]);
       }
-      params.set("themeIds", themeIdsKey);
+      if (!challengeId) {
+        params.set("themeIds", themeIdsKey);
+      }
       router.push(`/solo/${sessionId}?${params.toString()}`);
     }
-  }, [timeRemaining, isStarted, router, sessionId, requestedThemeIds, themeIdsKey]);
+  }, [timeRemaining, isStarted, router, sessionId, requestedThemeIds, themeIdsKey, challengeId]);
 
   // --- TTS ---
   const playWordTTS = useCallback(
@@ -264,17 +280,21 @@ export default function LearnPhasePage() {
   const handleSkip = useCallback(() => {
     const confidenceByWordIndex: Record<number, number> = {};
     sessionWords.forEach((_, wordIndex) => {
-      const wordKey = `${themeIdsKey}-${wordIndex}`;
+      const wordKey = `${sessionSourceKey}-${wordIndex}`;
       confidenceByWordIndex[wordIndex] = getConfidence(wordKey);
     });
 
     const urlParams = new URLSearchParams();
-    if (requestedThemeIds.length === 1) urlParams.set("themeId", requestedThemeIds[0]);
-    urlParams.set("themeIds", themeIdsKey);
+    if (challengeId) {
+      urlParams.set("challengeId", challengeId);
+    } else {
+      if (requestedThemeIds.length === 1) urlParams.set("themeId", requestedThemeIds[0]);
+      urlParams.set("themeIds", themeIdsKey);
+    }
     urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  }, [sessionWords, themeIdsKey, requestedThemeIds, getConfidence, router, sessionId]);
+  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, challengeId, themeIdsKey]);
 
   const handleExit = useCallback(() => router.push("/"), [router]);
 
@@ -287,7 +307,7 @@ export default function LearnPhasePage() {
   }, [timeRemaining, duration]);
 
   // --- Loading states ---
-  if (requestedThemeIds.length === 0) {
+  if (!challengeId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -322,7 +342,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (allThemes === undefined) {
+  if ((challengeId && practiceSession === undefined) || (!challengeId && allThemes === undefined)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -349,7 +369,35 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (selectedThemes.length !== requestedThemeIds.length) {
+  if (challengeId && practiceSession === null) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              This practice session is no longer available
+            </p>
+            <button
+              onClick={handleExit}
+              className={`${actionButtonClassName} mt-6`}
+              style={primaryActionStyle}
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      </ThemedPage>
+    );
+  }
+
+  if (!challengeId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -588,7 +636,7 @@ export default function LearnPhasePage() {
             )}
 
             {wordOrder.map((originalIndex, orderIdx) => {
-              const wordKey = `${themeIdsKey}-${originalIndex}`;
+              const wordKey = `${sessionSourceKey}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
 
@@ -598,7 +646,7 @@ export default function LearnPhasePage() {
                     originalIndex={originalIndex}
                     orderIdx={orderIdx}
                     word={sessionWords[originalIndex]}
-                    themeId={themeIdsKey}
+                    themeId={sessionSourceKey}
                     isRevealed={isRevealed}
                     hintState={state}
                     confidence={confidence}
@@ -634,7 +682,7 @@ export default function LearnPhasePage() {
             {(() => {
               const originalIndex = wordOrder[dragState.draggedIndex];
               const word = sessionWords[originalIndex];
-              const wordKey = `${themeIdsKey}-${originalIndex}`;
+              const wordKey = `${sessionSourceKey}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
               const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;

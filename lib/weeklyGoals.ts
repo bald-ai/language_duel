@@ -88,14 +88,12 @@ export function getEffectiveMiniBossStatus(
     return "locked";
   }
 
-  const midpointAt = getGoalMidpointAt(goal.lockedAt, goal.endDate);
   const completedThemeCount = countCompletedThemes(goal.themes);
   const unlockThreshold = getMiniBossUnlockThreshold(goal.themes.length);
-  const reachedMidpoint = typeof midpointAt === "number" && now >= midpointAt;
 
   if (
     goal.themes.length >= MIN_THEMES_PER_GOAL &&
-    (reachedMidpoint || completedThemeCount >= unlockThreshold)
+    completedThemeCount >= unlockThreshold
   ) {
     return "available";
   }
