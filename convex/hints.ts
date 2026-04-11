@@ -23,6 +23,7 @@ import {
   MAX_ELIMINATED_OPTIONS_L2,
   NONE_OF_THE_ABOVE,
 } from "./constants";
+import { getChallengeSessionWords } from "./helpers/sessionWords";
 
 const soloHintTypeValidator = v.union(
   v.literal("letters"),
@@ -135,16 +136,15 @@ export const eliminateOption = mutation({
     if (!duel.hintAccepted) throw new Error("Hint not accepted yet");
 
     // Verify the option is a wrong answer (not the correct one)
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
+    const sessionWords = getChallengeSessionWords(duel);
 
     const actualWordIndex = duel.wordOrder
       ? duel.wordOrder[duel.currentWordIndex]
       : duel.currentWordIndex;
-    const currentWord = theme.words[actualWordIndex];
+    const currentWord = sessionWords[actualWordIndex];
 
     // Check if this is a hard mode question
-    const wordCount = theme.words.length;
+    const wordCount = sessionWords.length;
     const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
     const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const isHardMode = isHardModeIndex(duel.currentWordIndex, distribution);
@@ -424,10 +424,8 @@ export const eliminateSoloHintL2Option = mutation({
     const wordIndex = duel.soloHintL2WordIndex;
     if (wordIndex === undefined) throw new Error("No word index for hint");
 
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    const currentWord = theme.words[wordIndex];
+    const sessionWords = getChallengeSessionWords(duel);
+    const currentWord = sessionWords[wordIndex];
     if (!currentWord) throw new Error("Word not found");
 
     if (option === currentWord.answer) throw new Error("Cannot eliminate the correct answer");

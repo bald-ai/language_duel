@@ -24,9 +24,11 @@ import type * as helpers_challengeCreation from "../helpers/challengeCreation.js
 import type * as helpers_duelInitialization from "../helpers/duelInitialization.js";
 import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
+import type * as helpers_sessionWords from "../helpers/sessionWords.js";
 import type * as helpers_users from "../helpers/users.js";
 import type * as hints from "../hints.js";
 import type * as lobby from "../lobby.js";
+import type * as migrations from "../migrations.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
 import type * as notifications from "../notifications.js";
@@ -60,9 +62,11 @@ declare const fullApi: ApiFromModules<{
   "helpers/duelInitialization": typeof helpers_duelInitialization;
   "helpers/gameLogic": typeof helpers_gameLogic;
   "helpers/index": typeof helpers_index;
+  "helpers/sessionWords": typeof helpers_sessionWords;
   "helpers/users": typeof helpers_users;
   hints: typeof hints;
   lobby: typeof lobby;
+  migrations: typeof migrations;
   notificationPayloads: typeof notificationPayloads;
   notificationPreferences: typeof notificationPreferences;
   notifications: typeof notifications;

@@ -26,11 +26,12 @@ import { useSabotageEffect } from "./hooks/useSabotageEffect";
 import { useClassicDuelAudio } from "./hooks/useClassicDuelAudio";
 import { ClassicDuelView, type FrozenData } from "./components/ClassicDuelView";
 import { colors } from "@/lib/theme";
+import type { SessionThemeInput } from "@/lib/sessionWords";
 
 // Props interface
 interface ClassicDuelChallengeProps {
   duel: Doc<"challenges">;
-  theme: Doc<"themes">;
+  theme: SessionThemeInput | null;
   challenger: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
@@ -99,8 +100,11 @@ export default function ClassicDuelChallenge({
 
   // Extract values
   const wordOrder = duel.wordOrder;
-  // Memoize words to avoid creating new array reference on every render
-  const words = useMemo(() => theme.words || [], [theme.words]);
+  // Prefer the session snapshot so multi-theme duels don't depend on live theme docs.
+  const words = useMemo(
+    () => (duel.sessionWords?.length ? duel.sessionWords : theme?.words || []),
+    [duel.sessionWords, theme?.words]
+  );
   const isCompleted = duel.status === "completed";
   const rawIndex = duel.currentWordIndex ?? 0;
   const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
@@ -124,6 +128,17 @@ export default function ClassicDuelChallenge({
     [words, actualWordIndex]
   );
   const word = currentWord.word;
+  const sourceThemeName = useMemo(() => {
+    const hasMultipleThemes =
+      new Set(words.map((sessionWord) => ("themeId" in sessionWord ? String(sessionWord.themeId) : "legacy"))).size > 1;
+    if (!hasMultipleThemes) return null;
+    const visibleWordIndex = frozenData
+      ? (wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex)
+      : actualWordIndex;
+    const visibleWord = words[visibleWordIndex];
+    const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
+    return typeof themeName === "string" ? themeName : null;
+  }, [words, frozenData, wordOrder, actualWordIndex]);
 
   // Calculate dynamic difficulty distribution
   const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
@@ -588,6 +603,7 @@ export default function ClassicDuelChallenge({
       wordsCount={words.length}
       index={index}
       word={word}
+      sourceThemeName={sourceThemeName}
       frozenData={frozenData}
       difficulty={difficultyForView}
       questionTimer={questionTimer}

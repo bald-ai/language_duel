@@ -54,6 +54,7 @@ export interface ClassicDuelViewProps {
   wordsCount: number;
   index: number;
   word: string;
+  sourceThemeName?: string | null;
   frozenData: FrozenData | null;
   difficulty: DifficultyPillData;
   questionTimer: number | null;
@@ -113,6 +114,7 @@ export function ClassicDuelView({
   wordsCount,
   index,
   word,
+  sourceThemeName,
   frozenData,
   difficulty,
   questionTimer,
@@ -330,8 +332,18 @@ export function ClassicDuelView({
           </div>
 
           {/* The word to translate */}
-          <div className="text-2xl md:text-3xl font-bold mb-4 text-center">
-            {displayWord}
+          <div className="text-center mb-4">
+            {sourceThemeName && (
+              <div
+                className="text-xs uppercase tracking-[0.25em] mb-2"
+                style={mutedTextStyle}
+              >
+                {sourceThemeName}
+              </div>
+            )}
+            <div className="text-2xl md:text-3xl font-bold">
+              {displayWord}
+            </div>
           </div>
 
           {/* Reversed indicator */}

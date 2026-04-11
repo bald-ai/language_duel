@@ -13,6 +13,8 @@ interface Word {
   answer: string;
   wrongAnswers: string[];
   ttsStorageId?: string;
+  themeId?: string;
+  themeName?: string;
 }
 
 interface WordState {
@@ -26,13 +28,13 @@ interface PlayerStats {
 
 interface UseSoloStyleGameParams {
   duel: Doc<"challenges">;
-  theme: Doc<"themes">;
+  words: Word[];
   viewerRole: "challenger" | "opponent";
 }
 
 export function useSoloStyleGame({
   duel,
-  theme,
+  words,
   viewerRole,
 }: UseSoloStyleGameParams) {
   const router = useRouter();
@@ -111,7 +113,7 @@ export function useSoloStyleGame({
   const theirCurrentLevel = isChallenger ? duel.opponentCurrentLevel : duel.challengerCurrentLevel;
 
   // Current word
-  const currentWord: Word | null = myCurrentWordIndex !== undefined ? theme.words[myCurrentWordIndex] : null;
+  const currentWord: Word | null = myCurrentWordIndex !== undefined ? words[myCurrentWordIndex] : null;
 
   // === Hint system state ===
   const myRole = isChallenger ? "challenger" : "opponent";
@@ -131,7 +133,7 @@ export function useSoloStyleGame({
   const isHintGiver = theyRequestedHint && hintAccepted;
 
   const hintRequesterWord: Word | null = hintRequesterState
-    ? theme.words[hintRequesterState.wordIndex]
+    ? words[hintRequesterState.wordIndex]
     : null;
 
   // === L2 Multiple Choice Hint system state ===
@@ -149,13 +151,13 @@ export function useSoloStyleGame({
   const isHintGiverL2 = theyRequestedHintL2 && hintL2Accepted;
 
   const hintL2RequesterWord: Word | null = hintL2WordIndex !== undefined
-    ? theme.words[hintL2WordIndex]
+    ? words[hintL2WordIndex]
     : null;
 
   // Progress calculation
   const myMastered = myWordStates?.filter((ws) => ws.completedLevel3).length || 0;
   const theirMastered = theirWordStates?.filter((ws) => ws.completedLevel3).length || 0;
-  const totalWords = theme.words.length;
+  const totalWords = words.length;
 
   // Track duel start time and calculate duration
   useEffect(() => {
@@ -182,7 +184,7 @@ export function useSoloStyleGame({
     const prev = prevOpponentStatsRef.current;
 
     if (prev && theirStats.questionsAnswered > prev.questionsAnswered) {
-      const answeredWord = theme.words[prev.wordIndex]?.word || "...";
+      const answeredWord = words[prev.wordIndex]?.word || "...";
       setOpponentLastAnsweredWord(answeredWord);
 
       const wasCorrect = theirStats.correctAnswers > prev.correctAnswers;
@@ -223,7 +225,7 @@ export function useSoloStyleGame({
         opponentFeedbackTimerRef.current = null;
       }
     };
-  }, [theirStats, theirCurrentWordIndex, theirCurrentLevel, theme.words]);
+  }, [theirStats, theirCurrentWordIndex, theirCurrentLevel, words]);
 
   // Auto-show hint giver view when hint is accepted (only for "letters" type)
   useEffect(() => {

@@ -34,7 +34,7 @@ interface PendingDuel {
 
 interface CreateDuelOptions {
   opponentId: Id<"users">;
-  themeId: Id<"themes">;
+  themeIds: Id<"themes">[];
   mode: "solo" | "classic";
   classicDifficultyPreset?: ClassicDifficultyPreset;
 }
@@ -82,20 +82,20 @@ export function UnifiedDuelModal({
   initialOpponentId,
 }: UnifiedDuelModalProps) {
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
-  const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
+  const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedDuelMode, setSelectedDuelMode] = useState<DuelMode>("classic");
   const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("easy");
 
   const selectedOpponent = users.find((user) => user._id === selectedOpponentId) || null;
-  const selectedTheme = themes?.find((theme) => theme._id === selectedThemeId) || null;
+  const selectedThemes = themes?.filter((theme) => selectedThemeIds.includes(theme._id)) || [];
 
-  const canCreate = selectedOpponentId && selectedThemeId && selectedDuelMode;
+  const canCreate = selectedOpponentId && selectedThemeIds.length > 0 && selectedDuelMode;
 
   const handleCreateDuel = () => {
-    if (!selectedOpponentId || !selectedThemeId) return;
+    if (!selectedOpponentId || selectedThemeIds.length === 0) return;
     onCreateDuel({
       opponentId: selectedOpponentId,
-      themeId: selectedThemeId,
+      themeIds: selectedThemeIds,
       mode: selectedDuelMode,
       classicDifficultyPreset: selectedDuelMode === "classic" ? selectedDifficulty : undefined,
     });
@@ -208,9 +208,15 @@ export function UnifiedDuelModal({
           </p>
           <CompactThemeSelector
             themes={themes}
-            selectedThemeId={selectedThemeId}
-            selectedTheme={selectedTheme}
-            onSelect={setSelectedThemeId}
+            selectedThemeIds={selectedThemeIds}
+            selectedThemes={selectedThemes}
+            onToggleTheme={(themeId) =>
+              setSelectedThemeIds((current) =>
+                current.includes(themeId)
+                  ? current.filter((currentThemeId) => currentThemeId !== themeId)
+                  : [...current, themeId]
+              )
+            }
             onCreateTheme={onNavigateToThemes}
           />
         </div>
@@ -372,17 +378,17 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
 
 interface CompactThemeSelectorProps {
   themes: Theme[] | undefined;
-  selectedThemeId: Id<"themes"> | null;
-  selectedTheme: Theme | null;
-  onSelect: (themeId: Id<"themes">) => void;
+  selectedThemeIds: Id<"themes">[];
+  selectedThemes: Theme[];
+  onToggleTheme: (themeId: Id<"themes">) => void;
   onCreateTheme: () => void;
 }
 
 const CompactThemeSelector = memo(function CompactThemeSelector({
   themes,
-  selectedThemeId,
-  selectedTheme,
-  onSelect,
+  selectedThemeIds,
+  selectedThemes,
+  onToggleTheme,
   onCreateTheme,
 }: CompactThemeSelectorProps) {
   if (!themes || themes.length === 0) {
@@ -423,11 +429,11 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
     >
       <div className="max-h-40 overflow-y-auto">
         {themes.map((theme, index) => {
-          const isSelected = selectedThemeId === theme._id;
+          const isSelected = selectedThemeIds.includes(theme._id);
           return (
             <button
               key={theme._id}
-              onClick={() => onSelect(theme._id)}
+              onClick={() => onToggleTheme(theme._id)}
               className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
               style={{
                 backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
@@ -465,7 +471,7 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
           );
         })}
       </div>
-      {selectedTheme && (
+      {selectedThemes.length > 0 && (
         <div
           className="px-4 py-2 text-center text-xs"
           style={{
@@ -474,7 +480,11 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
             color: colors.text.muted,
           }}
         >
-          Selected: <span style={{ color: colors.cta.light }}>{selectedTheme.name}</span>
+          Selected: <span style={{ color: colors.cta.light }}>
+            {selectedThemes.length === 1
+              ? selectedThemes[0].name
+              : `${selectedThemes.length} themes`}
+          </span>
         </div>
       )}
     </div>

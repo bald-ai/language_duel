@@ -22,8 +22,8 @@ describe("ScheduledDuelPickers", () => {
     render(
       <CompactThemePicker
         themes={[]}
-        selectedThemeId={null}
-        selectedTheme={null}
+        selectedThemeIds={[]}
+        selectedThemes={[]}
         onSelect={vi.fn()}
       />
     );
@@ -41,8 +41,8 @@ describe("ScheduledDuelPickers", () => {
     render(
       <CompactThemePicker
         themes={themes}
-        selectedThemeId={null}
-        selectedTheme={null}
+        selectedThemeIds={[]}
+        selectedThemes={[]}
         onSelect={onSelect}
         dataTestIdPrefix="theme-picker"
       />
@@ -50,8 +50,9 @@ describe("ScheduledDuelPickers", () => {
 
     fireEvent.click(screen.getByTestId("theme-picker-trigger"));
     fireEvent.click(await screen.findByTestId("theme-picker-option-theme_2"));
+    fireEvent.click(screen.getByTestId("theme-picker-confirm"));
 
-    expect(onSelect).toHaveBeenCalledWith("theme_2");
+    expect(onSelect).toHaveBeenCalledWith(["theme_2"]);
 
     await waitFor(() => {
       expect(screen.queryByTestId("theme-picker-option-theme_2")).not.toBeInTheDocument();

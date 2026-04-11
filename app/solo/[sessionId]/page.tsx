@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/lib/stringUtils";
+import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 
 // Feature-local imports
 import { useSoloSession } from "./hooks/useSoloSession";
@@ -60,7 +61,14 @@ export default function SoloChallengePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const themeId = searchParams.get("themeId");
+  const themeIdsParam = searchParams.get("themeIds");
   const confidenceParam = searchParams.get("confidence");
+  const requestedThemeIds = useMemo(() => {
+    if (themeIdsParam) {
+      return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
+    }
+    return themeId ? [themeId as Id<"themes">] : [];
+  }, [themeId, themeIdsParam]);
 
   // Parse initial confidence levels from URL
   const initialConfidenceByWordIndex = useMemo(() => {
@@ -84,10 +92,27 @@ export default function SoloChallengePage() {
     }
   }, [confidenceParam]);
 
-  // Fetch theme data
-  const theme = useQuery(
-    api.themes.getTheme,
-    themeId ? { themeId: themeId as Id<"themes"> } : "skip"
+  const allThemes = useQuery(api.themes.getThemes, {});
+  const selectedThemes = useMemo(() => {
+    if (!allThemes) return [];
+    const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
+    return requestedThemeIds
+      .flatMap((requestedThemeId) => {
+        const theme = themeMap.get(requestedThemeId);
+        return theme ? [theme] : [];
+      });
+  }, [allThemes, requestedThemeIds]);
+  const sessionWords = useMemo(
+    () => buildSessionWords(selectedThemes),
+    [selectedThemes]
+  );
+  const themeSummary = useMemo(
+    () => summarizeThemes(selectedThemes),
+    [selectedThemes]
+  );
+  const hasMultipleThemes = useMemo(
+    () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
+    [sessionWords]
   );
 
   // Session state management (extracted hook)
@@ -104,7 +129,7 @@ export default function SoloChallengePage() {
     currentWord,
     masteredCount,
   } = useSoloSession({
-    words: theme?.words,
+    words: sessionWords,
     initialConfidenceByWordIndex,
   });
 
@@ -123,7 +148,7 @@ export default function SoloChallengePage() {
   };
 
   // Loading states
-  if (!themeId) {
+  if (requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -162,7 +187,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (theme === undefined) {
+  if (allThemes === undefined) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -189,7 +214,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (theme === null) {
+  if (selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -297,7 +322,7 @@ export default function SoloChallengePage() {
           color: colors.text.muted,
         }}
       >
-        <span className="truncate max-w-[240px]">{theme.name}</span>
+        <span className="truncate max-w-[240px]">{themeSummary}</span>
       </div>
 
       <div className="flex items-center gap-2 mt-3">
@@ -314,15 +339,15 @@ export default function SoloChallengePage() {
     </header>
   );
 
-  const progressPercentage = theme.words.length
-    ? Math.min(100, (masteredCount / theme.words.length) * 100)
+  const progressPercentage = sessionWords.length
+    ? Math.min(100, (masteredCount / sessionWords.length) * 100)
     : 0;
 
   const content = session.completed ? (
     <CompletionScreen
       questionsAnswered={session.questionsAnswered}
       correctAnswers={session.correctAnswers}
-      totalWords={theme.words.length}
+      totalWords={sessionWords.length}
       totalDuration={elapsedTime}
       onExit={handleExit}
     />
@@ -373,7 +398,7 @@ export default function SoloChallengePage() {
               Mastered
             </div>
             <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-              {masteredCount} / {theme.words.length}
+              {masteredCount} / {sessionWords.length}
             </div>
             <div className="text-xs" style={{ color: colors.text.muted }}>
               Pool {session.activePool.length} active
@@ -410,6 +435,14 @@ export default function SoloChallengePage() {
 
         {session.questionLevel !== 0 && (
           <div className="text-center mb-6">
+            {hasMultipleThemes && "themeName" in currentWord && (
+              <div
+                className="text-xs uppercase tracking-[0.25em] mb-2"
+                style={{ color: colors.text.muted }}
+              >
+                {typeof currentWord.themeName === "string" ? currentWord.themeName : null}
+              </div>
+            )}
             <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
               {currentWord.word}
             </div>

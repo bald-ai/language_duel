@@ -73,7 +73,10 @@ export default function DuelPage() {
 
   const wordOrder = duel?.wordOrder;
   const theme = duelData?.theme ?? null;
-  const words = useMemo(() => theme?.words ?? [], [theme?.words]);
+  const words = useMemo(
+    () => (duel?.sessionWords?.length ? duel.sessionWords : theme?.words ?? []),
+    [duel, theme]
+  );
 
   // When completed, show the last word; otherwise show current word
   const isCompleted = duel?.status === "completed";
@@ -121,6 +124,21 @@ export default function DuelPage() {
     duelStatus: duel?.status,
     countdownPausedBy,
   });
+  const sourceThemeName = useMemo(() => {
+    const hasMultipleThemes =
+      new Set(
+        words.map((sessionWord: (typeof words)[number]) =>
+          "themeId" in sessionWord ? String(sessionWord.themeId) : "legacy"
+        )
+      ).size > 1;
+    if (!hasMultipleThemes) return null;
+    const visibleWordIndex = frozenData
+      ? (wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex)
+      : actualWordIndex;
+    const visibleWord = words[visibleWordIndex];
+    const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
+    return typeof themeName === "string" ? themeName : null;
+  }, [words, frozenData, wordOrder, actualWordIndex]);
 
   useDuelAnswerEffects({
     phase,
@@ -269,7 +287,7 @@ export default function DuelPage() {
     return <DuelStatusMessage message="Loading duel..." showSpinner />;
   if (duelData === null)
     return <DuelStatusMessage message="You're not part of this duel" tone="danger" />;
-  if (!theme) return <DuelStatusMessage message="Loading theme..." showSpinner />;
+  if (!theme && words.length === 0) return <DuelStatusMessage message="Loading theme..." showSpinner />;
 
   // Redirect classic mode duels to classic-duel route (handled by useEffect)
   if (duel?.mode === "classic") {
@@ -336,6 +354,7 @@ export default function DuelPage() {
       word={word}
       currentWord={currentWord}
       index={index}
+      sourceThemeName={sourceThemeName}
       shuffledAnswers={shuffledAnswers}
       hasNoneOption={hasNoneOption}
       difficulty={difficulty}

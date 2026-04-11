@@ -16,7 +16,7 @@ export type ModalState = "none" | "solo" | "unifiedDuel" | "waiting";
 
 export interface CreateDuelOptions {
   opponentId: Id<"users">;
-  themeId: Id<"themes">;
+  themeIds: Id<"themes">[];
   mode: "solo" | "classic";
   classicDifficultyPreset?: ClassicDifficultyPreset;
 }
@@ -101,7 +101,7 @@ export function useDuelActions({ onDuelCreated, onWaitingCancelled }: UseDuelAct
       try {
         const duelId = await createDuelMutation({
           opponentId: options.opponentId,
-          themeId: options.themeId,
+          themeIds: options.themeIds,
           mode: options.mode,
           classicDifficultyPreset: options.classicDifficultyPreset,
         });
@@ -275,10 +275,16 @@ export function useDuelLobby() {
   );
 
   const handleContinueSolo = useCallback(
-    (themeId: Id<"themes">, mode: "challenge_only" | "learn_test") => {
+    (themeIds: Id<"themes">[], mode: "challenge_only" | "learn_test") => {
+      if (themeIds.length === 0) return;
       const sessionId = crypto.randomUUID();
       const base = mode === "challenge_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
-      router.push(`${base}?themeId=${themeId}`);
+      const params = new URLSearchParams();
+      if (themeIds.length === 1) {
+        params.set("themeId", themeIds[0]);
+      }
+      params.set("themeIds", themeIds.join(","));
+      router.push(`${base}?${params.toString()}`);
       modals.closeModal();
     },
     [router, modals]

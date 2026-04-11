@@ -14,6 +14,7 @@ import {
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
+import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
 
@@ -295,10 +296,15 @@ export async function buildEmailData(
       id: args.challengeId,
     });
     if (challenge) {
-      const theme = await ctx.runQuery(internal.emails.notificationEmails.getThemeById, {
-        id: challenge.themeId,
-      });
-      data.themeName = theme?.name;
+      const sessionThemeNames = Array.from(new Set(
+        (challenge.sessionWords ?? [])
+          .map((word) => (word as SessionWordEntry).themeName)
+          .filter((themeName): themeName is string => typeof themeName === "string")
+      ));
+
+      if (sessionThemeNames.length > 0) {
+        data.themeName = summarizeThemeNames(sessionThemeNames);
+      }
     }
   }
 
@@ -307,10 +313,17 @@ export async function buildEmailData(
       id: args.scheduledDuelId,
     });
     if (scheduledDuel) {
-      const theme = await ctx.runQuery(internal.emails.notificationEmails.getThemeById, {
-        id: scheduledDuel.themeId,
-      });
-      data.themeName = theme?.name;
+      const themes = await Promise.all(
+        scheduledDuel.themeIds.map((themeId) =>
+          ctx.runQuery(internal.emails.notificationEmails.getThemeById, {
+            id: themeId,
+          })
+        )
+      );
+      const themeNames = themes
+        .filter((theme): theme is Doc<"themes"> => theme !== null)
+        .map((theme) => theme.name);
+      data.themeName = summarizeThemeNames(themeNames);
       data.scheduledTime = formatScheduledTime(scheduledDuel.scheduledTime, DEFAULT_TIMEZONE);
       data.minutesBefore = args.reminderOffsetMinutes;
       if (!data.partnerName) {

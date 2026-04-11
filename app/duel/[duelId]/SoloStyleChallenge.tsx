@@ -22,10 +22,11 @@ import { useSoloStyleGame } from "./hooks/useSoloStyleGame";
 import { MAX_L1_LETTER_HINTS } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+import { summarizeThemeNames, type SessionThemeInput } from "@/lib/sessionWords";
 
 interface SoloStyleChallengeProps {
   duel: Doc<"challenges">;
-  theme: Doc<"themes">;
+  theme: SessionThemeInput | null;
   challenger: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
@@ -43,11 +44,17 @@ export default function SoloStyleChallenge({
   const theirName = isChallenger ? opponent?.name : challenger?.name;
   const myColor = colors.status.success.light;
   const theirColor = colors.secondary.light;
+  const sessionWords = duel.sessionWords?.length ? duel.sessionWords : theme?.words ?? [];
+  const themeName = duel.sessionWords?.length
+    ? summarizeThemeNames(Array.from(new Set(duel.sessionWords.map((word) => word.themeName))))
+    : theme?.name ?? "Theme";
+  const hasMultipleThemes =
+    new Set(sessionWords.map((word) => ("themeId" in word ? String(word.themeId) : "legacy"))).size > 1;
 
   // Use the extracted hook for all game logic
   const game = useSoloStyleGame({
     duel,
-    theme,
+    words: sessionWords,
     viewerRole,
   });
 
@@ -191,13 +198,13 @@ export default function SoloStyleChallenge({
         opponentAnswerFeedback={game.opponentAnswerFeedback}
         opponentLastAnsweredWord={game.opponentLastAnsweredWord}
         opponentFeedbackMessage={game.opponentFeedbackMessage}
-        themeWords={theme.words}
+        themeWords={sessionWords}
         theirColor={theirColor}
       />
 
       {/* Progress Header */}
       <ProgressHeader
-        themeName={theme.name}
+        themeName={themeName}
         myName={myName}
         theirName={theirName}
         myMastered={game.myMastered}
@@ -213,6 +220,7 @@ export default function SoloStyleChallenge({
       {game.currentWord && (
         <QuestionCard
           currentWord={game.currentWord}
+          sourceThemeName={hasMultipleThemes && "themeName" in game.currentWord ? game.currentWord.themeName : null}
           myCurrentLevel={game.myCurrentLevel ?? null}
           myLevel2Mode={game.myLevel2Mode as "typing" | "multiple_choice"}
           myCurrentWordIndex={game.myCurrentWordIndex ?? 0}

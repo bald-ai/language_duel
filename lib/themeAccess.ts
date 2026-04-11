@@ -9,13 +9,13 @@ export type ThemeAccessData = {
 export type ChallengeAccessData = {
     challengerId: Id<"users">;
     opponentId: Id<"users">;
-    themeId: Id<"themes">;
+    themeIds: Id<"themes">[];
 };
 
 export type ScheduledDuelAccessData = {
     proposerId: Id<"users">;
     recipientId: Id<"users">;
-    themeId: Id<"themes">;
+    themeIds: Id<"themes">[];
     status: "pending" | "accepted" | "counter_proposed" | "declined";
 };
 
@@ -80,7 +80,7 @@ function hasAccessViaChallenge(
 ): boolean {
     return challenges.some(
         (c) =>
-            c.themeId === themeId &&
+            c.themeIds.includes(themeId) &&
             (c.challengerId === userId || c.opponentId === userId)
     );
 }
@@ -92,7 +92,7 @@ function hasAccessViaScheduledDuel(
 ): boolean {
     return scheduledDuels.some(
         (sd) =>
-            sd.themeId === themeId &&
+            sd.themeIds.includes(themeId) &&
             ACTIVE_SCHEDULED_DUEL_STATUSES.includes(sd.status as typeof ACTIVE_SCHEDULED_DUEL_STATUSES[number]) &&
             (sd.proposerId === userId || sd.recipientId === userId)
     );

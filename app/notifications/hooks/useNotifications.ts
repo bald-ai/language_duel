@@ -106,13 +106,13 @@ export function useNotifications() {
 
     const counterProposeScheduledDuel = useCallback(async (
         scheduledDuelId: Id<"scheduledDuels">,
-        data: { newScheduledTime?: number; newThemeId?: Id<"themes"> }
+        data: { newScheduledTime?: number; newThemeIds?: Id<"themes">[] }
     ) => {
         try {
             await counterProposeScheduledDuelMutation({
                 scheduledDuelId,
                 newScheduledTime: data.newScheduledTime,
-                newThemeId: data.newThemeId,
+                newThemeIds: data.newThemeIds,
             });
             return { success: true };
         } catch (error) {

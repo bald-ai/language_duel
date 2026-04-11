@@ -54,7 +54,7 @@ describe("hasThemeAccess", () => {
                     {
                         challengerId: userId("user1"),
                         opponentId: userId("other"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                     },
                 ],
             });
@@ -67,7 +67,7 @@ describe("hasThemeAccess", () => {
                     {
                         challengerId: userId("other"),
                         opponentId: userId("user1"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                     },
                 ],
             });
@@ -80,7 +80,7 @@ describe("hasThemeAccess", () => {
                     {
                         challengerId: userId("user1"),
                         opponentId: userId("other"),
-                        themeId: themeId("differentTheme"),
+                        themeIds: [themeId("differentTheme")],
                     },
                 ],
             });
@@ -95,7 +95,7 @@ describe("hasThemeAccess", () => {
                     {
                         proposerId: userId("user1"),
                         recipientId: userId("other"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                         status: "pending",
                     },
                 ],
@@ -109,7 +109,7 @@ describe("hasThemeAccess", () => {
                     {
                         proposerId: userId("other"),
                         recipientId: userId("user1"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                         status: "accepted",
                     },
                 ],
@@ -123,7 +123,7 @@ describe("hasThemeAccess", () => {
                     {
                         proposerId: userId("user1"),
                         recipientId: userId("other"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                         status: "counter_proposed",
                     },
                 ],
@@ -137,7 +137,7 @@ describe("hasThemeAccess", () => {
                     {
                         proposerId: userId("user1"),
                         recipientId: userId("other"),
-                        themeId: themeId("theme1"),
+                        themeIds: [themeId("theme1")],
                         status: "declined",
                     },
                 ],

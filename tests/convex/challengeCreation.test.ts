@@ -7,35 +7,62 @@ import {
   resolveChallengeMode,
 } from "@/convex/helpers/challengeCreation";
 import { buildSoloInitState } from "@/convex/helpers/duelInitialization";
+import type { SessionThemeInput } from "@/lib/sessionWords";
+
+const themes: SessionThemeInput[] = [
+  {
+    _id: "theme_1" as Id<"themes">,
+    name: "Animals",
+    words: [
+      { word: "cat", answer: "gato", wrongAnswers: ["perro", "pez", "pajaro"] },
+      { word: "dog", answer: "perro", wrongAnswers: ["gato", "pez", "pajaro"] },
+    ],
+  },
+  {
+    _id: "theme_2" as Id<"themes">,
+    name: "Food",
+    words: [
+      { word: "bread", answer: "pan", wrongAnswers: ["agua", "carne", "leche"] },
+    ],
+  },
+];
 
 describe("challenge creation helpers", () => {
   it("defaults base challenge setup to solo mode with shared fields initialized", () => {
     const result = buildChallengeBase({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      themeId: "theme_1" as Id<"themes">,
-      wordCount: 5,
+      themes,
       createdAt: 123,
     });
 
     expect(result.mode).toBe("solo");
     expect(result.classicDifficultyPreset).toBeUndefined();
+    expect(result.themeIds).toEqual([
+      "theme_1",
+      "theme_2",
+    ]);
+    expect(result.sessionWords).toHaveLength(3);
+    expect(result.sessionWords[0]).toMatchObject({
+      word: "cat",
+      themeId: "theme_1",
+      themeName: "Animals",
+    });
     expect(result.currentWordIndex).toBe(0);
     expect(result.challengerAnswered).toBe(false);
     expect(result.opponentAnswered).toBe(false);
     expect(result.challengerScore).toBe(0);
     expect(result.opponentScore).toBe(0);
     expect(result.createdAt).toBe(123);
-    expect(result.wordOrder).toHaveLength(5);
-    expect([...result.wordOrder].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4]);
+    expect(result.wordOrder).toHaveLength(3);
+    expect([...result.wordOrder].sort((a, b) => a - b)).toEqual([0, 1, 2]);
   });
 
   it("defaults classic challenges to easy difficulty when no preset is passed", () => {
     const result = buildChallengeBase({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      themeId: "theme_1" as Id<"themes">,
-      wordCount: 3,
+      themes: [themes[0]],
       createdAt: 456,
       mode: "classic",
     });

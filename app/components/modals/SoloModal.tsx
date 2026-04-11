@@ -23,38 +23,46 @@ type SoloMode = "challenge_only" | "learn_test";
 
 interface SoloModalProps {
   themes: Theme[] | undefined;
-  onContinue: (themeId: Id<"themes">, mode: SoloMode) => void;
+  onContinue: (themeIds: Id<"themes">[], mode: SoloMode) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
-  initialThemeId?: Id<"themes">;
+  initialThemeIds?: Id<"themes">[];
   initialMode?: SoloMode;
 }
 
-export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, initialThemeId, initialMode }: SoloModalProps) {
-  const resolvedInitialThemeId = useMemo(() => {
-    if (!initialThemeId || !themes || themes.length === 0) {
-      return null;
+export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, initialThemeIds, initialMode }: SoloModalProps) {
+  const resolvedInitialThemeIds = useMemo(() => {
+    if (!initialThemeIds || initialThemeIds.length === 0 || !themes || themes.length === 0) {
+      return [] as Id<"themes">[];
     }
-    return themes.some((theme) => theme._id === initialThemeId) ? initialThemeId : null;
-  }, [initialThemeId, themes]);
-  const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
+    const availableThemeIds = new Set(themes.map((theme) => theme._id));
+    return initialThemeIds.filter((themeId) => availableThemeIds.has(themeId));
+  }, [initialThemeIds, themes]);
+  const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
+  const [ignoreInitialThemes, setIgnoreInitialThemes] = useState(false);
   const [selectedMode, setSelectedMode] = useState<SoloMode | null>("learn_test");
-  const effectiveThemeId = resolvedInitialThemeId ?? selectedThemeId;
-  const effectiveMode = resolvedInitialThemeId ? (initialMode ?? "learn_test") : selectedMode;
-  const selectedTheme = themes?.find((theme) => theme._id === effectiveThemeId) || null;
+  const effectiveThemeIds = !ignoreInitialThemes && resolvedInitialThemeIds.length > 0
+    ? resolvedInitialThemeIds
+    : selectedThemeIds;
+  const effectiveMode = !ignoreInitialThemes && resolvedInitialThemeIds.length > 0
+    ? (initialMode ?? "learn_test")
+    : selectedMode;
+  const selectedThemes = themes?.filter((theme) => effectiveThemeIds.includes(theme._id)) || [];
 
-  const handleSelectTheme = (themeId: Id<"themes">) => {
-    setSelectedThemeId(themeId);
+  const handleConfirmThemeSelection = (confirmedThemeIds: Id<"themes">[]) => {
+    if (confirmedThemeIds.length === 0) return;
+    setSelectedThemeIds(confirmedThemeIds);
     setSelectedMode("learn_test");
   };
 
   const handleContinue = () => {
-    if (!effectiveThemeId || !effectiveMode) return;
-    onContinue(effectiveThemeId, effectiveMode);
+    if (effectiveThemeIds.length === 0 || !effectiveMode) return;
+    onContinue(effectiveThemeIds, effectiveMode);
   };
 
   const handleBack = () => {
-    setSelectedThemeId(null);
+    setIgnoreInitialThemes(true);
+    setSelectedThemeIds([]);
     setSelectedMode(null);
   };
 
@@ -76,16 +84,18 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
             Cancel
           </button>
         </>
-      ) : !effectiveThemeId && (
+      ) : effectiveThemeIds.length === 0 && (
         <>
           <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
-            Select a theme to practice.
+            Select one or more themes to practice.
           </p>
           <div className="max-h-80 overflow-y-auto pr-3">
             <ThemeSelector
               themes={themes}
-              onSelect={handleSelectTheme}
+              selectedThemeIds={selectedThemeIds}
+              onConfirmSelection={handleConfirmThemeSelection}
               onCreateTheme={onNavigateToThemes}
+              confirmLabel="Continue to Mode"
             />
           </div>
           <button
@@ -101,7 +111,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
       )}
 
       {/* Step 2: Select Mode */}
-      {effectiveThemeId && (
+      {effectiveThemeIds.length > 0 && (
         <>
           <div
             className="mb-4 p-3 border-2 rounded-2xl text-center"
@@ -111,18 +121,20 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
             }}
           >
             <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
-              Selected Theme
+              Selected {selectedThemes.length === 1 ? "Theme" : "Themes"}
             </div>
             <div
               className="text-lg font-bold truncate"
               style={{ color: colors.text.DEFAULT }}
-              title={selectedTheme?.name || "Theme"}
+              title={selectedThemes.map((theme) => theme.name).join(", ") || "Themes"}
             >
-              {selectedTheme?.name || "Theme"}
+              {selectedThemes.length === 1
+                ? selectedThemes[0].name
+                : `${selectedThemes.length} themes selected`}
             </div>
-            {selectedTheme && (
+            {selectedThemes.length > 0 && (
               <div className="text-xs mt-1" style={{ color: colors.text.muted }}>
-                {selectedTheme.words.length} words
+                {selectedThemes.reduce((total, theme) => total + theme.words.length, 0)} words total
               </div>
             )}
           </div>

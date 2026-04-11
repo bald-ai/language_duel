@@ -30,7 +30,8 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "_creationTime"
     | "challengerId"
     | "opponentId"
-    | "themeId"
+    | "themeIds"
+    | "sessionWords"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -59,7 +60,7 @@ type ScheduledDuelDoc = Partial<Doc<"scheduledDuels">> &
     | "_creationTime"
     | "proposerId"
     | "recipientId"
-    | "themeId"
+    | "themeIds"
     | "scheduledTime"
     | "status"
     | "createdAt"
@@ -236,7 +237,30 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
-    themeId: "theme_1" as Id<"themes">,
+    themeIds: ["theme_1" as Id<"themes">],
+    sessionWords: [
+      {
+        word: "cat",
+        answer: "kocka",
+        wrongAnswers: ["strom", "most", "more"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
+      },
+      {
+        word: "dog",
+        answer: "pes",
+        wrongAnswers: ["dom", "vlak", "mesto"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
+      },
+      {
+        word: "bird",
+        answer: "vtak",
+        wrongAnswers: ["auto", "pole", "rieka"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
+      },
+    ],
     status: "pending",
     currentWordIndex: 0,
     challengerAnswered: false,
@@ -270,7 +294,7 @@ function scheduledDuelDoc(overrides: Partial<ScheduledDuelDoc> = {}): ScheduledD
     _creationTime: 1,
     proposerId: "user_1" as Id<"users">,
     recipientId: "user_2" as Id<"users">,
-    themeId: "theme_1" as Id<"themes">,
+    themeIds: ["theme_1" as Id<"themes">],
     scheduledTime: 10_000,
     status: "accepted",
     createdAt: 1,
@@ -415,6 +439,8 @@ describe("duel lifecycle handlers", () => {
     expect(createdChallenge.mode).toBe("solo");
     expect(createdChallenge.status).toBe("challenging");
     expect(createdChallenge.questionStartTime).toBe(8_000);
+    expect(createdChallenge.themeIds).toEqual(["theme_1"]);
+    expect(createdChallenge.sessionWords).toHaveLength(3);
 
     expect(db.scheduledDuels[0].startedDuelId).toBe(createdChallenge._id);
     expect(db.notifications[0].payload).toMatchObject({

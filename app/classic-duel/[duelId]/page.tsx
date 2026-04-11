@@ -35,6 +35,7 @@ export default function ClassicDuelPage() {
   } = duelData || {};
 
   const theme = duelData?.theme ?? null;
+  const hasSessionWords = Boolean(duel && duel.sessionWords?.length > 0);
 
   useEffect(() => {
     if (!duel) return;
@@ -59,7 +60,7 @@ export default function ClassicDuelPage() {
     content = <FullScreenMessage>Loading duel...</FullScreenMessage>;
   } else if (duelData === null) {
     content = <FullScreenMessage>You&apos;re not part of this duel</FullScreenMessage>;
-  } else if (!theme) {
+  } else if (!theme && !hasSessionWords) {
     content = <FullScreenMessage>Loading theme...</FullScreenMessage>;
   } else if (!duel) {
     content = <FullScreenMessage>Duel not found</FullScreenMessage>;

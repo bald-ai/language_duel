@@ -43,7 +43,7 @@ export function CounterProposeScheduledDuelModal({
     scheduledDuelId,
     onClose,
 }: CounterProposeScheduledDuelModalProps) {
-    const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
+    const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
     const [selectedTime, setSelectedTime] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [hasInitialized, setHasInitialized] = useState(false);
@@ -61,21 +61,23 @@ export function CounterProposeScheduledDuelModal({
         }
 
         const timeSlot = timeSlots.find((slot) => slot.timestamp === scheduledDuel.scheduledTime);
-        const themeMatch = availableThemes.find((theme) => theme._id === scheduledDuel.themeId);
+        const themeMatches = availableThemes.filter((theme) => scheduledDuel.themeIds.includes(theme._id));
 
         setSelectedTime(timeSlot ? timeSlot.timestamp : null);
-        setSelectedThemeId(themeMatch ? themeMatch._id : null);
+        setSelectedThemeIds(themeMatches.map((theme) => theme._id));
         setHasInitialized(true);
     }, [scheduledDuel, themes, timeSlots, availableThemes, hasInitialized]);
 
-    const selectedTheme = availableThemes.find((theme) => theme._id === selectedThemeId) || null;
+    const selectedThemes = availableThemes.filter((theme) => selectedThemeIds.includes(theme._id));
     const isLoading = scheduledDuel === undefined || themes === undefined;
     const isMissing = scheduledDuel === null;
     const scheduledTimeAvailable = scheduledDuel
         ? timeSlots.some((slot) => slot.timestamp === scheduledDuel.scheduledTime)
         : true;
     const scheduledThemeAvailable = scheduledDuel
-        ? availableThemes.some((theme) => theme._id === scheduledDuel.themeId)
+        ? scheduledDuel.themeIds.every((themeId: Id<"themes">) =>
+            availableThemes.some((theme) => theme._id === themeId)
+        )
         : true;
 
     const otherUser = scheduledDuel?.isProposer ? scheduledDuel.recipient : scheduledDuel?.proposer;
@@ -88,8 +90,8 @@ export function CounterProposeScheduledDuelModal({
             toast.error("Scheduled duel not found");
             return;
         }
-        if (!selectedThemeId) {
-            toast.error("Please select a theme");
+        if (selectedThemeIds.length === 0) {
+            toast.error("Please select at least one theme");
             return;
         }
         if (!selectedTime) {
@@ -98,7 +100,10 @@ export function CounterProposeScheduledDuelModal({
         }
 
         const timeChanged = selectedTime !== scheduledDuel.scheduledTime;
-        const themeChanged = selectedThemeId !== scheduledDuel.themeId;
+        const originalThemeIds = scheduledDuel.themeIds;
+        const themeChanged =
+            originalThemeIds.length !== selectedThemeIds.length ||
+            originalThemeIds.some((themeId: Id<"themes">) => !selectedThemeIds.includes(themeId));
 
         if (!timeChanged && !themeChanged) {
             toast.error("Change the time or theme before countering");
@@ -110,7 +115,7 @@ export function CounterProposeScheduledDuelModal({
             await counterProposeScheduledDuel({
                 scheduledDuelId,
                 newScheduledTime: timeChanged ? selectedTime : undefined,
-                newThemeId: themeChanged ? selectedThemeId : undefined,
+                newThemeIds: themeChanged ? selectedThemeIds : undefined,
             });
             toast.success("Counter-proposal sent!");
             onClose();
@@ -154,7 +159,7 @@ export function CounterProposeScheduledDuelModal({
                         <div className="text-xs" style={{ color: colors.text.muted }}>
                             Current proposal:{" "}
                             <span style={{ color: colors.text.DEFAULT }}>
-                                {scheduledDuel?.theme?.name || "Theme"} at{" "}
+                                {scheduledDuel?.themeSummary || scheduledDuel?.theme?.name || "Theme"} at{" "}
                                 {scheduledDuel ? formatScheduledTime(scheduledDuel.scheduledTime) : "soon"}
                             </span>
                         </div>
@@ -166,9 +171,9 @@ export function CounterProposeScheduledDuelModal({
                             </p>
                             <CompactThemePicker
                                 themes={availableThemes}
-                                selectedThemeId={selectedThemeId}
-                                selectedTheme={selectedTheme}
-                                onSelect={setSelectedThemeId}
+                                selectedThemeIds={selectedThemeIds}
+                                selectedThemes={selectedThemes}
+                                onSelect={setSelectedThemeIds}
                                 dataTestIdPrefix="counter-duel-theme"
                             />
                             {!scheduledThemeAvailable && (
@@ -221,7 +226,7 @@ export function CounterProposeScheduledDuelModal({
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={isSubmitting || isLoading || isMissing || !selectedThemeId || !selectedTime}
+                    disabled={isSubmitting || isLoading || isMissing || selectedThemeIds.length === 0 || !selectedTime}
                     className={actionButtonClassName}
                     style={ctaActionStyle}
                     data-testid="counter-duel-submit"

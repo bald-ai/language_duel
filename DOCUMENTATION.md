@@ -308,3 +308,9 @@ Components using the `colors` object automatically update when the user switches
   - `active` goals expire by `expiresAt`.
   - `editing` goals expire 7 days after `createdAt`.
   - related weekly plan notifications are dismissed.
+
+## Duel Theme Sessions
+
+- Duel challenges and scheduled duels can now carry multiple `themeIds`.
+- Active duel gameplay reads from a frozen `sessionWords` snapshot stored on the challenge, so theme edits after creation do not change an in-progress session.
+- Solo challenge and learn links accept either legacy `themeId` or comma-separated `themeIds`; the app merges the selected themes into one session and shows the source theme label during play when multiple themes are active.

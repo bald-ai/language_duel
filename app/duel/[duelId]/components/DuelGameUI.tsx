@@ -32,6 +32,7 @@ interface DuelGameUIProps {
   word: string;
   currentWord: { word: string; answer: string; wrongAnswers: string[] };
   index: number;
+  sourceThemeName?: string | null;
   shuffledAnswers: string[];
   hasNoneOption: boolean;
   difficulty: DifficultyInfo;
@@ -98,6 +99,7 @@ export const DuelGameUI = memo(function DuelGameUI({
   word,
   currentWord,
   index,
+  sourceThemeName,
   shuffledAnswers,
   hasNoneOption,
   difficulty,
@@ -246,8 +248,18 @@ export const DuelGameUI = memo(function DuelGameUI({
               </div>
             </div>
           )}
-          <div className="text-3xl font-bold mb-6" style={{ color: colors.text.DEFAULT }}>
-            {frozenData ? frozenData.word : word}
+          <div className="mb-6 text-center">
+            {sourceThemeName && (
+              <div
+                className="text-xs uppercase tracking-[0.25em] mb-2"
+                style={{ color: colors.text.muted }}
+              >
+                {sourceThemeName}
+              </div>
+            )}
+            <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
+              {frozenData ? frozenData.word : word}
+            </div>
           </div>
         </div>
 

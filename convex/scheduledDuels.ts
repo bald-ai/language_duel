@@ -1,12 +1,19 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import { isScheduledDuelPayload } from "./notificationPayloads";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import {
     buildChallengeBase,
     buildChallengeStartState,
 } from "./helpers/challengeCreation";
+import {
+    getScheduledDuelThemes,
+} from "./helpers/sessionWords";
+import { summarizeThemes } from "../lib/sessionWords";
+
+type ThemeRecord = Doc<"themes">;
 
 // ===========================================
 // Type Definitions
@@ -57,7 +64,8 @@ export const getScheduledDuels = query({
             uniqueDuels.map(async (duel) => {
                 const proposer = await ctx.db.get(duel.proposerId);
                 const recipient = await ctx.db.get(duel.recipientId);
-                const theme = await ctx.db.get(duel.themeId);
+                const themes = await getScheduledDuelThemes(ctx, duel);
+                const themeSummary = summarizeThemes(themes);
 
                 return {
                     ...duel,
@@ -73,10 +81,15 @@ export const getScheduledDuels = query({
                         discriminator: recipient.discriminator,
                         imageUrl: recipient.imageUrl,
                     } : null,
-                    theme: theme ? {
+                    theme: themes.length === 1 ? {
+                        _id: themes[0]._id,
+                        name: themes[0].name,
+                    } : null,
+                    themes: themes.map((theme) => ({
                         _id: theme._id,
                         name: theme.name,
-                    } : null,
+                    })),
+                    themeSummary,
                     isProposer: duel.proposerId === user._id,
                 };
             })
@@ -113,7 +126,8 @@ export const getScheduledDuelById = query({
 
         const proposer = await ctx.db.get(duel.proposerId);
         const recipient = await ctx.db.get(duel.recipientId);
-        const theme = await ctx.db.get(duel.themeId);
+        const themes = await getScheduledDuelThemes(ctx, duel);
+        const themeSummary = summarizeThemes(themes);
 
         return {
             ...duel,
@@ -129,10 +143,15 @@ export const getScheduledDuelById = query({
                 discriminator: recipient.discriminator,
                 imageUrl: recipient.imageUrl,
             } : null,
-            theme: theme ? {
+            theme: themes.length === 1 ? {
+                _id: themes[0]._id,
+                name: themes[0].name,
+            } : null,
+            themes: themes.map((theme) => ({
                 _id: theme._id,
                 name: theme.name,
-            } : null,
+            })),
+            themeSummary,
             isProposer: duel.proposerId === user._id,
         };
     },
@@ -148,14 +167,17 @@ export const getScheduledDuelById = query({
 export const proposeScheduledDuel = mutation({
     args: {
         recipientId: v.id("users"),
-        themeId: v.id("themes"),
+        themeIds: v.array(v.id("themes")),
         scheduledTime: v.number(),
         mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
         classicDifficultyPreset: v.optional(
             v.union(v.literal("easy"), v.literal("medium"), v.literal("hard"))
         ),
     },
-    handler: async (ctx, args) => {
+    handler: async (
+        ctx,
+        args
+    ): Promise<{ success: true; scheduledDuelId: Id<"scheduledDuels"> }> => {
         const { user } = await getAuthenticatedUser(ctx);
 
         // Validate scheduled time is in the future
@@ -181,20 +203,32 @@ export const proposeScheduledDuel = mutation({
         }
 
         // Validate theme exists and proposer can access it
-        const theme = await ctx.runQuery(api.themes.getTheme, {
-            themeId: args.themeId,
-        });
-        if (!theme) {
-            throw new Error("Theme not found or access denied");
+        const uniqueThemeIds = Array.from(new Set(args.themeIds));
+        if (uniqueThemeIds.length === 0) {
+            throw new Error("Select at least one theme");
         }
+        const themes: Array<ThemeRecord | null> = await Promise.all(
+            uniqueThemeIds.map((themeId) =>
+                ctx.runQuery(api.themes.getTheme, {
+                    themeId,
+                })
+            )
+        );
+        if (themes.some((theme) => !theme)) {
+            throw new Error("One or more themes were not found or are not accessible");
+        }
+        const resolvedThemes: ThemeRecord[] = themes.filter(
+            (theme): theme is ThemeRecord => theme !== null
+        );
+        const themeSummary: string = summarizeThemes(resolvedThemes);
 
         const now = Date.now();
 
         // Create scheduled duel
-        const scheduledDuelId = await ctx.db.insert("scheduledDuels", {
+        const scheduledDuelId: Id<"scheduledDuels"> = await ctx.db.insert("scheduledDuels", {
             proposerId: user._id,
             recipientId: args.recipientId,
-            themeId: args.themeId,
+            themeIds: resolvedThemes.map((theme) => theme._id),
             scheduledTime: args.scheduledTime,
             status: "pending",
             mode: args.mode || "classic",
@@ -211,8 +245,8 @@ export const proposeScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId,
-                themeId: args.themeId,
-                themeName: theme.name,
+                themeId: resolvedThemes.length === 1 ? resolvedThemes[0]._id : undefined,
+                themeName: themeSummary,
                 scheduledTime: args.scheduledTime,
                 mode: args.mode || "classic",
             },
@@ -253,7 +287,8 @@ export const acceptScheduledDuel = mutation({
             throw new Error("Duel is no longer pending");
         }
 
-        const theme = await ctx.db.get(scheduledDuel.themeId);
+        const themes = await getScheduledDuelThemes(ctx, scheduledDuel);
+        const themeSummary = summarizeThemes(themes);
         const now = Date.now();
 
         // Update status to accepted and initialize ready fields
@@ -297,8 +332,8 @@ export const acceptScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId: args.scheduledDuelId,
-                themeId: scheduledDuel.themeId,
-                themeName: theme?.name,
+                themeId: themes.length === 1 ? themes[0]._id : undefined,
+                themeName: themeSummary,
                 scheduledTime: scheduledDuel.scheduledTime,
                 mode: scheduledDuel.mode,
                 scheduledDuelStatus: "accepted",
@@ -324,7 +359,7 @@ export const counterProposeScheduledDuel = mutation({
     args: {
         scheduledDuelId: v.id("scheduledDuels"),
         newScheduledTime: v.optional(v.number()),
-        newThemeId: v.optional(v.id("themes")),
+        newThemeIds: v.optional(v.array(v.id("themes"))),
     },
     handler: async (ctx, args) => {
         const { user } = await getAuthenticatedUser(ctx);
@@ -347,7 +382,7 @@ export const counterProposeScheduledDuel = mutation({
             status: "counter_proposed";
             updatedAt: number;
             scheduledTime?: number;
-            themeId?: typeof scheduledDuel.themeId;
+            themeIds?: typeof scheduledDuel.themeIds;
             proposerId: typeof scheduledDuel.proposerId;
             recipientId: typeof scheduledDuel.recipientId;
         } = {
@@ -367,14 +402,24 @@ export const counterProposeScheduledDuel = mutation({
             updates.scheduledTime = args.newScheduledTime;
         }
 
-        if (args.newThemeId !== undefined) {
-            const theme = await ctx.runQuery(api.themes.getTheme, {
-                themeId: args.newThemeId,
-            });
-            if (!theme) {
-                throw new Error("Theme not found or access denied");
+        if (args.newThemeIds !== undefined) {
+            const uniqueThemeIds = Array.from(new Set(args.newThemeIds));
+            if (uniqueThemeIds.length === 0) {
+                throw new Error("Select at least one theme");
             }
-            updates.themeId = args.newThemeId;
+            const themes: Array<ThemeRecord | null> = await Promise.all(
+                uniqueThemeIds.map((themeId) =>
+                    ctx.runQuery(api.themes.getTheme, {
+                        themeId,
+                    })
+                )
+            );
+            if (themes.some((theme) => !theme)) {
+                throw new Error("One or more themes were not found or are not accessible");
+            }
+            updates.themeIds = themes
+                .filter((theme): theme is ThemeRecord => theme !== null)
+                .map((theme) => theme._id);
         }
 
         await ctx.db.patch(args.scheduledDuelId, updates);
@@ -384,7 +429,12 @@ export const counterProposeScheduledDuel = mutation({
             ? scheduledDuel.recipientId
             : scheduledDuel.proposerId;
 
-        const theme = await ctx.db.get(updates.themeId || scheduledDuel.themeId);
+        const themeIdsForNotification = updates.themeIds ?? scheduledDuel.themeIds;
+        const themesForNotification = await Promise.all(
+            themeIdsForNotification.map((themeId) => ctx.db.get(themeId))
+        );
+        const validThemes = themesForNotification.filter((theme): theme is ThemeRecord => theme !== null);
+        const themeSummary = summarizeThemes(validThemes);
 
         await ctx.db.insert("notifications", {
             type: "scheduled_duel",
@@ -393,8 +443,8 @@ export const counterProposeScheduledDuel = mutation({
             status: "pending",
             payload: {
                 scheduledDuelId: args.scheduledDuelId,
-                themeId: updates.themeId || scheduledDuel.themeId,
-                themeName: theme?.name,
+                themeId: validThemes.length === 1 ? validThemes[0]._id : undefined,
+                themeName: themeSummary,
                 scheduledTime: updates.scheduledTime || scheduledDuel.scheduledTime,
                 mode: scheduledDuel.mode,
                 isCounterProposal: true,
@@ -728,25 +778,22 @@ export const startScheduledDuel = internalMutation({
         }
 
         // Get theme for word count
-        const theme = await ctx.db.get(scheduledDuel.themeId);
-        if (!theme) {
-            throw new Error("Theme not found");
-        }
-
         const now = Date.now();
-        const wordCount = theme.words.length;
+        const themes = await getScheduledDuelThemes(ctx, scheduledDuel);
+        if (themes.length === 0) {
+            throw new Error("No themes found for scheduled duel");
+        }
         const challengeBase = buildChallengeBase({
             challengerId: scheduledDuel.proposerId,
             opponentId: scheduledDuel.recipientId,
-            themeId: scheduledDuel.themeId,
-            wordCount,
+            themes,
             mode: scheduledDuel.mode,
             classicDifficultyPreset: scheduledDuel.classicDifficultyPreset,
             createdAt: now,
         });
         const startState = buildChallengeStartState({
             mode: challengeBase.mode,
-            wordCount,
+            wordCount: challengeBase.sessionWords.length,
             now,
         });
         const duelMode = challengeBase.mode;

@@ -15,24 +15,35 @@ export interface ThemeOption {
 
 interface CompactThemeSelectorProps {
     themes: ThemeOption[];
-    selectedThemeId: Id<"themes"> | null;
-    selectedTheme: ThemeOption | null;
-    onSelect: (themeId: Id<"themes">) => void;
+    selectedThemeIds: Id<"themes">[];
+    selectedThemes: ThemeOption[];
+    onSelect: (themeIds: Id<"themes">[]) => void;
     dataTestIdPrefix?: string;
 }
 
 export function CompactThemePicker({
     themes,
-    selectedThemeId,
-    selectedTheme,
+    selectedThemeIds,
+    selectedThemes,
     onSelect,
     dataTestIdPrefix,
 }: CompactThemeSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
+    const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
     const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
     const triggerRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const selectedLabel = selectedTheme ? selectedTheme.name : "Select a theme...";
+    const selectedLabel = selectedThemes.length === 0
+        ? "Select themes..."
+        : selectedThemes.length === 1
+            ? selectedThemes[0].name
+            : `${selectedThemes.length} themes selected`;
+    const handleToggleOpen = () => {
+        if (!isOpen) {
+            setDraftThemeIds(selectedThemeIds);
+        }
+        setIsOpen((prev) => !prev);
+    };
 
     useEffect(() => {
         if (isOpen && triggerRef.current) {
@@ -82,12 +93,12 @@ export function CompactThemePicker({
             <button
                 ref={triggerRef}
                 type="button"
-                onClick={() => setIsOpen((prev) => !prev)}
+                onClick={handleToggleOpen}
                 className="w-full px-4 py-3 border-2 rounded-xl text-left text-sm font-semibold transition hover:brightness-110"
                 style={{
                     backgroundColor: colors.background.DEFAULT,
                     borderColor: colors.primary.dark,
-                    color: selectedTheme ? colors.text.DEFAULT : colors.text.muted,
+                    color: selectedThemes.length > 0 ? colors.text.DEFAULT : colors.text.muted,
                 }}
                 data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-trigger` : undefined}
             >
@@ -118,14 +129,17 @@ export function CompactThemePicker({
                     }}
                 >
                     {themes.map((theme, index) => {
-                        const isSelected = selectedThemeId === theme._id;
+                        const isSelected = draftThemeIds.includes(theme._id);
                         return (
                             <button
                                 key={theme._id}
                                 type="button"
                                 onClick={() => {
-                                    onSelect(theme._id);
-                                    setIsOpen(false);
+                                    setDraftThemeIds((current) =>
+                                        current.includes(theme._id)
+                                            ? current.filter((themeId) => themeId !== theme._id)
+                                            : [...current, theme._id]
+                                    );
                                 }}
                                 className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
                                 style={{
@@ -163,6 +177,27 @@ export function CompactThemePicker({
                             </button>
                         );
                     })}
+                    <div
+                        className="p-3 border-t"
+                        style={{ borderColor: colors.primary.dark }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onSelect(draftThemeIds);
+                                setIsOpen(false);
+                            }}
+                            disabled={draftThemeIds.length === 0}
+                            className="w-full rounded-xl py-2 text-sm font-bold uppercase tracking-widest transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{
+                                backgroundColor: colors.cta.DEFAULT,
+                                color: colors.text.DEFAULT,
+                            }}
+                            data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-confirm` : undefined}
+                        >
+                            Confirm Themes
+                        </button>
+                    </div>
                 </div>,
                 document.body
             )}

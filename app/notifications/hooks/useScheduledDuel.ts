@@ -7,7 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 
 export interface ScheduledDuelData {
     recipientId: Id<"users">;
-    themeId: Id<"themes">;
+    themeIds: Id<"themes">[];
     scheduledTime: number;
     mode?: "solo" | "classic";
     classicDifficultyPreset?: "easy" | "medium" | "hard";
@@ -48,7 +48,7 @@ export function useScheduledDuel() {
         try {
             await proposeScheduledDuelMutation({
                 recipientId: data.recipientId,
-                themeId: data.themeId,
+                themeIds: data.themeIds,
                 scheduledTime: data.scheduledTime,
                 mode: data.mode,
                 classicDifficultyPreset: data.classicDifficultyPreset,
@@ -75,13 +75,13 @@ export function useScheduledDuel() {
 
     const counterPropose = useCallback(async (
         scheduledDuelId: Id<"scheduledDuels">,
-        data: { newScheduledTime?: number; newThemeId?: Id<"themes"> }
+        data: { newScheduledTime?: number; newThemeIds?: Id<"themes">[] }
     ) => {
         try {
             await counterProposeMutation({
                 scheduledDuelId,
                 newScheduledTime: data.newScheduledTime,
-                newThemeId: data.newThemeId,
+                newThemeIds: data.newThemeIds,
             });
             return { success: true };
         } catch (error) {

@@ -4,6 +4,7 @@
 
 import { query, mutation, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getAuthenticatedUser,
@@ -15,14 +16,20 @@ import {
   buildChallengeStartState,
   resolveChallengeMode,
 } from "./helpers/challengeCreation";
+import {
+  getChallengeSessionWords,
+  loadThemesByIds,
+  summarizeSessionWords,
+} from "./helpers/sessionWords";
 import { isDuelChallengePayload } from "./notificationPayloads";
 import { DUEL_CHALLENGE_TTL_MS } from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
+import { summarizeThemes } from "../lib/sessionWords";
 
 export const createDuel = mutation({
   args: {
     opponentId: v.id("users"),
-    themeId: v.id("themes"),
+    themeIds: v.array(v.id("themes")),
     mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
     classicDifficultyPreset: v.optional(
       v.union(
@@ -32,23 +39,34 @@ export const createDuel = mutation({
       )
     ),
   },
-  handler: async (ctx, { opponentId, themeId, mode, classicDifficultyPreset }) => {
+  handler: async (ctx, { opponentId, themeIds, mode, classicDifficultyPreset }) => {
     const { user: challenger } = await getAuthenticatedUser(ctx);
 
     // Verify opponent exists
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) throw new Error("Opponent not found");
 
-    // Verify theme exists and challenger has access to it
-    const theme = await ctx.runQuery(api.themes.getTheme, { themeId });
-    if (!theme) throw new Error("Theme not found or access denied");
+    const orderedThemeIds = Array.from(new Set(themeIds));
+    if (orderedThemeIds.length === 0) {
+      throw new Error("Select at least one theme");
+    }
+    const themes: Array<Doc<"themes"> | null> = await Promise.all(
+      orderedThemeIds.map((selectedThemeId) =>
+        ctx.runQuery(api.themes.getTheme, { themeId: selectedThemeId })
+      )
+    );
+    if (themes.some((theme) => !theme)) {
+      throw new Error("One or more themes were not found or are not accessible");
+    }
+    const resolvedThemes: Doc<"themes">[] = themes.filter(
+      (theme): theme is Doc<"themes"> => theme !== null
+    );
 
     const now = Date.now();
     const challengeBase = buildChallengeBase({
       challengerId: challenger._id,
       opponentId,
-      themeId,
-      wordCount: theme.words.length,
+      themes: resolvedThemes,
       mode,
       classicDifficultyPreset,
       createdAt: now,
@@ -59,6 +77,8 @@ export const createDuel = mutation({
       status: "pending",
     });
 
+    const themeSummary = summarizeThemes(resolvedThemes);
+
     // Create notification for the opponent
     await ctx.db.insert("notifications", {
       type: "duel_challenge",
@@ -67,7 +87,8 @@ export const createDuel = mutation({
       status: "pending",
       payload: {
         challengeId,
-        themeName: theme.name,
+        themeId: resolvedThemes.length === 1 ? resolvedThemes[0]._id : undefined,
+        themeName: themeSummary,
         mode: challengeBase.mode,
         classicDifficultyPreset: challengeBase.classicDifficultyPreset,
       },
@@ -105,12 +126,18 @@ export const getDuel = query({
     ]);
     const viewerRole = isChallenger ? "challenger" : "opponent";
 
-    const theme = duel.themeId ? await ctx.db.get(duel.themeId) : null;
+    const themes = await loadThemesByIds(ctx, duel.themeIds);
+    const theme = themes.length === 1 ? themes[0] : null;
 
     // Return only safe user fields (no email, no clerkId)
     return {
       duel,
       theme,
+      themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
+      themeSummary:
+        duel.sessionWords?.length > 0
+          ? summarizeSessionWords(duel.sessionWords)
+          : summarizeThemes(themes),
       viewerRole,
       viewer: {
         _id: auth.user._id,
@@ -176,16 +203,12 @@ export const acceptDuel = mutation({
       throw new Error("Duel is not pending");
     }
 
-    // Get theme for word count
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    const wordCount = theme.words.length;
+    const sessionWords = getChallengeSessionWords(duel);
 
     const now = Date.now();
     const startState = buildChallengeStartState({
       mode: resolveChallengeMode(duel.mode),
-      wordCount,
+      wordCount: sessionWords.length,
       now,
     });
 
@@ -293,16 +316,11 @@ export const acceptDuelChallenge = mutation({
       throw new Error("Challenge is no longer pending");
     }
 
-    const theme = await ctx.db.get(challenge.themeId);
-    if (!theme) {
-      throw new Error("Theme not found");
-    }
-
-    const wordCount = theme.words.length;
+    const sessionWords = getChallengeSessionWords(challenge);
     const now = Date.now();
     const startState = buildChallengeStartState({
       mode: resolveChallengeMode(challenge.mode),
-      wordCount,
+      wordCount: sessionWords.length,
       now,
     });
 

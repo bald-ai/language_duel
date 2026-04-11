@@ -105,6 +105,8 @@ describe("CounterProposeScheduledDuelModal", () => {
       _id: "scheduled_1",
       scheduledTime: 1_700_000_000_000,
       themeId: "theme_1",
+      themeIds: ["theme_1"],
+      themeSummary: "Animals",
       theme: { name: "Animals" },
       isProposer: true,
       recipient: { nickname: "Alex", discriminator: 42 },
@@ -130,7 +132,9 @@ describe("CounterProposeScheduledDuelModal", () => {
     expect(counterProposeMutation).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId("counter-duel-theme-trigger"));
+    fireEvent.click(await screen.findByTestId("counter-duel-theme-option-theme_1"));
     fireEvent.click(await screen.findByTestId("counter-duel-theme-option-theme_2"));
+    fireEvent.click(screen.getByTestId("counter-duel-theme-confirm"));
 
     fireEvent.click(screen.getByTestId("counter-duel-submit"));
 
@@ -138,7 +142,7 @@ describe("CounterProposeScheduledDuelModal", () => {
       expect(counterProposeMutation).toHaveBeenCalledWith({
         scheduledDuelId: "scheduled_1",
         newScheduledTime: undefined,
-        newThemeId: "theme_2",
+        newThemeIds: ["theme_2"],
       });
     });
 

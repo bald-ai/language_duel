@@ -269,7 +269,7 @@ export const getThemes = query({
       const activeScheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].filter(
         (sd) => sd.status === "pending" || sd.status === "accepted" || sd.status === "counter_proposed"
       );
-      const scheduledThemeIds = activeScheduledDuels.map((sd) => sd.themeId);
+      const scheduledThemeIds = activeScheduledDuels.flatMap((sd) => sd.themeIds);
 
       // Query 4: Themes from active weekly goals
       const goalsAsCreator = await ctx.db
@@ -369,22 +369,18 @@ export const getTheme = query({
       ctx.db
         .query("challenges")
         .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
-        .filter((q) => q.eq(q.field("themeId"), args.themeId))
         .collect(),
       ctx.db
         .query("challenges")
         .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
-        .filter((q) => q.eq(q.field("themeId"), args.themeId))
         .collect(),
       ctx.db
         .query("scheduledDuels")
         .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
-        .filter((q) => q.eq(q.field("themeId"), args.themeId))
         .collect(),
       ctx.db
         .query("scheduledDuels")
         .withIndex("by_recipient", (q) => q.eq("recipientId", currentUserId))
-        .filter((q) => q.eq(q.field("themeId"), args.themeId))
         .collect(),
       ctx.db
         .query("weeklyGoals")
@@ -413,13 +409,13 @@ export const getTheme = query({
     const challenges = [...challengesAsChallenger, ...challengesAsOpponent].map((c) => ({
       challengerId: c.challengerId,
       opponentId: c.opponentId,
-      themeId: c.themeId,
+      themeIds: c.themeIds,
     }));
 
     const scheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].map((sd) => ({
       proposerId: sd.proposerId,
       recipientId: sd.recipientId,
-      themeId: sd.themeId,
+      themeIds: sd.themeIds,
       status: sd.status,
     }));
 

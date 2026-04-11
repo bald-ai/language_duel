@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -92,19 +92,30 @@ export default function Home() {
   
   const openSoloParam = searchParams.get("openSolo");
   const themeIdParam = searchParams.get("themeId");
+  const themeIdsParam = searchParams.get("themeIds");
   const soloModeParam = searchParams.get("soloMode");
-  const soloThemeId = openSoloParam === "true" && themeIdParam 
-    ? (themeIdParam as Id<"themes">) 
-    : undefined;
+  const soloThemeIds = useMemo(
+    () =>
+      openSoloParam === "true"
+        ? (
+            themeIdsParam
+              ? themeIdsParam.split(",").filter(Boolean)
+              : themeIdParam
+                ? [themeIdParam]
+                : []
+          ) as Id<"themes">[]
+        : undefined,
+    [openSoloParam, themeIdParam, themeIdsParam]
+  );
   const soloInitialMode = openSoloParam === "true" && soloModeParam === "challenge_only"
     ? "challenge_only"
     : undefined;
   const soloDeepLinkKey = openSoloParam === "true"
-    ? `${themeIdParam ?? ""}:${soloModeParam ?? ""}`
+    ? `${themeIdsParam ?? themeIdParam ?? ""}:${soloModeParam ?? ""}`
     : null;
 
   useEffect(() => {
-    if (!soloThemeId || !soloDeepLinkKey) {
+    if (!soloThemeIds || soloThemeIds.length === 0 || !soloDeepLinkKey) {
       handledSoloDeepLinkRef.current = null;
       return;
     }
@@ -115,7 +126,7 @@ export default function Home() {
 
     handledSoloDeepLinkRef.current = soloDeepLinkKey;
     openSoloModal();
-  }, [soloThemeId, soloDeepLinkKey, openSoloModal]);
+  }, [soloThemeIds, soloDeepLinkKey, openSoloModal]);
 
   const handleCloseSoloModal = () => {
     lobby.closeSoloModal();
@@ -248,7 +259,7 @@ export default function Home() {
             onContinue={lobby.handleContinueSolo}
             onClose={handleCloseSoloModal}
             onNavigateToThemes={lobby.navigateToThemes}
-            initialThemeId={soloThemeId}
+            initialThemeIds={soloThemeIds}
             initialMode={soloInitialMode}
           />
         )

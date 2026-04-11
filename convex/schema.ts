@@ -12,6 +12,15 @@ const wordValidator = v.object({
   ttsStorageId: v.optional(v.id("_storage")),
 });
 
+const sessionWordValidator = v.object({
+  word: v.string(),
+  answer: v.string(),
+  wrongAnswers: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
+  themeId: v.id("themes"),
+  themeName: v.string(),
+});
+
 const playerRoleValidator = v.union(v.literal("challenger"), v.literal("opponent"));
 
 const duelStatusValidator = v.union(
@@ -245,7 +254,8 @@ export default defineSchema({
     // === Core Fields ===
     challengerId: v.id("users"),
     opponentId: v.id("users"),
-    themeId: v.id("themes"),
+    themeIds: v.array(v.id("themes")),
+    sessionWords: v.array(sessionWordValidator),
     status: duelStatusValidator,
     mode: v.optional(duelModeValidator),
     createdAt: v.number(),
@@ -442,7 +452,7 @@ export default defineSchema({
   scheduledDuels: defineTable({
     proposerId: v.id("users"),
     recipientId: v.id("users"),
-    themeId: v.id("themes"),
+    themeIds: v.array(v.id("themes")),
     scheduledTime: v.number(), // Unix timestamp
     status: scheduledDuelStatusValidator,
     mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),

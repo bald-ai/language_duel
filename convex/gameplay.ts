@@ -33,6 +33,7 @@ import {
   TIMEOUT_ANSWER,
   SEED_XOR_MASK,
 } from "./constants";
+import { getChallengeSessionWords } from "./helpers/sessionWords";
 
 // ===========================================
 // Helper: Clear hint state on question advance
@@ -130,18 +131,16 @@ export const answerDuel = mutation({
       throw new Error("Stale answer: question has changed");
     }
 
-    // Get theme to check correct answer
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
+    const sessionWords = getChallengeSessionWords(duel);
 
     // Use shuffled word order if available
     const actualWordIndex = duel.wordOrder
       ? duel.wordOrder[duel.currentWordIndex]
       : duel.currentWordIndex;
-    const currentWord = theme.words[actualWordIndex];
+    const currentWord = sessionWords[actualWordIndex];
 
     // Determine difficulty and points
-    const wordCount = theme.words.length;
+    const wordCount = sessionWords.length;
     const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
     const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
     const pointsForCorrect = getPointsForIndex(questionIndex, distribution);
@@ -233,9 +232,8 @@ export const timeoutAnswer = mutation({
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
     if (updatedDuel) {
-      const theme = await ctx.db.get(updatedDuel.themeId);
-      if (!theme) throw new Error("Theme not found");
-      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, theme.words.length);
+      const sessionWords = getChallengeSessionWords(updatedDuel);
+      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
     }
   },
 });
@@ -421,12 +419,12 @@ export const initializeDuelChallenge = mutation({
     const freshDuel = await ctx.db.get(duelId);
     if (!freshDuel || freshDuel.status === "challenging") return;
 
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
+    const sessionWords = getChallengeSessionWords(duel);
 
-    const wordCount = theme.words.length;
-
-    const soloState = buildSoloInitState(wordCount, duel.seed ?? (Date.now() ^ SEED_XOR_MASK));
+    const soloState = buildSoloInitState(
+      sessionWords.length,
+      duel.seed ?? (Date.now() ^ SEED_XOR_MASK)
+    );
 
     await ctx.db.patch(duelId, {
       status: "challenging",
@@ -479,11 +477,8 @@ export const submitSoloAnswer = mutation({
       throw new Error("Stale answer: question has changed");
     }
 
-    // Get theme to validate answer server-side
-    const theme = await ctx.db.get(duel.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    const currentWord = theme.words[currentWordIndex];
+    const sessionWords = getChallengeSessionWords(duel);
+    const currentWord = sessionWords[currentWordIndex];
     if (!currentWord) throw new Error("Word not found");
 
     const isCorrect = answer === currentWord.answer;

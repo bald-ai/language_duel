@@ -52,7 +52,7 @@ const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semib
  * - Difficulty preset (if Classic mode)
  */
 export function ScheduleDuelModal({ initialFriendId, friends, onClose }: ScheduleDuelModalProps) {
-    const [selectedThemeId, setSelectedThemeId] = useState<Id<"themes"> | null>(null);
+    const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
     const [selectedTime, setSelectedTime] = useState<number | null>(null);
     const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users">>(initialFriendId);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,12 +66,12 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
 
     const availableThemes = themes ?? [];
 
-    const selectedTheme = availableThemes.find((theme) => theme._id === selectedThemeId) || null;
+    const selectedThemes = availableThemes.filter((theme) => selectedThemeIds.includes(theme._id));
     const selectedOpponent = friends?.find((friend) => friend.friendId === selectedOpponentId) || null;
 
     const handleSubmit = async () => {
-        if (!selectedThemeId) {
-            toast.error("Please select a theme");
+        if (selectedThemeIds.length === 0) {
+            toast.error("Please select at least one theme");
             return;
         }
         if (!selectedTime) {
@@ -87,7 +87,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
         try {
             await proposeScheduledDuel({
                 recipientId: selectedOpponentId,
-                themeId: selectedThemeId,
+                themeIds: selectedThemeIds,
                 scheduledTime: selectedTime,
                 mode: "classic",
                 classicDifficultyPreset: "easy",
@@ -112,9 +112,9 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                     </p>
                     <CompactThemePicker
                         themes={availableThemes}
-                        selectedThemeId={selectedThemeId}
-                        selectedTheme={selectedTheme}
-                        onSelect={setSelectedThemeId}
+                        selectedThemeIds={selectedThemeIds}
+                        selectedThemes={selectedThemes}
+                        onSelect={setSelectedThemeIds}
                         dataTestIdPrefix="schedule-duel-theme"
                     />
                 </div>
@@ -152,7 +152,7 @@ export function ScheduleDuelModal({ initialFriendId, friends, onClose }: Schedul
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={isSubmitting || !selectedThemeId || !selectedTime || !selectedOpponentId}
+                    disabled={isSubmitting || selectedThemeIds.length === 0 || !selectedTime || !selectedOpponentId}
                     className={actionButtonClassName}
                     style={ctaActionStyle}
                     data-testid="schedule-duel-submit"

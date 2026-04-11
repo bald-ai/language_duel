@@ -13,6 +13,7 @@ interface Word {
   word: string;
   answer: string;
   wrongAnswers: string[];
+  themeName?: string;
 }
 
 interface PlayerStats {
@@ -21,6 +22,7 @@ interface PlayerStats {
 
 interface QuestionCardProps {
   currentWord: Word;
+  sourceThemeName?: string | null;
   myCurrentLevel: number | null;
   myLevel2Mode: "typing" | "multiple_choice";
   myCurrentWordIndex: number;
@@ -52,6 +54,7 @@ interface QuestionCardProps {
 
 export function QuestionCard({
   currentWord,
+  sourceThemeName,
   myCurrentLevel,
   myLevel2Mode,
   myCurrentWordIndex,
@@ -126,6 +129,14 @@ export function QuestionCard({
 
       {/* Word to translate */}
       <div className="text-center mb-6">
+        {sourceThemeName && (
+          <div
+            className="text-xs uppercase tracking-[0.25em] mb-2"
+            style={{ color: colors.text.muted }}
+          >
+            {sourceThemeName}
+          </div>
+        )}
         <div className="text-3xl font-bold mb-2" style={{ color: colors.text.DEFAULT }}>
           {currentWord.word}
         </div>

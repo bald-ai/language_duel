@@ -2,14 +2,19 @@ import type { Id } from "../_generated/dataModel";
 import { SEED_XOR_MASK } from "../constants";
 import { buildSoloInitState, type SoloInitState } from "./duelInitialization";
 import { createShuffledWordOrder, type ClassicDifficultyPreset } from "./gameLogic";
+import {
+  buildSessionWords,
+  getUniqueThemeIds,
+  type SessionThemeInput,
+  type SessionWordEntry,
+} from "../../lib/sessionWords";
 
 export type ChallengeMode = "solo" | "classic";
 
 export interface BuildChallengeBaseArgs {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
-  themeId: Id<"themes">;
-  wordCount: number;
+  themes: SessionThemeInput[];
   createdAt: number;
   mode?: ChallengeMode;
   classicDifficultyPreset?: ClassicDifficultyPreset;
@@ -18,7 +23,8 @@ export interface BuildChallengeBaseArgs {
 export interface ChallengeBaseFields {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
-  themeId: Id<"themes">;
+  themeIds: Id<"themes">[];
+  sessionWords: SessionWordEntry[];
   currentWordIndex: number;
   wordOrder: number[];
   challengerAnswered: boolean;
@@ -54,13 +60,15 @@ export function resolveClassicDifficultyPreset(
 
 export function buildChallengeBase(args: BuildChallengeBaseArgs): ChallengeBaseFields {
   const mode = resolveChallengeMode(args.mode);
+  const sessionWords = buildSessionWords(args.themes);
 
   return {
     challengerId: args.challengerId,
     opponentId: args.opponentId,
-    themeId: args.themeId,
+    themeIds: getUniqueThemeIds(sessionWords),
+    sessionWords,
     currentWordIndex: 0,
-    wordOrder: createShuffledWordOrder(args.wordCount),
+    wordOrder: createShuffledWordOrder(sessionWords.length),
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,

@@ -16,6 +16,7 @@ import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { buttonStyles, colors } from "@/lib/theme";
 import { useTTS } from "@/app/game/hooks/useTTS";
+import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 
 const DEFAULT_HINT_STATE = Object.freeze({
   hintCount: 0,
@@ -102,12 +103,27 @@ export default function LearnPhasePage() {
   const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
   const themeId = searchParams.get("themeId");
+  const themeIdsParam = searchParams.get("themeIds");
+  const requestedThemeIds = useMemo(() => {
+    if (themeIdsParam) {
+      return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
+    }
+    return themeId ? [themeId as Id<"themes">] : [];
+  }, [themeId, themeIdsParam]);
+  const themeIdsKey = useMemo(() => requestedThemeIds.join(","), [requestedThemeIds]);
 
-  // Fetch theme data
-  const theme = useQuery(
-    api.themes.getTheme,
-    themeId ? { themeId: themeId as Id<"themes"> } : "skip"
-  );
+  const allThemes = useQuery(api.themes.getThemes, {});
+  const selectedThemes = useMemo(() => {
+    if (!allThemes) return [];
+    const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
+    return requestedThemeIds
+      .flatMap((requestedThemeId) => {
+        const theme = themeMap.get(requestedThemeId);
+        return theme ? [theme] : [];
+      });
+  }, [allThemes, requestedThemeIds]);
+  const sessionWords = useMemo(() => buildSessionWords(selectedThemes), [selectedThemes]);
+  const themeSummary = useMemo(() => summarizeThemes(selectedThemes), [selectedThemes]);
 
   // Timer state
   const [duration, setDuration] = useState(DEFAULT_DURATION);
@@ -125,7 +141,7 @@ export default function LearnPhasePage() {
   const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
 
   // Memoize initial order to avoid creating new array on every render
-  const initialOrder = useMemo(() => theme?.words.map((_, i) => i) ?? null, [theme?.words]);
+  const initialOrder = useMemo(() => sessionWords.map((_, i) => i), [sessionWords]);
   const gap = isRevealed ? LAYOUT.GAP_REVEALED : LAYOUT.GAP_TESTING;
 
   const {
@@ -137,11 +153,11 @@ export default function LearnPhasePage() {
     handleMouseDown,
     getItemStyle,
   } = useDraggableList<number>(initialOrder, {
-    itemCount: theme?.words.length ?? 0,
+    itemCount: sessionWords.length,
     gap,
   });
 
-  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${themeId ?? "no-theme"}`;
+  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${themeIdsKey || "no-theme"}`;
 
   useEffect(() => {
     try {
@@ -227,9 +243,14 @@ export default function LearnPhasePage() {
 
   useEffect(() => {
     if (timeRemaining === 0 && isStarted) {
-      router.push(`/solo/${sessionId}?themeId=${themeId}`);
+      const params = new URLSearchParams();
+      if (requestedThemeIds.length === 1) {
+        params.set("themeId", requestedThemeIds[0]);
+      }
+      params.set("themeIds", themeIdsKey);
+      router.push(`/solo/${sessionId}?${params.toString()}`);
     }
-  }, [timeRemaining, isStarted, router, sessionId, themeId]);
+  }, [timeRemaining, isStarted, router, sessionId, requestedThemeIds, themeIdsKey]);
 
   // --- TTS ---
   const playWordTTS = useCallback(
@@ -242,17 +263,18 @@ export default function LearnPhasePage() {
   // --- Navigation ---
   const handleSkip = useCallback(() => {
     const confidenceByWordIndex: Record<number, number> = {};
-    theme?.words.forEach((_, wordIndex) => {
-      const wordKey = `${themeId}-${wordIndex}`;
+    sessionWords.forEach((_, wordIndex) => {
+      const wordKey = `${themeIdsKey}-${wordIndex}`;
       confidenceByWordIndex[wordIndex] = getConfidence(wordKey);
     });
 
     const urlParams = new URLSearchParams();
-    if (themeId) urlParams.set("themeId", themeId);
+    if (requestedThemeIds.length === 1) urlParams.set("themeId", requestedThemeIds[0]);
+    urlParams.set("themeIds", themeIdsKey);
     urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  }, [theme?.words, themeId, getConfidence, router, sessionId]);
+  }, [sessionWords, themeIdsKey, requestedThemeIds, getConfidence, router, sessionId]);
 
   const handleExit = useCallback(() => router.push("/"), [router]);
 
@@ -265,7 +287,7 @@ export default function LearnPhasePage() {
   }, [timeRemaining, duration]);
 
   // --- Loading states ---
-  if (!themeId) {
+  if (requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -300,7 +322,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (!theme) {
+  if (allThemes === undefined) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -327,6 +349,41 @@ export default function LearnPhasePage() {
     );
   }
 
+  if (selectedThemes.length !== requestedThemeIds.length) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              Theme not found
+            </p>
+            <button
+              onClick={handleExit}
+              className={`${actionButtonClassName} mt-6`}
+              style={primaryActionStyle}
+              data-testid="solo-learn-back-home"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
+    );
+  }
+
   // --- Pre-start screen ---
   if (!isStarted) {
     return (
@@ -339,10 +396,10 @@ export default function LearnPhasePage() {
             style={cardStyle}
           >
             <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
-              Theme
+              {selectedThemes.length === 1 ? "Theme" : "Themes"}
             </div>
             <h2 className="mt-1 text-2xl font-bold" style={{ color: colors.text.DEFAULT }}>
-              {theme.name}
+              {themeSummary}
             </h2>
 
             <p className="mt-3 text-sm" style={{ color: colors.text.muted }}>
@@ -371,7 +428,7 @@ export default function LearnPhasePage() {
                 color: colors.text.muted,
               }}
             >
-              {theme.words.length} words to study
+              {sessionWords.length} words to study
             </div>
           </section>
 
@@ -438,7 +495,7 @@ export default function LearnPhasePage() {
             Study Session
           </div>
           <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-            {theme.name}
+            {themeSummary}
           </div>
           <div
             className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
@@ -531,7 +588,7 @@ export default function LearnPhasePage() {
             )}
 
             {wordOrder.map((originalIndex, orderIdx) => {
-              const wordKey = `${themeId}-${originalIndex}`;
+              const wordKey = `${themeIdsKey}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
 
@@ -540,8 +597,8 @@ export default function LearnPhasePage() {
                   <MemoizedWordCardWrapper
                     originalIndex={originalIndex}
                     orderIdx={orderIdx}
-                    word={theme.words[originalIndex]}
-                    themeId={themeId}
+                    word={sessionWords[originalIndex]}
+                    themeId={themeIdsKey}
                     isRevealed={isRevealed}
                     hintState={state}
                     confidence={confidence}
@@ -576,8 +633,8 @@ export default function LearnPhasePage() {
           >
             {(() => {
               const originalIndex = wordOrder[dragState.draggedIndex];
-              const word = theme.words[originalIndex];
-              const wordKey = `${themeId}-${originalIndex}`;
+              const word = sessionWords[originalIndex];
+              const wordKey = `${themeIdsKey}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
               const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
