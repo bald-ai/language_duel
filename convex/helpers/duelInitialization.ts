@@ -6,7 +6,6 @@ import {
   advanceSeed,
   type Level2Mode,
 } from "./gameLogic";
-import { SEED_XOR_MASK } from "../constants";
 
 function pickFromPool(pool: number[], seed: number): { index: number; newSeed: number } {
   const s = advanceSeed(seed);
@@ -34,37 +33,37 @@ export interface SoloInitState {
   opponentStats: { questionsAnswered: number; correctAnswers: number };
 }
 
-export function buildSoloInitState(wordCount: number, inputSeed?: number): SoloInitState {
-  let seed = inputSeed ?? (Date.now() ^ SEED_XOR_MASK);
-
+// We thread a single seed through all random operations so the entire
+// init is deterministic from one input seed.
+export function buildSoloInitState(wordCount: number, seed: number): SoloInitState {
   const challengerPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-  seed = challengerPoolsResult.newSeed;
+  let newSeed = challengerPoolsResult.newSeed;
 
-  const opponentPoolsResult = initializeWordPoolsSeeded(wordCount, seed);
-  seed = opponentPoolsResult.newSeed;
+  const opponentPoolsResult = initializeWordPoolsSeeded(wordCount, newSeed);
+  newSeed = opponentPoolsResult.newSeed;
 
   const wordStates = createInitialWordStates(wordCount);
 
-  const challengerPick = pickFromPool(challengerPoolsResult.activePool, seed);
-  seed = challengerPick.newSeed;
+  const challengerPick = pickFromPool(challengerPoolsResult.activePool, newSeed);
+  newSeed = challengerPick.newSeed;
 
-  const opponentPick = pickFromPool(opponentPoolsResult.activePool, seed);
-  seed = opponentPick.newSeed;
+  const opponentPick = pickFromPool(opponentPoolsResult.activePool, newSeed);
+  newSeed = opponentPick.newSeed;
 
-  const challengerLevel = determineInitialLevelSeeded(seed);
-  seed = challengerLevel.newSeed;
+  const challengerLevel = determineInitialLevelSeeded(newSeed);
+  newSeed = challengerLevel.newSeed;
 
-  const challengerL2Mode = determineLevel2ModeSeeded(seed);
-  seed = challengerL2Mode.newSeed;
+  const challengerL2Mode = determineLevel2ModeSeeded(newSeed);
+  newSeed = challengerL2Mode.newSeed;
 
-  const opponentLevel = determineInitialLevelSeeded(seed);
-  seed = opponentLevel.newSeed;
+  const opponentLevel = determineInitialLevelSeeded(newSeed);
+  newSeed = opponentLevel.newSeed;
 
-  const opponentL2Mode = determineLevel2ModeSeeded(seed);
-  seed = opponentL2Mode.newSeed;
+  const opponentL2Mode = determineLevel2ModeSeeded(newSeed);
+  newSeed = opponentL2Mode.newSeed;
 
   return {
-    seed,
+    seed: newSeed,
     challengerWordStates: wordStates,
     challengerActivePool: challengerPoolsResult.activePool,
     challengerRemainingPool: challengerPoolsResult.remainingPool,
@@ -73,7 +72,7 @@ export function buildSoloInitState(wordCount: number, inputSeed?: number): SoloI
     challengerLevel2Mode: challengerL2Mode.mode,
     challengerCompleted: false,
     challengerStats: { questionsAnswered: 0, correctAnswers: 0 },
-    opponentWordStates: [...wordStates],
+    opponentWordStates: wordStates.map(ws => ({ ...ws })),
     opponentActivePool: opponentPoolsResult.activePool,
     opponentRemainingPool: opponentPoolsResult.remainingPool,
     opponentCurrentWordIndex: opponentPick.index,

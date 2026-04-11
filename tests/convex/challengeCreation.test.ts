@@ -83,6 +83,7 @@ describe("challenge creation helpers", () => {
     expect(resolveChallengeMode(undefined)).toBe("solo");
 
     const result = buildChallengeStartState({
+      mode: resolveChallengeMode(undefined),
       wordCount: 2,
       now: 42,
       seed: 7,

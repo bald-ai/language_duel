@@ -426,7 +426,7 @@ export const initializeDuelChallenge = mutation({
 
     const wordCount = theme.words.length;
 
-    const soloState = buildSoloInitState(wordCount, duel.seed);
+    const soloState = buildSoloInitState(wordCount, duel.seed ?? (Date.now() ^ SEED_XOR_MASK));
 
     await ctx.db.patch(duelId, {
       status: "challenging",

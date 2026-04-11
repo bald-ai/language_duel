@@ -745,7 +745,7 @@ export const startScheduledDuel = internalMutation({
             createdAt: now,
         });
         const startState = buildChallengeStartState({
-            mode: scheduledDuel.mode,
+            mode: challengeBase.mode,
             wordCount,
             now,
         });

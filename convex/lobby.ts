@@ -13,6 +13,7 @@ import {
 import {
   buildChallengeBase,
   buildChallengeStartState,
+  resolveChallengeMode,
 } from "./helpers/challengeCreation";
 import { isDuelChallengePayload } from "./notificationPayloads";
 import { DUEL_CHALLENGE_TTL_MS } from "./constants";
@@ -183,7 +184,7 @@ export const acceptDuel = mutation({
 
     const now = Date.now();
     const startState = buildChallengeStartState({
-      mode: duel.mode,
+      mode: resolveChallengeMode(duel.mode),
       wordCount,
       now,
     });
@@ -300,7 +301,7 @@ export const acceptDuelChallenge = mutation({
     const wordCount = theme.words.length;
     const now = Date.now();
     const startState = buildChallengeStartState({
-      mode: challenge.mode,
+      mode: resolveChallengeMode(challenge.mode),
       wordCount,
       now,
     });

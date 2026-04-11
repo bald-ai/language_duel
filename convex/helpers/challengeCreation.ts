@@ -72,17 +72,16 @@ export function buildChallengeBase(args: BuildChallengeBaseArgs): ChallengeBaseF
 }
 
 export interface BuildChallengeStartStateArgs {
-  mode?: ChallengeMode;
+  mode: ChallengeMode;
   wordCount: number;
   now: number;
   seed?: number;
 }
 
 export function buildChallengeStartState(args: BuildChallengeStartStateArgs): ChallengeStartState {
-  const mode = resolveChallengeMode(args.mode);
   const seed = args.seed ?? (args.now ^ SEED_XOR_MASK);
 
-  if (mode === "classic") {
+  if (args.mode === "classic") {
     return {
       status: "accepted",
       questionStartTime: args.now,
