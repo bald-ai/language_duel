@@ -174,49 +174,83 @@ Breakpoint:
 
 Goal: make "one session from many themes" a real platform feature, because Weekly Boss depends on it.
 
-Scope:
+#### Key decision: denormalized word list
 
-- Add multi-theme support to duel/challenge session data.
-- Allow a session to store `themeIds` and use words from multiple themes in one playable session.
-- Treat `themeIds` as the new source of truth for sessions. Existing single-theme challenge rows should be backfilled to `themeIds: [themeId]` in a one-time migration script. Note: the migration script must also be run on production at the end of the project.
-- Create shared backend logic to:
-  - load words from multiple themes
-  - keep every word tied to its source theme (no deduplication)
-  - shuffle in a deterministic way
-  - return a display label for the session
-- Update single-theme creation paths to use the same code path with a one-item theme list.
+Store a flat `sessionWords` array directly on the challenge row. Each entry carries its word data plus the source `themeId` and `themeName`. This means gameplay reads never need to fetch theme documents — everything needed to run a question is already on the challenge.
 
-UI changes:
+Why:
+- Gameplay reads are the hot path. Fetching N themes per question adds latency and failure modes.
+- Word data is small. Duplicating it on the challenge is cheap.
+- The source theme can be renamed or deleted after the session starts without breaking in-progress games.
+- Simplifies the word-index model: `wordOrder[i]` indexes into `sessionWords[i]`, same as today but the array is self-contained.
+
+Shape of a session word entry:
+```ts
+{
+  word: string;          // the prompt (e.g. Spanish word)
+  answer: string;        // the correct answer
+  wrongAnswers: string[];
+  themeId: Id<"themes">;
+  themeName: string;     // snapshot at session creation time
+}
+```
+
+Gameplay logic indexes into `sessionWords` the same way it currently indexes into `theme.words`. The only difference is the data lives on the challenge, not on a separate theme document.
+
+#### Scope
+
+- Add `themeIds: v.array(v.id("themes"))` and `sessionWords` to the challenges table.
+- `buildChallengeBase` (from Phase 0.5) accepts `themeIds` + builds `sessionWords` from the provided themes.
+- Single-theme flows pass `[themeId]` — same code path, one-item list.
+- Gameplay reads (`gameplay.ts`, `hints.ts`) switch from `theme.words[index]` to `duel.sessionWords[index]`. They no longer need to fetch the theme document for word data.
+- `getDuel` in `lobby.ts` still fetches theme docs for metadata (name, ownership) but not for word content.
+- Backfill migration: internal mutation reads all existing challenges, builds `sessionWords` from the theme doc, sets `themeIds: [themeId]`. Run locally during dev, run on production at the end of the project.
+- After migration + switchover, remove `themeId` from challenge creation paths. Keep it on the schema as `v.optional` until production migration is confirmed.
+
+`scheduledDuels` table also needs `themeIds`. Scheduled duels don't store words — they just reference which themes to use. Words get snapshot into `sessionWords` when the challenge is actually created (in `startScheduledDuel`).
+
+#### UI changes
 
 - Convert `ThemeSelector` from single-click-to-select to a **checkbox-style multi-select with a Confirm button**.
 - Apply the multi-select UI to **all flows**: `SoloModal`, `UnifiedDuelModal` (`CompactThemeSelector`), and `ScheduledDuelPickers` (`CompactThemePicker`).
-- During gameplay, only when multiple themes are selected, display the **theme name only** near the word (e.g. above it) so the player knows which theme context the word belongs to. This is required in Phase 1.
+- During gameplay, only when multiple themes are selected, display the **theme name only** near the word (e.g. above it) so the player knows which theme context the word belongs to. Read `themeName` from `sessionWords[currentIndex]`. Not shown for single-theme sessions.
 
-Concrete code areas likely involved:
+#### Concrete code areas
 
-- `convex/schema.ts`
-- shared challenge creation helper (from Phase 0.5)
-- gameplay reads that currently fetch `duel.themeId`
-- shared session/word-pool helpers in `convex/helpers/*`
-- `app/components/modals/ThemeSelector.tsx`
-- `app/components/modals/SoloModal.tsx`
-- `app/components/modals/UnifiedDuelModal.tsx` (CompactThemeSelector)
-- `app/notifications/components/ScheduledDuelPickers.tsx` (CompactThemePicker)
+- `convex/schema.ts` — add `themeIds`, `sessionWords` to challenges; add `themeIds` to scheduledDuels
+- `convex/helpers/challengeCreation.ts` — `buildChallengeBase` accepts `themeIds`, builds `sessionWords`
+- `convex/gameplay.ts` — read from `duel.sessionWords` instead of fetching theme
+- `convex/hints.ts` — same switch
+- `convex/lobby.ts` — pass `themeIds` to `buildChallengeBase`, update `getDuel`
+- `convex/scheduledDuels.ts` — pass `themeIds`, update proposals/acceptance
+- `app/components/modals/ThemeSelector.tsx` — multi-select
+- `app/components/modals/SoloModal.tsx` — `themeIds` instead of `themeId`
+- `app/components/modals/UnifiedDuelModal.tsx` — `themeIds` instead of `themeId`
+- `app/notifications/components/ScheduledDuelPickers.tsx` — `themeIds` instead of `themeId`
+- Migration script (new file)
 
-Recommended implementation shape:
+#### Implementation order
 
-- Do not make Weekly Boss-specific hacks.
-- Introduce a general "session themes" model, then have duels, solo runs, and bosses consume it.
-- Each word remains attached to its source `themeId` so the UI can show the source theme name during gameplay for multi-theme sessions. Gameplay logic does not need to branch on source theme.
-- Make the migration explicit, not implicit: backfill old rows first, then switch reads/writes, then remove the old single-theme assumption from app code.
+1. Schema: add `themeIds` (required) and `sessionWords` (required) to challenges. Add `themeIds` to scheduledDuels. Keep old `themeId` as `v.optional` during transition.
+2. `buildChallengeBase`: accept themes array, build `sessionWords`, set `themeIds`.
+3. Update `lobby.ts` and `scheduledDuels.ts` callers to pass themes.
+4. Switch gameplay reads (`gameplay.ts`, `hints.ts`) from `theme.words` to `duel.sessionWords`.
+5. Write + run backfill migration for existing challenge rows.
+6. UI: convert ThemeSelector to multi-select, update SoloModal / UnifiedDuelModal / ScheduledDuelPickers.
+7. UI: show `themeName` during multi-theme gameplay.
+8. Clean up: remove old `themeId` from creation paths (keep on schema as optional until production migration).
 
-Breakpoint:
+Steps 1–5 are backend, can be verified independently. Steps 6–7 are frontend. Step 8 is cleanup.
+
+#### Breakpoint
 
 - Shipable checkpoint: a normal solo challenge can run from 2+ themes without weekly goals involved.
 - Verify:
-  - words from all selected themes are included with their original source theme preserved
+  - `sessionWords` contains words from all selected themes with correct `themeId` and `themeName`
+  - gameplay reads use `sessionWords`, not theme fetches
   - the source theme name displays next to each word during multi-theme gameplay, and this label is not shown for single-theme sessions
-  - existing single-theme flows still work
+  - existing single-theme flows still work (single-item `themeIds` array)
+  - backfill migration works on existing challenge rows
 - Run lint, typecheck, and focused session/gameplay tests before moving on.
 
 ### Phase 2 — Extend Weekly Goal Data and Unlock Logic
