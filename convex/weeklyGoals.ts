@@ -1133,8 +1133,8 @@ export const lockGoal = mutation({
 });
 
 /**
- * Delete an unlocked goal.
- * Either creator or partner can delete while in editing status.
+ * Delete a goal in any state.
+ * Either creator or partner can remove the goal and its related boss challenges.
  */
 export const deleteGoal = mutation({
   args: {
@@ -1151,17 +1151,8 @@ export const deleteGoal = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Can only delete unlocked goals
-    if (goal.status !== "editing") {
-      throw new Error("Cannot delete a locked goal");
-    }
-
-    // Cannot delete if either participant has locked
-    if (goal.creatorLocked || goal.partnerLocked) {
-      throw new Error("Cannot delete goal after a participant has locked");
-    }
-
     await dismissGoalNotifications(ctx, goalId);
+    await deleteBossChallengesForGoal(ctx, goal);
     await ctx.db.delete(goalId);
   },
 });

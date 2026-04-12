@@ -733,8 +733,8 @@ export default function GoalsPage() {
               </>
             )}
 
-            {/* Delete Button (only in editing mode, if user hasn't locked) */}
-            {isEditing && !viewerLocked && (
+            {/* Delete Button */}
+            {selectedPlan && (
               <DeleteGoalButton onDelete={handleDelete} />
             )}
 
