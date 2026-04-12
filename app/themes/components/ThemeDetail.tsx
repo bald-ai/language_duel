@@ -454,7 +454,7 @@ export function ThemeDetail({
                     value={editedThemeName}
                     onChange={(e) => {
                       if (e.target.value.length <= THEME_NAME_MAX_LENGTH) {
-                        setEditedThemeName(e.target.value.toUpperCase());
+                        setEditedThemeName(e.target.value);
                       }
                     }}
                     onBlur={handleThemeNameBlur}
