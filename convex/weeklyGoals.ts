@@ -1192,39 +1192,6 @@ export const completeGoal = mutation({
   },
 });
 
-/**
- * Clean up expired goals.
- * This is called when loading goals to remove expired ones.
- */
-export const cleanupExpiredGoal = mutation({
-  args: {
-    goalId: v.id("weeklyGoals"),
-  },
-  handler: async (ctx, { goalId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) return;
-
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
-
-    const now = Date.now();
-
-    if (getEffectiveGoalStatus(goal, now) === "expired" && goal.status !== "expired") {
-      await ctx.db.patch(goalId, { status: "expired" });
-      return;
-    }
-
-    if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
-      await dismissGoalNotifications(ctx, goalId);
-      await deleteBossChallengesForGoal(ctx, goal);
-      await ctx.db.delete(goalId);
-    }
-  },
-});
-
 // Internal query for reminder crons
 export const getActiveGoalsWithEndDate = internalQuery({
   args: {},

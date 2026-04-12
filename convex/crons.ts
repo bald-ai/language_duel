@@ -11,6 +11,12 @@ const crons = cronJobs();
 // - Clears expired ready states (30 min since readyAt)
 // - Cancels duels 1 hour after scheduled time if not started
 crons.interval(
+    "cleanup-duel-challenges",
+    { minutes: 5 },
+    internal.lobby.cleanupExpiredDuelChallenges
+);
+
+crons.interval(
     "cleanup-scheduled-duels",
     { minutes: 5 },
     internal.scheduledDuels.autoCleanupScheduledDuels
@@ -32,6 +38,30 @@ crons.interval(
     "cleanup-friend-requests",
     { hours: 24 },
     internal.friends.cleanupExpiredFriendRequests
+);
+
+crons.interval(
+    "cleanup-resolved-friend-requests",
+    { hours: 24 },
+    internal.friends.cleanupResolvedFriendRequests
+);
+
+crons.interval(
+    "cleanup-dismissed-notifications",
+    { hours: 24 },
+    internal.notifications.cleanupDismissedNotifications
+);
+
+crons.interval(
+    "cleanup-email-notification-log",
+    { hours: 24 },
+    internal.emails.notificationEmails.cleanupEmailNotificationLog
+);
+
+crons.interval(
+    "cleanup-terminal-scheduled-duels",
+    { hours: 24 },
+    internal.scheduledDuels.cleanupTerminalScheduledDuels
 );
 
 crons.interval(

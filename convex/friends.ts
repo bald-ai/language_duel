@@ -5,8 +5,12 @@ import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth
 import { loadUsersById } from "./helpers/users";
 import { isUserOnline } from "./users";
 import { isFriendRequestPayload } from "./notificationPayloads";
-import { FRIEND_REQUEST_TTL_MS } from "./constants";
+import {
+  FRIEND_REQUEST_TTL_MS,
+  RESOLVED_FRIEND_REQUEST_TTL_MS,
+} from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
+import { isResolvedFriendRequestPastRetention } from "../lib/cleanupRetention";
 
 // Friend with user details
 export type FriendWithDetails = {
@@ -398,6 +402,41 @@ export const cleanupExpiredFriendRequests = internalMutation({
 
       await ctx.db.patch(notification._id, { status: "dismissed" });
     }
+  },
+});
+
+export const cleanupResolvedFriendRequests = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cutoff = now - RESOLVED_FRIEND_REQUEST_TTL_MS;
+    let deletedCount = 0;
+
+    for (const status of ["accepted", "rejected"] as const) {
+      const requests = await ctx.db
+        .query("friendRequests")
+        .withIndex("by_status_createdAt", (q) =>
+          q.eq("status", status).lt("createdAt", cutoff)
+        )
+        .collect();
+
+      for (const request of requests) {
+        if (
+          !isResolvedFriendRequestPastRetention(
+            request,
+            now,
+            RESOLVED_FRIEND_REQUEST_TTL_MS
+          )
+        ) {
+          continue;
+        }
+
+        await ctx.db.delete(request._id);
+        deletedCount++;
+      }
+    }
+
+    return { deletedCount };
   },
 });
 

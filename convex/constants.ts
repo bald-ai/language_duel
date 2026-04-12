@@ -149,3 +149,15 @@ export const WEEKLY_GOAL_EDITING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Keep expired weekly goals visible for 48 hours before deleting them */
 export const GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
+
+/** Delete dismissed notifications 7 days after creation */
+export const DISMISSED_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Delete email notification log rows 30 days after send time */
+export const EMAIL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Delete accepted/rejected friend requests 7 days after creation */
+export const RESOLVED_FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Delete terminal scheduled duel rows 14 days after last update */
+export const TERMINAL_SCHEDULED_DUEL_TTL_MS = 14 * 24 * 60 * 60 * 1000;

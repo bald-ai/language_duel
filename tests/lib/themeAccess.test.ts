@@ -144,6 +144,34 @@ describe("hasThemeAccess", () => {
             });
             expect(hasThemeAccess(params)).toBe(false);
         });
+
+        it("denies access when scheduled duel is cancelled", () => {
+            const params = makeParams({
+                scheduledDuels: [
+                    {
+                        proposerId: userId("user1"),
+                        recipientId: userId("other"),
+                        themeIds: [themeId("theme1")],
+                        status: "cancelled",
+                    },
+                ],
+            });
+            expect(hasThemeAccess(params)).toBe(false);
+        });
+
+        it("denies access when scheduled duel is expired", () => {
+            const params = makeParams({
+                scheduledDuels: [
+                    {
+                        proposerId: userId("user1"),
+                        recipientId: userId("other"),
+                        themeIds: [themeId("theme1")],
+                        status: "expired",
+                    },
+                ],
+            });
+            expect(hasThemeAccess(params)).toBe(false);
+        });
     });
 
     describe("weekly goal access", () => {

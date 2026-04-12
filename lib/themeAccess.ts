@@ -16,7 +16,7 @@ export type ScheduledDuelAccessData = {
     proposerId: Id<"users">;
     recipientId: Id<"users">;
     themeIds: Id<"themes">[];
-    status: "pending" | "accepted" | "counter_proposed" | "declined";
+    status: "pending" | "accepted" | "counter_proposed" | "declined" | "cancelled" | "expired";
 };
 
 export type WeeklyGoalAccessData = {

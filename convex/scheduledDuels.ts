@@ -11,6 +11,11 @@ import {
 import {
     getScheduledDuelThemes,
 } from "./helpers/sessionWords";
+import { TERMINAL_SCHEDULED_DUEL_TTL_MS } from "./constants";
+import {
+    isStartedScheduledDuelPastRetention,
+    isTerminalScheduledDuelPastRetention,
+} from "../lib/cleanupRetention";
 import { summarizeThemes } from "../lib/sessionWords";
 
 type ThemeRecord = Doc<"themes">;
@@ -23,7 +28,9 @@ export type ScheduledDuelStatus =
     | "pending"
     | "accepted"
     | "counter_proposed"
-    | "declined";
+    | "declined"
+    | "cancelled"
+    | "expired";
 
 // ===========================================
 // Queries
@@ -374,7 +381,7 @@ export const counterProposeScheduledDuel = mutation({
             throw new Error("Not authorized");
         }
 
-        if (scheduledDuel.status === "declined" || scheduledDuel.status === "accepted") {
+        if (scheduledDuel.status === "declined" || scheduledDuel.status === "accepted" || scheduledDuel.status === "cancelled" || scheduledDuel.status === "expired") {
             throw new Error("Cannot counter-propose on this duel");
         }
 
@@ -574,10 +581,10 @@ export const cancelScheduledDuel = mutation({
             }
         }
 
-        // Update status to declined (for accepted) or delete (for pending)
+        // Update status to cancelled (for accepted) or delete (for pending)
         if (scheduledDuel.status === "accepted") {
             await ctx.db.patch(args.scheduledDuelId, {
-                status: "declined",
+                status: "cancelled",
                 updatedAt: Date.now(),
             });
         } else {
@@ -846,14 +853,6 @@ export const autoCleanupScheduledDuels = internalAction({
         const READY_STATE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
         const GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 hour
 
-        // Reuse the same frequent cleanup job for stale duel challenges.
-        // Do not block scheduled duel cleanup if challenge cleanup fails.
-        try {
-            await ctx.runMutation(internal.lobby.cleanupExpiredDuelChallenges, {});
-        } catch (error) {
-            console.error("cleanupExpiredDuelChallenges failed", error);
-        }
-
         // We need to use internal mutations from an action
         // Query all accepted scheduled duels
         const acceptedDuels = await ctx.runQuery(internal.scheduledDuels.getAcceptedScheduledDuels, {});
@@ -928,6 +927,62 @@ export const getUpcomingAcceptedDuels = internalQuery({
     },
 });
 
+export const cleanupTerminalScheduledDuels = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        let deletedCount = 0;
+        const duelIdsToDelete = new Set<Id<"scheduledDuels">>();
+
+        for (const status of ["declined", "cancelled", "expired"] as const) {
+            const duels = await ctx.db
+                .query("scheduledDuels")
+                .withIndex("by_status", (q) => q.eq("status", status))
+                .collect();
+
+            for (const duel of duels) {
+                if (
+                    !isTerminalScheduledDuelPastRetention(
+                        duel,
+                        now,
+                        TERMINAL_SCHEDULED_DUEL_TTL_MS
+                    )
+                ) {
+                    continue;
+                }
+
+                duelIdsToDelete.add(duel._id);
+            }
+        }
+
+        const startedDuels = await ctx.db
+            .query("scheduledDuels")
+            .withIndex("by_status", (q) => q.eq("status", "accepted"))
+            .collect();
+
+        for (const duel of startedDuels) {
+            if (
+                !isStartedScheduledDuelPastRetention(
+                    duel,
+                    now,
+                    TERMINAL_SCHEDULED_DUEL_TTL_MS
+                )
+            ) {
+                continue;
+            }
+
+            duelIdsToDelete.add(duel._id);
+        }
+
+        for (const duelId of duelIdsToDelete) {
+            await ctx.db.delete(duelId);
+            deletedCount++;
+        }
+
+        return { deletedCount };
+    },
+});
+
 /**
  * Clear expired ready states (internal mutation for cleanup action)
  */
@@ -963,6 +1018,63 @@ export const clearExpiredReadyStates = internalMutation({
 /**
  * Expire a scheduled duel (internal mutation for cleanup action)
  */
+/**
+ * One-time migration: reclassify "declined" scheduled duels into proper statuses.
+ * Uses emailNotificationLog to distinguish genuine declines from cancellations,
+ * and falls back to scheduledTime for expirations.
+ * Safe to run multiple times (idempotent). Delete after use.
+ */
+export const migrateDeclinedStatuses = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const declined = await ctx.db
+            .query("scheduledDuels")
+            .withIndex("by_status", (q) => q.eq("status", "declined"))
+            .collect();
+
+        if (declined.length === 0) return { migrated: 0 };
+
+        const now = Date.now();
+        let migrated = 0;
+
+        for (const duel of declined) {
+            // Check if there's a "scheduled_duel_canceled" email log → was a cancellation
+            const cancelLog = await ctx.db
+                .query("emailNotificationLog")
+                .withIndex("by_user_trigger_scheduledDuel", (q) =>
+                    q.eq("toUserId", duel.recipientId)
+                     .eq("trigger", "scheduled_duel_canceled")
+                     .eq("scheduledDuelId", duel._id)
+                )
+                .first();
+
+            // Also check if proposer got the cancel email (canceller could be either party)
+            const cancelLogProposer = !cancelLog
+                ? await ctx.db
+                    .query("emailNotificationLog")
+                    .withIndex("by_user_trigger_scheduledDuel", (q) =>
+                        q.eq("toUserId", duel.proposerId)
+                             .eq("trigger", "scheduled_duel_canceled")
+                             .eq("scheduledDuelId", duel._id)
+                    )
+                    .first()
+                : null;
+
+            if (cancelLog || cancelLogProposer) {
+                await ctx.db.patch(duel._id, { status: "cancelled" });
+                migrated++;
+            } else if (duel.scheduledTime + 60 * 60 * 1000 < now) {
+                // Past scheduled time + 1h grace = was expired by cron
+                await ctx.db.patch(duel._id, { status: "expired" });
+                migrated++;
+            }
+            // Otherwise: genuine decline, leave as "declined"
+        }
+
+        return { migrated, total: declined.length };
+    },
+});
+
 export const expireScheduledDuel = internalMutation({
     args: {
         scheduledDuelId: v.id("scheduledDuels"),
@@ -971,9 +1083,9 @@ export const expireScheduledDuel = internalMutation({
         const scheduledDuel = await ctx.db.get(args.scheduledDuelId);
         if (!scheduledDuel) return;
 
-        // Update status to declined
+        // Update status to expired
         await ctx.db.patch(args.scheduledDuelId, {
-            status: "declined",
+            status: "expired",
             updatedAt: Date.now(),
         });
 

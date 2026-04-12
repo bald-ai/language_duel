@@ -118,7 +118,9 @@ const scheduledDuelStatusValidator = v.union(
   v.literal("pending"),
   v.literal("accepted"),
   v.literal("counter_proposed"),
-  v.literal("declined")
+  v.literal("declined"),
+  v.literal("cancelled"),
+  v.literal("expired")
 );
 
 const weeklyGoalBossStatusValidator = v.union(
@@ -460,7 +462,8 @@ export default defineSchema({
     .index("by_user_trigger_weeklyGoal", ["toUserId", "trigger", "weeklyGoalId"])
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
     .index("by_user_trigger", ["toUserId", "trigger"])
-    .index("by_user_trigger_reminder_offset", ["toUserId", "trigger", "reminderOffsetMinutes"]),
+    .index("by_user_trigger_reminder_offset", ["toUserId", "trigger", "reminderOffsetMinutes"])
+    .index("by_sentAt", ["sentAt"]),
 
   // -------------------------------------------
   // Scheduled Duels Table

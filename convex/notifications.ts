@@ -1,7 +1,12 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { DISMISSED_NOTIFICATION_TTL_MS } from "./constants";
+import {
+    DISMISSABLE_NOTIFICATION_TYPES,
+    isDismissedNotificationPastRetention,
+} from "../lib/cleanupRetention";
 
 // ===========================================
 // Notification Type Definitions
@@ -152,5 +157,40 @@ export const markNotificationRead = mutation({
         await ctx.db.patch(args.notificationId, {
             status: "read",
         });
+    },
+});
+
+export const cleanupDismissedNotifications = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        const cutoff = now - DISMISSED_NOTIFICATION_TTL_MS;
+        let deletedCount = 0;
+
+        for (const type of DISMISSABLE_NOTIFICATION_TYPES) {
+            const notifications = await ctx.db
+                .query("notifications")
+                .withIndex("by_type_status_createdAt", (q) =>
+                    q.eq("type", type).eq("status", "dismissed").lt("createdAt", cutoff)
+                )
+                .collect();
+
+            for (const notification of notifications) {
+                if (
+                    !isDismissedNotificationPastRetention(
+                        notification,
+                        now,
+                        DISMISSED_NOTIFICATION_TTL_MS
+                    )
+                ) {
+                    continue;
+                }
+
+                await ctx.db.delete(notification._id);
+                deletedCount++;
+            }
+        }
+
+        return { deletedCount };
     },
 });

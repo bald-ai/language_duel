@@ -13,6 +13,8 @@ import {
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
+import { EMAIL_LOG_TTL_MS } from "../constants";
+import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
 
@@ -174,6 +176,28 @@ export const logNotificationSent = internalMutation({
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       sentAt: Date.now(),
     });
+  },
+});
+
+export const cleanupEmailNotificationLog = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cutoff = now - EMAIL_LOG_TTL_MS;
+    const logs = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_sentAt", (q) => q.lt("sentAt", cutoff))
+      .collect();
+    let deletedCount = 0;
+
+    for (const log of logs) {
+      if (!isEmailLogPastRetention(log, now, EMAIL_LOG_TTL_MS)) continue;
+
+      await ctx.db.delete(log._id);
+      deletedCount++;
+    }
+
+    return { deletedCount };
   },
 });
 
