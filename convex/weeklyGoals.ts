@@ -983,12 +983,12 @@ export const startBossPractice = mutation({
       mode: "solo",
       wordCount: sampledSessionWords.length,
       now,
+      seed: challengeBase.seed,
     });
 
     return await ctx.db.insert("challenges", {
       ...challengeBase,
       weeklyGoalId: goalId,
-      themeIds: [],
       ...startState,
     });
   },

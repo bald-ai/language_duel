@@ -22,11 +22,10 @@ import { useSoloStyleGame } from "./hooks/useSoloStyleGame";
 import { MAX_L1_LETTER_HINTS } from "@/app/game/constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
-import { summarizeThemeNames, type SessionThemeInput } from "@/lib/sessionWords";
+import { summarizeThemeNames } from "@/lib/sessionWords";
 
 interface SoloStyleChallengeProps {
   duel: Doc<"challenges">;
-  theme: SessionThemeInput | null;
   challenger: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
@@ -34,7 +33,6 @@ interface SoloStyleChallengeProps {
 
 export default function SoloStyleChallenge({
   duel,
-  theme,
   challenger,
   opponent,
   viewerRole,
@@ -44,12 +42,9 @@ export default function SoloStyleChallenge({
   const theirName = isChallenger ? opponent?.name : challenger?.name;
   const myColor = colors.status.success.light;
   const theirColor = colors.secondary.light;
-  const sessionWords = duel.sessionWords?.length ? duel.sessionWords : theme?.words ?? [];
-  const themeName = duel.sessionWords?.length
-    ? summarizeThemeNames(Array.from(new Set(duel.sessionWords.map((word) => word.themeName))))
-    : theme?.name ?? "Theme";
-  const hasMultipleThemes =
-    new Set(sessionWords.map((word) => ("themeId" in word ? String(word.themeId) : "legacy"))).size > 1;
+  const sessionWords = duel.sessionWords;
+  const themeName = summarizeThemeNames(Array.from(new Set(sessionWords.map((word) => word.themeName))));
+  const hasMultipleThemes = new Set(sessionWords.map((word) => String(word.themeId))).size > 1;
 
   // Use the extracted hook for all game logic
   const game = useSoloStyleGame({

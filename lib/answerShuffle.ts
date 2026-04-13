@@ -99,18 +99,3 @@ export function buildClassicQuestionSet(
     return buildClassicQuestionSnapshot(words[wordIndex], questionIndex, difficulty);
   });
 }
-
-/**
- * Compatibility wrapper for legacy UI code that still expects just answers + None metadata.
- */
-export function shuffleAnswersForQuestion(
-  word: WordEntry,
-  questionIndex: number,
-  difficulty: ShuffleDifficultyInfo
-): ShuffledAnswers {
-  const question = buildClassicQuestionSnapshot(word, questionIndex, difficulty);
-  return {
-    answers: question.options,
-    hasNoneOption: question.correctOption === NONE_OF_ABOVE,
-  };
-}

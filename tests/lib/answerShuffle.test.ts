@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildClassicQuestionSet,
   buildClassicQuestionSnapshot,
-  shuffleAnswersForQuestion,
   NONE_OF_ABOVE,
 } from "@/lib/answerShuffle";
 import type { WordEntry, ShuffleDifficultyInfo } from "@/lib/types";
@@ -14,23 +13,23 @@ describe("answerShuffle", () => {
     wrongAnswers: ["perro", "casa", "mesa", "silla", "libro"],
   };
 
-  it("returns empty answers when wrongAnswers missing", () => {
-    const result = shuffleAnswersForQuestion({ word: "x", answer: "y", wrongAnswers: [] }, 0, {
+  it("returns empty options when wrongAnswers missing", () => {
+    const result = buildClassicQuestionSnapshot({ word: "x", answer: "y", wrongAnswers: [] }, 0, {
       level: "easy",
       wrongCount: 3,
     });
-    expect(result.answers).toEqual([]);
-    expect(result.hasNoneOption).toBe(false);
+    expect(result.options).toEqual([]);
+    expect(result.correctOption).toBe("y");
   });
 
   it("shuffles deterministically for easy/medium", () => {
     const difficulty: ShuffleDifficultyInfo = { level: "easy", wrongCount: 3 };
-    const first = shuffleAnswersForQuestion(word, 1, difficulty);
-    const second = shuffleAnswersForQuestion(word, 1, difficulty);
-    expect(first.answers).toEqual(second.answers);
-    expect(first.answers).toContain(word.answer);
-    expect(first.answers.length).toBe(4);
-    expect(first.hasNoneOption).toBe(false);
+    const first = buildClassicQuestionSnapshot(word, 1, difficulty);
+    const second = buildClassicQuestionSnapshot(word, 1, difficulty);
+    expect(first.options).toEqual(second.options);
+    expect(first.options).toContain(word.answer);
+    expect(first.options.length).toBe(4);
+    expect(first.correctOption).toBe(word.answer);
   });
 
   it("hard mode includes None of the above and sets hasNoneOption consistently", () => {

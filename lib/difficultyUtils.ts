@@ -112,11 +112,6 @@ export function calculateClassicDifficultyDistribution(
   }
 }
 
-// Backwards-compatible helper for non-classic flows.
-export function calculateDifficultyDistribution(wordCount: number): DifficultyDistribution {
-  return calculateClassicDifficultyDistribution(wordCount, "easy");
-}
-
 // ============================================================================
 // Index-based Difficulty Lookup
 // ============================================================================

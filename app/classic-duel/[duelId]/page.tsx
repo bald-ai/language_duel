@@ -34,9 +34,6 @@ export default function ClassicDuelPage() {
     viewerRole = "challenger"
   } = duelData || {};
 
-  const theme = duelData?.theme ?? null;
-  const hasSessionWords = Boolean(duel && duel.sessionWords?.length > 0);
-
   useEffect(() => {
     if (!duel) return;
     
@@ -60,10 +57,12 @@ export default function ClassicDuelPage() {
     content = <FullScreenMessage>Loading duel...</FullScreenMessage>;
   } else if (duelData === null) {
     content = <FullScreenMessage>You&apos;re not part of this duel</FullScreenMessage>;
-  } else if (!theme && !hasSessionWords) {
-    content = <FullScreenMessage>Loading theme...</FullScreenMessage>;
   } else if (!duel) {
     content = <FullScreenMessage>Duel not found</FullScreenMessage>;
+  } else if (duel.sessionWords.length === 0) {
+    content = <FullScreenMessage>Duel data is incomplete. Missing session words.</FullScreenMessage>;
+  } else if (!duel.classicQuestions?.length) {
+    content = <FullScreenMessage>Duel data is incomplete. Missing classic questions.</FullScreenMessage>;
   } else if (duel.mode !== "classic" || duel.status === "rejected" || duel.status === "stopped") {
     content = <FullScreenMessage>Redirecting...</FullScreenMessage>;
   } else if (duel.status === "pending") {
@@ -72,7 +71,6 @@ export default function ClassicDuelPage() {
     content = (
       <ClassicDuelChallenge
         duel={duel as Doc<"challenges">}
-        theme={theme}
         challenger={challenger ?? null}
         opponent={opponent ?? null}
         viewerRole={viewerRole as "challenger" | "opponent"}

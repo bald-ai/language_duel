@@ -32,7 +32,7 @@ export function useDuelData() {
 
   // Filter pending duels by mode
   const pendingClassicDuels = pendingDuels?.filter(
-    (d) => d.challenge.mode === "classic" || !d.challenge.mode
+    (d) => d.challenge.mode === "classic"
   );
   const pendingSoloStyleDuels = pendingDuels?.filter(
     (d) => d.challenge.mode === "solo"

@@ -29,8 +29,8 @@ const hasGoalId = (
 
 const hasMode = (
     payload: unknown
-): payload is { mode?: "solo" | "classic" } =>
-    isRecord(payload) && "mode" in payload;
+): payload is { mode: "solo" | "classic" } =>
+    isRecord(payload) && (payload.mode === "solo" || payload.mode === "classic");
 
 /**
  * NotificationsTab - Display all notification types with actions
@@ -72,15 +72,21 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleAcceptDuelChallenge = async (notificationId: Id<"notifications">, mode?: string) => {
+    const handleAcceptDuelChallenge = async (
+        notificationId: Id<"notifications">,
+        mode: "solo" | "classic" | undefined
+    ) => {
+        if (!mode) {
+            toast.error("Challenge data is incomplete");
+            return;
+        }
         try {
             const result = await actions.acceptDuelChallenge(notificationId);
             toast.success("Challenge accepted!");
             onClose();
             // Navigate to duel page based on mode
             if (result?.challengeId) {
-                const duelMode = mode || 'classic';
-                const route = duelMode === 'classic'
+                const route = mode === 'classic'
                     ? `/classic-duel/${result.challengeId}`
                     : `/duel/${result.challengeId}`;
                 router.push(route);

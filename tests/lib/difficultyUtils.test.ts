@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateClassicDifficultyDistribution,
-  calculateDifficultyDistribution,
   getDifficultyForIndex,
 } from "@/lib/difficultyUtils";
 
@@ -28,11 +27,6 @@ describe("difficultyUtils", () => {
     expect(hard.easy).toBe(0);
     expect(hard.medium).toBe(0);
     expect(hard.hard).toBe(4);
-  });
-
-  it("calculateDifficultyDistribution delegates to classic", () => {
-    const distribution = calculateDifficultyDistribution(6);
-    expect(distribution.total).toBe(6);
   });
 
   it("getDifficultyForIndex returns correct level", () => {

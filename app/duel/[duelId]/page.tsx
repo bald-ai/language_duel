@@ -6,7 +6,10 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useMemo, useCallback } from "react";
-import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
+import {
+  calculateClassicDifficultyDistribution,
+  getDifficultyForIndex,
+} from "@/lib/difficultyUtils";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { DuelGameUI } from "./components/DuelGameUI";
 import { DuelStatusMessage } from "./components/DuelStatusMessage";
@@ -72,10 +75,9 @@ export default function DuelPage() {
   });
 
   const wordOrder = duel?.wordOrder;
-  const theme = duelData?.theme ?? null;
   const words = useMemo(
-    () => (duel?.sessionWords?.length ? duel.sessionWords : theme?.words ?? []),
-    [duel, theme]
+    () => duel?.sessionWords ?? [],
+    [duel]
   );
 
   // When completed, show the last word; otherwise show current word
@@ -105,7 +107,7 @@ export default function DuelPage() {
 
   // Calculate dynamic difficulty distribution based on total word count
   const difficultyDistribution = useMemo(
-    () => calculateDifficultyDistribution(words.length),
+    () => calculateClassicDifficultyDistribution(words.length, "easy"),
     [words.length]
   );
 
@@ -138,12 +140,7 @@ export default function DuelPage() {
     countdownPausedBy,
   });
   const sourceThemeName = useMemo(() => {
-    const hasMultipleThemes =
-      new Set(
-        words.map((sessionWord: (typeof words)[number]) =>
-          "themeId" in sessionWord ? String(sessionWord.themeId) : "legacy"
-        )
-      ).size > 1;
+    const hasMultipleThemes = new Set(words.map((sessionWord) => String(sessionWord.themeId))).size > 1;
     if (!hasMultipleThemes) return null;
     const visibleWordIndex = frozenData
       ? (wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex)
@@ -296,7 +293,9 @@ export default function DuelPage() {
     return <DuelStatusMessage message="Loading duel..." showSpinner />;
   if (duelData === null)
     return <DuelStatusMessage message="You're not part of this duel" tone="danger" />;
-  if (!theme && words.length === 0) return <DuelStatusMessage message="Loading theme..." showSpinner />;
+  if (duel && duel.sessionWords.length === 0) {
+    return <DuelStatusMessage message="Duel data is incomplete. Missing session words." tone="danger" />;
+  }
 
   // Redirect classic mode duels to classic-duel route (handled by useEffect)
   if (duel?.mode === "classic") {
@@ -322,7 +321,6 @@ export default function DuelPage() {
     return (
       <SoloStyleChallenge
         duel={duel}
-        theme={theme}
         challenger={challenger ?? null}
         opponent={opponent ?? null}
         viewerRole={viewerRole ?? "challenger"}
@@ -334,7 +332,6 @@ export default function DuelPage() {
     return (
       <SoloStyleChallenge
         duel={duel}
-        theme={theme}
         challenger={challenger ?? null}
         opponent={opponent ?? null}
         viewerRole={viewerRole ?? "challenger"}

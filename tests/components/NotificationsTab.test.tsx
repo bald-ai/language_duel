@@ -39,6 +39,7 @@ const notification = {
     themeId: "theme_1",
     themeName: "Test Theme",
     scheduledTime: Date.now() + 60_000,
+    mode: "classic",
   },
   createdAt: Date.now(),
   status: "unread",

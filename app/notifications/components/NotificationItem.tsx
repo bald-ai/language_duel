@@ -25,7 +25,7 @@ interface NotificationData {
         themeId?: Id<"themes">;
         themeName?: string;
         scheduledTime?: number;
-        mode?: string;
+        mode?: "solo" | "classic";
         isCounterProposal?: boolean;
         themeCount?: number;
         event?: "invite" | "partner_locked" | "goal_activated" | "goal_completed";
@@ -125,14 +125,13 @@ export function NotificationItem({
 
     // Auto-navigate when duel starts and dismiss notification
     useEffect(() => {
-        if (!duelStarted || !payload?.startedDuelId || navigationScheduledRef.current) {
+        if (!duelStarted || !payload?.startedDuelId || !payload?.mode || navigationScheduledRef.current) {
             return;
         }
 
         navigationScheduledRef.current = true;
         // Small delay to show "Joining..." state, then navigate and dismiss
-        const mode = payload?.mode || "classic";
-        const route = mode === "classic"
+        const route = payload.mode === "classic"
             ? `/classic-duel/${payload.startedDuelId}`
             : `/duel/${payload.startedDuelId}`;
 
@@ -293,6 +292,23 @@ export function NotificationItem({
 
                 // Check if duel has started - show joining state with fallback dismiss
                 if (duelStarted) {
+                    if (!payload?.mode) {
+                        return {
+                            icon: <SwordIcon />,
+                            message: "Scheduled duel is ready, but its notification data is incomplete.",
+                            actions: (
+                                <div className="flex gap-2 mt-3">
+                                    <ActionButton
+                                        onClick={onDismiss}
+                                        variant="dismiss"
+                                        dataTestId={`notification-${notification._id}-dismiss`}
+                                    >
+                                        Dismiss
+                                    </ActionButton>
+                                </div>
+                            ),
+                        };
+                    }
                     return {
                         icon: <SwordIcon />,
                         message: <>{renderThemeName(themeName, themeId)} — Joining duel...</>,
@@ -439,9 +455,26 @@ export function NotificationItem({
                 };
 
             case NOTIFICATION_TYPES.DUEL_CHALLENGE:
+                if (!payload?.mode) {
+                    return {
+                        icon: <SwordIcon />,
+                        message: `${userName} sent a duel challenge with incomplete data`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onDismiss}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss`}
+                                >
+                                    Dismiss
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
                 return {
                     icon: <SwordIcon />,
-                    message: <>{userName} challenges you to a {payload?.mode || 'classic'} duel: {renderThemeName(themeName, themeId)}</>,
+                    message: <>{userName} challenges you to a {payload.mode} duel: {renderThemeName(themeName, themeId)}</>,
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton

@@ -14,7 +14,6 @@ import {
 import {
   buildChallengeBase,
   buildChallengeStartState,
-  resolveChallengeMode,
 } from "./helpers/challengeCreation";
 import {
   getChallengeSessionWords,
@@ -30,7 +29,7 @@ export const createDuel = mutation({
   args: {
     opponentId: v.id("users"),
     themeIds: v.array(v.id("themes")),
-    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
+    mode: v.union(v.literal("solo"), v.literal("classic")),
     classicDifficultyPreset: v.optional(
       v.union(
         v.literal("easy"),
@@ -133,10 +132,7 @@ export const getDuel = query({
       duel,
       theme,
       themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
-      themeSummary:
-        duel.sessionWords?.length > 0
-          ? summarizeSessionWords(duel.sessionWords)
-          : summarizeThemes(themes),
+      themeSummary: summarizeSessionWords(getChallengeSessionWords(duel)),
       viewerRole,
       viewer: {
         _id: auth.user._id,
@@ -206,9 +202,10 @@ export const acceptDuel = mutation({
 
     const now = Date.now();
     const startState = buildChallengeStartState({
-      mode: resolveChallengeMode(duel.mode),
+      mode: duel.mode,
       wordCount: sessionWords.length,
       now,
+      seed: duel.seed,
     });
 
     await ctx.db.patch(duelId, startState);
@@ -318,9 +315,10 @@ export const acceptDuelChallenge = mutation({
     const sessionWords = getChallengeSessionWords(challenge);
     const now = Date.now();
     const startState = buildChallengeStartState({
-      mode: resolveChallengeMode(challenge.mode),
+      mode: challenge.mode,
       wordCount: sessionWords.length,
       now,
+      seed: challenge.seed,
     });
 
     await ctx.db.patch(challengeId, startState);

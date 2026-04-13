@@ -176,7 +176,7 @@ export const proposeScheduledDuel = mutation({
         recipientId: v.id("users"),
         themeIds: v.array(v.id("themes")),
         scheduledTime: v.number(),
-        mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
+        mode: v.union(v.literal("solo"), v.literal("classic")),
         classicDifficultyPreset: v.optional(
             v.union(v.literal("easy"), v.literal("medium"), v.literal("hard"))
         ),
@@ -238,7 +238,7 @@ export const proposeScheduledDuel = mutation({
             themeIds: resolvedThemes.map((theme) => theme._id),
             scheduledTime: args.scheduledTime,
             status: "pending",
-            mode: args.mode || "classic",
+            mode: args.mode,
             classicDifficultyPreset: args.classicDifficultyPreset,
             createdAt: now,
             updatedAt: now,
@@ -255,7 +255,7 @@ export const proposeScheduledDuel = mutation({
                 themeId: resolvedThemes.length === 1 ? resolvedThemes[0]._id : undefined,
                 themeName: themeSummary,
                 scheduledTime: args.scheduledTime,
-                mode: args.mode || "classic",
+                mode: args.mode,
             },
             createdAt: now,
         });
@@ -802,6 +802,7 @@ export const startScheduledDuel = internalMutation({
             mode: challengeBase.mode,
             wordCount: challengeBase.sessionWords.length,
             now,
+            seed: challengeBase.seed,
         });
         const duelMode = challengeBase.mode;
 

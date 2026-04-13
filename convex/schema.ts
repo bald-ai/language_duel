@@ -160,7 +160,7 @@ export const notificationPayloadValidator = v.union(
   v.object({
     challengeId: v.id("challenges"),
     themeName: v.optional(v.string()),
-    mode: v.optional(duelModeValidator),
+    mode: duelModeValidator,
     classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
   }),
   v.object({
@@ -168,7 +168,7 @@ export const notificationPayloadValidator = v.union(
     themeId: v.optional(v.id("themes")),
     themeName: v.optional(v.string()),
     scheduledTime: v.optional(v.number()),
-    mode: v.optional(duelModeValidator),
+    mode: duelModeValidator,
     isCounterProposal: v.optional(v.boolean()),
     scheduledDuelStatus: v.optional(scheduledDuelStatusValidator),
     startedDuelId: v.optional(v.id("challenges")),
@@ -281,7 +281,7 @@ export default defineSchema({
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     bossType: v.optional(bossTypeValidator),
     status: duelStatusValidator,
-    mode: v.optional(duelModeValidator),
+    mode: duelModeValidator,
     createdAt: v.number(),
 
     // === Classic Mode: Shared Game State ===
@@ -365,7 +365,7 @@ export default defineSchema({
     soloHintL2Type: v.optional(soloHintL2TypeValidator),
 
     // === Seeded PRNG for Deterministic Random ===
-    seed: v.optional(v.number()),
+    seed: v.number(),
   })
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])
@@ -487,7 +487,7 @@ export default defineSchema({
     themeIds: v.array(v.id("themes")),
     scheduledTime: v.number(), // Unix timestamp
     status: scheduledDuelStatusValidator,
-    mode: v.optional(v.union(v.literal("solo"), v.literal("classic"))),
+    mode: v.union(v.literal("solo"), v.literal("classic")),
     classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
     // Ready state tracking
     proposerReady: v.optional(v.boolean()),

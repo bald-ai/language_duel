@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { SEED_XOR_MASK } from "@/convex/constants";
 import { initializeDuelChallenge } from "@/convex/gameplay";
 import { acceptDuel, acceptDuelChallenge } from "@/convex/lobby";
 import { startScheduledDuel } from "@/convex/scheduledDuels";
@@ -262,7 +261,9 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
       },
     ],
     status: "pending",
+    mode: "solo",
     currentWordIndex: 0,
+    seed: 123,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
@@ -283,6 +284,7 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
     createdAt: 1,
     payload: {
       challengeId: "challenge_1" as Id<"challenges">,
+      mode: "solo",
     },
     ...overrides,
   };
@@ -297,6 +299,7 @@ function scheduledDuelDoc(overrides: Partial<ScheduledDuelDoc> = {}): ScheduledD
     themeIds: ["theme_1" as Id<"themes">],
     scheduledTime: 10_000,
     status: "accepted",
+    mode: "solo",
     createdAt: 1,
     updatedAt: 1,
     proposerReady: true,
@@ -306,7 +309,7 @@ function scheduledDuelDoc(overrides: Partial<ScheduledDuelDoc> = {}): ScheduledD
 }
 
 describe("duel lifecycle handlers", () => {
-  it("acceptDuel activates a classic duel for the opponent", async () => {
+  it("acceptDuel activates a classic duel for the opponent with the stored seed", async () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
 
     const db = new InMemoryDb();
@@ -333,10 +336,10 @@ describe("duel lifecycle handlers", () => {
     const duel = db.challenges[0];
     expect(duel.status).toBe("accepted");
     expect(duel.questionStartTime).toBe(5_000);
-    expect(duel.seed).toBe(5_000 ^ SEED_XOR_MASK);
+    expect(duel.seed).toBe(123);
   });
 
-  it("acceptDuel defaults legacy mode-less duels to solo initialization", async () => {
+  it("acceptDuel rejects challenges missing mode", async () => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
 
     const db = new InMemoryDb();
@@ -351,17 +354,9 @@ describe("duel lifecycle handlers", () => {
       _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
     })._handler;
 
-    await handler(createCtx(db, "clerk_2"), {
+    await expect(handler(createCtx(db, "clerk_2"), {
       duelId: "challenge_1" as Id<"challenges">,
-    });
-
-    const duel = db.challenges[0];
-    expect(duel.status).toBe("challenging");
-    expect(duel.questionStartTime).toBe(6_000);
-    expect(duel.seed).toBeTypeOf("number");
-    expect(duel.challengerWordStates).toHaveLength(3);
-    expect(duel.opponentWordStates).toHaveLength(3);
-    expect(duel.challengerWordStates).not.toBe(duel.opponentWordStates);
+    })).rejects.toThrow("Challenge is missing mode");
   });
 
   it("acceptDuelChallenge initializes the duel and dismisses the notification", async () => {
@@ -405,11 +400,7 @@ describe("duel lifecycle handlers", () => {
 
     const db = new InMemoryDb();
     db.themes.push(themeDoc());
-    db.scheduledDuels.push(
-      scheduledDuelDoc({
-        mode: undefined,
-      })
-    );
+    db.scheduledDuels.push(scheduledDuelDoc());
     db.notifications.push({
       ...notificationDoc({
         _id: "notification_5" as Id<"notifications">,
@@ -417,6 +408,7 @@ describe("duel lifecycle handlers", () => {
         payload: {
           scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
           themeId: "theme_1" as Id<"themes">,
+          mode: "solo",
         },
       }),
     });
@@ -439,6 +431,7 @@ describe("duel lifecycle handlers", () => {
     expect(createdChallenge.mode).toBe("solo");
     expect(createdChallenge.status).toBe("challenging");
     expect(createdChallenge.questionStartTime).toBe(8_000);
+    expect(createdChallenge.seed).toBeTypeOf("number");
     expect(createdChallenge.themeIds).toEqual(["theme_1"]);
     expect(createdChallenge.sessionWords).toHaveLength(3);
 
@@ -450,7 +443,41 @@ describe("duel lifecycle handlers", () => {
     });
   });
 
-  it("initializeDuelChallenge synthesizes a seed for legacy learning duels", async () => {
+  it("startScheduledDuel rejects scheduled duels missing mode", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(8_000);
+
+    const db = new InMemoryDb();
+    db.themes.push(themeDoc());
+    db.scheduledDuels.push(
+      scheduledDuelDoc({
+        mode: undefined,
+      })
+    );
+    db.notifications.push({
+      ...notificationDoc({
+        _id: "notification_5" as Id<"notifications">,
+        type: "scheduled_duel",
+        payload: {
+          scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
+          themeId: "theme_1" as Id<"themes">,
+          mode: "solo",
+        },
+      }),
+    });
+
+    const handler = (startScheduledDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { scheduledDuelId: Id<"scheduledDuels"> }
+      ) => Promise<{ success: boolean; challengeId: Id<"challenges"> }>;
+    })._handler;
+
+    await expect(handler(createCtx(db, null), {
+      scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
+    })).rejects.toThrow("Challenge is missing mode");
+  });
+
+  it("initializeDuelChallenge rejects learning duels missing seed", async () => {
     vi.spyOn(Date, "now").mockReturnValue(9_000);
 
     const db = new InMemoryDb();
@@ -471,15 +498,8 @@ describe("duel lifecycle handlers", () => {
       _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
     })._handler;
 
-    await handler(createCtx(db, "clerk_1"), {
+    await expect(handler(createCtx(db, "clerk_1"), {
       duelId: "challenge_1" as Id<"challenges">,
-    });
-
-    const duel = db.challenges[0];
-    expect(duel.status).toBe("challenging");
-    expect(duel.seed).toBeTypeOf("number");
-    expect(duel.seed).not.toBe(0);
-    expect(duel.challengerCurrentWordIndex).toBeTypeOf("number");
-    expect(duel.opponentCurrentWordIndex).toBeTypeOf("number");
+    })).rejects.toThrow("Challenge is missing seed");
   });
 });

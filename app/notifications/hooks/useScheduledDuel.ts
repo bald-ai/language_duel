@@ -9,7 +9,7 @@ export interface ScheduledDuelData {
     recipientId: Id<"users">;
     themeIds: Id<"themes">[];
     scheduledTime: number;
-    mode?: "solo" | "classic";
+    mode: "solo" | "classic";
     classicDifficultyPreset?: "easy" | "medium" | "hard";
 }
 

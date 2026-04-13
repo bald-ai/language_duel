@@ -25,7 +25,6 @@ import {
   TIMER_OPTIONS,
   DEFAULT_TIMER_DURATION,
   TIMEOUT_ANSWER,
-  SEED_XOR_MASK,
 } from "./constants";
 import { getChallengeSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
@@ -73,6 +72,13 @@ function getClassicQuestionOrThrow(
     throw new Error("Classic question data is missing");
   }
   return question;
+}
+
+function getChallengeSeedOrThrow(duel: Doc<"challenges">): number {
+  if (!Number.isFinite(duel.seed)) {
+    throw new Error("Challenge is missing seed");
+  }
+  return duel.seed;
 }
 
 function getHintProviderBonusPatch(
@@ -450,10 +456,11 @@ export const initializeDuelChallenge = mutation({
     if (!freshDuel || freshDuel.status === "challenging") return;
 
     const sessionWords = getChallengeSessionWords(duel);
+    const seed = getChallengeSeedOrThrow(duel);
 
     const soloState = buildSoloInitState(
       sessionWords.length,
-      duel.seed ?? (Date.now() ^ SEED_XOR_MASK)
+      seed
     );
 
     await ctx.db.patch(duelId, {
@@ -513,8 +520,8 @@ export const submitSoloAnswer = mutation({
 
     const isCorrect = answer === currentWord.answer;
 
-    // Get or initialize seed for deterministic random
-    let seed = duel.seed ?? (Date.now() ^ SEED_XOR_MASK);
+    // Use the stored duel seed so solo progression stays deterministic.
+    let seed = getChallengeSeedOrThrow(duel);
 
     // Find and update word state
     const newWordStates = [...wordStates];

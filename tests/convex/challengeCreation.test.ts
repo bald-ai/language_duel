@@ -4,7 +4,6 @@ import { SEED_XOR_MASK } from "@/convex/constants";
 import {
   buildChallengeBase,
   buildChallengeStartState,
-  resolveChallengeMode,
 } from "@/convex/helpers/challengeCreation";
 import { buildSoloInitState } from "@/convex/helpers/duelInitialization";
 import type { SessionThemeInput } from "@/lib/sessionWords";
@@ -28,15 +27,17 @@ const themes: SessionThemeInput[] = [
 ];
 
 describe("challenge creation helpers", () => {
-  it("defaults base challenge setup to solo mode with shared fields initialized", () => {
+  it("builds solo challenge setup with seeded shared fields initialized", () => {
     const result = buildChallengeBase({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
       themes,
       createdAt: 123,
+      mode: "solo",
     });
 
     expect(result.mode).toBe("solo");
+    expect(result.seed).toBe(123 ^ SEED_XOR_MASK);
     expect(result.classicDifficultyPreset).toBeUndefined();
     expect(result.themeIds).toEqual([
       "theme_1",
@@ -74,13 +75,14 @@ describe("challenge creation helpers", () => {
     expect(result.classicQuestions?.[0].points).toBe(1);
   });
 
-  it("creates classic start state with accepted status and derived seed", () => {
+  it("creates classic start state with accepted status and the provided seed", () => {
     const now = 987654;
 
     const result = buildChallengeStartState({
       mode: "classic",
       wordCount: 4,
       now,
+      seed: now ^ SEED_XOR_MASK,
     });
 
     expect(result).toEqual({
@@ -109,11 +111,9 @@ describe("challenge creation helpers", () => {
     });
   });
 
-  it("treats an omitted mode as solo for playable state initialization", () => {
-    expect(resolveChallengeMode(undefined)).toBe("solo");
-
+  it("uses the provided seed for solo playable state initialization", () => {
     const result = buildChallengeStartState({
-      mode: resolveChallengeMode(undefined),
+      mode: "solo",
       wordCount: 2,
       now: 42,
       seed: 7,

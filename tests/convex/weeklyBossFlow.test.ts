@@ -378,7 +378,9 @@ describe("weekly boss flow", () => {
     expect(challenge?.status).toBe("challenging");
     expect(challenge?.challengerId).toBe("user_1");
     expect(challenge?.opponentId).toBe("user_1");
-    expect(challenge?.themeIds).toEqual([]);
+    expect(challenge?.themeIds).toHaveLength(2);
+    expect(challenge?.themeIds).toEqual(expect.arrayContaining(["theme_1", "theme_2"]));
+    expect(challenge?.seed).toBeTypeOf("number");
     expect(challenge?.weeklyGoalId).toBe("goal_1");
     expect(challenge?.bossType).toBeUndefined();
   });
