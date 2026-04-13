@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { shuffleAnswersForQuestion, NONE_OF_ABOVE } from "@/lib/answerShuffle";
+import {
+  buildClassicQuestionSet,
+  buildClassicQuestionSnapshot,
+  shuffleAnswersForQuestion,
+  NONE_OF_ABOVE,
+} from "@/lib/answerShuffle";
 import type { WordEntry, ShuffleDifficultyInfo } from "@/lib/types";
 
 describe("answerShuffle", () => {
@@ -30,15 +35,17 @@ describe("answerShuffle", () => {
 
   it("hard mode includes None of the above and sets hasNoneOption consistently", () => {
     const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 4 };
-    const result = shuffleAnswersForQuestion(word, 2, difficulty);
+    const result = buildClassicQuestionSnapshot(word, 2, difficulty);
 
-    expect(result.answers.length).toBe(5);
-    expect(result.answers).toContain(NONE_OF_ABOVE);
+    expect(result.options.length).toBe(5);
+    expect(result.options).toContain(NONE_OF_ABOVE);
+    expect(result.points).toBe(2);
+    expect(result.difficulty).toBe("hard");
 
-    if (result.hasNoneOption) {
-      expect(result.answers).not.toContain(word.answer);
+    if (result.correctOption === NONE_OF_ABOVE) {
+      expect(result.options).not.toContain(word.answer);
     } else {
-      expect(result.answers).toContain(word.answer);
+      expect(result.options).toContain(word.answer);
     }
   });
 
@@ -48,13 +55,13 @@ describe("answerShuffle", () => {
     let foundNormal = false;
 
     for (let i = 0; i < 50; i++) {
-      const result = shuffleAnswersForQuestion(word, i, difficulty);
-      if (result.hasNoneOption) {
+      const result = buildClassicQuestionSnapshot(word, i, difficulty);
+      if (result.correctOption === NONE_OF_ABOVE) {
         foundNoneCorrect = true;
-        expect(result.answers).not.toContain(word.answer);
+        expect(result.options).not.toContain(word.answer);
       } else {
         foundNormal = true;
-        expect(result.answers).toContain(word.answer);
+        expect(result.options).toContain(word.answer);
       }
 
       if (foundNoneCorrect && foundNormal) break;
@@ -62,5 +69,29 @@ describe("answerShuffle", () => {
 
     expect(foundNoneCorrect).toBe(true);
     expect(foundNormal).toBe(true);
+  });
+
+  it("builds a question set in word-order order with matching difficulty metadata", () => {
+    const words: WordEntry[] = [
+      {
+        word: "cat",
+        answer: "gato",
+        wrongAnswers: ["perro", "casa", "mesa", "silla", "libro"],
+      },
+      {
+        word: "dog",
+        answer: "perro",
+        wrongAnswers: ["gato", "casa", "mesa", "silla", "libro"],
+      },
+    ];
+
+    const result = buildClassicQuestionSet(words, [1, 0], "hard");
+
+    expect(result).toHaveLength(2);
+    expect(result[0].difficulty).toBe("hard");
+    expect(result[0].points).toBe(2);
+    expect(result[1].difficulty).toBe("hard");
+    expect(result[1].points).toBe(2);
+    expect(result[0].options).toContain(NONE_OF_ABOVE);
   });
 });

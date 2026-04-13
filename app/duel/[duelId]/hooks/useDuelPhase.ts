@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
-import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
+import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import type { WordEntry } from "@/lib/types";
 import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 export type DuelPhase = 'idle' | 'answering' | 'transition';
 
@@ -23,6 +23,7 @@ interface UseDuelPhaseParams {
   currentWordIndex: number | undefined;
   words: WordEntry[];
   wordOrder: number[] | undefined;
+  classicQuestions: Doc<"challenges">["classicQuestions"];
   viewerIsChallenger: boolean;
   opponentLastAnswer: string | undefined;
   challengerLastAnswer: string | undefined;
@@ -55,6 +56,7 @@ export function useDuelPhase({
   currentWordIndex,
   words,
   wordOrder,
+  classicQuestions,
   viewerIsChallenger,
   opponentLastAnswer,
   challengerLastAnswer,
@@ -97,22 +99,7 @@ export function useDuelPhase({
       // Get PREVIOUS word data (before the index changed)
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-      
-      // Determine previous difficulty using dynamic distribution
-      const prevDistribution = calculateDifficultyDistribution(words.length);
-      const prevDifficultyData = getDifficultyForIndex(prevIndex, prevDistribution);
-      const prevDifficulty = {
-        level: prevDifficultyData.level,
-        points: prevDifficultyData.points,
-        wrongCount: prevDifficultyData.wrongCount,
-      };
-      
-      // Use shared utility for consistent shuffling
-      const { answers: prevShuffled, hasNoneOption: prevHasNone } = shuffleAnswersForQuestion(
-        prevWord,
-        prevIndex,
-        { level: prevDifficulty.level, wrongCount: prevDifficulty.wrongCount }
-      );
+      const prevQuestion = classicQuestions![prevIndex];
       
       // Get opponent's answer from duel data
       const lastAnswer = viewerIsChallenger 
@@ -124,12 +111,15 @@ export function useDuelPhase({
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
-        shuffledAnswers: prevShuffled,
+        shuffledAnswers: prevQuestion.options,
         selectedAnswer: lockedAnswerRef.current,
         opponentAnswer: lastAnswer || null,
         wordIndex: prevIndex,
-        hasNoneOption: prevHasNone,
-        difficulty: prevDifficulty,
+        hasNoneOption: prevQuestion.correctOption === NONE_OF_ABOVE,
+        difficulty: {
+          level: prevQuestion.difficulty,
+          points: prevQuestion.points,
+        },
       });
       
       // Only start countdown if duel is not completed (more questions to come)
@@ -144,7 +134,7 @@ export function useDuelPhase({
     
     // Update the tracked index
     activeQuestionIndexRef.current = currentWordIndex;
-  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, opponentLastAnswer, challengerLastAnswer, isLocked]);
+  }, [currentWordIndex, words, wordOrder, classicQuestions, viewerIsChallenger, opponentLastAnswer, challengerLastAnswer, isLocked]);
   
   // Countdown timer - respects pause state from server
   useEffect(() => {
@@ -237,4 +227,3 @@ export function useDuelPhase({
     setHasTimedOut,
   };
 }
-

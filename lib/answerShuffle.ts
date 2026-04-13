@@ -1,30 +1,51 @@
 /**
  * Answer shuffling utilities for duel questions.
- * Uses seeded PRNG to ensure both players see identical answer order.
+ * Uses seeded PRNG so the server can prepare a stable classic-question snapshot.
  */
 
 import { hashSeed, seededShuffle, mulberry32 } from "./prng";
 import { HARD_MODE_NONE_CHANCE } from "./constants";
-import type { WordEntry, ShuffleDifficultyInfo } from "./types";
+import {
+  DIFFICULTY_POINTS,
+  calculateClassicDifficultyDistribution,
+  getDifficultyForIndex,
+  type ClassicDifficultyPreset,
+} from "./difficultyUtils";
+import type { DifficultyInfo, DifficultyLevel, WordEntry, ShuffleDifficultyInfo } from "./types";
 
 export const NONE_OF_ABOVE = "None of the above" as const;
+
+export interface ClassicQuestionSnapshot {
+  options: string[];
+  correctOption: string;
+  difficulty: DifficultyLevel;
+  points: number;
+}
 
 export interface ShuffledAnswers {
   answers: string[];
   hasNoneOption: boolean;
 }
 
+function getPointsForDifficulty(difficulty: ShuffleDifficultyInfo | DifficultyInfo): number {
+  return "points" in difficulty ? difficulty.points : DIFFICULTY_POINTS[difficulty.level];
+}
+
 /**
- * Shuffles answers for a question deterministically based on word and index.
- * Both players will see the same order.
+ * Builds the authoritative answer snapshot for a classic duel question.
  */
-export function shuffleAnswersForQuestion(
+export function buildClassicQuestionSnapshot(
   word: WordEntry,
   questionIndex: number,
   difficulty: ShuffleDifficultyInfo
-): ShuffledAnswers {
+): ClassicQuestionSnapshot {
   if (!word.wrongAnswers?.length) {
-    return { answers: [], hasNoneOption: false };
+    return {
+      options: [],
+      correctOption: word.answer,
+      difficulty: difficulty.level,
+      points: getPointsForDifficulty(difficulty),
+    };
   }
 
   // Create seed from word content + question index for deterministic shuffle
@@ -37,7 +58,7 @@ export function shuffleAnswersForQuestion(
   const selectedWrong = shuffledWrong.slice(0, difficulty.wrongCount);
 
   let answers: string[];
-  let hasNone = false;
+  let correctOption = word.answer;
 
   if (difficulty.level === "hard") {
     // For hard: configurable chance "None of the above" is the correct answer
@@ -45,12 +66,11 @@ export function shuffleAnswersForQuestion(
     if (noneIsCorrect) {
       // All options are wrong + "None of the above" (which is correct)
       answers = [...selectedWrong, NONE_OF_ABOVE];
-      hasNone = true;
+      correctOption = NONE_OF_ABOVE;
     } else {
       // Correct answer + 3 wrong + "None of the above" (which is wrong)
       const fewerWrong = selectedWrong.slice(0, 3);
       answers = [word.answer, ...fewerWrong, NONE_OF_ABOVE];
-      hasNone = false;
     }
   } else {
     // Easy/medium: correct answer + wrong answers
@@ -59,7 +79,38 @@ export function shuffleAnswersForQuestion(
 
   // Final shuffle of all options using a new seed offset
   const shuffleSeed = hashSeed(`${seedString}::final`);
-  const finalAnswers = seededShuffle(answers, shuffleSeed);
+  return {
+    options: seededShuffle(answers, shuffleSeed),
+    correctOption,
+    difficulty: difficulty.level,
+    points: getPointsForDifficulty(difficulty),
+  };
+}
 
-  return { answers: finalAnswers, hasNoneOption: hasNone };
+export function buildClassicQuestionSet(
+  words: WordEntry[],
+  wordOrder: number[],
+  preset: ClassicDifficultyPreset = "easy"
+): ClassicQuestionSnapshot[] {
+  const distribution = calculateClassicDifficultyDistribution(wordOrder.length, preset);
+
+  return wordOrder.map((wordIndex, questionIndex) => {
+    const difficulty = getDifficultyForIndex(questionIndex, distribution);
+    return buildClassicQuestionSnapshot(words[wordIndex], questionIndex, difficulty);
+  });
+}
+
+/**
+ * Compatibility wrapper for legacy UI code that still expects just answers + None metadata.
+ */
+export function shuffleAnswersForQuestion(
+  word: WordEntry,
+  questionIndex: number,
+  difficulty: ShuffleDifficultyInfo
+): ShuffledAnswers {
+  const question = buildClassicQuestionSnapshot(word, questionIndex, difficulty);
+  return {
+    answers: question.options,
+    hasNoneOption: question.correctOption === NONE_OF_ABOVE,
+  };
 }

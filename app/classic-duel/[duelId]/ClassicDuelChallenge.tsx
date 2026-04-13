@@ -5,16 +5,10 @@ import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import {
-  calculateClassicDifficultyDistribution,
-  getDifficultyForIndex,
-  type ClassicDifficultyPreset,
-} from "@/lib/difficultyUtils";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { SabotageEffect } from "@/lib/sabotage/types";
 import { SABOTAGE_DURATION_MS, MAX_SABOTAGES } from "@/lib/sabotage/constants";
-import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
-import type { WordEntry } from "@/lib/types";
+import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import {
   QUESTION_TIMER_SECONDS,
   TRANSITION_COUNTDOWN_SECONDS,
@@ -122,6 +116,7 @@ export default function ClassicDuelChallenge({
   });
 
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
+  const currentQuestion = duel.classicQuestions![index];
   // Memoize currentWord to avoid creating new object reference on every render
   const currentWord = useMemo(
     () => words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] },
@@ -139,13 +134,6 @@ export default function ClassicDuelChallenge({
     const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
     return typeof themeName === "string" ? themeName : null;
   }, [words, frozenData, wordOrder, actualWordIndex]);
-
-  // Calculate dynamic difficulty distribution
-  const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
-  const difficultyDistribution = useMemo(() =>
-    calculateClassicDifficultyDistribution(words.length, classicPreset),
-    [words.length, classicPreset]
-  );
 
   const currentWordIndex = duel.currentWordIndex;
 
@@ -167,20 +155,7 @@ export default function ClassicDuelChallenge({
     if (shouldShowTransition) {
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-
-      const prevDistribution = calculateClassicDifficultyDistribution(words.length, classicPreset);
-      const prevDifficultyData = getDifficultyForIndex(prevIndex, prevDistribution);
-      const prevDifficultyForShuffle = {
-        level: prevDifficultyData.level,
-        wrongCount: prevDifficultyData.wrongCount,
-      };
-
-      // Use shared shuffle utility for deterministic answer order
-      const { answers: prevShuffled, hasNoneOption: prevHasNone } = shuffleAnswersForQuestion(
-        prevWord as WordEntry,
-        prevIndex,
-        prevDifficultyForShuffle
-      );
+      const prevQuestion = duel.classicQuestions![prevIndex];
 
       const opponentLastAnswer = viewerIsChallenger
         ? duel.opponentLastAnswer
@@ -190,14 +165,14 @@ export default function ClassicDuelChallenge({
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
-        shuffledAnswers: prevShuffled,
+        shuffledAnswers: prevQuestion.options,
         selectedAnswer: lockedAnswerRef.current,
         opponentAnswer: opponentLastAnswer || null,
         wordIndex: prevIndex,
-        hasNoneOption: prevHasNone,
+        hasNoneOption: prevQuestion.correctOption === NONE_OF_ABOVE,
         difficulty: {
-          level: prevDifficultyData.level,
-          points: prevDifficultyData.points,
+          level: prevQuestion.difficulty,
+          points: prevQuestion.points,
         },
       });
 
@@ -215,7 +190,7 @@ export default function ClassicDuelChallenge({
 
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, classicPreset]);
+  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, duel.classicQuestions]);
 
   // Countdown timer
   const countdownPausedBy = duel.countdownPausedBy;
@@ -404,26 +379,15 @@ export default function ClassicDuelChallenge({
     timeoutAnswer,
   ]);
 
-  // Difficulty
-  const difficulty = useMemo(() =>
-    getDifficultyForIndex(index, difficultyDistribution),
-    [index, difficultyDistribution]
+  const difficulty = useMemo(
+    () => ({
+      level: currentQuestion.difficulty,
+      points: currentQuestion.points,
+    }),
+    [currentQuestion.difficulty, currentQuestion.points]
   );
-
-  // Shuffle answers using shared utility for deterministic order
-  const { shuffledAnswers, hasNoneOption } = useMemo(() => {
-    if (word === "done" || !currentWord.wrongAnswers?.length) {
-      return { shuffledAnswers: [], hasNoneOption: false };
-    }
-
-    const { answers, hasNoneOption: hasNone } = shuffleAnswersForQuestion(
-      currentWord as WordEntry,
-      index,
-      difficulty
-    );
-
-    return { shuffledAnswers: answers, hasNoneOption: hasNone };
-  }, [currentWord, word, index, difficulty]);
+  const shuffledAnswers = currentQuestion.options;
+  const hasNoneOption = currentQuestion.correctOption === NONE_OF_ABOVE;
 
   // Check role (needed for useMemo below)
   const isChallenger = viewerIsChallenger;

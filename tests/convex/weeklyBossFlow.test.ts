@@ -328,7 +328,9 @@ describe("weekly boss flow", () => {
     expect(challenge?.bossType).toBe("mini");
     expect(challenge?.challengerPerfectRun).toBe(true);
     expect(challenge?.opponentPerfectRun).toBe(true);
-    expect(challenge?.sessionWords.length).toBe(4);
+    expect(challenge?.sessionWords.length).toBe(2);
+    expect(challenge?.classicQuestions).toHaveLength(2);
+    expect(challenge?.classicQuestions?.[0].options.length).toBeGreaterThan(0);
 
     expect(db.notifications).toHaveLength(1);
     expect(db.notifications[0].type).toBe("duel_challenge");
@@ -555,6 +557,65 @@ describe("weekly boss flow", () => {
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
     expect(challenge?.sessionWords.every((w) => w.themeName === "Animals")).toBe(true);
+  });
+
+  it("mini boss uses only half of the total themes, sampled from completed ones", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(12_000);
+
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
+    );
+    db.themes.push(
+      themeDoc({ words: [{ word: "cat", answer: "kocka", wrongAnswers: ["a", "b", "c"] }] }),
+      themeDoc({
+        _id: "theme_2" as Id<"themes">,
+        name: "Food",
+        ownerId: "user_2" as Id<"users">,
+        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
+      }),
+      themeDoc({
+        _id: "theme_3" as Id<"themes">,
+        name: "Travel",
+        ownerId: "user_2" as Id<"users">,
+        words: [{ word: "train", answer: "vlak", wrongAnswers: ["x", "y", "z"] }],
+      }),
+      themeDoc({
+        _id: "theme_4" as Id<"themes">,
+        name: "Work",
+        ownerId: "user_2" as Id<"users">,
+        words: [{ word: "desk", answer: "stol", wrongAnswers: ["x", "y", "z"] }],
+      })
+    );
+    db.weeklyGoals.push(
+      weeklyGoalDoc({
+        themes: [
+          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_3" as Id<"themes">, themeName: "Travel", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_4" as Id<"themes">, themeName: "Work", creatorCompleted: true, partnerCompleted: true },
+        ],
+        miniBossStatus: "available",
+      })
+    );
+
+    const handler = (startBossDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+    });
+
+    const challenge = db.challenges.find((entry) => entry._id === challengeId);
+    const usedThemeIds = new Set(challenge?.sessionWords.map((word) => word.themeId) ?? []);
+
+    expect(usedThemeIds.size).toBe(2);
   });
 
   it("caps session words at the boss word limit", async () => {

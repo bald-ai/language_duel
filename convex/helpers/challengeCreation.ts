@@ -2,6 +2,7 @@ import type { Id } from "../_generated/dataModel";
 import { SEED_XOR_MASK } from "../constants";
 import { buildSoloInitState, type SoloInitState } from "./duelInitialization";
 import { createShuffledWordOrder, type ClassicDifficultyPreset } from "./gameLogic";
+import { buildClassicQuestionSet, type ClassicQuestionSnapshot } from "../../lib/answerShuffle";
 import {
   buildSessionWords,
   getUniqueThemeIds,
@@ -28,6 +29,7 @@ export interface ChallengeBaseFields {
   sessionWords: SessionWordEntry[];
   currentWordIndex: number;
   wordOrder: number[];
+  classicQuestions?: ClassicQuestionSnapshot[];
   challengerAnswered: boolean;
   opponentAnswered: boolean;
   challengerScore: number;
@@ -61,6 +63,7 @@ export function resolveClassicDifficultyPreset(
 
 export function buildChallengeBase(args: BuildChallengeBaseArgs): ChallengeBaseFields {
   const mode = resolveChallengeMode(args.mode);
+  const classicDifficultyPreset = resolveClassicDifficultyPreset(mode, args.classicDifficultyPreset);
   const sessionWords = args.sessionWords
     ? [...args.sessionWords]
     : buildSessionWords(args.themes ?? []);
@@ -69,19 +72,25 @@ export function buildChallengeBase(args: BuildChallengeBaseArgs): ChallengeBaseF
     throw new Error("Challenge requires at least one session word");
   }
 
+  const wordOrder = createShuffledWordOrder(sessionWords.length);
+
   return {
     challengerId: args.challengerId,
     opponentId: args.opponentId,
     themeIds: getUniqueThemeIds(sessionWords),
     sessionWords,
     currentWordIndex: 0,
-    wordOrder: createShuffledWordOrder(sessionWords.length),
+    wordOrder,
+    classicQuestions:
+      mode === "classic"
+        ? buildClassicQuestionSet(sessionWords, wordOrder, classicDifficultyPreset)
+        : undefined,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
     opponentScore: 0,
     mode,
-    classicDifficultyPreset: resolveClassicDifficultyPreset(mode, args.classicDifficultyPreset),
+    classicDifficultyPreset,
     createdAt: args.createdAt,
   };
 }

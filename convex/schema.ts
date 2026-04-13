@@ -22,6 +22,11 @@ const sessionWordValidator = v.object({
 });
 
 const playerRoleValidator = v.union(v.literal("challenger"), v.literal("opponent"));
+const difficultyLevelValidator = v.union(
+  v.literal("easy"),
+  v.literal("medium"),
+  v.literal("hard")
+);
 
 const duelStatusValidator = v.union(
   v.literal("pending"),
@@ -42,6 +47,13 @@ const classicDifficultyPresetValidator = v.union(
   v.literal("medium"),
   v.literal("hard")
 );
+
+const classicQuestionValidator = v.object({
+  options: v.array(v.string()),
+  correctOption: v.string(),
+  difficulty: difficultyLevelValidator,
+  points: v.number(),
+});
 
 const wordStateValidator = v.object({
   wordIndex: v.number(),
@@ -275,6 +287,7 @@ export default defineSchema({
     // === Classic Mode: Shared Game State ===
     currentWordIndex: v.number(),
     wordOrder: v.optional(v.array(v.number())),
+    classicQuestions: v.optional(v.array(classicQuestionValidator)),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
     challengerScore: v.number(),

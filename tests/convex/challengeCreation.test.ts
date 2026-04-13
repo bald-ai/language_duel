@@ -69,6 +69,9 @@ describe("challenge creation helpers", () => {
 
     expect(result.mode).toBe("classic");
     expect(result.classicDifficultyPreset).toBe("easy");
+    expect(result.classicQuestions).toHaveLength(2);
+    expect(result.classicQuestions?.[0].options.length).toBe(4);
+    expect(result.classicQuestions?.[0].points).toBe(1);
   });
 
   it("creates classic start state with accepted status and derived seed", () => {

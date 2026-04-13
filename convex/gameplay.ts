@@ -12,16 +12,11 @@ import {
   isDuelLearning,
 } from "./helpers/auth";
 import {
-  calculateClassicDifficultyDistribution,
-  getPointsForIndex,
-  isHardModeIndex,
-  isNoneOfTheAboveCorrect,
   updateWordStateAfterAnswerSeeded,
   shouldExpandPool,
   expandPoolSeeded,
   pickNextQuestionSeeded,
   updatePlayerStats,
-  type ClassicDifficultyPreset,
   type WordState,
 } from "./helpers/gameLogic";
 import { buildSoloInitState } from "./helpers/duelInitialization";
@@ -29,7 +24,6 @@ import {
   HINT_PROVIDER_BONUS,
   TIMER_OPTIONS,
   DEFAULT_TIMER_DURATION,
-  NONE_OF_THE_ABOVE,
   TIMEOUT_ANSWER,
   SEED_XOR_MASK,
 } from "./constants";
@@ -70,6 +64,48 @@ function getSoloHintClearFields(): Record<string, undefined> {
   };
 }
 
+function getClassicQuestionOrThrow(
+  duel: Doc<"challenges">,
+  questionIndex = duel.currentWordIndex
+) {
+  const question = duel.classicQuestions?.[questionIndex];
+  if (!question) {
+    throw new Error("Classic question data is missing");
+  }
+  return question;
+}
+
+function getHintProviderBonusPatch(
+  duel: Doc<"challenges">
+): Partial<Doc<"challenges">> {
+  if (
+    duel.hintAccepted !== true ||
+    !duel.hintRequestedBy ||
+    (duel.eliminatedOptions?.length || 0) === 0
+  ) {
+    return {};
+  }
+
+  const currentQuestion = getClassicQuestionOrThrow(duel);
+  const requesterLastAnswer = duel.hintRequestedBy === "challenger"
+    ? duel.challengerLastAnswer
+    : duel.opponentLastAnswer;
+
+  if (requesterLastAnswer !== currentQuestion.correctOption) {
+    return {};
+  }
+
+  if (duel.hintRequestedBy === "challenger") {
+    return {
+      opponentScore: (duel.opponentScore || 0) + HINT_PROVIDER_BONUS,
+    };
+  }
+
+  return {
+    challengerScore: (duel.challengerScore || 0) + HINT_PROVIDER_BONUS,
+  };
+}
+
 async function advanceClassicDuelIfBothAnswered(
   ctx: MutationCtx,
   duelId: Id<"challenges">,
@@ -81,9 +117,11 @@ async function advanceClassicDuelIfBothAnswered(
   }
 
   const nextWordIndex = duel.currentWordIndex + 1;
+  const hintProviderBonusPatch = getHintProviderBonusPatch(duel);
 
   if (nextWordIndex >= wordCount) {
     await ctx.db.patch(duelId, {
+      ...hintProviderBonusPatch,
       status: "completed",
       currentWordIndex: nextWordIndex,
       challengerAnswered: false,
@@ -106,6 +144,7 @@ async function advanceClassicDuelIfBothAnswered(
   }
 
   await ctx.db.patch(duelId, {
+    ...hintProviderBonusPatch,
     currentWordIndex: nextWordIndex,
     challengerAnswered: false,
     opponentAnswered: false,
@@ -144,52 +183,20 @@ export const answerDuel = mutation({
     }
 
     const sessionWords = getChallengeSessionWords(duel);
-
-    // Use shuffled word order if available
-    const actualWordIndex = duel.wordOrder
-      ? duel.wordOrder[duel.currentWordIndex]
-      : duel.currentWordIndex;
-    const currentWord = sessionWords[actualWordIndex];
-
-    // Determine difficulty and points
     const wordCount = sessionWords.length;
-    const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
-    const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
-    const pointsForCorrect = getPointsForIndex(questionIndex, distribution);
-    const isHardMode = isHardModeIndex(questionIndex, distribution);
-
-    // Determine if answer is correct
-    let isCorrect = false;
-    if (isHardMode && currentWord) {
-      const noneIsCorrect = isNoneOfTheAboveCorrect(currentWord.word, questionIndex);
-      if (noneIsCorrect) {
-        isCorrect = selectedAnswer === NONE_OF_THE_ABOVE;
-      } else {
-        isCorrect = currentWord.answer === selectedAnswer;
-      }
-    } else {
-      isCorrect = currentWord?.answer === selectedAnswer;
-    }
-
-    // Check if this player received a hint
-    const receivedHint =
-      duel.hintRequestedBy === playerRole &&
-      duel.hintAccepted === true &&
-      (duel.eliminatedOptions?.length || 0) > 0;
+    const currentQuestion = getClassicQuestionOrThrow(duel, questionIndex);
+    const isCorrect = selectedAnswer === currentQuestion.correctOption;
 
     // Mark as answered and update scores
     const myAnswered = hasPlayerAnswered(duel, playerRole);
     if (!myAnswered) {
       const myScore = isChallenger ? duel.challengerScore || 0 : duel.opponentScore || 0;
-      const otherScore = isChallenger ? duel.opponentScore || 0 : duel.challengerScore || 0;
-      const newMyScore = isCorrect ? myScore + pointsForCorrect : myScore;
-      const hintBonus = receivedHint && isCorrect ? HINT_PROVIDER_BONUS : 0;
+      const newMyScore = isCorrect ? myScore + currentQuestion.points : myScore;
 
       if (isChallenger) {
         await ctx.db.patch(duelId, {
           challengerAnswered: true,
           challengerScore: newMyScore,
-          opponentScore: otherScore + hintBonus,
           challengerLastAnswer: selectedAnswer,
           ...(duel.weeklyGoalId && duel.bossType && !isCorrect
             ? { challengerPerfectRun: false }
@@ -199,7 +206,6 @@ export const answerDuel = mutation({
         await ctx.db.patch(duelId, {
           opponentAnswered: true,
           opponentScore: newMyScore,
-          challengerScore: otherScore + hintBonus,
           opponentLastAnswer: selectedAnswer,
           ...(duel.weeklyGoalId && duel.bossType && !isCorrect
             ? { opponentPerfectRun: false }

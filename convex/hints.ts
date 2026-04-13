@@ -11,17 +11,10 @@ import {
   isDuelChallenging,
 } from "./helpers/auth";
 import {
-  calculateClassicDifficultyDistribution,
-  isHardModeIndex,
-  isNoneOfTheAboveCorrect,
-  type ClassicDifficultyPreset,
-} from "./helpers/gameLogic";
-import {
   HINT_TIME_BONUS_MS,
   MAX_ELIMINATED_OPTIONS_CLASSIC,
   MAX_LETTER_HINTS,
   MAX_ELIMINATED_OPTIONS_L2,
-  NONE_OF_THE_ABOVE,
 } from "./constants";
 import { getChallengeSessionWords } from "./helpers/sessionWords";
 
@@ -135,35 +128,17 @@ export const eliminateOption = mutation({
     if (duel.hintRequestedBy !== otherRole) throw new Error("You are not the hint provider");
     if (!duel.hintAccepted) throw new Error("Hint not accepted yet");
 
-    // Verify the option is a wrong answer (not the correct one)
-    const sessionWords = getChallengeSessionWords(duel);
-
-    const actualWordIndex = duel.wordOrder
-      ? duel.wordOrder[duel.currentWordIndex]
-      : duel.currentWordIndex;
-    const currentWord = sessionWords[actualWordIndex];
-
-    // Check if this is a hard mode question
-    const wordCount = sessionWords.length;
-    const classicPreset = (duel.classicDifficultyPreset ?? "easy") as ClassicDifficultyPreset;
-    const distribution = calculateClassicDifficultyDistribution(wordCount, classicPreset);
-    const isHardMode = isHardModeIndex(duel.currentWordIndex, distribution);
-
-    // For hard mode, "None of the above" is a valid option
-    const isNoneOfTheAboveOption = option === NONE_OF_THE_ABOVE;
-
-    if (option === currentWord.answer) {
-      throw new Error("Cannot eliminate the correct answer");
+    const currentQuestion = duel.classicQuestions?.[duel.currentWordIndex];
+    if (!currentQuestion) {
+      throw new Error("Classic question data is missing");
     }
 
-    // In hard mode, check if "None of the above" is the correct answer
-    if (isHardMode && isNoneOfTheAboveOption) {
-      const noneIsCorrect = isNoneOfTheAboveCorrect(currentWord.word, duel.currentWordIndex);
-      if (noneIsCorrect) {
-        throw new Error("Cannot eliminate the correct answer");
-      }
-    } else if (!currentWord.wrongAnswers.includes(option) && !isNoneOfTheAboveOption) {
+    if (!currentQuestion.options.includes(option)) {
       throw new Error("Invalid option");
+    }
+
+    if (option === currentQuestion.correctOption) {
+      throw new Error("Cannot eliminate the correct answer");
     }
 
     const currentEliminated = duel.eliminatedOptions || [];

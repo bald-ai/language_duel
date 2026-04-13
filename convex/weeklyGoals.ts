@@ -26,6 +26,7 @@ import {
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   getGoalMidpointAt,
+  getMiniBossUnlockThreshold,
   MIN_THEMES_PER_GOAL,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
@@ -50,23 +51,21 @@ function getEligibleThemeIdsForBoss(
   bossType: BossType
 ): Id<"themes">[] {
   if (bossType === "mini") {
-    return goal.themes
+    const completedThemeIds = goal.themes
       .filter((t) => t.creatorCompleted && t.partnerCompleted)
       .map((t) => t.themeId);
+    const miniBossThemeCount = getMiniBossUnlockThreshold(goal.themes.length);
+
+    return shuffleArray(completedThemeIds).slice(0, miniBossThemeCount);
   }
   return goal.themes.map((t) => t.themeId);
 }
 
 function buildSampledBossSessionWords(
-  goal: Doc<"weeklyGoals">,
   themes: Awaited<ReturnType<typeof loadThemesByIds>>,
   bossType: BossType
 ) {
-  const eligibleThemeIdSet = new Set(
-    getEligibleThemeIdsForBoss(goal, bossType).map((themeId) => String(themeId))
-  );
-  const eligibleThemes = themes.filter((theme) => eligibleThemeIdSet.has(String(theme._id)));
-  const fullSessionWords = buildSessionWords(eligibleThemes);
+  const fullSessionWords = buildSessionWords(themes);
 
   if (fullSessionWords.length === 0) {
     throw new Error("No boss words are available for this goal");
@@ -890,8 +889,9 @@ async function validateAndPrepareBoss(
     throw new Error("This boss is not ready yet");
   }
 
-  const themes = await loadThemesByIds(ctx, getEligibleThemeIdsForBoss(goal, bossType));
-  const sampledSessionWords = buildSampledBossSessionWords(goal, themes, bossType);
+  const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
+  const themes = await loadThemesByIds(ctx, eligibleThemeIds);
+  const sampledSessionWords = buildSampledBossSessionWords(themes, bossType);
 
   return { user, goal, isCreator, now, sampledSessionWords };
 }

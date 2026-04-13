@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useMemo, useCallback } from "react";
 import { calculateDifficultyDistribution, getDifficultyForIndex } from "@/lib/difficultyUtils";
-import { shuffleAnswersForQuestion } from "@/lib/answerShuffle";
+import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { DuelGameUI } from "./components/DuelGameUI";
 import { DuelStatusMessage } from "./components/DuelStatusMessage";
 import { useDuelAnswerEffects } from "./hooks/useDuelAnswerEffects";
@@ -90,6 +90,18 @@ export default function DuelPage() {
     [words, actualWordIndex]
   );
   const word = currentWord.word;
+  const currentQuestion = useMemo(() => {
+    if (!duel || duel.mode !== "classic") {
+      return null;
+    }
+
+    const question = duel.classicQuestions?.[index];
+    if (!question) {
+      throw new Error("Classic question data is missing");
+    }
+
+    return question;
+  }, [duel, index]);
 
   // Calculate dynamic difficulty distribution based on total word count
   const difficultyDistribution = useMemo(
@@ -117,6 +129,7 @@ export default function DuelPage() {
     currentWordIndex,
     words,
     wordOrder,
+    classicQuestions: duel?.classicQuestions,
     viewerIsChallenger,
     opponentLastAnswer: duel?.opponentLastAnswer,
     challengerLastAnswer: duel?.challengerLastAnswer,
@@ -168,24 +181,20 @@ export default function DuelPage() {
   });
 
   // Difficulty scaling based on question index using dynamic distribution
-  const difficulty = useMemo(
-    () => getDifficultyForIndex(index, difficultyDistribution),
-    [index, difficultyDistribution]
-  );
-
-  // Shuffle answers with difficulty-based option selection (MUST be before any returns)
-  const { shuffledAnswers, hasNoneOption } = useMemo(() => {
-    if (word === "done" || !currentWord.wrongAnswers?.length) {
-      return { shuffledAnswers: [], hasNoneOption: false };
+  const difficulty = useMemo(() => {
+    if (currentQuestion) {
+      return {
+        level: currentQuestion.difficulty,
+        points: currentQuestion.points,
+        wrongCount: Math.max(currentQuestion.options.length - 1, 0),
+        optionCount: currentQuestion.options.length,
+      };
     }
 
-    const { answers, hasNoneOption: hasNone } = shuffleAnswersForQuestion(currentWord, index, {
-      level: difficulty.level,
-      wrongCount: difficulty.wrongCount,
-    });
-
-    return { shuffledAnswers: answers, hasNoneOption: hasNone };
-  }, [currentWord, word, index, difficulty.level, difficulty.wrongCount]);
+    return getDifficultyForIndex(index, difficultyDistribution);
+  }, [currentQuestion, index, difficultyDistribution]);
+  const shuffledAnswers = currentQuestion ? currentQuestion.options : [];
+  const hasNoneOption = currentQuestion?.correctOption === NONE_OF_ABOVE;
 
   // Handlers (defined before early returns so they can be passed to DuelGameUI)
   const handleStopDuel = useCallback(async () => {
