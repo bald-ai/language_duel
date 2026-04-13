@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { createTheme } from "@/convex/themes";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  insertRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = {
   _id: Id<"users">;
@@ -22,7 +27,7 @@ type ThemeDoc = {
   saveRequestId?: string;
 };
 
-type IndexFilters = Record<string, unknown>;
+type QueryRow = UserDoc | ThemeDoc;
 
 class InMemoryDb {
   private nextThemeId = 1;
@@ -30,22 +35,7 @@ class InMemoryDb {
   public themes: ThemeDoc[] = [];
 
   query(table: "users" | "themes") {
-    return {
-      withIndex: (indexName: string, builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown) => {
-        const filters: IndexFilters = {};
-        const queryBuilder = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return queryBuilder;
-          },
-        };
-        builder(queryBuilder);
-
-        return {
-          first: async () => this.firstByIndex(table, indexName, filters),
-        };
-      },
-    };
+    return createIndexedQuery((table === "users" ? this.users : this.themes) as QueryRow[]);
   }
 
   async insert(table: "themes", value: Omit<ThemeDoc, "_id" | "_creationTime">): Promise<Id<"themes">> {
@@ -53,42 +43,14 @@ class InMemoryDb {
       throw new Error(`Unsupported table for insert: ${table}`);
     }
 
-    const id = `theme_${this.nextThemeId++}` as Id<"themes">;
-    this.themes.push({
-      _id: id,
-      _creationTime: Date.now(),
-      ...value,
-    });
-    return id;
-  }
-
-  private async firstByIndex(table: "users" | "themes", indexName: string, filters: IndexFilters) {
-    if (table === "users" && indexName === "by_clerk_id") {
-      const clerkId = filters.clerkId as string;
-      return this.users.find((u) => u.clerkId === clerkId) ?? null;
-    }
-
-    if (table === "themes" && indexName === "by_owner_save_request") {
-      const ownerId = filters.ownerId as Id<"users">;
-      const saveRequestId = filters.saveRequestId as string;
-      return (
-        this.themes.find(
-          (t) => t.ownerId === ownerId && t.saveRequestId === saveRequestId
-        ) ?? null
-      );
-    }
-
-    throw new Error(`Unsupported index lookup: ${table}.${indexName}`);
+    const inserted = insertRow<ThemeDoc>(this.themes, "theme", this.nextThemeId, value);
+    this.nextThemeId = inserted.nextCounter;
+    return inserted.id as Id<"themes">;
   }
 }
 
 function createCtx(db: InMemoryDb) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () => ({ subject: "clerk_test_user" }),
-    },
-  };
+  return createAuthCtx(db, "clerk_test_user");
 }
 
 const validWords = [

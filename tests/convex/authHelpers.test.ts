@@ -11,6 +11,10 @@ import {
   isDuelChallenging,
   isDuelLearning,
 } from "@/convex/helpers/auth";
+import {
+  createIdentityCtx,
+  createIndexedQuery,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<Doc<"users">, "_id" | "_creationTime" | "clerkId" | "email">;
 
@@ -19,55 +23,21 @@ type ChallengeDoc = Pick<
   "_id" | "_creationTime" | "challengerId" | "opponentId" | "status" | "challengerAnswered" | "opponentAnswered"
 >;
 
-type IndexFilters = Record<string, unknown>;
-
 class InMemoryDb {
   public users: UserDoc[] = [];
   public challenges: ChallengeDoc[] = [];
 
   query(table: "users") {
-    return {
-      withIndex: (
-        indexName: string,
-        builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
-      ) => {
-        const filters: IndexFilters = {};
-        const queryBuilder = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return queryBuilder;
-          },
-        };
-        builder(queryBuilder);
-
-        return {
-          first: async () => this.firstByIndex(table, indexName, filters),
-        };
-      },
-    };
+    return createIndexedQuery(table === "users" ? this.users : []);
   }
 
   async get(id: Id<"challenges">): Promise<ChallengeDoc | null> {
     return this.challenges.find((challenge) => challenge._id === id) ?? null;
   }
-
-  private async firstByIndex(table: "users", indexName: string, filters: IndexFilters) {
-    if (table === "users" && indexName === "by_clerk_id") {
-      const clerkId = filters.clerkId as string;
-      return this.users.find((user) => user.clerkId === clerkId) ?? null;
-    }
-
-    throw new Error(`Unsupported index lookup: ${table}.${indexName}`);
-  }
 }
 
 function createCtx(db: InMemoryDb, identity: { subject: string } | null) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () => identity,
-    },
-  };
+  return createIdentityCtx(db, identity);
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {

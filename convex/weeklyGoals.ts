@@ -1157,32 +1157,6 @@ export const deleteGoal = mutation({
   },
 });
 
-/**
- * Mark a goal as completed once the big boss has been defeated.
- */
-export const completeGoal = mutation({
-  args: {
-    goalId: v.id("weeklyGoals"),
-  },
-  handler: async (ctx, { goalId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
-
-    if (goal.bossStatus !== "completed") {
-      throw new Error("The big boss must be completed first");
-    }
-
-    await ctx.db.patch(goalId, { status: "completed" });
-  },
-});
-
 // Internal query for reminder crons
 export const getActiveGoalsWithEndDate = internalQuery({
   args: {},

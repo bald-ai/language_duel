@@ -3,7 +3,7 @@ import {
   type NotificationPreferences,
 } from "./notificationPreferencesDefaults";
 
-export const NOTIFICATION_TRIGGERS = [
+const _NOTIFICATION_TRIGGERS = [
   "immediate_duel_challenge",
   "scheduled_duel_proposal",
   "scheduled_duel_accepted",
@@ -20,7 +20,7 @@ export const NOTIFICATION_TRIGGERS = [
   "weekly_goal_reminder_2",
 ] as const;
 
-export type NotificationTrigger = (typeof NOTIFICATION_TRIGGERS)[number];
+export type NotificationTrigger = (typeof _NOTIFICATION_TRIGGERS)[number];
 
 export function isNotificationEnabled(
   trigger: NotificationTrigger,
@@ -128,7 +128,7 @@ export function shouldSendWeeklyGoalReminder(
   return reminderTime <= now && reminderTime >= now - windowMs;
 }
 
-export function formatScheduledTime(timestamp: number, timezone: string): string {
+export function formatScheduledTimeForEmail(timestamp: number, timezone: string): string {
   const date = new Date(timestamp);
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,

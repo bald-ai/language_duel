@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { SabotageEffect } from "@/app/game/sabotage";
 import {
   SABOTAGE_DURATION_MS,
@@ -27,7 +27,6 @@ interface UseSabotageEffectParams {
 interface UseSabotageEffectResult {
   activeSabotage: SabotageEffect | null;
   sabotagePhase: SabotagePhase;
-  clearSabotageEffect: () => void;
 }
 
 /**
@@ -43,14 +42,6 @@ export function useSabotageEffect({
   const [sabotagePhase, setSabotagePhase] = useState<SabotagePhase>("wind-up");
   const lastSabotageTimestampRef = useRef<number | null>(null);
   const sabotageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Helper to clear all sabotage timers and effect
-  const clearSabotageEffect = useCallback(() => {
-    sabotageTimersRef.current.forEach((timer) => clearTimeout(timer));
-    sabotageTimersRef.current = [];
-    setActiveSabotage(null);
-    setSabotagePhase("wind-up");
-  }, []);
 
   // Sabotage effect listener
   useEffect(() => {
@@ -126,7 +117,5 @@ export function useSabotageEffect({
   return {
     activeSabotage,
     sabotagePhase,
-    clearSabotageEffect,
   };
 }
-

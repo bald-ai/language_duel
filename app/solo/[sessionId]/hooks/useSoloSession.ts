@@ -10,14 +10,14 @@ import {
 } from "../constants";
 
 // Types
-export interface WordState {
+interface WordState {
   wordIndex: number;
   masteryLevel: 0 | 1 | 2 | 3;
   completedLevel3: boolean;
   answeredLevel2Plus: boolean;
 }
 
-export interface SessionState {
+interface SessionState {
   initialized: boolean;
   activePool: number[];
   remainingPool: number[];
@@ -31,7 +31,7 @@ export interface SessionState {
   completed: boolean;
 }
 
-export interface WordEntry {
+interface WordEntry {
   word: string;
   answer: string;
   wrongAnswers: string[];
@@ -390,4 +390,3 @@ export function useSoloSession({
     masteredCount,
   };
 }
-

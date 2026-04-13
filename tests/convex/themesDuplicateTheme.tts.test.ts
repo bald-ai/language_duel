@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { duplicateTheme } from "@/convex/themes";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  findRowById,
+  insertRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = {
   _id: Id<"users">;
@@ -28,37 +34,17 @@ type ThemeDoc = {
   visibility: "private" | "shared";
 };
 
-type IndexFilters = Record<string, unknown>;
-
 class InMemoryDb {
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
   private nextThemeId = 1;
 
-  query(table: "users") {
-    return {
-      withIndex: (indexName: string, builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown) => {
-        const filters: IndexFilters = {};
-        const queryBuilder = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return queryBuilder;
-          },
-        };
-        builder(queryBuilder);
-
-        return {
-          first: async () => this.firstByIndex(table, indexName, filters),
-        };
-      },
-    };
+  query(_table: "users") {
+    return createIndexedQuery(this.users);
   }
 
   async get(id: Id<"themes"> | Id<"users">): Promise<ThemeDoc | UserDoc | null> {
-    if (String(id).startsWith("theme_")) {
-      return this.themes.find((theme) => theme._id === id) ?? null;
-    }
-    return this.users.find((user) => user._id === id) ?? null;
+    return findRowById<ThemeDoc | UserDoc>([this.themes, this.users], id);
   }
 
   async insert(
@@ -69,32 +55,14 @@ class InMemoryDb {
       throw new Error(`Unsupported table for insert: ${table}`);
     }
 
-    const id = `theme_${this.nextThemeId++}` as Id<"themes">;
-    this.themes.push({
-      _id: id,
-      _creationTime: Date.now(),
-      ...value,
-    });
-    return id;
-  }
-
-  private async firstByIndex(table: "users", indexName: string, filters: IndexFilters) {
-    if (table === "users" && indexName === "by_clerk_id") {
-      const clerkId = filters.clerkId as string;
-      return this.users.find((user) => user.clerkId === clerkId) ?? null;
-    }
-
-    throw new Error(`Unsupported index lookup: ${table}.${indexName}`);
+    const inserted = insertRow<ThemeDoc>(this.themes, "theme", this.nextThemeId, value);
+    this.nextThemeId = inserted.nextCounter;
+    return inserted.id as Id<"themes">;
   }
 }
 
 function createCtx(db: InMemoryDb) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () => ({ subject: "clerk_test_user" }),
-    },
-  };
+  return createAuthCtx(db, "clerk_test_user");
 }
 
 describe("themes.duplicateTheme TTS behavior", () => {

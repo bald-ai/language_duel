@@ -4,7 +4,7 @@
  */
 
 // Explicit game mode type
-export type GameMode = "solo" | "duel";
+type GameMode = "solo" | "duel";
 
 // Base props shared by all level components
 export interface BaseLevelProps {

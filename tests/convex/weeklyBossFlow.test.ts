@@ -5,6 +5,14 @@ import {
   startBossDuel,
   startBossPractice,
 } from "@/convex/weeklyGoals";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  deleteRow,
+  findRowById,
+  insertRow,
+  patchRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<
   Doc<"users">,
@@ -68,9 +76,8 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     | "createdAt"
   >;
 
-type TableName = "users" | "themes" | "weeklyGoals" | "challenges" | "notifications";
 type Row = UserDoc | ThemeDoc | WeeklyGoalDoc | ChallengeDoc | NotificationDoc;
-type IndexFilters = Record<string, unknown>;
+type TableRows = Array<Row>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
@@ -84,100 +91,43 @@ class InMemoryDb {
     notifications: 10,
   };
 
-  query(table: TableName) {
-    const rows = () => [...this.getTable(table)];
-
-    const createResult = (resultRows: Row[]) => ({
-      collect: async () => resultRows,
-      first: async () => resultRows[0] ?? null,
-      unique: async () => resultRows[0] ?? null,
-    });
-
-    return {
-      ...createResult(rows()),
-      withIndex: (
-        _indexName: string,
-        builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
-      ) => {
-        const filters: IndexFilters = {};
-        const q = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return q;
-          },
-        };
-        builder(q);
-
-        const filtered = rows().filter((row) =>
-          Object.entries(filters).every(([field, value]) =>
-            (row as Record<string, unknown>)[field] === value
-          )
-        );
-
-        return createResult(filtered);
-      },
-    };
+  query(table: "users" | "themes" | "weeklyGoals" | "challenges" | "notifications") {
+    return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
-    for (const table of [
-      this.users,
-      this.themes,
-      this.weeklyGoals,
-      this.challenges,
-      this.notifications,
-    ]) {
-      const match = table.find((row) => row._id === id);
-      if (match) return match;
-    }
-
-    return null;
+    return findRowById<Row>(
+      [this.users, this.themes, this.weeklyGoals, this.challenges, this.notifications],
+      id
+    );
   }
 
   async patch(id: string, value: Record<string, unknown>): Promise<void> {
     const table = this.findTableForId(id);
-    const rows = this.getTable(table);
-    const index = rows.findIndex((row) => row._id === id);
-    if (index < 0) throw new Error(`Row not found: ${id}`);
-    rows[index] = {
-      ...rows[index],
-      ...value,
-    } as Row;
+    patchRow<Row>(this.getTable(table) as TableRows, id, value);
   }
 
   async insert(
     table: "challenges" | "notifications",
     value: Record<string, unknown>
   ): Promise<Id<"challenges"> | Id<"notifications">> {
-    const id = `${table === "challenges" ? "challenge" : "notification"}_${this.counters[table]++}` as
-      | Id<"challenges">
-      | Id<"notifications">;
-
-    const row = {
-      _id: id,
-      _creationTime: Date.now(),
-      ...value,
-    };
-
     if (table === "challenges") {
-      this.challenges.push(row as ChallengeDoc);
+      const inserted = insertRow<ChallengeDoc>(this.challenges, "challenge", this.counters.challenges, value);
+      this.counters.challenges = inserted.nextCounter;
+      return inserted.id as Id<"challenges">;
     } else {
-      this.notifications.push(row as NotificationDoc);
+      const inserted = insertRow<NotificationDoc>(this.notifications, "notification", this.counters.notifications, value);
+      this.counters.notifications = inserted.nextCounter;
+      return inserted.id as Id<"notifications">;
     }
-
-    return id;
   }
 
   async delete(id: string): Promise<void> {
     const table = this.findTableForId(id);
-    const rows = this.getTable(table);
-    const index = rows.findIndex((row) => row._id === id);
-    if (index >= 0) {
-      rows.splice(index, 1);
-    }
+    deleteRow<Row>(this.getTable(table) as TableRows, id);
   }
 
-  private getTable(table: TableName) {
+  private getTable(table: "users" | "themes" | "weeklyGoals" | "challenges" | "notifications") {
     switch (table) {
       case "users":
         return this.users;
@@ -192,7 +142,7 @@ class InMemoryDb {
     }
   }
 
-  private findTableForId(id: string): TableName {
+  private findTableForId(id: string): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" {
     if (id.startsWith("user_")) return "users";
     if (id.startsWith("theme_")) return "themes";
     if (id.startsWith("goal_")) return "weeklyGoals";
@@ -203,16 +153,11 @@ class InMemoryDb {
 }
 
 function createCtx(db: InMemoryDb, identitySubject: string | null) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () =>
-        identitySubject ? { subject: identitySubject } : null,
-    },
+  return createAuthCtx(db, identitySubject, {
     scheduler: {
       runAfter: vi.fn(async () => undefined),
     },
-  };
+  });
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {

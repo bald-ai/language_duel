@@ -9,7 +9,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   isNotificationEnabled,
-  formatScheduledTime,
+  formatScheduledTimeForEmail,
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
@@ -348,7 +348,7 @@ export async function buildEmailData(
         .filter((theme): theme is Doc<"themes"> => theme !== null)
         .map((theme) => theme.name);
       data.themeName = summarizeThemeNames(themeNames);
-      data.scheduledTime = formatScheduledTime(scheduledDuel.scheduledTime, DEFAULT_TIMEZONE);
+      data.scheduledTime = formatScheduledTimeForEmail(scheduledDuel.scheduledTime, DEFAULT_TIMEZONE);
       data.minutesBefore = args.reminderOffsetMinutes;
       if (!data.partnerName) {
         const opponentId =
@@ -375,7 +375,7 @@ export async function buildEmailData(
       });
       data.partnerName = partner?.nickname ?? partner?.name ?? data.partnerName;
       if (goal.endDate) {
-        data.scheduledTime = formatScheduledTime(goal.endDate, DEFAULT_TIMEZONE);
+        data.scheduledTime = formatScheduledTimeForEmail(goal.endDate, DEFAULT_TIMEZONE);
       }
       data.completedCount = goal.themes.filter((theme: { creatorCompleted: boolean; partnerCompleted: boolean }) =>
         args.toUser._id === goal.creatorId ? theme.creatorCompleted : theme.partnerCompleted

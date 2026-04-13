@@ -97,10 +97,6 @@ body {
   }
 }
 
-.glow-pulse {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
 /* "Look here!" flash for auth buttons when logged-out user clicks a protected action */
 @keyframes auth-hint-flash {
   0%   { transform: scale(1);   filter: brightness(1);    }
@@ -158,10 +154,6 @@ body {
   animation-delay: 600ms;
 }
 
-.delay-700 {
-  animation-delay: 700ms;
-}
-
 /* Slide down animation for notification panel */
 @keyframes slide-down-fade {
   from {
@@ -209,10 +201,6 @@ body {
   }
 }
 
-.animate-slide-out {
-  animation: slide-out-right 0.2s ease-in forwards;
-}
-
 /* Fade in animation for backdrop */
 @keyframes fade-in {
   from {
@@ -236,19 +224,16 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
 
-  .glow-pulse,
   .animate-slide-up,
   .animate-slide-down,
   .animate-scale-in,
-  .animate-slide-out,
   .animate-fade-in {
     animation: none !important;
   }
 
   .animate-slide-up,
   .animate-slide-down,
-  .animate-scale-in,
-  .animate-slide-out {
+  .animate-scale-in {
     opacity: 1;
     transform: none;
   }
@@ -256,67 +241,6 @@ body {
   .animate-fade-in {
     opacity: 1;
   }
-}
-
-/* ========================================
- * DECORATIVE PATTERNS
- * ======================================== */
-
-/* Geometric pattern overlay - uses primary color */
-.geo-pattern {
-  background-image:
-    linear-gradient(30deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
-    linear-gradient(150deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
-    linear-gradient(30deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
-    linear-gradient(150deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 12%, transparent 12.5%, transparent 87%, color-mix(in srgb, var(--color-primary) 8%, transparent) 87.5%),
-    linear-gradient(60deg, color-mix(in srgb, var(--color-neutral) 5%, transparent) 25%, transparent 25.5%, transparent 75%, color-mix(in srgb, var(--color-neutral) 5%, transparent) 75%),
-    linear-gradient(60deg, color-mix(in srgb, var(--color-neutral) 5%, transparent) 25%, transparent 25.5%, transparent 75%, color-mix(in srgb, var(--color-neutral) 5%, transparent) 75%);
-  background-size: 80px 140px;
-  background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
-}
-
-/* ========================================
- * FORM ELEMENTS
- * ======================================== */
-
-/* Confidence slider styling */
-.confidence-slider {
-  --thumb-color: var(--color-neutral);
-}
-
-.confidence-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease;
-}
-
-.confidence-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-.confidence-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--thumb-color);
-  cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-.confidence-slider::-webkit-slider-runnable-track {
-  border-radius: 9999px;
-}
-
-.confidence-slider::-moz-range-track {
-  border-radius: 9999px;
 }
 
 /* ========================================
@@ -355,34 +279,6 @@ html {
   scrollbar-color: var(--color-primary) var(--color-background-elevated);
 }
 
-/* ========================================
- * PWA SAFE AREA UTILITIES
- * ======================================== */
-
-/* Safe area padding utilities for PWA/notch devices */
-.pt-safe {
-  padding-top: var(--sat);
-}
-
-.pr-safe {
-  padding-right: var(--sar);
-}
-
-.pb-safe {
-  padding-bottom: var(--sab);
-}
-
-.pl-safe {
-  padding-left: var(--sal);
-}
-
-.p-safe {
-  padding-top: var(--sat);
-  padding-right: var(--sar);
-  padding-bottom: var(--sab);
-  padding-left: var(--sal);
-}
-
 /* Dynamic viewport height - accounts for mobile browser chrome */
 .min-h-dvh {
   min-height: 100dvh;
@@ -390,13 +286,6 @@ html {
 
 .h-dvh {
   height: 100dvh;
-}
-
-/* Large viewport height - for fixed backgrounds that shouldn't resize */
-.h-lvh {
-  height: 100vh;
-  /* Fallback for older browsers */
-  height: 100lvh;
 }
 
 /* Prevent iOS Safari overscroll bounce on fixed backgrounds */

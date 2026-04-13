@@ -9,16 +9,7 @@
 // TYPE DEFINITIONS
 // =============================================================================
 
-export type ColorShades = {
-  DEFAULT: string;
-  light: string;
-  lighter: string;
-  dark: string;
-  darker: string;
-  glow: string;
-};
-
-export type PrimaryShades = {
+type PrimaryShades = {
   DEFAULT: string;
   light: string;
   dark: string;
@@ -26,7 +17,7 @@ export type PrimaryShades = {
   glow: string;
 };
 
-export type CtaShades = {
+type CtaShades = {
   DEFAULT: string;
   light: string;
   lighter: string;
@@ -35,13 +26,13 @@ export type CtaShades = {
   glow: string;
 };
 
-export type NeutralShades = {
+type NeutralShades = {
   DEFAULT: string;
   light: string;
   dark: string;
 };
 
-export type SecondaryShades = {
+type SecondaryShades = {
   DEFAULT: string;
   light: string;
   dark: string;
@@ -288,12 +279,4 @@ export function deriveTextShades(bgColor: string): {
       inverse: "#F4F3F0",
     };
   }
-}
-
-/**
- * Get the RGB values from a hex color for use in rgba()
- */
-export function hexToRgbString(hex: string): string {
-  const { r, g, b } = hexToRgb(hex);
-  return `${r}, ${g}, ${b}`;
 }

@@ -18,6 +18,12 @@ import {
   TTS_GENERATION_COST,
   TTS_MONTHLY_GENERATIONS,
 } from "@/lib/credits/constants";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  insertRow,
+  patchRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<
   Doc<"users">,
@@ -44,7 +50,6 @@ type FriendRequestDoc = Pick<
 >;
 
 type TableName = "users" | "friends" | "friendRequests";
-type IndexFilters = Record<string, unknown>;
 type NoArgs = Record<string, never>;
 
 class InMemoryDb {
@@ -54,56 +59,19 @@ class InMemoryDb {
   private userIdCounter = 10;
 
   query(table: TableName) {
-    const getRows = () => {
-      if (table === "users") return [...this.users];
-      if (table === "friends") return [...this.friends];
-      return [...this.friendRequests];
-    };
+    if (table === "users") {
+      return createIndexedQuery(this.users);
+    }
 
-    const createResult = (rows: Array<UserDoc | FriendDoc | FriendRequestDoc>) => ({
-      take: async (count: number) => rows.slice(0, count),
-      collect: async () => rows,
-      first: async () => rows[0] ?? null,
-      unique: async () => rows[0] ?? null,
-      filter: (predicate: (q: { eq: (lhs: unknown, rhs: unknown) => boolean; field: (name: string) => string }) => boolean) => {
-        const q = {
-          eq: (lhs: unknown, rhs: unknown) => lhs === rhs,
-          field: (name: string) => name,
-        };
-        const filtered = rows.filter((row) => predicate({
-          eq: (lhs: unknown, rhs: unknown) => lhs === rhs,
-          field: (name: string) => (row as Record<string, unknown>)[name] as string,
-        }));
-        void q;
-        return createResult(filtered);
-      },
-    });
+    if (table === "friends") {
+      return createIndexedQuery(this.friends);
+    }
 
-    return {
-      ...createResult(getRows()),
-      withIndex: (
-        indexName: string,
-        builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
-      ) => {
-        const filters: IndexFilters = {};
-        const q = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return q;
-          },
-        };
-        builder(q);
-
-        const rows = this.rowsByIndex(table, indexName, filters);
-        return createResult(rows);
-      },
-    };
+    return createIndexedQuery(this.friendRequests);
   }
 
   async patch(id: Id<"users">, value: Partial<UserDoc>): Promise<void> {
-    const index = this.users.findIndex((user) => user._id === id);
-    if (index < 0) throw new Error("User not found");
-    this.users[index] = { ...this.users[index], ...value };
+    patchRow(this.users, id, value);
   }
 
   async insert(table: "users", value: Omit<UserDoc, "_id" | "_creationTime">): Promise<Id<"users">> {
@@ -111,47 +79,9 @@ class InMemoryDb {
       throw new Error(`Unsupported table for insert: ${table}`);
     }
 
-    const id = `user_${this.userIdCounter++}` as Id<"users">;
-    this.users.push({
-      _id: id,
-      _creationTime: Date.now(),
-      ...value,
-    });
-    return id;
-  }
-
-  private rowsByIndex(table: TableName, indexName: string, filters: IndexFilters) {
-    if (table === "users" && indexName === "by_clerk_id") {
-      const clerkId = filters.clerkId as string;
-      return this.users.filter((user) => user.clerkId === clerkId);
-    }
-
-    if (table === "users" && indexName === "by_nickname_discriminator") {
-      const nickname = filters.nickname as string;
-      return this.users.filter((user) => user.nickname === nickname);
-    }
-
-    if (table === "friends" && indexName === "by_user") {
-      const userId = filters.userId as Id<"users">;
-      return this.friends.filter((friend) => friend.userId === userId);
-    }
-
-    if (table === "friendRequests" && indexName === "by_sender") {
-      const senderId = filters.senderId as Id<"users">;
-      return this.friendRequests.filter((request) => request.senderId === senderId);
-    }
-
-    if (table === "friendRequests" && indexName === "by_receiver") {
-      const receiverId = filters.receiverId as Id<"users">;
-      const status = filters.status as FriendRequestDoc["status"] | undefined;
-      return this.friendRequests.filter(
-        (request) =>
-          request.receiverId === receiverId &&
-          (status === undefined || request.status === status)
-      );
-    }
-
-    throw new Error(`Unsupported index lookup: ${table}.${indexName}`);
+    const inserted = insertRow<UserDoc>(this.users, "user", this.userIdCounter, value);
+    this.userIdCounter = inserted.nextCounter;
+    return inserted.id as Id<"users">;
   }
 }
 
@@ -197,13 +127,7 @@ function requestDoc(overrides: Partial<FriendRequestDoc> = {}): FriendRequestDoc
 }
 
 function createCtx(db: InMemoryDb, identitySubject: string | null) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () =>
-        identitySubject ? { subject: identitySubject } : null,
-    },
-  };
+  return createAuthCtx(db, identitySubject);
 }
 
 describe("users core handlers", () => {

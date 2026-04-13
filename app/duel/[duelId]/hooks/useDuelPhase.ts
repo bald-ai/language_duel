@@ -43,7 +43,6 @@ interface UseDuelPhaseResult {
   typedText: string;
   revealComplete: boolean;
   // Actions
-  resetForNextQuestion: () => void;
   setLockedAnswer: (answer: string | null) => void;
   setHasTimedOut: (value: boolean) => void;
 }
@@ -197,14 +196,6 @@ export function useDuelPhase({
     return () => clearInterval(interval);
   }, [isRevealing, frozenData]);
   
-  const resetForNextQuestion = () => {
-    lockedAnswerRef.current = null;
-    hasTimedOutRef.current = false;
-    setIsRevealing(false);
-    setTypedText("");
-    setRevealComplete(false);
-  };
-  
   const setLockedAnswer = (answer: string | null) => {
     lockedAnswerRef.current = answer;
   };
@@ -222,7 +213,6 @@ export function useDuelPhase({
     isRevealing,
     typedText,
     revealComplete,
-    resetForNextQuestion,
     setLockedAnswer,
     setHasTimedOut,
   };

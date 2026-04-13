@@ -4,7 +4,7 @@ import {
   isNotificationEnabled,
   shouldSendScheduledDuelReminder,
   shouldSendWeeklyGoalReminder,
-  formatScheduledTime,
+  formatScheduledTimeForEmail,
 } from "@/lib/notificationPreferences";
 
 describe("notificationPreferences", () => {
@@ -174,10 +174,10 @@ describe("notificationPreferences", () => {
     });
   });
 
-  describe("formatScheduledTime", () => {
+  describe("formatScheduledTimeForEmail", () => {
     it("formats timestamp in Europe/Bratislava timezone", () => {
       const timestamp = Date.UTC(2026, 1, 3, 15, 0, 0);
-      const result = formatScheduledTime(timestamp, "Europe/Bratislava");
+      const result = formatScheduledTimeForEmail(timestamp, "Europe/Bratislava");
       expect(result).toContain("16:00");
       expect(result).toContain("Feb");
       expect(result).toContain("3");

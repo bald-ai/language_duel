@@ -3,6 +3,12 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { answerDuel } from "@/convex/gameplay";
 import { eliminateOption } from "@/convex/hints";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  findRowById,
+  patchRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<
   Doc<"users">,
@@ -29,76 +35,28 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "classicQuestions"
   >;
 
-type TableName = "users" | "challenges";
 type Row = UserDoc | ChallengeDoc;
+type TableRows = Array<Row>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
   public challenges: ChallengeDoc[] = [];
 
-  query(table: TableName) {
-    const rows = table === "users" ? this.users : this.challenges;
-
-    const createResult = (resultRows: Row[]) => ({
-      collect: async () => resultRows,
-      first: async () => resultRows[0] ?? null,
-      unique: async () => resultRows[0] ?? null,
-    });
-
-    return {
-      ...createResult([...rows]),
-      withIndex: (
-        _indexName: string,
-        builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
-      ) => {
-        const filters: Record<string, unknown> = {};
-        const q = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return q;
-          },
-        };
-        builder(q);
-
-        const filtered = rows.filter((row) =>
-          Object.entries(filters).every(
-            ([field, value]) => (row as Record<string, unknown>)[field] === value
-          )
-        );
-
-        return createResult(filtered);
-      },
-    };
+  query(table: "users" | "challenges") {
+    return createIndexedQuery((table === "users" ? this.users : this.challenges) as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
-    return this.users.find((row) => row._id === id)
-      ?? this.challenges.find((row) => row._id === id)
-      ?? null;
+    return findRowById<Row>([this.users, this.challenges], id);
   }
 
   async patch(id: string, value: Record<string, unknown>): Promise<void> {
-    const rows = id.startsWith("user_") ? this.users : this.challenges;
-    const index = rows.findIndex((row) => row._id === id);
-    if (index < 0) {
-      throw new Error(`Row not found: ${id}`);
-    }
-
-    rows[index] = {
-      ...rows[index],
-      ...value,
-    } as Row;
+    patchRow<Row>((id.startsWith("user_") ? this.users : this.challenges) as TableRows, id, value);
   }
 }
 
 function createCtx(db: InMemoryDb, identitySubject: string | null) {
-  return {
-    db,
-    auth: {
-      getUserIdentity: async () =>
-        identitySubject ? { subject: identitySubject } : null,
-    },
-  };
+  return createAuthCtx(db, identitySubject);
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { acquireTtsGenerationLock, releaseTtsGenerationLock } from "@/convex/users";
+import { patchRow } from "./testUtils/inMemoryDb";
 
 type UserDoc = {
   _id: Id<"users">;
@@ -19,23 +20,7 @@ class InMemoryDb {
   }
 
   async patch(id: Id<"users">, value: Partial<UserDoc>): Promise<void> {
-    const index = this.users.findIndex((user) => user._id === id);
-    if (index < 0) {
-      throw new Error("User not found");
-    }
-
-    const current = this.users[index]!;
-    const next: UserDoc = { ...current };
-
-    for (const [key, incoming] of Object.entries(value) as Array<[keyof UserDoc, UserDoc[keyof UserDoc]]>) {
-      if (incoming === undefined) {
-        delete (next as Record<string, unknown>)[key];
-      } else {
-        (next as Record<string, unknown>)[key] = incoming;
-      }
-    }
-
-    this.users[index] = next;
+    patchRow(this.users, id, value as Record<string, unknown>);
   }
 }
 

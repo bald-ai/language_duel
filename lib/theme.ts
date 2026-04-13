@@ -28,7 +28,7 @@ import {
 /**
  * A color palette definition with just 3 base colors
  */
-export type ColorPalette = {
+type ColorPalette = {
   name: string;
   label: string;
   bg: string;

@@ -22,11 +22,6 @@ export interface ClassicQuestionSnapshot {
   points: number;
 }
 
-export interface ShuffledAnswers {
-  answers: string[];
-  hasNoneOption: boolean;
-}
-
 function getPointsForDifficulty(difficulty: ShuffleDifficultyInfo | DifficultyInfo): number {
   return "points" in difficulty ? difficulty.points : DIFFICULTY_POINTS[difficulty.level];
 }

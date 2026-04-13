@@ -56,7 +56,6 @@ export default function DuelPage() {
     isChallenger,
     isOpponent,
     hasAnswered,
-    opponentHasAnswered,
     hintAccepted,
     eliminatedOptions,
     canRequestHint,
@@ -378,9 +377,7 @@ export default function DuelPage() {
       countdownPausedBy={countdownPausedBy ?? undefined}
       countdownUnpauseRequestedBy={countdownUnpauseRequestedBy ?? undefined}
       isChallenger={isChallenger}
-      viewerRole={viewerRole ?? "challenger"}
       hasAnswered={hasAnswered}
-      opponentHasAnswered={!!opponentHasAnswered}
       canRequestHint={canRequestHint}
       iRequestedHint={iRequestedHint}
       theyRequestedHint={theyRequestedHint}

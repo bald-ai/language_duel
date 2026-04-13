@@ -58,11 +58,9 @@ interface DuelGameUIProps {
   
   // Role info
   isChallenger: boolean;
-  viewerRole: "challenger" | "opponent";
   
   // Answer state
   hasAnswered: boolean;
-  opponentHasAnswered: boolean;
   
   // Hint system
   canRequestHint: boolean;

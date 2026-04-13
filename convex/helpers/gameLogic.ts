@@ -4,16 +4,9 @@
  */
 
 import {
-  DIFFICULTY_RATIO_EASY,
-  DIFFICULTY_RATIO_MEDIUM,
-  DIFFICULTY_RATIO_HARD,
-  POINTS_EASY,
-  POINTS_MEDIUM,
-  POINTS_HARD,
   LCG_MULTIPLIER,
   LCG_INCREMENT,
   LCG_MODULUS,
-  QUESTION_INDEX_PRIME,
   INITIAL_POOL_RATIO,
   POOL_EXPANSION_THRESHOLD,
   POOL_EXPANSION_SIZE,
@@ -58,111 +51,6 @@ export interface NextQuestionResult {
 }
 
 // ===========================================
-// Difficulty Distribution (Classic Mode)
-// ===========================================
-
-/**
- * Calculate easy difficulty distribution (40% Easy, 30% Medium, 30% Hard).
- */
-export function calculateProgressiveClassicDistribution(
-  wordCount: number
-): DifficultyDistribution {
-  if (wordCount <= 0) {
-    return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
-  }
-
-  const baseEasy = Math.floor(wordCount * DIFFICULTY_RATIO_EASY);
-  const baseMedium = Math.floor(wordCount * DIFFICULTY_RATIO_MEDIUM);
-  const baseHard = Math.floor(wordCount * DIFFICULTY_RATIO_HARD);
-
-  const assigned = baseEasy + baseMedium + baseHard;
-  const remainder = wordCount - assigned;
-
-  let easy = baseEasy;
-  let medium = baseMedium;
-  let hard = baseHard;
-
-  // Distribute remainder evenly
-  if (remainder >= 1) easy++;
-  if (remainder >= 2) medium++;
-  if (remainder >= 3) hard++;
-  if (remainder >= 4) easy++;
-  if (remainder >= 5) medium++;
-  if (remainder >= 6) hard++;
-
-  return {
-    easy,
-    medium,
-    hard,
-    easyEnd: easy,
-    mediumEnd: easy + medium,
-    total: wordCount,
-  };
-}
-
-/**
- * Calculate difficulty distribution based on preset.
- */
-export function calculateClassicDifficultyDistribution(
-  wordCount: number,
-  preset: ClassicDifficultyPreset = "easy"
-): DifficultyDistribution {
-  if (wordCount <= 0) {
-    return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
-  }
-
-  switch (preset) {
-    case "medium": {
-      const medium = Math.ceil(wordCount / 2);
-      const hard = wordCount - medium;
-      return {
-        easy: 0,
-        medium,
-        hard,
-        easyEnd: 0,
-        mediumEnd: medium,
-        total: wordCount,
-      };
-    }
-    case "hard": {
-      return {
-        easy: 0,
-        medium: 0,
-        hard: wordCount,
-        easyEnd: 0,
-        mediumEnd: 0,
-        total: wordCount,
-      };
-    }
-    case "easy":
-    default:
-      return calculateProgressiveClassicDistribution(wordCount);
-  }
-}
-
-/**
- * Get points for a question at a given index.
- */
-export function getPointsForIndex(
-  index: number,
-  distribution: DifficultyDistribution
-): number {
-  if (index < distribution.easyEnd) return POINTS_EASY;
-  if (index < distribution.mediumEnd) return POINTS_MEDIUM;
-  return POINTS_HARD;
-}
-
-/**
- * Check if a question index is in hard mode.
- */
-export function isHardModeIndex(
-  index: number,
-  distribution: DifficultyDistribution
-): boolean {
-  return index >= distribution.mediumEnd;
-}
-
-// ===========================================
 // PRNG (Deterministic Random)
 // ===========================================
 
@@ -171,34 +59,6 @@ export function isHardModeIndex(
  */
 export function advanceSeed(seed: number): number {
   return (seed * LCG_MULTIPLIER + LCG_INCREMENT) & LCG_MODULUS;
-}
-
-/**
- * Determine if "None of the above" is the correct answer for hard mode.
- * Uses deterministic PRNG based on word content and question index.
- */
-export function isNoneOfTheAboveCorrect(
-  word: string,
-  questionIndex: number
-): boolean {
-  // Seed based on word content + question index for deterministic results
-  let seed = word
-    .split("")
-    .reduce(
-      (acc: number, char: string, idx: number) =>
-        acc + char.charCodeAt(0) * (idx + 1),
-      0
-    );
-  seed = seed + questionIndex * QUESTION_INDEX_PRIME;
-
-  // Advance seed past wrong answer shuffling (6 wrong answers = 5 swaps)
-  for (let i = 5; i > 0; i--) {
-    seed = advanceSeed(seed);
-  }
-
-  // Final seed advance to determine if "None of the above" is correct
-  seed = advanceSeed(seed);
-  return seed / LCG_MODULUS < 0.5;
 }
 
 // ===========================================
@@ -242,23 +102,6 @@ export function createShuffledWordOrder(wordCount: number): number[] {
 // ===========================================
 // Word Pool Management (Solo Mode)
 // ===========================================
-
-/**
- * Initialize word pools for a player (non-deterministic).
- */
-export function initializeWordPools(wordCount: number): {
-  activePool: number[];
-  remainingPool: number[];
-} {
-  const initialPoolSize = Math.max(1, Math.floor(wordCount * INITIAL_POOL_RATIO));
-  const allIndices = Array.from({ length: wordCount }, (_, i) => i);
-  const shuffled = shuffleArray(allIndices);
-
-  return {
-    activePool: shuffled.slice(0, initialPoolSize),
-    remainingPool: shuffled.slice(initialPoolSize),
-  };
-}
 
 /**
  * Initialize word pools using seeded PRNG (for mutations).
@@ -311,23 +154,6 @@ export function shouldExpandPool(
 }
 
 /**
- * Expand pool by adding words from remaining pool (non-deterministic).
- */
-export function expandPool(
-  activePool: number[],
-  remainingPool: number[]
-): { newActivePool: number[]; newRemainingPool: number[] } {
-  const toAdd = Math.min(POOL_EXPANSION_SIZE, remainingPool.length);
-  const shuffledRemaining = shuffleArray(remainingPool);
-  const wordsToAdd = shuffledRemaining.slice(0, toAdd);
-
-  return {
-    newActivePool: [...activePool, ...wordsToAdd],
-    newRemainingPool: shuffledRemaining.slice(toAdd),
-  };
-}
-
-/**
  * Expand pool using seeded PRNG (for mutations).
  */
 export function expandPoolSeeded(
@@ -351,13 +177,6 @@ export function expandPoolSeeded(
 // ===========================================
 
 /**
- * Determine initial level for a question (non-deterministic, for client-side).
- */
-export function determineInitialLevel(): number {
-  return Math.random() < LEVEL_1_START_PROBABILITY ? 1 : 2;
-}
-
-/**
  * Determine initial level using seeded PRNG (for mutations).
  */
 export function determineInitialLevelSeeded(seed: number): { level: number; newSeed: number } {
@@ -371,12 +190,6 @@ export function determineInitialLevelSeeded(seed: number): { level: number; newS
  */
 export type Level2Mode = "typing" | "multiple_choice";
 
-export function determineLevel2Mode(): Level2Mode {
-  return Math.random() < LEVEL_2_TYPING_PROBABILITY
-    ? "typing"
-    : "multiple_choice";
-}
-
 /**
  * Determine Level 2 mode using seeded PRNG (for mutations).
  */
@@ -384,16 +197,6 @@ export function determineLevel2ModeSeeded(seed: number): { mode: Level2Mode; new
   const newSeed = advanceSeed(seed);
   const mode: Level2Mode = (newSeed / LCG_MODULUS) < LEVEL_2_TYPING_PROBABILITY ? "typing" : "multiple_choice";
   return { mode, newSeed };
-}
-
-/**
- * Calculate next level after a correct answer (non-deterministic).
- */
-export function calculateNextLevelOnCorrect(currentLevel: number): number {
-  if (currentLevel === 1) {
-    return Math.random() < L1_TO_L2_PROBABILITY ? 2 : 3;
-  }
-  return 3; // L2 or L3 correct -> L3
 }
 
 /**
@@ -409,35 +212,6 @@ export function calculateNextLevelOnCorrectSeeded(
     return { level, newSeed };
   }
   return { level: 3, newSeed: seed }; // L2 or L3 correct -> L3
-}
-
-/**
- * Update word state after answering (non-deterministic).
- */
-export function updateWordStateAfterAnswer(
-  wordState: WordState,
-  currentLevel: number,
-  isCorrect: boolean
-): WordState {
-  const updated = { ...wordState };
-
-  if (isCorrect) {
-    if (currentLevel === 1) {
-      updated.currentLevel = calculateNextLevelOnCorrect(1);
-    } else if (currentLevel === 2) {
-      updated.currentLevel = 3;
-      updated.answeredLevel2Plus = true;
-    } else if (currentLevel === 3) {
-      updated.completedLevel3 = true;
-      updated.answeredLevel2Plus = true;
-    }
-  } else {
-    if (updated.currentLevel > 1) {
-      updated.currentLevel = updated.currentLevel - 1;
-    }
-  }
-
-  return updated;
 }
 
 /**
@@ -471,57 +245,6 @@ export function updateWordStateAfterAnswerSeeded(
   }
 
   return { wordState: updated, newSeed: currentSeed };
-}
-
-/**
- * Pick next question from incomplete words (non-deterministic).
- */
-export function pickNextQuestion(
-  activePool: number[],
-  wordStates: WordState[],
-  currentWordIndex: number
-): NextQuestionResult {
-  // Find incomplete words
-  const incompleteWords = activePool.filter(
-    (idx) => !wordStates.find((ws) => ws.wordIndex === idx)?.completedLevel3
-  );
-
-  // Check if all complete
-  if (incompleteWords.length === 0) {
-    return {
-      wordIndex: currentWordIndex,
-      level: 3,
-      level2Mode: "typing",
-      isComplete: true,
-    };
-  }
-
-  // Pick next word, avoiding current if possible
-  let candidates = incompleteWords.filter((idx) => idx !== currentWordIndex);
-  if (candidates.length === 0) candidates = incompleteWords;
-  const nextWordIndex =
-    candidates[Math.floor(Math.random() * candidates.length)];
-
-  // Determine next level based on word state
-  const nextWordState = wordStates.find((ws) => ws.wordIndex === nextWordIndex);
-  let nextLevel = 1;
-
-  if (nextWordState) {
-    if (nextWordState.currentLevel === 1) {
-      nextLevel = Math.random() < LEVEL_1_START_PROBABILITY ? 1 : 2;
-    } else if (nextWordState.currentLevel === 2) {
-      nextLevel = Math.random() < L2_STAY_PROBABILITY ? 2 : 3;
-    } else {
-      nextLevel = 3;
-    }
-  }
-
-  return {
-    wordIndex: nextWordIndex,
-    level: nextLevel,
-    level2Mode: determineLevel2Mode(),
-    isComplete: false,
-  };
 }
 
 /**

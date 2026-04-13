@@ -7,6 +7,11 @@ import {
   updateThemeFriendsCanEdit,
   updateThemeVisibility,
 } from "@/convex/themes";
+import {
+  createAuthCtx,
+  createIndexedQuery,
+  patchRow,
+} from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<
   Doc<"users">,
@@ -27,32 +32,12 @@ type ThemeDoc = Pick<
   words: ThemeWord[];
 };
 
-type IndexFilters = Record<string, unknown>;
-
 class InMemoryDb {
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
 
-  query(table: "users") {
-    return {
-      withIndex: (
-        indexName: string,
-        builder: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
-      ) => {
-        const filters: IndexFilters = {};
-        const q = {
-          eq: (field: string, value: unknown) => {
-            filters[field] = value;
-            return q;
-          },
-        };
-        builder(q);
-
-        return {
-          first: async () => this.firstByIndex(table, indexName, filters),
-        };
-      },
-    };
+  query(_table: "users") {
+    return createIndexedQuery(this.users);
   }
 
   async get(id: Id<"themes">): Promise<ThemeDoc | null> {
@@ -61,30 +46,11 @@ class InMemoryDb {
 
   async patch(id: Id<"themes"> | Id<"users">, value: Record<string, unknown>): Promise<void> {
     if (String(id).startsWith("theme_")) {
-      const index = this.themes.findIndex((theme) => theme._id === id);
-      if (index < 0) throw new Error("Theme not found");
-      this.themes[index] = {
-        ...this.themes[index],
-        ...value,
-      };
+      patchRow(this.themes, id, value);
       return;
     }
 
-    const index = this.users.findIndex((user) => user._id === id);
-    if (index < 0) throw new Error("User not found");
-    this.users[index] = {
-      ...this.users[index],
-      ...value,
-    };
-  }
-
-  private async firstByIndex(table: "users", indexName: string, filters: IndexFilters) {
-    if (table === "users" && indexName === "by_clerk_id") {
-      const clerkId = filters.clerkId as string;
-      return this.users.find((user) => user.clerkId === clerkId) ?? null;
-    }
-
-    throw new Error(`Unsupported index lookup: ${table}.${indexName}`);
+    patchRow(this.users, id, value);
   }
 }
 
@@ -101,13 +67,7 @@ class InMemoryStorage {
 }
 
 function createCtx(db: InMemoryDb, identitySubject = "clerk_owner", storage?: InMemoryStorage) {
-  return {
-    db,
-    storage,
-    auth: {
-      getUserIdentity: async () => ({ subject: identitySubject }),
-    },
-  };
+  return createAuthCtx(db, identitySubject, { storage });
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {

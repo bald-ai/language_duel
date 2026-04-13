@@ -1,6 +1,6 @@
 import { type NotificationTrigger } from "./notificationPreferences";
 
-export type SenderPalette = {
+type SenderPalette = {
   bg: string;
   primary: string;
   accent: string;

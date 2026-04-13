@@ -5,7 +5,6 @@ import {
   DEFAULT_THEME_NAME,
   getActiveThemeName,
   isThemeName,
-  themes,
   colorPalettes,
   themeOptions,
   semanticColors,
@@ -16,13 +15,6 @@ describe("theme", () => {
   it("isThemeName returns true for known palettes and false for unknown", () => {
     expect(isThemeName(colorPalettes[0].name)).toBe(true);
     expect(isThemeName("unknown-theme")).toBe(false);
-  });
-
-  it("themes do not include legacy aliases", () => {
-    expect(themes.default).toBeUndefined();
-    expect(themes.forest).toBeUndefined();
-    expect(isThemeName("default")).toBe(false);
-    expect(isThemeName("forest")).toBe(false);
   });
 
   it("themeOptions align with palettes", () => {

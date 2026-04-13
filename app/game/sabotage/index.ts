@@ -13,7 +13,6 @@ export {
 
 // Components
 export { SabotageRenderer } from "./SabotageRenderer";
-export { StickyNotes } from "./effects/StickyNotes";
 
 // Hooks
 export { useReverseAnswers } from "./hooks/useReverseAnswers";
@@ -21,5 +20,4 @@ export { useBounceOptions, type BouncingOption } from "./hooks/useBounceOptions"
 export { useTrampolineOptions, type TrampolineOption } from "./hooks/useTrampolineOptions";
 
 // Utilities
-export { reverseText, scrambleTextKeepSpaces } from "./utils/textTransforms";
-
+export { reverseText } from "./utils/textTransforms";

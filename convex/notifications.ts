@@ -9,16 +9,6 @@ import {
 } from "../lib/cleanupRetention";
 
 // ===========================================
-// Notification Type Definitions
-// ===========================================
-
-export type NotificationType =
-    | "friend_request"
-    | "weekly_plan_invitation"
-    | "scheduled_duel"
-    | "duel_challenge";
-
-// ===========================================
 // Queries
 // ===========================================
 

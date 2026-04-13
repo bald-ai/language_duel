@@ -120,9 +120,6 @@ export const SEED_XOR_MASK = 0xdeadbeef;
 // ===========================================
 // Magic String Constants
 // ===========================================
-/** Text for "None of the above" answer option in hard mode */
-export const NONE_OF_THE_ABOVE = "None of the above";
-
 /** Special marker for timeout answers */
 export const TIMEOUT_ANSWER = "__TIMEOUT__";
 

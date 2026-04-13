@@ -15,8 +15,6 @@ import type * as duel from "../duel.js";
 import type * as emails_actions from "../emails/actions.js";
 import type * as emails_notificationEmails from "../emails/notificationEmails.js";
 import type * as emails_reminderCrons from "../emails/reminderCrons.js";
-import type * as emails_templates from "../emails/templates.js";
-import type * as emails_types from "../emails/types.js";
 import type * as friends from "../friends.js";
 import type * as gameplay from "../gameplay.js";
 import type * as helpers_auth from "../helpers/auth.js";
@@ -53,8 +51,6 @@ declare const fullApi: ApiFromModules<{
   "emails/actions": typeof emails_actions;
   "emails/notificationEmails": typeof emails_notificationEmails;
   "emails/reminderCrons": typeof emails_reminderCrons;
-  "emails/templates": typeof emails_templates;
-  "emails/types": typeof emails_types;
   friends: typeof friends;
   gameplay: typeof gameplay;
   "helpers/auth": typeof helpers_auth;
