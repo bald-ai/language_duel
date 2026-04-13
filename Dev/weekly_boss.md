@@ -56,12 +56,6 @@ The boss requires pulling words from multiple themes into a single session. This
 - Challenge table needs: multi-theme support. Best implementation path is to add `themeIds` and migrate all challenge creation/read paths to use it, while doing a one-time migration/backfill of existing single-theme rows.
 - Word loading logic for multiple themes, preserving each word's source theme, and shuffling deterministically.
 
-### Open Questions
-
-- How many words/rounds should the boss be? All words from all themes? A random subset? Scales with theme count — 2 themes might be 20 words, 5 themes might be 50. Need a cap or adaptive length.
-- Should boss have lives / fail state, or is it always completable? Fail state adds stakes but might frustrate.
-- Should the boss mix exercise types from VARIETY.md, or is that a later enhancement? Could ship v1 as a multi-theme duel with existing levels, then layer variety on top.
-
 ## Recommended V1 Decisions
 
 These choices keep scope tight and give us a shippable version fast:
@@ -85,7 +79,7 @@ These choices keep scope tight and give us a shippable version fast:
 
 ## Implementation Plan
 
-### Phase 0 — Lock the Product Rules
+### Phase 0 — Lock the Product Rules ✅ Done
 
 Goal: remove ambiguity before touching schema or gameplay.
 
@@ -142,7 +136,7 @@ Breakpoint:
 - Stop here and sanity-check the rules before schema work starts.
 - If the rules still feel fuzzy, do not start Phase 1.
 
-### Phase 0.5 — Extract Shared Challenge Creation Logic
+### Phase 0.5 — Extract Shared Challenge Creation Logic ✅ Done
 
 Goal: eliminate duplicated challenge setup code before adding multi-theme support, so Phase 1 changes are centralized and low-risk.
 
@@ -170,7 +164,7 @@ Breakpoint:
 - All existing flows (immediate duel, scheduled duel, solo, classic) still work identically.
 - Run lint, typecheck, and existing tests before moving on.
 
-### Phase 1 — Build Multi-Theme Session Foundations
+### Phase 1 — Build Multi-Theme Session Foundations ✅ Done
 
 Goal: make "one session from many themes" a real platform feature, because Weekly Boss depends on it.
 
@@ -253,7 +247,7 @@ Steps 1–5 are backend, can be verified independently. Steps 6–7 are frontend
   - backfill migration works on existing challenge rows
 - Run lint, typecheck, and focused session/gameplay tests before moving on.
 
-### Phase 2 — Extend Weekly Goal Data and Unlock Logic
+### Phase 2 — Extend Weekly Goal Data and Unlock Logic ✅ Done
 
 Goal: teach weekly goals about time windows and boss progression.
 
@@ -317,7 +311,7 @@ Goal: teach weekly goals about time windows and boss progression.
   - `endDate` becomes read-only when `bossStatus` leaves `locked`
 - Run lint, typecheck, and weekly goal tests before Phase 3.
 
-### Phase 3 — Add Goal UI for Planning and Progression
+### Phase 3 — Add Goal UI for Planning and Progression ✅ Done
 
 Goal: make the new weekly-boss logic visible and understandable in the app.
 
@@ -354,7 +348,7 @@ Breakpoint:
 - Shipable checkpoint: someone can create a goal, see the dates, understand whether mini boss or boss is locked, and see why.
 - Review this phase in the browser before wiring the actual boss launch flow.
 
-### Phase 4 — Launch Mini Boss and Big Boss V1
+### Phase 4 — Launch Mini Boss and Big Boss V1 ✅ Done
 
 Goal: connect weekly goals to actual playable multi-theme sessions.
 
