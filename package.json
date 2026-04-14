@@ -16,7 +16,6 @@
   "dependencies": {
     "@clerk/nextjs": "^6.35.5",
     "@ducanh2912/next-pwa": "^10.2.9",
-    "@next/swc-darwin-arm64": "^16.2.3",
     "@types/react-window": "^1.8.8",
     "convex": "^1.29.3",
     "next": "^16.0.10",
