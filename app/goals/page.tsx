@@ -707,7 +707,7 @@ export default function GoalsPage() {
               onRemove={handleRemoveTheme}
             />
 
-            {/* Add Theme Button (only in editing mode and under 5 themes) */}
+            {/* Add Theme Button (only in editing mode and below the max theme limit) */}
             {canAddThemes && (
               <button
                 onClick={() => setShowThemeSelector(true)}

@@ -33,7 +33,7 @@ import {
 } from "../lib/weeklyGoals";
 
 // Constants
-const MAX_THEMES_PER_GOAL = 5;
+const MAX_THEMES_PER_GOAL = 10;
 const MINI_BOSS_WORD_CAP = 20;
 const BIG_BOSS_WORD_CAP = 30;
 type BossType = "mini" | "big";

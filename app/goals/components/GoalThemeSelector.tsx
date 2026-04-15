@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { MAX_THEMES_PER_GOAL } from "../constants";
 
 interface GoalThemeSelectorProps {
   goalId: Id<"weeklyGoals">;
@@ -22,7 +23,7 @@ export function GoalThemeSelector({
   const [selectedIds, setSelectedIds] = useState<Set<Id<"themes">>>(new Set());
   const eligibleThemes = useQuery(api.weeklyGoals.getEligibleThemes, { goalId });
 
-  const maxCanAdd = 5 - currentThemeCount;
+  const maxCanAdd = MAX_THEMES_PER_GOAL - currentThemeCount;
   const canAddMore = selectedIds.size < maxCanAdd;
 
   const toggleTheme = (themeId: Id<"themes">) => {

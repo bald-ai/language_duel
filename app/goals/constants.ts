@@ -7,7 +7,7 @@ import { MIN_THEMES_PER_GOAL } from "@/lib/weeklyGoals";
  * This constant is also defined in convex/weeklyGoals.ts (MAX_THEMES_PER_GOAL)
  * to enforce the limit on the backend. Keep these in sync.
  */
-export const MAX_THEMES_PER_GOAL = 5;
+export const MAX_THEMES_PER_GOAL = 10;
 
 /**
  * Minimum number of themes required before a weekly goal can be locked.

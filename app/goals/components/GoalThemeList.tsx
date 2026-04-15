@@ -76,7 +76,7 @@ export function GoalThemeList({
           >
             {/* Index */}
             <span
-              className="text-lg font-bold w-6 text-center"
+              className="text-lg font-bold w-8 text-center"
               style={{ color: colors.text.muted }}
             >
               {index + 1}.
