@@ -23,4 +23,5 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 
 ## Handoff
 - Update docs when behavior changes (short note in existing docs).
-- Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, plus any existing tests before handing off; if any step cannot be run, state why and what is missing.
+- Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, plus any existing tests before handing off only when code or tests changed.
+- Do not run eslint, typecheck, or tests for documentation-only, prompt-only, content-only, or other non-code changes. In those cases, handoff should just state that validation was skipped because no code changed.

@@ -1,3 +1,5 @@
+Disclaimer: This is an indie app currently with no users.
+
 # Language Duel Documentation
 
 ## What This App Is
