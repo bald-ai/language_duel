@@ -12,16 +12,29 @@ export const stripIrr = (str: string): string => {
 };
 
 /**
- * Normalize accented characters for comparison
- * Removes diacritics, converts to lowercase, trims, and normalizes spaces
+ * Shared normalization for answer-style comparisons.
+ * Removes accents, lowercases, trims, and collapses internal whitespace.
  */
-export const normalizeAccents = (str: string): string => {
-  return stripIrr(str)
+export const normalizeForComparison = (
+  str: string,
+  options?: { stripIrregularMarker?: boolean }
+): string => {
+  const baseValue = options?.stripIrregularMarker === false ? str : stripIrr(str);
+
+  return baseValue
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
+};
+
+/**
+ * Normalize accented characters for comparison.
+ * Kept for existing answer-checking flows.
+ */
+export const normalizeAccents = (str: string): string => {
+  return normalizeForComparison(str);
 };
 
 /**

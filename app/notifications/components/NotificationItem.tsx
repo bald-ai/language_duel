@@ -28,7 +28,7 @@ interface NotificationData {
         mode?: "solo" | "classic";
         isCounterProposal?: boolean;
         themeCount?: number;
-        event?: "invite" | "partner_locked" | "goal_activated" | "goal_completed";
+        event?: "invite" | "declined" | "partner_locked" | "goal_activated" | "goal_completed";
         scheduledDuelStatus?: string;
         startedDuelId?: Id<"challenges">;
         proposerReady?: boolean;
@@ -46,6 +46,7 @@ interface NotificationItemProps {
     onAcceptDuelChallenge: () => void;
     onDeclineDuelChallenge: () => void;
     onViewWeeklyPlan: () => void;
+    onDeclineWeeklyPlan: () => void;
     onDismissWeeklyPlan: () => void;
     onDismiss: () => void;
     // Scheduled duel handlers
@@ -82,6 +83,7 @@ export function NotificationItem({
     onAcceptDuelChallenge,
     onDeclineDuelChallenge,
     onViewWeeklyPlan,
+    onDeclineWeeklyPlan,
     onDismissWeeklyPlan,
     onDismiss,
     onAcceptScheduledDuel,
@@ -261,6 +263,23 @@ export function NotificationItem({
                         ),
                     };
                 }
+                if (payload?.event === "declined") {
+                    return {
+                        icon: <CalendarIcon />,
+                        message: `${userName} declined your weekly goal invitation`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onDismissWeeklyPlan}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                >
+                                    OK
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
                 return {
                     icon: <CalendarIcon />,
                     message: `${userName} invited you to a weekly plan`,
@@ -274,11 +293,11 @@ export function NotificationItem({
                                 View
                             </ActionButton>
                             <ActionButton
-                                onClick={onDismissWeeklyPlan}
-                                variant="dismiss"
-                                dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                onClick={onDeclineWeeklyPlan}
+                                variant="reject"
+                                dataTestId={`notification-${notification._id}-decline-weekly-plan`}
                             >
-                                Dismiss
+                                Decline
                             </ActionButton>
                         </div>
                     ),

@@ -1,7 +1,7 @@
 // Prompt builders for /api/generate.
 // Kept as pure functions (no OpenAI imports) so they are easy to test later.
 
-import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
+import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 
 // ============================================================================
 // Shared Constants - DRY prompt fragments
@@ -14,7 +14,8 @@ const WRONG_ANSWER_REQUIREMENTS = `- Wrong answers must be CHALLENGING and trick
   * Can include intentional grammar mistakes or wrong gender articles
   * NEVER use obviously wrong answers
   * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed
-  * Every wrong answer must be strictly incorrect; ensure no wrong answer is identical to the correct Spanish translation provided in the 'answer' field`;
+  * Every wrong answer must be strictly incorrect; ensure no wrong answer is identical to the correct Spanish translation provided in the 'answer' field
+  * Wrong answers must NOT differ from the correct answer or from each other only by accents, diacritics, casing, spacing, or an "(Irr)" marker`;
 
 const WRONG_ANSWER_REQUIREMENTS_VERBS = `- Wrong answers must be CHALLENGING and tricky:
   * Use similar-sounding Spanish verbs
@@ -24,6 +25,7 @@ const WRONG_ANSWER_REQUIREMENTS_VERBS = `- Wrong answers must be CHALLENGING and
   * NEVER use obviously wrong answers
   * All ${WRONG_ANSWER_COUNT} wrong answers for each word MUST be unique - NO DUPLICATES allowed
   * Every wrong answer must be strictly incorrect; ensure no wrong answer is identical to the correct Spanish infinitive provided in the 'answer' field
+  * Wrong answers must NOT differ from the correct answer or from each other only by accents, diacritics, casing, spacing, or an "(Irr)" marker
   * Wrong answers must NOT include the "(Irr)" or "*" markers, even if they are irregular verbs`;
 
 const ARTICLE_REQUIREMENT = `- ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE (e.g., "el libro", "la casa")`;
@@ -43,15 +45,19 @@ const OUTPUT_FORMAT_WORD_VERBS = `OUTPUT FORMAT: JSON object with:
 - answer: Spanish infinitive (e.g., "hablar", "comer", "ir(Irr)")
 - wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
 
-const OUTPUT_FORMAT_THEME = `OUTPUT FORMAT: JSON array of ${THEME_WORD_COUNT} objects, each with:
+function buildThemeOutputFormat(wordCount: number): string {
+  return `OUTPUT FORMAT: JSON array of ${wordCount} objects, each with:
 - word: English word
 - answer: Correct Spanish translation
 - wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish translations`;
+}
 
-const OUTPUT_FORMAT_THEME_VERBS = `OUTPUT FORMAT: JSON array of ${THEME_WORD_COUNT} objects, each with:
+function buildVerbThemeOutputFormat(wordCount: number): string {
+  return `OUTPUT FORMAT: JSON array of ${wordCount} objects, each with:
 - word: English verb (e.g., "speak", "eat", "go")
 - answer: Spanish infinitive (e.g., "hablar", "comer", "ir(Irr)")
 - wrongAnswers: Array of exactly ${WRONG_ANSWER_COUNT} challenging wrong Spanish infinitives (WITHOUT ANY MARKERS)`;
+}
 
 const OUTPUT_FORMAT_ANSWER = `OUTPUT FORMAT: JSON object with:
 - answer: Better/corrected Spanish translation (with definite article)`;
@@ -78,42 +84,50 @@ const OUTPUT_FORMAT_ANSWER_AND_WRONGS_VERBS = `OUTPUT FORMAT: JSON object with:
 // ============================================================================
 
 // Build system prompt for theme generation (nouns)
-export function buildThemeSystemPrompt(themeName: string, themePrompt?: string): string {
+export function buildThemeSystemPrompt(
+  themeName: string,
+  wordCount: number,
+  themePrompt?: string
+): string {
   const promptSpecification = themePrompt ? `\n- Focus specifically on: ${themePrompt}` : "";
 
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
 
-TASK: Generate exactly ${THEME_WORD_COUNT} English vocabulary words for the theme "${themeName}" with Spanish translations.
+TASK: Generate exactly ${wordCount} English vocabulary words for the theme "${themeName}" with Spanish translations.
 
 REQUIREMENTS:
 - Each word must be an English noun related to "${themeName}"${promptSpecification}
 - The answer must be the correct Spanish translation
 - Each word needs exactly ${WRONG_ANSWER_COUNT} wrong answers (Spanish)
 ${WRONG_ANSWER_REQUIREMENTS}
-- All ${THEME_WORD_COUNT} words must be unique within this theme
+- All ${wordCount} words must be unique within this theme
 - Focus on practical, commonly used vocabulary
 ${ARTICLE_REQUIREMENT}
 
-${OUTPUT_FORMAT_THEME}`;
+${buildThemeOutputFormat(wordCount)}`;
 }
 
 // Build system prompt for verb theme generation
-export function buildVerbThemeSystemPrompt(themeName: string, themePrompt?: string): string {
+export function buildVerbThemeSystemPrompt(
+  themeName: string,
+  wordCount: number,
+  themePrompt?: string
+): string {
   const promptSpecification = themePrompt ? `\n- Focus specifically on: ${themePrompt}` : "";
 
   return `You are a Spanish language tutor creating vocabulary flashcards for English speakers learning Spanish.
 
-TASK: Generate exactly ${THEME_WORD_COUNT} English verbs for the theme "${themeName}" with Spanish infinitive translations.
+TASK: Generate exactly ${wordCount} English verbs for the theme "${themeName}" with Spanish infinitive translations.
 
 REQUIREMENTS:
 - Each word must be an English verb related to "${themeName}"${promptSpecification}
 ${VERB_FORMAT_REQUIREMENT}
 - Each word needs exactly ${WRONG_ANSWER_COUNT} wrong answers (Spanish infinitives)
 ${WRONG_ANSWER_REQUIREMENTS_VERBS}
-- All ${THEME_WORD_COUNT} verbs must be unique within this theme
+- All ${wordCount} verbs must be unique within this theme
 - Focus on practical, commonly used verbs
 
-${OUTPUT_FORMAT_THEME_VERBS}`;
+${buildVerbThemeOutputFormat(wordCount)}`;
 }
 
 // ============================================================================

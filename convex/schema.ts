@@ -151,6 +151,7 @@ export const notificationPayloadValidator = v.union(
     event: v.optional(
       v.union(
         v.literal("invite"),
+        v.literal("declined"),
         v.literal("partner_locked"),
         v.literal("goal_activated"),
         v.literal("goal_completed")

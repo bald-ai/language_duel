@@ -1,15 +1,15 @@
 import type { WordEntry } from "@/lib/types";
-import { stripIrr } from "@/lib/stringUtils";
+import { normalizeForComparison } from "@/lib/stringUtils";
 
 /**
- * Simple normalization that preserves accents but handles casing and spacing.
+ * Accent-aware normalization used by theme validation.
  */
 export function relaxedNormalize(str: string): string {
-  return str.toLowerCase().trim().replace(/\s+/g, " ");
+  return normalizeForComparison(str);
 }
 
 /**
- * Check if a word entry has duplicate wrong answers (relaxed: accents matter).
+ * Check if a word entry has duplicate wrong answers.
  */
 export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
   const normalizedWrongs = word.wrongAnswers.map((wa) => relaxedNormalize(wa));
@@ -18,14 +18,11 @@ export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
 }
 
 /**
- * Check if any wrong answer matches the correct answer (relaxed: accents matter).
- * Also strips (Irr) markers before comparison to prevent indistinguishable options.
+ * Check if any wrong answer matches the correct answer.
  */
 export function doesWrongAnswerMatchCorrect(word: WordEntry): boolean {
-  const normalizedAnswer = relaxedNormalize(stripIrr(word.answer));
-  return word.wrongAnswers.some(
-    (wa) => relaxedNormalize(stripIrr(wa)) === normalizedAnswer
-  );
+  const normalizedAnswer = relaxedNormalize(word.answer);
+  return word.wrongAnswers.some((wa) => relaxedNormalize(wa) === normalizedAnswer);
 }
 
 /**
@@ -43,12 +40,12 @@ export function checkThemeForWrongMatchingAnswer(words: WordEntry[]): boolean {
 }
 
 /**
- * Check if a theme has duplicate words (same English word appearing multiple times).
+ * Check if a theme has duplicate words.
  */
 export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
   const wordSet = new Set<string>();
   for (const word of words) {
-    const lowerWord = word.word.toLowerCase().trim();
+    const lowerWord = relaxedNormalize(word.word);
     if (wordSet.has(lowerWord)) {
       return true;
     }
@@ -63,7 +60,7 @@ export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
 export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
   const wordMap = new Map<string, number[]>();
   words.forEach((word, index) => {
-    const lowerWord = word.word.toLowerCase().trim();
+    const lowerWord = relaxedNormalize(word.word);
     if (!wordMap.has(lowerWord)) {
       wordMap.set(lowerWord, []);
     }
@@ -80,10 +77,9 @@ export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
 }
 
 /**
- * Check if a word already exists in the list (case-insensitive).
+ * Check if a word already exists in the list.
  */
 export function isWordDuplicate(word: string, existingWords: WordEntry[]): boolean {
-  const normalizedWord = word.toLowerCase().trim();
-  return existingWords.some((w) => w.word.toLowerCase().trim() === normalizedWord);
+  const normalizedWord = relaxedNormalize(word);
+  return existingWords.some((w) => relaxedNormalize(w.word) === normalizedWord);
 }
-

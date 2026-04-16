@@ -193,7 +193,7 @@ describe("themes core handlers", () => {
           },
         ],
       })
-    ).rejects.toThrow("Duplicate word found");
+    ).rejects.toThrow(/duplicates after normalization/);
   });
 
   it("updateTheme keeps existing ttsStorageId when word+answer are unchanged", async () => {

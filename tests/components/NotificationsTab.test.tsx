@@ -63,6 +63,7 @@ describe("NotificationsTab theme actions", () => {
         acceptDuelChallenge: vi.fn(),
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -89,6 +90,7 @@ describe("NotificationsTab theme actions", () => {
         acceptDuelChallenge: vi.fn(),
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -113,6 +115,7 @@ describe("NotificationsTab theme actions", () => {
         acceptDuelChallenge: vi.fn(),
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -150,6 +153,7 @@ describe("NotificationsTab theme actions", () => {
         acceptDuelChallenge: vi.fn(),
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -213,5 +217,55 @@ describe("NotificationsTab theme actions", () => {
     expect(pushMock).toHaveBeenCalledWith(
       "/?openSolo=true&themeId=theme_1&soloMode=challenge_only"
     );
+  });
+
+  it("shows decline action for weekly goal invites and no view action for declined event", () => {
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          _id: "notif_goal_invite",
+          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          fromUser: { nickname: "Alex" },
+          payload: {
+            goalId: "goal_1",
+            event: "invite",
+          },
+          createdAt: Date.now(),
+          status: "pending",
+        },
+        {
+          _id: "notif_goal_declined",
+          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          fromUser: { nickname: "Alex" },
+          payload: {
+            goalId: "goal_2",
+            event: "declined",
+          },
+          createdAt: Date.now(),
+          status: "pending",
+        },
+      ],
+      notificationCount: 2,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(screen.getByTestId("notification-notif_goal_invite-decline-weekly-plan")).toBeInTheDocument();
+    expect(screen.queryByTestId("notification-notif_goal_declined-view-weekly-plan")).not.toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_declined-dismiss-weekly-plan")).toBeInTheDocument();
   });
 });

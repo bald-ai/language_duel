@@ -1,10 +1,12 @@
-# Variety Plan — Phase 1
+# Variety — design notes (parked)
 
-## Problem
+**Status: Parked.** This file is not a task list or committed backlog. It captures **clarity from usage and discussion**: the app feels samey when every round is English → Spanish, and two useful axes for future ideas are **depth of language testing** (sentences, audio, richer context) versus **gamification / format** (same vocabulary, different interaction). Individual bullets ship only when pulled into a separately scoped piece of work.
+
+## Problem (context)
 
 All current exercises follow the same pattern: see English word → produce Spanish translation (across 4 levels). After ~100 words the experience feels repetitive. GF specifically requested sentences.
 
-## Exercise Types to Add
+## Reference exercise shapes (not a backlog)
 
 ### Direction Reversal
 

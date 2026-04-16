@@ -1,4 +1,9 @@
-import { THEME_WORD_COUNT } from "@/lib/generate/constants";
+import {
+  DEFAULT_THEME_WORD_COUNT,
+  MAX_RANDOM_GENERATED_WORD_COUNT,
+  MAX_THEME_GENERATION_WORD_COUNT,
+  MIN_THEME_GENERATION_WORD_COUNT,
+} from "@/lib/generate/constants";
 import {
   CUSTOM_INSTRUCTIONS_MAX_LENGTH,
   THEME_ANSWER_INPUT_MAX_LENGTH,
@@ -27,6 +32,7 @@ export interface GenerateThemeRequest {
   type: "theme";
   themeName: string;
   themePrompt?: string;
+  wordCount: number;
   wordType?: WordType;
   history?: HistoryMessage[];
 }
@@ -195,9 +201,31 @@ function parseCount(value: unknown): number {
   ) {
     throw new Error("count must be an integer");
   }
-  if (value < 1 || value > THEME_WORD_COUNT) {
-    throw new Error(`count must be between 1 and ${THEME_WORD_COUNT}`);
+  if (value < 1 || value > MAX_RANDOM_GENERATED_WORD_COUNT) {
+    throw new Error(`count must be between 1 and ${MAX_RANDOM_GENERATED_WORD_COUNT}`);
   }
+  return value;
+}
+
+function parseThemeWordCount(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_THEME_WORD_COUNT;
+  }
+
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value)
+  ) {
+    throw new Error("wordCount must be an integer");
+  }
+
+  if (value < MIN_THEME_GENERATION_WORD_COUNT || value > MAX_THEME_GENERATION_WORD_COUNT) {
+    throw new Error(
+      `wordCount must be between ${MIN_THEME_GENERATION_WORD_COUNT} and ${MAX_THEME_GENERATION_WORD_COUNT}`
+    );
+  }
+
   return value;
 }
 
@@ -235,6 +263,7 @@ function parseThemeRequest(body: Record<string, unknown>): GenerateThemeRequest 
     type: "theme",
     themeName: parseThemeName(body.themeName),
     themePrompt: parseThemePrompt(body.themePrompt),
+    wordCount: parseThemeWordCount(body.wordCount),
     wordType: parseWordType(body.wordType),
     history: parseHistory(body.history),
   };

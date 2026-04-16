@@ -179,7 +179,7 @@ describe("themes.createTheme idempotency", () => {
         wordType: "nouns" as const,
         visibility: "private" as const,
       })
-    ).rejects.toThrow("Duplicate word found");
+    ).rejects.toThrow(/duplicates after normalization/);
   });
 
   it("rejects wrong answers that match the correct answer", async () => {
@@ -209,6 +209,6 @@ describe("themes.createTheme idempotency", () => {
         wordType: "verbs" as const,
         visibility: "private" as const,
       })
-    ).rejects.toThrow("wrong answers must not match the correct answer");
+    ).rejects.toThrow(/matches the correct answer/);
   });
 });

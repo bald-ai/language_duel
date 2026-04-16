@@ -36,6 +36,7 @@ export interface GenerateThemeParams {
   themeName: string;
   themePrompt?: string;
   wordType: WordType;
+  wordCount: number;
 }
 
 export interface GenerateThemeResult {
@@ -172,6 +173,7 @@ export async function generateTheme(params: GenerateThemeParams): Promise<Genera
       type: "theme",
       themeName: params.themeName,
       themePrompt: params.themePrompt || undefined,
+      wordCount: params.wordCount,
       wordType: params.wordType,
     }),
   });

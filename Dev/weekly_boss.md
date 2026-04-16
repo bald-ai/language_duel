@@ -28,7 +28,7 @@
 - Fires at the goal end date or triggered manually (only after mini boss is done).
 - Early unlock happens only when **all themes** are completed by both players and mini boss is already completed.
 - Draws from **all themes** in the weekly goal.
-- Uses the full variety mix from VARIETY.md — random exercise types, directions, sentence exercises, speed rounds, match pairs. The variety IS the boss.
+- **Vision (parked):** a mixed-exercise boss as sketched in `Dev/VARIETY.md` (design notes, not an active backlog). Until that is explicitly un-parked, treat the boss as the same core exercise flow at larger scale; Phase 5 below is the placeholder for mixing formats later.
 
 ## Technical Requirements
 
@@ -430,11 +430,13 @@ When a classic duel completes and has `weeklyGoalId` + `bossType`:
 
 ### Phase 5 — Layer In Boss Variety
 
+**Depends on:** `Dev/VARIETY.md` staying a **parked reference doc** until product chooses to un-park specific exercise types. This phase is not “implement the whole file”; it is optional follow-up once discrete variety work exists to compose.
+
 Goal: make the boss feel like an event rather than "just a longer quiz."
 
 Scope:
 
-- Introduce exercise selection rules from `Dev/VARIETY.md`.
+- Introduce exercise selection rules only for exercise types that have already been built and agreed; use `Dev/VARIETY.md` as a menu of ideas, not a mandate to build everything listed.
 - Start with low-content-cost additions first:
   - Spanish -> English reversal
   - speed round

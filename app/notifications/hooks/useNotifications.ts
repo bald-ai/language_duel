@@ -20,6 +20,7 @@ export function useNotifications() {
     const acceptDuelChallengeMutation = useMutation(api.lobby.acceptDuelChallenge);
     const declineDuelChallengeMutation = useMutation(api.lobby.declineDuelChallenge);
     const dismissWeeklyPlanMutation = useMutation(api.weeklyGoals.dismissWeeklyPlanInvitation);
+    const declineWeeklyPlanMutation = useMutation(api.weeklyGoals.declineWeeklyPlanInvitation);
 
     // Scheduled duel mutations
     const acceptScheduledDuelMutation = useMutation(api.scheduledDuels.acceptScheduledDuel);
@@ -94,6 +95,16 @@ export function useNotifications() {
         }
     }, [dismissWeeklyPlanMutation]);
 
+    const declineWeeklyPlanInvitation = useCallback(async (notificationId: Id<"notifications">) => {
+        try {
+            await declineWeeklyPlanMutation({ notificationId });
+            return { success: true };
+        } catch (error) {
+            console.error("Failed to decline weekly plan invitation:", error);
+            throw error;
+        }
+    }, [declineWeeklyPlanMutation]);
+
     const acceptScheduledDuel = useCallback(async (scheduledDuelId: Id<"scheduledDuels">) => {
         try {
             await acceptScheduledDuelMutation({ scheduledDuelId });
@@ -146,6 +157,7 @@ export function useNotifications() {
             acceptDuelChallenge,
             declineDuelChallenge,
             dismissWeeklyPlanInvitation,
+            declineWeeklyPlanInvitation,
             acceptScheduledDuel,
             counterProposeScheduledDuel,
             declineScheduledDuel,

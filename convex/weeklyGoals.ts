@@ -163,7 +163,7 @@ async function upsertWeeklyPlanNotificationForGoal(
     fromUserId: Id<"users">;
     goalId: Id<"weeklyGoals">;
     themeCount: number;
-    event: "invite" | "partner_locked" | "goal_activated" | "goal_completed";
+    event: "invite" | "declined" | "partner_locked" | "goal_activated" | "goal_completed";
     createdAt: number;
   }
 ) {
@@ -1277,6 +1277,76 @@ export const dismissWeeklyPlanInvitation = mutation({
     await ctx.db.patch(args.notificationId, {
       status: "dismissed",
     });
+
+    return { success: true };
+  },
+});
+
+export const declineWeeklyPlanInvitation = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    if (notification.toUserId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    if (notification.type !== "weekly_plan_invitation") {
+      throw new Error("Invalid notification type");
+    }
+
+    if (!isWeeklyPlanPayload(notification.payload)) {
+      throw new Error("Weekly plan data is missing");
+    }
+
+    const goal = await ctx.db.get(notification.payload.goalId);
+    if (!goal) {
+      await ctx.db.patch(args.notificationId, {
+        status: "dismissed",
+      });
+      return { success: true };
+    }
+
+    if (goal.partnerId !== user._id) {
+      throw new Error("Only the invited user can decline this goal");
+    }
+
+    const now = Date.now();
+    if (getEffectiveGoalStatus(goal, now) !== "editing") {
+      throw new Error("This invitation can no longer be declined");
+    }
+
+    if (goal.creatorLocked || goal.partnerLocked) {
+      throw new Error("This invitation can no longer be declined");
+    }
+
+    await dismissGoalNotifications(ctx, goal._id);
+
+    await upsertWeeklyPlanNotificationForGoal(ctx, {
+      toUserId: goal.creatorId,
+      fromUserId: user._id,
+      goalId: goal._id,
+      themeCount: goal.themes.length,
+      event: "declined",
+      createdAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+      trigger: "weekly_goal_declined",
+      toUserId: goal.creatorId,
+      fromUserId: user._id,
+      weeklyGoalId: goal._id,
+    });
+
+    await deleteBossChallengesForGoal(ctx, goal);
+    await ctx.db.delete(goal._id);
 
     return { success: true };
   },

@@ -45,6 +45,63 @@ describe("/api/generate request validation", () => {
     expect(payload.error).toContain("history");
   });
 
+  it("defaults theme wordCount when omitted", async () => {
+    const response = await POST(
+      createJsonRequest({
+        type: "theme",
+        themeName: "Animals",
+        history: [],
+      })
+    );
+
+    expect(response.status).not.toBe(400);
+  });
+
+  it("returns 400 when theme wordCount is out of bounds", async () => {
+    const response = await POST(
+      createJsonRequest({
+        type: "theme",
+        themeName: "Animals",
+        wordCount: 21,
+      })
+    );
+    const payload = (await response.json()) as { success: boolean; error: string };
+
+    expect(response.status).toBe(400);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain("wordCount");
+  });
+
+  it("returns 400 when theme wordCount is below the minimum", async () => {
+    const response = await POST(
+      createJsonRequest({
+        type: "theme",
+        themeName: "Animals",
+        wordCount: 3,
+      })
+    );
+    const payload = (await response.json()) as { success: boolean; error: string };
+
+    expect(response.status).toBe(400);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain("wordCount");
+  });
+
+  it("returns 400 when theme wordCount is not an integer", async () => {
+    const response = await POST(
+      createJsonRequest({
+        type: "theme",
+        themeName: "Animals",
+        wordCount: 2.5,
+      })
+    );
+    const payload = (await response.json()) as { success: boolean; error: string };
+
+    expect(response.status).toBe(400);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain("wordCount");
+  });
+
   it("returns 400 when random words count is out of bounds", async () => {
     const response = await POST(
       createJsonRequest({

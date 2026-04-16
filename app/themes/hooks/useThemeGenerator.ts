@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import { generateTheme, addWord, generateRandomWords, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
-import { DEFAULT_RANDOM_WORD_COUNT } from "../constants";
+import {
+  DEFAULT_GENERATED_WORDS_COUNT,
+  DEFAULT_RANDOM_WORD_COUNT,
+} from "../constants";
 
 interface ThemeGeneratorState {
   isGenerating: boolean;
@@ -9,6 +12,7 @@ interface ThemeGeneratorState {
   themeName: string;
   themePrompt: string;
   wordType: WordType;
+  wordCount: number;
 }
 
 export function useThemeGenerator() {
@@ -18,6 +22,7 @@ export function useThemeGenerator() {
     themeName: "",
     themePrompt: "",
     wordType: "nouns",
+    wordCount: DEFAULT_GENERATED_WORDS_COUNT,
   });
 
   const setThemeName = useCallback((name: string) => {
@@ -32,6 +37,10 @@ export function useThemeGenerator() {
     setState((prev) => ({ ...prev, wordType }));
   }, []);
 
+  const setWordCount = useCallback((wordCount: number) => {
+    setState((prev) => ({ ...prev, wordCount }));
+  }, []);
+
   const setError = useCallback((error: string | null) => {
     setState((prev) => ({ ...prev, error }));
   }, []);
@@ -43,6 +52,7 @@ export function useThemeGenerator() {
       themeName: "",
       themePrompt: "",
       wordType: "nouns",
+      wordCount: DEFAULT_GENERATED_WORDS_COUNT,
     });
   }, []);
 
@@ -56,6 +66,7 @@ export function useThemeGenerator() {
         themeName: state.themeName,
         themePrompt: state.themePrompt.trim() || undefined,
         wordType: state.wordType,
+        wordCount: state.wordCount,
       });
 
       if (!result.success || !result.data) {
@@ -75,13 +86,14 @@ export function useThemeGenerator() {
       setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
       throw new Error(errorMsg);
     }
-  }, [state.themeName, state.themePrompt, state.wordType]);
+  }, [state.themeName, state.themePrompt, state.wordType, state.wordCount]);
 
   return {
     ...state,
     setThemeName,
     setThemePrompt,
     setWordType,
+    setWordCount,
     setError,
     reset,
     generate,

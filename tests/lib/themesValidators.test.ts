@@ -15,7 +15,7 @@ describe("themes validators", () => {
     const word: WordEntry = {
       word: "cat",
       answer: "el gato",
-      wrongAnswers: ["la casa", " LA CASA ", "el perro"],
+      wrongAnswers: ["café", " cafe ", "el perro"],
     };
 
     expect(hasDuplicateWrongAnswersInWord(word)).toBe(true);
@@ -24,9 +24,9 @@ describe("themes validators", () => {
 
   it("detects wrong answer matching the correct answer (including Irr marker stripping)", () => {
     const word: WordEntry = {
-      word: "go",
-      answer: "ir(Irr)",
-      wrongAnswers: ["ir", "venir", "hablar"],
+      word: "coffee",
+      answer: " el  café ",
+      wrongAnswers: ["EL cafe", "té", "agua"],
     };
 
     expect(doesWrongAnswerMatchCorrect(word)).toBe(true);
@@ -35,9 +35,9 @@ describe("themes validators", () => {
 
   it("detects duplicate words and returns all duplicate indices", () => {
     const words: WordEntry[] = [
-      { word: "cat", answer: "el gato", wrongAnswers: ["la casa", "el perro", "el libro"] },
+      { word: "inglés", answer: "el ingles", wrongAnswers: ["la casa", "el perro", "el libro"] },
       { word: "dog", answer: "el perro", wrongAnswers: ["el gato", "la casa", "el libro"] },
-      { word: " CAT ", answer: "gato", wrongAnswers: ["la mesa", "la silla", "la puerta"] },
+      { word: " INGLES ", answer: "gato", wrongAnswers: ["la mesa", "la silla", "la puerta"] },
     ];
 
     expect(checkThemeForDuplicateWords(words)).toBe(true);
@@ -46,10 +46,10 @@ describe("themes validators", () => {
 
   it("checks duplicate word against existing word list", () => {
     const words: WordEntry[] = [
-      { word: "cat", answer: "el gato", wrongAnswers: ["la casa", "el perro", "el libro"] },
+      { word: "inglés", answer: "el gato", wrongAnswers: ["la casa", "el perro", "el libro"] },
     ];
 
-    expect(isWordDuplicate(" CAT ", words)).toBe(true);
+    expect(isWordDuplicate(" ingles ", words)).toBe(true);
     expect(isWordDuplicate("dog", words)).toBe(false);
   });
 });

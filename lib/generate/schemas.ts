@@ -1,34 +1,36 @@
 // JSON schemas for structured output from OpenAI (responses API json_schema format)
 
-import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
+import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 
-export const themeSchema = {
-  type: "object" as const,
-  properties: {
-    words: {
-      type: "array" as const,
-      items: {
-        type: "object" as const,
-        properties: {
-          word: { type: "string" as const },
-          answer: { type: "string" as const },
-          wrongAnswers: {
-            type: "array" as const,
-            items: { type: "string" as const },
-            minItems: WRONG_ANSWER_COUNT,
-            maxItems: WRONG_ANSWER_COUNT,
+export function buildThemeSchema(wordCount: number) {
+  return {
+    type: "object" as const,
+    properties: {
+      words: {
+        type: "array" as const,
+        items: {
+          type: "object" as const,
+          properties: {
+            word: { type: "string" as const },
+            answer: { type: "string" as const },
+            wrongAnswers: {
+              type: "array" as const,
+              items: { type: "string" as const },
+              minItems: WRONG_ANSWER_COUNT,
+              maxItems: WRONG_ANSWER_COUNT,
+            },
           },
+          required: ["word", "answer", "wrongAnswers"],
+          additionalProperties: false,
         },
-        required: ["word", "answer", "wrongAnswers"],
-        additionalProperties: false,
+        minItems: wordCount,
+        maxItems: wordCount,
       },
-      minItems: THEME_WORD_COUNT,
-      maxItems: THEME_WORD_COUNT,
     },
-  },
-  required: ["words"],
-  additionalProperties: false,
-};
+    required: ["words"],
+    additionalProperties: false,
+  };
+}
 
 export const wordSchema = {
   type: "object" as const,
@@ -110,4 +112,3 @@ export function createRandomWordsSchema(count: number) {
     additionalProperties: false,
   };
 }
-

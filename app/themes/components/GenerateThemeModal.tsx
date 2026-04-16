@@ -2,9 +2,10 @@
 
 import type { WordType } from "@/lib/themes/api";
 import {
+  MAX_GENERATED_WORDS_COUNT,
+  MIN_GENERATED_WORDS_COUNT,
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,
-  GENERATED_WORDS_COUNT,
 } from "../constants";
 import { buttonStyles, colors } from "@/lib/theme";
 
@@ -13,10 +14,12 @@ interface GenerateThemeModalProps {
   themeName: string;
   themePrompt: string;
   wordType: WordType;
+  wordCount: number;
   isGenerating: boolean;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
   onWordTypeChange: (wordType: WordType) => void;
+  onWordCountChange: (wordCount: number) => void;
   onGenerate: () => void;
   onClose: () => void;
 }
@@ -48,10 +51,12 @@ export function GenerateThemeModal({
   themeName,
   themePrompt,
   wordType,
+  wordCount,
   isGenerating,
   onThemeNameChange,
   onThemePromptChange,
   onWordTypeChange,
+  onWordCountChange,
   onGenerate,
   onClose,
 }: GenerateThemeModalProps) {
@@ -170,6 +175,36 @@ export function GenerateThemeModal({
               {themePrompt.length}/{THEME_PROMPT_MAX_LENGTH}
             </p>
           </div>
+
+          <div>
+            <label
+              htmlFor="theme-generate-word-count"
+              className="block text-sm font-medium mb-2"
+              style={{ color: colors.text.DEFAULT }}
+            >
+              Number of words ({MIN_GENERATED_WORDS_COUNT}-{MAX_GENERATED_WORDS_COUNT})
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                id="theme-generate-word-count"
+                type="range"
+                min={MIN_GENERATED_WORDS_COUNT}
+                max={MAX_GENERATED_WORDS_COUNT}
+                value={wordCount}
+                onChange={(e) => onWordCountChange(Number.parseInt(e.target.value, 10))}
+                className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                style={{ backgroundColor: colors.primary.dark }}
+                disabled={isGenerating}
+                data-testid="theme-generate-word-count"
+              />
+              <span
+                className="w-8 text-center text-xl font-bold shrink-0"
+                style={{ color: colors.text.DEFAULT }}
+              >
+                {wordCount}
+              </span>
+            </div>
+          </div>
         </div>
 
         {isGenerating && (
@@ -179,7 +214,7 @@ export function GenerateThemeModal({
               style={{ borderColor: colors.cta.light }}
             />
             <p className="text-sm" style={{ color: colors.text.muted }}>
-              Generating {GENERATED_WORDS_COUNT} words... This may take a moment.
+              Generating {wordCount} words... This may take a moment.
             </p>
           </div>
         )}

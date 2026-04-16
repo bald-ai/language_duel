@@ -14,18 +14,23 @@ import {
 import {
   answerAndWrongsSchema,
   answerSchema,
+  buildThemeSchema,
   createRandomWordsSchema,
-  themeSchema,
   wordSchema,
   wrongAnswerSchema,
 } from "@/lib/generate/schemas";
-import { THEME_WORD_COUNT, WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
+import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import {
   parseGenerateRequest,
   type GenerateRequest,
 } from "@/lib/generate/requestValidation";
 import { ApiRouteError, resolveApiError } from "@/lib/api/serverErrors";
+import {
+  collectThemeIssues,
+  formatThemeValidationIssue,
+  type ThemeWordInput,
+} from "@/lib/themes/serverValidation";
 
 export const runtime = 'nodejs';
 
@@ -145,6 +150,18 @@ function creditFailureResponse(error: unknown) {
   );
 }
 
+function validateGeneratedTheme(words: ThemeWordInput[]): string[] {
+  return collectThemeIssues(words).map(formatThemeValidationIssue);
+}
+
+function buildThemeGenerationError(validationIssues: string[]): string {
+  if (validationIssues.length === 0) {
+    return "Failed to generate a valid theme. Please try again.";
+  }
+
+  return `Failed to generate a valid theme. ${validationIssues[0]}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.json().catch(() => null);
@@ -171,29 +188,69 @@ export async function POST(request: NextRequest) {
     });
 
     if (body.type === "theme") {
-      // Generate full theme - select prompt based on wordType
+      const wordCount = body.wordCount;
       const systemPrompt = body.wordType === "verbs"
-        ? buildVerbThemeSystemPrompt(body.themeName, body.themePrompt)
-        : buildThemeSystemPrompt(body.themeName, body.themePrompt);
+        ? buildVerbThemeSystemPrompt(body.themeName, wordCount, body.themePrompt)
+        : buildThemeSystemPrompt(body.themeName, wordCount, body.themePrompt);
 
-      const userMessage = body.wordType === "verbs"
-        ? `Generate ${THEME_WORD_COUNT} Spanish verbs for the theme "${body.themeName}".`
-        : `Generate ${THEME_WORD_COUNT} Spanish vocabulary words for the theme "${body.themeName}".`;
+      const firstUserMessage =
+        body.wordType === "verbs"
+          ? `Generate ${wordCount} Spanish verbs for the theme "${body.themeName}".`
+          : `Generate ${wordCount} Spanish vocabulary words for the theme "${body.themeName}".`;
 
-      const messages = buildMessages({
-        systemPrompt,
-        userMessage,
-        history: body.history,
+      const baseMessages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...(body.history || []).map((h) => ({
+          role: h.role as "user" | "assistant",
+          content: h.content,
+        })),
+        { role: "user", content: firstUserMessage },
+      ];
+
+      let parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
+        messages: baseMessages,
+        schemaName: "theme_words",
+        schema: buildThemeSchema(wordCount),
       });
 
-      const parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
-        openai,
-        {
-          messages,
-          schemaName: "theme_words",
-          schema: themeSchema,
-        }
-      );
+      let validationIssues = validateGeneratedTheme(parsed.words);
+
+      if (validationIssues.length > 0) {
+        const issueLines = validationIssues.join("\n- ");
+        const retryMessages: ChatMessage[] = [
+          { role: "system", content: systemPrompt },
+          ...(body.history || []).map((h) => ({
+            role: h.role as "user" | "assistant",
+            content: h.content,
+          })),
+          { role: "user", content: firstUserMessage },
+          { role: "assistant", content: JSON.stringify(parsed) },
+          {
+            role: "user",
+            content: `The previous result is invalid. Regenerate the full theme and fix these issues:\n- ${issueLines}`,
+          },
+        ];
+
+        parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
+          messages: retryMessages,
+          schemaName: "theme_words_retry",
+          schema: buildThemeSchema(wordCount),
+        });
+        validationIssues = validateGeneratedTheme(parsed.words);
+      }
+
+      if (validationIssues.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: buildThemeGenerationError(validationIssues),
+            prompt: systemPrompt,
+            validationIssues,
+          },
+          { status: 502 }
+        );
+      }
+
       try {
         await consumeLlmCredits(convexClient, creditCost);
       } catch (error) {

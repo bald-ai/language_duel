@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { stripIrr, normalizeAccents, formatDuration } from "@/lib/stringUtils";
+import {
+  stripIrr,
+  normalizeAccents,
+  normalizeForComparison,
+  formatDuration,
+} from "@/lib/stringUtils";
 
 describe("stringUtils", () => {
   it("stripIrr removes the (irr) marker and trims whitespace", () => {
@@ -16,6 +21,13 @@ describe("stringUtils", () => {
       .toBe("hola mundo");
     expect(normalizeAccents("Comer (Irr)"))
       .toBe("comer");
+  });
+
+  it("normalizeForComparison treats accent-only differences as equal", () => {
+    expect(normalizeForComparison(" el  café ")).toBe("el cafe");
+    expect(normalizeForComparison("EL cafe")).toBe("el cafe");
+    expect(normalizeForComparison("ir(Irr)")).toBe("ir");
+    expect(normalizeForComparison(" inglés ")).toBe("ingles");
   });
 
   it("formatDuration returns MM:SS or H:MM:SS", () => {

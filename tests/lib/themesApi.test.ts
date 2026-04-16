@@ -43,6 +43,7 @@ describe("themes api response validation", () => {
     const result = await generateTheme({
       themeName: "animals",
       wordType: "nouns",
+      wordCount: 10,
     });
 
     expect(result.success).toBe(true);
@@ -60,6 +61,7 @@ describe("themes api response validation", () => {
     const result = await generateTheme({
       themeName: "animals",
       wordType: "nouns",
+      wordCount: 10,
     });
 
     expect(result.success).toBe(false);
@@ -152,6 +154,40 @@ describe("themes api response validation", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.[0]?.word).toBe("bird");
+  });
+
+  it("sends wordCount in theme generation request body", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: [
+          {
+            word: "dog",
+            answer: "el perro",
+            wrongAnswers: ["la casa", "el gato", "la mesa", "el libro", "la flor", "el arbol"],
+          },
+        ],
+      })
+    );
+
+    await generateTheme({
+      themeName: "animals",
+      wordType: "nouns",
+      wordCount: 7,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/generate",
+      expect.objectContaining({
+        body: JSON.stringify({
+          type: "theme",
+          themeName: "animals",
+          themePrompt: undefined,
+          wordCount: 7,
+          wordType: "nouns",
+        }),
+      })
+    );
   });
 
   it("uses API error body text for non-OK generate-random-words responses", async () => {

@@ -37,7 +37,7 @@ const hasMode = (
  * 
  * Features:
  * - Friend requests with accept/reject actions
- * - Weekly plan invitations with view/dismiss actions
+ * - Weekly plan invitations with view/decline actions
  * - Scheduled duel proposals with accept/counter/decline actions
  * - Duel challenges with accept/decline actions
  * - Ready state management for accepted scheduled duels
@@ -115,6 +115,15 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             await actions.dismissWeeklyPlanInvitation(notificationId);
         } catch (_error) {
             toast.error("Failed to dismiss notification");
+        }
+    };
+
+    const handleDeclineWeeklyPlanInvitation = async (notificationId: Id<"notifications">) => {
+        try {
+            await actions.declineWeeklyPlanInvitation(notificationId);
+            toast.success("Weekly goal invitation declined");
+        } catch (_error) {
+            toast.error("Failed to decline weekly goal invitation");
         }
     };
 
@@ -270,6 +279,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         onDeclineDuelChallenge={() => handleDeclineDuelChallenge(notification._id)}
                         onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}
                         onDismissWeeklyPlan={() => handleDismissWeeklyPlan(notification._id)}
+                        onDeclineWeeklyPlan={() => handleDeclineWeeklyPlanInvitation(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
                         onAcceptScheduledDuel={() => handleAcceptScheduledDuel(scheduledDuelId)}
                         onCounterProposeScheduledDuel={() => handleCounterProposeScheduledDuel(scheduledDuelId)}
