@@ -6,23 +6,7 @@
 
 All current exercises follow the same pattern: see English word → produce Spanish translation (across 4 levels). After ~100 words the experience feels repetitive. GF specifically requested sentences.
 
-## Phase 1 shipped experiment
-
-- Reverse translation now ships as a **solo-only Level 1 experiment**.
-- The Level 1 direction is a **50/50 coin toss** between forward (English → Spanish) and reverse (Spanish → English).
-- Boss practice inherits this automatically because it already reuses the solo page and solo session hook.
-- Reverse multiple choice is still out of scope because `wrongAnswers` are Spanish-only distractors.
-
 ## Reference exercise shapes (not a backlog)
-
-### Direction Reversal
-
-- **Spanish → English** — Show the Spanish word (e.g. "tiburón"), type or pick the English translation ("shark"). Zero new content needed, doubles what you can do with existing themes.
-
-**Implementation constraints (as of now)**
-
-- **Free typing** is the natural fit (same L2-typing / L3-style inputs as forward mode; cue and expected string are swapped). Guided letter-by-letter slots are a poor match for English cues and add little value here.
-- **Multiple choice in the reversed direction is not supported by current theme data.** Each word has `wrongAnswers` as distractors for the **Spanish** correct answer only. There are no pre-generated wrong **English** options per word, so Spanish → English MC cannot reuse the existing wrong-answer list without new generation (or another distractor strategy, e.g. pooling other English words from the same theme — that would be a separate design).
 
 ### Sentence Exercises
 

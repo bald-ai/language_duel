@@ -90,7 +90,6 @@ Scope:
 
 - Introduce exercise selection rules only for exercise types that have already been built and agreed; use `Dev/VARIETY.md` as a menu of ideas, not a mandate to build everything listed.
 - Start with low-content-cost additions first:
-  - Spanish -> English reversal
   - speed round
   - match pairs
 - Keep sentence-based rounds behind a separate content readiness check, because they need generation support.
