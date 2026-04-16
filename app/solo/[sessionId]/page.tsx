@@ -11,6 +11,7 @@ import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 // Feature-local imports
 import { useSoloSession } from "./hooks/useSoloSession";
 import { CompletionScreen } from "./components/CompletionScreen";
+import { getDirectionalCopy } from "./translationDirection";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
 
@@ -317,6 +318,11 @@ export default function SoloChallengePage() {
     );
   }
 
+  const { cueText, helperText, expectedAnswer } = getDirectionalCopy(
+    currentWord,
+    session.translationDirection
+  );
+
   const header = (
     <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up">
       <div
@@ -481,10 +487,10 @@ export default function SoloChallengePage() {
               </div>
             )}
             <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
-              {currentWord.word}
+              {cueText}
             </div>
             <div className="text-xs uppercase tracking-widest mt-2" style={{ color: colors.text.muted }}>
-              Translate to Spanish
+              {helperText}
             </div>
           </div>
         )}
@@ -540,10 +546,10 @@ export default function SoloChallengePage() {
               </>
             )}
 
-            {session.questionLevel === 1 && (
+            {session.questionLevel === 1 && session.translationDirection === "forward" && (
               <Level1Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={currentWord.answer}
+                answer={expectedAnswer}
                 onCorrect={handleCorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
@@ -551,10 +557,22 @@ export default function SoloChallengePage() {
               />
             )}
 
+            {session.questionLevel === 1 && session.translationDirection === "reverse" && (
+              <Level2TypingInput
+                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
+                answer={expectedAnswer}
+                onCorrect={handleCorrect}
+                onWrong={handleIncorrect}
+                onSkip={handleIncorrect}
+                mode="solo"
+                dataTestIdBase="solo-challenge-level1-reverse"
+              />
+            )}
+
             {session.questionLevel === 2 && session.level2Mode === "typing" && (
               <Level2TypingInput
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={currentWord.answer}
+                answer={expectedAnswer}
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
@@ -566,7 +584,7 @@ export default function SoloChallengePage() {
             {session.questionLevel === 2 && session.level2Mode === "multiple_choice" && (
               <Level2MultipleChoice
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={currentWord.answer}
+                answer={expectedAnswer}
                 wrongAnswers={currentWord.wrongAnswers}
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
@@ -579,7 +597,7 @@ export default function SoloChallengePage() {
             {session.questionLevel === 3 && (
               <Level3Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={currentWord.answer}
+                answer={expectedAnswer}
                 onCorrect={handleCorrect}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}

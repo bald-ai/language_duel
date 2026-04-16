@@ -7,7 +7,9 @@ import {
   POOL_EXPANSION_COUNT,
   LEVEL_UP_CHANCE,
   LEVEL2_TYPING_CHANCE,
+  LEVEL1_REVERSE_CHANCE,
 } from "../constants";
+import { getDirectionalCopy, type TranslationDirection } from "../translationDirection";
 
 // Types
 interface WordState {
@@ -25,6 +27,7 @@ interface SessionState {
   lastQuestionIndex: number | null;
   currentWordIndex: number | null;
   questionLevel: 0 | 1 | 2 | 3;
+  translationDirection: TranslationDirection;
   level2Mode: "typing" | "multiple_choice";
   questionsAnswered: number;
   correctAnswers: number;
@@ -66,6 +69,7 @@ const initialSession: SessionState = {
   lastQuestionIndex: null,
   currentWordIndex: null,
   questionLevel: 1,
+  translationDirection: "forward",
   level2Mode: "typing",
   questionsAnswered: 0,
   correctAnswers: 0,
@@ -100,6 +104,17 @@ export function useSoloSession({
     return 3;
   }, []);
 
+  const pickLevel1Direction = useCallback((): TranslationDirection => {
+    return Math.random() < LEVEL1_REVERSE_CHANCE ? "reverse" : "forward";
+  }, []);
+
+  const getQuestionDirection = useCallback(
+    (questionLevel: 0 | 1 | 2 | 3): TranslationDirection => {
+      return questionLevel === 1 ? pickLevel1Direction() : "forward";
+    },
+    [pickLevel1Direction]
+  );
+
   // Initialize session when words load
   useEffect(() => {
     if (words && words.length > 0 && !session.initialized) {
@@ -131,6 +146,7 @@ export function useSoloSession({
       const firstWordIndex = activePool[Math.floor(Math.random() * activePool.length)];
       const firstMastery = wordStates.get(firstWordIndex)?.masteryLevel ?? 1;
       const firstQuestionLevel = pickQuestionLevel(firstMastery);
+      const firstTranslationDirection = getQuestionDirection(firstQuestionLevel);
       const firstLevel2Mode = Math.random() < LEVEL2_TYPING_CHANCE ? "typing" : "multiple_choice";
 
       const newSession: SessionState = {
@@ -141,6 +157,7 @@ export function useSoloSession({
         lastQuestionIndex: null,
         currentWordIndex: firstWordIndex,
         questionLevel: firstQuestionLevel,
+        translationDirection: firstTranslationDirection,
         level2Mode: firstLevel2Mode,
         questionsAnswered: 0,
         correctAnswers: 0,
@@ -153,7 +170,7 @@ export function useSoloSession({
         setStartTime(Date.now());
       });
     }
-  }, [words, session.initialized, initialConfidenceByWordIndex, pickQuestionLevel]);
+  }, [words, session.initialized, initialConfidenceByWordIndex, pickQuestionLevel, getQuestionDirection]);
 
   // Live elapsed timer update
   useEffect(() => {
@@ -213,6 +230,7 @@ export function useSoloSession({
       // Determine question level based on word's mastery
       const wordState = wordStates.get(nextWordIndex)!;
       const nextQuestionLevel = pickQuestionLevel(wordState.masteryLevel);
+      const nextTranslationDirection = getQuestionDirection(nextQuestionLevel);
       const nextLevel2Mode = Math.random() < LEVEL2_TYPING_CHANCE ? "typing" : "multiple_choice";
 
       return {
@@ -221,13 +239,14 @@ export function useSoloSession({
         remainingPool: newRemainingPool,
         currentWordIndex: nextWordIndex,
         questionLevel: nextQuestionLevel,
+        translationDirection: nextTranslationDirection,
         level2Mode: nextLevel2Mode,
         lastQuestionIndex: nextWordIndex,
       };
     });
     setShowFeedback(false);
     setFeedbackAnswer(null);
-  }, [pickQuestionLevel]);
+  }, [pickQuestionLevel, getQuestionDirection]);
 
   /**
    * Handle correct answer - progress mastery and auto-advance.
@@ -287,7 +306,9 @@ export function useSoloSession({
     const currentWord = words[session.currentWordIndex];
     setFeedbackCorrect(false);
     setShowFeedback(true);
-    setFeedbackAnswer(currentWord.answer);
+    setFeedbackAnswer(
+      getDirectionalCopy(currentWord, session.translationDirection).feedbackAnswer
+    );
 
     setSession((prev) => {
       const newWordStates = new Map(prev.wordStates);
@@ -315,7 +336,7 @@ export function useSoloSession({
     setTimeout(() => {
       selectNextQuestion();
     }, 2500);
-  }, [selectNextQuestion, words, session.currentWordIndex]);
+  }, [selectNextQuestion, words, session.currentWordIndex, session.translationDirection]);
 
   /**
    * Level 0: User indicates they know the word.

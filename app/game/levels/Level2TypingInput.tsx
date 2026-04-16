@@ -38,7 +38,7 @@ export function Level2TypingInput({
 
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
   const normalizedCleanAnswer = useMemo(
-    () => normalizeAccents(cleanAnswer),
+    () => normalizeAccents(cleanAnswer).toLowerCase(),
     [cleanAnswer]
   );
 
@@ -65,7 +65,7 @@ export function Level2TypingInput({
 
     setSubmitted(true);
     setAnagramResult(null);
-    if (normalizeAccents(trimmedInput) === normalizedCleanAnswer) {
+    if (normalizeAccents(trimmedInput).toLowerCase() === normalizedCleanAnswer) {
       onCorrect(trimmedInput);
     } else {
       onWrong(trimmedInput);
@@ -81,7 +81,8 @@ export function Level2TypingInput({
       }
     });
     const candidate = reconstructed.join("");
-    const isCorrect = normalizeAccents(candidate) === normalizeAccents(cleanAnswer);
+    const isCorrect =
+      normalizeAccents(candidate).toLowerCase() === normalizedCleanAnswer;
     setSubmitted(true);
     setAnagramResult(isCorrect ? "correct" : "wrong");
     if (isCorrect) {
@@ -362,7 +363,7 @@ export function Level2TypingInput({
               </button>
             </div>
           )}
-          {submitted && normalizeAccents(inputValue.trim()) !== normalizedCleanAnswer && (
+          {submitted && normalizeAccents(inputValue.trim()).toLowerCase() !== normalizedCleanAnswer && (
             <div style={{ color: colors.status.danger.light }}>
               Wrong! The answer was: <span className="font-bold">{cleanAnswer}</span>
             </div>

@@ -6,6 +6,13 @@
 
 All current exercises follow the same pattern: see English word → produce Spanish translation (across 4 levels). After ~100 words the experience feels repetitive. GF specifically requested sentences.
 
+## Phase 1 shipped experiment
+
+- Reverse translation now ships as a **solo-only Level 1 experiment**.
+- The Level 1 direction is a **50/50 coin toss** between forward (English → Spanish) and reverse (Spanish → English).
+- Boss practice inherits this automatically because it already reuses the solo page and solo session hook.
+- Reverse multiple choice is still out of scope because `wrongAnswers` are Spanish-only distractors.
+
 ## Reference exercise shapes (not a backlog)
 
 ### Direction Reversal
