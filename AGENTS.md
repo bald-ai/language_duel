@@ -13,7 +13,6 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Stable UI selectors for key controls (`data-testid`/IDs).
 - No new dependencies or tooling changes without approval.
 - File size guideline: aim to keep files under ~700 LOC; split/refactor when it improves clarity or testability. Exceptions: convex/scheduledDuels.ts, convex/weeklyGoals.ts, app/themes/hooks/useThemesController.ts.
-- Reference DOCUMENTATION.md
 
 ## Testing
 - Coverage bar: Thresholds at 70% for lines/branches/functions/statements.

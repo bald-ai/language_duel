@@ -10,6 +10,11 @@ All current exercises follow the same pattern: see English word → produce Span
 
 - **Spanish → English** — Show the Spanish word (e.g. "tiburón"), type or pick the English translation ("shark"). Zero new content needed, doubles what you can do with existing themes.
 
+**Implementation constraints (as of now)**
+
+- **Free typing** is the natural fit (same L2-typing / L3-style inputs as forward mode; cue and expected string are swapped). Guided letter-by-letter slots are a poor match for English cues and add little value here.
+- **Multiple choice in the reversed direction is not supported by current theme data.** Each word has `wrongAnswers` as distractors for the **Spanish** correct answer only. There are no pre-generated wrong **English** options per word, so Spanish → English MC cannot reuse the existing wrong-answer list without new generation (or another distractor strategy, e.g. pooling other English words from the same theme — that would be a separate design).
+
 ### Sentence Exercises
 
 - **Fill the blank** — "El ___ nada en el océano" → pick/type "tiburón". Uses existing words in context. Needs AI generation per theme.
