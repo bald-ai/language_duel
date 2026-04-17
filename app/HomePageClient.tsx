@@ -9,12 +9,15 @@ import { useDuelLobby } from "@/hooks/useDuelLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
+import { buildClassicQuestionSnapshot } from "@/lib/answerShuffle";
+import type { WordEntry } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence";
+type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence" | "speed";
 type MemoryGameStatus = "idle" | "playing" | "completed";
 type MemoryCardSide = "source" | "translation";
 type SentenceFeedbackState = "idle" | "wrong" | "correct";
+type SpeedModeFeedbackState = "idle" | "correct" | "wrong" | "timed_out";
 
 interface MemoryPair {
   pairId: string;
@@ -57,6 +60,18 @@ interface RebuildSentenceSessionState {
   solved: boolean;
   completed: boolean;
   feedback: SentenceFeedbackState;
+}
+
+type SpeedModeExercise = Pick<WordEntry, "word" | "answer" | "wrongAnswers">;
+
+interface SpeedModeSessionState {
+  currentCardIndex: number;
+  score: number;
+  selectedOption: string | null;
+  feedback: SpeedModeFeedbackState;
+  secondsRemaining: number;
+  completed: boolean;
+  locked: boolean;
 }
 
 const MEMORY_GAME_PAIRS: MemoryPair[] = [
@@ -108,6 +123,40 @@ const REBUILD_SENTENCE_EXERCISES: RebuildSentenceExercise[] = [
 ];
 
 const MEMORY_MISMATCH_DELAY_MS = 900;
+const SPEED_MODE_CARD_SECONDS = 5;
+const SPEED_MODE_FEEDBACK_DELAY_MS = 700;
+const SPEED_MODE_EXERCISES: SpeedModeExercise[] = [
+  {
+    word: "el padre",
+    answer: "father",
+    wrongAnswers: ["mother", "brother", "grandfather", "uncle", "son"],
+  },
+  {
+    word: "la madre",
+    answer: "mother",
+    wrongAnswers: ["sister", "grandmother", "daughter", "aunt", "wife"],
+  },
+  {
+    word: "el hermano",
+    answer: "brother",
+    wrongAnswers: ["father", "cousin", "husband", "boyfriend", "nephew"],
+  },
+  {
+    word: "la hermana",
+    answer: "sister",
+    wrongAnswers: ["mother", "girlfriend", "daughter", "grandmother", "niece"],
+  },
+  {
+    word: "el abuelo",
+    answer: "grandfather",
+    wrongAnswers: ["uncle", "father", "brother", "grandson", "godfather"],
+  },
+  {
+    word: "la abuela",
+    answer: "grandmother",
+    wrongAnswers: ["mother", "aunt", "sister", "granddaughter", "mother-in-law"],
+  },
+];
 
 function shuffleCards<T>(items: T[]): T[] {
   const copy = [...items];
@@ -164,6 +213,18 @@ function createRebuildSentenceSessionState(cardIndex = 0): RebuildSentenceSessio
     solved: false,
     completed: false,
     feedback: "idle",
+  };
+}
+
+function createSpeedModeSessionState(cardIndex = 0, score = 0): SpeedModeSessionState {
+  return {
+    currentCardIndex: cardIndex,
+    score,
+    selectedOption: null,
+    feedback: "idle",
+    secondsRemaining: SPEED_MODE_CARD_SECONDS,
+    completed: false,
+    locked: false,
   };
 }
 
@@ -275,6 +336,19 @@ const RebuildSentenceIcon = () => (
   </svg>
 );
 
+const SpeedModeIcon = () => (
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z" />
+  </svg>
+);
+
+const MockFeaturesIcon = () => (
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v6M12 9v6M17 14v6" />
+  </svg>
+);
+
 const UnifiedDuelModal = dynamic(
   () =>
     import("@/app/components/modals/UnifiedDuelModal").then((mod) => mod.UnifiedDuelModal),
@@ -299,6 +373,7 @@ export default function Home() {
 
   const router = useRouter();
   const [screen, setScreen] = useState<HomeScreenMode>("home");
+  const [showMockFeaturesMenu, setShowMockFeaturesMenu] = useState(false);
   const [cards, setCards] = useState<MemoryCard[]>(() => buildMemoryDeck());
   const [selectedCardIndexes, setSelectedCardIndexes] = useState<number[]>([]);
   const [matchedPairIds, setMatchedPairIds] = useState<string[]>([]);
@@ -312,6 +387,7 @@ export default function Home() {
   const [rebuildSentenceSession, setRebuildSentenceSession] = useState<RebuildSentenceSessionState>(
     () => createRebuildSentenceSessionState()
   );
+  const [speedModeSession, setSpeedModeSession] = useState<SpeedModeSessionState>(() => createSpeedModeSessionState());
   const [flashAuth, setFlashAuth] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -361,10 +437,22 @@ export default function Home() {
 
   const missingChunkExercise = MISSING_CHUNK_EXERCISES[missingChunkSession.currentCardIndex];
   const rebuildSentenceExercise = REBUILD_SENTENCE_EXERCISES[rebuildSentenceSession.currentCardIndex];
+  const speedModeExercise = SPEED_MODE_EXERCISES[speedModeSession.currentCardIndex];
   const builtTokens = rebuildSentenceSession.builtTokenIndexes.map(
     (tokenIndex) => rebuildSentenceSession.shuffledTokens[tokenIndex]
   );
   const otherSentenceMode = screen === "missing_chunk" ? "rebuild_sentence" : "missing_chunk";
+  const speedModeQuestion = useMemo(() => {
+    if (!speedModeExercise) {
+      return null;
+    }
+
+    return buildClassicQuestionSnapshot(
+      speedModeExercise,
+      speedModeSession.currentCardIndex,
+      { level: "easy", wrongCount: 3 }
+    );
+  }, [speedModeExercise, speedModeSession.currentCardIndex]);
 
   const resetMemoryGame = useCallback(() => {
     setCards(buildMemoryDeck());
@@ -378,12 +466,15 @@ export default function Home() {
 
   const openMemoryGame = useCallback(() => {
     resetMemoryGame();
+    setShowMockFeaturesMenu(false);
     setScreen("memory");
   }, [resetMemoryGame]);
 
   const handleBackToHome = useCallback(() => {
     setScreen("home");
+    setShowMockFeaturesMenu(false);
     resetMemoryGame();
+    setSpeedModeSession(createSpeedModeSessionState());
   }, [resetMemoryGame]);
 
   const handleRestartMemoryGame = useCallback(() => {
@@ -397,6 +488,7 @@ export default function Home() {
       setRebuildSentenceSession(createRebuildSentenceSessionState());
     }
 
+    setShowMockFeaturesMenu(false);
     setScreen(mode);
   }, []);
 
@@ -406,6 +498,16 @@ export default function Home() {
     } else {
       setRebuildSentenceSession(createRebuildSentenceSessionState());
     }
+  }, []);
+
+  const openSpeedMode = useCallback(() => {
+    setSpeedModeSession(createSpeedModeSessionState());
+    setShowMockFeaturesMenu(false);
+    setScreen("speed");
+  }, []);
+
+  const restartSpeedMode = useCallback(() => {
+    setSpeedModeSession(createSpeedModeSessionState());
   }, []);
 
   const handleMissingChunkOption = useCallback((option: string) => {
@@ -561,6 +663,29 @@ export default function Home() {
     });
   }, [screen]);
 
+  const handleSpeedModeAnswer = useCallback((option: string) => {
+    setSpeedModeSession((currentSession) => {
+      if (screen !== "speed" || currentSession.locked || currentSession.completed) {
+        return currentSession;
+      }
+
+      const question = buildClassicQuestionSnapshot(
+        SPEED_MODE_EXERCISES[currentSession.currentCardIndex],
+        currentSession.currentCardIndex,
+        { level: "easy", wrongCount: 3 }
+      );
+      const isCorrect = option === question.correctOption;
+
+      return {
+        ...currentSession,
+        selectedOption: option,
+        feedback: isCorrect ? "correct" : "wrong",
+        score: currentSession.score + (isCorrect ? 1 : 0),
+        locked: true,
+      };
+    });
+  }, [screen]);
+
   const handleSelectMemoryCard = useCallback((cardIndex: number) => {
     setSelectedCardIndexes((currentSelection) => {
       if (screen !== "memory" || isResolvingMismatch || status === "completed") {
@@ -636,6 +761,68 @@ export default function Home() {
 
     return () => window.clearInterval(intervalId);
   }, [screen, status]);
+
+  useEffect(() => {
+    if (screen !== "speed" || speedModeSession.completed || speedModeSession.locked) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSpeedModeSession((currentSession) => {
+        if (screen !== "speed" || currentSession.completed || currentSession.locked) {
+          return currentSession;
+        }
+
+        if (currentSession.secondsRemaining <= 1) {
+          return {
+            ...currentSession,
+            secondsRemaining: 0,
+            feedback: "timed_out",
+            locked: true,
+          };
+        }
+
+        return {
+          ...currentSession,
+          secondsRemaining: currentSession.secondsRemaining - 1,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [screen, speedModeSession.completed, speedModeSession.locked, speedModeSession.secondsRemaining]);
+
+  useEffect(() => {
+    if (
+      screen !== "speed" ||
+      speedModeSession.completed ||
+      !speedModeSession.locked ||
+      speedModeSession.feedback === "idle"
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSpeedModeSession((currentSession) => {
+        if (screen !== "speed" || currentSession.completed || !currentSession.locked) {
+          return currentSession;
+        }
+
+        const isLastCard = currentSession.currentCardIndex === SPEED_MODE_EXERCISES.length - 1;
+
+        if (isLastCard) {
+          return {
+            ...currentSession,
+            completed: true,
+          };
+        }
+
+        return createSpeedModeSessionState(currentSession.currentCardIndex + 1, currentSession.score);
+      });
+    }, SPEED_MODE_FEEDBACK_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [screen, speedModeSession.completed, speedModeSession.feedback, speedModeSession.locked]);
 
   const formattedElapsedTime = useMemo(() => formatElapsedTime(elapsedSeconds), [elapsedSeconds]);
   const revealedCardIndexes = useMemo(
@@ -1027,7 +1214,242 @@ export default function Home() {
     );
   };
 
-  const renderSentencePrototypeShell = (children: ReactNode, title: string, mode: "missing_chunk" | "rebuild_sentence") => (
+  const renderSpeedModePanel = () => {
+    if (speedModeSession.completed) {
+      return (
+        <div className="space-y-4 text-center">
+          <div className="space-y-2">
+            <p
+              className="text-xs font-black uppercase tracking-[0.24em]"
+              style={{ color: "var(--color-cta-dark)" }}
+            >
+              Prototype Complete
+            </p>
+            <h2 className="text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+              Speed Mode finished
+            </h2>
+            <p className="text-sm leading-6" style={{ color: "var(--color-text)" }}>
+              You cleared all {SPEED_MODE_EXERCISES.length} cards and scored {speedModeSession.score} point
+              {speedModeSession.score === 1 ? "" : "s"}.
+            </p>
+          </div>
+
+          <div
+            className="rounded-3xl border-2 px-4 py-5"
+            data-testid="speed-mode-final-score"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-cta) 24%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--color-cta-light) 18%, white 82%)",
+            }}
+          >
+            <p
+              className="text-[11px] font-black uppercase tracking-[0.22em]"
+              style={{ color: "var(--color-cta-dark)" }}
+            >
+              Final Score
+            </p>
+            <p className="mt-2 text-4xl font-black" style={{ color: "var(--color-text)" }}>
+              {speedModeSession.score}/{SPEED_MODE_EXERCISES.length}
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <PrototypeActionButton
+              fullWidth
+              variant="primary"
+              onClick={restartSpeedMode}
+              dataTestId="speed-mode-restart"
+            >
+              Restart
+            </PrototypeActionButton>
+            <PrototypeActionButton
+              fullWidth
+              onClick={handleBackToHome}
+              dataTestId="speed-mode-back-home"
+            >
+              Back to Home
+            </PrototypeActionButton>
+          </div>
+        </div>
+      );
+    }
+
+    const feedbackMessage = {
+      idle: "Answer before the timer hits zero.",
+      correct: "Nice. +1 point.",
+      wrong: "Wrong answer. Moving to the next card.",
+      timed_out: "Time ran out. Moving to the next card.",
+    } satisfies Record<SpeedModeFeedbackState, string>;
+
+    if (!speedModeExercise || !speedModeQuestion) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <div
+            className="rounded-2xl border px-3 py-2.5"
+            data-testid="speed-mode-score"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--color-cta-light) 26%, white 74%)",
+              borderColor: "color-mix(in srgb, var(--color-cta) 20%, transparent)",
+            }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-cta-dark)" }}>
+              Score
+            </p>
+            <p className="mt-1 text-xl font-black" style={{ color: "var(--color-text)" }}>
+              {speedModeSession.score}
+            </p>
+          </div>
+
+          <div
+            className="rounded-2xl border px-3 py-2.5"
+            data-testid="speed-mode-card-progress"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--color-primary-light) 24%, white 76%)",
+              borderColor: "color-mix(in srgb, var(--color-primary) 32%, white 10%)",
+            }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-primary-dark)" }}>
+              Card
+            </p>
+            <p className="mt-1 text-xl font-black" style={{ color: "var(--color-text)" }}>
+              {speedModeSession.currentCardIndex + 1}/{SPEED_MODE_EXERCISES.length}
+            </p>
+          </div>
+
+          <div
+            className="rounded-2xl border px-3 py-2.5"
+            data-testid="speed-mode-time-left"
+            style={{
+              backgroundColor:
+                speedModeSession.secondsRemaining <= 2
+                  ? "rgba(239, 68, 68, 0.12)"
+                  : "color-mix(in srgb, var(--color-neutral) 14%, white 86%)",
+              borderColor:
+                speedModeSession.secondsRemaining <= 2
+                  ? "rgba(239, 68, 68, 0.42)"
+                  : "color-mix(in srgb, var(--color-neutral) 32%, transparent)",
+            }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-text)" }}>
+              Time Left
+            </p>
+            <p className="mt-1 text-xl font-black" style={{ color: "var(--color-text)" }}>
+              {speedModeSession.secondsRemaining}s
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="rounded-3xl border-2 p-4 sm:p-5 backdrop-blur-sm"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-primary) 75%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-primary) 22%, white 78%)",
+          }}
+        >
+          <div className="space-y-3">
+            <div>
+              <p
+                className="text-[11px] font-black uppercase tracking-[0.22em]"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Spanish word
+              </p>
+              <p className="mt-1 text-xl font-semibold leading-8" style={{ color: "var(--color-text)" }}>
+                {speedModeExercise.word}
+              </p>
+            </div>
+
+            <p className="text-sm leading-6" style={{ color: "var(--color-text)" }}>
+              Pick the English meaning as fast as you can, just like a duel multiple-choice card.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {speedModeQuestion.options.map((option, index) => {
+            const isSelected = speedModeSession.selectedOption === option;
+            const isCorrectOption = option === speedModeQuestion.correctOption;
+            const showCorrectState =
+              speedModeSession.locked && (speedModeSession.feedback === "correct" || isCorrectOption);
+            const showWrongState = isSelected && speedModeSession.feedback === "wrong";
+
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handleSpeedModeAnswer(option)}
+                disabled={speedModeSession.locked}
+                data-testid={`speed-mode-answer-${index}`}
+                className="w-full rounded-2xl border-2 px-4 py-3 text-left text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-80"
+                style={{
+                  backgroundColor: showCorrectState
+                    ? "color-mix(in srgb, var(--color-cta) 22%, transparent)"
+                    : showWrongState
+                      ? "rgba(239, 68, 68, 0.12)"
+                      : "color-mix(in srgb, var(--color-primary) 22%, white 78%)",
+                  borderColor: showCorrectState
+                    ? "var(--color-cta)"
+                    : showWrongState
+                      ? "rgb(239 68 68)"
+                      : "color-mix(in srgb, var(--color-primary) 75%, transparent)",
+                  color: "var(--color-text)",
+                }}
+              >
+                {option}
+                {showCorrectState && isCorrectOption ? "  ✓" : ""}
+                {showWrongState ? "  ✕" : ""}
+              </button>
+            );
+          })}
+        </div>
+
+        <p
+          className={`text-sm font-semibold text-center ${
+            speedModeSession.feedback === "correct"
+              ? "text-emerald-600"
+              : speedModeSession.feedback === "wrong" || speedModeSession.feedback === "timed_out"
+                ? "text-red-500"
+                : ""
+          }`}
+          style={{
+            color:
+              speedModeSession.feedback === "idle"
+                ? "var(--color-text)"
+                : undefined,
+          }}
+          data-testid={`speed-mode-feedback-${speedModeSession.feedback}`}
+        >
+          {feedbackMessage[speedModeSession.feedback]}
+        </p>
+
+        {speedModeSession.locked && (
+          <div
+            className="rounded-2xl border px-4 py-3"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-primary) 24%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--color-background-elevated) 72%, transparent)",
+            }}
+          >
+            <p
+              className="text-[11px] font-black uppercase tracking-[0.22em]"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Duel Answer
+            </p>
+            <p className="mt-1 text-sm leading-6" style={{ color: "var(--color-text)" }}>
+              {`"${speedModeExercise.word}" means "${speedModeExercise.answer}".`}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSentencePrototypeShell = (children: ReactNode, title: string, mode: "missing_chunk" | "rebuild_sentence" | "speed") => (
     <main className="relative z-10 flex flex-1 w-full items-start justify-center px-4 pt-20 pb-[calc(24px+env(safe-area-inset-bottom))]">
       <section
         className="w-full max-w-[420px] rounded-[28px] border p-4 sm:p-5 shadow-2xl backdrop-blur-md animate-slide-up"
@@ -1127,54 +1549,84 @@ export default function Home() {
 
           <main className="relative z-10 w-full max-w-[360px] mx-auto px-6 pb-[calc(20px+env(safe-area-inset-bottom))] animate-slide-up delay-300">
             <nav className="w-full flex flex-col gap-2.5">
-              <div className="animate-slide-up delay-300">
-                <MenuButton onClick={() => guardAuth(() => router.push("/study"))} dataTestId="home-study">
-                  <StudyIcon />
-                  Study
-                </MenuButton>
-              </div>
+              {showMockFeaturesMenu ? (
+                <>
+                  <div className="animate-slide-up delay-300">
+                    <MenuButton onClick={() => guardAuth(openMemoryGame)} dataTestId="home-memory-game">
+                      <MemoryIcon />
+                      Memory Game
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-400">
-                <MenuButton onClick={() => guardAuth(lobby.openSoloModal)} dataTestId="home-solo-challenge">
-                  <SoloIcon />
-                  Solo Challenge
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-400">
+                    <MenuButton onClick={() => openSentencePrototype("missing_chunk")} dataTestId="home-beta-missing-chunk">
+                      <MissingChunkIcon />
+                      Sentence Beta: Missing Chunk
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-500">
-                <MenuButton onClick={() => guardAuth(openMemoryGame)} dataTestId="home-memory-game">
-                  <MemoryIcon />
-                  Memory Game
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-500">
+                    <MenuButton onClick={() => openSentencePrototype("rebuild_sentence")} dataTestId="home-beta-rebuild-sentence">
+                      <RebuildSentenceIcon />
+                      Sentence Beta: Rebuild Sentence
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-600">
-                <MenuButton onClick={() => guardAuth(lobby.openUnifiedDuelModal)} dataTestId="home-duel">
-                  <DuelIcon />
-                  Duel
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-600">
+                    <MenuButton onClick={openSpeedMode} dataTestId="home-speed-mode">
+                      <SpeedModeIcon />
+                      Speed Mode
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-700">
-                <MenuButton onClick={() => guardAuth(() => router.push("/themes"))} dataTestId="home-manage-themes">
-                  <ThemesIcon />
-                  Manage Themes
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-700">
+                    <MenuButton
+                      onClick={() => setShowMockFeaturesMenu(false)}
+                      dataTestId="home-mock-features-back"
+                    >
+                      <MockFeaturesIcon />
+                      Back to Main Menu
+                    </MenuButton>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="animate-slide-up delay-300">
+                    <MenuButton onClick={() => guardAuth(() => router.push("/study"))} dataTestId="home-study">
+                      <StudyIcon />
+                      Study
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-[800ms]">
-                <MenuButton onClick={() => openSentencePrototype("missing_chunk")} dataTestId="home-beta-missing-chunk">
-                  <MissingChunkIcon />
-                  Sentence Beta: Missing Chunk
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-400">
+                    <MenuButton onClick={() => guardAuth(lobby.openSoloModal)} dataTestId="home-solo-challenge">
+                      <SoloIcon />
+                      Solo Challenge
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-[900ms]">
-                <MenuButton onClick={() => openSentencePrototype("rebuild_sentence")} dataTestId="home-beta-rebuild-sentence">
-                  <RebuildSentenceIcon />
-                  Sentence Beta: Rebuild Sentence
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-500">
+                    <MenuButton onClick={() => guardAuth(lobby.openUnifiedDuelModal)} dataTestId="home-duel">
+                      <DuelIcon />
+                      Duel
+                    </MenuButton>
+                  </div>
+
+                  <div className="animate-slide-up delay-600">
+                    <MenuButton onClick={() => guardAuth(() => router.push("/themes"))} dataTestId="home-manage-themes">
+                      <ThemesIcon />
+                      Manage Themes
+                    </MenuButton>
+                  </div>
+
+                  <div className="animate-slide-up delay-700">
+                    <MenuButton onClick={() => setShowMockFeaturesMenu(true)} dataTestId="home-mock-features">
+                      <MockFeaturesIcon />
+                      Mock Features
+                    </MenuButton>
+                  </div>
+                </>
+              )}
             </nav>
           </main>
         </>
@@ -1398,6 +1850,8 @@ export default function Home() {
         </main>
       ) : screen === "missing_chunk" ? (
         renderSentencePrototypeShell(renderMissingChunkPanel(), "Missing Chunk", "missing_chunk")
+      ) : screen === "speed" ? (
+        renderSentencePrototypeShell(renderSpeedModePanel(), "Speed Mode", "speed")
       ) : (
         renderSentencePrototypeShell(renderRebuildSentencePanel(), "Rebuild Sentence", "rebuild_sentence")
       )}
