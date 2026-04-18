@@ -5,6 +5,7 @@ import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth
 import { loadUsersById } from "./helpers/users";
 import { isUserOnline } from "./users";
 import { isFriendRequestPayload } from "./notificationPayloads";
+import { closeVisibleGoalsBetweenParticipants } from "./weeklyGoals";
 import {
   FRIEND_REQUEST_TTL_MS,
   RESOLVED_FRIEND_REQUEST_TTL_MS,
@@ -333,26 +334,34 @@ export const removeFriend = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     // Find and delete both directions of friendship
-    const friendship1 = await ctx.db
+    const friendshipsFromUser = await ctx.db
       .query("friends")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("friendId"), args.friendId))
-      .first();
+      .collect();
+    const friendship1 =
+      friendshipsFromUser.find((friendship) => friendship.friendId === args.friendId) ?? null;
 
-    const friendship2 = await ctx.db
+    const friendshipsToUser = await ctx.db
       .query("friends")
       .withIndex("by_user", (q) => q.eq("userId", args.friendId))
-      .filter((q) => q.eq(q.field("friendId"), user._id))
-      .first();
+      .collect();
+    const friendship2 =
+      friendshipsToUser.find((friendship) => friendship.friendId === user._id) ?? null;
 
     if (!friendship1 && !friendship2) {
       throw new Error("Friendship not found");
     }
 
+    const closedGoalCount = await closeVisibleGoalsBetweenParticipants(
+      ctx,
+      user._id,
+      args.friendId
+    );
+
     if (friendship1) await ctx.db.delete(friendship1._id);
     if (friendship2) await ctx.db.delete(friendship2._id);
 
-    return { success: true };
+    return { success: true, closedGoalCount };
   },
 });
 

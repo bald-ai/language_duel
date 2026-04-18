@@ -8,6 +8,7 @@ import type { FriendWithDetails } from "@/convex/friends";
 
 interface FriendListItemProps {
     friend: FriendWithDetails;
+    hasExistingGoal: boolean;
     onQuickDuel: () => void;
     onScheduleDuel: () => void;
     onRemoveFriend: () => void;
@@ -23,6 +24,7 @@ interface FriendListItemProps {
  */
 export function FriendListItem({
     friend,
+    hasExistingGoal,
     onQuickDuel,
     onScheduleDuel,
     onRemoveFriend
@@ -32,6 +34,8 @@ export function FriendListItem({
     const [showConfirmRemove, setShowConfirmRemove] = useState(false);
     const itemRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
+    const contextMenuRef = useRef<HTMLDivElement>(null);
+    const confirmDialogRef = useRef<HTMLDivElement>(null);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
     const canUseDom = typeof document !== "undefined";
 
@@ -63,9 +67,29 @@ export function FriendListItem({
 
     // Close menu on click outside
     useEffect(() => {
-        const handleClickOutside = () => {
-            setShowMenu(false);
-            setShowConfirmRemove(false);
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target;
+            if (!(target instanceof Node)) {
+                setShowMenu(false);
+                setShowConfirmRemove(false);
+                return;
+            }
+
+            if (showConfirmRemove) {
+                const clickedInsideConfirm = confirmDialogRef.current?.contains(target) ?? false;
+                if (!clickedInsideConfirm) {
+                    setShowConfirmRemove(false);
+                }
+                return;
+            }
+
+            if (showMenu) {
+                const clickedInsideMenu = contextMenuRef.current?.contains(target) ?? false;
+                const clickedMenuButton = menuButtonRef.current?.contains(target) ?? false;
+                if (!clickedInsideMenu && !clickedMenuButton) {
+                    setShowMenu(false);
+                }
+            }
         };
 
         if (showMenu || showConfirmRemove) {
@@ -101,6 +125,8 @@ export function FriendListItem({
     // being affected by transformed/overflow-hidden ancestors (the notification panel).
     const contextMenu = showMenu ? (
         <div
+            ref={contextMenuRef}
+            data-modal-portal="true"
             className="fixed z-[100] py-1 rounded-lg shadow-xl min-w-[160px] animate-scale-in"
             style={{
                 left: Math.min(
@@ -130,8 +156,12 @@ export function FriendListItem({
     ) : null;
 
     const confirmRemoveDialog = showConfirmRemove ? (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50">
+        <div
+            data-modal-portal="true"
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
+        >
             <div
+                ref={confirmDialogRef}
                 className="p-4 rounded-xl max-w-[300px] w-full shadow-2xl animate-scale-in"
                 style={{ backgroundColor: colors.background.elevated }}
                 onClick={(e) => e.stopPropagation()}
@@ -146,6 +176,14 @@ export function FriendListItem({
                     Are you sure you want to remove{" "}
                     <strong>{friend.nickname || friend.name}</strong> from your friends?
                 </p>
+                {hasExistingGoal && (
+                    <p
+                        className="text-sm mb-4"
+                        style={{ color: colors.status.warning.dark }}
+                    >
+                        You also have a weekly plan together. Removing this friend will close it.
+                    </p>
+                )}
                 <div className="flex gap-2">
                     <button
                         className="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors"

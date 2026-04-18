@@ -251,6 +251,54 @@ async function deleteBossChallengesForGoal(
   }
 }
 
+export async function closeVisibleGoalsBetweenParticipants(
+  ctx: MutationCtx,
+  firstUserId: Id<"users">,
+  secondUserId: Id<"users">
+): Promise<number> {
+  const now = Date.now();
+
+  const goalsAsFirstCreator = (
+    await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_creator", (q) => q.eq("creatorId", firstUserId))
+      .collect()
+  ).filter(
+    (goal) =>
+      goal.partnerId === secondUserId &&
+      shouldIncludeGoal(goal, now)
+  );
+
+  const goalsAsSecondCreator = (
+    await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_creator", (q) => q.eq("creatorId", secondUserId))
+      .collect()
+  ).filter(
+    (goal) =>
+      goal.partnerId === firstUserId &&
+      shouldIncludeGoal(goal, now)
+  );
+
+  const seenGoalIds = new Set<string>();
+  const visibleGoals = [...goalsAsFirstCreator, ...goalsAsSecondCreator].filter((goal) => {
+    const goalId = String(goal._id);
+    if (seenGoalIds.has(goalId)) {
+      return false;
+    }
+    seenGoalIds.add(goalId);
+    return true;
+  });
+
+  for (const goal of visibleGoals) {
+    await dismissGoalNotifications(ctx, goal._id);
+    await deleteBossChallengesForGoal(ctx, goal);
+    await ctx.db.delete(goal._id);
+  }
+
+  return visibleGoals.length;
+}
+
 export async function completeWeeklyGoalBoss(
   ctx: MutationCtx,
   goal: Doc<"weeklyGoals">,

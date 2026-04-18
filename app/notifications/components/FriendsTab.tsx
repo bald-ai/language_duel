@@ -29,6 +29,7 @@ interface FriendsTabProps {
  */
 export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
     const friends = useQuery(api.friends.getFriends);
+    const allPlans = useQuery(api.weeklyGoals.getAllActiveGoals);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);
     const lobby = useDuelLobby();
@@ -58,8 +59,12 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
 
     const handleRemoveFriend = async (friendId: Id<"users">) => {
         try {
-            await removeFriendMutation({ friendId });
-            toast.success("Friend removed");
+            const result = await removeFriendMutation({ friendId });
+            toast.success(
+                result.closedGoalCount > 0
+                    ? "Friend removed and shared plan closed"
+                    : "Friend removed"
+            );
         } catch (error) {
             toast.error("Failed to remove friend");
             console.error(error);
@@ -71,7 +76,13 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
         setScheduleDuelFriendId(null);
     };
 
-    const isLoading = friends === undefined;
+    const hasExistingGoalWithFriend = (friendId: Id<"users">) =>
+        (allPlans ?? []).some(
+            (plan) =>
+                (plan.creator?._id === friendId || plan.partner?._id === friendId)
+        );
+
+    const isLoading = friends === undefined || allPlans === undefined;
 
     return (
         <div className="flex flex-col min-h-0">
@@ -100,6 +111,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                             <FriendListItem
                                 key={friend.friendshipId}
                                 friend={friend}
+                                hasExistingGoal={hasExistingGoalWithFriend(friend.friendId)}
                                 onQuickDuel={() => handleQuickDuel(friend.friendId)}
                                 onScheduleDuel={() => handleScheduleDuel(friend.friendId)}
                                 onRemoveFriend={() => handleRemoveFriend(friend.friendId)}
