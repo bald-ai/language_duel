@@ -208,9 +208,25 @@ export default function GoalsPage() {
 
   const handleRemoveTheme = async (themeId: Id<"themes">) => {
     if (!selectedPlan?.goal) return;
+
+    const { goal, viewerRole, creator, partner } = selectedPlan;
+    const lockedRole = goal.creatorLocked
+      ? "creator"
+      : goal.partnerLocked
+        ? "partner"
+        : null;
+    const partnerName =
+      viewerRole === "creator"
+        ? (partner?.nickname || partner?.email?.split("@")[0] || "Your partner")
+        : (creator?.nickname || creator?.email?.split("@")[0] || "Your partner");
+
     try {
-      await removeTheme({ goalId: selectedPlan.goal._id, themeId });
-      // Query will auto-refresh
+      await removeTheme({ goalId: goal._id, themeId });
+      if (lockedRole === viewerRole) {
+        toast.success("You removed a theme, so your lock was cleared.");
+      } else if (lockedRole) {
+        toast.success(`You removed a theme, so ${partnerName}'s lock was cleared.`);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove theme");
     }

@@ -127,6 +127,50 @@ describe("NotificationsTab theme actions", () => {
     expect(screen.getByTestId("notifications-empty-state")).toBeInTheDocument();
   });
 
+  it("renders goal unlocked weekly-plan notifications with review actions", () => {
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          _id: "notif_goal_unlock",
+          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          fromUser: { nickname: "Alex" },
+          payload: {
+            goalId: "goal_1",
+            themeCount: 2,
+            event: "goal_unlocked",
+          },
+          createdAt: Date.now(),
+          status: "pending",
+        },
+      ],
+      notificationCount: 1,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(
+      screen.getByText(
+        "Alex changed the weekly goal, so your lock was removed. Review it and lock again."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_unlock-view-weekly-plan")).toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_unlock-dismiss-weekly-plan")).toBeInTheDocument();
+  });
+
   it("shows both ready-state success messages", async () => {
     const setReadyMock = vi
       .fn()

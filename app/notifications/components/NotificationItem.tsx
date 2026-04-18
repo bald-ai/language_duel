@@ -28,7 +28,13 @@ interface NotificationData {
         mode?: "solo" | "classic";
         isCounterProposal?: boolean;
         themeCount?: number;
-        event?: "invite" | "declined" | "partner_locked" | "goal_activated" | "goal_completed";
+        event?:
+            | "invite"
+            | "declined"
+            | "partner_locked"
+            | "goal_unlocked"
+            | "goal_activated"
+            | "goal_completed";
         scheduledDuelStatus?: string;
         startedDuelId?: Id<"challenges">;
         proposerReady?: boolean;
@@ -202,6 +208,30 @@ export function NotificationItem({
                     return {
                         icon: <CalendarIcon />,
                         message: `${userName} locked their weekly goal. Your turn.`,
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onViewWeeklyPlan}
+                                    variant="accept"
+                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                >
+                                    View
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onDismissWeeklyPlan}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                >
+                                    Dismiss
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
+                if (payload?.event === "goal_unlocked") {
+                    return {
+                        icon: <CalendarIcon />,
+                        message: `${userName} changed the weekly goal, so your lock was removed. Review it and lock again.`,
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton

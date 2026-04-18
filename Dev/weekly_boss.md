@@ -12,6 +12,7 @@
 ### Weekly Goal Changes
 
 - **Minimum 2 themes** to lock a weekly goal (bosses need enough material to draw from).
+- **Editing unlock on theme removal** — If exactly one player has locked and a participant removes a theme before activation, the goal stays in planning, the existing lock is cleared, and the unlocked player gets an in-app notification to review and lock again.
 - **Custom end date** — Date picker to set when the goal ends. Midpoint is always auto-calculated as half the total duration rounded down (e.g. 7 days → day 3). The end date can be edited while the goal is still in progress, but not once the big boss becomes available or the end date has been reached.
 - **Manual trigger** — Once enough themes are completed, players can trigger boss/mini boss. No date gate — progression is theme-driven.
 - **Progression lock** — Mini boss must be completed before the big boss unlocks.

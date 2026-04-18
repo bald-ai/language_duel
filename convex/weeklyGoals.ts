@@ -163,7 +163,13 @@ async function upsertWeeklyPlanNotificationForGoal(
     fromUserId: Id<"users">;
     goalId: Id<"weeklyGoals">;
     themeCount: number;
-    event: "invite" | "declined" | "partner_locked" | "goal_activated" | "goal_completed";
+    event:
+      | "invite"
+      | "declined"
+      | "partner_locked"
+      | "goal_unlocked"
+      | "goal_activated"
+      | "goal_completed";
     createdAt: number;
   }
 ) {
@@ -862,14 +868,42 @@ export const removeTheme = mutation({
     // Can only remove themes in editing status
     if (goal.status !== "editing") throw new Error("Goal is locked");
 
-    // Cannot remove themes if either participant has locked
-    if (goal.creatorLocked || goal.partnerLocked)
-      throw new Error("Cannot remove themes after a participant has locked");
+    const lockedParticipantId = goal.creatorLocked
+      ? goal.creatorId
+      : goal.partnerLocked
+        ? goal.partnerId
+        : null;
+    const updatedThemes = goal.themes.filter((t) => t.themeId !== themeId);
 
-    // Remove theme
     await ctx.db.patch(goalId, {
-      themes: goal.themes.filter((t) => t.themeId !== themeId),
+      themes: updatedThemes,
+      ...(goal.creatorLocked || goal.partnerLocked
+        ? {
+            creatorLocked: false,
+            partnerLocked: false,
+          }
+        : {}),
     });
+
+    if (!lockedParticipantId) {
+      return;
+    }
+
+    const otherParticipantId =
+      lockedParticipantId === goal.creatorId ? goal.partnerId : goal.creatorId;
+
+    if (lockedParticipantId !== user._id) {
+      await upsertWeeklyPlanNotificationForGoal(ctx, {
+        toUserId: lockedParticipantId,
+        fromUserId: user._id,
+        goalId,
+        themeCount: updatedThemes.length,
+        event: "goal_unlocked",
+        createdAt: Date.now(),
+      });
+    }
+
+    await dismissGoalNotificationsForParticipants(ctx, [otherParticipantId], [goalId]);
   },
 });
 
