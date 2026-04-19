@@ -31,22 +31,6 @@ describe("renderNotificationEmail", () => {
     });
   });
 
-  describe("scheduled duel accepted", () => {
-    it("renders correct subject and body", () => {
-      const data = {
-        recipientName: "Proposer",
-        senderName: "Accepter",
-        themeName: "German Words",
-        scheduledTime: "Feb 6, 2026 at 10:00",
-      };
-      const { subject, html } = renderNotificationEmail("scheduled_duel_accepted", data);
-
-      expect(subject).toBe("It's on! Accepter accepted your duel");
-      expect(html).toContain("Accepter");
-      expect(html).toContain("German Words");
-    });
-  });
-
   describe("scheduled duel reminder", () => {
     it("renders correct subject and body with minutes", () => {
       const data = {
@@ -126,15 +110,10 @@ describe("renderNotificationEmail", () => {
     const triggers = [
       "immediate_duel_challenge",
       "scheduled_duel_proposal",
-      "scheduled_duel_accepted",
-      "scheduled_duel_counter_proposed",
-      "scheduled_duel_declined",
-      "scheduled_duel_canceled",
       "scheduled_duel_reminder",
       "weekly_goal_invite",
       "weekly_goal_locked",
       "weekly_goal_accepted",
-      "weekly_goal_declined",
       "weekly_goal_reminder_1",
       "weekly_goal_reminder_2",
     ] as const;

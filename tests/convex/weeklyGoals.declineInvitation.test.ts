@@ -170,7 +170,7 @@ const declineWeeklyPlanInvitationHandler = (declineWeeklyPlanInvitation as unkno
 })._handler;
 
 describe("weeklyGoals declineWeeklyPlanInvitation", () => {
-  it("lets the invitee decline an editing goal, notifies inviter, and deletes the goal", async () => {
+  it("lets the invitee decline an editing goal, keeps the in-app notification, and deletes the goal", async () => {
     const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
@@ -203,12 +203,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
           (n.payload as { event?: string }).event === "declined"
       )
     ).toBe(true);
-    expect(scheduledCalls).toEqual([
-      expect.objectContaining({
-        trigger: "weekly_goal_declined",
-        toUserId: "user_creator",
-      }),
-    ]);
+    expect(scheduledCalls).toEqual([]);
   });
 
   it("rejects decline when the caller is not the invitee", async () => {

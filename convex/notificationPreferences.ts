@@ -1,7 +1,54 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthenticatedUser } from "./helpers/auth";
-import { DEFAULT_NOTIFICATION_PREFS } from "../lib/notificationPreferences";
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  type NotificationPreferences,
+} from "../lib/notificationPreferences";
+
+function normalizeNotificationPreferences(
+  prefs: Partial<NotificationPreferences> | null | undefined
+): NotificationPreferences {
+  return {
+    immediateDuelsEnabled:
+      prefs?.immediateDuelsEnabled ?? DEFAULT_NOTIFICATION_PREFS.immediateDuelsEnabled,
+    immediateDuelChallengeEnabled:
+      prefs?.immediateDuelChallengeEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.immediateDuelChallengeEnabled,
+    scheduledDuelsEnabled:
+      prefs?.scheduledDuelsEnabled ?? DEFAULT_NOTIFICATION_PREFS.scheduledDuelsEnabled,
+    scheduledDuelProposalEnabled:
+      prefs?.scheduledDuelProposalEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.scheduledDuelProposalEnabled,
+    scheduledDuelReminderEnabled:
+      prefs?.scheduledDuelReminderEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderEnabled,
+    scheduledDuelReminderOffsetMinutes:
+      prefs?.scheduledDuelReminderOffsetMinutes ??
+      DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes,
+    weeklyGoalsEnabled:
+      prefs?.weeklyGoalsEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalsEnabled,
+    weeklyGoalInviteEnabled:
+      prefs?.weeklyGoalInviteEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalInviteEnabled,
+    weeklyGoalAcceptedEnabled:
+      prefs?.weeklyGoalAcceptedEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled,
+    weeklyGoalLockedEnabled:
+      prefs?.weeklyGoalLockedEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled,
+    weeklyGoalReminder1Enabled:
+      prefs?.weeklyGoalReminder1Enabled ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled,
+    weeklyGoalReminder1OffsetMinutes:
+      prefs?.weeklyGoalReminder1OffsetMinutes ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes,
+    weeklyGoalReminder2Enabled:
+      prefs?.weeklyGoalReminder2Enabled ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled,
+    weeklyGoalReminder2OffsetMinutes:
+      prefs?.weeklyGoalReminder2OffsetMinutes ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes,
+  };
+}
 
 export const getMyNotificationPreferences = query({
   args: {},
@@ -17,7 +64,11 @@ export const getMyNotificationPreferences = query({
       return { ...DEFAULT_NOTIFICATION_PREFS, userId: user._id, isDefault: true };
     }
 
-    return { ...prefs, userId: user._id, isDefault: false };
+    return {
+      ...normalizeNotificationPreferences(prefs),
+      userId: user._id,
+      isDefault: false,
+    };
   },
 });
 
@@ -29,7 +80,10 @@ export const getByUserId = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
 
-    return prefs ? { ...prefs, userId: args.userId } : { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+    return {
+      ...normalizeNotificationPreferences(prefs),
+      userId: args.userId,
+    };
   },
 });
 
@@ -43,19 +97,13 @@ export const setMyNotificationPreferences = mutation({
 
     scheduledDuelsEnabled: v.boolean(),
     scheduledDuelProposalEnabled: v.boolean(),
-    scheduledDuelAcceptedEnabled: v.boolean(),
-    scheduledDuelCounterProposedEnabled: v.boolean(),
-    scheduledDuelDeclinedEnabled: v.boolean(),
-    scheduledDuelCanceledEnabled: v.boolean(),
     scheduledDuelReminderEnabled: v.boolean(),
     scheduledDuelReminderOffsetMinutes: v.number(),
-    scheduledDuelReadyEnabled: v.boolean(),
 
     weeklyGoalsEnabled: v.boolean(),
     weeklyGoalInviteEnabled: v.boolean(),
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
-    weeklyGoalDeclinedEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
     weeklyGoalReminder2Enabled: v.boolean(),

@@ -6,16 +6,10 @@ import {
 const _NOTIFICATION_TRIGGERS = [
   "immediate_duel_challenge",
   "scheduled_duel_proposal",
-  "scheduled_duel_accepted",
-  "scheduled_duel_counter_proposed",
-  "scheduled_duel_declined",
-  "scheduled_duel_canceled",
   "scheduled_duel_reminder",
-  "scheduled_duel_ready",
   "weekly_goal_invite",
   "weekly_goal_locked",
   "weekly_goal_accepted",
-  "weekly_goal_declined",
   "weekly_goal_reminder_1",
   "weekly_goal_reminder_2",
 ] as const;
@@ -41,29 +35,9 @@ export function isNotificationEnabled(
       category: "scheduledDuelsEnabled",
       trigger: "scheduledDuelProposalEnabled",
     },
-    scheduled_duel_accepted: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelAcceptedEnabled",
-    },
-    scheduled_duel_counter_proposed: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelCounterProposedEnabled",
-    },
-    scheduled_duel_declined: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelDeclinedEnabled",
-    },
-    scheduled_duel_canceled: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelCanceledEnabled",
-    },
     scheduled_duel_reminder: {
       category: "scheduledDuelsEnabled",
       trigger: "scheduledDuelReminderEnabled",
-    },
-    scheduled_duel_ready: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelReadyEnabled",
     },
     weekly_goal_invite: {
       category: "weeklyGoalsEnabled",
@@ -76,10 +50,6 @@ export function isNotificationEnabled(
     weekly_goal_accepted: {
       category: "weeklyGoalsEnabled",
       trigger: "weeklyGoalAcceptedEnabled",
-    },
-    weekly_goal_declined: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalDeclinedEnabled",
     },
     weekly_goal_reminder_1: {
       category: "weeklyGoalsEnabled",

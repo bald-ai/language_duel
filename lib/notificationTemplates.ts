@@ -35,26 +35,14 @@ export function getSubjectForTrigger(
       return `${sender} just threw down the gauntlet!`;
     case "scheduled_duel_proposal":
       return `${sender} wants to duel -- you in?`;
-    case "scheduled_duel_accepted":
-      return `It's on! ${sender} accepted your duel`;
-    case "scheduled_duel_counter_proposed":
-      return `${sender} says "how about this time instead?"`;
-    case "scheduled_duel_declined":
-      return `${sender} chickened out of your duel`;
-    case "scheduled_duel_canceled":
-      return `Duel canceled -- someone got cold feet`;
     case "scheduled_duel_reminder":
       return `${data.minutesBefore ?? 0} min until showdown!`;
-    case "scheduled_duel_ready":
-      return `${sender} is ready -- are you?`;
     case "weekly_goal_invite":
       return `${sender} dares you to a weekly goal`;
     case "weekly_goal_locked":
       return `${sender} locked the weekly goal`;
     case "weekly_goal_accepted":
       return `${sender} is IN -- weekly goal activated!`;
-    case "weekly_goal_declined":
-      return `${sender} passed on your goal invite`;
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
@@ -86,40 +74,10 @@ export function getBodyForTrigger(
         body: `${sender} wants to battle you on <strong>${theme}</strong> at <strong>${time}</strong>. You can accept, decline, or counter with a time that works better for you. Ball's in your court.`,
         cta: "Open Language Duel",
       };
-    case "scheduled_duel_accepted":
-      return {
-        heading: `It's official!`,
-        body: `Your duel with ${sender} on <strong>${theme}</strong> is locked in for <strong>${time}</strong>. We'll nudge you before it starts so you can warm up those brain cells.`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_counter_proposed":
-      return {
-        heading: `Plot twist!`,
-        body: `${sender} likes the idea but wants to switch things up: <strong>${theme}</strong> at <strong>${time}</strong>. Does that work for you?`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_declined":
-      return {
-        heading: `Well, that's awkward`,
-        body: `${sender} declined your duel on <strong>${theme}</strong> at <strong>${time}</strong>. No worries though -- plenty of other rivals out there. Challenge someone else!`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_canceled":
-      return {
-        heading: `Duel canceled`,
-        body: `The scheduled duel on <strong>${theme}</strong> at <strong>${time}</strong> has been called off. Sometimes plans change -- but your next duel is just a tap away.`,
-        cta: "Open Language Duel",
-      };
     case "scheduled_duel_reminder":
       return {
         heading: `Showtime is almost here!`,
         body: `Your duel with ${partner} on <strong>${theme}</strong> kicks off at <strong>${time}</strong>. That's just <strong>${data.minutesBefore ?? 0} minutes</strong> from now. Get in there!`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_ready":
-      return {
-        heading: `Your opponent is warmed up!`,
-        body: `${sender} just hit "Ready" for your duel on <strong>${theme}</strong> at <strong>${time}</strong>. They're waiting for you -- don't keep them hanging!`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_invite":
@@ -138,12 +96,6 @@ export function getBodyForTrigger(
       return {
         heading: `Let's gooo!`,
         body: `${sender} accepted your weekly goal invite! The goal is live and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_declined":
-      return {
-        heading: `They passed`,
-        body: `${sender} declined your weekly goal invite. Their loss! You can always invite someone else who's up for the challenge.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_1":

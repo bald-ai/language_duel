@@ -94,40 +94,10 @@ export default function NotificationSettingsPage() {
               onChange={(v) => updatePrefs({ scheduledDuelProposalEnabled: v })}
             />
             <NotificationToggle
-              label="Duel accepted"
-              enabled={prefs.scheduledDuelAcceptedEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelAcceptedEnabled: v })}
-            />
-            <NotificationToggle
-              label="Counter-proposal received"
-              enabled={prefs.scheduledDuelCounterProposedEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelCounterProposedEnabled: v })}
-            />
-            <NotificationToggle
-              label="Duel declined"
-              enabled={prefs.scheduledDuelDeclinedEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelDeclinedEnabled: v })}
-            />
-            <NotificationToggle
-              label="Duel canceled"
-              enabled={prefs.scheduledDuelCanceledEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelCanceledEnabled: v })}
-            />
-            <NotificationToggle
               label="Duel reminder"
               enabled={prefs.scheduledDuelReminderEnabled}
               disabled={!prefs.scheduledDuelsEnabled}
               onChange={(v) => updatePrefs({ scheduledDuelReminderEnabled: v })}
-            />
-            <NotificationToggle
-              label="Opponent ready"
-              enabled={prefs.scheduledDuelReadyEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelReadyEnabled: v })}
             />
             <ReminderOffsetInput
               label="Remind me before"
@@ -161,12 +131,6 @@ export default function NotificationSettingsPage() {
               enabled={prefs.weeklyGoalLockedEnabled}
               disabled={!prefs.weeklyGoalsEnabled}
               onChange={(v) => updatePrefs({ weeklyGoalLockedEnabled: v })}
-            />
-            <NotificationToggle
-              label="Goal invite declined"
-              enabled={prefs.weeklyGoalDeclinedEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalDeclinedEnabled: v })}
             />
             <NotificationToggle
               label="Goal reminder 1"

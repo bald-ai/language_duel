@@ -183,16 +183,10 @@ export type NotificationPayload = Infer<typeof notificationPayloadValidator>;
 export const emailNotificationTriggerValidator = v.union(
   v.literal("immediate_duel_challenge"),
   v.literal("scheduled_duel_proposal"),
-  v.literal("scheduled_duel_accepted"),
-  v.literal("scheduled_duel_counter_proposed"),
-  v.literal("scheduled_duel_declined"),
-  v.literal("scheduled_duel_canceled"),
   v.literal("scheduled_duel_reminder"),
-  v.literal("scheduled_duel_ready"),
   v.literal("weekly_goal_invite"),
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
-  v.literal("weekly_goal_declined"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );
@@ -439,20 +433,14 @@ export default defineSchema({
     // Scheduled Duels
     scheduledDuelsEnabled: v.boolean(),
     scheduledDuelProposalEnabled: v.boolean(),
-    scheduledDuelAcceptedEnabled: v.boolean(),
-    scheduledDuelCounterProposedEnabled: v.boolean(),
-    scheduledDuelDeclinedEnabled: v.boolean(),
-    scheduledDuelCanceledEnabled: v.boolean(),
     scheduledDuelReminderEnabled: v.boolean(),
     scheduledDuelReminderOffsetMinutes: v.number(),
-    scheduledDuelReadyEnabled: v.boolean(),
 
     // Weekly Goals
     weeklyGoalsEnabled: v.boolean(),
     weeklyGoalInviteEnabled: v.boolean(),
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
-    weeklyGoalDeclinedEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
     weeklyGoalReminder2Enabled: v.boolean(),

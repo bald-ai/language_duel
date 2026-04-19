@@ -27,20 +27,10 @@ export function useNotificationSettings() {
           scheduledDuelsEnabled: updates.scheduledDuelsEnabled ?? prefs.scheduledDuelsEnabled,
           scheduledDuelProposalEnabled:
             updates.scheduledDuelProposalEnabled ?? prefs.scheduledDuelProposalEnabled,
-          scheduledDuelAcceptedEnabled:
-            updates.scheduledDuelAcceptedEnabled ?? prefs.scheduledDuelAcceptedEnabled,
-          scheduledDuelCounterProposedEnabled:
-            updates.scheduledDuelCounterProposedEnabled ?? prefs.scheduledDuelCounterProposedEnabled,
-          scheduledDuelDeclinedEnabled:
-            updates.scheduledDuelDeclinedEnabled ?? prefs.scheduledDuelDeclinedEnabled,
-          scheduledDuelCanceledEnabled:
-            updates.scheduledDuelCanceledEnabled ?? prefs.scheduledDuelCanceledEnabled,
           scheduledDuelReminderEnabled:
             updates.scheduledDuelReminderEnabled ?? prefs.scheduledDuelReminderEnabled,
           scheduledDuelReminderOffsetMinutes:
             updates.scheduledDuelReminderOffsetMinutes ?? prefs.scheduledDuelReminderOffsetMinutes,
-          scheduledDuelReadyEnabled:
-            updates.scheduledDuelReadyEnabled ?? prefs.scheduledDuelReadyEnabled,
 
           weeklyGoalsEnabled: updates.weeklyGoalsEnabled ?? prefs.weeklyGoalsEnabled,
           weeklyGoalInviteEnabled:
@@ -49,8 +39,6 @@ export function useNotificationSettings() {
             updates.weeklyGoalAcceptedEnabled ?? prefs.weeklyGoalAcceptedEnabled,
           weeklyGoalLockedEnabled:
             updates.weeklyGoalLockedEnabled ?? prefs.weeklyGoalLockedEnabled,
-          weeklyGoalDeclinedEnabled:
-            updates.weeklyGoalDeclinedEnabled ?? prefs.weeklyGoalDeclinedEnabled,
           weeklyGoalReminder1Enabled:
             updates.weeklyGoalReminder1Enabled ?? prefs.weeklyGoalReminder1Enabled,
           weeklyGoalReminder1OffsetMinutes:

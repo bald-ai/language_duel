@@ -348,13 +348,6 @@ export const acceptScheduledDuel = mutation({
             createdAt: now,
         });
 
-        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-            trigger: "scheduled_duel_accepted",
-            toUserId: scheduledDuel.proposerId,
-            fromUserId: user._id,
-            scheduledDuelId: args.scheduledDuelId,
-        });
-
         return { success: true };
     },
 });
@@ -459,13 +452,6 @@ export const counterProposeScheduledDuel = mutation({
             createdAt: Date.now(),
         });
 
-        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-            trigger: "scheduled_duel_counter_proposed",
-            toUserId: otherUserId,
-            fromUserId: user._id,
-            scheduledDuelId: args.scheduledDuelId,
-        });
-
         // Dismiss old notification for current user
         const notifications = await ctx.db
             .query("notifications")
@@ -532,13 +518,6 @@ export const declineScheduledDuel = mutation({
                 });
             }
         }
-
-        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-            trigger: "scheduled_duel_declined",
-            toUserId: scheduledDuel.proposerId,
-            fromUserId: user._id,
-            scheduledDuelId: args.scheduledDuelId,
-        });
 
         return { success: true };
     },
@@ -609,16 +588,6 @@ export const cancelScheduledDuel = mutation({
             }
         }
 
-        const otherUserId = isProposer ? scheduledDuel.recipientId : scheduledDuel.proposerId;
-        if (scheduledDuel.status === "accepted") {
-            await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-                trigger: "scheduled_duel_canceled",
-                toUserId: otherUserId,
-                fromUserId: user._id,
-                scheduledDuelId: args.scheduledDuelId,
-            });
-        }
-
         return { success: true };
     },
 });
@@ -680,13 +649,28 @@ export const setReadyForScheduledDuel = mutation({
 
         await ctx.db.patch(args.scheduledDuelId, updates);
 
+        // Notify the opponent that this player is ready
         const opponentId = isProposer ? scheduledDuel.recipientId : scheduledDuel.proposerId;
+        const themes = await Promise.all(
+            scheduledDuel.themeIds.map((id) => ctx.db.get(id))
+        );
+        const validThemes = themes.filter((t): t is ThemeRecord => t !== null);
+        const themeSummary = summarizeThemes(validThemes);
 
-        await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-            trigger: "scheduled_duel_ready",
-            toUserId: opponentId,
+        await ctx.db.insert("notifications", {
+            type: "scheduled_duel",
             fromUserId: user._id,
-            scheduledDuelId: args.scheduledDuelId,
+            toUserId: opponentId,
+            status: "pending",
+            payload: {
+                scheduledDuelId: args.scheduledDuelId,
+                themeId: validThemes.length === 1 ? validThemes[0]._id : undefined,
+                themeName: themeSummary,
+                scheduledTime: scheduledDuel.scheduledTime,
+                mode: scheduledDuel.mode,
+                scheduledDuelStatus: "accepted",
+            },
+            createdAt: now,
         });
 
         // Check if both players are now ready

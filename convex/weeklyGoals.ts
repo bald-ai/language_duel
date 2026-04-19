@@ -1420,13 +1420,6 @@ export const declineWeeklyPlanInvitation = mutation({
       createdAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "weekly_goal_declined",
-      toUserId: goal.creatorId,
-      fromUserId: user._id,
-      weeklyGoalId: goal._id,
-    });
-
     await deleteBossChallengesForGoal(ctx, goal);
     await ctx.db.delete(goal._id);
 

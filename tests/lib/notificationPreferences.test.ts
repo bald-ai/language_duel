@@ -14,13 +14,9 @@ describe("notificationPreferences", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.immediateDuelChallengeEnabled).toBe(true);
     });
 
-    it("has all scheduled duel settings enabled by default", () => {
+    it("has the supported scheduled duel email settings enabled by default", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelsEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelProposalEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelAcceptedEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelCounterProposedEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelDeclinedEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelCanceledEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderEnabled).toBe(true);
     });
 
@@ -28,12 +24,11 @@ describe("notificationPreferences", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes).toBe(15);
     });
 
-    it("has all weekly goal settings enabled by default", () => {
+    it("has the supported weekly goal email settings enabled by default", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalsEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalInviteEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDeclinedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled).toBe(true);
     });
@@ -48,10 +43,13 @@ describe("notificationPreferences", () => {
 
     it("has all expected keys", () => {
       const keys = Object.keys(DEFAULT_NOTIFICATION_PREFS);
-      expect(keys).toHaveLength(20);
+      expect(keys).toHaveLength(14);
       expect(keys).toContain("immediateDuelsEnabled");
       expect(keys).toContain("scheduledDuelsEnabled");
       expect(keys).toContain("weeklyGoalsEnabled");
+      expect(keys).not.toContain("scheduledDuelAcceptedEnabled");
+      expect(keys).not.toContain("scheduledDuelReadyEnabled");
+      expect(keys).not.toContain("weeklyGoalDeclinedEnabled");
     });
   });
 
