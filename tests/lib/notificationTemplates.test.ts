@@ -76,6 +76,23 @@ describe("renderNotificationEmail", () => {
   });
 
   describe("weekly goal reminder", () => {
+    it("renders the daily countdown reminder with clean milestone copy", () => {
+      const data = {
+        recipientName: "Player",
+        partnerName: "Partner",
+        completedCount: 2,
+        totalCount: 5,
+        milestoneName: "Mini Boss",
+        milestoneDaysLeft: 3,
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_daily_reminder", data);
+
+      expect(subject).toBe("3 days until Mini Boss");
+      expect(html).toContain("Mini Boss countdown");
+      expect(html).toContain("3 days");
+      expect(html).toContain("2/5");
+    });
+
     it("renders reminder 1 with hours left and progress", () => {
       const data = {
         recipientName: "Player",
@@ -114,6 +131,7 @@ describe("renderNotificationEmail", () => {
       "weekly_goal_invite",
       "weekly_goal_locked",
       "weekly_goal_accepted",
+      "weekly_goal_daily_reminder",
       "weekly_goal_reminder_1",
       "weekly_goal_reminder_2",
     ] as const;

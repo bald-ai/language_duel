@@ -29,6 +29,7 @@ describe("notificationPreferences", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalInviteEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled).toBe(true);
     });
@@ -43,7 +44,7 @@ describe("notificationPreferences", () => {
 
     it("has all expected keys", () => {
       const keys = Object.keys(DEFAULT_NOTIFICATION_PREFS);
-      expect(keys).toHaveLength(14);
+      expect(keys).toHaveLength(15);
       expect(keys).toContain("immediateDuelsEnabled");
       expect(keys).toContain("scheduledDuelsEnabled");
       expect(keys).toContain("weeklyGoalsEnabled");
@@ -78,6 +79,11 @@ describe("notificationPreferences", () => {
   });
 
   describe("isNotificationEnabled", () => {
+    it("returns true for the daily weekly goal countdown when enabled", () => {
+      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+      expect(isNotificationEnabled("weekly_goal_daily_reminder", prefs)).toBe(true);
+    });
+
     it("returns false when category is disabled", () => {
       const prefs = { ...DEFAULT_NOTIFICATION_PREFS, scheduledDuelsEnabled: false };
       expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);

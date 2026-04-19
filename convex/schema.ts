@@ -187,6 +187,7 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_invite"),
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
+  v.literal("weekly_goal_daily_reminder"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );
@@ -441,6 +442,7 @@ export default defineSchema({
     weeklyGoalInviteEnabled: v.boolean(),
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
+    weeklyGoalDailyReminderEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
     weeklyGoalReminder2Enabled: v.boolean(),
@@ -459,10 +461,17 @@ export default defineSchema({
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
+    dedupeKey: v.optional(v.string()),
     sentAt: v.number(),
   })
     .index("by_user_trigger_scheduledDuel", ["toUserId", "trigger", "scheduledDuelId"])
     .index("by_user_trigger_weeklyGoal", ["toUserId", "trigger", "weeklyGoalId"])
+    .index("by_user_trigger_weeklyGoal_dedupeKey", [
+      "toUserId",
+      "trigger",
+      "weeklyGoalId",
+      "dedupeKey",
+    ])
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
     .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_user_trigger_reminder_offset", ["toUserId", "trigger", "reminderOffsetMinutes"])

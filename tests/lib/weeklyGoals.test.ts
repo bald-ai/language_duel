@@ -3,6 +3,7 @@ import {
   canEditGoalEndDate,
   canTriggerGoalBoss,
   countCompletedThemes,
+  getCountdownBossType,
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
@@ -62,6 +63,12 @@ describe("weeklyGoals helpers", () => {
 
   it("unlocks the mini boss at the midpoint", () => {
     expect(getEffectiveMiniBossStatus(buildGoal(), 5_000)).toBe("available");
+  });
+
+  it("switches the countdown to the big boss once mini boss is completed early", () => {
+    expect(
+      getCountdownBossType(buildGoal({ miniBossStatus: "completed" }), 2_000)
+    ).toBe("big");
   });
 
   it("unlocks the mini boss early once half the themes are jointly completed", () => {

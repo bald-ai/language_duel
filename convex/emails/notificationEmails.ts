@@ -10,13 +10,18 @@ import type { Doc, Id } from "../_generated/dataModel";
 import {
   isNotificationEnabled,
   formatScheduledTimeForEmail,
+  getDaysUntilInTimeZone,
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
-import { EMAIL_LOG_TTL_MS } from "../constants";
+import {
+  EMAIL_LOG_TTL_MS,
+  WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE,
+} from "../constants";
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
+import { getCountdownBossType, getGoalMidpointAt } from "../../lib/weeklyGoals";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
 
@@ -65,6 +70,7 @@ export const checkNotificationSent = internalQuery({
       v.literal("weekly_goal_invite"),
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
+      v.literal("weekly_goal_daily_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -72,6 +78,7 @@ export const checkNotificationSent = internalQuery({
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
+    dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.scheduledDuelId) {
@@ -82,6 +89,20 @@ export const checkNotificationSent = internalQuery({
             .eq("toUserId", args.toUserId)
             .eq("trigger", args.trigger)
             .eq("scheduledDuelId", args.scheduledDuelId)
+        )
+        .first();
+      return Boolean(log);
+    }
+
+    if (args.weeklyGoalId && args.dedupeKey) {
+      const log = await ctx.db
+        .query("emailNotificationLog")
+        .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
+          q
+            .eq("toUserId", args.toUserId)
+            .eq("trigger", args.trigger)
+            .eq("weeklyGoalId", args.weeklyGoalId)
+            .eq("dedupeKey", args.dedupeKey)
         )
         .first();
       return Boolean(log);
@@ -146,6 +167,7 @@ export const logNotificationSent = internalMutation({
       v.literal("weekly_goal_invite"),
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
+      v.literal("weekly_goal_daily_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -153,6 +175,7 @@ export const logNotificationSent = internalMutation({
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
+    dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("emailNotificationLog", {
@@ -162,6 +185,7 @@ export const logNotificationSent = internalMutation({
       scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
+      dedupeKey: args.dedupeKey,
       sentAt: Date.now(),
     });
   },
@@ -198,6 +222,7 @@ export const sendNotificationEmail = internalAction({
       v.literal("weekly_goal_invite"),
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
+      v.literal("weekly_goal_daily_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -207,6 +232,7 @@ export const sendNotificationEmail = internalAction({
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
+    dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const trigger = args.trigger as NotificationTrigger;
@@ -232,6 +258,7 @@ export const sendNotificationEmail = internalAction({
         scheduledDuelId: args.scheduledDuelId,
         weeklyGoalId: args.weeklyGoalId,
         reminderOffsetMinutes: args.reminderOffsetMinutes,
+        dedupeKey: args.dedupeKey,
       }
     );
     if (alreadySent) return { sent: false, reason: "already_sent" };
@@ -244,6 +271,7 @@ export const sendNotificationEmail = internalAction({
       scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
+      dedupeKey: args.dedupeKey,
     });
 
     const { subject, html } = renderNotificationEmail(trigger, emailData);
@@ -261,6 +289,7 @@ export const sendNotificationEmail = internalAction({
       scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
+      dedupeKey: args.dedupeKey,
     });
 
     return { sent: true };
@@ -275,6 +304,7 @@ export type BuildEmailArgs = {
   scheduledDuelId?: Id<"scheduledDuels">;
   weeklyGoalId?: Id<"weeklyGoals">;
   reminderOffsetMinutes?: number;
+  dedupeKey?: string;
 };
 
 export async function buildEmailData(
@@ -367,6 +397,20 @@ export async function buildEmailData(
         data.hoursLeft = Math.max(
           0,
           Math.round((goal.endDate - Date.now()) / (60 * 60 * 1000))
+        );
+      }
+
+      if (args.trigger === "weekly_goal_daily_reminder" && goal.endDate) {
+        const midpointAt = getGoalMidpointAt(goal.lockedAt, goal.endDate);
+        const countdownBossType = getCountdownBossType(goal, Date.now());
+        const milestoneAt = countdownBossType === "mini" && midpointAt
+          ? midpointAt
+          : goal.endDate;
+        data.milestoneName = countdownBossType === "mini" ? "Mini Boss" : "Boss";
+        data.milestoneDaysLeft = getDaysUntilInTimeZone(
+          milestoneAt,
+          Date.now(),
+          WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE
         );
       }
     }

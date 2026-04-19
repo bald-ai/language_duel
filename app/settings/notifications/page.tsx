@@ -133,6 +133,12 @@ export default function NotificationSettingsPage() {
               onChange={(v) => updatePrefs({ weeklyGoalLockedEnabled: v })}
             />
             <NotificationToggle
+              label="Daily boss countdown email"
+              enabled={prefs.weeklyGoalDailyReminderEnabled}
+              disabled={!prefs.weeklyGoalsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalDailyReminderEnabled: v })}
+            />
+            <NotificationToggle
               label="Goal reminder 1"
               enabled={prefs.weeklyGoalReminder1Enabled}
               disabled={!prefs.weeklyGoalsEnabled}

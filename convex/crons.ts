@@ -34,6 +34,12 @@ crons.interval(
     internal.emails.reminderCrons.sendWeeklyGoalReminders
 );
 
+crons.hourly(
+    "send-daily-weekly-goal-reminder-emails",
+    { minuteUTC: 27 },
+    internal.emails.reminderCrons.sendDailyWeeklyGoalReminderEmails
+);
+
 crons.interval(
     "cleanup-friend-requests",
     { hours: 24 },

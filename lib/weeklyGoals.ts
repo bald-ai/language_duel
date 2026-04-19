@@ -53,6 +53,23 @@ export function getGoalMidpointAt(
   return lockedAt + Math.floor((endDate - lockedAt) / 2);
 }
 
+export function getCountdownBossType(
+  goal: Pick<WeeklyGoalStateLike, "lockedAt" | "endDate" | "miniBossStatus">,
+  now: number
+): "mini" | "big" {
+  const midpointAt = getGoalMidpointAt(goal.lockedAt, goal.endDate);
+
+  if (
+    goal.miniBossStatus !== "completed" &&
+    typeof midpointAt === "number" &&
+    now < midpointAt
+  ) {
+    return "mini";
+  }
+
+  return "big";
+}
+
 export function getEffectiveGoalStatus(
   goal: WeeklyGoalStateLike,
   now: number

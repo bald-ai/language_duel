@@ -22,6 +22,8 @@ export type EmailData = {
   totalCount?: number;
   partnerName?: string;
   minutesBefore?: number;
+  milestoneName?: string;
+  milestoneDaysLeft?: number;
   senderPalette?: SenderPalette;
 };
 
@@ -43,6 +45,10 @@ export function getSubjectForTrigger(
       return `${sender} locked the weekly goal`;
     case "weekly_goal_accepted":
       return `${sender} is IN -- weekly goal activated!`;
+    case "weekly_goal_daily_reminder":
+      return data.milestoneDaysLeft === 0
+        ? `${data.milestoneName ?? "Boss"} is today`
+        : `${data.milestoneDaysLeft ?? 0} day${data.milestoneDaysLeft === 1 ? "" : "s"} until ${data.milestoneName ?? "Boss"}`;
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
@@ -98,6 +104,18 @@ export function getBodyForTrigger(
         body: `${sender} accepted your weekly goal invite! The goal is live and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
         cta: "Open Language Duel",
       };
+    case "weekly_goal_daily_reminder": {
+      const milestoneName = data.milestoneName ?? "Boss";
+      const milestonePhrase =
+        data.milestoneDaysLeft === 0
+          ? `<strong>${milestoneName}</strong> is today`
+          : `<strong>${data.milestoneDaysLeft ?? 0} day${data.milestoneDaysLeft === 1 ? "" : "s"}</strong> until <strong>${milestoneName}</strong>`;
+      return {
+        heading: `${milestoneName} countdown`,
+        body: `${milestonePhrase} in your weekly goal with ${partner}. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
+        cta: "Open Language Duel",
+      };
+    }
     case "weekly_goal_reminder_1":
       return {
         heading: `The clock is ticking!`,

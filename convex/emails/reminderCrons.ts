@@ -1,9 +1,16 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
+  getTimeZoneDateKey,
+  getTimeZoneDateParts,
   shouldSendScheduledDuelReminder,
   shouldSendWeeklyGoalReminder,
 } from "../../lib/notificationPreferences";
+import {
+  WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR,
+  WEEKLY_GOAL_DAILY_REMINDER_LOCAL_MINUTE,
+  WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE,
+} from "../constants";
 
 export const sendScheduledDuelReminders = internalAction({
   args: {},
@@ -91,6 +98,48 @@ export const sendWeeklyGoalReminders = internalAction({
             reminderOffsetMinutes: prefs.weeklyGoalReminder2OffsetMinutes,
           });
         }
+      }
+    }
+  },
+});
+
+export const sendDailyWeeklyGoalReminderEmails = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const localTime = getTimeZoneDateParts(now, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
+
+    if (
+      localTime.hour !== WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR ||
+      localTime.minute !== WEEKLY_GOAL_DAILY_REMINDER_LOCAL_MINUTE
+    ) {
+      return;
+    }
+
+    const activeGoals = await ctx.runQuery(
+      internal.weeklyGoals.getActiveGoalsWithEndDate,
+      {}
+    );
+    const dailyKey = getTimeZoneDateKey(now, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
+
+    for (const goal of activeGoals) {
+      const participants = [goal.creatorId, goal.partnerId];
+
+      for (const userId of participants) {
+        const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
+          userId,
+        });
+
+        if (!prefs.weeklyGoalDailyReminderEnabled) {
+          continue;
+        }
+
+        await ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
+          trigger: "weekly_goal_daily_reminder",
+          toUserId: userId,
+          weeklyGoalId: goal._id,
+          dedupeKey: dailyKey,
+        });
       }
     }
   },
