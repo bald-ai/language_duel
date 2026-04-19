@@ -43,6 +43,8 @@ export function getSubjectForTrigger(
       return `${sender} locked the weekly goal`;
     case "weekly_goal_accepted":
       return `${sender} is IN -- weekly goal activated!`;
+    case "weekly_goal_declined":
+      return `${sender} declined your weekly goal`;
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
@@ -96,6 +98,12 @@ export function getBodyForTrigger(
       return {
         heading: `Let's gooo!`,
         body: `${sender} accepted your weekly goal invite! The goal is live and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
+        cta: "Open Language Duel",
+      };
+    case "weekly_goal_declined":
+      return {
+        heading: `Weekly goal declined`,
+        body: `${sender} declined your weekly goal invite. Open the app if you want to create a new one.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_1":

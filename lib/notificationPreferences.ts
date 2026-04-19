@@ -10,6 +10,7 @@ const _NOTIFICATION_TRIGGERS = [
   "weekly_goal_invite",
   "weekly_goal_locked",
   "weekly_goal_accepted",
+  "weekly_goal_declined",
   "weekly_goal_reminder_1",
   "weekly_goal_reminder_2",
 ] as const;
@@ -48,6 +49,11 @@ export function isNotificationEnabled(
       trigger: "weeklyGoalLockedEnabled",
     },
     weekly_goal_accepted: {
+      category: "weeklyGoalsEnabled",
+      trigger: "weeklyGoalAcceptedEnabled",
+    },
+    // Legacy email trigger kept only long enough to clean stale log rows.
+    weekly_goal_declined: {
       category: "weeklyGoalsEnabled",
       trigger: "weeklyGoalAcceptedEnabled",
     },
