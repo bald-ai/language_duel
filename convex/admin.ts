@@ -173,25 +173,3 @@ export const deleteUserFully = internalMutation({
         };
     },
 });
-
-/**
- * ADMIN: Remove legacy email log rows left over from the retired
- * `weekly_goal_declined` email trigger so trimmed schemas can deploy cleanly.
- */
-export const cleanupLegacyWeeklyGoalDeclinedEmailLogs = internalMutation({
-    args: {},
-    handler: async (ctx) => {
-        const logs = await ctx.db.query("emailNotificationLog").collect();
-        const legacyLogs = logs.filter((log) => log.trigger === "weekly_goal_declined");
-
-        for (const log of legacyLogs) {
-            await ctx.db.delete(log._id);
-        }
-
-        return {
-            success: true,
-            deletedCount: legacyLogs.length,
-            deletedIds: legacyLogs.map((log) => log._id),
-        };
-    },
-});

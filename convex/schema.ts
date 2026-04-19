@@ -180,7 +180,6 @@ export const notificationPayloadValidator = v.union(
 export type NotificationPayload = Infer<typeof notificationPayloadValidator>;
 
 // Email notification trigger types
-// Temporary compatibility for cleaning up legacy prod rows.
 export const emailNotificationTriggerValidator = v.union(
   v.literal("immediate_duel_challenge"),
   v.literal("scheduled_duel_proposal"),
@@ -188,7 +187,6 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_invite"),
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
-  v.literal("weekly_goal_declined"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );
