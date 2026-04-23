@@ -7,18 +7,7 @@ import { Level2TypingInput } from "@/app/game/levels/Level2TypingInput";
 import { Level2MultipleChoice } from "@/app/game/levels/Level2MultipleChoice";
 import { Level3Input } from "@/app/game/levels/Level3Input";
 import { hashSeed, seededShuffle } from "@/lib/prng";
-import { AUTO_COMPLETE_DELAY_MS, NAVIGATE_ENABLE_DELAY_MS } from "@/app/game/levels/constants";
-
-const { playTTSMock } = vi.hoisted(() => ({
-  playTTSMock: vi.fn(),
-}));
-
-vi.mock("@/app/game/hooks/useTTS", () => ({
-  useTTS: () => ({
-    isPlaying: false,
-    playTTS: playTTSMock,
-  }),
-}));
+import { AUTO_COMPLETE_DELAY_MS } from "@/app/game/levels/constants";
 
 describe("Solo Challenge keyboard coverage", () => {
   beforeEach(() => {
@@ -171,8 +160,7 @@ describe("Solo Challenge keyboard coverage", () => {
     expect(onWrong).not.toHaveBeenCalled();
   });
 
-  it("LV3 keyboard Enter continues after correct answer", () => {
-    vi.useFakeTimers();
+  it("LV3 keyboard Enter submits correct answer immediately", () => {
     const onCorrect = vi.fn();
     const onWrong = vi.fn();
 
@@ -194,43 +182,8 @@ describe("Solo Challenge keyboard coverage", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(onWrong).not.toHaveBeenCalled();
-    expect(onCorrect).not.toHaveBeenCalled();
-
-    act(() => {
-      vi.advanceTimersByTime(NAVIGATE_ENABLE_DELAY_MS);
-    });
-
-    fireEvent.keyDown(window, { key: "Enter" });
     expect(onCorrect).toHaveBeenCalledWith("gato");
-  });
-
-  it("LV3 keyboard can switch to Listen and trigger TTS", () => {
-    vi.useFakeTimers();
-    const onCorrect = vi.fn();
-
-    render(
-      <Level3Input
-        answer="gato"
-        onCorrect={onCorrect}
-        onWrong={vi.fn()}
-        onSkip={vi.fn()}
-        mode="solo"
-        dataTestIdBase="solo-kb-level3"
-      />
-    );
-
-    const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "gato" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-
-    act(() => {
-      vi.advanceTimersByTime(NAVIGATE_ENABLE_DELAY_MS);
-    });
-
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    fireEvent.keyDown(window, { key: "Enter" });
-
-    expect(playTTSMock).toHaveBeenCalledWith("level3-gato", "gato");
-    expect(onCorrect).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("solo-kb-level3-listen")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("solo-kb-level3-continue")).not.toBeInTheDocument();
   });
 });

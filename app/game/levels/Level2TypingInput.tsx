@@ -272,7 +272,7 @@ export function Level2TypingInput({
               }}
               data-testid={dataTestIdBase ? `${dataTestIdBase}-anagram-submit` : undefined}
             >
-              Submit
+              Confirm
             </button>
           </div>
           {submitted && anagramResult === "wrong" && (
@@ -359,7 +359,7 @@ export function Level2TypingInput({
                 }
                 data-testid={dataTestIdBase ? `${dataTestIdBase}-submit` : undefined}
               >
-                Submit
+                Confirm
               </button>
             </div>
           )}

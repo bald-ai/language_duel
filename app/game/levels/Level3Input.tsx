@@ -3,11 +3,9 @@
 import { useState, useMemo } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters, buildAnagramWithSpaces } from "@/lib/prng";
-import { useTTS } from "@/app/game/hooks/useTTS";
-import { DUEL_CORRECT_DELAY_MS, NAVIGATE_ENABLE_DELAY_MS } from "./constants";
+import { DUEL_CORRECT_DELAY_MS } from "./constants";
 import type { Level3Props, HintProps } from "./types";
 import { buttonStyles, colors } from "@/lib/theme";
-import { useTwoOptionKeyboard } from "./hooks/useTwoOptionKeyboard";
 
 interface Level3ExtendedProps extends Level3Props, HintProps {
   onRequestHint?: () => void;
@@ -16,7 +14,7 @@ interface Level3ExtendedProps extends Level3Props, HintProps {
 /**
  * Level 3 - Pure text input (hardest level)
  * Works for both solo study and duel modes
- * Solo mode: TTS option on correct answer
+ * Solo mode: advances immediately on correct answer
  * Duel mode: hint system with anagram support
  */
 export function Level3Input({
@@ -37,10 +35,6 @@ export function Level3Input({
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isCorrectAnswer, setIsCorrectAnswer] = useState(false);
-  
-  // Solo mode TTS state - using shared hook
-  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
-  const [canNavigate, setCanNavigate] = useState(false);
 
   const isDuelMode = mode === "duel";
   
@@ -69,38 +63,12 @@ export function Level3Input({
         // Duel mode: auto-continue after delay
         setTimeout(() => onCorrect(trimmedInput), DUEL_CORRECT_DELAY_MS);
       } else {
-        // Solo mode: enable keyboard navigation for listen/continue
-        setTimeout(() => setCanNavigate(true), NAVIGATE_ENABLE_DELAY_MS);
+        onCorrect(trimmedInput);
       }
     } else {
       onWrong(trimmedInput);
     }
   };
-
-  // Play TTS for the answer (solo mode)
-  const handlePlayAudio = () => {
-    if (isPlayingAudio) return;
-    playTTS(`level3-${cleanAnswer}`, cleanAnswer);
-  };
-
-  const handleContinue = () => {
-    onCorrect(cleanAnswer);
-  };
-
-  const canKeyboardNavigate = !isDuelMode && isCorrectAnswer && !isPlayingAudio && canNavigate;
-  const { selectedOption, setSelectedOption } = useTwoOptionKeyboard({
-    enabled: canKeyboardNavigate,
-    primaryOption: "listen",
-    secondaryOption: "continue",
-    defaultOption: "continue",
-    onConfirm: (option) => {
-      if (option === "listen") {
-        handlePlayAudio();
-      } else {
-        handleContinue();
-      }
-    },
-  });
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -210,7 +178,7 @@ export function Level3Input({
         </div>
       )}
       
-      {/* Submit buttons — secondary left, primary (Submit) right (LTR) */}
+      {/* Answer buttons — secondary left, primary (Confirm) right (LTR) */}
       {!submitted && (
         <div className="flex gap-3">
           <button
@@ -265,84 +233,16 @@ export function Level3Input({
             }
             data-testid={dataTestIdBase ? `${dataTestIdBase}-submit` : undefined}
           >
-            Submit
+            Confirm
           </button>
         </div>
       )}
       
       {/* Correct answer feedback */}
       {submitted && isCorrectAnswer && (
-        isDuelMode ? (
-          // Duel mode: simple correct message
+        isDuelMode && (
           <div className="text-xl font-bold" style={{ color: colors.status.success.light }}>
             ✓ Correct!
-          </div>
-        ) : (
-          // Solo mode: Listen/Continue options
-          <div className="flex flex-col items-center gap-3">
-            <div className="text-xl font-bold" style={{ color: colors.status.success.DEFAULT }}>
-              Correct
-            </div>
-            {/* Listen left, Continue right (primary / proceed on trailing side) */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setSelectedOption("listen");
-                  handlePlayAudio();
-                }}
-                disabled={isPlayingAudio}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-60"
-                style={
-                  isPlayingAudio
-                    ? {
-                        borderColor: colors.status.success.DEFAULT,
-                        backgroundColor: `${colors.status.success.DEFAULT}26`,
-                        color: colors.status.success.DEFAULT,
-                      }
-                    : selectedOption === "listen"
-                    ? {
-                        borderColor: colors.secondary.DEFAULT,
-                        backgroundColor: `${colors.secondary.DEFAULT}26`,
-                        color: colors.secondary.light,
-                      }
-                    : {
-                        borderColor: colors.primary.dark,
-                        backgroundColor: colors.background.DEFAULT,
-                        color: colors.text.DEFAULT,
-                      }
-                }
-                data-testid={dataTestIdBase ? `${dataTestIdBase}-listen` : undefined}
-              >
-                <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedOption("continue");
-                  handleContinue();
-                }}
-                disabled={isPlayingAudio}
-                className="px-4 py-2 rounded-xl border-2 font-semibold transition-all disabled:opacity-50"
-                style={
-                  selectedOption === "continue"
-                    ? {
-                        borderColor: colors.primary.DEFAULT,
-                        backgroundColor: `${colors.primary.DEFAULT}26`,
-                        color: colors.text.DEFAULT,
-                      }
-                    : {
-                        borderColor: colors.primary.dark,
-                        backgroundColor: colors.background.DEFAULT,
-                        color: colors.text.DEFAULT,
-                      }
-                }
-                data-testid={dataTestIdBase ? `${dataTestIdBase}-continue` : undefined}
-              >
-                Continue
-              </button>
-            </div>
-            <div className="text-xs" style={{ color: colors.text.muted }}>
-              Left and right to select, Enter to confirm
-            </div>
           </div>
         )
       )}

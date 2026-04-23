@@ -257,7 +257,7 @@ export function Level2MultipleChoice({
         </div>
       )}
 
-      {/* Submit buttons — secondary left, primary (Confirm) right (LTR) */}
+      {/* Answer buttons — secondary left, primary (Confirm) right (LTR) */}
       {!submitted && (
         <div className="flex gap-3">
           <button

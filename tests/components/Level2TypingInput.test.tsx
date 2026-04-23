@@ -37,6 +37,8 @@ describe("Level2TypingInput", () => {
   it("submits correct answer in standard mode", () => {
     const props = renderLevel2TypingInput();
 
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
+
     fireEvent.change(screen.getByTestId("l2-input"), {
       target: { value: "el gato" },
     });
@@ -160,6 +162,7 @@ describe("Level2TypingInput", () => {
     });
 
     expect(screen.getByText("Preparing anagram...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("l2-anagram-shuffle"));
     fireEvent.click(screen.getByTestId("l2-anagram-submit"));
