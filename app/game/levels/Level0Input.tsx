@@ -72,7 +72,20 @@ export function Level0Input({ word, answer, onGotIt, onNotYet, dataTestIdBase }:
         </div>
       </div>
 
+      {/* Not yet left, Got it right (primary / proceed on trailing side, LTR) */}
       <div className="flex gap-3 w-full">
+        <button
+          ref={notYetButtonRef}
+          onClick={() => {
+            setSelectedOption("not_yet");
+            onNotYet();
+          }}
+          className={`${actionButtonClassName} ${selectedOption === "not_yet" ? defaultKeyboardActionClassName : ""}`}
+          style={secondaryActionStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-not-yet` : undefined}
+        >
+          Not yet
+        </button>
         <button
           ref={gotItButtonRef}
           onClick={() => {
@@ -85,18 +98,6 @@ export function Level0Input({ word, answer, onGotIt, onNotYet, dataTestIdBase }:
           data-testid={dataTestIdBase ? `${dataTestIdBase}-got-it` : undefined}
         >
           Got it
-        </button>
-        <button
-          ref={notYetButtonRef}
-          onClick={() => {
-            setSelectedOption("not_yet");
-            onNotYet();
-          }}
-          className={`${actionButtonClassName} ${selectedOption === "not_yet" ? defaultKeyboardActionClassName : ""}`}
-          style={secondaryActionStyle}
-          data-testid={dataTestIdBase ? `${dataTestIdBase}-not-yet` : undefined}
-        >
-          Not yet
         </button>
       </div>
     </div>
