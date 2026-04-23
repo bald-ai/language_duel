@@ -210,9 +210,34 @@ export function Level3Input({
         </div>
       )}
       
-      {/* Submit buttons */}
+      {/* Submit buttons — secondary left, primary (Submit) right (LTR) */}
       {!submitted && (
         <div className="flex gap-3">
+          <button
+            onClick={onSkip}
+            className={
+              isDuelMode
+                ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+                : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+            }
+            style={
+              !isDuelMode
+                ? {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.DEFAULT,
+                    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                  }
+                : {
+                    backgroundColor: colors.background.elevated,
+                    borderColor: colors.primary.dark,
+                    color: colors.text.muted,
+                  }
+            }
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
+          >
+            Don&apos;t Know
+          </button>
           <button
             onClick={handleSubmit}
             disabled={!inputValue.trim()}
@@ -242,31 +267,6 @@ export function Level3Input({
           >
             Submit
           </button>
-          <button
-            onClick={onSkip}
-            className={
-              isDuelMode
-                ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
-                : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-            }
-            style={
-              !isDuelMode
-                ? {
-                    backgroundColor: colors.background.elevated,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.DEFAULT,
-                    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-                  }
-                : {
-                    backgroundColor: colors.background.elevated,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.muted,
-                  }
-            }
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
-          >
-            Don&apos;t Know
-          </button>
         </div>
       )}
       
@@ -283,6 +283,7 @@ export function Level3Input({
             <div className="text-xl font-bold" style={{ color: colors.status.success.DEFAULT }}>
               Correct
             </div>
+            {/* Listen left, Continue right (primary / proceed on trailing side) */}
             <div className="flex gap-3">
               <button
                 onClick={() => {

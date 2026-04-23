@@ -257,20 +257,9 @@ export function Level2MultipleChoice({
         </div>
       )}
 
-      {/* Submit buttons */}
+      {/* Submit buttons — secondary left, primary (Confirm) right (LTR) */}
       {!submitted && (
         <div className="flex gap-3">
-          {!isDuelMode && (
-            <button
-              onClick={handleSubmit}
-              disabled={selectedIndex === null}
-              className={actionButtonClassName}
-              style={primaryActionStyle}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm` : undefined}
-            >
-              Confirm
-            </button>
-          )}
           <button
             onClick={isDuelMode ? handleDontKnow : onSkip}
             className={
@@ -291,6 +280,17 @@ export function Level2MultipleChoice({
           >
             Don&apos;t Know
           </button>
+          {!isDuelMode && (
+            <button
+              onClick={handleSubmit}
+              disabled={selectedIndex === null}
+              className={actionButtonClassName}
+              style={primaryActionStyle}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm` : undefined}
+            >
+              Confirm
+            </button>
+          )}
         </div>
       )}
 

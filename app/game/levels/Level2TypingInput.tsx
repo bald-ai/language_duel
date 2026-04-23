@@ -235,7 +235,7 @@ export function Level2TypingInput({
           <div className="flex flex-wrap gap-3 justify-center w-full">
             {renderAnagramTiles()}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap justify-center">
             <button
               onClick={handleShuffleAnagram}
               disabled={submitted}
@@ -250,6 +250,18 @@ export function Level2TypingInput({
               Shuffle again
             </button>
             <button
+              onClick={onSkip}
+              className="px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+              }}
+              data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
+            >
+              Don&apos;t Know
+            </button>
+            <button
               onClick={handleSubmitAnagram}
               disabled={submitted}
               className="px-6 py-2 rounded-lg font-medium border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -261,18 +273,6 @@ export function Level2TypingInput({
               data-testid={dataTestIdBase ? `${dataTestIdBase}-anagram-submit` : undefined}
             >
               Submit
-            </button>
-            <button
-              onClick={onSkip}
-              className="px-4 py-2 rounded-lg text-sm border-2 transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.muted,
-              }}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
-            >
-              Don&apos;t Know
             </button>
           </div>
           {submitted && anagramResult === "wrong" && (
@@ -321,6 +321,26 @@ export function Level2TypingInput({
           {!submitted && (
             <div className="flex gap-3">
               <button
+                onClick={onSkip}
+                className={
+                  isDuelMode
+                    ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
+                    : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+                }
+                style={
+                  !isDuelMode
+                    ? ghostActionStyle
+                    : {
+                        backgroundColor: colors.background.elevated,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.muted,
+                      }
+                }
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
+              >
+                Don&apos;t Know
+              </button>
+              <button
                 onClick={handleSubmit}
                 disabled={!inputValue.trim()}
                 className={
@@ -340,26 +360,6 @@ export function Level2TypingInput({
                 data-testid={dataTestIdBase ? `${dataTestIdBase}-submit` : undefined}
               >
                 Submit
-              </button>
-              <button
-                onClick={onSkip}
-                className={
-                  isDuelMode
-                    ? "px-4 py-2 rounded-lg text-sm font-medium transition border-2 hover:brightness-110"
-                    : "px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-                }
-                style={
-                  !isDuelMode
-                    ? ghostActionStyle
-                    : {
-                        backgroundColor: colors.background.elevated,
-                        borderColor: colors.primary.dark,
-                        color: colors.text.muted,
-                      }
-                }
-                data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
-              >
-                Don&apos;t Know
               </button>
             </div>
           )}
