@@ -405,6 +405,25 @@ export default defineSchema({
     .index("by_status_endDate", ["status", "endDate"]),
 
   // -------------------------------------------
+  // Weekly Goal Theme Snapshots Table
+  // -------------------------------------------
+  weeklyGoalThemeSnapshots: defineTable({
+    weeklyGoalId: v.id("weeklyGoals"),
+    originalThemeId: v.id("themes"),
+    order: v.number(),
+    name: v.string(),
+    description: v.string(),
+    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    words: v.array(wordValidator),
+    lockedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_weeklyGoal", ["weeklyGoalId"])
+    .index("by_weeklyGoal_order", ["weeklyGoalId", "order"])
+    .index("by_weeklyGoal_originalTheme", ["weeklyGoalId", "originalThemeId"])
+    .index("by_originalTheme", ["originalThemeId"]),
+
+  // -------------------------------------------
   // Notifications Table
   // -------------------------------------------
   notifications: defineTable({

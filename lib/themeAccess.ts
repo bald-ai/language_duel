@@ -41,7 +41,7 @@ export type ThemeAccessParams = {
 };
 
 const ACTIVE_SCHEDULED_DUEL_STATUSES = ["pending", "accepted", "counter_proposed"] as const;
-const ACTIVE_GOAL_STATUSES = ["editing", "active", "expired"] as const;
+const WEEKLY_GOAL_ACCESS_STATUSES = ["editing"] as const;
 
 export function hasThemeAccess(params: ThemeAccessParams): boolean {
     const { userId, theme, challenges, scheduledDuels, weeklyGoals, friendships } = params;
@@ -105,7 +105,7 @@ function hasAccessViaWeeklyGoal(
 ): boolean {
     return weeklyGoals.some(
         (goal) =>
-            ACTIVE_GOAL_STATUSES.includes(goal.status as typeof ACTIVE_GOAL_STATUSES[number]) &&
+            WEEKLY_GOAL_ACCESS_STATUSES.includes(goal.status as typeof WEEKLY_GOAL_ACCESS_STATUSES[number]) &&
             (goal.creatorId === userId || goal.partnerId === userId) &&
             goal.themeIds.includes(themeId)
     );

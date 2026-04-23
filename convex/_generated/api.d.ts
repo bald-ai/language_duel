@@ -24,6 +24,7 @@ import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
 import type * as helpers_sessionWords from "../helpers/sessionWords.js";
 import type * as helpers_users from "../helpers/users.js";
+import type * as helpers_weeklyGoalSnapshots from "../helpers/weeklyGoalSnapshots.js";
 import type * as hints from "../hints.js";
 import type * as lobby from "../lobby.js";
 import type * as migrations from "../migrations.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "helpers/index": typeof helpers_index;
   "helpers/sessionWords": typeof helpers_sessionWords;
   "helpers/users": typeof helpers_users;
+  "helpers/weeklyGoalSnapshots": typeof helpers_weeklyGoalSnapshots;
   hints: typeof hints;
   lobby: typeof lobby;
   migrations: typeof migrations;

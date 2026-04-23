@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   applyGeneratedThemeTts,
+  deleteTheme,
   toggleThemeArchive,
   updateTheme,
   updateThemeFriendsCanEdit,
@@ -32,16 +33,51 @@ type ThemeDoc = Pick<
   words: ThemeWord[];
 };
 
+type WeeklyGoalDoc = Pick<
+  Doc<"weeklyGoals">,
+  "_id" | "_creationTime" | "creatorId" | "partnerId" | "themes" | "status"
+>;
+
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  Doc<"weeklyGoalThemeSnapshots">,
+  | "_id"
+  | "_creationTime"
+  | "weeklyGoalId"
+  | "originalThemeId"
+  | "order"
+  | "name"
+  | "description"
+  | "wordType"
+  | "words"
+  | "lockedAt"
+  | "createdAt"
+>;
+
 class InMemoryDb {
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
+  public weeklyGoals: WeeklyGoalDoc[] = [];
+  public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
 
-  query(_table: "users") {
-    return createIndexedQuery(this.users);
+  query(table: "users" | "weeklyGoals" | "weeklyGoalThemeSnapshots") {
+    switch (table) {
+      case "users":
+        return createIndexedQuery(this.users);
+      case "weeklyGoals":
+        return createIndexedQuery(this.weeklyGoals);
+      case "weeklyGoalThemeSnapshots":
+        return createIndexedQuery(this.weeklyGoalThemeSnapshots);
+    }
   }
 
-  async get(id: Id<"themes">): Promise<ThemeDoc | null> {
-    return this.themes.find((theme) => theme._id === id) ?? null;
+  async get(id: Id<"themes"> | Id<"users"> | Id<"weeklyGoals"> | Id<"weeklyGoalThemeSnapshots">) {
+    return (
+      this.themes.find((theme) => theme._id === id) ??
+      this.users.find((user) => user._id === id) ??
+      this.weeklyGoals.find((goal) => goal._id === id) ??
+      this.weeklyGoalThemeSnapshots.find((snapshot) => snapshot._id === id) ??
+      null
+    );
   }
 
   async patch(id: Id<"themes"> | Id<"users">, value: Record<string, unknown>): Promise<void> {
@@ -51,6 +87,21 @@ class InMemoryDb {
     }
 
     patchRow(this.users, id, value);
+  }
+
+  async delete(id: Id<"themes"> | Id<"weeklyGoalThemeSnapshots">): Promise<void> {
+    if (String(id).startsWith("theme_")) {
+      const index = this.themes.findIndex((theme) => theme._id === id);
+      if (index >= 0) {
+        this.themes.splice(index, 1);
+      }
+      return;
+    }
+
+    const index = this.weeklyGoalThemeSnapshots.findIndex((snapshot) => snapshot._id === id);
+    if (index >= 0) {
+      this.weeklyGoalThemeSnapshots.splice(index, 1);
+    }
   }
 }
 
@@ -99,6 +150,51 @@ function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     ownerId: "user_1" as Id<"users">,
     visibility: "private",
     friendsCanEdit: false,
+    ...overrides,
+  };
+}
+
+function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
+  return {
+    _id: "goal_1" as Id<"weeklyGoals">,
+    _creationTime: Date.now(),
+    creatorId: "user_1" as Id<"users">,
+    partnerId: "user_2" as Id<"users">,
+    themes: [
+      {
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "ANIMALS",
+        creatorCompleted: false,
+        partnerCompleted: false,
+      },
+    ],
+    status: "editing",
+    ...overrides,
+  };
+}
+
+function snapshotDoc(
+  overrides: Partial<WeeklyGoalThemeSnapshotDoc> = {}
+): WeeklyGoalThemeSnapshotDoc {
+  return {
+    _id: "snapshot_1" as Id<"weeklyGoalThemeSnapshots">,
+    _creationTime: Date.now(),
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    originalThemeId: "theme_1" as Id<"themes">,
+    order: 0,
+    name: "ANIMALS",
+    description: "Animals",
+    wordType: "nouns",
+    words: [
+      {
+        word: "cat",
+        answer: "kocka",
+        wrongAnswers: ["strom", "auto", "more"],
+        ttsStorageId: "storage_1" as Id<"_storage">,
+      },
+    ],
+    lockedAt: Date.now(),
+    createdAt: Date.now(),
     ...overrides,
   };
 }
@@ -276,6 +372,42 @@ describe("themes core handlers", () => {
     ]);
   });
 
+  it("updateTheme keeps stale tts files that are still referenced by a goal snapshot", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(
+      themeDoc({
+        words: [
+          {
+            word: "cat",
+            answer: "kocka",
+            wrongAnswers: ["strom", "auto", "more"],
+            ttsStorageId: "storage_1" as Id<"_storage">,
+          },
+        ],
+      })
+    );
+    db.weeklyGoalThemeSnapshots.push(snapshotDoc());
+
+    const storage = new InMemoryStorage();
+    const handler = (updateTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes">; words?: ThemeWord[] }) => Promise<ThemeDoc | null>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_owner", storage), {
+      themeId: "theme_1" as Id<"themes">,
+      words: [
+        {
+          word: "bird",
+          answer: "vtak",
+          wrongAnswers: ["rieka", "hora", "cesta"],
+        },
+      ],
+    });
+
+    expect(storage.deleteCalls).toEqual([]);
+  });
+
   it("updateTheme continues when stale file deletion fails", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
@@ -363,6 +495,124 @@ describe("themes core handlers", () => {
         friendsCanEdit: false,
       })
     ).rejects.toThrow("You can only change edit permissions of your own themes");
+  });
+
+  it("deleteTheme blocks deletion when the theme is part of a planning goal", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(themeDoc());
+    db.weeklyGoals.push(weeklyGoalDoc());
+
+    const handler = (deleteTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes"> }) => Promise<void>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_owner"), {
+        themeId: "theme_1" as Id<"themes">,
+      })
+    ).rejects.toThrow("goal still being planned");
+  });
+
+  it("deleteTheme ignores unrelated planning goals and only checks the owner's own goals", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(themeDoc());
+    db.weeklyGoals.push(
+      weeklyGoalDoc({
+        _id: "goal_other" as Id<"weeklyGoals">,
+        creatorId: "user_3" as Id<"users">,
+        partnerId: "user_4" as Id<"users">,
+      })
+    );
+
+    const handler = (deleteTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes"> }) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_owner"), {
+      themeId: "theme_1" as Id<"themes">,
+    });
+
+    expect(db.themes).toHaveLength(0);
+  });
+
+  it("deleteTheme allows deletion when only locked snapshot-backed goals still reference it", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(themeDoc());
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "active" }));
+    db.weeklyGoalThemeSnapshots.push(snapshotDoc());
+
+    const handler = (deleteTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes"> }) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_owner"), {
+      themeId: "theme_1" as Id<"themes">,
+    });
+
+    expect(db.themes).toHaveLength(0);
+  });
+
+  it("deleteTheme deletes live TTS files once the theme row is gone", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(
+      themeDoc({
+        words: [
+          {
+            word: "cat",
+            answer: "kocka",
+            wrongAnswers: ["strom", "auto", "more"],
+            ttsStorageId: "storage_live" as Id<"_storage">,
+          },
+        ],
+      })
+    );
+
+    const storage = new InMemoryStorage();
+    const handler = (deleteTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes"> }) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_owner", storage), {
+      themeId: "theme_1" as Id<"themes">,
+    });
+
+    expect(db.themes).toHaveLength(0);
+    expect(storage.deleteCalls).toEqual([
+      "storage_live" as Id<"_storage">,
+    ]);
+  });
+
+  it("deleteTheme keeps live TTS files when snapshots still reference them", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(
+      themeDoc({
+        words: [
+          {
+            word: "cat",
+            answer: "kocka",
+            wrongAnswers: ["strom", "auto", "more"],
+            ttsStorageId: "storage_1" as Id<"_storage">,
+          },
+        ],
+      })
+    );
+    db.weeklyGoalThemeSnapshots.push(snapshotDoc());
+
+    const storage = new InMemoryStorage();
+    const handler = (deleteTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes"> }) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_owner", storage), {
+      themeId: "theme_1" as Id<"themes">,
+    });
+
+    expect(storage.deleteCalls).toEqual([]);
   });
 
   it("applyGeneratedThemeTts applies matching items and rejects stale ones", async () => {

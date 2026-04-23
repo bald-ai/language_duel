@@ -3,6 +3,12 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import {
+  collectTtsStorageIds,
+  deleteStorageIdsSafely,
+  deleteUnreferencedStorageIdsForTheme,
+  getSnapshotReferencedStorageIdsForTheme,
+} from "./helpers/themeTtsStorage";
 import { loadUsersById } from "./helpers/users";
 import { hasThemeAccess } from "../lib/themeAccess";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
@@ -281,7 +287,7 @@ export const getThemes = query({
         .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
         .collect();
       const activeGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
-        (g) => g.status === "editing" || g.status === "active"
+        (g) => g.status === "editing"
       );
       const goalThemeIds = activeGoals.flatMap((g) => g.themes.map((t) => t.themeId));
 
@@ -543,23 +549,23 @@ export const updateTheme = mutation({
 
       filteredUpdates.words = reconciledWords;
 
-      const previousStorageIds = new Set(
-        previousWords.map((word) => word.ttsStorageId).filter((id): id is Id<"_storage"> => !!id)
-      );
-      const nextStorageIds = new Set(
-        reconciledWords.map((word) => word.ttsStorageId).filter((id): id is Id<"_storage"> => !!id)
-      );
+      const previousStorageIds = collectTtsStorageIds(previousWords);
+      const nextStorageIds = collectTtsStorageIds(reconciledWords);
 
       const staleStorageIds = [...previousStorageIds].filter((id) => !nextStorageIds.has(id));
       if (staleStorageIds.length > 0) {
-        await Promise.all(
-          staleStorageIds.map(async (storageId) => {
-            try {
-              await ctx.storage.delete(storageId);
-            } catch (error) {
-              console.error("[Theme TTS] Failed to delete stale storage file:", storageId, error);
-            }
-          })
+        const snapshotReferencedStorageIds = await getSnapshotReferencedStorageIdsForTheme(
+          ctx,
+          themeId
+        );
+        const deletableStorageIds = staleStorageIds.filter(
+          (storageId) => !snapshotReferencedStorageIds.has(storageId)
+        );
+
+        await deleteStorageIdsSafely(
+          ctx,
+          deletableStorageIds,
+          "[Theme TTS] Failed to delete stale storage file:"
         );
       }
     }
@@ -629,7 +635,34 @@ export const deleteTheme = mutation({
       throw new Error("You can only delete your own themes");
     }
 
+    const goalsAsCreator = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_creator", (q) => q.eq("creatorId", user._id))
+      .collect();
+    const goalsAsPartner = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_partner", (q) => q.eq("partnerId", user._id))
+      .collect();
+    const relevantEditingGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
+      (goal, index, goals) =>
+        goal.status === "editing" &&
+        goals.findIndex((candidate) => candidate._id === goal._id) === index
+    );
+    const editingGoal = relevantEditingGoals.find((goal) =>
+      goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId)
+    );
+    if (editingGoal) {
+      throw new Error("Cannot delete a theme that is part of a goal still being planned");
+    }
+
+    const themeStorageIds = collectTtsStorageIds(theme.words as ThemeWordWithTts[]);
     await ctx.db.delete(args.themeId);
+    await deleteUnreferencedStorageIdsForTheme(
+      ctx,
+      args.themeId,
+      themeStorageIds,
+      "[Theme TTS] Failed to delete deleted-theme storage file:"
+    );
   },
 });
 

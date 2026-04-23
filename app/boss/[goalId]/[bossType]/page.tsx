@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -8,7 +8,6 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
-import { buildSessionWords } from "@/lib/sessionWords";
 
 type BossType = "mini" | "big";
 
@@ -26,35 +25,15 @@ export default function BossLaunchPage() {
   const bossTypeParam = typeof params.bossType === "string" ? params.bossType : "";
   const bossType = isBossType(bossTypeParam) ? bossTypeParam : null;
 
-  const goal = useQuery(
-    api.weeklyGoals.getGoalById,
-    goalId ? { goalId: goalId as Id<"weeklyGoals"> } : "skip"
+  const preview = useQuery(
+    api.weeklyGoals.getBossLaunchPreview,
+    goalId && bossType
+      ? { goalId: goalId as Id<"weeklyGoals">, bossType }
+      : "skip"
   );
-  const allThemes = useQuery(api.themes.getThemes, {});
   const startBossDuel = useMutation(api.weeklyGoals.startBossDuel);
   const startBossPractice = useMutation(api.weeklyGoals.startBossPractice);
-
-  const selectedThemes = useMemo(() => {
-    if (!goal || !allThemes || !bossType) return [];
-    const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
-    return goal.goal.themes
-      .filter((goalTheme) =>
-        bossType === "big" || (goalTheme.creatorCompleted && goalTheme.partnerCompleted)
-      )
-      .flatMap((goalTheme) => {
-        const theme = themeMap.get(goalTheme.themeId);
-        return theme ? [theme] : [];
-      });
-  }, [allThemes, bossType, goal]);
-
-  const fullSessionWords = useMemo(() => buildSessionWords(selectedThemes), [selectedThemes]);
-  const bossWordCount = useMemo(() => {
-    if (!bossType) return 0;
-    const cap = bossType === "mini" ? 20 : 30;
-    return Math.min(cap, fullSessionWords.length);
-  }, [bossType, fullSessionWords.length]);
-
-  const bossStatus = bossType === "mini" ? goal?.miniBossStatus : goal?.bossStatus;
+  const bossStatus = preview?.bossStatus;
   const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
   const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
   const canStart = bossStatus === "available";
@@ -101,7 +80,7 @@ export default function BossLaunchPage() {
     );
   }
 
-  if (goal === undefined) {
+  if (preview === undefined) {
     return (
       <ThemedPage className="px-4 py-6">
         <div className="max-w-md mx-auto flex items-center justify-center py-20">
@@ -111,7 +90,7 @@ export default function BossLaunchPage() {
     );
   }
 
-  if (goal === null) {
+  if (preview === null) {
     return (
       <ThemedPage className="px-4 py-6">
         <div className="max-w-md mx-auto space-y-4">
@@ -173,7 +152,7 @@ export default function BossLaunchPage() {
                 Themes
               </p>
               <p className="text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
-                {goal?.goal.themes.length ?? 0}
+                {preview.themeCount}
               </p>
             </div>
             <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
@@ -181,7 +160,7 @@ export default function BossLaunchPage() {
                 Words
               </p>
               <p className="text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
-                {bossWordCount}
+                {preview.wordCount}
               </p>
             </div>
           </div>

@@ -175,7 +175,7 @@ describe("hasThemeAccess", () => {
     });
 
     describe("weekly goal access", () => {
-        it("grants access when user is creator in active goal with this theme", () => {
+        it("denies access when user is creator in active goal with this theme", () => {
             const params = makeParams({
                 weeklyGoals: [
                     {
@@ -186,7 +186,7 @@ describe("hasThemeAccess", () => {
                     },
                 ],
             });
-            expect(hasThemeAccess(params)).toBe(true);
+            expect(hasThemeAccess(params)).toBe(false);
         });
 
         it("grants access when user is partner in editing goal with this theme", () => {

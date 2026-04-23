@@ -44,6 +44,10 @@ type NotificationDoc = Pick<
 >;
 
 type ChallengeDoc = Pick<Doc<"challenges">, "_id" | "_creationTime" | "weeklyGoalId">;
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  Doc<"weeklyGoalThemeSnapshots">,
+  "_id" | "_creationTime" | "weeklyGoalId" | "originalThemeId" | "order"
+>;
 
 class InMemoryDb {
   private notificationCounter = 100;
@@ -52,10 +56,11 @@ class InMemoryDb {
     public users: UserDoc[],
     public weeklyGoals: WeeklyGoalDoc[],
     public notifications: NotificationDoc[],
-    public challenges: ChallengeDoc[] = []
+    public challenges: ChallengeDoc[] = [],
+    public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = []
   ) {}
 
-  query(table: "users" | "weeklyGoals" | "notifications" | "challenges") {
+  query(table: "users" | "weeklyGoals" | "notifications" | "challenges" | "weeklyGoalThemeSnapshots") {
     switch (table) {
       case "users":
         return createIndexedQuery(this.users);
@@ -65,6 +70,8 @@ class InMemoryDb {
         return createIndexedQuery(this.notifications);
       case "challenges":
         return createIndexedQuery(this.challenges);
+      case "weeklyGoalThemeSnapshots":
+        return createIndexedQuery(this.weeklyGoalThemeSnapshots);
     }
   }
 
@@ -74,6 +81,7 @@ class InMemoryDb {
       this.weeklyGoals.find((row) => row._id === id) ??
       this.notifications.find((row) => row._id === id) ??
       this.challenges.find((row) => row._id === id) ??
+      this.weeklyGoalThemeSnapshots.find((row) => row._id === id) ??
       null
     );
   }
@@ -91,6 +99,7 @@ class InMemoryDb {
     deleteRow(this.weeklyGoals, id);
     deleteRow(this.notifications, id);
     deleteRow(this.challenges, id);
+    deleteRow(this.weeklyGoalThemeSnapshots, id);
   }
 
   async insert(table: "notifications", value: Record<string, unknown>) {

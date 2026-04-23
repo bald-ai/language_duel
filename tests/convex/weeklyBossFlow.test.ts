@@ -76,7 +76,28 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     | "createdAt"
   >;
 
-type Row = UserDoc | ThemeDoc | WeeklyGoalDoc | ChallengeDoc | NotificationDoc;
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  Doc<"weeklyGoalThemeSnapshots">,
+  | "_id"
+  | "_creationTime"
+  | "weeklyGoalId"
+  | "originalThemeId"
+  | "order"
+  | "name"
+  | "description"
+  | "wordType"
+  | "words"
+  | "lockedAt"
+  | "createdAt"
+>;
+
+type Row =
+  | UserDoc
+  | ThemeDoc
+  | WeeklyGoalDoc
+  | ChallengeDoc
+  | NotificationDoc
+  | WeeklyGoalThemeSnapshotDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
@@ -85,19 +106,35 @@ class InMemoryDb {
   public weeklyGoals: WeeklyGoalDoc[] = [];
   public challenges: ChallengeDoc[] = [];
   public notifications: NotificationDoc[] = [];
+  public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
 
   private counters = {
     challenges: 10,
     notifications: 10,
   };
 
-  query(table: "users" | "themes" | "weeklyGoals" | "challenges" | "notifications") {
+  query(
+    table:
+      | "users"
+      | "themes"
+      | "weeklyGoals"
+      | "challenges"
+      | "notifications"
+      | "weeklyGoalThemeSnapshots"
+  ) {
     return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
     return findRowById<Row>(
-      [this.users, this.themes, this.weeklyGoals, this.challenges, this.notifications],
+      [
+        this.users,
+        this.themes,
+        this.weeklyGoals,
+        this.challenges,
+        this.notifications,
+        this.weeklyGoalThemeSnapshots,
+      ],
       id
     );
   }
@@ -108,18 +145,27 @@ class InMemoryDb {
   }
 
   async insert(
-    table: "challenges" | "notifications",
+    table: "challenges" | "notifications" | "weeklyGoalThemeSnapshots",
     value: Record<string, unknown>
-  ): Promise<Id<"challenges"> | Id<"notifications">> {
+  ): Promise<Id<"challenges"> | Id<"notifications"> | Id<"weeklyGoalThemeSnapshots">> {
     if (table === "challenges") {
       const inserted = insertRow<ChallengeDoc>(this.challenges, "challenge", this.counters.challenges, value);
       this.counters.challenges = inserted.nextCounter;
       return inserted.id as Id<"challenges">;
-    } else {
+    } else if (table === "notifications") {
       const inserted = insertRow<NotificationDoc>(this.notifications, "notification", this.counters.notifications, value);
       this.counters.notifications = inserted.nextCounter;
       return inserted.id as Id<"notifications">;
     }
+
+    const inserted = insertRow<WeeklyGoalThemeSnapshotDoc>(
+      this.weeklyGoalThemeSnapshots,
+      "snapshot",
+      this.counters.notifications,
+      value
+    );
+    this.counters.notifications = inserted.nextCounter;
+    return inserted.id as Id<"weeklyGoalThemeSnapshots">;
   }
 
   async delete(id: string): Promise<void> {
@@ -127,7 +173,15 @@ class InMemoryDb {
     deleteRow<Row>(this.getTable(table) as TableRows, id);
   }
 
-  private getTable(table: "users" | "themes" | "weeklyGoals" | "challenges" | "notifications") {
+  private getTable(
+    table:
+      | "users"
+      | "themes"
+      | "weeklyGoals"
+      | "challenges"
+      | "notifications"
+      | "weeklyGoalThemeSnapshots"
+  ) {
     switch (table) {
       case "users":
         return this.users;
@@ -139,15 +193,20 @@ class InMemoryDb {
         return this.challenges;
       case "notifications":
         return this.notifications;
+      case "weeklyGoalThemeSnapshots":
+        return this.weeklyGoalThemeSnapshots;
     }
   }
 
-  private findTableForId(id: string): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" {
+  private findTableForId(
+    id: string
+  ): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" | "weeklyGoalThemeSnapshots" {
     if (id.startsWith("user_")) return "users";
     if (id.startsWith("theme_")) return "themes";
     if (id.startsWith("goal_")) return "weeklyGoals";
     if (id.startsWith("challenge_")) return "challenges";
     if (id.startsWith("notification_")) return "notifications";
+    if (id.startsWith("snapshot_")) return "weeklyGoalThemeSnapshots";
     throw new Error(`Unsupported id: ${id}`);
   }
 }
@@ -216,6 +275,28 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     bossStatus: "locked",
     status: "active",
     createdAt: 1,
+    ...overrides,
+  };
+}
+
+function weeklyGoalThemeSnapshotDoc(
+  overrides: Partial<WeeklyGoalThemeSnapshotDoc> = {}
+): WeeklyGoalThemeSnapshotDoc {
+  return {
+    _id: "snapshot_1" as Id<"weeklyGoalThemeSnapshots">,
+    _creationTime: 1,
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    originalThemeId: "theme_1" as Id<"themes">,
+    order: 0,
+    name: "Animals (Locked)",
+    description: "Locked copy",
+    wordType: "nouns",
+    words: [
+      { word: "cat", answer: "kocka", wrongAnswers: ["strom", "dom", "most"] },
+      { word: "dog", answer: "pes", wrongAnswers: ["vlak", "more", "dom"] },
+    ],
+    lockedAt: 1_000,
+    createdAt: 1_000,
     ...overrides,
   };
 }
@@ -599,5 +680,91 @@ describe("weekly boss flow", () => {
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
     expect(challenge?.sessionWords.length).toBe(20);
+  });
+
+  it("uses snapshots for boss words after the original theme is edited", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(12_000);
+
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
+    );
+    db.themes.push(
+      themeDoc({
+        words: [{ word: "edited", answer: "upraveny", wrongAnswers: ["a", "b", "c"] }],
+      }),
+      themeDoc({
+        _id: "theme_2" as Id<"themes">,
+        name: "Food",
+        ownerId: "user_2" as Id<"users">,
+        words: [{ word: "edited_food", answer: "jedlo", wrongAnswers: ["x", "y", "z"] }],
+      })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc());
+    db.weeklyGoalThemeSnapshots.push(
+      weeklyGoalThemeSnapshotDoc(),
+      weeklyGoalThemeSnapshotDoc({
+        _id: "snapshot_2" as Id<"weeklyGoalThemeSnapshots">,
+        originalThemeId: "theme_2" as Id<"themes">,
+        order: 1,
+        name: "Food (Locked)",
+        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
+      })
+    );
+
+    const handler = (startBossDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "big",
+    });
+
+    const challenge = db.challenges.find((entry) => entry._id === challengeId);
+    expect(challenge?.sessionWords.some((word) => word.word === "cat")).toBe(true);
+    expect(challenge?.sessionWords.some((word) => word.word === "edited")).toBe(false);
+  });
+
+  it("uses snapshots for boss words after the original theme is deleted", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(12_000);
+
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc());
+    db.weeklyGoalThemeSnapshots.push(
+      weeklyGoalThemeSnapshotDoc(),
+      weeklyGoalThemeSnapshotDoc({
+        _id: "snapshot_2" as Id<"weeklyGoalThemeSnapshots">,
+        originalThemeId: "theme_2" as Id<"themes">,
+        order: 1,
+        name: "Food (Locked)",
+        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
+      })
+    );
+
+    const handler = (startBossDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "big",
+    });
+
+    const challenge = db.challenges.find((entry) => entry._id === challengeId);
+    expect(challenge?.sessionWords.map((word) => word.word)).toEqual(
+      expect.arrayContaining(["cat", "bread"])
+    );
   });
 });

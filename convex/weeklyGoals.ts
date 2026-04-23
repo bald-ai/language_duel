@@ -11,6 +11,11 @@ import { buildChallengeBase, buildChallengeStartState } from "./helpers/challeng
 import { shuffleArray } from "./helpers/gameLogic";
 import { loadThemesByIds, summarizeSessionWords } from "./helpers/sessionWords";
 import { loadUsersById } from "./helpers/users";
+import {
+  createWeeklyGoalThemeSnapshots,
+  deleteWeeklyGoalThemeSnapshots,
+  loadWeeklyGoalSessionThemesByThemeIds,
+} from "./helpers/weeklyGoalSnapshots";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
 import { GRACE_PERIOD_MS, WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
@@ -72,6 +77,15 @@ function buildSampledBossSessionWords(
   }
 
   return shuffleArray(fullSessionWords).slice(0, getBossWordCap(bossType));
+}
+
+async function loadGoalThemesForBoss(
+  ctx: MutationCtx,
+  goal: Doc<"weeklyGoals">,
+  bossType: BossType
+) {
+  const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
+  return loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
 }
 
 async function dismissGoalNotifications(
@@ -257,6 +271,15 @@ async function deleteBossChallengesForGoal(
   }
 }
 
+async function deleteGoalAndRelatedData(
+  ctx: MutationCtx,
+  goal: Doc<"weeklyGoals">
+) {
+  await deleteBossChallengesForGoal(ctx, goal);
+  await deleteWeeklyGoalThemeSnapshots(ctx, goal._id);
+  await ctx.db.delete(goal._id);
+}
+
 export async function closeVisibleGoalsBetweenParticipants(
   ctx: MutationCtx,
   firstUserId: Id<"users">,
@@ -298,8 +321,7 @@ export async function closeVisibleGoalsBetweenParticipants(
 
   for (const goal of visibleGoals) {
     await dismissGoalNotifications(ctx, goal._id);
-    await deleteBossChallengesForGoal(ctx, goal);
-    await ctx.db.delete(goal._id);
+    await deleteGoalAndRelatedData(ctx, goal);
   }
 
   return visibleGoals.length;
@@ -544,6 +566,42 @@ export const getGoalById = query({
   },
 });
 
+export const getBossLaunchPreview = query({
+  args: {
+    goalId: v.id("weeklyGoals"),
+    bossType: v.union(v.literal("mini"), v.literal("big")),
+  },
+  handler: async (ctx, { goalId, bossType }) => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+
+    const goal = await ctx.db.get(goalId);
+    if (!goal) return null;
+
+    const isCreator = goal.creatorId === auth.user._id;
+    const isPartner = goal.partnerId === auth.user._id;
+    if (!isCreator && !isPartner) return null;
+
+    const now = Date.now();
+    if (!shouldIncludeGoal(goal, now)) {
+      return null;
+    }
+
+    const effectiveStatus = bossType === "mini"
+      ? getEffectiveMiniBossStatus(goal, now)
+      : getEffectiveBossStatus(goal, now);
+    const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
+    const themes = await loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
+    const fullSessionWords = buildSessionWords(themes);
+
+    return {
+      themeCount: themes.length,
+      wordCount: Math.min(getBossWordCap(bossType), fullSessionWords.length),
+      bossStatus: effectiveStatus,
+    };
+  },
+});
+
 export const getBossPracticeSession = query({
   args: { challengeId: v.id("challenges") },
   handler: async (ctx, { challengeId }) => {
@@ -618,8 +676,7 @@ export const purgeExpiredGoalsForUser = mutation({
 
       if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
         await dismissGoalNotifications(ctx, goal._id);
-        await deleteBossChallengesForGoal(ctx, goal);
-        await ctx.db.delete(goal._id);
+        await deleteGoalAndRelatedData(ctx, goal);
         deletedCount++;
       }
     }
@@ -971,8 +1028,7 @@ async function validateAndPrepareBoss(
     throw new Error("This boss is not ready yet");
   }
 
-  const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
-  const themes = await loadThemesByIds(ctx, eligibleThemeIds);
+  const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
   const sampledSessionWords = buildSampledBossSessionWords(themes, bossType);
 
   return { user, goal, isCreator, now, sampledSessionWords };
@@ -1169,6 +1225,8 @@ export const lockGoal = mutation({
     }
 
     if (bothLocked) {
+      await createWeeklyGoalThemeSnapshots(ctx, goal, now);
+
       // Both are now locked - activate the goal
       updates.status = "active";
       updates.lockedAt = now;
@@ -1234,8 +1292,7 @@ export const deleteGoal = mutation({
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
     await dismissGoalNotifications(ctx, goalId);
-    await deleteBossChallengesForGoal(ctx, goal);
-    await ctx.db.delete(goalId);
+    await deleteGoalAndRelatedData(ctx, goal);
   },
 });
 
@@ -1330,8 +1387,7 @@ export const cleanupExpiredGoals = internalMutation({
     );
 
     for (const goal of uniqueGoalsToDelete) {
-      await deleteBossChallengesForGoal(ctx, goal);
-      await ctx.db.delete(goal._id);
+      await deleteGoalAndRelatedData(ctx, goal);
     }
   },
 });
@@ -1420,8 +1476,7 @@ export const declineWeeklyPlanInvitation = mutation({
       createdAt: now,
     });
 
-    await deleteBossChallengesForGoal(ctx, goal);
-    await ctx.db.delete(goal._id);
+    await deleteGoalAndRelatedData(ctx, goal);
 
     return { success: true };
   },

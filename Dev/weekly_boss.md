@@ -63,7 +63,7 @@ These choices keep scope tight and give us a shippable version fast:
 - **End date edits are allowed only while the goal is still in progress.** Once all themes are completed or the end date has been reached, the date is frozen.
 - **Midpoint is always derived, never stored.** It equals `floor(duration / 2)` days from start. If the end date changes while still editable, midpoint updates automatically. Once the end date is frozen, midpoint is frozen too.
 - **After the end date is reached, unfinished goals stay visible for up to 48 hours, then auto-delete.**
-- **Auto-delete removes everything** — the weekly goal container and any associated boss session/challenge records.
+- **Auto-delete removes everything** — the weekly goal container, its theme snapshots, any associated boss session/challenge records, and orphaned snapshot-only TTS files.
 - **Weekly goal `completed` means the big boss was defeated.**
 - **When a goal is completed, it closes and both players get a celebratory completion notification/message.** The closed goal can then be dismissed from the UI.
 
