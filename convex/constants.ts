@@ -15,6 +15,12 @@ export const MAX_USERS_QUERY = 100;
 export const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900] as const;
 export const DEFAULT_TIMER_DURATION = 300; // 5 minutes
 
+/**
+ * Solo learn "no time limit" — same sentinel as `SOLO_INFINITE_STUDY_SECONDS` in
+ * `lib/soloLearnTimer.ts` (keep values in sync).
+ */
+export const SOLO_INFINITE_STUDY_SECONDS = 999_999_999;
+
 // ===========================================
 // Pool & Progression Settings
 // ===========================================

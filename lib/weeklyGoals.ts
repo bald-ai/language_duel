@@ -1,3 +1,5 @@
+import { GRACE_PERIOD_MS } from "../convex/constants";
+
 export const MIN_THEMES_PER_GOAL = 2;
 
 export type WeeklyGoalBossStatus = "locked" | "available" | "completed";
@@ -51,6 +53,55 @@ export function getGoalMidpointAt(
   }
 
   return lockedAt + Math.floor((endDate - lockedAt) / 2);
+}
+
+export function getGoalDeleteAt(
+  endDate: number | undefined
+): number | null {
+  if (typeof endDate !== "number") {
+    return null;
+  }
+
+  return endDate + GRACE_PERIOD_MS;
+}
+
+export function isGoalInGracePeriod(
+  goal: Pick<WeeklyGoalStateLike, "endDate" | "status" | "bossStatus">,
+  now: number
+): boolean {
+  if (goal.status === "completed" || goal.bossStatus === "completed") {
+    return false;
+  }
+
+  const deleteAt = getGoalDeleteAt(goal.endDate);
+  if (deleteAt === null) {
+    return false;
+  }
+
+  return now > goal.endDate! && now < deleteAt;
+}
+
+export function isGoalPlayable(
+  goal: WeeklyGoalStateLike,
+  now: number
+): boolean {
+  const effectiveStatus = getEffectiveGoalStatus(goal, now);
+
+  if (effectiveStatus === "editing" || effectiveStatus === "completed") {
+    return false;
+  }
+
+  return effectiveStatus === "active" || isGoalInGracePeriod(goal, now);
+}
+
+export function formatGoalGraceCountdown(timeRemainingMs: number): string {
+  const clampedMs = Math.max(0, timeRemainingMs);
+  const totalSeconds = Math.floor(clampedMs / 1000);
+  const totalHours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(totalHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function getCountdownBossType(
@@ -147,15 +198,7 @@ export function canEditGoalEndDate(
   goal: WeeklyGoalStateLike,
   now: number
 ): boolean {
-  const effectiveStatus = getEffectiveGoalStatus(goal, now);
-  const effectiveBossStatus = getEffectiveBossStatus(goal, now);
-
-  return (
-    effectiveStatus === "editing" ||
-    (effectiveStatus === "active" &&
-      effectiveBossStatus === "locked" &&
-      !areAllThemesCompleted(goal.themes))
-  );
+  return getEffectiveGoalStatus(goal, now) === "editing";
 }
 
 export function canTriggerGoalBoss(
@@ -163,7 +206,7 @@ export function canTriggerGoalBoss(
   which: "mini" | "big",
   now: number
 ): boolean {
-  if (getEffectiveGoalStatus(goal, now) !== "active") {
+  if (!isGoalPlayable(goal, now)) {
     return false;
   }
 

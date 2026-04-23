@@ -8,10 +8,8 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import type { ThemeWithOwner } from "@/convex/themes";
 import {
-  checkThemeForDuplicateWrongAnswers,
-  checkThemeForDuplicateWords,
   isWordDuplicate,
-  checkThemeForWrongMatchingAnswer,
+  getThemeRepairIssueForWords,
 } from "@/lib/themes/validators";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
@@ -452,24 +450,9 @@ export function useThemesController() {
     if (!selectedTheme || selectedTheme.canEdit === false) return;
     if (themeActions.isCreating || themeActions.isUpdating) return;
 
-    if (checkThemeForDuplicateWords(localWords)) {
-      toast.error(
-        "Cannot save: This theme has duplicate words. Please fix the duplicate words (marked with red !) before saving."
-      );
-      return;
-    }
-
-    if (checkThemeForDuplicateWrongAnswers(localWords)) {
-      toast.error(
-        "Cannot save: This theme has duplicate wrong answers. Please fix the duplicate wrong answers (marked with orange ⚠) before saving."
-      );
-      return;
-    }
-
-    if (checkThemeForWrongMatchingAnswer(localWords)) {
-      toast.error(
-        "Cannot save: One or more wrong answers match the correct answer. Please ensure all choices are unique (marked with orange ⚠)."
-      );
+    const repairIssue = getThemeRepairIssueForWords(localWords);
+    if (repairIssue) {
+      toast.error(repairIssue.saveToastMessage);
       return;
     }
 

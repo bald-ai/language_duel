@@ -3,11 +3,15 @@ import {
   canEditGoalEndDate,
   canTriggerGoalBoss,
   countCompletedThemes,
+  formatGoalGraceCountdown,
   getCountdownBossType,
+  getGoalDeleteAt,
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   getGoalMidpointAt,
+  isGoalInGracePeriod,
+  isGoalPlayable,
   MIN_THEMES_PER_GOAL,
   type WeeklyGoalStateLike,
 } from "@/lib/weeklyGoals";
@@ -48,6 +52,14 @@ describe("weeklyGoals helpers", () => {
     expect(getGoalMidpointAt(1_000, 9_000)).toBe(5_000);
   });
 
+  it("derives the delete deadline from the end date plus the grace window", () => {
+    expect(getGoalDeleteAt(1_000)).toBe(172_801_000);
+  });
+
+  it("formats the grace countdown as total-hours hh:mm:ss", () => {
+    expect(formatGoalGraceCountdown((47 * 60 * 60 + 59 * 60 + 59) * 1_000)).toBe("47:59:59");
+  });
+
   it("returns editing as the effective status for unlocked goals", () => {
     expect(
       getEffectiveGoalStatus(
@@ -59,6 +71,14 @@ describe("weeklyGoals helpers", () => {
 
   it("returns expired once the end date has passed", () => {
     expect(getEffectiveGoalStatus(buildGoal(), 9_001)).toBe("expired");
+  });
+
+  it("treats the grace window as expired but still playable", () => {
+    const now = 9_001;
+    const goal = buildGoal();
+
+    expect(isGoalInGracePeriod(goal, now)).toBe(true);
+    expect(isGoalPlayable(goal, now)).toBe(true);
   });
 
   it("unlocks the mini boss at the midpoint", () => {
@@ -107,6 +127,10 @@ describe("weeklyGoals helpers", () => {
     ).toBe(true);
   });
 
+  it("blocks end-date edits once both people locked the goal", () => {
+    expect(canEditGoalEndDate(buildGoal({ status: "active" }), 4_000)).toBe(false);
+  });
+
   it("blocks end-date edits after all themes are completed", () => {
     const goal = buildGoal({
       themes: [
@@ -119,8 +143,12 @@ describe("weeklyGoals helpers", () => {
     expect(canEditGoalEndDate(goal, 4_000)).toBe(false);
   });
 
-  it("allows triggering the mini boss only while the goal is active", () => {
+  it("keeps end-date edits blocked during grace", () => {
+    expect(canEditGoalEndDate(buildGoal(), 9_001)).toBe(false);
+  });
+
+  it("allows triggering the mini boss during the grace window", () => {
     expect(canTriggerGoalBoss(buildGoal(), "mini", 5_000)).toBe(true);
-    expect(canTriggerGoalBoss(buildGoal(), "mini", 9_001)).toBe(false);
+    expect(canTriggerGoalBoss(buildGoal(), "mini", 9_001)).toBe(true);
   });
 });

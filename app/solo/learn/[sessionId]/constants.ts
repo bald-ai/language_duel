@@ -2,13 +2,15 @@
  * Constants for the Learn Phase page
  */
 
-export const DEFAULT_DURATION = 300; // 5 minutes default
+import {
+  DEFAULT_SOLO_STUDY_DURATION,
+  SOLO_INFINITE_STUDY_SECONDS,
+  SOLO_TIMER_OPTIONS,
+} from "@/lib/soloLearnTimer";
 
-/**
- * Timer options for solo study mode (in seconds)
- * 5, 10, 15 minutes
- */
-export const SOLO_TIMER_OPTIONS = [300, 600, 900] as const;
+export { SOLO_INFINITE_STUDY_SECONDS, SOLO_TIMER_OPTIONS };
+
+export const DEFAULT_DURATION = DEFAULT_SOLO_STUDY_DURATION;
 
 // Layout gaps in pixels
 export const LAYOUT = {

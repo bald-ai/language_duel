@@ -6,7 +6,12 @@ import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { SOLO_TIMER_OPTIONS } from "./constants";
-import { formatDuration, stripIrr } from "@/lib/stringUtils";
+import {
+  getSoloLearnTimerLabel,
+  getSoloLearnTimerTestIdSuffix,
+  isSoloStudyTimerInfinite,
+} from "@/lib/soloLearnTimer";
+import { stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components/WordCard";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
 import { LearnHeader } from "./components/LearnHeader";
@@ -300,6 +305,9 @@ export default function LearnPhasePage() {
 
   // --- Timer display (memoized) ---
   const timerStyle = useMemo(() => {
+    if (isSoloStudyTimerInfinite(duration)) {
+      return { color: colors.status.success.DEFAULT };
+    }
     const percentage = timeRemaining / duration;
     if (percentage > TIMER_THRESHOLDS.GREEN) return { color: colors.status.success.DEFAULT };
     if (percentage > TIMER_THRESHOLDS.YELLOW) return { color: colors.status.warning.DEFAULT };
@@ -461,9 +469,9 @@ export default function LearnPhasePage() {
                   onClick={() => setDuration(option)}
                   className={timerOptionClassName}
                   style={duration === option ? timerOptionActiveStyle : timerOptionInactiveStyle}
-                  data-testid={`solo-learn-timer-${option}`}
+                  data-testid={`solo-learn-timer-${getSoloLearnTimerTestIdSuffix(option)}`}
                 >
-                  {formatDuration(option)}
+                  {getSoloLearnTimerLabel(option)}
                 </button>
               ))}
             </div>
@@ -549,7 +557,7 @@ export default function LearnPhasePage() {
             className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
             style={timerStyle}
           >
-            {formatDuration(timeRemaining)}
+            {getSoloLearnTimerLabel(timeRemaining)}
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">

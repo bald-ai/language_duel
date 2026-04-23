@@ -155,7 +155,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
               selected={selectedMode === "learn_test"}
               onClick={() => setSelectedMode("learn_test")}
               title="Learn + Test"
-              description="5 minutes to study, then challenge"
+              description="Study first, then challenge"
               selectedTone="primary"
               dataTestId="solo-modal-mode-learn-test"
             />

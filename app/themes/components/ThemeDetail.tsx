@@ -5,10 +5,10 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import {
   getDuplicateWordIndices,
-  checkThemeForDuplicateWrongAnswers,
-  checkThemeForWrongMatchingAnswer,
-  hasDuplicateWrongAnswersInWord,
-  doesWrongAnswerMatchCorrect,
+  getDuplicateWrongAnswerIndices,
+  getWrongIndicesMatchingAnswer,
+  getThemeRepairIssueForFlags,
+  getThemeRepairIssueForWords,
 } from "@/lib/themes/validators";
 import { buttonStyles, colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
@@ -112,6 +112,8 @@ interface WordCardProps {
   isDuplicate: boolean;
   hasDuplicateWrongAnswers: boolean;
   wrongMatchesAnswer: boolean;
+  duplicateWrongIndices: Set<number>;
+  wrongMatchesAnswerIndices: Set<number>;
   canEdit: boolean;
   playingWordKey: string | null;
   onEditWord: (wordIndex: number, field: FieldType, wrongIndex?: number) => void;
@@ -125,51 +127,74 @@ const WordCard = memo(function WordCard({
   isDuplicate,
   hasDuplicateWrongAnswers,
   wrongMatchesAnswer,
+  duplicateWrongIndices,
+  wrongMatchesAnswerIndices,
   canEdit,
   playingWordKey,
   onEditWord,
   onDeleteWord,
   onPlayWordTTS,
 }: WordCardProps) {
-  const hasInvalidChoices = hasDuplicateWrongAnswers || wrongMatchesAnswer;
   const ttsKey = `theme-word-tts-${index}`;
   const isPlaying = playingWordKey === ttsKey;
   const hasGeneratedTts = !!word.ttsStorageId;
+  const repairIssue = getThemeRepairIssueForFlags({
+    hasDuplicateWord: isDuplicate,
+    wrongMatchesAnswer,
+    hasDuplicateWrongAnswers,
+  });
+  const hasIssue = repairIssue !== null;
+  const issueMessage = repairIssue?.cardMessage ?? null;
 
-  const badgeStyle = isDuplicate
+  const badgeStyle = hasIssue
     ? {
         backgroundColor: `${colors.status.danger.DEFAULT}1A`,
         borderColor: colors.status.danger.dark,
         color: colors.status.danger.light,
       }
-    : hasInvalidChoices
-      ? {
-          backgroundColor: `${colors.status.warning.DEFAULT}1A`,
-          borderColor: colors.status.warning.dark,
-          color: colors.status.warning.light,
-        }
-      : {
-          backgroundColor: colors.background.DEFAULT,
-          borderColor: colors.primary.dark,
-          color: colors.text.DEFAULT,
-        };
+    : {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+        color: colors.text.DEFAULT,
+      };
 
-  const wordButtonStyle = {
+  const dangerFieldStyle = {
+    backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+    borderColor: `${colors.status.danger.DEFAULT}66`,
+    color: colors.status.danger.light,
+  };
+
+  const baseWordButtonStyle = {
     backgroundColor: `${colors.primary.DEFAULT}1A`,
     borderColor: `${colors.primary.light}66`,
     color: colors.text.DEFAULT,
   };
 
-  const answerButtonStyle = {
+  const baseAnswerButtonStyle = {
     backgroundColor: `${colors.secondary.DEFAULT}1A`,
     borderColor: `${colors.secondary.light}66`,
     color: colors.text.DEFAULT,
   };
 
-  const wrongButtonStyle = {
+  const baseWrongButtonStyle = {
     backgroundColor: `${colors.cta.DEFAULT}1A`,
     borderColor: `${colors.cta.light}66`,
     color: colors.text.DEFAULT,
+  };
+
+  const wordButtonStyle = isDuplicate ? dangerFieldStyle : baseWordButtonStyle;
+  const answerButtonStyle = wrongMatchesAnswer ? dangerFieldStyle : baseAnswerButtonStyle;
+  const wordLabelColor = isDuplicate ? colors.status.danger.light : colors.primary.light;
+  const answerLabelColor = wrongMatchesAnswer ? colors.status.danger.light : colors.secondary.light;
+  const issuePillStyle = {
+    backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+    borderColor: `${colors.status.danger.DEFAULT}66`,
+    color: colors.status.danger.light,
+  };
+  const issueStripStyle = {
+    backgroundColor: `${colors.status.danger.DEFAULT}14`,
+    borderColor: `${colors.status.danger.DEFAULT}55`,
+    color: colors.status.danger.light,
   };
 
   return (
@@ -186,29 +211,17 @@ const WordCard = memo(function WordCard({
         <div
           className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
           style={badgeStyle}
+          data-testid={`theme-word-${index}-number-badge`}
         >
           {index + 1}
         </div>
-        {isDuplicate && (
+        {issueMessage && (
           <span
-            className="text-sm font-bold"
-            style={{ color: colors.status.danger.DEFAULT }}
-            title="Duplicate word in theme"
+            className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+            style={issuePillStyle}
+            data-testid={`theme-word-${index}-issue-badge`}
           >
-            !
-          </span>
-        )}
-        {hasInvalidChoices && (
-          <span
-            className="text-sm font-bold"
-            style={{ color: colors.status.warning.DEFAULT }}
-            title={
-              wrongMatchesAnswer
-                ? "Wrong answer matches correct answer"
-                : "Duplicate wrong answers"
-            }
-          >
-            ⚠
+            Issue
           </span>
         )}
         <div className="ml-auto">
@@ -246,13 +259,14 @@ const WordCard = memo(function WordCard({
         <button
           onClick={() => canEdit && onEditWord(index, "word")}
           disabled={!canEdit}
+          data-invalid={isDuplicate}
           className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
             canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
           }`}
           style={wordButtonStyle}
           data-testid={`theme-word-${index}-word`}
         >
-          <div className="text-xs mb-1" style={{ color: colors.primary.light }}>
+          <div className="text-xs mb-1" style={{ color: wordLabelColor }}>
             Word
           </div>
           {word.word}
@@ -260,13 +274,14 @@ const WordCard = memo(function WordCard({
         <button
           onClick={() => canEdit && onEditWord(index, "answer")}
           disabled={!canEdit}
+          data-invalid={wrongMatchesAnswer}
           className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
             canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
           }`}
           style={answerButtonStyle}
           data-testid={`theme-word-${index}-answer`}
         >
-          <div className="text-xs mb-1" style={{ color: colors.secondary.light }}>
+          <div className="text-xs mb-1" style={{ color: answerLabelColor }}>
             Answer
           </div>
           {word.answer}
@@ -275,24 +290,43 @@ const WordCard = memo(function WordCard({
 
       {/* Wrong Answers Grid */}
       <div className="grid grid-cols-3 gap-2">
-        {word.wrongAnswers.map((wrongAnswer, wrongIdx) => (
-          <button
-            key={wrongIdx}
-            onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
-            disabled={!canEdit}
-            className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-              canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-            }`}
-            style={wrongButtonStyle}
-            data-testid={`theme-word-${index}-wrong-${wrongIdx}`}
-          >
-            <div className="text-xs mb-1" style={{ color: colors.cta.light }}>
-              Wrong {wrongIdx + 1}
-            </div>
-            {wrongAnswer}
-          </button>
-        ))}
+        {word.wrongAnswers.map((wrongAnswer, wrongIdx) => {
+          const isInvalidWrong =
+            duplicateWrongIndices.has(wrongIdx) || wrongMatchesAnswerIndices.has(wrongIdx);
+
+          return (
+            <button
+              key={wrongIdx}
+              onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
+              disabled={!canEdit}
+              data-invalid={isInvalidWrong}
+              className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+                canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+              }`}
+              style={isInvalidWrong ? dangerFieldStyle : baseWrongButtonStyle}
+              data-testid={`theme-word-${index}-wrong-${wrongIdx}`}
+            >
+              <div
+                className="text-xs mb-1"
+                style={{ color: isInvalidWrong ? colors.status.danger.light : colors.cta.light }}
+              >
+                Wrong {wrongIdx + 1}
+              </div>
+              {wrongAnswer}
+            </button>
+          );
+        })}
       </div>
+
+      {issueMessage && (
+        <div
+          className="mt-3 rounded-lg border px-3 py-2 text-xs font-semibold"
+          style={issueStripStyle}
+          data-testid={`theme-word-${index}-issue-message`}
+        >
+          {issueMessage}
+        </div>
+      )}
 
       {/* Delete Word Button */}
       {canEdit && (
@@ -360,17 +394,11 @@ export function ThemeDetail({
     () => getDuplicateWordIndices(localWords),
     [localWords]
   );
-  const hasDuplicateWords = duplicateWordIndices.size > 0;
-  const hasThemeDuplicateWrongAnswers = useMemo(
-    () => checkThemeForDuplicateWrongAnswers(localWords),
+  const themeRepairIssue = useMemo(
+    () => getThemeRepairIssueForWords(localWords),
     [localWords]
   );
-  const hasThemeWrongMatchingAnswer = useMemo(
-    () => checkThemeForWrongMatchingAnswer(localWords),
-    [localWords]
-  );
-  const hasThemeIssues =
-    hasDuplicateWords || hasThemeDuplicateWrongAnswers || hasThemeWrongMatchingAnswer;
+  const hasThemeIssues = themeRepairIssue !== null;
   const isSaveDisabled = hasThemeIssues || isSaving;
 
   const visibilityButtonClassName =
@@ -625,8 +653,10 @@ export function ThemeDetail({
           <div className="flex flex-col gap-4">
             {localWords.map((word, index) => {
               const isDuplicateWord = duplicateWordIndices.has(index);
-              const hasDuplicateWrongAnswers = hasDuplicateWrongAnswersInWord(word);
-              const wrongMatchesAnswer = doesWrongAnswerMatchCorrect(word);
+              const duplicateWrongIndices = getDuplicateWrongAnswerIndices(word);
+              const wrongMatchesAnswerIndices = getWrongIndicesMatchingAnswer(word);
+              const hasDuplicateWrongAnswers = duplicateWrongIndices.size > 0;
+              const wrongMatchesAnswer = wrongMatchesAnswerIndices.size > 0;
 
               return (
                 <WordCard
@@ -636,6 +666,8 @@ export function ThemeDetail({
                   isDuplicate={isDuplicateWord}
                   hasDuplicateWrongAnswers={hasDuplicateWrongAnswers}
                   wrongMatchesAnswer={wrongMatchesAnswer}
+                  duplicateWrongIndices={duplicateWrongIndices}
+                  wrongMatchesAnswerIndices={wrongMatchesAnswerIndices}
                   canEdit={canEdit}
                   playingWordKey={playingWordKey}
                   onEditWord={onEditWord}
@@ -687,9 +719,9 @@ export function ThemeDetail({
             <div
               className="mt-2 rounded-xl border-2 px-3 py-1 text-[11px] font-medium"
               style={{
-                backgroundColor: `${colors.status.warning.DEFAULT}1A`,
-                borderColor: `${colors.status.warning.DEFAULT}66`,
-                color: colors.status.warning.light,
+                backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+                borderColor: `${colors.status.danger.DEFAULT}66`,
+                color: colors.status.danger.light,
               }}
             >
               Fix highlighted words to enable saving.

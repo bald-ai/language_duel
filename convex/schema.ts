@@ -188,6 +188,7 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
   v.literal("weekly_goal_daily_reminder"),
+  v.literal("weekly_goal_expired_delete_reminder"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );

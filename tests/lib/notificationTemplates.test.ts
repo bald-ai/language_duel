@@ -121,6 +121,24 @@ describe("renderNotificationEmail", () => {
       expect(subject).toBe("Last chance! Your weekly goal is almost up");
       expect(html).toContain("3/5");
     });
+
+    it("renders the expired delete reminder with finish-it-now copy", () => {
+      const data = {
+        recipientName: "Player",
+        partnerName: "Partner",
+        graceHoursLeft: 24,
+        deleteAt: "Apr 26, 2026 at 14:00",
+        completedCount: 3,
+        totalCount: 5,
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_expired_delete_reminder", data);
+
+      expect(subject).toBe("Still time left -- 24h to save this goal");
+      expect(html).toContain("still have");
+      expect(html).toContain("defeat the boss");
+      expect(html).toContain("Apr 26, 2026 at 14:00");
+      expect(html).toContain("3/5");
+    });
   });
 
   describe("all triggers render without error", () => {
@@ -132,6 +150,7 @@ describe("renderNotificationEmail", () => {
       "weekly_goal_locked",
       "weekly_goal_accepted",
       "weekly_goal_daily_reminder",
+      "weekly_goal_expired_delete_reminder",
       "weekly_goal_reminder_1",
       "weekly_goal_reminder_2",
     ] as const;

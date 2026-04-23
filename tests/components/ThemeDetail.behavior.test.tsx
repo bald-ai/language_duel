@@ -228,5 +228,72 @@ describe("ThemeDetail behavior", () => {
 
     expect(screen.getByTestId("theme-save")).toBeDisabled();
     expect(screen.getByText("Fix highlighted words to enable saving.")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-word-0-issue-badge")).toHaveTextContent("Issue");
+    expect(screen.getByTestId("theme-word-0-issue-message")).toHaveTextContent("Duplicate word");
+    expect(screen.getByTestId("theme-word-0-word")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-answer")).toHaveAttribute("data-invalid", "false");
+    expect(screen.getByTestId("theme-word-0-wrong-0")).toHaveAttribute("data-invalid", "false");
+  });
+
+  it("highlights matching answer conflicts on the exact answer and wrong fields", () => {
+    makeProps({
+      localWords: [
+        {
+          word: "cat",
+          answer: "kocka",
+          wrongAnswers: ["KOCKA", "auto", "more"],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId("theme-word-0-issue-message")).toHaveTextContent(
+      "Wrong answer matches correct answer"
+    );
+    expect(screen.getByTestId("theme-word-0-answer")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-wrong-0")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-wrong-1")).toHaveAttribute("data-invalid", "false");
+    expect(screen.getByTestId("theme-word-0-wrong-2")).toHaveAttribute("data-invalid", "false");
+  });
+
+  it("highlights only duplicate wrong answers when wrong choices repeat", () => {
+    makeProps({
+      localWords: [
+        {
+          word: "cat",
+          answer: "kocka",
+          wrongAnswers: ["strom", " STROM ", "more"],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId("theme-word-0-issue-message")).toHaveTextContent(
+      "Duplicate wrong answers"
+    );
+    expect(screen.getByTestId("theme-word-0-answer")).toHaveAttribute("data-invalid", "false");
+    expect(screen.getByTestId("theme-word-0-wrong-0")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-wrong-1")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-wrong-2")).toHaveAttribute("data-invalid", "false");
+  });
+
+  it("shows the highest-priority card message while keeping all offending fields highlighted", () => {
+    makeProps({
+      localWords: [
+        {
+          word: "cat",
+          answer: "kocka",
+          wrongAnswers: ["KOCKA", "auto", "more"],
+        },
+        {
+          word: "cat",
+          answer: "macka",
+          wrongAnswers: ["rieka", "hora", "cesta"],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId("theme-word-0-issue-message")).toHaveTextContent("Duplicate word");
+    expect(screen.getByTestId("theme-word-0-word")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-answer")).toHaveAttribute("data-invalid", "true");
+    expect(screen.getByTestId("theme-word-0-wrong-0")).toHaveAttribute("data-invalid", "true");
   });
 });

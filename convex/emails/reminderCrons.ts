@@ -120,6 +120,10 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
       internal.weeklyGoals.getActiveGoalsWithEndDate,
       {}
     );
+    const expiredGoalsInGrace = await ctx.runQuery(
+      internal.weeklyGoals.getExpiredGoalsInGraceWindow,
+      {}
+    );
     const dailyKey = getTimeZoneDateKey(now, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
 
     for (const goal of activeGoals) {
@@ -136,6 +140,27 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
 
         await ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
           trigger: "weekly_goal_daily_reminder",
+          toUserId: userId,
+          weeklyGoalId: goal._id,
+          dedupeKey: dailyKey,
+        });
+      }
+    }
+
+    for (const goal of expiredGoalsInGrace) {
+      const participants = [goal.creatorId, goal.partnerId];
+
+      for (const userId of participants) {
+        const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
+          userId,
+        });
+
+        if (!prefs.weeklyGoalDailyReminderEnabled) {
+          continue;
+        }
+
+        await ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
+          trigger: "weekly_goal_expired_delete_reminder",
           toUserId: userId,
           weeklyGoalId: goal._id,
           dedupeKey: dailyKey,

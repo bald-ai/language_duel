@@ -21,7 +21,11 @@ import {
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
-import { getCountdownBossType, getGoalMidpointAt } from "../../lib/weeklyGoals";
+import {
+  getCountdownBossType,
+  getGoalDeleteAt,
+  getGoalMidpointAt,
+} from "../../lib/weeklyGoals";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
 
@@ -71,6 +75,7 @@ export const checkNotificationSent = internalQuery({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -168,6 +173,7 @@ export const logNotificationSent = internalMutation({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -223,6 +229,7 @@ export const sendNotificationEmail = internalAction({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
     ),
@@ -398,6 +405,17 @@ export async function buildEmailData(
           0,
           Math.round((goal.endDate - Date.now()) / (60 * 60 * 1000))
         );
+      }
+
+      if (args.trigger === "weekly_goal_expired_delete_reminder" && goal.endDate) {
+        const deleteAt = getGoalDeleteAt(goal.endDate);
+        if (deleteAt) {
+          data.deleteAt = formatScheduledTimeForEmail(deleteAt, DEFAULT_TIMEZONE);
+          data.graceHoursLeft = Math.max(
+            0,
+            Math.ceil((deleteAt - Date.now()) / (60 * 60 * 1000))
+          );
+        }
       }
 
       if (args.trigger === "weekly_goal_daily_reminder" && goal.endDate) {

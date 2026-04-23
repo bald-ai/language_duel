@@ -17,7 +17,9 @@ export type EmailData = {
   senderName?: string;
   themeName?: string;
   scheduledTime?: string;
+  deleteAt?: string;
   hoursLeft?: number;
+  graceHoursLeft?: number;
   completedCount?: number;
   totalCount?: number;
   partnerName?: string;
@@ -49,6 +51,8 @@ export function getSubjectForTrigger(
       return data.milestoneDaysLeft === 0
         ? `${data.milestoneName ?? "Boss"} is today`
         : `${data.milestoneDaysLeft ?? 0} day${data.milestoneDaysLeft === 1 ? "" : "s"} until ${data.milestoneName ?? "Boss"}`;
+    case "weekly_goal_expired_delete_reminder":
+      return `Still time left -- ${data.graceHoursLeft ?? 0}h to save this goal`;
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
@@ -116,6 +120,12 @@ export function getBodyForTrigger(
         cta: "Open Language Duel",
       };
     }
+    case "weekly_goal_expired_delete_reminder":
+      return {
+        heading: `Expired, but still winnable`,
+        body: `Your weekly goal with ${partner} already expired, but you still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
+        cta: "Open Language Duel",
+      };
     case "weekly_goal_reminder_1":
       return {
         heading: `The clock is ticking!`,

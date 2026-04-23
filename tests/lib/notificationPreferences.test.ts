@@ -84,6 +84,11 @@ describe("notificationPreferences", () => {
       expect(isNotificationEnabled("weekly_goal_daily_reminder", prefs)).toBe(true);
     });
 
+    it("reuses the daily weekly goal preference for expired delete reminders", () => {
+      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+      expect(isNotificationEnabled("weekly_goal_expired_delete_reminder", prefs)).toBe(true);
+    });
+
     it("returns false when category is disabled", () => {
       const prefs = { ...DEFAULT_NOTIFICATION_PREFS, scheduledDuelsEnabled: false };
       expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);

@@ -32,6 +32,7 @@ import {
   getEffectiveMiniBossStatus,
   getGoalMidpointAt,
   getMiniBossUnlockThreshold,
+  isGoalPlayable,
   MIN_THEMES_PER_GOAL,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
@@ -1016,7 +1017,7 @@ async function validateAndPrepareBoss(
   if (!isCreator && !isPartner) throw new Error("Not authorized");
 
   const now = Date.now();
-  if (getEffectiveGoalStatus(goal, now) !== "active") {
+  if (!isGoalPlayable(goal, now)) {
     throw new Error("This goal is not active");
   }
 
@@ -1307,6 +1308,37 @@ export const getActiveGoalsWithEndDate = internalQuery({
         q.eq("status", "active").gt("endDate", now)
       )
       .collect();
+  },
+});
+
+export const getExpiredGoalsInGraceWindow = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const activePastEndDate = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_endDate", (q) =>
+        q.eq("status", "active").lt("endDate", now)
+      )
+      .filter((q) => q.neq(q.field("bossStatus"), "completed"))
+      .collect();
+
+    const expiredGoals = await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_endDate", (q) =>
+        q.eq("status", "expired").gt("endDate", now - GRACE_PERIOD_MS)
+      )
+      .filter((q) => q.neq(q.field("bossStatus"), "completed"))
+      .collect();
+
+    const goals = [...activePastEndDate, ...expiredGoals];
+    const seen = new Set<string>();
+    return goals.filter((goal) => {
+      const key = String(goal._id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   },
 });
 

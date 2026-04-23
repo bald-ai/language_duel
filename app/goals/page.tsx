@@ -16,13 +16,18 @@ import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
 import { PlanSwitcher } from "./components/PlanSwitcher";
 import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
-import { getMiniBossUnlockThreshold } from "@/lib/weeklyGoals";
+import {
+  formatGoalGraceCountdown,
+  getGoalDeleteAt,
+  getMiniBossUnlockThreshold,
+} from "@/lib/weeklyGoals";
 import {
   BOSS_INFO_COPY,
   formatBossStatus,
   getBossButtonStyle,
   isBossButtonDisabled,
 } from "@/lib/bossUi";
+import { useCountdown } from "@/app/notifications/hooks/useCountdown";
 
 // Local storage key for remembering last viewed plan
 const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
@@ -36,6 +41,18 @@ const GoalThemeSelector = dynamic(
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function formatDateInputValue(timestamp: number | undefined): string {
@@ -147,6 +164,10 @@ export default function GoalsPage() {
       localStorage.setItem(LAST_PLAN_KEY, firstPlanId);
     }
   }, [allPlans, selectedPlan, selectedPlanId, initialLoadDone]);
+
+  const deleteAt = getGoalDeleteAt(selectedPlan?.goal?.endDate);
+  const graceCountdown = useCountdown(deleteAt ?? 0);
+  const formattedGraceCountdown = formatGoalGraceCountdown(graceCountdown.timeRemaining);
 
   // Handle plan selection from switcher
   const handleSelectPlan = (planId: Id<"weeklyGoals">) => {
@@ -326,6 +347,7 @@ export default function GoalsPage() {
   const isEditing = effectiveStatus === "editing";
   const isActive = effectiveStatus === "active";
   const isExpired = effectiveStatus === "expired";
+  const isPlayableGoal = isActive || isExpired;
   const canAddThemes =
     isEditing &&
     hasPlanSelected &&
@@ -541,7 +563,9 @@ export default function GoalsPage() {
               className="rounded-2xl border-2 p-4 space-y-4"
               style={{
                 backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
+                borderColor: isExpired
+                  ? colors.status.warning.DEFAULT
+                  : colors.primary.dark,
               }}
             >
               <div className="flex items-start justify-between gap-4">
@@ -553,51 +577,105 @@ export default function GoalsPage() {
                     Goal Timing
                   </p>
                   <p className="text-sm" style={{ color: colors.text.muted }}>
-                    Pick an end date. The mini boss checkpoint is calculated automatically.
+                    {isExpired
+                      ? "The goal expired, but you still have a final window to finish it."
+                      : "Pick an end date. The mini boss checkpoint is calculated automatically."}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
-                    Midpoint
-                  </p>
-                  <p className="text-sm font-semibold" style={{ color: colors.text.DEFAULT }}>
-                    {selectedPlan.midpointAt
-                      ? `${isEditing ? "~" : ""}${formatDate(selectedPlan.midpointAt)}`
-                      : "Pick an end date"}
-                  </p>
+                {!isExpired && (
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                      Midpoint
+                    </p>
+                    <p className="text-sm font-semibold" style={{ color: colors.text.DEFAULT }}>
+                      {selectedPlan.midpointAt
+                        ? `${isEditing ? "~" : ""}${formatDate(selectedPlan.midpointAt)}`
+                        : "Pick an end date"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {isExpired ? (
+                <div
+                  className="rounded-2xl border-2 p-5 space-y-4"
+                  style={{
+                    backgroundColor: colors.background.DEFAULT,
+                    borderColor: colors.status.danger.DEFAULT,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p
+                        className="text-xs font-bold uppercase tracking-[0.2em]"
+                        style={{ color: colors.status.danger.DEFAULT }}
+                      >
+                        Expired
+                      </p>
+                      <p className="text-sm mt-1" style={{ color: colors.text.muted }}>
+                        This goal will be permanently removed when the timer hits zero.
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                        Deletes At
+                      </p>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: colors.text.DEFAULT }}
+                        data-testid="goals-delete-deadline"
+                      >
+                        {deleteAt ? formatDateTime(deleteAt) : "Unknown"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="rounded-2xl px-4 py-5 text-center"
+                    style={{ backgroundColor: `${colors.status.danger.DEFAULT}14` }}
+                  >
+                    <p
+                      className="text-[2.5rem] font-black tracking-[0.2em] tabular-nums"
+                      style={{ color: colors.status.danger.DEFAULT }}
+                      data-testid="goals-grace-countdown"
+                    >
+                      {formattedGraceCountdown}
+                    </p>
+                    <p className="text-sm mt-3" style={{ color: colors.text.DEFAULT }}>
+                      You can still complete this goal before the timer runs out.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label>
+                    <span className="sr-only">End date</span>
+                    <input
+                      type="date"
+                      value={endDateInput}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setEndDateInput(value);
+                        if (value && value !== formatDateInputValue(selectedPlan.goal.endDate)) {
+                          void handleSaveEndDate(value);
+                        }
+                      }}
+                      disabled={!canEditEndDate || isSavingEndDate}
+                      className="w-full rounded-xl border-2 px-3 py-3 disabled:opacity-60"
+                      style={{
+                        backgroundColor: colors.background.DEFAULT,
+                        borderColor: colors.primary.dark,
+                        color: colors.text.DEFAULT,
+                      }}
+                      data-testid="goals-end-date-input"
+                    />
+                  </label>
+                </div>
+              )}
 
-              <div>
-                <label>
-                  <span className="sr-only">End date</span>
-                  <input
-                    type="date"
-                    value={endDateInput}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setEndDateInput(value);
-                      if (value && value !== formatDateInputValue(selectedPlan.goal.endDate)) {
-                        void handleSaveEndDate(value);
-                      }
-                    }}
-                    disabled={!canEditEndDate || isSavingEndDate}
-                    className="w-full rounded-xl border-2 px-3 py-3 disabled:opacity-60"
-                    style={{
-                      backgroundColor: colors.background.DEFAULT,
-                      borderColor: colors.primary.dark,
-                      color: colors.text.DEFAULT,
-                    }}
-                    data-testid="goals-end-date-input"
-                  />
-                </label>
-              </div>
-
-              {!canEditEndDate && (
+              {!isExpired && !canEditEndDate && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
-                  {isExpired
-                    ? "This goal has expired. It will stay visible for the 48-hour grace window."
-                    : "This end date is now read-only."}
+                  This end date is now read-only.
                 </p>
               )}
             </section>
@@ -718,7 +796,7 @@ export default function GoalsPage() {
               themes={selectedPlan.goal.themes}
               viewerRole={selectedPlan.viewerRole}
               isEditing={isEditing}
-              canToggle={isActive}
+              canToggle={isPlayableGoal}
               onToggle={handleToggleCompletion}
               onRemove={handleRemoveTheme}
             />
@@ -798,7 +876,7 @@ export default function GoalsPage() {
                   This goal expired before the big boss was defeated.
                 </p>
                 <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
-                  It will be removed automatically after the 48-hour grace window.
+                  You can still finish it before the 48-hour grace window ends.
                 </p>
               </div>
             )}
