@@ -33,7 +33,23 @@ export function ThemeSelector({
     setDraftThemeIds(selectedThemeIds);
   }, [selectedThemeIds]);
 
-  if (!themes || themes.length === 0) {
+  if (!themes) {
+    return (
+      <div
+        className="text-center p-6 border-2 rounded-2xl"
+        style={{
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+        }}
+      >
+        <p className="text-sm" style={{ color: colors.text.muted }}>
+          Loading themes...
+        </p>
+      </div>
+    );
+  }
+
+  if (themes.length === 0) {
     return (
       <div
         className="text-center p-6 border-2 rounded-2xl"

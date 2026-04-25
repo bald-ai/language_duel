@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
 import {
   applyTheme,
   DEFAULT_THEME_NAME,
@@ -27,10 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [hasAppliedServerPref, setHasAppliedServerPref] = useState(false);
   // Version counter to force remount when server preferences are applied
   const [themeVersion, setThemeVersion] = useState(0);
-
-  // Fetch user preferences from Convex (will be null for unauthenticated users)
-  const userPreferences = useQuery(api.userPreferences.getUserPreferences);
-  const updateColorSetMutation = useMutation(api.userPreferences.updateColorSetPreference);
+  const { userPreferences, isLoading, updateColorSetPreference } = useUserPreferences();
 
   // Apply localStorage preference after hydration (to avoid SSR mismatch)
   useEffect(() => {
@@ -75,7 +71,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
         // If user is authenticated, save to Convex
         if (userPreferences !== undefined && userPreferences !== null) {
-          updateColorSetMutation({ colorSet: nextColorSet }).catch((error) => {
+          updateColorSetPreference(nextColorSet).catch((error) => {
             console.error("Failed to save color set preference:", error);
           });
         }
@@ -83,16 +79,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         return nextColorSet;
       });
     },
-    [userPreferences, updateColorSetMutation]
+    [userPreferences, updateColorSetPreference]
   );
 
   const value = useMemo(
     () => ({
       colorSetName,
       setColorSet: handleSetColorSet,
-      isLoading: userPreferences === undefined,
+      isLoading,
     }),
-    [colorSetName, handleSetColorSet, userPreferences]
+    [colorSetName, handleSetColorSet, isLoading]
   );
 
   return (

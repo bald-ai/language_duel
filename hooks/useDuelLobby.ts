@@ -25,10 +25,10 @@ export interface CreateDuelOptions {
 // useDuelData - Query hook for fetching duel-related data
 // ============================================================================
 
-export function useDuelData() {
-  const users = useQuery(api.users.getUsers);
-  const themes = useQuery(api.themes.getThemes, {});
-  const pendingDuels = useQuery(api.duel.getPendingDuels);
+export function useDuelData(shouldLoad: boolean) {
+  const users = useQuery(api.users.getUsers, shouldLoad ? {} : "skip");
+  const themes = useQuery(api.themes.getThemes, shouldLoad ? {} : "skip");
+  const pendingDuels = useQuery(api.duel.getPendingDuels, shouldLoad ? {} : "skip");
 
   // Filter pending duels by mode
   const pendingClassicDuels = pendingDuels?.filter(
@@ -39,8 +39,8 @@ export function useDuelData() {
   );
 
   return {
-    users: users || [],
-    themes: themes || [],
+    users,
+    themes,
     pendingDuels,
     pendingClassicDuels,
     pendingSoloStyleDuels,
@@ -218,8 +218,11 @@ export function useDuelStatusWatcher({
 
 export function useDuelLobby() {
   const router = useRouter();
-  const data = useDuelData();
   const modals = useDuelModals();
+  const openSoloModalBase = modals.openSoloModal;
+  const openUnifiedDuelModalBase = modals.openUnifiedDuelModal;
+  const [hasRequestedDuelData, setHasRequestedDuelData] = useState(false);
+  const data = useDuelData(hasRequestedDuelData);
 
   const actions = useDuelActions({
     onDuelCreated: () => {
@@ -295,6 +298,16 @@ export function useDuelLobby() {
     router.push("/themes");
   }, [router, modals]);
 
+  const openSoloModal = useCallback(() => {
+    setHasRequestedDuelData(true);
+    openSoloModalBase();
+  }, [openSoloModalBase]);
+
+  const openUnifiedDuelModal = useCallback(() => {
+    setHasRequestedDuelData(true);
+    openUnifiedDuelModalBase();
+  }, [openUnifiedDuelModalBase]);
+
   return {
     // Data
     users: data.users,
@@ -315,9 +328,9 @@ export function useDuelLobby() {
     isCancellingDuel: actions.isCancellingDuel,
 
     // Modal handlers
-    openSoloModal: modals.openSoloModal,
+    openSoloModal,
     closeSoloModal: modals.closeModal,
-    openUnifiedDuelModal: modals.openUnifiedDuelModal,
+    openUnifiedDuelModal,
     closeUnifiedDuelModal: modals.closeModal,
 
     // Actions

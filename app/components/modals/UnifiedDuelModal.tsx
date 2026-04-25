@@ -40,7 +40,7 @@ interface CreateDuelOptions {
 }
 
 interface UnifiedDuelModalProps {
-  users: User[];
+  users: User[] | undefined;
   themes: Theme[] | undefined;
   pendingDuels: PendingDuel[] | undefined;
   isJoiningDuel: boolean;
@@ -86,7 +86,7 @@ export function UnifiedDuelModal({
   const [selectedDuelMode, setSelectedDuelMode] = useState<DuelMode>("classic");
   const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("easy");
 
-  const selectedOpponent = users.find((user) => user._id === selectedOpponentId) || null;
+  const selectedOpponent = users?.find((user) => user._id === selectedOpponentId) || null;
   const selectedThemes = themes?.filter((theme) => selectedThemeIds.includes(theme._id)) || [];
 
   const canCreate = selectedOpponentId && selectedThemeIds.length > 0 && selectedDuelMode;
@@ -290,13 +290,29 @@ export function UnifiedDuelModal({
 // --- Sub-components ---
 
 interface OpponentSelectorProps {
-  users: User[];
+  users: User[] | undefined;
   selectedOpponentId: Id<"users"> | null;
   selectedOpponent: User | null;
   onSelect: (id: Id<"users">) => void;
 }
 
 const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
+  if (!users) {
+    return (
+      <div
+        className="text-center p-4 border-2 rounded-2xl"
+        style={{
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+        }}
+      >
+        <p className="text-sm" style={{ color: colors.text.muted }}>
+          Loading opponents...
+        </p>
+      </div>
+    );
+  }
+
   if (users.length === 0) {
     return (
       <div
@@ -391,7 +407,23 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
   onToggleTheme,
   onCreateTheme,
 }: CompactThemeSelectorProps) {
-  if (!themes || themes.length === 0) {
+  if (!themes) {
+    return (
+      <div
+        className="text-center p-4 border-2 rounded-2xl"
+        style={{
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+        }}
+      >
+        <p className="text-sm" style={{ color: colors.text.muted }}>
+          Loading themes...
+        </p>
+      </div>
+    );
+  }
+
+  if (themes.length === 0) {
     return (
       <div
         className="text-center p-4 border-2 rounded-2xl"

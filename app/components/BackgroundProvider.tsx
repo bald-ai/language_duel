@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
 import { DEFAULT_BACKGROUND, isValidBackground } from "@/lib/preferences/backgrounds";
 
 const BACKGROUND_STORAGE_KEY = "language-duel-background";
@@ -20,10 +19,7 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
   const [background, setBackgroundState] = useState<string>(DEFAULT_BACKGROUND);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [hasAppliedServerPref, setHasAppliedServerPref] = useState(false);
-
-  // Fetch user preferences from Convex (will be null for unauthenticated users)
-  const userPreferences = useQuery(api.userPreferences.getUserPreferences);
-  const updateBackgroundMutation = useMutation(api.userPreferences.updateBackgroundPreference);
+  const { userPreferences, isLoading, updateBackgroundPreference } = useUserPreferences();
 
   // Apply localStorage preference after hydration (to avoid SSR mismatch)
   useEffect(() => {
@@ -71,7 +67,7 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
 
         // If user is authenticated, save to Convex
         if (userPreferences !== undefined && userPreferences !== null) {
-          updateBackgroundMutation({ background: nextBackground }).catch((error) => {
+          updateBackgroundPreference(nextBackground).catch((error) => {
             console.error("Failed to save background preference:", error);
           });
         }
@@ -79,16 +75,16 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
         return nextBackground;
       });
     },
-    [userPreferences, updateBackgroundMutation]
+    [userPreferences, updateBackgroundPreference]
   );
 
   const value = useMemo(
     () => ({
       background,
       setBackground: handleSetBackground,
-      isLoading: userPreferences === undefined,
+      isLoading,
     }),
-    [background, handleSetBackground, userPreferences]
+    [background, handleSetBackground, isLoading]
   );
 
   return (

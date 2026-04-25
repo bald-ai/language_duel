@@ -69,22 +69,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
   return (
     <ModalShell title="Solo Challenge">
       {/* Step 1: Select Theme */}
-      {themes && themes.length === 0 ? (
-        <>
-          <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
-            Loading themes...
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className={`${outlineButtonClassName} mt-4`}
-            style={outlineButtonStyle}
-            data-testid="solo-modal-cancel"
-          >
-            Cancel
-          </button>
-        </>
-      ) : effectiveThemeIds.length === 0 && (
+      {effectiveThemeIds.length === 0 && (
         <>
           <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
             Select one or more themes to practice.
