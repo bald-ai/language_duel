@@ -41,6 +41,8 @@ export function useNotificationSettings() {
             updates.weeklyGoalLockedEnabled ?? prefs.weeklyGoalLockedEnabled,
           weeklyGoalDailyReminderEnabled:
             updates.weeklyGoalDailyReminderEnabled ?? prefs.weeklyGoalDailyReminderEnabled,
+          weeklyGoalDraftExpiringEnabled:
+            updates.weeklyGoalDraftExpiringEnabled ?? prefs.weeklyGoalDraftExpiringEnabled,
           weeklyGoalReminder1Enabled:
             updates.weeklyGoalReminder1Enabled ?? prefs.weeklyGoalReminder1Enabled,
           weeklyGoalReminder1OffsetMinutes:

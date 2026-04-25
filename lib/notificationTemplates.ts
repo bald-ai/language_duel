@@ -24,8 +24,6 @@ export type EmailData = {
   totalCount?: number;
   partnerName?: string;
   minutesBefore?: number;
-  milestoneName?: string;
-  milestoneDaysLeft?: number;
   senderPalette?: SenderPalette;
 };
 
@@ -48,11 +46,13 @@ export function getSubjectForTrigger(
     case "weekly_goal_accepted":
       return `${sender} is IN -- weekly goal activated!`;
     case "weekly_goal_daily_reminder":
-      return data.milestoneDaysLeft === 0
-        ? `${data.milestoneName ?? "Boss"} is today`
-        : `${data.milestoneDaysLeft ?? 0} day${data.milestoneDaysLeft === 1 ? "" : "s"} until ${data.milestoneName ?? "Boss"}`;
+      return data.hoursLeft === 0
+        ? "Weekly goal ends today"
+        : `${data.hoursLeft ?? 0}h left on your weekly goal`;
     case "weekly_goal_expired_delete_reminder":
       return `Still time left -- ${data.graceHoursLeft ?? 0}h to save this goal`;
+    case "weekly_goal_draft_expiring":
+      return "Your weekly goal draft expires in 24 hours";
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
@@ -108,22 +108,22 @@ export function getBodyForTrigger(
         body: `${sender} accepted your weekly goal invite! The goal is live and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
         cta: "Open Language Duel",
       };
-    case "weekly_goal_daily_reminder": {
-      const milestoneName = data.milestoneName ?? "Boss";
-      const milestonePhrase =
-        data.milestoneDaysLeft === 0
-          ? `<strong>${milestoneName}</strong> is today`
-          : `<strong>${data.milestoneDaysLeft ?? 0} day${data.milestoneDaysLeft === 1 ? "" : "s"}</strong> until <strong>${milestoneName}</strong>`;
+    case "weekly_goal_daily_reminder":
       return {
-        heading: `${milestoneName} countdown`,
-        body: `${milestonePhrase} in your weekly goal with ${partner}. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
+        heading: "Weekly goal countdown",
+        body: `Your weekly goal with ${partner} ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
         cta: "Open Language Duel",
       };
-    }
     case "weekly_goal_expired_delete_reminder":
       return {
         heading: `Expired, but still winnable`,
         body: `Your weekly goal with ${partner} already expired, but you still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
+        cta: "Open Language Duel",
+      };
+    case "weekly_goal_draft_expiring":
+      return {
+        heading: "Draft expires soon",
+        body: "Your weekly goal draft expires in <strong>24 hours</strong>. Lock it or it will be removed.",
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_1":

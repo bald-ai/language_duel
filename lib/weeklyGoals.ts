@@ -1,4 +1,4 @@
-import { GRACE_PERIOD_MS } from "../convex/constants";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_EDITING_TTL_MS } from "../convex/constants";
 
 export const MIN_THEMES_PER_GOAL = 2;
 
@@ -40,21 +40,6 @@ export function getMiniBossUnlockThreshold(themeCount: number): number {
   return Math.floor(themeCount / 2);
 }
 
-export function getGoalMidpointAt(
-  lockedAt: number | undefined,
-  endDate: number | undefined
-): number | null {
-  if (typeof lockedAt !== "number" || typeof endDate !== "number") {
-    return null;
-  }
-
-  if (endDate <= lockedAt) {
-    return null;
-  }
-
-  return lockedAt + Math.floor((endDate - lockedAt) / 2);
-}
-
 export function getGoalDeleteAt(
   endDate: number | undefined
 ): number | null {
@@ -63,6 +48,16 @@ export function getGoalDeleteAt(
   }
 
   return endDate + GRACE_PERIOD_MS;
+}
+
+export function getGoalPlanningExpiresAt(
+  createdAt: number | undefined
+): number | null {
+  if (typeof createdAt !== "number") {
+    return null;
+  }
+
+  return createdAt + WEEKLY_GOAL_EDITING_TTL_MS;
 }
 
 export function isGoalInGracePeriod(
@@ -102,23 +97,6 @@ export function formatGoalGraceCountdown(timeRemainingMs: number): string {
   const seconds = totalSeconds % 60;
 
   return `${String(totalHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-export function getCountdownBossType(
-  goal: Pick<WeeklyGoalStateLike, "lockedAt" | "endDate" | "miniBossStatus">,
-  now: number
-): "mini" | "big" {
-  const midpointAt = getGoalMidpointAt(goal.lockedAt, goal.endDate);
-
-  if (
-    goal.miniBossStatus !== "completed" &&
-    typeof midpointAt === "number" &&
-    now < midpointAt
-  ) {
-    return "mini";
-  }
-
-  return "big";
 }
 
 export function getEffectiveGoalStatus(

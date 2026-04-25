@@ -12,6 +12,7 @@ export type NotificationPreferences = {
   weeklyGoalAcceptedEnabled: boolean;
   weeklyGoalLockedEnabled: boolean;
   weeklyGoalDailyReminderEnabled: boolean;
+  weeklyGoalDraftExpiringEnabled: boolean;
   weeklyGoalReminder1Enabled: boolean;
   weeklyGoalReminder1OffsetMinutes: number;
   weeklyGoalReminder2Enabled: boolean;
@@ -32,6 +33,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   weeklyGoalAcceptedEnabled: true,
   weeklyGoalLockedEnabled: true,
   weeklyGoalDailyReminderEnabled: true,
+  weeklyGoalDraftExpiringEnabled: true,
   weeklyGoalReminder1Enabled: true,
   weeklyGoalReminder1OffsetMinutes: 4320,
   weeklyGoalReminder2Enabled: true,

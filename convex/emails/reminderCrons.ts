@@ -169,3 +169,54 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
     }
   },
 });
+
+export const sendDraftExpiryReminders = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expiringDrafts = await ctx.runQuery(
+      internal.weeklyGoals.getEditingGoalsExpiringSoon,
+      {}
+    );
+
+    for (const goal of expiringDrafts) {
+      const alreadySent = await ctx.runQuery(
+        internal.emails.notificationEmails.checkNotificationSent,
+        {
+          toUserId: goal.creatorId,
+          trigger: "weekly_goal_draft_expiring",
+          weeklyGoalId: goal._id,
+        }
+      );
+
+      if (alreadySent) {
+        continue;
+      }
+
+      await ctx.runMutation(internal.weeklyGoals.createDraftExpiryNotification, {
+        goalId: goal._id,
+        now,
+      });
+
+      const result = await ctx.runAction(
+        internal.emails.notificationEmails.sendNotificationEmail,
+        {
+          trigger: "weekly_goal_draft_expiring",
+          toUserId: goal.creatorId,
+          weeklyGoalId: goal._id,
+        }
+      );
+
+      if (!result.sent) {
+        await ctx.runMutation(
+          internal.emails.notificationEmails.logNotificationSent,
+          {
+            toUserId: goal.creatorId,
+            trigger: "weekly_goal_draft_expiring",
+            weeklyGoalId: goal._id,
+          }
+        );
+      }
+    }
+  },
+});

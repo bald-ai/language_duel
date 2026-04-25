@@ -82,15 +82,26 @@ describe("renderNotificationEmail", () => {
         partnerName: "Partner",
         completedCount: 2,
         totalCount: 5,
-        milestoneName: "Mini Boss",
-        milestoneDaysLeft: 3,
+        hoursLeft: 72,
+        scheduledTime: "Apr 30, 2026 at 23:59",
       };
       const { subject, html } = renderNotificationEmail("weekly_goal_daily_reminder", data);
 
-      expect(subject).toBe("3 days until Mini Boss");
-      expect(html).toContain("Mini Boss countdown");
-      expect(html).toContain("3 days");
+      expect(subject).toBe("72h left on your weekly goal");
+      expect(html).toContain("Weekly goal countdown");
+      expect(html).toContain("Apr 30, 2026 at 23:59");
       expect(html).toContain("2/5");
+    });
+
+    it("renders the draft expiry reminder", () => {
+      const data = {
+        recipientName: "Player",
+      };
+      const { subject, html } = renderNotificationEmail("weekly_goal_draft_expiring", data);
+
+      expect(subject).toBe("Your weekly goal draft expires in 24 hours");
+      expect(html).toContain("Draft expires soon");
+      expect(html).toContain("Lock it or it will be removed");
     });
 
     it("renders reminder 1 with hours left and progress", () => {
@@ -150,6 +161,7 @@ describe("renderNotificationEmail", () => {
       "weekly_goal_locked",
       "weekly_goal_accepted",
       "weekly_goal_daily_reminder",
+      "weekly_goal_draft_expiring",
       "weekly_goal_expired_delete_reminder",
       "weekly_goal_reminder_1",
       "weekly_goal_reminder_2",

@@ -10,21 +10,17 @@ import type { Doc, Id } from "../_generated/dataModel";
 import {
   isNotificationEnabled,
   formatScheduledTimeForEmail,
-  getDaysUntilInTimeZone,
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
 import {
   EMAIL_LOG_TTL_MS,
-  WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE,
 } from "../constants";
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
 import {
-  getCountdownBossType,
   getGoalDeleteAt,
-  getGoalMidpointAt,
 } from "../../lib/weeklyGoals";
 
 const DEFAULT_TIMEZONE = "Europe/Bratislava";
@@ -75,6 +71,7 @@ export const checkNotificationSent = internalQuery({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_draft_expiring"),
       v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
@@ -173,6 +170,7 @@ export const logNotificationSent = internalMutation({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_draft_expiring"),
       v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
@@ -229,6 +227,7 @@ export const sendNotificationEmail = internalAction({
       v.literal("weekly_goal_locked"),
       v.literal("weekly_goal_accepted"),
       v.literal("weekly_goal_daily_reminder"),
+      v.literal("weekly_goal_draft_expiring"),
       v.literal("weekly_goal_expired_delete_reminder"),
       v.literal("weekly_goal_reminder_1"),
       v.literal("weekly_goal_reminder_2")
@@ -418,19 +417,6 @@ export async function buildEmailData(
         }
       }
 
-      if (args.trigger === "weekly_goal_daily_reminder" && goal.endDate) {
-        const midpointAt = getGoalMidpointAt(goal.lockedAt, goal.endDate);
-        const countdownBossType = getCountdownBossType(goal, Date.now());
-        const milestoneAt = countdownBossType === "mini" && midpointAt
-          ? midpointAt
-          : goal.endDate;
-        data.milestoneName = countdownBossType === "mini" ? "Mini Boss" : "Boss";
-        data.milestoneDaysLeft = getDaysUntilInTimeZone(
-          milestoneAt,
-          Date.now(),
-          WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE
-        );
-      }
     }
   }
 

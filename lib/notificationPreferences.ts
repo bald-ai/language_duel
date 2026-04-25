@@ -11,6 +11,7 @@ const _NOTIFICATION_TRIGGERS = [
   "weekly_goal_locked",
   "weekly_goal_accepted",
   "weekly_goal_daily_reminder",
+  "weekly_goal_draft_expiring",
   "weekly_goal_expired_delete_reminder",
   "weekly_goal_reminder_1",
   "weekly_goal_reminder_2",
@@ -56,6 +57,10 @@ export function isNotificationEnabled(
     weekly_goal_daily_reminder: {
       category: "weeklyGoalsEnabled",
       trigger: "weeklyGoalDailyReminderEnabled",
+    },
+    weekly_goal_draft_expiring: {
+      category: "weeklyGoalsEnabled",
+      trigger: "weeklyGoalDraftExpiringEnabled",
     },
     weekly_goal_expired_delete_reminder: {
       category: "weeklyGoalsEnabled",

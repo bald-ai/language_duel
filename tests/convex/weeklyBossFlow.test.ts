@@ -467,7 +467,7 @@ describe("weekly boss flow", () => {
     expect(db.notifications).toHaveLength(0);
   });
 
-  it("rejects boss duel when the boss is still locked", async () => {
+  it("rejects mini boss duel after the old midpoint when themes are still incomplete", async () => {
     vi.spyOn(Date, "now").mockReturnValue(12_000);
 
     const db = new InMemoryDb();

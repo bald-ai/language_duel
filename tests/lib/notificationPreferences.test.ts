@@ -30,6 +30,7 @@ describe("notificationPreferences", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEnabled).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDraftExpiringEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled).toBe(true);
     });
@@ -44,7 +45,7 @@ describe("notificationPreferences", () => {
 
     it("has all expected keys", () => {
       const keys = Object.keys(DEFAULT_NOTIFICATION_PREFS);
-      expect(keys).toHaveLength(15);
+      expect(keys).toHaveLength(16);
       expect(keys).toContain("immediateDuelsEnabled");
       expect(keys).toContain("scheduledDuelsEnabled");
       expect(keys).toContain("weeklyGoalsEnabled");
@@ -87,6 +88,11 @@ describe("notificationPreferences", () => {
     it("reuses the daily weekly goal preference for expired delete reminders", () => {
       const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
       expect(isNotificationEnabled("weekly_goal_expired_delete_reminder", prefs)).toBe(true);
+    });
+
+    it("returns true for draft expiry reminders when enabled", () => {
+      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
+      expect(isNotificationEnabled("weekly_goal_draft_expiring", prefs)).toBe(true);
     });
 
     it("returns false when category is disabled", () => {

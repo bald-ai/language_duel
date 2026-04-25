@@ -4,12 +4,11 @@ import {
   canTriggerGoalBoss,
   countCompletedThemes,
   formatGoalGraceCountdown,
-  getCountdownBossType,
   getGoalDeleteAt,
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
-  getGoalMidpointAt,
+  getGoalPlanningExpiresAt,
   isGoalInGracePeriod,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
@@ -48,12 +47,12 @@ describe("weeklyGoals helpers", () => {
     ).toBe(1);
   });
 
-  it("derives midpoint from lockedAt and endDate", () => {
-    expect(getGoalMidpointAt(1_000, 9_000)).toBe(5_000);
-  });
-
   it("derives the delete deadline from the end date plus the grace window", () => {
     expect(getGoalDeleteAt(1_000)).toBe(172_801_000);
+  });
+
+  it("derives the planning expiry from createdAt plus the editing TTL", () => {
+    expect(getGoalPlanningExpiresAt(1_000)).toBe(604_801_000);
   });
 
   it("formats the grace countdown as total-hours hh:mm:ss", () => {
@@ -81,18 +80,22 @@ describe("weeklyGoals helpers", () => {
     expect(isGoalPlayable(goal, now)).toBe(true);
   });
 
-  it("unlocks the mini boss at the midpoint", () => {
-    expect(getEffectiveMiniBossStatus(buildGoal(), 5_000)).toBe("available");
-  });
-
-  it("switches the countdown to the big boss once mini boss is completed early", () => {
-    expect(
-      getCountdownBossType(buildGoal({ miniBossStatus: "completed" }), 2_000)
-    ).toBe("big");
-  });
-
   it("unlocks the mini boss early once half the themes are jointly completed", () => {
     expect(getEffectiveMiniBossStatus(buildGoal(), 2_000)).toBe("available");
+  });
+
+  it("keeps the mini boss locked until enough themes are jointly completed", () => {
+    expect(
+      getEffectiveMiniBossStatus(
+        buildGoal({
+          themes: [
+            { creatorCompleted: true, partnerCompleted: false },
+            { creatorCompleted: false, partnerCompleted: false },
+          ],
+        }),
+        5_000
+      )
+    ).toBe("locked");
   });
 
   it("keeps the big boss locked until the mini boss is completed", () => {

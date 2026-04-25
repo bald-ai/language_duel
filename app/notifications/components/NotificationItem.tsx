@@ -34,7 +34,8 @@ interface NotificationData {
             | "partner_locked"
             | "goal_unlocked"
             | "goal_activated"
-            | "goal_completed";
+            | "goal_completed"
+            | "draft_expiring";
         scheduledDuelStatus?: string;
         startedDuelId?: Id<"challenges">;
         proposerReady?: boolean;
@@ -328,6 +329,30 @@ export function NotificationItem({
                                 dataTestId={`notification-${notification._id}-decline-weekly-plan`}
                             >
                                 Decline
+                            </ActionButton>
+                        </div>
+                    ),
+                };
+
+            case NOTIFICATION_TYPES.WEEKLY_GOAL_DRAFT_EXPIRING:
+                return {
+                    icon: <CalendarIcon />,
+                    message: "Your weekly goal draft expires in 24 hours. Lock it or it will be removed.",
+                    actions: (
+                        <div className="flex gap-2 mt-3">
+                            <ActionButton
+                                onClick={onViewWeeklyPlan}
+                                variant="accept"
+                                dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                            >
+                                View
+                            </ActionButton>
+                            <ActionButton
+                                onClick={onDismiss}
+                                variant="dismiss"
+                                dataTestId={`notification-${notification._id}-dismiss`}
+                            >
+                                Dismiss
                             </ActionButton>
                         </div>
                     ),

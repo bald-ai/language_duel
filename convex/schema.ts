@@ -116,6 +116,7 @@ const soloHintRequesterStateValidator = v.object({
 export const notificationTypeValidator = v.union(
   v.literal("friend_request"),
   v.literal("weekly_plan_invitation"),
+  v.literal("weekly_goal_draft_expiring"),
   v.literal("scheduled_duel"),
   v.literal("duel_challenge")
 );
@@ -155,7 +156,8 @@ export const notificationPayloadValidator = v.union(
         v.literal("partner_locked"),
         v.literal("goal_unlocked"),
         v.literal("goal_activated"),
-        v.literal("goal_completed")
+        v.literal("goal_completed"),
+        v.literal("draft_expiring")
       )
     ),
   }),
@@ -188,6 +190,7 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
   v.literal("weekly_goal_daily_reminder"),
+  v.literal("weekly_goal_draft_expiring"),
   v.literal("weekly_goal_expired_delete_reminder"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
@@ -463,6 +466,7 @@ export default defineSchema({
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
     weeklyGoalDailyReminderEnabled: v.boolean(),
+    weeklyGoalDraftExpiringEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
     weeklyGoalReminder2Enabled: v.boolean(),

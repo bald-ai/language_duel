@@ -34,6 +34,12 @@ crons.interval(
     internal.emails.reminderCrons.sendWeeklyGoalReminders
 );
 
+crons.interval(
+    "send-weekly-goal-draft-expiry-reminders",
+    { hours: 1 },
+    internal.emails.reminderCrons.sendDraftExpiryReminders
+);
+
 crons.hourly(
     "send-daily-weekly-goal-reminder-emails",
     { minuteUTC: 27 },

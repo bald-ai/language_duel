@@ -19,6 +19,7 @@ import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
 import {
   formatGoalGraceCountdown,
   getGoalDeleteAt,
+  getGoalPlanningExpiresAt,
   getMiniBossUnlockThreshold,
 } from "@/lib/weeklyGoals";
 import {
@@ -168,6 +169,9 @@ export default function GoalsPage() {
   const deleteAt = getGoalDeleteAt(selectedPlan?.goal?.endDate);
   const graceCountdown = useCountdown(deleteAt ?? 0);
   const formattedGraceCountdown = formatGoalGraceCountdown(graceCountdown.timeRemaining);
+  const planningExpiresAt = getGoalPlanningExpiresAt(selectedPlan?.goal?.createdAt);
+  const planningCountdown = useCountdown(planningExpiresAt ?? 0);
+  const formattedPlanningCountdown = formatGoalGraceCountdown(planningCountdown.timeRemaining);
 
   // Handle plan selection from switcher
   const handleSelectPlan = (planId: Id<"weeklyGoals">) => {
@@ -579,21 +583,9 @@ export default function GoalsPage() {
                   <p className="text-sm" style={{ color: colors.text.muted }}>
                     {isExpired
                       ? "The goal expired, but you still have a final window to finish it."
-                      : "Pick an end date. The mini boss checkpoint is calculated automatically."}
+                      : "Pick an end date for this weekly goal."}
                   </p>
                 </div>
-                {!isExpired && (
-                  <div className="text-right">
-                    <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
-                      Midpoint
-                    </p>
-                    <p className="text-sm font-semibold" style={{ color: colors.text.DEFAULT }}>
-                      {selectedPlan.midpointAt
-                        ? `${isEditing ? "~" : ""}${formatDate(selectedPlan.midpointAt)}`
-                        : "Pick an end date"}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {isExpired ? (
@@ -647,7 +639,30 @@ export default function GoalsPage() {
                   </div>
                 </div>
               ) : (
-                <div>
+                <div className="space-y-3">
+                  {isEditing && planningExpiresAt && (
+                    <div
+                      className="rounded-xl border px-4 py-3"
+                      style={{
+                        backgroundColor: colors.background.DEFAULT,
+                        borderColor: colors.neutral.light,
+                        color: colors.text.muted,
+                      }}
+                      data-testid="goals-planning-expiry"
+                    >
+                      <p className="text-sm">
+                        Planning expires in{" "}
+                        <span
+                          className="font-semibold tabular-nums"
+                          style={{ color: colors.text.DEFAULT }}
+                          data-testid="goals-planning-countdown"
+                        >
+                          {formattedPlanningCountdown}
+                        </span>
+                        . Lock this goal before then or it will be removed.
+                      </p>
+                    </div>
+                  )}
                   <label>
                     <span className="sr-only">End date</span>
                     <input
@@ -774,7 +789,7 @@ export default function GoalsPage() {
               </div>
               {!isEditing && selectedPlan.miniBossStatus === "locked" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
-                  Mini boss unlocks at the midpoint{selectedPlan.midpointAt ? ` (${formatDate(selectedPlan.midpointAt)})` : ""} or when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
+                  Mini boss unlocks when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
                 </p>
               )}
               {!isEditing && selectedPlan.miniBossStatus !== "locked" && selectedPlan.bossStatus === "locked" && (

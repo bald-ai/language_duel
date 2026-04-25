@@ -30,7 +30,6 @@ import {
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
-  getGoalMidpointAt,
   getMiniBossUnlockThreshold,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
@@ -43,6 +42,10 @@ const MAX_THEMES_PER_GOAL = 10;
 const MINI_BOSS_WORD_CAP = 20;
 const BIG_BOSS_WORD_CAP = 30;
 type BossType = "mini" | "big";
+const WEEKLY_GOAL_NOTIFICATION_TYPES = [
+  "weekly_plan_invitation",
+  "weekly_goal_draft_expiring",
+] as const;
 
 function getBossWordCap(bossType: BossType): number {
   return bossType === "mini" ? MINI_BOSS_WORD_CAP : BIG_BOSS_WORD_CAP;
@@ -99,27 +102,23 @@ async function dismissGoalNotifications(
   const participantIds = [goal.creatorId, goal.partnerId];
 
   for (const userId of participantIds) {
-    const pendingNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q
-          .eq("type", "weekly_plan_invitation")
-          .eq("toUserId", userId)
-          .eq("status", "pending")
+    const notifications = (
+      await Promise.all(
+        WEEKLY_GOAL_NOTIFICATION_TYPES.flatMap((type) =>
+          (["pending", "read"] as const).map((status) =>
+            ctx.db
+              .query("notifications")
+              .withIndex("by_type_status", (q) =>
+                q
+                  .eq("type", type)
+                  .eq("toUserId", userId)
+                  .eq("status", status)
+              )
+              .collect()
+          )
+        )
       )
-      .collect();
-
-    const readNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q
-          .eq("type", "weekly_plan_invitation")
-          .eq("toUserId", userId)
-          .eq("status", "read")
-      )
-      .collect();
-
-    const notifications = [...pendingNotifications, ...readNotifications];
+    ).flat();
 
     for (const notification of notifications) {
       if (
@@ -142,27 +141,23 @@ async function dismissGoalNotificationsForParticipants(
   const goalIdSet = new Set(goalIds.map((id) => String(id)));
 
   for (const userId of participantIds) {
-    const pendingNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q
-          .eq("type", "weekly_plan_invitation")
-          .eq("toUserId", userId)
-          .eq("status", "pending")
+    const notifications = (
+      await Promise.all(
+        WEEKLY_GOAL_NOTIFICATION_TYPES.flatMap((type) =>
+          (["pending", "read"] as const).map((status) =>
+            ctx.db
+              .query("notifications")
+              .withIndex("by_type_status", (q) =>
+                q
+                  .eq("type", type)
+                  .eq("toUserId", userId)
+                  .eq("status", status)
+              )
+              .collect()
+          )
+        )
       )
-      .collect();
-
-    const readNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q
-          .eq("type", "weekly_plan_invitation")
-          .eq("toUserId", userId)
-          .eq("status", "read")
-      )
-      .collect();
-
-    const notifications = [...pendingNotifications, ...readNotifications];
+    ).flat();
     for (const notification of notifications) {
       if (!isWeeklyPlanPayload(notification.payload)) continue;
       if (!goalIdSet.has(String(notification.payload.goalId))) continue;
@@ -390,7 +385,6 @@ export interface GoalWithUsers {
   effectiveStatus: WeeklyGoalLifecycleStatus;
   miniBossStatus: WeeklyGoalBossStatus;
   bossStatus: WeeklyGoalBossStatus;
-  midpointAt: number | null;
   completedThemeCount: number;
   canEditEndDate: boolean;
 }
@@ -436,7 +430,6 @@ function buildGoalWithUsers(
     effectiveStatus: getEffectiveGoalStatus(goal, now),
     miniBossStatus,
     bossStatus,
-    midpointAt: getGoalMidpointAt(goal.lockedAt ?? now, goal.endDate),
     completedThemeCount: countCompletedThemes(goal.themes),
     canEditEndDate: canEditGoalEndDate(goal, now),
   };
@@ -1339,6 +1332,74 @@ export const getExpiredGoalsInGraceWindow = internalQuery({
       seen.add(key);
       return true;
     });
+  },
+});
+
+export const getEditingGoalsExpiringSoon = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000;
+    const minCreatedAt = now - WEEKLY_GOAL_EDITING_TTL_MS + 23 * oneHourMs;
+    const maxCreatedAt = now - WEEKLY_GOAL_EDITING_TTL_MS + 24 * oneHourMs;
+
+    return await ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_status_createdAt", (q) =>
+        q
+          .eq("status", "editing")
+          .gte("createdAt", minCreatedAt)
+          .lt("createdAt", maxCreatedAt)
+      )
+      .collect();
+  },
+});
+
+export const createDraftExpiryNotification = internalMutation({
+  args: {
+    goalId: v.id("weeklyGoals"),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const goal = await ctx.db.get(args.goalId);
+    if (!goal || goal.status !== "editing") {
+      return { created: false };
+    }
+
+    const existing = await ctx.db
+      .query("notifications")
+      .withIndex("by_type", (q) =>
+        q
+          .eq("type", "weekly_goal_draft_expiring")
+          .eq("toUserId", goal.creatorId)
+      )
+      .collect();
+
+    const matching = existing.find(
+      (notification) =>
+        isWeeklyPlanPayload(notification.payload) &&
+        notification.payload.goalId === goal._id &&
+        notification.status !== "dismissed"
+    );
+
+    if (matching) {
+      return { created: false };
+    }
+
+    await ctx.db.insert("notifications", {
+      type: "weekly_goal_draft_expiring",
+      fromUserId: goal.creatorId,
+      toUserId: goal.creatorId,
+      status: "pending",
+      payload: {
+        goalId: goal._id,
+        themeCount: goal.themes.length,
+        event: "draft_expiring",
+      },
+      createdAt: args.now,
+    });
+
+    return { created: true };
   },
 });
 
