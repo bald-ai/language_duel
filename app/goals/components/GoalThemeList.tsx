@@ -133,7 +133,7 @@ export function GoalThemeList({
               }}
               title={
                 !canToggle
-                  ? "Theme progress can only be changed while the goal is active"
+                  ? "Theme progress can only be changed while the goal is locked or in grace period"
                   : viewerCompleted
                     ? "Mark incomplete"
                     : "Mark complete"
@@ -151,7 +151,7 @@ export function GoalThemeList({
               )}
             </button>
 
-            {/* Delete button (only in editing mode) */}
+            {/* Delete button (only in draft mode) */}
             {isEditing && (
               <button
                 onClick={() => onRemove(theme.themeId)}

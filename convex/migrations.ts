@@ -1,4 +1,4 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
@@ -6,8 +6,64 @@ import { loadThemesByIds } from "./helpers/sessionWords";
 import { buildSessionWords } from "../lib/sessionWords";
 
 const SNAPSHOT_BACKFILL_BATCH_SIZE = 50;
-const SNAPSHOT_BACKFILL_STATUSES = ["active", "expired", "completed"] as const;
+const SNAPSHOT_BACKFILL_STATUSES = ["locked", "grace_period", "completed"] as const;
 type SnapshotBackfillStatus = (typeof SNAPSHOT_BACKFILL_STATUSES)[number];
+
+const OLD_WEEKLY_GOAL_LIFECYCLE_STATUSES = ["editing", "active", "expired"] as const;
+const NEW_WEEKLY_GOAL_LIFECYCLE_STATUSES = [
+  "draft",
+  "locked",
+  "grace_period",
+  "completed",
+] as const;
+const OLD_WEEKLY_GOAL_BOSS_STATUSES = ["locked", "available", "completed"] as const;
+const NEW_WEEKLY_GOAL_BOSS_STATUSES = ["unavailable", "ready", "defeated"] as const;
+const BOSS_ONLY_STATUSES = ["available", "unavailable", "ready", "defeated"] as const;
+const LIFECYCLE_ONLY_STATUSES = [
+  "editing",
+  "active",
+  "expired",
+  "draft",
+  "grace_period",
+] as const;
+
+const WEEKLY_GOAL_LIFECYCLE_STATUS_MAP = {
+  editing: "draft",
+  active: "locked",
+  expired: "grace_period",
+  draft: "draft",
+  locked: "locked",
+  grace_period: "grace_period",
+  completed: "completed",
+} as const;
+
+const WEEKLY_GOAL_BOSS_STATUS_MAP = {
+  locked: "unavailable",
+  available: "ready",
+  completed: "defeated",
+  unavailable: "unavailable",
+  ready: "ready",
+  defeated: "defeated",
+} as const;
+
+type WeeklyGoalLifecycleStatusInput = keyof typeof WEEKLY_GOAL_LIFECYCLE_STATUS_MAP;
+type WeeklyGoalBossStatusInput = keyof typeof WEEKLY_GOAL_BOSS_STATUS_MAP;
+
+function isOneOf<T extends readonly string[]>(values: T, value: string): value is T[number] {
+  return (values as readonly string[]).includes(value);
+}
+
+export function mapWeeklyGoalLifecycleStatusName(
+  status: WeeklyGoalLifecycleStatusInput
+): (typeof WEEKLY_GOAL_LIFECYCLE_STATUS_MAP)[WeeklyGoalLifecycleStatusInput] {
+  return WEEKLY_GOAL_LIFECYCLE_STATUS_MAP[status];
+}
+
+export function mapWeeklyGoalBossStatusName(
+  status: WeeklyGoalBossStatusInput
+): (typeof WEEKLY_GOAL_BOSS_STATUS_MAP)[WeeklyGoalBossStatusInput] {
+  return WEEKLY_GOAL_BOSS_STATUS_MAP[status];
+}
 
 export const backfillChallengeSessionWords = internalMutation({
   args: {},
@@ -55,7 +111,7 @@ export const backfillChallengeSessionWords = internalMutation({
 export const backfillWeeklyGoalThemeSnapshots = internalMutation({
   args: {
     status: v.optional(
-      v.union(v.literal("active"), v.literal("expired"), v.literal("completed"))
+      v.union(v.literal("locked"), v.literal("grace_period"), v.literal("completed"))
     ),
     cursor: v.optional(v.string()),
     batchSize: v.optional(v.number()),
@@ -146,6 +202,152 @@ export const backfillWeeklyGoalThemeSnapshots = internalMutation({
       nextStatus: page.isDone
         ? (SNAPSHOT_BACKFILL_STATUSES[SNAPSHOT_BACKFILL_STATUSES.indexOf(status) + 1] ?? null)
         : status,
+    };
+  },
+});
+
+export const migrateWeeklyGoalStateNames = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const goals = await ctx.db.query("weeklyGoals").collect();
+    let updatedGoals = 0;
+    let updatedLifecycleStatuses = 0;
+    let updatedMiniBossStatuses = 0;
+    let updatedBossStatuses = 0;
+
+    for (const goal of goals) {
+      const patch: Partial<{
+        status: (typeof NEW_WEEKLY_GOAL_LIFECYCLE_STATUSES)[number];
+        miniBossStatus: (typeof NEW_WEEKLY_GOAL_BOSS_STATUSES)[number];
+        bossStatus: (typeof NEW_WEEKLY_GOAL_BOSS_STATUSES)[number];
+      }> = {};
+
+      if (goal.status in WEEKLY_GOAL_LIFECYCLE_STATUS_MAP) {
+        const nextStatus = mapWeeklyGoalLifecycleStatusName(
+          goal.status as WeeklyGoalLifecycleStatusInput
+        );
+        if (nextStatus !== goal.status) {
+          patch.status = nextStatus;
+          updatedLifecycleStatuses += 1;
+        }
+      }
+
+      if (goal.miniBossStatus in WEEKLY_GOAL_BOSS_STATUS_MAP) {
+        const nextMiniBossStatus = mapWeeklyGoalBossStatusName(
+          goal.miniBossStatus as WeeklyGoalBossStatusInput
+        );
+        if (nextMiniBossStatus !== goal.miniBossStatus) {
+          patch.miniBossStatus = nextMiniBossStatus;
+          updatedMiniBossStatuses += 1;
+        }
+      }
+
+      if (goal.bossStatus in WEEKLY_GOAL_BOSS_STATUS_MAP) {
+        const nextBossStatus = mapWeeklyGoalBossStatusName(
+          goal.bossStatus as WeeklyGoalBossStatusInput
+        );
+        if (nextBossStatus !== goal.bossStatus) {
+          patch.bossStatus = nextBossStatus;
+          updatedBossStatuses += 1;
+        }
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(goal._id, patch);
+        updatedGoals += 1;
+      }
+    }
+
+    return {
+      checkedGoals: goals.length,
+      updatedGoals,
+      updatedLifecycleStatuses,
+      updatedMiniBossStatuses,
+      updatedBossStatuses,
+    };
+  },
+});
+
+export const verifyWeeklyGoalStateNames = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const goals = await ctx.db.query("weeklyGoals").collect();
+    const oldLifecycleGoalIds: string[] = [];
+    const oldBossGoalIds: string[] = [];
+    const lifecycleFieldWithBossValueGoalIds: string[] = [];
+    const bossFieldWithLifecycleValueGoalIds: string[] = [];
+    const invalidLifecycleGoalIds: string[] = [];
+    const invalidBossGoalIds: string[] = [];
+
+    const lifecycleStatuses = [
+      ...OLD_WEEKLY_GOAL_LIFECYCLE_STATUSES,
+      ...NEW_WEEKLY_GOAL_LIFECYCLE_STATUSES,
+    ] as const;
+    const bossStatuses = [
+      ...OLD_WEEKLY_GOAL_BOSS_STATUSES,
+      ...NEW_WEEKLY_GOAL_BOSS_STATUSES,
+    ] as const;
+
+    for (const goal of goals) {
+      const goalId = String(goal._id);
+      const status = String(goal.status);
+      const miniBossStatus = String(goal.miniBossStatus);
+      const bossStatus = String(goal.bossStatus);
+
+      if (isOneOf(OLD_WEEKLY_GOAL_LIFECYCLE_STATUSES, status)) {
+        oldLifecycleGoalIds.push(goalId);
+      }
+
+      if (
+        isOneOf(OLD_WEEKLY_GOAL_BOSS_STATUSES, miniBossStatus) ||
+        isOneOf(OLD_WEEKLY_GOAL_BOSS_STATUSES, bossStatus)
+      ) {
+        oldBossGoalIds.push(goalId);
+      }
+
+      if (isOneOf(BOSS_ONLY_STATUSES, status)) {
+        lifecycleFieldWithBossValueGoalIds.push(goalId);
+      }
+
+      if (
+        isOneOf(LIFECYCLE_ONLY_STATUSES, miniBossStatus) ||
+        isOneOf(LIFECYCLE_ONLY_STATUSES, bossStatus)
+      ) {
+        bossFieldWithLifecycleValueGoalIds.push(goalId);
+      }
+
+      if (!isOneOf(lifecycleStatuses, status)) {
+        invalidLifecycleGoalIds.push(goalId);
+      }
+
+      if (!isOneOf(bossStatuses, miniBossStatus) || !isOneOf(bossStatuses, bossStatus)) {
+        invalidBossGoalIds.push(goalId);
+      }
+    }
+
+    return {
+      checkedGoals: goals.length,
+      oldLifecycleCount: oldLifecycleGoalIds.length,
+      oldBossCount: oldBossGoalIds.length,
+      lifecycleFieldWithBossValueCount: lifecycleFieldWithBossValueGoalIds.length,
+      bossFieldWithLifecycleValueCount: bossFieldWithLifecycleValueGoalIds.length,
+      invalidLifecycleCount: invalidLifecycleGoalIds.length,
+      invalidBossCount: invalidBossGoalIds.length,
+      sampleIds: {
+        oldLifecycle: oldLifecycleGoalIds.slice(0, 20),
+        oldBoss: oldBossGoalIds.slice(0, 20),
+        lifecycleFieldWithBossValue: lifecycleFieldWithBossValueGoalIds.slice(0, 20),
+        bossFieldWithLifecycleValue: bossFieldWithLifecycleValueGoalIds.slice(0, 20),
+        invalidLifecycle: invalidLifecycleGoalIds.slice(0, 20),
+        invalidBoss: invalidBossGoalIds.slice(0, 20),
+      },
+      ok:
+        oldLifecycleGoalIds.length === 0 &&
+        oldBossGoalIds.length === 0 &&
+        lifecycleFieldWithBossValueGoalIds.length === 0 &&
+        bossFieldWithLifecycleValueGoalIds.length === 0 &&
+        invalidLifecycleGoalIds.length === 0 &&
+        invalidBossGoalIds.length === 0,
     };
   },
 });

@@ -19,7 +19,7 @@ import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
 import {
   formatGoalGraceCountdown,
   getGoalDeleteAt,
-  getGoalPlanningExpiresAt,
+  getGoalDraftExpiresAt,
   getMiniBossUnlockThreshold,
 } from "@/lib/weeklyGoals";
 import {
@@ -77,14 +77,14 @@ function toLocalEndOfDayTimestamp(dateValue: string): number | null {
   return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
 }
 
-function formatGoalStatus(status: "editing" | "active" | "expired" | "completed"): string {
+function formatGoalStatus(status: "draft" | "locked" | "grace_period" | "completed"): string {
   switch (status) {
-    case "editing":
-      return "Planning";
-    case "active":
-      return "Active";
-    case "expired":
-      return "Expired";
+    case "draft":
+      return "Draft";
+    case "locked":
+      return "Locked";
+    case "grace_period":
+      return "Grace period";
     case "completed":
       return "Completed";
   }
@@ -105,7 +105,7 @@ export default function GoalsPage() {
 
   // Queries - reactive and cached
   const friends = useQuery(api.friends.getFriends);
-  const allPlans = useQuery(api.weeklyGoals.getAllActiveGoals);
+  const allPlans = useQuery(api.weeklyGoals.getVisibleGoals);
   const selectedPlan = useQuery(
     api.weeklyGoals.getGoalById,
     selectedPlanId ? { goalId: selectedPlanId } : "skip"
@@ -118,7 +118,7 @@ export default function GoalsPage() {
   const toggleCompletion = useMutation(api.weeklyGoals.toggleCompletion);
   const lockGoal = useMutation(api.weeklyGoals.lockGoal);
   const deleteGoal = useMutation(api.weeklyGoals.deleteGoal);
-  const purgeExpiredGoals = useMutation(api.weeklyGoals.purgeExpiredGoalsForUser);
+  const syncGracePeriodGoals = useMutation(api.weeklyGoals.syncGracePeriodGoalsForUser);
   const setGoalEndDate = useMutation(api.weeklyGoals.setGoalEndDate);
 
   // Initial selection and periodic expiry cleanup
@@ -135,9 +135,9 @@ export default function GoalsPage() {
     }
     setInitialLoadDone(true);
 
-    // Purge expired goals on initial load
-    void purgeExpiredGoals();
-  }, [allPlans, initialLoadDone, purgeExpiredGoals]);
+    // Move overdue goals into grace period and delete goals past retention.
+    void syncGracePeriodGoals();
+  }, [allPlans, initialLoadDone, syncGracePeriodGoals]);
 
   // Update localStorage when selection changes
   useEffect(() => {
@@ -169,9 +169,9 @@ export default function GoalsPage() {
   const deleteAt = getGoalDeleteAt(selectedPlan?.goal?.endDate);
   const graceCountdown = useCountdown(deleteAt ?? 0);
   const formattedGraceCountdown = formatGoalGraceCountdown(graceCountdown.timeRemaining);
-  const planningExpiresAt = getGoalPlanningExpiresAt(selectedPlan?.goal?.createdAt);
-  const planningCountdown = useCountdown(planningExpiresAt ?? 0);
-  const formattedPlanningCountdown = formatGoalGraceCountdown(planningCountdown.timeRemaining);
+  const draftExpiresAt = getGoalDraftExpiresAt(selectedPlan?.goal?.createdAt);
+  const draftCountdown = useCountdown(draftExpiresAt ?? 0);
+  const formattedDraftCountdown = formatGoalGraceCountdown(draftCountdown.timeRemaining);
 
   // Handle plan selection from switcher
   const handleSelectPlan = (planId: Id<"weeklyGoals">) => {
@@ -332,7 +332,7 @@ export default function GoalsPage() {
     );
   }
 
-  // Filter out friends who already have an active/editing goal with the user
+  // Filter out friends who already have a visible goal with the user.
   // Since max 1 goal per pair is enforced, we exclude anyone already in allPlans
   const existingPartnerIds = new Set(
     allPlans?.flatMap(plan => [
@@ -348,12 +348,12 @@ export default function GoalsPage() {
   const hasPlans = allPlans.length > 0;
   const hasPlanSelected = selectedPlan != null; // handles both null and undefined
   const effectiveStatus = selectedPlan?.effectiveStatus;
-  const isEditing = effectiveStatus === "editing";
-  const isActive = effectiveStatus === "active";
-  const isExpired = effectiveStatus === "expired";
-  const isPlayableGoal = isActive || isExpired;
+  const isDraft = effectiveStatus === "draft";
+  const isLocked = effectiveStatus === "locked";
+  const isGracePeriod = effectiveStatus === "grace_period";
+  const isPlayableGoal = isLocked || isGracePeriod;
   const canAddThemes =
-    isEditing &&
+    isDraft &&
     hasPlanSelected &&
     selectedPlan.goal.themes.length < MAX_THEMES_PER_GOAL;
   const viewerLocked =
@@ -528,7 +528,7 @@ export default function GoalsPage() {
                       ? `${startDate} to ${endDate}`
                       : endDate
                         ? `Ends ${endDate}`
-                        : "Planning Phase"}
+                        : "Draft phase"}
                   </p>
                   <p className="text-xs" style={{ color: colors.text.muted }}>
                     {formatGoalStatus(selectedPlan.effectiveStatus)}
@@ -567,7 +567,7 @@ export default function GoalsPage() {
               className="rounded-2xl border-2 p-4 space-y-4"
               style={{
                 backgroundColor: colors.background.elevated,
-                borderColor: isExpired
+                borderColor: isGracePeriod
                   ? colors.status.warning.DEFAULT
                   : colors.primary.dark,
               }}
@@ -581,14 +581,14 @@ export default function GoalsPage() {
                     Goal Timing
                   </p>
                   <p className="text-sm" style={{ color: colors.text.muted }}>
-                    {isExpired
-                      ? "The goal expired, but you still have a final window to finish it."
+                    {isGracePeriod
+                      ? "The goal is in grace period. You still have a final window to finish it."
                       : "Pick an end date for this weekly goal."}
                   </p>
                 </div>
               </div>
 
-              {isExpired ? (
+              {isGracePeriod ? (
                 <div
                   className="rounded-2xl border-2 p-5 space-y-4"
                   style={{
@@ -602,7 +602,7 @@ export default function GoalsPage() {
                         className="text-xs font-bold uppercase tracking-[0.2em]"
                         style={{ color: colors.status.danger.DEFAULT }}
                       >
-                        Expired
+                        Grace Period
                       </p>
                       <p className="text-sm mt-1" style={{ color: colors.text.muted }}>
                         This goal will be permanently removed when the timer hits zero.
@@ -640,7 +640,7 @@ export default function GoalsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {isEditing && planningExpiresAt && (
+                  {isDraft && draftExpiresAt && (
                     <div
                       className="rounded-xl border px-4 py-3"
                       style={{
@@ -651,13 +651,13 @@ export default function GoalsPage() {
                       data-testid="goals-planning-expiry"
                     >
                       <p className="text-sm">
-                        Planning expires in{" "}
+                        Draft expires in{" "}
                         <span
                           className="font-semibold tabular-nums"
                           style={{ color: colors.text.DEFAULT }}
                           data-testid="goals-planning-countdown"
                         >
-                          {formattedPlanningCountdown}
+                          {formattedDraftCountdown}
                         </span>
                         . Lock this goal before then or it will be removed.
                       </p>
@@ -688,7 +688,7 @@ export default function GoalsPage() {
                 </div>
               )}
 
-              {!isExpired && !canEditEndDate && (
+              {!isGracePeriod && !canEditEndDate && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
                   This end date is now read-only.
                 </p>
@@ -752,7 +752,7 @@ export default function GoalsPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    if (selectedPlan.miniBossStatus === "available") {
+                    if (selectedPlan.miniBossStatus === "ready") {
                       router.push(`/boss/${selectedPlan.goal._id}/mini`);
                     }
                   }}
@@ -770,7 +770,7 @@ export default function GoalsPage() {
                 </button>
                 <button
                   onClick={() => {
-                    if (selectedPlan.bossStatus === "available") {
+                    if (selectedPlan.bossStatus === "ready") {
                       router.push(`/boss/${selectedPlan.goal._id}/big`);
                     }
                   }}
@@ -787,19 +787,19 @@ export default function GoalsPage() {
                   </p>
                 </button>
               </div>
-              {!isEditing && selectedPlan.miniBossStatus === "locked" && (
+              {!isDraft && selectedPlan.miniBossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
                   Mini boss unlocks when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
                 </p>
               )}
-              {!isEditing && selectedPlan.miniBossStatus !== "locked" && selectedPlan.bossStatus === "locked" && (
+              {!isDraft && selectedPlan.miniBossStatus !== "unavailable" && selectedPlan.bossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
-                  {selectedPlan.miniBossStatus === "available"
+                  {selectedPlan.miniBossStatus === "ready"
                     ? "Tap Mini Boss to start! Complete it to unlock the big boss."
                     : "Complete all themes to unlock the big boss."}
                 </p>
               )}
-              {isEditing && (
+              {isDraft && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
                   Lock the goal with at least {MIN_THEMES_TO_LOCK_GOAL} themes and an end date to start boss tracking.
                 </p>
@@ -810,13 +810,13 @@ export default function GoalsPage() {
             <GoalThemeList
               themes={selectedPlan.goal.themes}
               viewerRole={selectedPlan.viewerRole}
-              isEditing={isEditing}
+              isEditing={isDraft}
               canToggle={isPlayableGoal}
               onToggle={handleToggleCompletion}
               onRemove={handleRemoveTheme}
             />
 
-            {/* Add Theme Button (only in editing mode and below the max theme limit) */}
+            {/* Add Theme Button (only in draft mode and below the max theme limit) */}
             {canAddThemes && (
               <button
                 onClick={() => setShowThemeSelector(true)}
@@ -833,7 +833,7 @@ export default function GoalsPage() {
             )}
 
             {/* Theme count at max */}
-            {isEditing && selectedPlan.goal.themes.length >= MAX_THEMES_PER_GOAL && (
+            {isDraft && selectedPlan.goal.themes.length >= MAX_THEMES_PER_GOAL && (
               <p
                 className="text-center text-sm"
                 style={{ color: colors.text.muted }}
@@ -842,8 +842,8 @@ export default function GoalsPage() {
               </p>
             )}
 
-            {/* Lock Button (only in editing mode, if user hasn't locked) */}
-            {isEditing && !viewerLocked && (
+            {/* Lock Button (only in draft mode, if user hasn't locked) */}
+            {isDraft && !viewerLocked && (
               <>
                 <LockButton
                   partnerLocked={partnerLocked}
@@ -865,7 +865,7 @@ export default function GoalsPage() {
             )}
 
             {/* Waiting for partner to lock */}
-            {isEditing && viewerLocked && !partnerLocked && (
+            {isDraft && viewerLocked && !partnerLocked && (
               <div
                 className="text-center py-4 rounded-xl border-2"
                 style={{
@@ -879,7 +879,7 @@ export default function GoalsPage() {
               </div>
             )}
 
-            {isExpired && (
+            {isGracePeriod && (
               <div
                 className="text-center py-4 rounded-xl border-2"
                 style={{
@@ -888,7 +888,7 @@ export default function GoalsPage() {
                 }}
               >
                 <p style={{ color: colors.text.DEFAULT }}>
-                  This goal expired before the big boss was defeated.
+                  This goal reached its grace period before the big boss was defeated.
                 </p>
                 <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
                   You can still finish it before the 48-hour grace window ends.

@@ -102,7 +102,7 @@ function buildGoal(themeCount: number): WeeklyGoalDoc {
     })),
     creatorLocked: false,
     partnerLocked: false,
-    status: "editing",
+    status: "draft",
     createdAt: 1,
   };
 }

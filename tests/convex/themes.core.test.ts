@@ -168,7 +168,7 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
         partnerCompleted: false,
       },
     ],
-    status: "editing",
+    status: "draft",
     ...overrides,
   };
 }
@@ -511,7 +511,7 @@ describe("themes core handlers", () => {
       handler(createCtx(db, "clerk_owner"), {
         themeId: "theme_1" as Id<"themes">,
       })
-    ).rejects.toThrow("goal still being planned");
+    ).rejects.toThrow("draft goal");
   });
 
   it("deleteTheme ignores unrelated planning goals and only checks the owner's own goals", async () => {
@@ -541,7 +541,7 @@ describe("themes core handlers", () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
     db.themes.push(themeDoc());
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "active" }));
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "locked" }));
     db.weeklyGoalThemeSnapshots.push(snapshotDoc());
 
     const handler = (deleteTheme as unknown as {

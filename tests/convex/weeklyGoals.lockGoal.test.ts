@@ -170,9 +170,9 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     ],
     creatorLocked: false,
     partnerLocked: false,
-    miniBossStatus: "locked",
-    bossStatus: "locked",
-    status: "editing",
+    miniBossStatus: "unavailable",
+    bossStatus: "unavailable",
+    status: "draft",
     createdAt: Date.now(),
     endDate: Date.now() + 24 * 60 * 60 * 1000,
     lockedAt: undefined,
@@ -265,7 +265,7 @@ describe("weeklyGoals lockGoal", () => {
       { goalId: "goal_1" as Id<"weeklyGoals"> }
     );
 
-    expect(db.weeklyGoals[0]?.status).toBe("active");
+    expect(db.weeklyGoals[0]?.status).toBe("locked");
     expect(db.weeklyGoals[0]?.partnerLocked).toBe(true);
     expect(typeof db.weeklyGoals[0]?.lockedAt).toBe("number");
     expect(db.weeklyGoalThemeSnapshots).toHaveLength(2);
@@ -302,7 +302,7 @@ describe("weeklyGoals lockGoal", () => {
       )
     ).rejects.toThrow('"Theme 2" is no longer available');
 
-    expect(db.weeklyGoals[0]?.status).toBe("editing");
+    expect(db.weeklyGoals[0]?.status).toBe("draft");
     expect(db.weeklyGoalThemeSnapshots).toHaveLength(0);
   });
 });

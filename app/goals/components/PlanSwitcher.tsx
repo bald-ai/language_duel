@@ -33,8 +33,8 @@ export function PlanSwitcher({
                 const partnerName = plan.viewerRole === "creator"
                     ? plan.partner?.nickname || plan.partner?.email?.split("@")[0] || "Partner"
                     : plan.creator?.nickname || plan.creator?.email?.split("@")[0] || "Creator";
-                const isActive = plan.effectiveStatus === "active";
-                const isExpired = plan.effectiveStatus === "expired";
+                const isLocked = plan.effectiveStatus === "locked";
+                const isGracePeriod = plan.effectiveStatus === "grace_period";
 
                 return (
                     <button
@@ -81,13 +81,13 @@ export function PlanSwitcher({
                         <span
                             className="w-2 h-2 rounded-full"
                             style={{
-                                backgroundColor: isActive
+                                backgroundColor: isLocked
                                     ? colors.status.success.DEFAULT
-                                    : isExpired
+                                    : isGracePeriod
                                       ? colors.status.danger.DEFAULT
                                       : colors.status.warning.DEFAULT,
                             }}
-                            title={isActive ? "Active" : isExpired ? "Expired" : "Planning"}
+                            title={isLocked ? "Locked" : isGracePeriod ? "Grace period" : "Draft"}
                         />
                     </button>
                 );

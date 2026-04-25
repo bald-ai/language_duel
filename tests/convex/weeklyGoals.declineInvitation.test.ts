@@ -143,9 +143,9 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     ],
     creatorLocked: false,
     partnerLocked: false,
-    miniBossStatus: "locked",
-    bossStatus: "locked",
-    status: "editing",
+    miniBossStatus: "unavailable",
+    bossStatus: "unavailable",
+    status: "draft",
     createdAt: Date.now(),
     endDate: Date.now() + 5 * 24 * 60 * 60 * 1000,
     lockedAt: undefined,
@@ -179,7 +179,7 @@ const declineWeeklyPlanInvitationHandler = (declineWeeklyPlanInvitation as unkno
 })._handler;
 
 describe("weeklyGoals declineWeeklyPlanInvitation", () => {
-  it("lets the invitee decline an editing goal, keeps the in-app notification, and deletes the goal", async () => {
+  it("lets the invitee decline a draft goal, keeps the in-app notification, and deletes the goal", async () => {
     const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
@@ -241,7 +241,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
         buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
-      [buildGoal({ status: "active", creatorLocked: true, partnerLocked: true, lockedAt: Date.now() })],
+      [buildGoal({ status: "locked", creatorLocked: true, partnerLocked: true, lockedAt: Date.now() })],
       [buildNotification()]
     );
 

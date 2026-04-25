@@ -36,7 +36,7 @@ export default function BossLaunchPage() {
   const bossStatus = preview?.bossStatus;
   const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
   const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
-  const canStart = bossStatus === "available";
+  const canStart = bossStatus === "ready";
 
   const handleChallengePartner = async () => {
     if (!goalId || !bossType) return;
@@ -170,7 +170,7 @@ export default function BossLaunchPage() {
               Status
             </p>
             <p className="text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-              {bossStatus === "available" ? "Ready to start" : bossStatus === "completed" ? "Already defeated" : "Still locked"}
+              {bossStatus === "ready" ? "Ready to start" : bossStatus === "defeated" ? "Already defeated" : "Still unavailable"}
             </p>
           </div>
 

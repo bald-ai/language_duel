@@ -147,9 +147,9 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     themes: [],
     creatorLocked: true,
     partnerLocked: true,
-    miniBossStatus: "locked",
-    bossStatus: "locked",
-    status: "active",
+    miniBossStatus: "unavailable",
+    bossStatus: "unavailable",
+    status: "locked",
     createdAt: Date.now() - 10_000,
     endDate: Date.now() + 86_400_000,
     lockedAt: Date.now() - 5_000,
@@ -245,7 +245,7 @@ describe("friends removeFriend", () => {
           friendId: "user_1" as Id<"users">,
         }),
       ],
-      [buildGoal({ status: "editing", creatorLocked: false, partnerLocked: false, lockedAt: undefined })],
+      [buildGoal({ status: "draft", creatorLocked: false, partnerLocked: false, lockedAt: undefined })],
       [
         buildNotification({
           payload: {

@@ -11,6 +11,7 @@ import {
 } from "./helpers/themeTtsStorage";
 import { loadUsersById } from "./helpers/users";
 import { hasThemeAccess } from "../lib/themeAccess";
+import { normalizeWeeklyGoalLifecycleStatus } from "../lib/weeklyGoals";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
 import { reconcileThemeWordTts } from "../lib/themes/tts";
@@ -277,7 +278,7 @@ export const getThemes = query({
       );
       const scheduledThemeIds = activeScheduledDuels.flatMap((sd) => sd.themeIds);
 
-      // Query 4: Themes from active weekly goals
+      // Query 4: Themes from draft weekly goals
       const goalsAsCreator = await ctx.db
         .query("weeklyGoals")
         .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
@@ -286,10 +287,10 @@ export const getThemes = query({
         .query("weeklyGoals")
         .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
         .collect();
-      const activeGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
-        (g) => g.status === "editing"
+      const draftGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
+        (g) => g.status === "draft"
       );
-      const goalThemeIds = activeGoals.flatMap((g) => g.themes.map((t) => t.themeId));
+      const goalThemeIds = draftGoals.flatMap((g) => g.themes.map((t) => t.themeId));
 
       // Fetch themes from scheduled duels and weekly goals
       const accessThemeIds = [...new Set([...scheduledThemeIds, ...goalThemeIds])];
@@ -428,7 +429,7 @@ export const getTheme = query({
     const weeklyGoals = [...goalsAsCreator, ...goalsAsPartner].map((g) => ({
       creatorId: g.creatorId,
       partnerId: g.partnerId,
-      status: g.status,
+      status: normalizeWeeklyGoalLifecycleStatus(g.status),
       themeIds: g.themes.map((t) => t.themeId),
     }));
 
@@ -643,16 +644,16 @@ export const deleteTheme = mutation({
       .query("weeklyGoals")
       .withIndex("by_partner", (q) => q.eq("partnerId", user._id))
       .collect();
-    const relevantEditingGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
+    const relevantDraftGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
       (goal, index, goals) =>
-        goal.status === "editing" &&
+        goal.status === "draft" &&
         goals.findIndex((candidate) => candidate._id === goal._id) === index
     );
-    const editingGoal = relevantEditingGoals.find((goal) =>
+    const draftGoal = relevantDraftGoals.find((goal) =>
       goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId)
     );
-    if (editingGoal) {
-      throw new Error("Cannot delete a theme that is part of a goal still being planned");
+    if (draftGoal) {
+      throw new Error("Cannot delete a theme that is part of a draft goal");
     }
 
     const themeStorageIds = collectTtsStorageIds(theme.words as ThemeWordWithTts[]);

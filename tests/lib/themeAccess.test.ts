@@ -175,13 +175,13 @@ describe("hasThemeAccess", () => {
     });
 
     describe("weekly goal access", () => {
-        it("denies access when user is creator in active goal with this theme", () => {
+        it("denies access when user is creator in locked goal with this theme", () => {
             const params = makeParams({
                 weeklyGoals: [
                     {
                         creatorId: userId("user1"),
                         partnerId: userId("other"),
-                        status: "active",
+                        status: "locked",
                         themeIds: [themeId("theme1")],
                     },
                 ],
@@ -189,13 +189,13 @@ describe("hasThemeAccess", () => {
             expect(hasThemeAccess(params)).toBe(false);
         });
 
-        it("grants access when user is partner in editing goal with this theme", () => {
+        it("grants access when user is partner in draft goal with this theme", () => {
             const params = makeParams({
                 weeklyGoals: [
                     {
                         creatorId: userId("other"),
                         partnerId: userId("user1"),
-                        status: "editing",
+                        status: "draft",
                         themeIds: [themeId("theme1")],
                     },
                 ],
@@ -223,7 +223,7 @@ describe("hasThemeAccess", () => {
                     {
                         creatorId: userId("user1"),
                         partnerId: userId("other"),
-                        status: "active",
+                        status: "locked",
                         themeIds: [themeId("differentTheme")],
                     },
                 ],

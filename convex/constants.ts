@@ -147,10 +147,10 @@ export const DUEL_CHALLENGE_TTL_MS = 60 * 60 * 1000;
 /** Expire pending friend requests after 7 days */
 export const FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Expire editing weekly goals after 7 days */
-export const WEEKLY_GOAL_EDITING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Expire draft weekly goals after 7 days */
+export const WEEKLY_GOAL_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Keep expired weekly goals visible for 48 hours before deleting them */
+/** Keep grace-period weekly goals visible for 48 hours before deleting them */
 export const GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
 
 /** Delete dismissed notifications 7 days after creation */

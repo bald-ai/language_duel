@@ -8,31 +8,31 @@ import {
 import { colors } from "@/lib/theme";
 
 describe("bossUi", () => {
-  it("formats completed bosses with a checkmark", () => {
-    expect(formatBossStatus("completed")).toBe("✓ Defeated");
-    expect(formatBossStatus("available")).toBe("Ready");
-    expect(formatBossStatus("locked")).toBe("Locked");
+  it("formats defeated bosses with a checkmark", () => {
+    expect(formatBossStatus("defeated")).toBe("✓ Defeated");
+    expect(formatBossStatus("ready")).toBe("Ready");
+    expect(formatBossStatus("unavailable")).toBe("Unavailable");
   });
 
-  it("uses distinct styles for locked, available, and completed states", () => {
-    expect(getBossButtonStyle("locked")).toEqual({
+  it("uses distinct styles for unavailable, ready, and defeated states", () => {
+    expect(getBossButtonStyle("unavailable")).toEqual({
       borderColor: colors.primary.dark,
       backgroundColor: colors.background.DEFAULT,
     });
-    expect(getBossButtonStyle("available")).toEqual({
+    expect(getBossButtonStyle("ready")).toEqual({
       borderColor: colors.cta.DEFAULT,
       backgroundColor: `${colors.cta.DEFAULT}15`,
     });
-    expect(getBossButtonStyle("completed")).toEqual({
+    expect(getBossButtonStyle("defeated")).toEqual({
       borderColor: colors.status.success.DEFAULT,
       backgroundColor: `${colors.status.success.DEFAULT}15`,
     });
   });
 
   it("disables every boss button that cannot be opened", () => {
-    expect(isBossButtonDisabled("locked")).toBe(true);
-    expect(isBossButtonDisabled("available")).toBe(false);
-    expect(isBossButtonDisabled("completed")).toBe(true);
+    expect(isBossButtonDisabled("unavailable")).toBe(true);
+    expect(isBossButtonDisabled("ready")).toBe(false);
+    expect(isBossButtonDisabled("defeated")).toBe(true);
   });
 
   it("keeps the boss explainer copy simple and specific", () => {

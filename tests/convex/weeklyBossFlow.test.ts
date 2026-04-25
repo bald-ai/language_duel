@@ -271,9 +271,9 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     partnerLocked: true,
     lockedAt: 1_000,
     endDate: 20_000,
-    miniBossStatus: "completed",
-    bossStatus: "locked",
-    status: "active",
+    miniBossStatus: "defeated",
+    bossStatus: "unavailable",
+    status: "locked",
     createdAt: 1,
     ...overrides,
   };
@@ -329,8 +329,8 @@ describe("weekly boss flow", () => {
     );
     db.weeklyGoals.push(
       weeklyGoalDoc({
-        miniBossStatus: "available",
-        bossStatus: "locked",
+        miniBossStatus: "ready",
+        bossStatus: "unavailable",
       })
     );
 
@@ -429,7 +429,7 @@ describe("weekly boss flow", () => {
 
     await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "big");
 
-    expect(db.weeklyGoals[0].bossStatus).toBe("completed");
+    expect(db.weeklyGoals[0].bossStatus).toBe("defeated");
     expect(db.weeklyGoals[0].status).toBe("completed");
     expect(db.notifications).toHaveLength(2);
     expect(db.notifications.every((notification) => notification.type === "weekly_plan_invitation")).toBe(true);
@@ -443,27 +443,27 @@ describe("weekly boss flow", () => {
     ).toBe(true);
   });
 
-  it("marks only miniBossStatus as completed for a mini boss win", async () => {
+  it("marks only miniBossStatus as defeated for a mini boss win", async () => {
     const db = new InMemoryDb();
-    const goal = weeklyGoalDoc({ miniBossStatus: "locked", bossStatus: "locked" });
+    const goal = weeklyGoalDoc({ miniBossStatus: "unavailable", bossStatus: "unavailable" });
     db.weeklyGoals.push(goal);
 
     await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "mini");
 
-    expect(db.weeklyGoals[0].miniBossStatus).toBe("completed");
-    expect(db.weeklyGoals[0].bossStatus).toBe("locked");
-    expect(db.weeklyGoals[0].status).toBe("active");
+    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
+    expect(db.weeklyGoals[0].bossStatus).toBe("unavailable");
+    expect(db.weeklyGoals[0].status).toBe("locked");
     expect(db.notifications).toHaveLength(0);
   });
 
-  it("is idempotent — completing an already-completed boss is a no-op", async () => {
+  it("is idempotent — defeating an already-defeated boss is a no-op", async () => {
     const db = new InMemoryDb();
-    const goal = weeklyGoalDoc({ miniBossStatus: "completed" });
+    const goal = weeklyGoalDoc({ miniBossStatus: "defeated" });
     db.weeklyGoals.push(goal);
 
     await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "mini");
 
-    expect(db.weeklyGoals[0].miniBossStatus).toBe("completed");
+    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
     expect(db.notifications).toHaveLength(0);
   });
 
@@ -478,8 +478,8 @@ describe("weekly boss flow", () => {
           { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: false, partnerCompleted: false },
           { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
         ],
-        miniBossStatus: "locked",
-        bossStatus: "locked",
+        miniBossStatus: "unavailable",
+        bossStatus: "unavailable",
       })
     );
 
@@ -510,7 +510,7 @@ describe("weekly boss flow", () => {
       themeDoc(),
       themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: [{ word: "a", answer: "b", wrongAnswers: ["c"] }] })
     );
-    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "available" }));
+    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "ready" }));
     db.challenges.push({
       _id: "challenge_existing" as Id<"challenges">,
       _creationTime: 1,
@@ -567,7 +567,7 @@ describe("weekly boss flow", () => {
           { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
           { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: true },
         ],
-        miniBossStatus: "available",
+        miniBossStatus: "ready",
       })
     );
 
@@ -624,7 +624,7 @@ describe("weekly boss flow", () => {
           { themeId: "theme_3" as Id<"themes">, themeName: "Travel", creatorCompleted: true, partnerCompleted: true },
           { themeId: "theme_4" as Id<"themes">, themeName: "Work", creatorCompleted: true, partnerCompleted: true },
         ],
-        miniBossStatus: "available",
+        miniBossStatus: "ready",
       })
     );
 
@@ -664,7 +664,7 @@ describe("weekly boss flow", () => {
     db.themes.push(
       themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: manyWords })
     );
-    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "available" }));
+    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "ready" }));
 
     const handler = (startBossDuel as unknown as {
       _handler: (

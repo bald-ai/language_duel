@@ -3,11 +3,11 @@ import type { WeeklyGoalBossStatus } from "./weeklyGoals";
 
 export function formatBossStatus(status: WeeklyGoalBossStatus): string {
   switch (status) {
-    case "locked":
-      return "Locked";
-    case "available":
+    case "unavailable":
+      return "Unavailable";
+    case "ready":
       return "Ready";
-    case "completed":
+    case "defeated":
       return "✓ Defeated";
   }
 }
@@ -15,22 +15,22 @@ export function formatBossStatus(status: WeeklyGoalBossStatus): string {
 export function getBossButtonStyle(status: WeeklyGoalBossStatus) {
   return {
     borderColor:
-      status === "completed"
+      status === "defeated"
         ? colors.status.success.DEFAULT
-        : status === "available"
+        : status === "ready"
           ? colors.cta.DEFAULT
           : colors.primary.dark,
     backgroundColor:
-      status === "completed"
+      status === "defeated"
         ? `${colors.status.success.DEFAULT}15`
-        : status === "available"
+        : status === "ready"
           ? `${colors.cta.DEFAULT}15`
           : colors.background.DEFAULT,
   };
 }
 
 export function isBossButtonDisabled(status: WeeklyGoalBossStatus): boolean {
-  return status !== "available";
+  return status !== "ready";
 }
 
 export const BOSS_INFO_COPY = {

@@ -44,7 +44,7 @@ export function getSubjectForTrigger(
     case "weekly_goal_locked":
       return `${sender} locked the weekly goal`;
     case "weekly_goal_accepted":
-      return `${sender} is IN -- weekly goal activated!`;
+      return `${sender} is IN -- weekly goal locked!`;
     case "weekly_goal_daily_reminder":
       return data.hoursLeft === 0
         ? "Weekly goal ends today"
@@ -105,7 +105,7 @@ export function getBodyForTrigger(
     case "weekly_goal_accepted":
       return {
         heading: `Let's gooo!`,
-        body: `${sender} accepted your weekly goal invite! The goal is live and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
+        body: `${sender} accepted your weekly goal invite! The goal is locked and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_daily_reminder":
@@ -116,8 +116,8 @@ export function getBodyForTrigger(
       };
     case "weekly_goal_expired_delete_reminder":
       return {
-        heading: `Expired, but still winnable`,
-        body: `Your weekly goal with ${partner} already expired, but you still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
+        heading: `Grace period, but still winnable`,
+        body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_draft_expiring":

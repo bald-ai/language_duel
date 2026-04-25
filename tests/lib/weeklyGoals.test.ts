@@ -8,7 +8,7 @@ import {
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
-  getGoalPlanningExpiresAt,
+  getGoalDraftExpiresAt,
   isGoalInGracePeriod,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
@@ -23,11 +23,11 @@ function buildGoal(
       { creatorCompleted: true, partnerCompleted: true },
       { creatorCompleted: false, partnerCompleted: false },
     ],
-    status: "active",
+    status: "locked",
     lockedAt: 1_000,
     endDate: 9_000,
-    miniBossStatus: "locked",
-    bossStatus: "locked",
+    miniBossStatus: "unavailable",
+    bossStatus: "unavailable",
     ...overrides,
   };
 }
@@ -51,28 +51,28 @@ describe("weeklyGoals helpers", () => {
     expect(getGoalDeleteAt(1_000)).toBe(172_801_000);
   });
 
-  it("derives the planning expiry from createdAt plus the editing TTL", () => {
-    expect(getGoalPlanningExpiresAt(1_000)).toBe(604_801_000);
+  it("derives the draft expiry from createdAt plus the draft TTL", () => {
+    expect(getGoalDraftExpiresAt(1_000)).toBe(604_801_000);
   });
 
   it("formats the grace countdown as total-hours hh:mm:ss", () => {
     expect(formatGoalGraceCountdown((47 * 60 * 60 + 59 * 60 + 59) * 1_000)).toBe("47:59:59");
   });
 
-  it("returns editing as the effective status for unlocked goals", () => {
+  it("returns draft as the effective status for unlocked goals", () => {
     expect(
       getEffectiveGoalStatus(
-        buildGoal({ status: "editing", lockedAt: undefined, endDate: undefined }),
+        buildGoal({ status: "draft", lockedAt: undefined, endDate: undefined }),
         2_000
       )
-    ).toBe("editing");
+    ).toBe("draft");
   });
 
-  it("returns expired once the end date has passed", () => {
-    expect(getEffectiveGoalStatus(buildGoal(), 9_001)).toBe("expired");
+  it("returns grace_period once the end date has passed", () => {
+    expect(getEffectiveGoalStatus(buildGoal(), 9_001)).toBe("grace_period");
   });
 
-  it("treats the grace window as expired but still playable", () => {
+  it("treats the grace window as grace_period but still playable", () => {
     const now = 9_001;
     const goal = buildGoal();
 
@@ -81,10 +81,10 @@ describe("weeklyGoals helpers", () => {
   });
 
   it("unlocks the mini boss early once half the themes are jointly completed", () => {
-    expect(getEffectiveMiniBossStatus(buildGoal(), 2_000)).toBe("available");
+    expect(getEffectiveMiniBossStatus(buildGoal(), 2_000)).toBe("ready");
   });
 
-  it("keeps the mini boss locked until enough themes are jointly completed", () => {
+  it("keeps the mini boss unavailable until enough themes are jointly completed", () => {
     expect(
       getEffectiveMiniBossStatus(
         buildGoal({
@@ -95,10 +95,10 @@ describe("weeklyGoals helpers", () => {
         }),
         5_000
       )
-    ).toBe("locked");
+    ).toBe("unavailable");
   });
 
-  it("keeps the big boss locked until the mini boss is completed", () => {
+  it("keeps the big boss unavailable until the mini boss is defeated", () => {
     const goal = buildGoal({
       themes: [
         { creatorCompleted: true, partnerCompleted: true },
@@ -106,32 +106,32 @@ describe("weeklyGoals helpers", () => {
       ],
     });
 
-    expect(getEffectiveBossStatus(goal, 4_000)).toBe("locked");
+    expect(getEffectiveBossStatus(goal, 4_000)).toBe("unavailable");
   });
 
-  it("makes the big boss available after mini boss completion and all shared themes are done", () => {
+  it("makes the big boss ready after mini boss defeat and all shared themes are done", () => {
     const goal = buildGoal({
       themes: [
         { creatorCompleted: true, partnerCompleted: true },
         { creatorCompleted: true, partnerCompleted: true },
       ],
-      miniBossStatus: "completed",
+      miniBossStatus: "defeated",
     });
 
-    expect(getEffectiveBossStatus(goal, 4_000)).toBe("available");
+    expect(getEffectiveBossStatus(goal, 4_000)).toBe("ready");
   });
 
-  it("allows editing the end date while planning", () => {
+  it("allows editing the end date while drafting", () => {
     expect(
       canEditGoalEndDate(
-        buildGoal({ status: "editing", lockedAt: undefined, endDate: 9_000 }),
+        buildGoal({ status: "draft", lockedAt: undefined, endDate: 9_000 }),
         2_000
       )
     ).toBe(true);
   });
 
   it("blocks end-date edits once both people locked the goal", () => {
-    expect(canEditGoalEndDate(buildGoal({ status: "active" }), 4_000)).toBe(false);
+    expect(canEditGoalEndDate(buildGoal({ status: "locked" }), 4_000)).toBe(false);
   });
 
   it("blocks end-date edits after all themes are completed", () => {
@@ -140,7 +140,7 @@ describe("weeklyGoals helpers", () => {
         { creatorCompleted: true, partnerCompleted: true },
         { creatorCompleted: true, partnerCompleted: true },
       ],
-      miniBossStatus: "completed",
+      miniBossStatus: "defeated",
     });
 
     expect(canEditGoalEndDate(goal, 4_000)).toBe(false);

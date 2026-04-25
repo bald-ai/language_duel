@@ -1,13 +1,21 @@
-import { GRACE_PERIOD_MS, WEEKLY_GOAL_EDITING_TTL_MS } from "../convex/constants";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "../convex/constants";
 
 export const MIN_THEMES_PER_GOAL = 2;
 
-export type WeeklyGoalBossStatus = "locked" | "available" | "completed";
 export type WeeklyGoalLifecycleStatus =
-  | "editing"
-  | "active"
-  | "expired"
+  | "draft"
+  | "locked"
+  | "grace_period"
   | "completed";
+export type LegacyWeeklyGoalLifecycleStatus = "editing" | "active" | "expired";
+export type WeeklyGoalStoredLifecycleStatus =
+  | WeeklyGoalLifecycleStatus
+  | LegacyWeeklyGoalLifecycleStatus;
+export type WeeklyGoalBossStatus = "unavailable" | "ready" | "defeated";
+export type LegacyWeeklyGoalBossStatus = "locked" | "available" | "completed";
+export type WeeklyGoalStoredBossStatus =
+  | WeeklyGoalBossStatus
+  | LegacyWeeklyGoalBossStatus;
 
 export interface WeeklyGoalThemeProgress {
   creatorCompleted: boolean;
@@ -16,11 +24,41 @@ export interface WeeklyGoalThemeProgress {
 
 export interface WeeklyGoalStateLike {
   themes: WeeklyGoalThemeProgress[];
-  status: WeeklyGoalLifecycleStatus;
+  status: WeeklyGoalStoredLifecycleStatus;
   lockedAt?: number;
   endDate?: number;
-  miniBossStatus: WeeklyGoalBossStatus;
-  bossStatus: WeeklyGoalBossStatus;
+  miniBossStatus: WeeklyGoalStoredBossStatus;
+  bossStatus: WeeklyGoalStoredBossStatus;
+}
+
+export function normalizeWeeklyGoalLifecycleStatus(
+  status: WeeklyGoalStoredLifecycleStatus
+): WeeklyGoalLifecycleStatus {
+  switch (status) {
+    case "editing":
+      return "draft";
+    case "active":
+      return "locked";
+    case "expired":
+      return "grace_period";
+    default:
+      return status;
+  }
+}
+
+export function normalizeWeeklyGoalBossStatus(
+  status: WeeklyGoalStoredBossStatus
+): WeeklyGoalBossStatus {
+  switch (status) {
+    case "locked":
+      return "unavailable";
+    case "available":
+      return "ready";
+    case "completed":
+      return "defeated";
+    default:
+      return status;
+  }
 }
 
 export function countCompletedThemes(
@@ -50,21 +88,24 @@ export function getGoalDeleteAt(
   return endDate + GRACE_PERIOD_MS;
 }
 
-export function getGoalPlanningExpiresAt(
+export function getGoalDraftExpiresAt(
   createdAt: number | undefined
 ): number | null {
   if (typeof createdAt !== "number") {
     return null;
   }
 
-  return createdAt + WEEKLY_GOAL_EDITING_TTL_MS;
+  return createdAt + WEEKLY_GOAL_DRAFT_TTL_MS;
 }
 
 export function isGoalInGracePeriod(
   goal: Pick<WeeklyGoalStateLike, "endDate" | "status" | "bossStatus">,
   now: number
 ): boolean {
-  if (goal.status === "completed" || goal.bossStatus === "completed") {
+  const status = normalizeWeeklyGoalLifecycleStatus(goal.status);
+  const bossStatus = normalizeWeeklyGoalBossStatus(goal.bossStatus);
+
+  if (status === "completed" || bossStatus === "defeated") {
     return false;
   }
 
@@ -82,11 +123,11 @@ export function isGoalPlayable(
 ): boolean {
   const effectiveStatus = getEffectiveGoalStatus(goal, now);
 
-  if (effectiveStatus === "editing" || effectiveStatus === "completed") {
+  if (effectiveStatus === "draft" || effectiveStatus === "completed") {
     return false;
   }
 
-  return effectiveStatus === "active" || isGoalInGracePeriod(goal, now);
+  return effectiveStatus === "locked" || isGoalInGracePeriod(goal, now);
 }
 
 export function formatGoalGraceCountdown(timeRemainingMs: number): string {
@@ -103,35 +144,38 @@ export function getEffectiveGoalStatus(
   goal: WeeklyGoalStateLike,
   now: number
 ): WeeklyGoalLifecycleStatus {
-  if (goal.status === "completed" || goal.bossStatus === "completed") {
+  const status = normalizeWeeklyGoalLifecycleStatus(goal.status);
+  const bossStatus = normalizeWeeklyGoalBossStatus(goal.bossStatus);
+
+  if (status === "completed" || bossStatus === "defeated") {
     return "completed";
   }
 
-  if (goal.status === "editing") {
-    return "editing";
+  if (status === "draft") {
+    return "draft";
   }
 
-  if (goal.status === "expired") {
-    return "expired";
+  if (status === "grace_period") {
+    return "grace_period";
   }
 
   if (typeof goal.endDate === "number" && now > goal.endDate) {
-    return "expired";
+    return "grace_period";
   }
 
-  return "active";
+  return "locked";
 }
 
 export function getEffectiveMiniBossStatus(
   goal: WeeklyGoalStateLike,
   now: number
 ): WeeklyGoalBossStatus {
-  if (goal.miniBossStatus === "completed") {
-    return "completed";
+  if (normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated") {
+    return "defeated";
   }
 
-  if (getEffectiveGoalStatus(goal, now) === "editing") {
-    return "locked";
+  if (getEffectiveGoalStatus(goal, now) === "draft") {
+    return "unavailable";
   }
 
   const completedThemeCount = countCompletedThemes(goal.themes);
@@ -141,10 +185,10 @@ export function getEffectiveMiniBossStatus(
     goal.themes.length >= MIN_THEMES_PER_GOAL &&
     completedThemeCount >= unlockThreshold
   ) {
-    return "available";
+    return "ready";
   }
 
-  return "locked";
+  return "unavailable";
 }
 
 export function getEffectiveBossStatus(
@@ -152,31 +196,31 @@ export function getEffectiveBossStatus(
   now: number,
   miniBossStatus = getEffectiveMiniBossStatus(goal, now)
 ): WeeklyGoalBossStatus {
-  if (goal.bossStatus === "completed") {
-    return "completed";
+  if (normalizeWeeklyGoalBossStatus(goal.bossStatus) === "defeated") {
+    return "defeated";
   }
 
-  if (getEffectiveGoalStatus(goal, now) === "editing") {
-    return "locked";
+  if (getEffectiveGoalStatus(goal, now) === "draft") {
+    return "unavailable";
   }
 
   const allThemesCompleted = areAllThemesCompleted(goal.themes);
 
   if (
-    miniBossStatus === "completed" &&
+    miniBossStatus === "defeated" &&
     allThemesCompleted
   ) {
-    return "available";
+    return "ready";
   }
 
-  return "locked";
+  return "unavailable";
 }
 
 export function canEditGoalEndDate(
   goal: WeeklyGoalStateLike,
   now: number
 ): boolean {
-  return getEffectiveGoalStatus(goal, now) === "editing";
+  return getEffectiveGoalStatus(goal, now) === "draft";
 }
 
 export function canTriggerGoalBoss(
@@ -189,6 +233,6 @@ export function canTriggerGoalBoss(
   }
 
   return which === "mini"
-    ? getEffectiveMiniBossStatus(goal, now) === "available"
-    : getEffectiveBossStatus(goal, now) === "available";
+    ? getEffectiveMiniBossStatus(goal, now) === "ready"
+    : getEffectiveBossStatus(goal, now) === "ready";
 }

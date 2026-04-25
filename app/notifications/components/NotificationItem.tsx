@@ -253,10 +253,10 @@ export function NotificationItem({
                         ),
                     };
                 }
-                if (payload?.event === "goal_activated") {
-                    return {
-                        icon: <CalendarIcon />,
-                        message: `${userName} locked the weekly goal. It is now active.`,
+	                if (payload?.event === "goal_activated") {
+	                    return {
+	                        icon: <CalendarIcon />,
+	                        message: `${userName} locked the weekly goal. It is now ready to play.`,
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton

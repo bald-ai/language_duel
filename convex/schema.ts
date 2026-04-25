@@ -136,7 +136,22 @@ const scheduledDuelStatusValidator = v.union(
   v.literal("expired")
 );
 
+const weeklyGoalLifecycleStatusValidator = v.union(
+  v.literal("draft"),
+  v.literal("locked"),
+  v.literal("grace_period"),
+  v.literal("completed"),
+  // Transitional values kept until prod migration is verified.
+  v.literal("editing"),
+  v.literal("active"),
+  v.literal("expired")
+);
+
 const weeklyGoalBossStatusValidator = v.union(
+  v.literal("unavailable"),
+  v.literal("ready"),
+  v.literal("defeated"),
+  // Transitional values kept until prod migration is verified.
   v.literal("locked"),
   v.literal("available"),
   v.literal("completed")
@@ -394,12 +409,7 @@ export default defineSchema({
     endDate: v.optional(v.number()),
     miniBossStatus: weeklyGoalBossStatusValidator,
     bossStatus: weeklyGoalBossStatusValidator,
-    status: v.union(
-      v.literal("editing"),
-      v.literal("active"),
-      v.literal("expired"),
-      v.literal("completed")
-    ),
+    status: weeklyGoalLifecycleStatusValidator,
     createdAt: v.number(),
   })
     .index("by_creator", ["creatorId"])

@@ -54,12 +54,12 @@ export const sendWeeklyGoalReminders = internalAction({
   handler: async (ctx) => {
     const now = Date.now();
 
-    const activeGoals = await ctx.runQuery(
-      internal.weeklyGoals.getActiveGoalsWithEndDate,
+    const lockedGoals = await ctx.runQuery(
+      internal.weeklyGoals.getLockedGoalsWithEndDate,
       {}
     );
 
-    for (const goal of activeGoals) {
+    for (const goal of lockedGoals) {
       const participants = [goal.creatorId, goal.partnerId];
 
       for (const userId of participants) {
@@ -116,17 +116,17 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
       return;
     }
 
-    const activeGoals = await ctx.runQuery(
-      internal.weeklyGoals.getActiveGoalsWithEndDate,
+    const lockedGoals = await ctx.runQuery(
+      internal.weeklyGoals.getLockedGoalsWithEndDate,
       {}
     );
-    const expiredGoalsInGrace = await ctx.runQuery(
-      internal.weeklyGoals.getExpiredGoalsInGraceWindow,
+    const gracePeriodGoals = await ctx.runQuery(
+      internal.weeklyGoals.getGoalsInGraceWindow,
       {}
     );
     const dailyKey = getTimeZoneDateKey(now, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
 
-    for (const goal of activeGoals) {
+    for (const goal of lockedGoals) {
       const participants = [goal.creatorId, goal.partnerId];
 
       for (const userId of participants) {
@@ -147,7 +147,7 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
       }
     }
 
-    for (const goal of expiredGoalsInGrace) {
+    for (const goal of gracePeriodGoals) {
       const participants = [goal.creatorId, goal.partnerId];
 
       for (const userId of participants) {
@@ -175,7 +175,7 @@ export const sendDraftExpiryReminders = internalAction({
   handler: async (ctx) => {
     const now = Date.now();
     const expiringDrafts = await ctx.runQuery(
-      internal.weeklyGoals.getEditingGoalsExpiringSoon,
+      internal.weeklyGoals.getDraftGoalsExpiringSoon,
       {}
     );
 

@@ -38,7 +38,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - `friendRequests`: pending or resolved requests that let users connect before collaborating directly.
 - `friends`: accepted user-to-user relationships used across duels, goals, and shared content flows.
 - `challenges`: the main duel records, including participants, chosen themes, generated session words, mode-specific game state, and optional weekly-goal linkage.
-- `weeklyGoals`: shared plans between two users that track chosen themes, lock state, completion progress, and boss availability.
+- `weeklyGoals`: shared plans between two users that track chosen themes, participant lock flags, lifecycle state, completion progress, and boss readiness.
 - `notifications`: in-app event records for friend requests, duel activity, scheduled duels, and weekly-goal events.
 - `notificationPreferences`: per-user settings controlling which notification and reminder events should fire.
 - `emailNotificationLog`: idempotency and audit support for sent email notifications and reminders.
@@ -51,13 +51,22 @@ Important relationships:
 - Challenges reference users and themes, and some challenges are created in the context of a weekly goal.
 - Notifications and reminder systems reflect activity from friend, duel, scheduled duel, and weekly-goal flows instead of being standalone features.
 
+Weekly goal lifecycle:
+
+- Stored lifecycle values are `draft`, `locked`, `grace_period`, and `completed`.
+- `lock_proposed` is derived, not stored: the goal is still `draft`, at least one participant lock flag is true, and not all required participants have locked.
+- Boss status values are `unavailable`, `ready`, and `defeated`.
+- Completed goals are retained in the database but hidden from the active weekly-goal list.
+- Declined draft goals are deleted.
+- Goal lifecycle `completed` and boss status `defeated` intentionally use different words so the final goal state and boss outcome are not confused.
+
 ## Entry Points For AI Work
 
-- Start in [`convex/schema.ts`](/Users/michalkrsik/windsurf_project_folder/language_duel/convex/schema.ts) when you need the core data shape and the main domain entities.
-- Start in [`app/`](/Users/michalkrsik/windsurf_project_folder/language_duel/app) when the work is about user-facing routes, screens, or UI behavior.
-- Start in [`convex/`](/Users/michalkrsik/windsurf_project_folder/language_duel/convex) when the work is about backend rules, persistence, notifications, reminders, or feature flows.
-- Start in [`hooks/`](/Users/michalkrsik/windsurf_project_folder/language_duel/hooks) when the work is about client-side orchestration such as duel lobby behavior or user syncing.
-- Start in [`lib/`](/Users/michalkrsik/windsurf_project_folder/language_duel/lib) when the work is about shared pure logic, validation, scoring, theme helpers, or other reusable domain utilities.
+- Start in [`convex/schema.ts`](/Users/michalkrsik/coding_projects/language_duel/convex/schema.ts) when you need the core data shape and the main domain entities.
+- Start in [`app/`](/Users/michalkrsik/coding_projects/language_duel/app) when the work is about user-facing routes, screens, or UI behavior.
+- Start in [`convex/`](/Users/michalkrsik/coding_projects/language_duel/convex) when the work is about backend rules, persistence, notifications, reminders, or feature flows.
+- Start in [`hooks/`](/Users/michalkrsik/coding_projects/language_duel/hooks) when the work is about client-side orchestration such as duel lobby behavior or user syncing.
+- Start in [`lib/`](/Users/michalkrsik/coding_projects/language_duel/lib) when the work is about shared pure logic, validation, scoring, theme helpers, or other reusable domain utilities.
 
 ## Domain Terms
 

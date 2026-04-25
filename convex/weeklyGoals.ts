@@ -18,7 +18,7 @@ import {
 } from "./helpers/weeklyGoalSnapshots";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
-import { GRACE_PERIOD_MS, WEEKLY_GOAL_EDITING_TTL_MS } from "./constants";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
 import {
   isCreatedAtExpired,
   isGoalPastGracePeriod,
@@ -329,17 +329,17 @@ export async function completeWeeklyGoalBoss(
   bossType: BossType
 ) {
   if (bossType === "mini") {
-    if (goal.miniBossStatus === "completed") return;
-    await ctx.db.patch(goal._id, { miniBossStatus: "completed" });
+    if (getEffectiveMiniBossStatus(goal, Date.now()) === "defeated") return;
+    await ctx.db.patch(goal._id, { miniBossStatus: "defeated" });
     return;
   }
 
-  if (goal.bossStatus === "completed" && goal.status === "completed") {
+  if (getEffectiveBossStatus(goal, Date.now()) === "defeated" && goal.status === "completed") {
     return;
   }
 
   await ctx.db.patch(goal._id, {
-    bossStatus: "completed",
+    bossStatus: "defeated",
     status: "completed",
   });
 
@@ -406,7 +406,7 @@ function shouldIncludeGoal(
     return false;
   }
 
-  if (effectiveStatus === "editing") {
+  if (effectiveStatus === "draft") {
     return true;
   }
 
@@ -468,7 +468,7 @@ function sortGoalsByRecency(goals: GoalWithUsers[]): GoalWithUsers[] {
  * Get all weekly goals that should still be visible to the current user.
  * Returns an array of goals where the user is either creator or partner.
  */
-export const getAllActiveGoals = query({
+export const getVisibleGoals = query({
   args: {},
   handler: async (ctx): Promise<GoalWithUsers[]> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
@@ -484,9 +484,9 @@ export const getAllActiveGoals = query({
       .withIndex("by_creator", (q) => q.eq("creatorId", userId))
       .filter((q) =>
         q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active"),
-          q.eq(q.field("status"), "expired")
+          q.eq(q.field("status"), "draft"),
+          q.eq(q.field("status"), "locked"),
+          q.eq(q.field("status"), "grace_period")
         )
       )
       .collect();
@@ -500,9 +500,9 @@ export const getAllActiveGoals = query({
       .withIndex("by_partner", (q) => q.eq("partnerId", userId))
       .filter((q) =>
         q.or(
-          q.eq(q.field("status"), "editing"),
-          q.eq(q.field("status"), "active"),
-          q.eq(q.field("status"), "expired")
+          q.eq(q.field("status"), "draft"),
+          q.eq(q.field("status"), "locked"),
+          q.eq(q.field("status"), "grace_period")
         )
       )
       .collect();
@@ -624,19 +624,18 @@ export const getBossPracticeSession = query({
 });
 
 /**
- * Purge all expired goals for the current user.
- * This mutation should be called periodically from the client to clean up expired goals.
+ * Move overdue goals into grace period and delete goals past retention for the current user.
  */
-export const purgeExpiredGoalsForUser = mutation({
+export const syncGracePeriodGoalsForUser = mutation({
   args: {},
-  handler: async (ctx): Promise<{ deletedCount: number; expiredCount: number }> => {
+  handler: async (ctx): Promise<{ deletedCount: number; gracePeriodCount: number }> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return { deletedCount: 0, expiredCount: 0 };
+    if (!auth) return { deletedCount: 0, gracePeriodCount: 0 };
 
     const userId = auth.user._id;
     const now = Date.now();
     let deletedCount = 0;
-    let expiredCount = 0;
+    let gracePeriodCount = 0;
 
     // Get all goals where user is creator
     const goalsAsCreator = await ctx.db
@@ -659,13 +658,13 @@ export const purgeExpiredGoalsForUser = mutation({
       return true;
     });
 
-    // Sync expired goals and delete anything past the grace window.
+    // Sync grace-period goals and delete anything past the grace window.
     for (const goal of uniqueGoals) {
       const effectiveStatus = getEffectiveGoalStatus(goal, now);
 
-      if (effectiveStatus === "expired" && goal.status !== "expired") {
-        await ctx.db.patch(goal._id, { status: "expired" });
-        expiredCount++;
+      if (effectiveStatus === "grace_period" && goal.status !== "grace_period") {
+        await ctx.db.patch(goal._id, { status: "grace_period" });
+        gracePeriodCount++;
       }
 
       if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
@@ -675,7 +674,7 @@ export const purgeExpiredGoalsForUser = mutation({
       }
     }
 
-    return { deletedCount, expiredCount };
+    return { deletedCount, gracePeriodCount };
   },
 });
 
@@ -730,7 +729,7 @@ export const getEligibleThemes = query({
 
 /**
  * Create a new weekly goal with a partner.
- * Validates that there's no existing active goal between this specific duo.
+ * Validates that there's no existing visible goal between this specific duo.
  */
 export const createGoal = mutation({
   args: {
@@ -753,7 +752,7 @@ export const createGoal = mutation({
 
     if (!friendship) throw new Error("You can only create goals with friends");
 
-    // Check if there's already an active goal between this SPECIFIC duo
+    // Check if there's already a visible goal between this SPECIFIC duo.
     // Case 1: Current user is creator, partner is partner
     const existingGoalUserAsCreator = await ctx.db
       .query("weeklyGoals")
@@ -762,18 +761,19 @@ export const createGoal = mutation({
         q.and(
           q.eq(q.field("partnerId"), partnerId),
           q.or(
-            q.eq(q.field("status"), "editing"),
-            q.eq(q.field("status"), "active")
+            q.eq(q.field("status"), "draft"),
+            q.eq(q.field("status"), "locked"),
+            q.eq(q.field("status"), "grace_period")
           )
         )
       )
       .collect();
-    const activeUserAsCreator = existingGoalUserAsCreator.filter((goal) =>
+    const visibleUserAsCreator = existingGoalUserAsCreator.filter((goal) =>
       shouldIncludeGoal(goal, now)
     );
 
-    if (activeUserAsCreator.length > 0) {
-      throw new Error("You already have an active goal with this partner");
+    if (visibleUserAsCreator.length > 0) {
+      throw new Error("You already have a goal with this partner");
     }
 
     // Case 2: Partner is creator, current user is partner
@@ -784,18 +784,19 @@ export const createGoal = mutation({
         q.and(
           q.eq(q.field("partnerId"), user._id),
           q.or(
-            q.eq(q.field("status"), "editing"),
-            q.eq(q.field("status"), "active")
+            q.eq(q.field("status"), "draft"),
+            q.eq(q.field("status"), "locked"),
+            q.eq(q.field("status"), "grace_period")
           )
         )
       )
       .collect();
-    const activeUserAsPartner = existingGoalUserAsPartner.filter((goal) =>
+    const visibleUserAsPartner = existingGoalUserAsPartner.filter((goal) =>
       shouldIncludeGoal(goal, now)
     );
 
-    if (activeUserAsPartner.length > 0) {
-      throw new Error("You already have an active goal with this partner");
+    if (visibleUserAsPartner.length > 0) {
+      throw new Error("You already have a goal with this partner");
     }
 
     // Create the goal
@@ -805,9 +806,9 @@ export const createGoal = mutation({
       themes: [],
       creatorLocked: false,
       partnerLocked: false,
-      miniBossStatus: "locked",
-      bossStatus: "locked",
-      status: "editing",
+      miniBossStatus: "unavailable",
+      bossStatus: "unavailable",
+      status: "draft",
       createdAt: now,
     });
 
@@ -855,8 +856,8 @@ export const addTheme = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Can only add themes in editing status
-    if (goal.status !== "editing") throw new Error("Goal is locked");
+    // Can only add themes while the goal is still a draft.
+    if (goal.status !== "draft") throw new Error("Goal is locked");
 
     // Cannot add themes if either participant has locked
     if (goal.creatorLocked || goal.partnerLocked)
@@ -916,8 +917,8 @@ export const removeTheme = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Can only remove themes in editing status
-    if (goal.status !== "editing") throw new Error("Goal is locked");
+    // Can only remove themes while the goal is still a draft.
+    if (goal.status !== "draft") throw new Error("Goal is locked");
 
     const lockedParticipantId = goal.creatorLocked
       ? goal.creatorId
@@ -1011,14 +1012,14 @@ async function validateAndPrepareBoss(
 
   const now = Date.now();
   if (!isGoalPlayable(goal, now)) {
-    throw new Error("This goal is not active");
+    throw new Error("This goal is not playable");
   }
 
   const effectiveStatus = bossType === "mini"
     ? getEffectiveMiniBossStatus(goal, now)
     : getEffectiveBossStatus(goal, now);
 
-  if (effectiveStatus !== "available") {
+  if (effectiveStatus !== "ready") {
     throw new Error("This boss is not ready yet");
   }
 
@@ -1185,8 +1186,8 @@ export const lockGoal = mutation({
     const isPartner = goal.partnerId === user._id;
     if (!isCreator && !isPartner) throw new Error("Not authorized");
 
-    // Must be in editing status
-    if (goal.status !== "editing") throw new Error("Goal already locked");
+    // Must still be a draft.
+    if (goal.status !== "draft") throw new Error("Goal already locked");
 
     // Check if already locked
     if (isCreator && goal.creatorLocked)
@@ -1221,8 +1222,8 @@ export const lockGoal = mutation({
     if (bothLocked) {
       await createWeeklyGoalThemeSnapshots(ctx, goal, now);
 
-      // Both are now locked - activate the goal
-      updates.status = "active";
+      // Both are now locked - start the goal.
+      updates.status = "locked";
       updates.lockedAt = now;
 
       // Notify the other user (the one who locked first) in the UI.
@@ -1291,40 +1292,40 @@ export const deleteGoal = mutation({
 });
 
 // Internal query for reminder crons
-export const getActiveGoalsWithEndDate = internalQuery({
+export const getLockedGoalsWithEndDate = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     return await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "active").gt("endDate", now)
+        q.eq("status", "locked").gt("endDate", now)
       )
       .collect();
   },
 });
 
-export const getExpiredGoalsInGraceWindow = internalQuery({
+export const getGoalsInGraceWindow = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const activePastEndDate = await ctx.db
+    const lockedPastEndDate = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "active").lt("endDate", now)
+        q.eq("status", "locked").lt("endDate", now)
       )
-      .filter((q) => q.neq(q.field("bossStatus"), "completed"))
+      .filter((q) => q.neq(q.field("bossStatus"), "defeated"))
       .collect();
 
-    const expiredGoals = await ctx.db
+    const gracePeriodGoals = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "expired").gt("endDate", now - GRACE_PERIOD_MS)
+        q.eq("status", "grace_period").gt("endDate", now - GRACE_PERIOD_MS)
       )
-      .filter((q) => q.neq(q.field("bossStatus"), "completed"))
+      .filter((q) => q.neq(q.field("bossStatus"), "defeated"))
       .collect();
 
-    const goals = [...activePastEndDate, ...expiredGoals];
+    const goals = [...lockedPastEndDate, ...gracePeriodGoals];
     const seen = new Set<string>();
     return goals.filter((goal) => {
       const key = String(goal._id);
@@ -1335,19 +1336,19 @@ export const getExpiredGoalsInGraceWindow = internalQuery({
   },
 });
 
-export const getEditingGoalsExpiringSoon = internalQuery({
+export const getDraftGoalsExpiringSoon = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     const oneHourMs = 60 * 60 * 1000;
-    const minCreatedAt = now - WEEKLY_GOAL_EDITING_TTL_MS + 23 * oneHourMs;
-    const maxCreatedAt = now - WEEKLY_GOAL_EDITING_TTL_MS + 24 * oneHourMs;
+    const minCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 23 * oneHourMs;
+    const maxCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 24 * oneHourMs;
 
     return await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_createdAt", (q) =>
         q
-          .eq("status", "editing")
+          .eq("status", "draft")
           .gte("createdAt", minCreatedAt)
           .lt("createdAt", maxCreatedAt)
       )
@@ -1362,7 +1363,7 @@ export const createDraftExpiryNotification = internalMutation({
   },
   handler: async (ctx, args) => {
     const goal = await ctx.db.get(args.goalId);
-    if (!goal || goal.status !== "editing") {
+    if (!goal || goal.status !== "draft") {
       return { created: false };
     }
 
@@ -1404,54 +1405,54 @@ export const createDraftExpiryNotification = internalMutation({
 });
 
 /**
- * Internal cron cleanup for expired weekly goals.
- * - Active goals move to expired once endDate passes.
- * - Expired goals are deleted after a 48 hour grace period.
- * - Editing goals expire by createdAt + TTL.
+ * Internal cron cleanup for weekly goals.
+ * - Locked goals move to grace_period once endDate passes.
+ * - Grace-period goals are deleted after the grace window.
+ * - Draft goals expire by createdAt + TTL.
  */
-export const cleanupExpiredGoals = internalMutation({
+export const cleanupWeeklyGoalRetention = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const editingCutoff = now - WEEKLY_GOAL_EDITING_TTL_MS;
+    const draftCutoff = now - WEEKLY_GOAL_DRAFT_TTL_MS;
 
-    const activeGoalsPastEndDate = await ctx.db
+    const lockedGoalsPastEndDate = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "active").lt("endDate", now)
+        q.eq("status", "locked").lt("endDate", now)
       )
       .collect();
 
-    const expiredGoalsPastGrace = await ctx.db
+    const gracePeriodGoalsPastGrace = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "expired").lt("endDate", now - GRACE_PERIOD_MS)
+        q.eq("status", "grace_period").lt("endDate", now - GRACE_PERIOD_MS)
       )
       .collect();
 
-    const editingGoals = await ctx.db
+    const draftGoals = await ctx.db
       .query("weeklyGoals")
       .withIndex("by_status_createdAt", (q) =>
-        q.eq("status", "editing").lt("createdAt", editingCutoff)
+        q.eq("status", "draft").lt("createdAt", draftCutoff)
       )
       .collect();
 
     const goalsToDelete = [
-      ...activeGoalsPastEndDate.filter((goal) =>
+      ...lockedGoalsPastEndDate.filter((goal) =>
         isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
       ),
-      ...expiredGoalsPastGrace,
-      ...editingGoals.filter((goal) =>
-        isCreatedAtExpired(goal.createdAt, now, WEEKLY_GOAL_EDITING_TTL_MS)
+      ...gracePeriodGoalsPastGrace,
+      ...draftGoals.filter((goal) =>
+        isCreatedAtExpired(goal.createdAt, now, WEEKLY_GOAL_DRAFT_TTL_MS)
       ),
     ];
 
-    const goalsToExpire = activeGoalsPastEndDate.filter(
+    const goalsToMoveToGracePeriod = lockedGoalsPastEndDate.filter(
       (goal) => !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
     );
 
-    for (const goal of goalsToExpire) {
-      await ctx.db.patch(goal._id, { status: "expired" });
+    for (const goal of goalsToMoveToGracePeriod) {
+      await ctx.db.patch(goal._id, { status: "grace_period" });
     }
 
     if (goalsToDelete.length === 0) return;
@@ -1550,7 +1551,7 @@ export const declineWeeklyPlanInvitation = mutation({
     }
 
     const now = Date.now();
-    if (getEffectiveGoalStatus(goal, now) !== "editing") {
+    if (getEffectiveGoalStatus(goal, now) !== "draft") {
       throw new Error("This invitation can no longer be declined");
     }
 

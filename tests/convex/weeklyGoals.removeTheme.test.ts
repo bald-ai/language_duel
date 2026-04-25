@@ -125,9 +125,9 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     ],
     creatorLocked: false,
     partnerLocked: false,
-    miniBossStatus: "locked",
-    bossStatus: "locked",
-    status: "editing",
+    miniBossStatus: "unavailable",
+    bossStatus: "unavailable",
+    status: "draft",
     createdAt: Date.now(),
     ...overrides,
   };
@@ -209,7 +209,7 @@ describe("weeklyGoals removeTheme", () => {
     expect(db.weeklyGoals[0]).toMatchObject({
       creatorLocked: false,
       partnerLocked: false,
-      status: "editing",
+      status: "draft",
     });
     expect(db.weeklyGoals[0].themes).toEqual([
       expect.objectContaining({ themeId: "theme_2" }),
@@ -272,13 +272,13 @@ describe("weeklyGoals removeTheme", () => {
     expect(db.notifications[0].status).toBe("dismissed");
   });
 
-  it("still blocks removal once the goal is no longer in editing", async () => {
+  it("still blocks removal once the goal is no longer a draft", async () => {
     const db = new InMemoryDb(
       [
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
         buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
-      [buildGoal({ status: "active", creatorLocked: true, partnerLocked: true })]
+      [buildGoal({ status: "locked", creatorLocked: true, partnerLocked: true })]
     );
 
     await expect(

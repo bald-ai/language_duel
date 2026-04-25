@@ -79,7 +79,7 @@ crons.interval(
 crons.interval(
     "cleanup-weekly-goals",
     { hours: 24 },
-    internal.weeklyGoals.cleanupExpiredGoals
+    internal.weeklyGoals.cleanupWeeklyGoalRetention
 );
 
 export default crons;

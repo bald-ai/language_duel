@@ -29,7 +29,7 @@ interface FriendsTabProps {
  */
 export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
     const friends = useQuery(api.friends.getFriends);
-    const allPlans = useQuery(api.weeklyGoals.getAllActiveGoals);
+    const allPlans = useQuery(api.weeklyGoals.getVisibleGoals);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);
     const lobby = useDuelLobby();

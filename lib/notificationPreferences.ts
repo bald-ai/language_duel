@@ -103,8 +103,8 @@ export function shouldSendWeeklyGoalReminder(
   reminderOffsetMinutes: number,
   windowMs = 60 * 60 * 1000
 ): boolean {
-  if (goal.status !== "active") return false;
-  if (goal.bossStatus === "completed") return false;
+  if (goal.status !== "locked") return false;
+  if (goal.bossStatus === "defeated") return false;
   if (!goal.endDate) return false;
   if (goal.endDate <= now) return false;
 
