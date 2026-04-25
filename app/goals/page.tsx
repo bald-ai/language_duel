@@ -377,7 +377,7 @@ export default function GoalsPage() {
 
   return (
     <ThemedPage className="px-4 py-6">
-      <div className="max-w-md mx-auto space-y-6 relative z-10">
+      <div className="w-full max-w-[29rem] mx-auto space-y-6 relative z-10">
         {/* Header */}
         <header className="flex items-center gap-4 mb-8">
           <button
