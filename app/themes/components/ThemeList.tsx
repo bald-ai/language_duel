@@ -11,6 +11,8 @@ import {
 } from "react-window";
 import { buttonStyles, colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
+import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
+import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { ThemeCardMenu } from "./ThemeCardMenu";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
 
@@ -57,6 +59,7 @@ interface ThemeCardProps {
   onOpenTheme: (theme: ThemeWithOwner) => void;
   onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
   onDuplicateTheme: (themeId: Id<"themes">) => void;
+  isInWeeklyGoal: boolean;
   isArchived?: boolean;
   onToggleArchive?: (themeId: Id<"themes">) => void;
 }
@@ -68,6 +71,7 @@ const ThemeCard = memo(function ThemeCard({
   onOpenTheme,
   onDeleteTheme,
   onDuplicateTheme,
+  isInWeeklyGoal,
   isArchived,
   onToggleArchive,
 }: ThemeCardProps) {
@@ -108,13 +112,16 @@ const ThemeCard = memo(function ThemeCard({
           className="text-left flex-1 min-w-0 transition hover:brightness-110"
           data-testid={`theme-open-${theme._id}`}
         >
-          <h3
-            className="font-bold text-base uppercase tracking-wide leading-tight truncate"
-            title={theme.name}
-            style={{ color: colors.text.DEFAULT }}
-          >
-            {theme.name}
-          </h3>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h3
+              className="font-bold text-base uppercase tracking-wide leading-tight truncate flex-1 min-w-0"
+              title={theme.name}
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {theme.name}
+            </h3>
+            {isInWeeklyGoal && <WeeklyGoalThemeMarker />}
+          </div>
           <div
             className="text-xs tracking-wide mt-0.5"
             style={{ color: colors.text.muted }}
@@ -176,6 +183,7 @@ interface ThemeListData {
   onDuplicateTheme: (themeId: Id<"themes">) => void;
   onToggleArchive?: (themeId: Id<"themes">) => void;
   isArchived?: boolean;
+  goalThemeIds: Set<Id<"themes">>;
   setRowSize: (index: number, size: number) => void;
 }
 
@@ -210,6 +218,7 @@ const ThemeRow = memo(function ThemeRow({
 
   const isDeleting = data.deletingThemeId === theme._id;
   const isDuplicating = data.duplicatingThemeId === theme._id;
+  const isInWeeklyGoal = data.goalThemeIds.has(theme._id);
 
   return (
     <div style={rowStyle}>
@@ -221,6 +230,7 @@ const ThemeRow = memo(function ThemeRow({
           onOpenTheme={data.onOpenTheme}
           onDeleteTheme={data.onDeleteTheme}
           onDuplicateTheme={data.onDuplicateTheme}
+          isInWeeklyGoal={isInWeeklyGoal}
           isArchived={data.isArchived}
           onToggleArchive={data.onToggleArchive}
         />
@@ -252,6 +262,7 @@ export function ThemeList({
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const [availableHeight, setAvailableHeight] = useState(0);
   const [listWidth, setListWidth] = useState(0);
+  const goalThemeIds = useWeeklyGoalThemeIds();
 
   const filterDisplay = showArchived
     ? "Archived Themes"
@@ -350,6 +361,7 @@ export function ThemeList({
       onDuplicateTheme,
       onToggleArchive,
       isArchived: showArchived,
+      goalThemeIds,
       setRowSize,
     }),
     [
@@ -361,6 +373,7 @@ export function ThemeList({
       onDuplicateTheme,
       onToggleArchive,
       showArchived,
+      goalThemeIds,
       setRowSize,
     ]
   );

@@ -6,6 +6,8 @@ import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
 import { CLASSIC_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
 import { ModalShell } from "./ModalShell";
 import { ModeSelectionButton } from "./ModeSelectionButton";
+import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
+import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { colors } from "@/lib/theme";
 import {
   actionButtonClassName,
@@ -407,6 +409,8 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
   onToggleTheme,
   onCreateTheme,
 }: CompactThemeSelectorProps) {
+  const goalThemeIds = useWeeklyGoalThemeIds();
+
   if (!themes) {
     return (
       <div
@@ -473,13 +477,16 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
               }}
               data-testid={`duel-modal-theme-${theme._id}`}
             >
-              <div>
-                <div
-                  className="font-semibold text-sm truncate"
-                  style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
-                  title={theme.name}
-                >
-                  {theme.name}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div
+                    className="font-semibold text-sm truncate flex-1 min-w-0"
+                    style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
+                    title={theme.name}
+                  >
+                    {theme.name}
+                  </div>
+                  {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
                 </div>
                 <div className="text-xs" style={{ color: colors.text.muted }}>
                   {theme.words.length} words

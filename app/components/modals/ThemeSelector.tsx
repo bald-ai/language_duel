@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
+import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
+import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { colors } from "@/lib/theme";
 
 interface Theme {
@@ -36,6 +38,7 @@ export function ThemeSelector({
   const [internalDraftThemeIds, setInternalDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
   const draftThemeIds = controlledDraftThemeIds ?? internalDraftThemeIds;
   const setDraftThemeIds = onDraftThemeIdsChange ?? setInternalDraftThemeIds;
+  const goalThemeIds = useWeeklyGoalThemeIds();
 
   const handleToggleTheme = (themeId: Id<"themes">) => {
     const nextThemeIds = draftThemeIds.includes(themeId)
@@ -103,13 +106,16 @@ export function ThemeSelector({
           }}
           data-testid={`theme-selector-item-${theme._id}`}
         >
-          <div>
-            <div
-              className="font-semibold text-base truncate"
-              style={{ color: colors.text.DEFAULT }}
-              title={theme.name}
-            >
-              {theme.name}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div
+                className="font-semibold text-base truncate flex-1 min-w-0"
+                style={{ color: colors.text.DEFAULT }}
+                title={theme.name}
+              >
+                {theme.name}
+              </div>
+              {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
             </div>
             <div className="text-sm" style={{ color: colors.text.muted }}>
               {theme.words.length} words
