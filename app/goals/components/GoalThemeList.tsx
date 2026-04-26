@@ -133,7 +133,7 @@ export function GoalThemeList({
               }}
               title={
                 !canToggle
-                  ? "Theme progress can only be changed while the goal is locked or in grace period"
+                  ? "Theme progress can no longer be changed"
                   : viewerCompleted
                     ? "Mark incomplete"
                     : "Mark complete"

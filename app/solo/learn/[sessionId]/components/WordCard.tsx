@@ -3,8 +3,9 @@
 import { memo, useMemo } from "react";
 import { ConfidenceSlider } from "./ConfidenceSlider";
 import { LetterGroups } from "./LetterGroups";
-import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
+import { EyeIcon, EyeSlashIcon, SpeakerIcon } from "@/app/components/icons";
 import { colors } from "@/lib/theme";
+import { stripIrr } from "@/lib/stringUtils";
 
 interface WordCardProps {
   word: {
@@ -62,13 +63,14 @@ const playingButtonStyleConst = {
   color: colors.text.DEFAULT,
 } as const;
 
-const hintPillActiveStyle = {
-  backgroundColor: colors.background.elevated,
+// Hint counter is informational, not a button - dimmer + lower contrast than icon buttons
+const hintCounterActiveStyle = {
+  backgroundColor: colors.background.DEFAULT,
   borderColor: colors.primary.dark,
   color: colors.text.DEFAULT,
 } as const;
 
-const hintPillInactiveStyle = {
+const hintCounterEmptyStyle = {
   backgroundColor: colors.background.DEFAULT,
   borderColor: colors.neutral.dark,
   color: colors.text.muted,
@@ -101,9 +103,18 @@ export const WordCard = memo(function WordCard({
     ...(isFloating ? floatingStyleAdditions : null),
   }), [style, isFloating]);
 
-  const hintPillStyle = hintsRemaining > 0 ? hintPillActiveStyle : hintPillInactiveStyle;
+  const revealablePositions = useMemo(
+    () =>
+      stripIrr(word.answer)
+        .split("")
+        .map((char, idx) => (char !== " " ? idx : -1))
+        .filter((idx) => idx !== -1),
+    [word.answer]
+  );
+  const isFullyRevealed = revealablePositions.every((idx) => revealedPositions.includes(idx));
+  const handleRevealToggle = isFullyRevealed ? onResetWord : onRevealFullWord;
 
-  const ttsButtonStyle = isTTSPlaying
+  const revealedTTSStyle = isTTSPlaying
     ? playingButtonStyleConst
     : isTTSDisabled
     ? disabledButtonStyleConst
@@ -149,7 +160,7 @@ export const WordCard = memo(function WordCard({
               className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition ${
                 isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
               }`}
-              style={ttsButtonStyle}
+              style={revealedTTSStyle}
               data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
             >
               <SpeakerIcon className="w-5 h-5" />
@@ -176,12 +187,12 @@ export const WordCard = memo(function WordCard({
           {/* Top row: Word info and letter groups */}
           <div className="flex-1 min-w-0">
             <div
-              className="font-medium text-lg mb-1"
+              className="font-medium text-lg mb-1 text-center"
               style={{ color: colors.text.DEFAULT }}
             >
               {word.word}
             </div>
-            <div onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-center" onMouseDown={(e) => e.stopPropagation()}>
               <LetterGroups
                 answer={word.answer}
                 revealedPositions={revealedPositions}
@@ -192,12 +203,18 @@ export const WordCard = memo(function WordCard({
             </div>
           </div>
 
-          {/* Confidence segmented control */}
+          {/* Confidence section: label above keeps the slider truly centered */}
           <div
-            className="flex justify-center pt-2 border-t"
+            className="flex flex-col items-center gap-1.5 pt-2 border-t"
             style={{ borderColor: colors.primary.dark }}
             onMouseDown={(e) => e.stopPropagation()}
           >
+            <span
+              className="text-[10px] uppercase tracking-widest font-semibold"
+              style={{ color: colors.text.muted }}
+            >
+              Confidence
+            </span>
             <ConfidenceSlider
               value={confidence}
               onChange={onConfidenceChange}
@@ -206,48 +223,69 @@ export const WordCard = memo(function WordCard({
             />
           </div>
 
-          {/* Action buttons: horizontal row */}
+          {/* Action row: original sizes, centered, with tiny labels under each */}
           <div className="flex gap-2 justify-center">
-            {/* Hints Remaining */}
-            <div
-              className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold"
-              style={hintPillStyle}
-            >
-              {hintsRemaining > 0 ? hintsRemaining : "-"}
+            {/* Hints Remaining - circle (info shape) with label so it doesn't read as a button */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div
+                className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold tabular-nums"
+                style={hintsRemaining > 0 ? hintCounterActiveStyle : hintCounterEmptyStyle}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-hints-remaining` : undefined}
+              >
+                {hintsRemaining > 0 ? hintsRemaining : 0}
+              </div>
+              <span
+                className="text-[9px] uppercase tracking-wide font-semibold leading-none"
+                style={{ color: colors.text.muted }}
+              >
+                Hints
+              </span>
             </div>
 
-            {/* Reset Button */}
-            <button
-              onClick={onResetWord}
-              className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-              style={iconButtonStyleConst}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-reset` : undefined}
-            >
-              <ResetIcon className="w-4 h-4" />
-            </button>
-
-            {/* Reveal Full Word Button */}
-            <button
-              onClick={onRevealFullWord}
-              className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110"
-              style={iconButtonStyleConst}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
-            >
-              <EyeIcon className="w-4 h-4" />
-            </button>
+            {/* Reveal/Hide Button */}
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                onClick={handleRevealToggle}
+                aria-label={isFullyRevealed ? "Hide answer" : "Reveal answer"}
+                className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition hover:brightness-110 cursor-pointer"
+                style={iconButtonStyleConst}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
+              >
+                {isFullyRevealed ? (
+                  <EyeSlashIcon className="w-4 h-4" />
+                ) : (
+                  <EyeIcon className="w-4 h-4" />
+                )}
+              </button>
+              <span
+                className="text-[9px] uppercase tracking-wide font-semibold leading-none"
+                style={{ color: colors.text.muted }}
+              >
+                {isFullyRevealed ? "Hide" : "Reveal"}
+              </span>
+            </div>
 
             {/* TTS Button */}
-            <button
-              onClick={onPlayTTS}
-              disabled={isTTSDisabled}
-              className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
-                isTTSDisabled ? "cursor-not-allowed" : "hover:brightness-110"
-              }`}
-              style={ttsButtonStyle}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
-            >
-              <SpeakerIcon className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                onClick={onPlayTTS}
+                disabled={isTTSDisabled}
+                aria-label="Listen"
+                className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition ${
+                  isTTSDisabled ? "cursor-not-allowed" : "cursor-pointer hover:brightness-110"
+                }`}
+                style={revealedTTSStyle}
+                data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
+              >
+                <SpeakerIcon className="w-4 h-4" />
+              </button>
+              <span
+                className="text-[9px] uppercase tracking-wide font-semibold leading-none"
+                style={{ color: colors.text.muted }}
+              >
+                Listen
+              </span>
+            </div>
           </div>
         </div>
       )}

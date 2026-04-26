@@ -278,7 +278,7 @@ export function useDuelLobby() {
   );
 
   const handleContinueSolo = useCallback(
-    (themeIds: Id<"themes">[], mode: "challenge_only" | "learn_test") => {
+    (themeIds: Id<"themes">[], mode: "challenge_only" | "learn_test", durationSeconds?: number) => {
       if (themeIds.length === 0) return;
       const sessionId = crypto.randomUUID();
       const base = mode === "challenge_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
@@ -287,6 +287,9 @@ export function useDuelLobby() {
         params.set("themeId", themeIds[0]);
       }
       params.set("themeIds", themeIds.join(","));
+      if (mode === "learn_test" && durationSeconds) {
+        params.set("duration", String(durationSeconds));
+      }
       router.push(`${base}?${params.toString()}`);
       modals.closeModal();
     },

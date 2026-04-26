@@ -98,6 +98,24 @@ describe("weeklyGoals helpers", () => {
     ).toBe("unavailable");
   });
 
+  it("keeps bosses unavailable while completed themes are still in draft planning", () => {
+    const goal = buildGoal({
+      themes: [
+        { creatorCompleted: true, partnerCompleted: true },
+        { creatorCompleted: true, partnerCompleted: true },
+      ],
+      status: "draft",
+      lockedAt: undefined,
+      miniBossStatus: "unavailable",
+      bossStatus: "unavailable",
+    });
+
+    expect(getEffectiveMiniBossStatus(goal, 5_000)).toBe("unavailable");
+    expect(getEffectiveBossStatus(goal, 5_000)).toBe("unavailable");
+    expect(canTriggerGoalBoss(goal, "mini", 5_000)).toBe(false);
+    expect(canTriggerGoalBoss(goal, "big", 5_000)).toBe(false);
+  });
+
   it("keeps the big boss unavailable until the mini boss is defeated", () => {
     const goal = buildGoal({
       themes: [

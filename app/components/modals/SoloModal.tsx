@@ -7,6 +7,12 @@ import { ThemeSelector } from "./ThemeSelector";
 import { ModeSelectionButton } from "./ModeSelectionButton";
 import { colors } from "@/lib/theme";
 import {
+  DEFAULT_SOLO_STUDY_DURATION,
+  SOLO_TIMER_OPTIONS,
+  getSoloLearnTimerLabel,
+  getSoloLearnTimerTestIdSuffix,
+} from "@/lib/soloLearnTimer";
+import {
   actionButtonClassName,
   ctaActionStyle,
   outlineButtonClassName,
@@ -23,12 +29,28 @@ type SoloMode = "challenge_only" | "learn_test";
 
 interface SoloModalProps {
   themes: Theme[] | undefined;
-  onContinue: (themeIds: Id<"themes">[], mode: SoloMode) => void;
+  onContinue: (themeIds: Id<"themes">[], mode: SoloMode, durationSeconds?: number) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
   initialThemeIds?: Id<"themes">[];
   initialMode?: SoloMode;
 }
+
+const timerOptionClassName =
+  "px-5 py-3 rounded-2xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
+
+const timerOptionActiveStyle = {
+  backgroundColor: colors.primary.DEFAULT,
+  borderColor: colors.primary.dark,
+  color: colors.text.DEFAULT,
+  boxShadow: `0 12px 30px ${colors.primary.glow}`,
+};
+
+const timerOptionInactiveStyle = {
+  backgroundColor: colors.background.elevated,
+  borderColor: colors.primary.dark,
+  color: colors.text.muted,
+};
 
 export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, initialThemeIds, initialMode }: SoloModalProps) {
   const resolvedInitialThemeIds = useMemo(() => {
@@ -38,15 +60,14 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
     const availableThemeIds = new Set(themes.map((theme) => theme._id));
     return initialThemeIds.filter((themeId) => availableThemeIds.has(themeId));
   }, [initialThemeIds, themes]);
+  const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [ignoreInitialThemes, setIgnoreInitialThemes] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<SoloMode | null>("learn_test");
+  const [selectedMode, setSelectedMode] = useState<SoloMode | null>(initialMode ?? "learn_test");
+  const [selectedDuration, setSelectedDuration] = useState(DEFAULT_SOLO_STUDY_DURATION);
   const effectiveThemeIds = !ignoreInitialThemes && resolvedInitialThemeIds.length > 0
     ? resolvedInitialThemeIds
     : selectedThemeIds;
-  const effectiveMode = !ignoreInitialThemes && resolvedInitialThemeIds.length > 0
-    ? (initialMode ?? "learn_test")
-    : selectedMode;
   const selectedThemes = themes?.filter((theme) => effectiveThemeIds.includes(theme._id)) || [];
 
   const handleConfirmThemeSelection = (confirmedThemeIds: Id<"themes">[]) => {
@@ -56,12 +77,13 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
   };
 
   const handleContinue = () => {
-    if (effectiveThemeIds.length === 0 || !effectiveMode) return;
-    onContinue(effectiveThemeIds, effectiveMode);
+    if (effectiveThemeIds.length === 0 || !selectedMode) return;
+    onContinue(effectiveThemeIds, selectedMode, selectedMode === "learn_test" ? selectedDuration : undefined);
   };
 
   const handleBack = () => {
     setIgnoreInitialThemes(true);
+    setDraftThemeIds([]);
     setSelectedThemeIds([]);
     setSelectedMode(null);
   };
@@ -80,18 +102,32 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
               selectedThemeIds={selectedThemeIds}
               onConfirmSelection={handleConfirmThemeSelection}
               onCreateTheme={onNavigateToThemes}
-              confirmLabel="Continue to Mode"
+              draftThemeIds={draftThemeIds}
+              onDraftThemeIdsChange={setDraftThemeIds}
+              hideConfirmButton
             />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className={`${outlineButtonClassName} mt-4`}
-            style={outlineButtonStyle}
-            data-testid="solo-modal-cancel"
-          >
-            Cancel
-          </button>
+          <div className="mt-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => handleConfirmThemeSelection(draftThemeIds)}
+              disabled={draftThemeIds.length === 0}
+              className={actionButtonClassName}
+              style={ctaActionStyle}
+              data-testid="theme-selector-confirm"
+            >
+              Continue to Mode
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className={outlineButtonClassName}
+              style={outlineButtonStyle}
+              data-testid="solo-modal-cancel"
+            >
+              Cancel
+            </button>
+          </div>
         </>
       )}
 
@@ -146,6 +182,34 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
             />
           </div>
 
+          {selectedMode === "learn_test" && (
+            <div
+              className="mt-4 rounded-2xl border-2 p-4 text-center"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+              }}
+            >
+              <p className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
+                Study Time
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-3">
+                {SOLO_TIMER_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setSelectedDuration(option)}
+                    className={timerOptionClassName}
+                    style={selectedDuration === option ? timerOptionActiveStyle : timerOptionInactiveStyle}
+                    data-testid={`solo-modal-timer-${getSoloLearnTimerTestIdSuffix(option)}`}
+                  >
+                    {getSoloLearnTimerLabel(option)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleContinue}
@@ -154,7 +218,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
             style={ctaActionStyle}
             data-testid="solo-modal-continue"
           >
-            Continue
+            {selectedMode === "challenge_only" ? "Start Challenge" : "Start Learning"}
           </button>
 
           <div className="mt-3 grid grid-cols-2 gap-3">

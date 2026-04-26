@@ -3,9 +3,9 @@
  */
 
 // Auto-complete and cursor delays
-export const AUTO_COMPLETE_DELAY_MS = 150;
-export const CURSOR_MOVE_DELAY_MS = 50;
+export const AUTO_COMPLETE_DELAY_MS = 75;
+export const CURSOR_MOVE_DELAY_MS = 25;
 
 // Feedback delays
-export const DONT_KNOW_REVEAL_MS = 1500;
-export const DUEL_CORRECT_DELAY_MS = 1000;
+export const DONT_KNOW_REVEAL_MS = 750;
+export const DUEL_CORRECT_DELAY_MS = 500;

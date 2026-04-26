@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
 
@@ -17,6 +17,9 @@ interface ThemeSelectorProps {
   onCreateTheme: () => void;
   emptyMessage?: string;
   confirmLabel?: string;
+  draftThemeIds?: Id<"themes">[];
+  onDraftThemeIdsChange?: (themeIds: Id<"themes">[]) => void;
+  hideConfirmButton?: boolean;
 }
 
 export function ThemeSelector({
@@ -26,12 +29,20 @@ export function ThemeSelector({
   onCreateTheme,
   emptyMessage = "No themes available yet.",
   confirmLabel = "Confirm Themes",
+  draftThemeIds: controlledDraftThemeIds,
+  onDraftThemeIdsChange,
+  hideConfirmButton = false,
 }: ThemeSelectorProps) {
-  const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
+  const [internalDraftThemeIds, setInternalDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
+  const draftThemeIds = controlledDraftThemeIds ?? internalDraftThemeIds;
+  const setDraftThemeIds = onDraftThemeIdsChange ?? setInternalDraftThemeIds;
 
-  useEffect(() => {
-    setDraftThemeIds(selectedThemeIds);
-  }, [selectedThemeIds]);
+  const handleToggleTheme = (themeId: Id<"themes">) => {
+    const nextThemeIds = draftThemeIds.includes(themeId)
+      ? draftThemeIds.filter((currentThemeId) => currentThemeId !== themeId)
+      : [...draftThemeIds, themeId];
+    setDraftThemeIds(nextThemeIds);
+  };
 
   if (!themes) {
     return (
@@ -82,13 +93,7 @@ export function ThemeSelector({
       {themes.map((theme) => (
         <button
           key={theme._id}
-          onClick={() =>
-            setDraftThemeIds((current) =>
-              current.includes(theme._id)
-                ? current.filter((currentThemeId) => currentThemeId !== theme._id)
-                : [...current, theme._id]
-            )
-          }
+          onClick={() => handleToggleTheme(theme._id)}
           className="w-full text-left p-4 border-2 rounded-2xl transition hover:brightness-110 flex items-center justify-between gap-3"
           style={{
             backgroundColor: colors.background.DEFAULT,
@@ -134,19 +139,21 @@ export function ThemeSelector({
         </button>
       ))}
 
-      <button
-        type="button"
-        onClick={() => onConfirmSelection(draftThemeIds)}
-        disabled={draftThemeIds.length === 0}
-        className="w-full rounded-xl py-3 text-sm font-bold uppercase tracking-widest transition disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{
-          backgroundColor: colors.cta.DEFAULT,
-          color: colors.text.DEFAULT,
-        }}
-        data-testid="theme-selector-confirm"
-      >
-        {confirmLabel}
-      </button>
+      {!hideConfirmButton && (
+        <button
+          type="button"
+          onClick={() => onConfirmSelection(draftThemeIds)}
+          disabled={draftThemeIds.length === 0}
+          className="w-full rounded-xl py-3 text-sm font-bold uppercase tracking-widest transition disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: colors.cta.DEFAULT,
+            color: colors.text.DEFAULT,
+          }}
+          data-testid="theme-selector-confirm"
+        >
+          {confirmLabel}
+        </button>
+      )}
     </div>
   );
 }

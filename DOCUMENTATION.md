@@ -55,6 +55,7 @@ Weekly goal lifecycle:
 
 - Stored lifecycle values are `draft`, `locked`, `grace_period`, and `completed`.
 - `lock_proposed` is derived, not stored: the goal is still `draft`, at least one participant lock flag is true, and not all required participants have locked.
+- Theme progress can be marked during planning, including `draft` and derived `lock_proposed`; boss access still starts only after both participants lock.
 - Boss status values are `unavailable`, `ready`, and `defeated`.
 - Completed goals are retained in the database but hidden from the active weekly-goal list.
 - Declined draft goals are deleted.

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { ResetIcon, EyeIcon, SpeakerIcon } from "@/app/components/icons";
+import { EyeIcon, EyeSlashIcon, SpeakerIcon } from "@/app/components/icons";
 import { stripIrr } from "@/lib/stringUtils";
 import { colors } from "@/lib/theme";
 
@@ -43,6 +43,11 @@ export const WordCard = memo(function WordCard({
 }: WordCardProps) {
   const cleanAnswer = stripIrr(word.answer);
   const letters = cleanAnswer.split("");
+  const revealablePositions = letters
+    .map((letter, idx) => (letter !== " " ? idx : -1))
+    .filter((idx) => idx !== -1);
+  const isFullyRevealed = revealablePositions.every((idx) => revealedPositions.includes(idx));
+  const handleRevealToggle = isFullyRevealed ? onResetWord : onRevealFullWord;
 
   return (
     <div
@@ -114,20 +119,9 @@ export const WordCard = memo(function WordCard({
               </div>
 
               <button
-                onClick={onResetWord}
-                className="w-10 h-10 rounded-lg flex items-center justify-center transition border-2 hover:brightness-110"
-                style={{
-                  backgroundColor: colors.background.DEFAULT,
-                  borderColor: colors.primary.dark,
-                  color: colors.text.muted,
-                }}
-                data-testid={dataTestIdBase ? `${dataTestIdBase}-reset` : undefined}
-              >
-                <ResetIcon />
-              </button>
-
-              <button
-                onClick={onRevealFullWord}
+                onClick={handleRevealToggle}
+                aria-label={isFullyRevealed ? "Hide answer" : "Reveal answer"}
+                title={isFullyRevealed ? "Hide answer" : "Reveal answer"}
                 className="w-10 h-10 rounded-lg flex items-center justify-center transition border-2 hover:brightness-110"
                 style={{
                   backgroundColor: colors.background.DEFAULT,
@@ -136,7 +130,7 @@ export const WordCard = memo(function WordCard({
                 }}
                 data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
               >
-                <EyeIcon />
+                {isFullyRevealed ? <EyeSlashIcon /> : <EyeIcon />}
               </button>
             </>
           )}

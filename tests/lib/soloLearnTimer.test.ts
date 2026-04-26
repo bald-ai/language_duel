@@ -4,6 +4,7 @@ import {
   getSoloLearnTimerLabel,
   getSoloLearnTimerTestIdSuffix,
   isSoloStudyTimerInfinite,
+  shouldShowSoloLearnTimer,
   SOLO_INFINITE_STUDY_SECONDS,
   SOLO_TIMER_OPTIONS,
 } from "@/lib/soloLearnTimer";
@@ -29,6 +30,12 @@ describe("solo learn timer", () => {
     expect(getSoloLearnTimerLabel(SOLO_INFINITE_STUDY_SECONDS)).toBe("∞");
     expect(getSoloLearnTimerLabel(600)).toBe("10:00");
     expect(getSoloLearnTimerLabel(900)).toBe("15:00");
+  });
+
+  it("hides the running timer for durations above 30 minutes", () => {
+    expect(shouldShowSoloLearnTimer(1800)).toBe(true);
+    expect(shouldShowSoloLearnTimer(1801)).toBe(false);
+    expect(shouldShowSoloLearnTimer(SOLO_INFINITE_STUDY_SECONDS)).toBe(false);
   });
 
   it("getSoloLearnTimerTestIdSuffix maps sentinel to 'infinite'", () => {

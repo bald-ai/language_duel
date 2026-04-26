@@ -8,8 +8,8 @@ import { Id } from "@/convex/_generated/dataModel";
 import { SOLO_TIMER_OPTIONS } from "./constants";
 import {
   getSoloLearnTimerLabel,
-  getSoloLearnTimerTestIdSuffix,
   isSoloStudyTimerInfinite,
+  shouldShowSoloLearnTimer,
 } from "@/lib/soloLearnTimer";
 import { stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components/WordCard";
@@ -46,22 +46,6 @@ const buildActionStyle = (variant: "primary" | "cta") => {
 
 const primaryActionStyle = buildActionStyle("primary");
 const ctaActionStyle = buildActionStyle("cta");
-
-const timerOptionClassName =
-  "px-5 py-3 rounded-2xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
-
-const timerOptionActiveStyle = {
-  backgroundColor: colors.primary.DEFAULT,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-  boxShadow: `0 12px 30px ${colors.primary.glow}`,
-};
-
-const timerOptionInactiveStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.muted,
-};
 
 const toggleButtonClassName =
   "px-4 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
@@ -110,6 +94,12 @@ export default function LearnPhasePage() {
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
   const challengeId = searchParams.get("challengeId");
+  const durationParam = searchParams.get("duration");
+  const parsedDuration = Number.parseInt(durationParam ?? "", 10);
+  const presetDuration = SOLO_TIMER_OPTIONS.includes(parsedDuration as (typeof SOLO_TIMER_OPTIONS)[number])
+    ? parsedDuration
+    : null;
+  const initialDuration = presetDuration ?? DEFAULT_DURATION;
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
       return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
@@ -141,11 +131,13 @@ export default function LearnPhasePage() {
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]
   );
+  const isSessionReady = challengeId
+    ? practiceSession !== undefined && practiceSession !== null
+    : allThemes !== undefined && requestedThemeIds.length > 0 && selectedThemes.length === requestedThemeIds.length;
 
   // Timer state
-  const [duration, setDuration] = useState(DEFAULT_DURATION);
-  const [timeRemaining, setTimeRemaining] = useState(DEFAULT_DURATION);
-  const [isStarted, setIsStarted] = useState(false);
+  const duration = initialDuration;
+  const [timeRemaining, setTimeRemaining] = useState(initialDuration);
 
   // Hint states
   const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
@@ -239,13 +231,8 @@ export default function LearnPhasePage() {
   }, [playingWordKey]);
 
   // --- Timer logic ---
-  const handleStart = useCallback(() => {
-    setTimeRemaining(duration);
-    setIsStarted(true);
-  }, [duration]);
-
   useEffect(() => {
-    if (!isStarted) return;
+    if (!isSessionReady) return;
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
@@ -256,10 +243,10 @@ export default function LearnPhasePage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isStarted]);
+  }, [isSessionReady]);
 
   useEffect(() => {
-    if (timeRemaining === 0 && isStarted) {
+    if (timeRemaining === 0 && isSessionReady) {
       const params = new URLSearchParams();
       if (challengeId) {
         params.set("challengeId", challengeId);
@@ -271,7 +258,7 @@ export default function LearnPhasePage() {
       }
       router.push(`/solo/${sessionId}?${params.toString()}`);
     }
-  }, [timeRemaining, isStarted, router, sessionId, requestedThemeIds, themeIdsKey, challengeId]);
+  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, themeIdsKey, challengeId]);
 
   // --- TTS ---
   const playWordTTS = useCallback(
@@ -440,84 +427,6 @@ export default function LearnPhasePage() {
     );
   }
 
-  // --- Pre-start screen ---
-  if (!isStarted) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-8">
-          <LearnHeader />
-
-          <section
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up delay-200"
-            style={cardStyle}
-          >
-            <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
-              {selectedThemes.length === 1 ? "Theme" : "Themes"}
-            </div>
-            <h2 className="mt-1 text-2xl font-bold" style={{ color: colors.text.DEFAULT }}>
-              {themeSummary}
-            </h2>
-
-            <p className="mt-3 text-sm" style={{ color: colors.text.muted }}>
-              Set your study time
-            </p>
-
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              {SOLO_TIMER_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setDuration(option)}
-                  className={timerOptionClassName}
-                  style={duration === option ? timerOptionActiveStyle : timerOptionInactiveStyle}
-                  data-testid={`solo-learn-timer-${getSoloLearnTimerTestIdSuffix(option)}`}
-                >
-                  {getSoloLearnTimerLabel(option)}
-                </button>
-              ))}
-            </div>
-
-            <div
-              className="mt-5 inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 text-xs uppercase tracking-widest"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.muted,
-              }}
-            >
-              {sessionWords.length} words to study
-            </div>
-          </section>
-
-          <div className="w-full mt-6 grid gap-3 animate-slide-up delay-300">
-            <button
-              onClick={handleStart}
-              className={actionButtonClassName}
-              style={ctaActionStyle}
-              data-testid="solo-learn-start"
-            >
-              Start Learning
-            </button>
-            <button
-              onClick={handleExit}
-              className={actionButtonClassName}
-              style={primaryActionStyle}
-              data-testid="solo-learn-back-home"
-            >
-              Back to Home
-            </button>
-          </div>
-        </div>
-
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
-    );
-  }
-
   // --- Main learning UI ---
   return (
     <ThemedPage>
@@ -553,12 +462,14 @@ export default function LearnPhasePage() {
           <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
             {themeSummary}
           </div>
-          <div
-            className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
-            style={timerStyle}
-          >
-            {getSoloLearnTimerLabel(timeRemaining)}
-          </div>
+          {shouldShowSoloLearnTimer(timeRemaining) && (
+            <div
+              className="mt-4 text-5xl sm:text-6xl font-bold tracking-tight"
+              style={timerStyle}
+            >
+              {getSoloLearnTimerLabel(timeRemaining)}
+            </div>
+          )}
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <button

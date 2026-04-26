@@ -16,6 +16,7 @@ import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
 import { PlanSwitcher } from "./components/PlanSwitcher";
 import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
+import { canToggleGoalThemeCompletion } from "./helpers";
 import {
   formatGoalGraceCountdown,
   getGoalDeleteAt,
@@ -349,9 +350,7 @@ export default function GoalsPage() {
   const hasPlanSelected = selectedPlan != null; // handles both null and undefined
   const effectiveStatus = selectedPlan?.effectiveStatus;
   const isDraft = effectiveStatus === "draft";
-  const isLocked = effectiveStatus === "locked";
   const isGracePeriod = effectiveStatus === "grace_period";
-  const isPlayableGoal = isLocked || isGracePeriod;
   const canAddThemes =
     isDraft &&
     hasPlanSelected &&
@@ -364,6 +363,9 @@ export default function GoalsPage() {
     hasPlanSelected &&
     ((selectedPlan.viewerRole === "creator" && selectedPlan.goal.partnerLocked) ||
       (selectedPlan.viewerRole === "partner" && selectedPlan.goal.creatorLocked));
+  const canToggleThemeCompletion = canToggleGoalThemeCompletion({
+    effectiveStatus,
+  });
   const hasEnoughThemesToLock =
     hasPlanSelected && selectedPlan.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
   const hasEndDate = hasPlanSelected && typeof selectedPlan.goal.endDate === "number";
@@ -811,7 +813,7 @@ export default function GoalsPage() {
               themes={selectedPlan.goal.themes}
               viewerRole={selectedPlan.viewerRole}
               isEditing={isDraft}
-              canToggle={isPlayableGoal}
+              canToggle={canToggleThemeCompletion}
               onToggle={handleToggleCompletion}
               onRemove={handleRemoveTheme}
             />

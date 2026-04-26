@@ -8,6 +8,8 @@ import {
   LEVEL_UP_CHANCE,
   LEVEL2_TYPING_CHANCE,
   LEVEL1_REVERSE_CHANCE,
+  SOLO_CORRECT_ADVANCE_DELAY_MS,
+  SOLO_INCORRECT_ADVANCE_DELAY_MS,
 } from "../constants";
 import { getDirectionalCopy, type TranslationDirection } from "../translationDirection";
 
@@ -294,7 +296,7 @@ export function useSoloSession({
     // Auto-advance after delay
     setTimeout(() => {
       selectNextQuestion();
-    }, 1500);
+    }, SOLO_CORRECT_ADVANCE_DELAY_MS);
   }, [selectNextQuestion]);
 
   /**
@@ -335,7 +337,7 @@ export function useSoloSession({
     // Auto-advance after delay (longer to read answer)
     setTimeout(() => {
       selectNextQuestion();
-    }, 2500);
+    }, SOLO_INCORRECT_ADVANCE_DELAY_MS);
   }, [selectNextQuestion, words, session.currentWordIndex, session.translationDirection]);
 
   /**

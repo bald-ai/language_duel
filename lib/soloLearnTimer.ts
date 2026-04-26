@@ -11,8 +11,14 @@ export const SOLO_TIMER_OPTIONS = [600, 900, SOLO_INFINITE_STUDY_SECONDS] as con
 
 export const DEFAULT_SOLO_STUDY_DURATION = 600;
 
+const MAX_VISIBLE_SOLO_LEARN_TIMER_SECONDS = 30 * 60;
+
 export function isSoloStudyTimerInfinite(durationSeconds: number): boolean {
   return durationSeconds === SOLO_INFINITE_STUDY_SECONDS;
+}
+
+export function shouldShowSoloLearnTimer(remainingSeconds: number): boolean {
+  return remainingSeconds <= MAX_VISIBLE_SOLO_LEARN_TIMER_SECONDS;
 }
 
 /** Labels for option buttons and the running learn timer. */

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { LockButton } from "@/app/goals/components/LockButton";
 import { DeleteGoalButton } from "@/app/goals/components/DeleteGoalButton";
+import { GoalThemeList } from "@/app/goals/components/GoalThemeList";
+import type { Id } from "@/convex/_generated/dataModel";
 
 describe("Goal buttons", () => {
   it("LockButton triggers onLock when not partnerLocked", async () => {
@@ -41,5 +43,59 @@ describe("Goal buttons", () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("GoalThemeList allows toggling progress when enabled", () => {
+    const onToggle = vi.fn();
+
+    render(
+      <GoalThemeList
+        themes={[
+          {
+            themeId: "theme_1" as Id<"themes">,
+            themeName: "Family",
+            creatorCompleted: false,
+            partnerCompleted: false,
+          },
+        ]}
+        viewerRole="creator"
+        isEditing
+        canToggle
+        onToggle={onToggle}
+        onRemove={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("goal-theme-toggle-theme_1"));
+
+    expect(onToggle).toHaveBeenCalledWith("theme_1");
+  });
+
+  it("GoalThemeList disables progress changes when completion is unavailable", () => {
+    const onToggle = vi.fn();
+
+    render(
+      <GoalThemeList
+        themes={[
+          {
+            themeId: "theme_1" as Id<"themes">,
+            themeName: "Family",
+            creatorCompleted: false,
+            partnerCompleted: false,
+          },
+        ]}
+        viewerRole="creator"
+        isEditing={false}
+        canToggle={false}
+        onToggle={onToggle}
+        onRemove={vi.fn()}
+      />
+    );
+
+    const toggle = screen.getByTestId("goal-theme-toggle-theme_1");
+    fireEvent.click(toggle);
+
+    expect(toggle).toBeDisabled();
+    expect(onToggle).not.toHaveBeenCalled();
   });
 });
