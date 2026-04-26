@@ -237,18 +237,6 @@ describe("NotificationsTab theme actions", () => {
     );
   });
 
-  it("navigates to study when selecting Solo Study", () => {
-    const onClose = vi.fn();
-
-    render(<NotificationsTab onClose={onClose} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Test Theme" }));
-    fireEvent.click(screen.getByRole("button", { name: "Solo Study" }));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(pushMock).toHaveBeenCalledWith("/study?themeId=theme_1");
-  });
-
   it("navigates to solo challenge when selecting Solo Challenge", () => {
     const onClose = vi.fn();
 

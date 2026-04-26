@@ -281,12 +281,6 @@ function PrototypeActionButton({
   );
 }
 
-const StudyIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-  </svg>
-);
-
 const SoloIcon = () => (
   <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1592,27 +1586,20 @@ export default function Home() {
               ) : (
                 <>
                   <div className="animate-slide-up delay-300">
-                    <MenuButton onClick={() => guardAuth(() => router.push("/study"))} dataTestId="home-study">
-                      <StudyIcon />
-                      Study
-                    </MenuButton>
-                  </div>
-
-                  <div className="animate-slide-up delay-400">
                     <MenuButton onClick={() => guardAuth(lobby.openSoloModal)} dataTestId="home-solo-challenge">
                       <SoloIcon />
                       Solo Challenge
                     </MenuButton>
                   </div>
 
-                  <div className="animate-slide-up delay-500">
+                  <div className="animate-slide-up delay-400">
                     <MenuButton onClick={() => guardAuth(lobby.openUnifiedDuelModal)} dataTestId="home-duel">
                       <DuelIcon />
                       Duel
                     </MenuButton>
                   </div>
 
-                  <div className="animate-slide-up delay-600">
+                  <div className="animate-slide-up delay-500">
                     <MenuButton onClick={() => guardAuth(() => router.push("/themes"))} dataTestId="home-manage-themes">
                       <ThemesIcon />
                       Manage Themes

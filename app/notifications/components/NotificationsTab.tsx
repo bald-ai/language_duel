@@ -218,11 +218,6 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleSoloStudy = (themeId: Id<"themes">) => {
-        onClose();
-        router.push(`/study?themeId=${themeId}`);
-    };
-
     const handleSoloChallenge = (themeId: Id<"themes">) => {
         onClose();
         router.push(`/?openSolo=true&themeId=${themeId}&soloMode=challenge_only`);
@@ -292,7 +287,6 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         proposerReady={scheduledDuelData?.proposerReady}
                         recipientReady={scheduledDuelData?.recipientReady}
                         // Theme quick actions
-                        onSoloStudy={handleSoloStudy}
                         onSoloChallenge={handleSoloChallenge}
                     />
                 );

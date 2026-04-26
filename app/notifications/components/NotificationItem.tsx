@@ -69,7 +69,6 @@ interface NotificationItemProps {
     proposerReady?: boolean;
     recipientReady?: boolean;
     // Theme quick actions
-    onSoloStudy?: (themeId: Id<"themes">) => void;
     onSoloChallenge?: (themeId: Id<"themes">) => void;
 }
 
@@ -102,7 +101,6 @@ export function NotificationItem({
     currentUserIsProposer,
     proposerReady,
     recipientReady,
-    onSoloStudy,
     onSoloChallenge,
 }: NotificationItemProps) {
     const { type, fromUser, payload, createdAt } = notification;
@@ -161,12 +159,11 @@ export function NotificationItem({
     }, []);
 
     const renderThemeName = (themeName: string, themeId?: Id<"themes">) => {
-        if (onSoloStudy && onSoloChallenge && themeId) {
+        if (onSoloChallenge && themeId) {
             return (
                 <ThemeNameDropdown
                     themeName={themeName}
                     themeId={themeId}
-                    onSoloStudy={onSoloStudy}
                     onSoloChallenge={onSoloChallenge}
                 />
             );

@@ -18,9 +18,8 @@ The direction is still evolving. AI should treat this thesis as the current best
 
 ## Core User Experiences
 
-- Study a theme: A user opens a theme and works through its words with hints and TTS support. This is the most direct learning flow and the simplest path from content to practice.
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo challenge, duels, and weekly goals.
-- Solo challenge: A user practices against the app using duel-style structure without needing another player. This keeps the game layer available even when learning alone.
+- Solo challenge: A user practices against the app using duel-style structure without needing another player. The Learn + Test path also covers untimed study with hints and TTS before challenge play.
 - Start or join a duel: Two users use shared challenge structure to practice together in either classic or solo-style modes. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
 - Weekly goals: Two users create a shared plan, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
 
