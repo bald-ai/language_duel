@@ -370,6 +370,19 @@ export default function GoalsPage() {
     hasPlanSelected && selectedPlan.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
   const hasEndDate = hasPlanSelected && typeof selectedPlan.goal.endDate === "number";
   const canEditEndDate = Boolean(selectedPlan?.canEditEndDate);
+  const allSelectedThemesCompleted = Boolean(
+    selectedPlan &&
+    selectedPlan.goal.themes.length > 0 &&
+    selectedPlan.completedThemeCount === selectedPlan.goal.themes.length
+  );
+  const miniBossDisplayStatus = allSelectedThemesCompleted
+    ? "unavailable"
+    : selectedPlan?.miniBossStatus ?? "unavailable";
+  const miniBossLabel = allSelectedThemesCompleted
+    ? "All themes completed - Do big boss!"
+    : selectedPlan
+      ? formatBossStatus(selectedPlan.miniBossStatus)
+      : "";
   const startDate = selectedPlan?.goal?.lockedAt
     ? formatDate(selectedPlan.goal.lockedAt)
     : null;
@@ -754,20 +767,20 @@ export default function GoalsPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    if (selectedPlan.miniBossStatus === "ready") {
+                    if (!allSelectedThemesCompleted && selectedPlan.miniBossStatus === "ready") {
                       router.push(`/boss/${selectedPlan.goal._id}/mini`);
                     }
                   }}
-                  disabled={isBossButtonDisabled(selectedPlan.miniBossStatus)}
+                  disabled={allSelectedThemesCompleted || isBossButtonDisabled(selectedPlan.miniBossStatus)}
                   className="flex-1 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:opacity-60"
-                  style={getBossButtonStyle(selectedPlan.miniBossStatus)}
+                  style={getBossButtonStyle(miniBossDisplayStatus)}
                   data-testid="goals-mini-boss-trigger"
                 >
                   <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
                     Mini Boss
                   </p>
                   <p className="font-semibold" style={{ color: colors.text.DEFAULT }}>
-                    {formatBossStatus(selectedPlan.miniBossStatus)}
+                    {miniBossLabel}
                   </p>
                 </button>
                 <button
@@ -789,15 +802,20 @@ export default function GoalsPage() {
                   </p>
                 </button>
               </div>
-              {!isDraft && selectedPlan.miniBossStatus === "unavailable" && (
+              {!isDraft && allSelectedThemesCompleted && (
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  All themes completed - Do big boss!
+                </p>
+              )}
+              {!isDraft && !allSelectedThemesCompleted && selectedPlan.miniBossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
                   Mini boss unlocks when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
                 </p>
               )}
-              {!isDraft && selectedPlan.miniBossStatus !== "unavailable" && selectedPlan.bossStatus === "unavailable" && (
+              {!isDraft && !allSelectedThemesCompleted && selectedPlan.miniBossStatus !== "unavailable" && selectedPlan.bossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
                   {selectedPlan.miniBossStatus === "ready"
-                    ? "Tap Mini Boss to start! Complete it to unlock the big boss."
+                    ? "Tap Mini Boss to start, or complete all themes to unlock the big boss."
                     : "Complete all themes to unlock the big boss."}
                 </p>
               )}

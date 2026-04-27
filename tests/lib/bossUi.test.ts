@@ -36,7 +36,7 @@ describe("bossUi", () => {
   });
 
   it("keeps the boss explainer copy simple and specific", () => {
-    expect(BOSS_INFO_COPY.mini).toContain("half your themes");
-    expect(BOSS_INFO_COPY.big).toContain("all your themes");
+    expect(BOSS_INFO_COPY.mini).toContain("all themes completed by both players");
+    expect(BOSS_INFO_COPY.big).toContain("every weekly goal theme");
   });
 });

@@ -116,27 +116,28 @@ describe("weeklyGoals helpers", () => {
     expect(canTriggerGoalBoss(goal, "big", 5_000)).toBe(false);
   });
 
-  it("keeps the big boss unavailable until the mini boss is defeated", () => {
+  it("makes the big boss ready once all shared themes are done", () => {
     const goal = buildGoal({
       themes: [
         { creatorCompleted: true, partnerCompleted: true },
         { creatorCompleted: true, partnerCompleted: true },
       ],
-    });
-
-    expect(getEffectiveBossStatus(goal, 4_000)).toBe("unavailable");
-  });
-
-  it("makes the big boss ready after mini boss defeat and all shared themes are done", () => {
-    const goal = buildGoal({
-      themes: [
-        { creatorCompleted: true, partnerCompleted: true },
-        { creatorCompleted: true, partnerCompleted: true },
-      ],
-      miniBossStatus: "defeated",
     });
 
     expect(getEffectiveBossStatus(goal, 4_000)).toBe("ready");
+  });
+
+  it("keeps the mini boss unavailable once all shared themes are done", () => {
+    const goal = buildGoal({
+      themes: [
+        { creatorCompleted: true, partnerCompleted: true },
+        { creatorCompleted: true, partnerCompleted: true },
+      ],
+    });
+
+    expect(getEffectiveMiniBossStatus(goal, 4_000)).toBe("unavailable");
+    expect(canTriggerGoalBoss(goal, "mini", 4_000)).toBe(false);
+    expect(canTriggerGoalBoss(goal, "big", 4_000)).toBe(true);
   });
 
   it("allows editing the end date while drafting", () => {

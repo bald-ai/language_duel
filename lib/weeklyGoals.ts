@@ -181,6 +181,10 @@ export function getEffectiveMiniBossStatus(
   const completedThemeCount = countCompletedThemes(goal.themes);
   const unlockThreshold = getMiniBossUnlockThreshold(goal.themes.length);
 
+  if (areAllThemesCompleted(goal.themes)) {
+    return "unavailable";
+  }
+
   if (
     goal.themes.length >= MIN_THEMES_PER_GOAL &&
     completedThemeCount >= unlockThreshold
@@ -193,8 +197,7 @@ export function getEffectiveMiniBossStatus(
 
 export function getEffectiveBossStatus(
   goal: WeeklyGoalStateLike,
-  now: number,
-  miniBossStatus = getEffectiveMiniBossStatus(goal, now)
+  now: number
 ): WeeklyGoalBossStatus {
   if (normalizeWeeklyGoalBossStatus(goal.bossStatus) === "defeated") {
     return "defeated";
@@ -206,10 +209,7 @@ export function getEffectiveBossStatus(
 
   const allThemesCompleted = areAllThemesCompleted(goal.themes);
 
-  if (
-    miniBossStatus === "defeated" &&
-    allThemesCompleted
-  ) {
+  if (allThemesCompleted) {
     return "ready";
   }
 

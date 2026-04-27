@@ -34,6 +34,6 @@ export function isBossButtonDisabled(status: WeeklyGoalBossStatus): boolean {
 }
 
 export const BOSS_INFO_COPY = {
-  mini: "A checkpoint duel using half your themes. Both players must answer every question correctly.",
-  big: "The final duel using all your themes. Both players must answer every question correctly to complete the goal.",
+  mini: "A checkpoint duel using all themes completed by both players. It closes once every theme is done.",
+  big: "The final duel using every weekly goal theme. Complete all themes to unlock it.",
 } as const;

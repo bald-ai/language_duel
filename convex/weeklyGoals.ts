@@ -30,7 +30,6 @@ import {
   getEffectiveBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
-  getMiniBossUnlockThreshold,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
   type WeeklyGoalBossStatus,
@@ -39,17 +38,11 @@ import {
 
 // Constants
 const MAX_THEMES_PER_GOAL = 10;
-const MINI_BOSS_WORD_CAP = 20;
-const BIG_BOSS_WORD_CAP = 30;
 type BossType = "mini" | "big";
 const WEEKLY_GOAL_NOTIFICATION_TYPES = [
   "weekly_plan_invitation",
   "weekly_goal_draft_expiring",
 ] as const;
-
-function getBossWordCap(bossType: BossType): number {
-  return bossType === "mini" ? MINI_BOSS_WORD_CAP : BIG_BOSS_WORD_CAP;
-}
 
 function getGoalParticipantIds(goal: Doc<"weeklyGoals">): Id<"users">[] {
   return [goal.creatorId, goal.partnerId];
@@ -60,27 +53,21 @@ function getEligibleThemeIdsForBoss(
   bossType: BossType
 ): Id<"themes">[] {
   if (bossType === "mini") {
-    const completedThemeIds = goal.themes
+    return goal.themes
       .filter((t) => t.creatorCompleted && t.partnerCompleted)
       .map((t) => t.themeId);
-    const miniBossThemeCount = getMiniBossUnlockThreshold(goal.themes.length);
-
-    return shuffleArray(completedThemeIds).slice(0, miniBossThemeCount);
   }
   return goal.themes.map((t) => t.themeId);
 }
 
-function buildSampledBossSessionWords(
-  themes: Awaited<ReturnType<typeof loadThemesByIds>>,
-  bossType: BossType
-) {
+function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds>>) {
   const fullSessionWords = buildSessionWords(themes);
 
   if (fullSessionWords.length === 0) {
     throw new Error("No boss words are available for this goal");
   }
 
-  return shuffleArray(fullSessionWords).slice(0, getBossWordCap(bossType));
+  return shuffleArray(fullSessionWords);
 }
 
 async function loadGoalThemesForBoss(
@@ -420,7 +407,7 @@ function buildGoalWithUsers(
   now: number
 ): GoalWithUsers {
   const miniBossStatus = getEffectiveMiniBossStatus(goal, now);
-  const bossStatus = getEffectiveBossStatus(goal, now, miniBossStatus);
+  const bossStatus = getEffectiveBossStatus(goal, now);
 
   return {
     goal,
@@ -590,7 +577,7 @@ export const getBossLaunchPreview = query({
 
     return {
       themeCount: themes.length,
-      wordCount: Math.min(getBossWordCap(bossType), fullSessionWords.length),
+      wordCount: fullSessionWords.length,
       bossStatus: effectiveStatus,
     };
   },
@@ -1024,9 +1011,9 @@ async function validateAndPrepareBoss(
   }
 
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
-  const sampledSessionWords = buildSampledBossSessionWords(themes, bossType);
+  const sessionWords = buildBossSessionWords(themes);
 
-  return { user, goal, isCreator, now, sampledSessionWords };
+  return { user, goal, isCreator, now, sessionWords };
 }
 
 export const startBossDuel = mutation({
@@ -1035,7 +1022,7 @@ export const startBossDuel = mutation({
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, goal, isCreator, now, sampledSessionWords } =
+    const { user, goal, isCreator, now, sessionWords } =
       await validateAndPrepareBoss(ctx, goalId, bossType);
 
     const existingGoalChallenges = await ctx.db
@@ -1056,7 +1043,7 @@ export const startBossDuel = mutation({
     const challengeBase = buildChallengeBase({
       challengerId: user._id,
       opponentId,
-      sessionWords: sampledSessionWords,
+      sessionWords,
       mode: "classic",
       createdAt: now,
     });
@@ -1078,7 +1065,7 @@ export const startBossDuel = mutation({
       status: "pending",
       payload: {
         challengeId,
-        themeName: `${bossLabel}: ${summarizeSessionWords(sampledSessionWords)}`,
+        themeName: `${bossLabel}: ${summarizeSessionWords(sessionWords)}`,
         mode: challengeBase.mode,
         classicDifficultyPreset: challengeBase.classicDifficultyPreset,
       },
@@ -1102,19 +1089,19 @@ export const startBossPractice = mutation({
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, now, sampledSessionWords } =
+    const { user, now, sessionWords } =
       await validateAndPrepareBoss(ctx, goalId, bossType);
 
     const challengeBase = buildChallengeBase({
       challengerId: user._id,
       opponentId: user._id,
-      sessionWords: sampledSessionWords,
+      sessionWords,
       mode: "solo",
       createdAt: now,
     });
     const startState = buildChallengeStartState({
       mode: "solo",
-      wordCount: sampledSessionWords.length,
+      wordCount: sessionWords.length,
       now,
       seed: challengeBase.seed,
     });

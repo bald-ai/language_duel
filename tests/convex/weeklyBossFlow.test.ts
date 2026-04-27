@@ -329,6 +329,10 @@ describe("weekly boss flow", () => {
     );
     db.weeklyGoals.push(
       weeklyGoalDoc({
+        themes: [
+          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
+        ],
         miniBossStatus: "ready",
         bossStatus: "unavailable",
       })
@@ -510,7 +514,15 @@ describe("weekly boss flow", () => {
       themeDoc(),
       themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: [{ word: "a", answer: "b", wrongAnswers: ["c"] }] })
     );
-    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "ready" }));
+    db.weeklyGoals.push(
+      weeklyGoalDoc({
+        themes: [
+          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
+        ],
+        miniBossStatus: "ready",
+      })
+    );
     db.challenges.push({
       _id: "challenge_existing" as Id<"challenges">,
       _creationTime: 1,
@@ -587,7 +599,7 @@ describe("weekly boss flow", () => {
     expect(challenge?.sessionWords.every((w) => w.themeName === "Animals")).toBe(true);
   });
 
-  it("mini boss uses only half of the total themes, sampled from completed ones", async () => {
+  it("mini boss uses all completed themes before the full goal is done", async () => {
     vi.spyOn(Date, "now").mockReturnValue(12_000);
 
     const db = new InMemoryDb();
@@ -622,7 +634,7 @@ describe("weekly boss flow", () => {
           { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
           { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: true, partnerCompleted: true },
           { themeId: "theme_3" as Id<"themes">, themeName: "Travel", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_4" as Id<"themes">, themeName: "Work", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_4" as Id<"themes">, themeName: "Work", creatorCompleted: false, partnerCompleted: false },
         ],
         miniBossStatus: "ready",
       })
@@ -643,10 +655,10 @@ describe("weekly boss flow", () => {
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
     const usedThemeIds = new Set(challenge?.sessionWords.map((word) => word.themeId) ?? []);
 
-    expect(usedThemeIds.size).toBe(2);
+    expect(usedThemeIds.size).toBe(3);
   });
 
-  it("caps session words at the boss word limit", async () => {
+  it("uses all boss session words without a word cap", async () => {
     vi.spyOn(Date, "now").mockReturnValue(12_000);
 
     const db = new InMemoryDb();
@@ -664,7 +676,7 @@ describe("weekly boss flow", () => {
     db.themes.push(
       themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: manyWords })
     );
-    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "ready" }));
+    db.weeklyGoals.push(weeklyGoalDoc());
 
     const handler = (startBossDuel as unknown as {
       _handler: (
@@ -675,11 +687,11 @@ describe("weekly boss flow", () => {
 
     const challengeId = await handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "mini",
+      bossType: "big",
     });
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.length).toBe(20);
+    expect(challenge?.sessionWords.length).toBe(50);
   });
 
   it("uses snapshots for boss words after the original theme is edited", async () => {
