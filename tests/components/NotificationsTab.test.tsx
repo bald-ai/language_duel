@@ -64,6 +64,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -91,6 +92,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -116,6 +118,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -154,6 +157,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -169,6 +173,97 @@ describe("NotificationsTab theme actions", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("notification-notif_goal_unlock-view-weekly-plan")).toBeInTheDocument();
     expect(screen.getByTestId("notification-notif_goal_unlock-dismiss-weekly-plan")).toBeInTheDocument();
+  });
+
+  it("archives completed weekly-goal themes from the notification", async () => {
+    const archiveCompletedGoalThemes = vi.fn().mockResolvedValue({ archivedCount: 2 });
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          _id: "notif_goal_completed",
+          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          fromUser: { nickname: "Alex" },
+          payload: {
+            goalId: "goal_1",
+            themeCount: 2,
+            event: "goal_completed",
+          },
+          createdAt: Date.now(),
+          status: "pending",
+        },
+      ],
+      notificationCount: 1,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes,
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Nice" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Archive 2 themes" }));
+
+    await waitFor(() => {
+      expect(archiveCompletedGoalThemes).toHaveBeenCalledWith("notif_goal_completed");
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith("Archived 2 themes");
+  });
+
+  it("shows singular archive copy and already-archived toast", async () => {
+    const archiveCompletedGoalThemes = vi.fn().mockResolvedValue({ archivedCount: 0 });
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          _id: "notif_goal_completed",
+          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          fromUser: { nickname: "Alex" },
+          payload: {
+            goalId: "goal_1",
+            themeCount: 1,
+            event: "goal_completed",
+          },
+          createdAt: Date.now(),
+          status: "pending",
+        },
+      ],
+      notificationCount: 1,
+      isLoading: false,
+      actions: {
+        dismissNotification: vi.fn(),
+        markAsRead: vi.fn(),
+        acceptFriendRequest: vi.fn(),
+        rejectFriendRequest: vi.fn(),
+        acceptDuelChallenge: vi.fn(),
+        declineDuelChallenge: vi.fn(),
+        dismissWeeklyPlanInvitation: vi.fn(),
+        declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes,
+        acceptScheduledDuel: vi.fn(),
+        counterProposeScheduledDuel: vi.fn(),
+        declineScheduledDuel: vi.fn(),
+      },
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive 1 theme" }));
+
+    await waitFor(() => {
+      expect(archiveCompletedGoalThemes).toHaveBeenCalledWith("notif_goal_completed");
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith("Themes already archived");
   });
 
   it("shows both ready-state success messages", async () => {
@@ -198,6 +293,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),
@@ -288,6 +384,7 @@ describe("NotificationsTab theme actions", () => {
         declineDuelChallenge: vi.fn(),
         dismissWeeklyPlanInvitation: vi.fn(),
         declineWeeklyPlanInvitation: vi.fn(),
+        archiveCompletedGoalThemes: vi.fn(),
         acceptScheduledDuel: vi.fn(),
         counterProposeScheduledDuel: vi.fn(),
         declineScheduledDuel: vi.fn(),

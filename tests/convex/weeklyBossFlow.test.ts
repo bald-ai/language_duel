@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
+  archiveCompletedGoalThemesFromNotification,
   completeWeeklyGoalBoss,
   startBossDuel,
   startBossPractice,
@@ -16,7 +17,7 @@ import {
 
 type UserDoc = Pick<
   Doc<"users">,
-  "_id" | "_creationTime" | "clerkId" | "email" | "name" | "imageUrl"
+  "_id" | "_creationTime" | "clerkId" | "email" | "name" | "imageUrl" | "archivedThemeIds"
 >;
 
 type ThemeDoc = Pick<
@@ -279,6 +280,31 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
   };
 }
 
+function notificationDoc(overrides: Partial<NotificationDoc> = {}): NotificationDoc {
+  return {
+    _id: "notification_1" as Id<"notifications">,
+    _creationTime: 1,
+    type: "weekly_plan_invitation",
+    fromUserId: "user_2" as Id<"users">,
+    toUserId: "user_1" as Id<"users">,
+    status: "pending",
+    payload: {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      themeCount: 2,
+      event: "goal_completed",
+    },
+    createdAt: 1,
+    ...overrides,
+  };
+}
+
+const archiveCompletedGoalThemesHandler = (archiveCompletedGoalThemesFromNotification as unknown as {
+  _handler: (
+    ctx: unknown,
+    args: { notificationId: Id<"notifications"> }
+  ) => Promise<{ archivedCount: number }>;
+})._handler;
+
 function weeklyGoalThemeSnapshotDoc(
   overrides: Partial<WeeklyGoalThemeSnapshotDoc> = {}
 ): WeeklyGoalThemeSnapshotDoc {
@@ -445,6 +471,125 @@ describe("weekly boss flow", () => {
           notification.payload.event === "goal_completed"
       )
     ).toBe(true);
+  });
+
+  it("archives completed goal themes for the notification recipient and dismisses the notification", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ archivedThemeIds: undefined }),
+      userDoc({
+        _id: "user_2" as Id<"users">,
+        clerkId: "clerk_2",
+        email: "partner@example.com",
+        name: "Partner",
+        archivedThemeIds: ["theme_partner_archived" as Id<"themes">],
+      })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
+    db.notifications.push(notificationDoc());
+    db.weeklyGoalThemeSnapshots.push(weeklyGoalThemeSnapshotDoc());
+
+    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    });
+
+    expect(result).toEqual({ archivedCount: 2 });
+    expect(db.users[0].archivedThemeIds).toEqual(["theme_1", "theme_2"]);
+    expect(db.users[1].archivedThemeIds).toEqual(["theme_partner_archived"]);
+    expect(db.notifications[0].status).toBe("dismissed");
+    expect(db.weeklyGoalThemeSnapshots).toHaveLength(1);
+  });
+
+  it("returns only newly archived themes and does not duplicate archived IDs", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ archivedThemeIds: ["theme_1" as Id<"themes">] }),
+      userDoc({
+        _id: "user_2" as Id<"users">,
+        clerkId: "clerk_2",
+        email: "partner@example.com",
+        name: "Partner",
+      })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
+    db.notifications.push(notificationDoc());
+
+    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    });
+
+    expect(result).toEqual({ archivedCount: 1 });
+    expect(db.users[0].archivedThemeIds).toEqual(["theme_1", "theme_2"]);
+    expect(db.notifications[0].status).toBe("dismissed");
+  });
+
+  it("dismisses a completed-goal archive notification when the goal is already deleted", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ archivedThemeIds: [] }));
+    db.notifications.push(notificationDoc());
+
+    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    });
+
+    expect(result).toEqual({ archivedCount: 0 });
+    expect(db.users[0].archivedThemeIds).toEqual([]);
+    expect(db.notifications[0].status).toBe("dismissed");
+  });
+
+  it("rejects completed-goal archive when the notification belongs to another user", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({
+        _id: "user_2" as Id<"users">,
+        clerkId: "clerk_2",
+        email: "partner@example.com",
+        name: "Partner",
+      })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
+    db.notifications.push(notificationDoc({ toUserId: "user_2" as Id<"users"> }));
+
+    await expect(
+      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+        notificationId: "notification_1" as Id<"notifications">,
+      })
+    ).rejects.toThrow("Not authorized");
+  });
+
+  it("rejects archive from a weekly-goal notification that is not completed", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
+    db.notifications.push(
+      notificationDoc({
+        payload: {
+          goalId: "goal_1" as Id<"weeklyGoals">,
+          themeCount: 2,
+          event: "invite",
+        },
+      })
+    );
+
+    await expect(
+      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+        notificationId: "notification_1" as Id<"notifications">,
+      })
+    ).rejects.toThrow("Invalid completed goal notification");
+  });
+
+  it("rejects archive when the notification says completed but the goal is not completed", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.weeklyGoals.push(weeklyGoalDoc({ status: "locked" }));
+    db.notifications.push(notificationDoc());
+
+    await expect(
+      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
+        notificationId: "notification_1" as Id<"notifications">,
+      })
+    ).rejects.toThrow("Weekly goal is not completed");
   });
 
   it("marks only miniBossStatus as defeated for a mini boss win", async () => {

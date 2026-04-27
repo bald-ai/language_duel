@@ -55,6 +55,7 @@ interface NotificationItemProps {
     onViewWeeklyPlan: () => void;
     onDeclineWeeklyPlan: () => void;
     onDismissWeeklyPlan: () => void;
+    onArchiveCompletedGoalThemes: () => void;
     onDismiss: () => void;
     // Scheduled duel handlers
     onAcceptScheduledDuel: () => void;
@@ -91,6 +92,7 @@ export function NotificationItem({
     onViewWeeklyPlan,
     onDeclineWeeklyPlan,
     onDismissWeeklyPlan,
+    onArchiveCompletedGoalThemes,
     onDismiss,
     onAcceptScheduledDuel,
     onCounterProposeScheduledDuel,
@@ -275,9 +277,14 @@ export function NotificationItem({
                     };
                 }
                 if (payload?.event === "goal_completed") {
+                    const archiveThemeLabel =
+                        payload.themeCount === 1
+                            ? "Archive 1 theme"
+                            : `Archive ${payload.themeCount || 0} themes`;
+
                     return {
                         icon: <CalendarIcon />,
-                        message: `You and ${userName} defeated the weekly goal. Nice work.`,
+                        message: `You and ${userName} defeated the weekly goal. Nice work. Want to clean up your theme list?`,
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
@@ -286,6 +293,13 @@ export function NotificationItem({
                                     dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
                                 >
                                     Nice
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onArchiveCompletedGoalThemes}
+                                    variant="secondary"
+                                    dataTestId={`notification-${notification._id}-archive-completed-goal-themes`}
+                                >
+                                    {archiveThemeLabel}
                                 </ActionButton>
                             </div>
                         ),

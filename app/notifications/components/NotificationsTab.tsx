@@ -118,6 +118,21 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
+    const handleArchiveCompletedGoalThemes = async (notificationId: Id<"notifications">) => {
+        try {
+            const result = await actions.archiveCompletedGoalThemes(notificationId);
+            if (result.archivedCount === 0) {
+                toast.success("Themes already archived");
+            } else if (result.archivedCount === 1) {
+                toast.success("Archived 1 theme");
+            } else {
+                toast.success(`Archived ${result.archivedCount} themes`);
+            }
+        } catch (_error) {
+            toast.error("Failed to archive themes");
+        }
+    };
+
     const handleDeclineWeeklyPlanInvitation = async (notificationId: Id<"notifications">) => {
         try {
             await actions.declineWeeklyPlanInvitation(notificationId);
@@ -274,6 +289,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         onDeclineDuelChallenge={() => handleDeclineDuelChallenge(notification._id)}
                         onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}
                         onDismissWeeklyPlan={() => handleDismissWeeklyPlan(notification._id)}
+                        onArchiveCompletedGoalThemes={() => handleArchiveCompletedGoalThemes(notification._id)}
                         onDeclineWeeklyPlan={() => handleDeclineWeeklyPlanInvitation(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
                         onAcceptScheduledDuel={() => handleAcceptScheduledDuel(scheduledDuelId)}

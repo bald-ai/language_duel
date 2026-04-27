@@ -20,6 +20,7 @@ export function useNotifications() {
     const acceptDuelChallengeMutation = useMutation(api.lobby.acceptDuelChallenge);
     const declineDuelChallengeMutation = useMutation(api.lobby.declineDuelChallenge);
     const dismissWeeklyPlanMutation = useMutation(api.weeklyGoals.dismissWeeklyPlanInvitation);
+    const archiveCompletedGoalThemesMutation = useMutation(api.weeklyGoals.archiveCompletedGoalThemesFromNotification);
     const declineWeeklyPlanMutation = useMutation(api.weeklyGoals.declineWeeklyPlanInvitation);
 
     // Scheduled duel mutations
@@ -105,6 +106,15 @@ export function useNotifications() {
         }
     }, [declineWeeklyPlanMutation]);
 
+    const archiveCompletedGoalThemes = useCallback(async (notificationId: Id<"notifications">) => {
+        try {
+            return await archiveCompletedGoalThemesMutation({ notificationId });
+        } catch (error) {
+            console.error("Failed to archive completed goal themes:", error);
+            throw error;
+        }
+    }, [archiveCompletedGoalThemesMutation]);
+
     const acceptScheduledDuel = useCallback(async (scheduledDuelId: Id<"scheduledDuels">) => {
         try {
             await acceptScheduledDuelMutation({ scheduledDuelId });
@@ -158,6 +168,7 @@ export function useNotifications() {
             declineDuelChallenge,
             dismissWeeklyPlanInvitation,
             declineWeeklyPlanInvitation,
+            archiveCompletedGoalThemes,
             acceptScheduledDuel,
             counterProposeScheduledDuel,
             declineScheduledDuel,

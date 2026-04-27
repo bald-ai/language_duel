@@ -1501,6 +1501,72 @@ export const dismissWeeklyPlanInvitation = mutation({
   },
 });
 
+export const archiveCompletedGoalThemesFromNotification = mutation({
+  args: {
+    notificationId: v.id("notifications"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    const notification = await ctx.db.get(args.notificationId);
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    if (notification.toUserId !== user._id) {
+      throw new Error("Not authorized");
+    }
+
+    if (notification.type !== "weekly_plan_invitation") {
+      throw new Error("Invalid notification type");
+    }
+
+    if (!isWeeklyPlanPayload(notification.payload) || notification.payload.event !== "goal_completed") {
+      throw new Error("Invalid completed goal notification");
+    }
+
+    const goal = await ctx.db.get(notification.payload.goalId);
+    if (!goal) {
+      await ctx.db.patch(args.notificationId, {
+        status: "dismissed",
+      });
+      return { archivedCount: 0 };
+    }
+
+    if (goal.status !== "completed") {
+      throw new Error("Weekly goal is not completed");
+    }
+
+    const currentArchived = user.archivedThemeIds || [];
+    const archivedThemeIdSet = new Set(currentArchived.map((id) => String(id)));
+    const seenGoalThemeIds = new Set<string>();
+    const newlyArchivedThemeIds: Id<"themes">[] = [];
+
+    for (const goalTheme of goal.themes) {
+      const themeIdKey = String(goalTheme.themeId);
+      if (seenGoalThemeIds.has(themeIdKey)) continue;
+      seenGoalThemeIds.add(themeIdKey);
+
+      if (!archivedThemeIdSet.has(themeIdKey)) {
+        newlyArchivedThemeIds.push(goalTheme.themeId);
+        archivedThemeIdSet.add(themeIdKey);
+      }
+    }
+
+    if (newlyArchivedThemeIds.length > 0) {
+      await ctx.db.patch(user._id, {
+        archivedThemeIds: [...currentArchived, ...newlyArchivedThemeIds],
+      });
+    }
+
+    await ctx.db.patch(args.notificationId, {
+      status: "dismissed",
+    });
+
+    return { archivedCount: newlyArchivedThemeIds.length };
+  },
+});
+
 export const declineWeeklyPlanInvitation = mutation({
   args: {
     notificationId: v.id("notifications"),
