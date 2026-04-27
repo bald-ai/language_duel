@@ -32,9 +32,11 @@ import {
   getEffectiveMiniBossStatus,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
+  normalizeWeeklyGoalBossStatus,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
 } from "../lib/weeklyGoals";
+import { calculateBossStartingLives } from "../lib/bossLives";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 10;
@@ -574,10 +576,16 @@ export const getBossLaunchPreview = query({
     const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
     const themes = await loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
     const fullSessionWords = buildSessionWords(themes);
+    const livesTotal = calculateBossStartingLives({
+      bossType,
+      themeCount: themes.length,
+      miniBossDefeated: normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated",
+    });
 
     return {
       themeCount: themes.length,
       wordCount: fullSessionWords.length,
+      livesTotal,
       bossStatus: effectiveStatus,
     };
   },
@@ -1012,8 +1020,13 @@ async function validateAndPrepareBoss(
 
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
   const sessionWords = buildBossSessionWords(themes);
+  const startingLives = calculateBossStartingLives({
+    bossType,
+    themeCount: themes.length,
+    miniBossDefeated: normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated",
+  });
 
-  return { user, goal, isCreator, now, sessionWords };
+  return { user, goal, isCreator, now, sessionWords, startingLives };
 }
 
 export const startBossDuel = mutation({
@@ -1022,7 +1035,7 @@ export const startBossDuel = mutation({
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, goal, isCreator, now, sessionWords } =
+    const { user, goal, isCreator, now, sessionWords, startingLives } =
       await validateAndPrepareBoss(ctx, goalId, bossType);
 
     const existingGoalChallenges = await ctx.db
@@ -1052,6 +1065,8 @@ export const startBossDuel = mutation({
       ...challengeBase,
       weeklyGoalId: goalId,
       bossType,
+      bossLivesTotal: startingLives,
+      bossLivesRemaining: startingLives,
       challengerPerfectRun: true,
       opponentPerfectRun: true,
       status: "pending",

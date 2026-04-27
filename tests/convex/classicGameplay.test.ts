@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { answerDuel } from "@/convex/gameplay";
+import { answerDuel, timeoutAnswer } from "@/convex/gameplay";
 import { eliminateOption } from "@/convex/hints";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import {
@@ -225,5 +225,88 @@ describe("classic gameplay", () => {
         option: NONE_OF_ABOVE,
       })
     ).rejects.toThrow("Cannot eliminate the correct answer");
+  });
+
+  it("removes two shared boss lives when both players miss the same question", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.challenges.push(
+      challengeDoc({
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        bossType: "big",
+        bossLivesTotal: 3,
+        bossLivesRemaining: 3,
+        challengerPerfectRun: true,
+        opponentPerfectRun: true,
+        classicQuestions: [
+          {
+            options: ["gato", "perro", "mesa", "casa"],
+            correctOption: "gato",
+            difficulty: "easy",
+            points: 1,
+          },
+        ],
+      })
+    );
+
+    const handler = (answerDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+      ) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "challenge_1" as Id<"challenges">,
+      selectedAnswer: "perro",
+      questionIndex: 0,
+    });
+
+    expect(db.challenges[0].bossLivesRemaining).toBe(2);
+    expect(db.challenges[0].status).toBe("accepted");
+    expect(db.challenges[0].challengerPerfectRun).toBe(false);
+
+    await handler(createCtx(db, "clerk_2"), {
+      duelId: "challenge_1" as Id<"challenges">,
+      selectedAnswer: "mesa",
+      questionIndex: 0,
+    });
+
+    expect(db.challenges[0].bossLivesRemaining).toBe(1);
+    expect(db.challenges[0].status).toBe("completed");
+    expect(db.challenges[0].opponentPerfectRun).toBe(false);
+  });
+
+  it("ends a boss attempt on the result state when a timeout removes the last life", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.challenges.push(
+      challengeDoc({
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        bossType: "mini",
+        bossLivesTotal: 1,
+        bossLivesRemaining: 1,
+        challengerPerfectRun: true,
+        opponentPerfectRun: true,
+      })
+    );
+
+    const handler = (timeoutAnswer as unknown as {
+      _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "challenge_1" as Id<"challenges">,
+    });
+
+    expect(db.challenges[0].bossLivesRemaining).toBe(0);
+    expect(db.challenges[0].status).toBe("completed");
+    expect(db.challenges[0].challengerLastAnswer).toBe("__TIMEOUT__");
   });
 });

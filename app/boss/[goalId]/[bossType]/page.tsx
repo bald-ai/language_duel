@@ -163,15 +163,22 @@ export default function BossLaunchPage() {
                 {preview.wordCount}
               </p>
             </div>
-          </div>
-
-          <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
-            <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
-              Status
-            </p>
-            <p className="text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-              {bossStatus === "ready" ? "Ready to start" : bossStatus === "defeated" ? "Already defeated" : "Still unavailable"}
-            </p>
+            <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                Lives
+              </p>
+              <p className="text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
+                {preview.livesTotal}
+              </p>
+            </div>
+            <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                Status
+              </p>
+              <p className="text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
+                {bossStatus === "ready" ? "Ready to start" : bossStatus === "defeated" ? "Already defeated" : "Still unavailable"}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">

@@ -36,7 +36,9 @@ describe("bossUi", () => {
   });
 
   it("keeps the boss explainer copy simple and specific", () => {
-    expect(BOSS_INFO_COPY.mini).toContain("all themes completed by both players");
-    expect(BOSS_INFO_COPY.big).toContain("every weekly goal theme");
+    expect(BOSS_INFO_COPY.mini).toContain("halfway through shared completed themes");
+    expect(BOSS_INFO_COPY.mini).toContain("+1 shared life");
+    expect(BOSS_INFO_COPY.big).toContain("Lives are shared");
+    expect(BOSS_INFO_COPY.big).toContain("Bronze or better");
   });
 });

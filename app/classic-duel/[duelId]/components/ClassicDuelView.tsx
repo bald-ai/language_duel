@@ -29,6 +29,7 @@ import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { AnswerOptionButton, computeOptionState, type OptionContext } from "./AnswerOptionButton";
 import { SabotageSystemUI } from "./SabotageSystemUI";
 import type { SabotagePhase } from "../hooks/useSabotageEffect";
+import type { BossType } from "@/lib/bossLives";
 
 export interface DifficultyPillData {
   level: "easy" | "medium" | "hard";
@@ -101,6 +102,9 @@ export interface ClassicDuelViewProps {
   theirName: string;
   myScore: number;
   theirScore: number;
+  bossType?: BossType;
+  bossLivesRemaining?: number;
+  bossLivesTotal?: number;
   onExit: () => void;
   duelDuration: number;
   onBackToHome: () => void;
@@ -161,6 +165,9 @@ export function ClassicDuelView({
   theirName,
   myScore,
   theirScore,
+  bossType,
+  bossLivesRemaining,
+  bossLivesTotal,
   onExit,
   duelDuration,
   onBackToHome,
@@ -307,6 +314,7 @@ export function ClassicDuelView({
             theirName={theirName}
             myScore={myScore}
             theirScore={theirScore}
+            livesRemaining={bossLivesRemaining}
           />
 
           {status !== "completed" && (
@@ -592,6 +600,9 @@ export function ClassicDuelView({
               onBackToHome={onBackToHome}
               duelDuration={duelDuration}
               dataTestIdBack="classic-duel-back-home"
+              bossType={bossType}
+              bossLivesRemaining={bossLivesRemaining}
+              bossLivesTotal={bossLivesTotal}
             />
           )}
         </footer>

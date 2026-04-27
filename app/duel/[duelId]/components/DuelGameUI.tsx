@@ -196,6 +196,7 @@ export const DuelGameUI = memo(function DuelGameUI({
           theirName={theirName}
           myScore={myScore}
           theirScore={theirScore}
+          livesRemaining={duel.bossLivesRemaining}
         />
 
         <div className="text-center">
@@ -392,6 +393,9 @@ export const DuelGameUI = memo(function DuelGameUI({
             theirScore={theirScore}
             onBackToHome={onBackToHome}
             dataTestIdBack="duel-back-home"
+            bossType={duel.bossType}
+            bossLivesRemaining={duel.bossLivesRemaining}
+            bossLivesTotal={duel.bossLivesTotal}
           />
         )}
       </main>

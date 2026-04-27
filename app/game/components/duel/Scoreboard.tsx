@@ -8,6 +8,7 @@ interface ScoreboardProps {
   theirName: string;
   myScore: number;
   theirScore: number;
+  livesRemaining?: number;
 }
 
 /**
@@ -16,7 +17,7 @@ interface ScoreboardProps {
  * - Mobile: compact padding and smaller text
  * - Tablet/Desktop (sm+/md+): larger padding, text, and minimum width
  */
-export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore, theirScore }: ScoreboardProps) {
+export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore, theirScore, livesRemaining }: ScoreboardProps) {
   const formatScore = (score: number) => 
     Number.isInteger(score) ? score : score.toFixed(1);
 
@@ -51,6 +52,11 @@ export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore,
           {formatScore(theirScore)}
         </span>
       </div>
+      {typeof livesRemaining === "number" && (
+        <div className="mt-2 pt-2 border-t text-xs sm:text-sm font-semibold tabular-nums" style={{ borderColor: colors.primary.dark, color: colors.cta.light }}>
+          Lives: {livesRemaining}
+        </div>
+      )}
     </div>
   );
 });

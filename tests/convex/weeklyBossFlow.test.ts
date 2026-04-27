@@ -6,6 +6,7 @@ import {
   startBossDuel,
   startBossPractice,
 } from "@/convex/weeklyGoals";
+import { answerDuel } from "@/convex/gameplay";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -384,6 +385,8 @@ describe("weekly boss flow", () => {
     expect(challenge?.bossType).toBe("mini");
     expect(challenge?.challengerPerfectRun).toBe(true);
     expect(challenge?.opponentPerfectRun).toBe(true);
+    expect(challenge?.bossLivesTotal).toBe(2);
+    expect(challenge?.bossLivesRemaining).toBe(2);
     expect(challenge?.sessionWords.length).toBe(2);
     expect(challenge?.classicQuestions).toHaveLength(2);
     expect(challenge?.classicQuestions?.[0].options.length).toBeGreaterThan(0);
@@ -837,6 +840,119 @@ describe("weekly boss flow", () => {
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
     expect(challenge?.sessionWords.length).toBe(50);
+    expect(challenge?.bossLivesTotal).toBe(4);
+    expect(challenge?.bossLivesRemaining).toBe(4);
+  });
+
+  it("starts big boss with three lives when mini boss was not defeated", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(12_000);
+
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
+    );
+    db.themes.push(
+      themeDoc(),
+      themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users"> })
+    );
+    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "unavailable" }));
+
+    const handler = (startBossDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "big",
+    });
+
+    const challenge = db.challenges.find((entry) => entry._id === challengeId);
+    expect(challenge?.bossLivesTotal).toBe(3);
+    expect(challenge?.bossLivesRemaining).toBe(3);
+  });
+
+  it("defeats mini boss when the couple finishes with lives left even after a miss", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
+    );
+    db.weeklyGoals.push(
+      weeklyGoalDoc({
+        themes: [
+          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
+          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
+        ],
+        miniBossStatus: "ready",
+        bossStatus: "unavailable",
+      })
+    );
+    db.challenges.push({
+      _id: "challenge_1" as Id<"challenges">,
+      _creationTime: 1,
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      sessionWords: [
+        {
+          word: "cat",
+          answer: "kocka",
+          wrongAnswers: ["pes", "dom", "vlak"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Animals",
+        },
+      ],
+      classicQuestions: [
+        {
+          options: ["kocka", "pes", "dom", "vlak"],
+          correctOption: "kocka",
+          difficulty: "easy",
+          points: 1,
+        },
+      ],
+      status: "accepted",
+      mode: "classic",
+      currentWordIndex: 0,
+      challengerAnswered: false,
+      opponentAnswered: false,
+      challengerScore: 0,
+      opponentScore: 0,
+      challengerPerfectRun: true,
+      opponentPerfectRun: true,
+      bossLivesTotal: 2,
+      bossLivesRemaining: 2,
+      createdAt: 1,
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+    } as ChallengeDoc);
+
+    const handler = (answerDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+      ) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "challenge_1" as Id<"challenges">,
+      selectedAnswer: "pes",
+      questionIndex: 0,
+    });
+    await handler(createCtx(db, "clerk_2"), {
+      duelId: "challenge_1" as Id<"challenges">,
+      selectedAnswer: "kocka",
+      questionIndex: 0,
+    });
+
+    expect(db.challenges[0].status).toBe("completed");
+    expect(db.challenges[0].bossLivesRemaining).toBe(1);
+    expect(db.challenges[0].challengerPerfectRun).toBe(false);
+    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
+    expect(db.weeklyGoals[0].bossStatus).toBe("unavailable");
   });
 
   it("uses snapshots for boss words after the original theme is edited", async () => {

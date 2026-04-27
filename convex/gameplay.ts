@@ -63,6 +63,55 @@ function getSoloHintClearFields(): Record<string, undefined> {
   };
 }
 
+function getBossAttemptEndFields(): Partial<Doc<"challenges">> {
+  return {
+    status: "completed",
+    questionStartTime: undefined,
+    questionTimerPausedAt: undefined,
+    questionTimerPausedBy: undefined,
+    ...getHintClearFields(),
+  };
+}
+
+function isBossAttempt(duel: Doc<"challenges">): boolean {
+  return Boolean(duel.weeklyGoalId && duel.bossType);
+}
+
+function hasBossLivesLeft(duel: Doc<"challenges">): boolean {
+  if (typeof duel.bossLivesRemaining === "number") {
+    return duel.bossLivesRemaining > 0;
+  }
+
+  return duel.challengerPerfectRun === true && duel.opponentPerfectRun === true;
+}
+
+function getBossMissPatch(
+  duel: Doc<"challenges">,
+  playerRole: "challenger" | "opponent"
+): Partial<Doc<"challenges">> {
+  if (!isBossAttempt(duel)) {
+    return {};
+  }
+
+  const nextLives = typeof duel.bossLivesRemaining === "number"
+    ? Math.max(0, duel.bossLivesRemaining - 1)
+    : undefined;
+
+  const patch: Partial<Doc<"challenges">> = playerRole === "challenger"
+    ? { challengerPerfectRun: false }
+    : { opponentPerfectRun: false };
+
+  if (nextLives === undefined) {
+    return patch;
+  }
+
+  return {
+    ...patch,
+    bossLivesRemaining: nextLives,
+    ...(nextLives === 0 ? getBossAttemptEndFields() : {}),
+  };
+}
+
 function getClassicQuestionOrThrow(
   duel: Doc<"challenges">,
   questionIndex = duel.currentWordIndex
@@ -126,6 +175,8 @@ async function advanceClassicDuelIfBothAnswered(
   const hintProviderBonusPatch = getHintProviderBonusPatch(duel);
 
   if (nextWordIndex >= wordCount) {
+    const bossWasDefeated = isBossAttempt(duel) && hasBossLivesLeft(duel);
+
     await ctx.db.patch(duelId, {
       ...hintProviderBonusPatch,
       status: "completed",
@@ -136,13 +187,10 @@ async function advanceClassicDuelIfBothAnswered(
       ...getHintClearFields(),
     });
 
-    if (duel.weeklyGoalId && duel.bossType) {
+    if (duel.weeklyGoalId && duel.bossType && bossWasDefeated) {
       const goal = await ctx.db.get(duel.weeklyGoalId);
-      const wasPerfectRun =
-        duel.challengerPerfectRun === true &&
-        duel.opponentPerfectRun === true;
 
-      if (goal && wasPerfectRun) {
+      if (goal) {
         await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
       }
     }
@@ -204,25 +252,21 @@ export const answerDuel = mutation({
           challengerAnswered: true,
           challengerScore: newMyScore,
           challengerLastAnswer: selectedAnswer,
-          ...(duel.weeklyGoalId && duel.bossType && !isCorrect
-            ? { challengerPerfectRun: false }
-            : {}),
+          ...(!isCorrect ? getBossMissPatch(duel, "challenger") : {}),
         });
       } else {
         await ctx.db.patch(duelId, {
           opponentAnswered: true,
           opponentScore: newMyScore,
           opponentLastAnswer: selectedAnswer,
-          ...(duel.weeklyGoalId && duel.bossType && !isCorrect
-            ? { opponentPerfectRun: false }
-            : {}),
+          ...(!isCorrect ? getBossMissPatch(duel, "opponent") : {}),
         });
       }
     }
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel) {
+    if (updatedDuel && updatedDuel.status === "accepted") {
       await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
     }
   },
@@ -250,24 +294,20 @@ export const timeoutAnswer = mutation({
         await ctx.db.patch(duelId, {
           challengerAnswered: true,
           challengerLastAnswer: TIMEOUT_ANSWER,
-          ...(duel.weeklyGoalId && duel.bossType
-            ? { challengerPerfectRun: false }
-            : {}),
+          ...getBossMissPatch(duel, "challenger"),
         });
       } else {
         await ctx.db.patch(duelId, {
           opponentAnswered: true,
           opponentLastAnswer: TIMEOUT_ANSWER,
-          ...(duel.weeklyGoalId && duel.bossType
-            ? { opponentPerfectRun: false }
-            : {}),
+          ...getBossMissPatch(duel, "opponent"),
         });
       }
     }
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel) {
+    if (updatedDuel && updatedDuel.status === "accepted") {
       const sessionWords = getChallengeSessionWords(updatedDuel);
       await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
     }

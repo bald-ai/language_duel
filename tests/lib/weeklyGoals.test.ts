@@ -140,6 +140,18 @@ describe("weeklyGoals helpers", () => {
     expect(canTriggerGoalBoss(goal, "big", 4_000)).toBe(true);
   });
 
+  it("keeps the mini boss unavailable after big boss opens even when mini was defeated", () => {
+    const goal = buildGoal({
+      themes: [
+        { creatorCompleted: true, partnerCompleted: true },
+        { creatorCompleted: true, partnerCompleted: true },
+      ],
+      miniBossStatus: "defeated",
+    });
+
+    expect(getEffectiveMiniBossStatus(goal, 4_000)).toBe("unavailable");
+  });
+
   it("allows editing the end date while drafting", () => {
     expect(
       canEditGoalEndDate(

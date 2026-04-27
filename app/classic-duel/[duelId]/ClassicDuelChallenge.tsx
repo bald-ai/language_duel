@@ -606,6 +606,9 @@ export default function ClassicDuelChallenge({
       theirName={theirName}
       myScore={myScore}
       theirScore={theirScore}
+      bossType={duel.bossType}
+      bossLivesRemaining={duel.bossLivesRemaining}
+      bossLivesTotal={duel.bossLivesTotal}
       onExit={handleStopDuel}
       duelDuration={duelDuration}
       onBackToHome={() => router.push("/")}

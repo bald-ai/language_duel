@@ -296,6 +296,8 @@ export default defineSchema({
     sessionWords: v.array(sessionWordValidator),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     bossType: v.optional(bossTypeValidator),
+    bossLivesTotal: v.optional(v.number()),
+    bossLivesRemaining: v.optional(v.number()),
     status: duelStatusValidator,
     mode: duelModeValidator,
     createdAt: v.number(),

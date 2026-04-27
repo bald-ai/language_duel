@@ -34,6 +34,6 @@ export function isBossButtonDisabled(status: WeeklyGoalBossStatus): boolean {
 }
 
 export const BOSS_INFO_COPY = {
-  mini: "A checkpoint duel using all themes completed by both players. It closes once every theme is done.",
-  big: "The final duel using every weekly goal theme. Complete all themes to unlock it.",
+  mini: "Mini Boss unlocks halfway through shared completed themes. Defeat it before Big Boss opens to give Big Boss +1 shared life.",
+  big: "Lives are shared by the couple. Big Boss opens after all themes are completed and completes the goal at Bronze or better.",
 } as const;

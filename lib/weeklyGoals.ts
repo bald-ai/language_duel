@@ -170,10 +170,6 @@ export function getEffectiveMiniBossStatus(
   goal: WeeklyGoalStateLike,
   now: number
 ): WeeklyGoalBossStatus {
-  if (normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated") {
-    return "defeated";
-  }
-
   if (getEffectiveGoalStatus(goal, now) === "draft") {
     return "unavailable";
   }
@@ -183,6 +179,10 @@ export function getEffectiveMiniBossStatus(
 
   if (areAllThemesCompleted(goal.themes)) {
     return "unavailable";
+  }
+
+  if (normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated") {
+    return "defeated";
   }
 
   if (
