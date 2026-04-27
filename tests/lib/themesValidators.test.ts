@@ -8,6 +8,7 @@ import {
   getDuplicateWordIndices,
   getThemeRepairIssueForFlags,
   getThemeRepairIssueForWords,
+  getThemeSaveErrorMessage,
   getWrongIndicesMatchingAnswer,
   hasDuplicateWrongAnswersInWord,
   isWordDuplicate,
@@ -78,5 +79,11 @@ describe("themes validators", () => {
     ];
 
     expect(getThemeRepairIssueForWords(words)?.type).toBe("duplicate_word");
+  });
+
+  it("uses a friendly save message for themes with no words", () => {
+    expect(getThemeSaveErrorMessage([])).toBe(
+      "Add at least one word before saving this theme."
+    );
   });
 });

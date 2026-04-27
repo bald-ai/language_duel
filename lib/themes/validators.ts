@@ -19,6 +19,9 @@ export interface ThemeRepairIssue {
   priority: number;
 }
 
+export const EMPTY_THEME_SAVE_MESSAGE =
+  "Add at least one word before saving this theme.";
+
 const THEME_REPAIR_ISSUE_PRIORITY: readonly ThemeRepairIssueDefinition[] = [
   {
     type: "duplicate_word",
@@ -140,6 +143,14 @@ export function getThemeRepairIssueForWords(words: WordEntry[]): ThemeRepairIssu
     wrongMatchesAnswer: checkThemeForWrongMatchingAnswer(words),
     hasDuplicateWrongAnswers: checkThemeForDuplicateWrongAnswers(words),
   });
+}
+
+export function getThemeSaveErrorMessage(words: WordEntry[]): string | null {
+  if (words.length === 0) {
+    return EMPTY_THEME_SAVE_MESSAGE;
+  }
+
+  return getThemeRepairIssueForWords(words)?.saveToastMessage ?? null;
 }
 
 /**

@@ -1,4 +1,3 @@
-import { createElement, type ImgHTMLAttributes } from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -10,11 +9,6 @@ import { ThemeList } from "@/app/themes/components/ThemeList";
 const useWeeklyGoalThemeIdsMock = vi.hoisted(() => vi.fn());
 const pushMock = vi.hoisted(() => vi.fn());
 const backMock = vi.hoisted(() => vi.fn());
-
-vi.mock("next/image", () => ({
-  default: (props: ImgHTMLAttributes<HTMLImageElement>) =>
-    createElement("img", props),
-}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -71,8 +65,7 @@ describe("weekly goal theme markers", () => {
       />
     );
 
-    expect(screen.getByTestId("weekly-goal-theme-marker")).toHaveAttribute(
-      "alt",
+    expect(screen.getByTestId("weekly-goal-theme-marker")).toHaveAccessibleName(
       "In your weekly goal"
     );
   });

@@ -9,7 +9,7 @@ import type { WordEntry } from "@/lib/types";
 import type { ThemeWithOwner } from "@/convex/themes";
 import {
   isWordDuplicate,
-  getThemeRepairIssueForWords,
+  getThemeSaveErrorMessage,
 } from "@/lib/themes/validators";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
@@ -450,9 +450,9 @@ export function useThemesController() {
     if (!selectedTheme || selectedTheme.canEdit === false) return;
     if (themeActions.isCreating || themeActions.isUpdating) return;
 
-    const repairIssue = getThemeRepairIssueForWords(localWords);
-    if (repairIssue) {
-      toast.error(repairIssue.saveToastMessage);
+    const saveErrorMessage = getThemeSaveErrorMessage(localWords);
+    if (saveErrorMessage) {
+      toast.error(saveErrorMessage);
       return;
     }
 
