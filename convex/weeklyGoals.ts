@@ -1492,7 +1492,7 @@ export const getDraftGoalsExpiringSoon = internalQuery({
   handler: async (ctx) => {
     const now = Date.now();
     const oneHourMs = 60 * 60 * 1000;
-    const minCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 23 * oneHourMs;
+    const minCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 22 * oneHourMs;
     const maxCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 24 * oneHourMs;
 
     return await ctx.db

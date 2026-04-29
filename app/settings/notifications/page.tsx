@@ -139,6 +139,12 @@ export default function NotificationSettingsPage() {
               onChange={(v) => updatePrefs({ weeklyGoalDailyReminderEnabled: v })}
             />
             <NotificationToggle
+              label="Grace period warning"
+              enabled={prefs.weeklyGoalGracePeriodReminderEnabled}
+              disabled={!prefs.weeklyGoalsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalGracePeriodReminderEnabled: v })}
+            />
+            <NotificationToggle
               label="Draft expiry warning"
               enabled={prefs.weeklyGoalDraftExpiringEnabled}
               disabled={!prefs.weeklyGoalsEnabled}

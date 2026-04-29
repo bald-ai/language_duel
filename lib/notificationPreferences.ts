@@ -64,7 +64,7 @@ export function isNotificationEnabled(
     },
     weekly_goal_expired_delete_reminder: {
       category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalDailyReminderEnabled",
+      trigger: "weeklyGoalGracePeriodReminderEnabled",
     },
     weekly_goal_reminder_1: {
       category: "weeklyGoalsEnabled",
@@ -86,7 +86,7 @@ export function shouldSendScheduledDuelReminder(
   duel: { scheduledTime: number; status: string; startedDuelId?: string },
   now: number,
   reminderOffsetMinutes: number,
-  windowMs = 5 * 60 * 1000
+  windowMs = 10 * 60 * 1000
 ): boolean {
   if (duel.status !== "accepted") return false;
   if (duel.startedDuelId) return false;
@@ -101,7 +101,7 @@ export function shouldSendWeeklyGoalReminder(
   goal: { endDate?: number; status: string; bossStatus?: string },
   now: number,
   reminderOffsetMinutes: number,
-  windowMs = 60 * 60 * 1000
+  windowMs = 2 * 60 * 60 * 1000
 ): boolean {
   if (goal.status !== "locked") return false;
   if (goal.bossStatus === "defeated") return false;

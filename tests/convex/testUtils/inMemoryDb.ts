@@ -7,6 +7,14 @@ type IndexFilters = Record<string, unknown>;
 
 type EqBuilder = {
   eq: (field: string, value: unknown) => EqBuilder;
+  gte: (field: string, value: unknown) => EqBuilder;
+  lt: (field: string, value: unknown) => EqBuilder;
+};
+
+type IndexFilter = {
+  op: "eq" | "gte" | "lt";
+  field: string;
+  value: unknown;
 };
 
 export function createIndexedQuery<T extends TestRow>(rows: T[]) {
@@ -21,20 +29,36 @@ export function createIndexedQuery<T extends TestRow>(rows: T[]) {
     ...createResult([...rows]),
     withIndex: (_indexName: string, builder: (q: EqBuilder) => unknown) => {
       const filters: IndexFilters = {};
+      const rangeFilters: IndexFilter[] = [];
       const q: EqBuilder = {
         eq: (field: string, value: unknown) => {
           filters[field] = value;
+          return q;
+        },
+        gte: (field: string, value: unknown) => {
+          rangeFilters.push({ op: "gte", field, value });
+          return q;
+        },
+        lt: (field: string, value: unknown) => {
+          rangeFilters.push({ op: "lt", field, value });
           return q;
         },
       };
 
       builder(q);
 
-      const filtered = rows.filter((row) =>
-        Object.entries(filters).every(
+      const filtered = rows.filter((row) => {
+        const rowRecord = row as Record<string, unknown>;
+        const matchesEqualities = Object.entries(filters).every(
           ([field, value]) => (row as Record<string, unknown>)[field] === value
-        )
-      );
+        );
+        const matchesRanges = rangeFilters.every(({ op, field, value }) => {
+          const rowValue = rowRecord[field];
+          if (typeof rowValue !== "number" || typeof value !== "number") return false;
+          return op === "gte" ? rowValue >= value : rowValue < value;
+        });
+        return matchesEqualities && matchesRanges;
+      });
 
       return createResult(filtered);
     },

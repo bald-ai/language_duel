@@ -4,9 +4,11 @@ import {
   internalQuery,
   internalMutation,
   type ActionCtx,
+  type QueryCtx,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
+import { emailNotificationTriggerValidator } from "../schema";
 import {
   isNotificationEnabled,
   formatScheduledTimeForEmail,
@@ -23,7 +25,82 @@ import {
   getGoalDeleteAt,
 } from "../../lib/weeklyGoals";
 
-const DEFAULT_TIMEZONE = "Europe/Bratislava";
+const DEFAULT_TIMEZONE = "Europe/Prague";
+
+type EmailNotificationLogLookupArgs = {
+  toUserId: Id<"users">;
+  trigger: NotificationTrigger;
+  challengeId?: Id<"challenges">;
+  scheduledDuelId?: Id<"scheduledDuels">;
+  weeklyGoalId?: Id<"weeklyGoals">;
+  dedupeKey?: string;
+};
+
+async function checkEmailNotificationSent(
+  ctx: Pick<QueryCtx, "db">,
+  args: EmailNotificationLogLookupArgs
+): Promise<boolean> {
+  if (args.scheduledDuelId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_scheduledDuel", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("scheduledDuelId", args.scheduledDuelId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.weeklyGoalId && args.dedupeKey) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("weeklyGoalId", args.weeklyGoalId)
+          .eq("dedupeKey", args.dedupeKey)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.weeklyGoalId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("weeklyGoalId", args.weeklyGoalId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.challengeId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_challenge", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("challengeId", args.challengeId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  const log = await ctx.db
+    .query("emailNotificationLog")
+    .withIndex("by_user_trigger", (q) =>
+      q.eq("toUserId", args.toUserId).eq("trigger", args.trigger)
+    )
+    .first();
+  return Boolean(log);
+}
 
 export const getUserById = internalQuery({
   args: { id: v.id("users") },
@@ -63,19 +140,7 @@ export const getThemeById = internalQuery({
 export const checkNotificationSent = internalQuery({
   args: {
     toUserId: v.id("users"),
-    trigger: v.union(
-      v.literal("immediate_duel_challenge"),
-      v.literal("scheduled_duel_proposal"),
-      v.literal("scheduled_duel_reminder"),
-      v.literal("weekly_goal_invite"),
-      v.literal("weekly_goal_locked"),
-      v.literal("weekly_goal_accepted"),
-      v.literal("weekly_goal_daily_reminder"),
-      v.literal("weekly_goal_draft_expiring"),
-      v.literal("weekly_goal_expired_delete_reminder"),
-      v.literal("weekly_goal_reminder_1"),
-      v.literal("weekly_goal_reminder_2")
-    ),
+    trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
@@ -83,98 +148,14 @@ export const checkNotificationSent = internalQuery({
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    if (args.scheduledDuelId) {
-      const log = await ctx.db
-        .query("emailNotificationLog")
-        .withIndex("by_user_trigger_scheduledDuel", (q) =>
-          q
-            .eq("toUserId", args.toUserId)
-            .eq("trigger", args.trigger)
-            .eq("scheduledDuelId", args.scheduledDuelId)
-        )
-        .first();
-      return Boolean(log);
-    }
-
-    if (args.weeklyGoalId && args.dedupeKey) {
-      const log = await ctx.db
-        .query("emailNotificationLog")
-        .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
-          q
-            .eq("toUserId", args.toUserId)
-            .eq("trigger", args.trigger)
-            .eq("weeklyGoalId", args.weeklyGoalId)
-            .eq("dedupeKey", args.dedupeKey)
-        )
-        .first();
-      return Boolean(log);
-    }
-
-    if (args.weeklyGoalId) {
-      const log = await ctx.db
-        .query("emailNotificationLog")
-        .withIndex("by_user_trigger_weeklyGoal", (q) =>
-          q
-            .eq("toUserId", args.toUserId)
-            .eq("trigger", args.trigger)
-            .eq("weeklyGoalId", args.weeklyGoalId)
-        )
-        .first();
-      return Boolean(log);
-    }
-
-    if (args.challengeId) {
-      const log = await ctx.db
-        .query("emailNotificationLog")
-        .withIndex("by_user_trigger_challenge", (q) =>
-          q
-            .eq("toUserId", args.toUserId)
-            .eq("trigger", args.trigger)
-            .eq("challengeId", args.challengeId)
-        )
-        .first();
-      return Boolean(log);
-    }
-
-    if (args.reminderOffsetMinutes !== undefined) {
-      const log = await ctx.db
-        .query("emailNotificationLog")
-        .withIndex("by_user_trigger_reminder_offset", (q) =>
-          q
-            .eq("toUserId", args.toUserId)
-            .eq("trigger", args.trigger)
-            .eq("reminderOffsetMinutes", args.reminderOffsetMinutes)
-        )
-        .first();
-      return Boolean(log);
-    }
-
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger", (q) =>
-        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger)
-      )
-      .first();
-    return Boolean(log);
+    return await checkEmailNotificationSent(ctx, args);
   },
 });
 
 export const logNotificationSent = internalMutation({
   args: {
     toUserId: v.id("users"),
-    trigger: v.union(
-      v.literal("immediate_duel_challenge"),
-      v.literal("scheduled_duel_proposal"),
-      v.literal("scheduled_duel_reminder"),
-      v.literal("weekly_goal_invite"),
-      v.literal("weekly_goal_locked"),
-      v.literal("weekly_goal_accepted"),
-      v.literal("weekly_goal_daily_reminder"),
-      v.literal("weekly_goal_draft_expiring"),
-      v.literal("weekly_goal_expired_delete_reminder"),
-      v.literal("weekly_goal_reminder_1"),
-      v.literal("weekly_goal_reminder_2")
-    ),
+    trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
     scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
@@ -182,7 +163,12 @@ export const logNotificationSent = internalMutation({
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("emailNotificationLog", {
+    const alreadySent = await checkEmailNotificationSent(ctx, args);
+    if (alreadySent) {
+      return { logged: false };
+    }
+
+    const logId = await ctx.db.insert("emailNotificationLog", {
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
@@ -192,6 +178,47 @@ export const logNotificationSent = internalMutation({
       dedupeKey: args.dedupeKey,
       sentAt: Date.now(),
     });
+    return { logged: true, logId };
+  },
+});
+
+export const claimNotificationSend = internalMutation({
+  args: {
+    toUserId: v.id("users"),
+    trigger: emailNotificationTriggerValidator,
+    challengeId: v.optional(v.id("challenges")),
+    scheduledDuelId: v.optional(v.id("scheduledDuels")),
+    weeklyGoalId: v.optional(v.id("weeklyGoals")),
+    reminderOffsetMinutes: v.optional(v.number()),
+    dedupeKey: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const alreadySent = await checkEmailNotificationSent(ctx, args);
+    if (alreadySent) {
+      return { claimed: false };
+    }
+
+    const claimId = await ctx.db.insert("emailNotificationLog", {
+      toUserId: args.toUserId,
+      trigger: args.trigger,
+      challengeId: args.challengeId,
+      scheduledDuelId: args.scheduledDuelId,
+      weeklyGoalId: args.weeklyGoalId,
+      reminderOffsetMinutes: args.reminderOffsetMinutes,
+      dedupeKey: args.dedupeKey,
+      sentAt: Date.now(),
+    });
+
+    return { claimed: true, claimId };
+  },
+});
+
+export const releaseNotificationSendClaim = internalMutation({
+  args: {
+    claimId: v.id("emailNotificationLog"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.claimId);
   },
 });
 
@@ -219,19 +246,7 @@ export const cleanupEmailNotificationLog = internalMutation({
 
 export const sendNotificationEmail = internalAction({
   args: {
-    trigger: v.union(
-      v.literal("immediate_duel_challenge"),
-      v.literal("scheduled_duel_proposal"),
-      v.literal("scheduled_duel_reminder"),
-      v.literal("weekly_goal_invite"),
-      v.literal("weekly_goal_locked"),
-      v.literal("weekly_goal_accepted"),
-      v.literal("weekly_goal_daily_reminder"),
-      v.literal("weekly_goal_draft_expiring"),
-      v.literal("weekly_goal_expired_delete_reminder"),
-      v.literal("weekly_goal_reminder_1"),
-      v.literal("weekly_goal_reminder_2")
-    ),
+    trigger: emailNotificationTriggerValidator,
     toUserId: v.id("users"),
     fromUserId: v.optional(v.id("users")),
     challengeId: v.optional(v.id("challenges")),
@@ -255,20 +270,6 @@ export const sendNotificationEmail = internalAction({
       return { sent: false, reason: "disabled_by_user" };
     }
 
-    const alreadySent = await ctx.runQuery(
-      internal.emails.notificationEmails.checkNotificationSent,
-      {
-        toUserId: args.toUserId,
-        trigger: args.trigger,
-        challengeId: args.challengeId,
-        scheduledDuelId: args.scheduledDuelId,
-        weeklyGoalId: args.weeklyGoalId,
-        reminderOffsetMinutes: args.reminderOffsetMinutes,
-        dedupeKey: args.dedupeKey,
-      }
-    );
-    if (alreadySent) return { sent: false, reason: "already_sent" };
-
     const emailData = await buildEmailData(ctx, {
       trigger,
       toUser,
@@ -282,13 +283,7 @@ export const sendNotificationEmail = internalAction({
 
     const { subject, html } = renderNotificationEmail(trigger, emailData);
 
-    await ctx.runAction(internal.emails.actions.internalSendEmail, {
-      to: toUser.email,
-      subject,
-      html,
-    });
-
-    await ctx.runMutation(internal.emails.notificationEmails.logNotificationSent, {
+    const claim = await ctx.runMutation(internal.emails.notificationEmails.claimNotificationSend, {
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
@@ -297,6 +292,23 @@ export const sendNotificationEmail = internalAction({
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
     });
+    if (!claim.claimed) return { sent: false, reason: "already_sent" };
+    if (!claim.claimId) {
+      throw new Error("Email send claim was created without a claim id");
+    }
+
+    try {
+      await ctx.runAction(internal.emails.actions.internalSendEmail, {
+        to: toUser.email,
+        subject,
+        html,
+      });
+    } catch (error) {
+      await ctx.runMutation(internal.emails.notificationEmails.releaseNotificationSendClaim, {
+        claimId: claim.claimId,
+      });
+      throw error;
+    }
 
     return { sent: true };
   },

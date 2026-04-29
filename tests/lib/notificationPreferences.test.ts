@@ -30,6 +30,7 @@ describe("notificationPreferences", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEnabled).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalGracePeriodReminderEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalDraftExpiringEnabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled).toBe(true);
@@ -45,7 +46,7 @@ describe("notificationPreferences", () => {
 
     it("has all expected keys", () => {
       const keys = Object.keys(DEFAULT_NOTIFICATION_PREFS);
-      expect(keys).toHaveLength(16);
+      expect(keys).toHaveLength(17);
       expect(keys).toContain("immediateDuelsEnabled");
       expect(keys).toContain("scheduledDuelsEnabled");
       expect(keys).toContain("weeklyGoalsEnabled");
@@ -85,9 +86,21 @@ describe("notificationPreferences", () => {
       expect(isNotificationEnabled("weekly_goal_daily_reminder", prefs)).toBe(true);
     });
 
-    it("reuses the daily weekly goal preference for expired delete reminders", () => {
+    it("uses the grace period preference for expired delete reminders", () => {
       const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
       expect(isNotificationEnabled("weekly_goal_expired_delete_reminder", prefs)).toBe(true);
+      expect(
+        isNotificationEnabled("weekly_goal_expired_delete_reminder", {
+          ...prefs,
+          weeklyGoalDailyReminderEnabled: false,
+        })
+      ).toBe(true);
+      expect(
+        isNotificationEnabled("weekly_goal_expired_delete_reminder", {
+          ...prefs,
+          weeklyGoalGracePeriodReminderEnabled: false,
+        })
+      ).toBe(false);
     });
 
     it("returns true for draft expiry reminders when enabled", () => {
@@ -121,6 +134,12 @@ describe("notificationPreferences", () => {
     it("returns true when within reminder window", () => {
       const now = Date.now();
       const duel = { scheduledTime: now + 10 * MINUTE, status: "accepted" };
+      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(true);
+    });
+
+    it("returns true when a cron is delayed by the 10 minute window", () => {
+      const now = Date.now();
+      const duel = { scheduledTime: now + 6 * MINUTE, status: "accepted" };
       expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(true);
     });
 
@@ -158,6 +177,12 @@ describe("notificationPreferences", () => {
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(true);
     });
 
+    it("returns true when a cron is delayed by the 2 hour window", () => {
+      const now = Date.now();
+      const goal = { endDate: now + 23 * HOUR, status: "locked", bossStatus: "unavailable" };
+      expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(true);
+    });
+
     it("returns false when too early for reminder", () => {
       const now = Date.now();
       const goal = { endDate: now + 48 * HOUR, status: "locked", bossStatus: "unavailable" };
@@ -190,9 +215,9 @@ describe("notificationPreferences", () => {
   });
 
   describe("formatScheduledTimeForEmail", () => {
-    it("formats timestamp in Europe/Bratislava timezone", () => {
+    it("formats timestamp in Europe/Prague timezone", () => {
       const timestamp = Date.UTC(2026, 1, 3, 15, 0, 0);
-      const result = formatScheduledTimeForEmail(timestamp, "Europe/Bratislava");
+      const result = formatScheduledTimeForEmail(timestamp, "Europe/Prague");
       expect(result).toContain("16:00");
       expect(result).toContain("Feb");
       expect(result).toContain("3");

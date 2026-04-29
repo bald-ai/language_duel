@@ -12,6 +12,38 @@ const DEFAULT_PALETTE: SenderPalette = {
   accent: "#22C55E",
 };
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function escapeEmailData(data: EmailData): EmailData {
+  return {
+    ...data,
+    recipientName: escapeHtml(data.recipientName),
+    senderName: data.senderName ? escapeHtml(data.senderName) : undefined,
+    themeName: data.themeName ? escapeHtml(data.themeName) : undefined,
+    scheduledTime: data.scheduledTime ? escapeHtml(data.scheduledTime) : undefined,
+    deleteAt: data.deleteAt ? escapeHtml(data.deleteAt) : undefined,
+    partnerName: data.partnerName ? escapeHtml(data.partnerName) : undefined,
+  };
+}
+
+function getAppUrl(): string {
+  const appUrl = process.env.APP_URL;
+  if (appUrl) return appUrl;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("APP_URL must be set in production before rendering email links");
+  }
+
+  return "http://localhost:3000";
+}
+
 export type EmailData = {
   recipientName: string;
   senderName?: string;
@@ -152,21 +184,18 @@ export function renderNotificationEmail(
   data: EmailData
 ): { subject: string; html: string } {
   const subject = getSubjectForTrigger(trigger, data);
-  const { heading, body, cta } = getBodyForTrigger(trigger, data);
+  const safeData = escapeEmailData(data);
+  const { heading, body, cta } = getBodyForTrigger(trigger, safeData);
   const p = data.senderPalette ?? DEFAULT_PALETTE;
-
-  const appUrl =
-    process.env.APP_URL ??
-    (process.env.NODE_ENV === "production"
-      ? "https://app.example.com"
-      : "http://localhost:3000");
+  const appUrl = escapeHtml(getAppUrl());
+  const safeSubject = escapeHtml(subject);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: ${p.bg}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: ${p.bg};">
@@ -183,7 +212,7 @@ export function renderNotificationEmail(
           <tr>
             <td style="background-color: #ffffff; padding: 40px 40px 16px 40px;">
               <h2 style="margin: 0 0 8px 0; font-size: 20px; font-weight: 700; color: ${p.primary};">${heading}</h2>
-              <p style="margin: 0 0 4px 0; font-size: 15px; color: #888; font-weight: 500;">Hey ${data.recipientName},</p>
+              <p style="margin: 0 0 4px 0; font-size: 15px; color: #888; font-weight: 500;">Hey ${safeData.recipientName},</p>
             </td>
           </tr>
           <tr>

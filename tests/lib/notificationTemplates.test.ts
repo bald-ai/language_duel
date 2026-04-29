@@ -1,7 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderNotificationEmail, getSubjectForTrigger } from "@/lib/notificationTemplates";
 
 describe("renderNotificationEmail", () => {
+  const originalAppUrl = process.env.APP_URL;
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    if (originalAppUrl === undefined) {
+      delete process.env.APP_URL;
+    } else {
+      process.env.APP_URL = originalAppUrl;
+    }
+  });
+
   describe("immediate duel challenge", () => {
     it("renders correct subject and body", () => {
       const data = { recipientName: "Player", senderName: "Challenger", themeName: "Spanish Verbs" };
@@ -181,6 +192,47 @@ describe("renderNotificationEmail", () => {
         minutesBefore: 15,
       };
       expect(() => renderNotificationEmail(trigger, data)).not.toThrow();
+    });
+  });
+
+  describe("email safety", () => {
+    it("escapes user-controlled HTML while keeping template markup", () => {
+      const { html } = renderNotificationEmail("scheduled_duel_reminder", {
+        recipientName: "<img src=x onerror=alert(1)>",
+        partnerName: "<b>Partner</b>",
+        themeName: "<script>alert(1)</script>",
+        scheduledTime: "Feb 7, 2026 at 18:00",
+        minutesBefore: 15,
+      });
+
+      expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+      expect(html).toContain("&lt;b&gt;Partner&lt;/b&gt;");
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(html).toContain("<strong>");
+      expect(html).not.toContain("<script>alert(1)</script>");
+    });
+
+    it("throws in production when APP_URL is missing", () => {
+      delete process.env.APP_URL;
+      vi.stubEnv("NODE_ENV", "production");
+
+      expect(() =>
+        renderNotificationEmail("weekly_goal_draft_expiring", {
+          recipientName: "Player",
+        })
+      ).toThrow("APP_URL must be set in production");
+    });
+
+    it("keeps the localhost fallback outside production", () => {
+      delete process.env.APP_URL;
+      vi.stubEnv("NODE_ENV", "development");
+
+      const { html } = renderNotificationEmail("weekly_goal_draft_expiring", {
+        recipientName: "Player",
+      });
+
+      expect(html).toContain("http://localhost:3000");
+      expect(html).not.toContain("app.example.com");
     });
   });
 });

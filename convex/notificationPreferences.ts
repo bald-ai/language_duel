@@ -38,6 +38,9 @@ function normalizeNotificationPreferences(
     weeklyGoalDailyReminderEnabled:
       prefs?.weeklyGoalDailyReminderEnabled ??
       DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEnabled,
+    weeklyGoalGracePeriodReminderEnabled:
+      prefs?.weeklyGoalGracePeriodReminderEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalGracePeriodReminderEnabled,
     weeklyGoalDraftExpiringEnabled:
       prefs?.weeklyGoalDraftExpiringEnabled ??
       DEFAULT_NOTIFICATION_PREFS.weeklyGoalDraftExpiringEnabled,
@@ -111,6 +114,7 @@ export const setMyNotificationPreferences = mutation({
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
     weeklyGoalDailyReminderEnabled: v.boolean(),
+    weeklyGoalGracePeriodReminderEnabled: v.boolean(),
     weeklyGoalDraftExpiringEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),

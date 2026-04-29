@@ -470,6 +470,7 @@ export default defineSchema({
     weeklyGoalAcceptedEnabled: v.boolean(),
     weeklyGoalLockedEnabled: v.boolean(),
     weeklyGoalDailyReminderEnabled: v.boolean(),
+    weeklyGoalGracePeriodReminderEnabled: v.boolean(),
     weeklyGoalDraftExpiringEnabled: v.boolean(),
     weeklyGoalReminder1Enabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
@@ -502,7 +503,6 @@ export default defineSchema({
     ])
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
     .index("by_user_trigger", ["toUserId", "trigger"])
-    .index("by_user_trigger_reminder_offset", ["toUserId", "trigger", "reminderOffsetMinutes"])
     .index("by_sentAt", ["sentAt"]),
 
   // -------------------------------------------
