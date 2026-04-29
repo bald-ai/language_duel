@@ -28,7 +28,6 @@ import type * as helpers_users from "../helpers/users.js";
 import type * as helpers_weeklyGoalSnapshots from "../helpers/weeklyGoalSnapshots.js";
 import type * as hints from "../hints.js";
 import type * as lobby from "../lobby.js";
-import type * as migrations from "../migrations.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
 import type * as notifications from "../notifications.js";
@@ -66,7 +65,6 @@ declare const fullApi: ApiFromModules<{
   "helpers/weeklyGoalSnapshots": typeof helpers_weeklyGoalSnapshots;
   hints: typeof hints;
   lobby: typeof lobby;
-  migrations: typeof migrations;
   notificationPayloads: typeof notificationPayloads;
   notificationPreferences: typeof notificationPreferences;
   notifications: typeof notifications;

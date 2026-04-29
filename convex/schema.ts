@@ -140,21 +140,13 @@ const weeklyGoalLifecycleStatusValidator = v.union(
   v.literal("draft"),
   v.literal("locked"),
   v.literal("grace_period"),
-  v.literal("completed"),
-  // Transitional values kept until prod migration is verified.
-  v.literal("editing"),
-  v.literal("active"),
-  v.literal("expired")
+  v.literal("completed")
 );
 
 const weeklyGoalBossStatusValidator = v.union(
   v.literal("unavailable"),
   v.literal("ready"),
-  v.literal("defeated"),
-  // Transitional values kept until prod migration is verified.
-  v.literal("locked"),
-  v.literal("available"),
-  v.literal("completed")
+  v.literal("defeated")
 );
 
 export const notificationPayloadValidator = v.union(

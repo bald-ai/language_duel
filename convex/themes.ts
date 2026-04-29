@@ -11,7 +11,6 @@ import {
 } from "./helpers/themeTtsStorage";
 import { loadUsersById } from "./helpers/users";
 import { hasThemeAccess } from "../lib/themeAccess";
-import { normalizeWeeklyGoalLifecycleStatus } from "../lib/weeklyGoals";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
 import { reconcileThemeWordTts } from "../lib/themes/tts";
@@ -429,7 +428,7 @@ export const getTheme = query({
     const weeklyGoals = [...goalsAsCreator, ...goalsAsPartner].map((g) => ({
       creatorId: g.creatorId,
       partnerId: g.partnerId,
-      status: normalizeWeeklyGoalLifecycleStatus(g.status),
+      status: g.status,
       themeIds: g.themes.map((t) => t.themeId),
     }));
 

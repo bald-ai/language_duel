@@ -33,8 +33,6 @@ import {
   getEffectiveMiniBossStatus,
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
-  normalizeWeeklyGoalBossStatus,
-  normalizeWeeklyGoalLifecycleStatus,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
 } from "../lib/weeklyGoals";
@@ -76,7 +74,7 @@ function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds
 }
 
 function getWeeklyGoalPracticeSource(goal: Doc<"weeklyGoals">): WeeklyGoalPracticeSource {
-  return normalizeWeeklyGoalLifecycleStatus(goal.status) === "draft" ? "live" : "snapshot";
+  return goal.status === "draft" ? "live" : "snapshot";
 }
 
 function resolveWeeklyGoalPracticeThemeIds(
@@ -690,7 +688,7 @@ export const getBossLaunchPreview = query({
     const livesTotal = calculateBossStartingLives({
       bossType,
       themeCount: themes.length,
-      miniBossDefeated: normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated",
+      miniBossDefeated: goal.miniBossStatus === "defeated",
     });
 
     return {
@@ -1174,7 +1172,7 @@ async function validateAndPrepareBoss(
   const startingLives = calculateBossStartingLives({
     bossType,
     themeCount: themes.length,
-    miniBossDefeated: normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated",
+    miniBossDefeated: goal.miniBossStatus === "defeated",
   });
 
   return { user, goal, isCreator, now, sessionWords, startingLives };

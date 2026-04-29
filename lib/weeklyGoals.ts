@@ -7,15 +7,7 @@ export type WeeklyGoalLifecycleStatus =
   | "locked"
   | "grace_period"
   | "completed";
-export type LegacyWeeklyGoalLifecycleStatus = "editing" | "active" | "expired";
-export type WeeklyGoalStoredLifecycleStatus =
-  | WeeklyGoalLifecycleStatus
-  | LegacyWeeklyGoalLifecycleStatus;
 export type WeeklyGoalBossStatus = "unavailable" | "ready" | "defeated";
-export type LegacyWeeklyGoalBossStatus = "locked" | "available" | "completed";
-export type WeeklyGoalStoredBossStatus =
-  | WeeklyGoalBossStatus
-  | LegacyWeeklyGoalBossStatus;
 
 export interface WeeklyGoalThemeProgress {
   creatorCompleted: boolean;
@@ -24,41 +16,11 @@ export interface WeeklyGoalThemeProgress {
 
 export interface WeeklyGoalStateLike {
   themes: WeeklyGoalThemeProgress[];
-  status: WeeklyGoalStoredLifecycleStatus;
+  status: WeeklyGoalLifecycleStatus;
   lockedAt?: number;
   endDate?: number;
-  miniBossStatus: WeeklyGoalStoredBossStatus;
-  bossStatus: WeeklyGoalStoredBossStatus;
-}
-
-export function normalizeWeeklyGoalLifecycleStatus(
-  status: WeeklyGoalStoredLifecycleStatus
-): WeeklyGoalLifecycleStatus {
-  switch (status) {
-    case "editing":
-      return "draft";
-    case "active":
-      return "locked";
-    case "expired":
-      return "grace_period";
-    default:
-      return status;
-  }
-}
-
-export function normalizeWeeklyGoalBossStatus(
-  status: WeeklyGoalStoredBossStatus
-): WeeklyGoalBossStatus {
-  switch (status) {
-    case "locked":
-      return "unavailable";
-    case "available":
-      return "ready";
-    case "completed":
-      return "defeated";
-    default:
-      return status;
-  }
+  miniBossStatus: WeeklyGoalBossStatus;
+  bossStatus: WeeklyGoalBossStatus;
 }
 
 export function countCompletedThemes(
@@ -102,10 +64,7 @@ export function isGoalInGracePeriod(
   goal: Pick<WeeklyGoalStateLike, "endDate" | "status" | "bossStatus">,
   now: number
 ): boolean {
-  const status = normalizeWeeklyGoalLifecycleStatus(goal.status);
-  const bossStatus = normalizeWeeklyGoalBossStatus(goal.bossStatus);
-
-  if (status === "completed" || bossStatus === "defeated") {
+  if (goal.status === "completed" || goal.bossStatus === "defeated") {
     return false;
   }
 
@@ -144,18 +103,15 @@ export function getEffectiveGoalStatus(
   goal: WeeklyGoalStateLike,
   now: number
 ): WeeklyGoalLifecycleStatus {
-  const status = normalizeWeeklyGoalLifecycleStatus(goal.status);
-  const bossStatus = normalizeWeeklyGoalBossStatus(goal.bossStatus);
-
-  if (status === "completed" || bossStatus === "defeated") {
+  if (goal.status === "completed" || goal.bossStatus === "defeated") {
     return "completed";
   }
 
-  if (status === "draft") {
+  if (goal.status === "draft") {
     return "draft";
   }
 
-  if (status === "grace_period") {
+  if (goal.status === "grace_period") {
     return "grace_period";
   }
 
@@ -181,7 +137,7 @@ export function getEffectiveMiniBossStatus(
     return "unavailable";
   }
 
-  if (normalizeWeeklyGoalBossStatus(goal.miniBossStatus) === "defeated") {
+  if (goal.miniBossStatus === "defeated") {
     return "defeated";
   }
 
@@ -199,7 +155,7 @@ export function getEffectiveBossStatus(
   goal: WeeklyGoalStateLike,
   now: number
 ): WeeklyGoalBossStatus {
-  if (normalizeWeeklyGoalBossStatus(goal.bossStatus) === "defeated") {
+  if (goal.bossStatus === "defeated") {
     return "defeated";
   }
 

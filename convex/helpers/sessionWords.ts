@@ -57,7 +57,7 @@ export function getChallengeSessionWords(
   challenge: Pick<Doc<"challenges">, "sessionWords">
 ): SessionWordEntry[] {
   if (!challenge.sessionWords || challenge.sessionWords.length === 0) {
-    throw new Error("Challenge is missing sessionWords — run the backfill migration");
+    throw new Error("Challenge is missing sessionWords");
   }
   return challenge.sessionWords;
 }
