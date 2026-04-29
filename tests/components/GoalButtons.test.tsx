@@ -25,6 +25,11 @@ describe("Goal buttons", () => {
 
     fireEvent.click(screen.getByTestId("goals-lock"));
 
+    expect(
+      screen.getByText(
+        "Locking takes a snapshot of these themes until the end date. After this, you can't change the themes in this goal, and editing the originals won't affect it. Continue?"
+      )
+    ).toBeInTheDocument();
     expect(screen.getByTestId("goals-lock-cancel")).toBeInTheDocument();
     expect(screen.getByTestId("goals-lock-confirm")).toBeInTheDocument();
 

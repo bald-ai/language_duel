@@ -22,6 +22,7 @@ import { ThemedPage } from "@/app/components/ThemedPage";
 import { buttonStyles, colors } from "@/lib/theme";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
+import { buildSoloSearchParams, sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 const DEFAULT_HINT_STATE = Object.freeze({
   hintCount: 0,
@@ -94,6 +95,9 @@ export default function LearnPhasePage() {
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
   const challengeId = searchParams.get("challengeId");
+  const weeklyGoalId = searchParams.get("weeklyGoalId");
+  const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
+  const returnLabel = searchParams.get("returnLabel") || "Back to Home";
   const durationParam = searchParams.get("duration");
   const parsedDuration = Number.parseInt(durationParam ?? "", 10);
   const presetDuration = SOLO_TIMER_OPTIONS.includes(parsedDuration as (typeof SOLO_TIMER_OPTIONS)[number])
@@ -107,14 +111,28 @@ export default function LearnPhasePage() {
     return themeId ? [themeId as Id<"themes">] : [];
   }, [themeId, themeIdsParam]);
   const themeIdsKey = useMemo(() => requestedThemeIds.join(","), [requestedThemeIds]);
-  const sessionSourceKey = challengeId ? `boss:${challengeId}` : themeIdsKey || "no-theme";
+  const sessionSourceKey = challengeId
+    ? `boss:${challengeId}`
+    : weeklyGoalId
+      ? `weeklyGoal:${weeklyGoalId}:${themeIdsKey}`
+      : themeIdsKey || "no-theme";
 
   const practiceSession = useQuery(
     api.weeklyGoals.getBossPracticeSession,
     challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
   );
-  const allThemes = useQuery(api.themes.getThemes, challengeId ? "skip" : {});
+  const weeklyGoalPractice = useQuery(
+    api.weeklyGoals.getWeeklyGoalPracticeThemes,
+    !challengeId && weeklyGoalId
+      ? {
+          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
+          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
+        }
+      : "skip"
+  );
+  const allThemes = useQuery(api.themes.getThemes, challengeId || weeklyGoalId ? "skip" : {});
   const selectedThemes = useMemo(() => {
+    if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
     if (!allThemes) return [];
     const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
     return requestedThemeIds
@@ -122,7 +140,7 @@ export default function LearnPhasePage() {
         const theme = themeMap.get(requestedThemeId);
         return theme ? [theme] : [];
       });
-  }, [allThemes, requestedThemeIds]);
+  }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
   const sessionWords = useMemo(
     () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
     [practiceSession?.sessionWords, selectedThemes]
@@ -133,7 +151,9 @@ export default function LearnPhasePage() {
   );
   const isSessionReady = challengeId
     ? practiceSession !== undefined && practiceSession !== null
-    : allThemes !== undefined && requestedThemeIds.length > 0 && selectedThemes.length === requestedThemeIds.length;
+    : weeklyGoalId
+      ? Boolean(weeklyGoalPractice?.ok && selectedThemes.length > 0)
+      : allThemes !== undefined && requestedThemeIds.length > 0 && selectedThemes.length === requestedThemeIds.length;
 
   // Timer state
   const duration = initialDuration;
@@ -247,18 +267,16 @@ export default function LearnPhasePage() {
 
   useEffect(() => {
     if (timeRemaining === 0 && isSessionReady) {
-      const params = new URLSearchParams();
-      if (challengeId) {
-        params.set("challengeId", challengeId);
-      } else if (requestedThemeIds.length === 1) {
-        params.set("themeId", requestedThemeIds[0]);
-      }
-      if (!challengeId) {
-        params.set("themeIds", themeIdsKey);
-      }
+      const params = buildSoloSearchParams({
+        challengeId,
+        weeklyGoalId,
+        themeIds: requestedThemeIds,
+        returnTo,
+        returnLabel,
+      });
       router.push(`/solo/${sessionId}?${params.toString()}`);
     }
-  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, themeIdsKey, challengeId]);
+  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, challengeId, weeklyGoalId, returnTo, returnLabel]);
 
   // --- TTS ---
   const playWordTTS = useCallback(
@@ -276,19 +294,19 @@ export default function LearnPhasePage() {
       confidenceByWordIndex[wordIndex] = getConfidence(wordKey);
     });
 
-    const urlParams = new URLSearchParams();
-    if (challengeId) {
-      urlParams.set("challengeId", challengeId);
-    } else {
-      if (requestedThemeIds.length === 1) urlParams.set("themeId", requestedThemeIds[0]);
-      urlParams.set("themeIds", themeIdsKey);
-    }
+    const urlParams = buildSoloSearchParams({
+      challengeId,
+      weeklyGoalId,
+      themeIds: requestedThemeIds,
+      returnTo,
+      returnLabel,
+    });
     urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, challengeId, themeIdsKey]);
+  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, challengeId, weeklyGoalId, returnTo, returnLabel]);
 
-  const handleExit = useCallback(() => router.push("/"), [router]);
+  const handleExit = useCallback(() => router.push(returnTo), [router, returnTo]);
 
   // --- Timer display (memoized) ---
   const timerStyle = useMemo(() => {
@@ -302,7 +320,7 @@ export default function LearnPhasePage() {
   }, [timeRemaining, duration]);
 
   // --- Loading states ---
-  if (!challengeId && requestedThemeIds.length === 0) {
+  if (!challengeId && !weeklyGoalId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -323,7 +341,7 @@ export default function LearnPhasePage() {
               style={primaryActionStyle}
               data-testid="solo-learn-back-home"
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>
@@ -337,7 +355,11 @@ export default function LearnPhasePage() {
     );
   }
 
-  if ((challengeId && practiceSession === undefined) || (!challengeId && allThemes === undefined)) {
+  if (
+    (challengeId && practiceSession === undefined) ||
+    (!challengeId && weeklyGoalId && weeklyGoalPractice === undefined) ||
+    (!challengeId && !weeklyGoalId && allThemes === undefined)
+  ) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -364,7 +386,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (challengeId && practiceSession === null) {
+  if ((challengeId && practiceSession === null) || (!challengeId && weeklyGoalId && weeklyGoalPractice === null)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -384,7 +406,7 @@ export default function LearnPhasePage() {
               className={`${actionButtonClassName} mt-6`}
               style={primaryActionStyle}
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>
@@ -392,7 +414,36 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (!challengeId && selectedThemes.length !== requestedThemeIds.length) {
+  if (!challengeId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              {weeklyGoalPractice.message}
+            </p>
+            <button
+              onClick={handleExit}
+              className={`${actionButtonClassName} mt-6`}
+              style={primaryActionStyle}
+              data-testid="solo-learn-back-home"
+            >
+              {returnLabel}
+            </button>
+          </div>
+        </div>
+      </ThemedPage>
+    );
+  }
+
+  if (!challengeId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -413,7 +464,7 @@ export default function LearnPhasePage() {
               style={primaryActionStyle}
               data-testid="solo-learn-back-home"
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>

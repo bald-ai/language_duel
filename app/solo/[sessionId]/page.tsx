@@ -7,6 +7,7 @@ import { useCallback, useMemo } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/lib/stringUtils";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
+import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 // Feature-local imports
 import { useSoloSession } from "./hooks/useSoloSession";
@@ -64,7 +65,10 @@ export default function SoloChallengePage() {
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
   const challengeId = searchParams.get("challengeId");
+  const weeklyGoalId = searchParams.get("weeklyGoalId");
   const confidenceParam = searchParams.get("confidence");
+  const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
+  const returnLabel = searchParams.get("returnLabel") || "Back to Home";
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
       return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
@@ -98,8 +102,18 @@ export default function SoloChallengePage() {
     api.weeklyGoals.getBossPracticeSession,
     challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
   );
-  const allThemes = useQuery(api.themes.getThemes, challengeId ? "skip" : {});
+  const weeklyGoalPractice = useQuery(
+    api.weeklyGoals.getWeeklyGoalPracticeThemes,
+    !challengeId && weeklyGoalId
+      ? {
+          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
+          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
+        }
+      : "skip"
+  );
+  const allThemes = useQuery(api.themes.getThemes, challengeId || weeklyGoalId ? "skip" : {});
   const selectedThemes = useMemo(() => {
+    if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
     if (!allThemes) return [];
     const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
     return requestedThemeIds
@@ -107,7 +121,7 @@ export default function SoloChallengePage() {
         const theme = themeMap.get(requestedThemeId);
         return theme ? [theme] : [];
       });
-  }, [allThemes, requestedThemeIds]);
+  }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
   const sessionWords = useMemo(
     () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
     [practiceSession?.sessionWords, selectedThemes]
@@ -144,8 +158,8 @@ export default function SoloChallengePage() {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    router.push("/");
-  }, [router]);
+    router.push(returnTo);
+  }, [router, returnTo]);
 
   const baseCardStyle = {
     backgroundColor: colors.background.elevated,
@@ -154,7 +168,7 @@ export default function SoloChallengePage() {
   };
 
   // Loading states
-  if (!challengeId && requestedThemeIds.length === 0) {
+  if (!challengeId && !weeklyGoalId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -179,7 +193,7 @@ export default function SoloChallengePage() {
               }}
               data-testid="solo-challenge-back-home"
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>
@@ -193,7 +207,11 @@ export default function SoloChallengePage() {
     );
   }
 
-  if ((challengeId && practiceSession === undefined) || (!challengeId && allThemes === undefined)) {
+  if (
+    (challengeId && practiceSession === undefined) ||
+    (!challengeId && weeklyGoalId && weeklyGoalPractice === undefined) ||
+    (!challengeId && !weeklyGoalId && allThemes === undefined)
+  ) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -220,7 +238,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (challengeId && practiceSession === null) {
+  if ((challengeId && practiceSession === null) || (!challengeId && weeklyGoalId && weeklyGoalPractice === null)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -244,7 +262,7 @@ export default function SoloChallengePage() {
                 color: colors.text.DEFAULT,
               }}
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>
@@ -252,7 +270,40 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (!challengeId && selectedThemes.length !== requestedThemeIds.length) {
+  if (!challengeId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <div
+            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.status.danger.DEFAULT,
+              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+            }}
+          >
+            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
+              {weeklyGoalPractice.message}
+            </p>
+            <button
+              onClick={handleExit}
+              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+              data-testid="solo-challenge-back-home"
+            >
+              {returnLabel}
+            </button>
+          </div>
+        </div>
+      </ThemedPage>
+    );
+  }
+
+  if (!challengeId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -277,7 +328,7 @@ export default function SoloChallengePage() {
               }}
               data-testid="solo-challenge-back-home"
             >
-              Back to Home
+              {returnLabel}
             </button>
           </div>
         </div>
@@ -393,6 +444,7 @@ export default function SoloChallengePage() {
       totalWords={sessionWords.length}
       totalDuration={elapsedTime}
       onExit={handleExit}
+      exitLabel={returnLabel}
     />
   ) : (
     <>

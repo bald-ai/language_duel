@@ -22,6 +22,7 @@ interface ThemeSelectorProps {
   draftThemeIds?: Id<"themes">[];
   onDraftThemeIdsChange?: (themeIds: Id<"themes">[]) => void;
   hideConfirmButton?: boolean;
+  hideCreateThemeButton?: boolean;
 }
 
 export function ThemeSelector({
@@ -34,6 +35,7 @@ export function ThemeSelector({
   draftThemeIds: controlledDraftThemeIds,
   onDraftThemeIdsChange,
   hideConfirmButton = false,
+  hideCreateThemeButton = false,
 }: ThemeSelectorProps) {
   const [internalDraftThemeIds, setInternalDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
   const draftThemeIds = controlledDraftThemeIds ?? internalDraftThemeIds;
@@ -75,18 +77,20 @@ export function ThemeSelector({
         <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
           {emptyMessage}
         </p>
-        <button
-          onClick={onCreateTheme}
-          className="w-full border-2 rounded-xl py-2 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
-          style={{
-            backgroundColor: colors.background.elevated,
-            borderColor: colors.primary.dark,
-            color: colors.text.DEFAULT,
-          }}
-          data-testid="theme-selector-create"
-        >
-          Create your first theme
-        </button>
+        {!hideCreateThemeButton && (
+          <button
+            onClick={onCreateTheme}
+            className="w-full border-2 rounded-xl py-2 text-sm font-bold uppercase tracking-widest transition hover:brightness-110"
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }}
+            data-testid="theme-selector-create"
+          >
+            Create your first theme
+          </button>
+        )}
       </div>
     );
   }

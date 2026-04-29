@@ -2,7 +2,7 @@
  * Weekly Goals API - Queries and mutations for collaborative learning goals.
  */
 
-import { mutation, query, type MutationCtx, internalQuery, internalMutation } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx, internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -14,6 +14,7 @@ import { loadUsersById } from "./helpers/users";
 import {
   createWeeklyGoalThemeSnapshots,
   deleteWeeklyGoalThemeSnapshots,
+  listWeeklyGoalThemeSnapshots,
   loadWeeklyGoalSessionThemesByThemeIds,
 } from "./helpers/weeklyGoalSnapshots";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
@@ -33,6 +34,7 @@ import {
   isGoalPlayable,
   MIN_THEMES_PER_GOAL,
   normalizeWeeklyGoalBossStatus,
+  normalizeWeeklyGoalLifecycleStatus,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
 } from "../lib/weeklyGoals";
@@ -41,6 +43,7 @@ import { calculateBossStartingLives } from "../lib/bossLives";
 // Constants
 const MAX_THEMES_PER_GOAL = 10;
 type BossType = "mini" | "big";
+type WeeklyGoalPracticeSource = "live" | "snapshot";
 const WEEKLY_GOAL_NOTIFICATION_TYPES = [
   "weekly_plan_invitation",
   "weekly_goal_draft_expiring",
@@ -70,6 +73,114 @@ function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds
   }
 
   return shuffleArray(fullSessionWords);
+}
+
+function getWeeklyGoalPracticeSource(goal: Doc<"weeklyGoals">): WeeklyGoalPracticeSource {
+  return normalizeWeeklyGoalLifecycleStatus(goal.status) === "draft" ? "live" : "snapshot";
+}
+
+function resolveWeeklyGoalPracticeThemeIds(
+  goal: Doc<"weeklyGoals">,
+  themeIds?: Id<"themes">[]
+): { ok: true; themeIds: Id<"themes">[] } | { ok: false; message: string } {
+  if (themeIds && themeIds.length === 0) {
+    return { ok: false, message: "Select at least one theme to practice." };
+  }
+
+  const goalThemeIds = goal.themes.map((theme) => theme.themeId);
+  if (!themeIds) {
+    return { ok: true, themeIds: goalThemeIds };
+  }
+
+  const goalThemeIdSet = new Set(goalThemeIds.map(String));
+  const seen = new Set<string>();
+  const selectedThemeIds: Id<"themes">[] = [];
+
+  for (const themeId of themeIds) {
+    const key = String(themeId);
+    if (!goalThemeIdSet.has(key)) {
+      return { ok: false, message: "One selected theme is not part of this weekly goal." };
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    selectedThemeIds.push(themeId);
+  }
+
+  if (selectedThemeIds.length === 0) {
+    return { ok: false, message: "Select at least one theme to practice." };
+  }
+
+  return {
+    ok: true,
+    themeIds: goalThemeIds.filter((themeId) => seen.has(String(themeId))),
+  };
+}
+
+async function loadLiveWeeklyGoalPracticeThemes(
+  ctx: QueryCtx,
+  goal: Doc<"weeklyGoals">,
+  themeIds: Id<"themes">[]
+) {
+  const liveThemes = await Promise.all(themeIds.map((themeId) => ctx.db.get(themeId)));
+  const missingTheme = themeIds.find((_, index) => !liveThemes[index]);
+
+  if (missingTheme) {
+    const goalTheme = goal.themes.find((theme) => theme.themeId === missingTheme);
+    return {
+      ok: false as const,
+      message: `"${goalTheme?.themeName ?? "A theme"}" is no longer available. Remove it or choose another theme before practicing.`,
+    };
+  }
+
+  return {
+    ok: true as const,
+    themes: liveThemes.flatMap((theme) =>
+      theme
+        ? [
+            {
+              _id: theme._id,
+              name: theme.name,
+              words: theme.words,
+            },
+          ]
+        : []
+    ),
+  };
+}
+
+async function loadSnapshotWeeklyGoalPracticeThemes(
+  ctx: QueryCtx,
+  goal: Doc<"weeklyGoals">,
+  themeIds: Id<"themes">[]
+) {
+  const snapshots = await listWeeklyGoalThemeSnapshots(ctx, goal._id);
+  const snapshotsByThemeId = new Map(
+    snapshots.map((snapshot) => [String(snapshot.originalThemeId), snapshot])
+  );
+  const missingThemeId = themeIds.find((themeId) => !snapshotsByThemeId.has(String(themeId)));
+
+  if (missingThemeId) {
+    const goalTheme = goal.themes.find((theme) => theme.themeId === missingThemeId);
+    return {
+      ok: false as const,
+      message: `"${goalTheme?.themeName ?? "A theme"}" snapshot is no longer available. Practice cannot start from the live theme after lock.`,
+    };
+  }
+
+  return {
+    ok: true as const,
+    themes: themeIds.map((themeId) => {
+      const snapshot = snapshotsByThemeId.get(String(themeId));
+      if (!snapshot) {
+        throw new Error("Missing validated weekly goal snapshot");
+      }
+      return {
+        _id: snapshot.originalThemeId,
+        name: snapshot.name,
+        words: snapshot.words,
+      };
+    }),
+  };
 }
 
 async function loadGoalThemesForBoss(
@@ -614,6 +725,46 @@ export const getBossPracticeSession = query({
       challengeId: challenge._id,
       sessionWords: challenge.sessionWords,
       themeSummary: summarizeSessionWords(challenge.sessionWords),
+    };
+  },
+});
+
+export const getWeeklyGoalPracticeThemes = query({
+  args: {
+    weeklyGoalId: v.id("weeklyGoals"),
+    themeIds: v.optional(v.array(v.id("themes"))),
+  },
+  handler: async (ctx, { weeklyGoalId, themeIds }) => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+
+    const goal = await ctx.db.get(weeklyGoalId);
+    if (!goal) return null;
+
+    const isCreator = goal.creatorId === auth.user._id;
+    const isPartner = goal.partnerId === auth.user._id;
+    if (!isCreator && !isPartner) return null;
+
+    const resolvedThemeIds = resolveWeeklyGoalPracticeThemeIds(goal, themeIds);
+    if (!resolvedThemeIds.ok) {
+      return resolvedThemeIds;
+    }
+
+    const source = getWeeklyGoalPracticeSource(goal);
+    const loadedThemes =
+      source === "live"
+        ? await loadLiveWeeklyGoalPracticeThemes(ctx, goal, resolvedThemeIds.themeIds)
+        : await loadSnapshotWeeklyGoalPracticeThemes(ctx, goal, resolvedThemeIds.themeIds);
+
+    if (!loadedThemes.ok) {
+      return loadedThemes;
+    }
+
+    return {
+      ok: true as const,
+      weeklyGoalId,
+      source,
+      themes: loadedThemes.themes,
     };
   },
 });

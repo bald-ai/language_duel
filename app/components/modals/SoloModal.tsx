@@ -33,7 +33,11 @@ interface SoloModalProps {
   onClose: () => void;
   onNavigateToThemes: () => void;
   initialThemeIds?: Id<"themes">[];
+  initialDraftThemeIds?: Id<"themes">[];
   initialMode?: SoloMode;
+  forceThemeSelectorFirst?: boolean;
+  themeSelectorNotice?: string;
+  hideCreateThemeButton?: boolean;
 }
 
 const timerOptionClassName =
@@ -52,7 +56,18 @@ const timerOptionInactiveStyle = {
   color: colors.text.muted,
 };
 
-export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, initialThemeIds, initialMode }: SoloModalProps) {
+export function SoloModal({
+  themes,
+  onContinue,
+  onClose,
+  onNavigateToThemes,
+  initialThemeIds,
+  initialDraftThemeIds,
+  initialMode,
+  forceThemeSelectorFirst = false,
+  themeSelectorNotice,
+  hideCreateThemeButton = false,
+}: SoloModalProps) {
   const resolvedInitialThemeIds = useMemo(() => {
     if (!initialThemeIds || initialThemeIds.length === 0 || !themes || themes.length === 0) {
       return [] as Id<"themes">[];
@@ -60,15 +75,27 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
     const availableThemeIds = new Set(themes.map((theme) => theme._id));
     return initialThemeIds.filter((themeId) => availableThemeIds.has(themeId));
   }, [initialThemeIds, themes]);
-  const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>([]);
+  const resolvedInitialDraftThemeIds = useMemo(() => {
+    const requestedThemeIds = initialDraftThemeIds ?? [];
+    if (requestedThemeIds.length === 0 || !themes || themes.length === 0) {
+      return [] as Id<"themes">[];
+    }
+    const availableThemeIds = new Set(themes.map((theme) => theme._id));
+    return requestedThemeIds.filter((themeId) => availableThemeIds.has(themeId));
+  }, [initialDraftThemeIds, themes]);
+  const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>(resolvedInitialDraftThemeIds);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
-  const [ignoreInitialThemes, setIgnoreInitialThemes] = useState(false);
+  const [ignoreInitialThemes, setIgnoreInitialThemes] = useState(forceThemeSelectorFirst);
   const [selectedMode, setSelectedMode] = useState<SoloMode | null>(initialMode ?? "learn_test");
   const [selectedDuration, setSelectedDuration] = useState(DEFAULT_SOLO_STUDY_DURATION);
-  const effectiveThemeIds = !ignoreInitialThemes && resolvedInitialThemeIds.length > 0
+  const hasConfirmedThemeSelection = selectedThemeIds.length > 0;
+  const effectiveThemeIds = !ignoreInitialThemes && !forceThemeSelectorFirst && resolvedInitialThemeIds.length > 0
     ? resolvedInitialThemeIds
     : selectedThemeIds;
   const selectedThemes = themes?.filter((theme) => effectiveThemeIds.includes(theme._id)) || [];
+  const isThemeSelectorStep = forceThemeSelectorFirst
+    ? !hasConfirmedThemeSelection
+    : effectiveThemeIds.length === 0;
 
   const handleConfirmThemeSelection = (confirmedThemeIds: Id<"themes">[]) => {
     if (confirmedThemeIds.length === 0) return;
@@ -91,11 +118,23 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
   return (
     <ModalShell title="Solo Challenge">
       {/* Step 1: Select Theme */}
-      {effectiveThemeIds.length === 0 && (
+      {isThemeSelectorStep && (
         <>
           <p className="text-sm text-center mb-4" style={{ color: colors.text.muted }}>
             Select one or more themes to practice.
           </p>
+          {themeSelectorNotice && (
+            <div
+              className="mb-4 rounded-2xl border-2 p-3 text-sm"
+              style={{
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              {themeSelectorNotice}
+            </div>
+          )}
           <div className="max-h-80 overflow-y-auto pr-3">
             <ThemeSelector
               themes={themes}
@@ -105,6 +144,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
               draftThemeIds={draftThemeIds}
               onDraftThemeIdsChange={setDraftThemeIds}
               hideConfirmButton
+              hideCreateThemeButton={hideCreateThemeButton}
             />
           </div>
           <div className="mt-4 space-y-3">
@@ -132,7 +172,7 @@ export function SoloModal({ themes, onContinue, onClose, onNavigateToThemes, ini
       )}
 
       {/* Step 2: Select Mode */}
-      {effectiveThemeIds.length > 0 && (
+      {!isThemeSelectorStep && effectiveThemeIds.length > 0 && (
         <>
           <div
             className="mb-4 p-3 border-2 rounded-2xl text-center"

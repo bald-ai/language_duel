@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
+import { buildSoloUrl } from "@/lib/soloNavigation";
 
 type BossType = "mini" | "big";
 
@@ -62,7 +63,7 @@ export default function BossLaunchPage() {
         goalId: goalId as Id<"weeklyGoals">,
         bossType,
       });
-      router.push(`/solo/learn/${challengeId}?challengeId=${challengeId}`);
+      router.push(buildSoloUrl(String(challengeId), "learn_test", { challengeId }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start practice");
     } finally {

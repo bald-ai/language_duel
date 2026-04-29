@@ -30,12 +30,17 @@ import {
   isBossButtonDisabled,
 } from "@/lib/bossUi";
 import { useCountdown } from "@/app/notifications/hooks/useCountdown";
+import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
 
 // Local storage key for remembering last viewed plan
 const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
 
 const GoalThemeSelector = dynamic(
   () => import("./components/GoalThemeSelector").then((mod) => mod.GoalThemeSelector),
+  { loading: () => null }
+);
+const SoloModal = dynamic(
+  () => import("@/app/components/modals/SoloModal").then((mod) => mod.SoloModal),
   { loading: () => null }
 );
 
@@ -94,6 +99,7 @@ function formatGoalStatus(status: "draft" | "locked" | "grace_period" | "complet
 export default function GoalsPage() {
   const router = useRouter();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState<Id<"users"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showCreationFlow, setShowCreationFlow] = useState(false);
@@ -110,6 +116,10 @@ export default function GoalsPage() {
   const selectedPlan = useQuery(
     api.weeklyGoals.getGoalById,
     selectedPlanId ? { goalId: selectedPlanId } : "skip"
+  );
+  const weeklyGoalPracticeThemes = useQuery(
+    api.weeklyGoals.getWeeklyGoalPracticeThemes,
+    showPracticeModal && selectedPlanId ? { weeklyGoalId: selectedPlanId } : "skip"
   );
 
   // Mutations
@@ -288,6 +298,30 @@ export default function GoalsPage() {
     }
   };
 
+  const handlePracticeGoalThemes = () => {
+    if (!selectedPlan?.goal || selectedPlan.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) return;
+    setShowPracticeModal(true);
+  };
+
+  const handleContinuePractice = (
+    themeIds: Id<"themes">[],
+    mode: SoloMode,
+    durationSeconds?: number
+  ) => {
+    if (!selectedPlan?.goal || themeIds.length === 0) return;
+
+    router.push(
+      buildSoloUrl(crypto.randomUUID(), mode, {
+        weeklyGoalId: selectedPlan.goal._id,
+        themeIds,
+        durationSeconds,
+        returnTo: "/goals",
+        returnLabel: "Back to weekly goal",
+      })
+    );
+    setShowPracticeModal(false);
+  };
+
   const handleDelete = async () => {
     if (!selectedPlan?.goal) return;
     try {
@@ -368,6 +402,7 @@ export default function GoalsPage() {
   });
   const hasEnoughThemesToLock =
     hasPlanSelected && selectedPlan.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
+  const canPracticeGoalThemes = Boolean(hasEnoughThemesToLock);
   const hasEndDate = hasPlanSelected && typeof selectedPlan.goal.endDate === "number";
   const canEditEndDate = Boolean(selectedPlan?.canEditEndDate);
   const allSelectedThemesCompleted = Boolean(
@@ -826,6 +861,31 @@ export default function GoalsPage() {
               )}
             </section>
 
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handlePracticeGoalThemes}
+                disabled={!canPracticeGoalThemes}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-bold uppercase tracking-wide transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.primary.dark,
+                  color: colors.text.DEFAULT,
+                }}
+                data-testid="goals-practice-themes"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.light} strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Practice goal themes
+              </button>
+              {!canPracticeGoalThemes && (
+                <p className="text-center text-xs" style={{ color: colors.text.muted }}>
+                  Add at least {MIN_THEMES_TO_LOCK_GOAL} themes to practice this goal.
+                </p>
+              )}
+            </div>
+
             {/* Theme List */}
             <GoalThemeList
               themes={selectedPlan.goal.themes}
@@ -926,6 +986,62 @@ export default function GoalsPage() {
             onSelect={handleAddThemes}
             onClose={() => setShowThemeSelector(false)}
           />
+        )}
+
+        {showPracticeModal && selectedPlan?.goal && (
+          weeklyGoalPracticeThemes && weeklyGoalPracticeThemes.ok ? (
+            <SoloModal
+              key={`${selectedPlan.goal._id}:${weeklyGoalPracticeThemes.source}`}
+              themes={weeklyGoalPracticeThemes.themes}
+              onContinue={handleContinuePractice}
+              onClose={() => setShowPracticeModal(false)}
+              onNavigateToThemes={() => {}}
+              initialDraftThemeIds={weeklyGoalPracticeThemes.themes.map((theme) => theme._id)}
+              forceThemeSelectorFirst
+              hideCreateThemeButton
+              themeSelectorNotice={
+                weeklyGoalPracticeThemes.source === "snapshot"
+                  ? "Practicing from the snapshot taken when this goal was locked. Editing the original themes won't affect this practice."
+                  : undefined
+              }
+            />
+          ) : (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div
+                className="w-full max-w-md rounded-2xl border-2 p-5 text-center"
+                style={{
+                  backgroundColor: colors.background.elevated,
+                  borderColor: weeklyGoalPracticeThemes?.ok === false
+                    ? colors.status.danger.DEFAULT
+                    : colors.primary.dark,
+                }}
+              >
+                <p className="text-sm" style={{ color: colors.text.DEFAULT }}>
+                  {weeklyGoalPracticeThemes?.ok === false
+                    ? weeklyGoalPracticeThemes.message
+                    : "Loading goal themes..."}
+                </p>
+                {weeklyGoalPracticeThemes?.ok === false && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPracticeModal(false)}
+                    className="mt-4 rounded-xl border-2 px-4 py-2 text-sm font-bold uppercase tracking-wide"
+                    style={{
+                      backgroundColor: colors.background.DEFAULT,
+                      borderColor: colors.primary.dark,
+                      color: colors.text.DEFAULT,
+                    }}
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
+          )
         )}
 
         {/* Back Button */}

@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
+import { buildSoloUrl } from "@/lib/soloNavigation";
 import { toast } from "sonner";
 
 // ============================================================================
@@ -281,16 +282,7 @@ export function useDuelLobby() {
     (themeIds: Id<"themes">[], mode: "challenge_only" | "learn_test", durationSeconds?: number) => {
       if (themeIds.length === 0) return;
       const sessionId = crypto.randomUUID();
-      const base = mode === "challenge_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
-      const params = new URLSearchParams();
-      if (themeIds.length === 1) {
-        params.set("themeId", themeIds[0]);
-      }
-      params.set("themeIds", themeIds.join(","));
-      if (mode === "learn_test" && durationSeconds) {
-        params.set("duration", String(durationSeconds));
-      }
-      router.push(`${base}?${params.toString()}`);
+      router.push(buildSoloUrl(sessionId, mode, { themeIds, durationSeconds }));
       modals.closeModal();
     },
     [router, modals]

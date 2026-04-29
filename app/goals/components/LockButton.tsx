@@ -54,7 +54,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
           className="text-center text-sm"
           style={{ color: colors.text.DEFAULT }}
         >
-          After locking, themes cannot be changed and the goal will run until your chosen end date. Are you sure?
+          Locking takes a snapshot of these themes until the end date. After this, you can&apos;t change the themes in this goal, and editing the originals won&apos;t affect it. Continue?
         </p>
         <div className="flex gap-3">
           <button

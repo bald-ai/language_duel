@@ -11,6 +11,7 @@ interface CompletionScreenProps {
   totalWords: number;
   totalDuration: number;
   onExit: () => void;
+  exitLabel?: string;
 }
 
 const actionButtonClassName =
@@ -35,6 +36,7 @@ export function CompletionScreen({
   totalWords,
   totalDuration,
   onExit,
+  exitLabel = "Back to Home",
 }: CompletionScreenProps) {
   const accuracy = calculateAccuracy(correctAnswers, questionsAnswered);
 
@@ -114,7 +116,7 @@ export function CompletionScreen({
         style={primaryActionStyle}
         data-testid="solo-challenge-complete-back"
       >
-        Back to Home
+        {exitLabel}
       </button>
     </div>
   );
