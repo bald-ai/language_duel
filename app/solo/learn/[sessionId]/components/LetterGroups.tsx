@@ -50,7 +50,7 @@ export const LetterGroups = memo(function LetterGroups({
   }, [onRevealLetter]);
 
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-2 cursor-default">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-2 cursor-default">
       {wordGroups.map((group, groupIdx) => (
         <div key={groupIdx} className="inline-flex gap-1 flex-nowrap">
           {group.map(({ idx, letter }) => {
