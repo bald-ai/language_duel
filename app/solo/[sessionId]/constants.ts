@@ -25,7 +25,7 @@ export const LEVEL1_REVERSE_CHANCE = 0.5;
 export const SOLO_CORRECT_ADVANCE_DELAY_MS = 750;
 
 /** Delay after wrong answers before moving to the next question */
-export const SOLO_INCORRECT_ADVANCE_DELAY_MS = 1250;
+export const SOLO_INCORRECT_ADVANCE_DELAY_MS = 2250;
 
 /** Accuracy threshold colors */
 export const ACCURACY_THRESHOLDS = {
