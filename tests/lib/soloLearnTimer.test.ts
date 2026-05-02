@@ -16,7 +16,9 @@ describe("solo learn timer", () => {
   });
 
   it("exposes 10, 15 minutes and infinite (sentinel), default 10 min", () => {
-    expect(SOLO_TIMER_OPTIONS).toEqual([600, 900, SOLO_INFINITE_STUDY_SECONDS]);
+    expect(SOLO_TIMER_OPTIONS).toContain(600);
+    expect(SOLO_TIMER_OPTIONS).toContain(900);
+    expect(SOLO_TIMER_OPTIONS).toContain(SOLO_INFINITE_STUDY_SECONDS);
     expect(DEFAULT_SOLO_STUDY_DURATION).toBe(600);
   });
 

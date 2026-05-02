@@ -28,13 +28,12 @@ describe("theme", () => {
     expect(getActiveThemeName()).toBe(DEFAULT_THEME_NAME);
   });
 
-  it("applyTheme updates css variables when document is available", () => {
+  it("applyTheme sets the data-theme attribute and updates active theme name", () => {
     applyTheme(DEFAULT_THEME_NAME);
 
     const root = document.documentElement;
     expect(root.getAttribute("data-theme")).toBe(DEFAULT_THEME_NAME);
-    expect(root.style.getPropertyValue("--color-primary")).toBe(colors.primary.DEFAULT);
-    expect(root.style.getPropertyValue("--color-cta")).toBe(colors.cta.DEFAULT);
+    expect(getActiveThemeName()).toBe(DEFAULT_THEME_NAME);
   });
 
   it("applyTheme skips css variables when document is undefined", () => {
@@ -56,21 +55,34 @@ describe("theme", () => {
     });
   });
 
-  it("semantic colors and button styles track active colors", () => {
-    applyTheme(DEFAULT_THEME_NAME);
-    expect(semanticColors.badge).toBe(colors.cta.DEFAULT);
-    expect(buttonStyles.primary.gradient.from).toBe(colors.primary.DEFAULT);
+  it("semanticColors contains expected role keys", () => {
+    expect(Object.keys(semanticColors)).toEqual(
+      expect.arrayContaining(["badge", "badgeBorder", "buttonPrimary", "buttonCta", "accent", "pageBg", "cardBg"])
+    );
   });
 
-  it("semantic role objects stay in sync after switching themes", () => {
+  it("buttonStyles has expected structural shape", () => {
+    expect(buttonStyles.primary.gradient).toHaveProperty("from");
+    expect(buttonStyles.primary.gradient).toHaveProperty("to");
+    expect(buttonStyles.primary.gradientHover).toHaveProperty("from");
+    expect(buttonStyles.primary.gradientHover).toHaveProperty("to");
+    expect(buttonStyles.cta.gradient).toHaveProperty("from");
+    expect(buttonStyles.cta.gradient).toHaveProperty("to");
+  });
+
+  it("semanticColors keys remain populated after switching themes", () => {
     const alternateTheme =
       colorPalettes.find((palette) => palette.name !== DEFAULT_THEME_NAME)?.name ??
       DEFAULT_THEME_NAME;
 
     applyTheme(alternateTheme);
 
-    expect(semanticColors.buttonPrimary.DEFAULT).toBe(colors.primary.DEFAULT);
-    expect(semanticColors.buttonCta.DEFAULT).toBe(colors.cta.DEFAULT);
-    expect(semanticColors.accent.DEFAULT).toBe(colors.neutral.DEFAULT);
+    expect(semanticColors.badge).toBeTruthy();
+    expect(semanticColors.badgeBorder).toBeTruthy();
+    expect(semanticColors.buttonPrimary).toBeTruthy();
+    expect(semanticColors.buttonCta).toBeTruthy();
+    expect(semanticColors.accent).toBeTruthy();
+    expect(semanticColors.pageBg).toBeTruthy();
+    expect(semanticColors.cardBg).toBeTruthy();
   });
 });

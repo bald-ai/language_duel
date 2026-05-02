@@ -24,9 +24,13 @@ describe("soloNavigation", () => {
       confidence: "{\"0\":2}",
     });
 
-    expect(url).toBe(
-      "/solo/session_1?weeklyGoalId=goal_1&themeIds=theme_2%2Ctheme_1&confidence=%7B%220%22%3A2%7D&returnTo=%2Fgoals&returnLabel=Back+to+weekly+goal"
-    );
+    const urlObj = new URL(url, "http://test.com");
+    expect(urlObj.pathname).toBe("/solo/session_1");
+    expect(urlObj.searchParams.get("weeklyGoalId")).toBe("goal_1");
+    expect(urlObj.searchParams.get("themeIds")).toBe("theme_2,theme_1");
+    expect(urlObj.searchParams.get("confidence")).toBe('{"0":2}');
+    expect(urlObj.searchParams.get("returnTo")).toBe("/goals");
+    expect(urlObj.searchParams.get("returnLabel")).toBe("Back to weekly goal");
   });
 
   it("sanitizes unsafe return targets", () => {

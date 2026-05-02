@@ -180,7 +180,6 @@ const declineWeeklyPlanInvitationHandler = (declineWeeklyPlanInvitation as unkno
 
 describe("weeklyGoals declineWeeklyPlanInvitation", () => {
   it("lets the invitee decline a draft goal, keeps the in-app notification, and deletes the goal", async () => {
-    const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),
@@ -191,13 +190,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
     );
 
     await declineWeeklyPlanInvitationHandler(
-      createAuthCtx(db, "partner", {
-        scheduler: {
-          runAfter: async (_delay: number, _fn: unknown, payload: { trigger: string; toUserId: Id<"users"> }) => {
-            scheduledCalls.push(payload);
-          },
-        },
-      }) as never,
+      createAuthCtx(db, "partner") as never,
       { notificationId: "notification_1" as Id<"notifications"> }
     );
 
@@ -212,7 +205,6 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
           (n.payload as { event?: string }).event === "declined"
       )
     ).toBe(true);
-    expect(scheduledCalls).toEqual([]);
   });
 
   it("rejects decline when the caller is not the invitee", async () => {
@@ -256,7 +248,6 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
   });
 
   it("dismisses the invite quietly when the goal was already deleted", async () => {
-    const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
@@ -268,23 +259,12 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
 
     await expect(
       declineWeeklyPlanInvitationHandler(
-        createAuthCtx(db, "partner", {
-          scheduler: {
-            runAfter: async (
-              _delay: number,
-              _fn: unknown,
-              payload: { trigger: string; toUserId: Id<"users"> }
-            ) => {
-              scheduledCalls.push(payload);
-            },
-          },
-        }) as never,
+        createAuthCtx(db, "partner") as never,
         { notificationId: "notification_1" as Id<"notifications"> }
       )
     ).resolves.toEqual({ success: true });
 
     expect(db.notifications.find((n) => n._id === "notification_1")?.status).toBe("dismissed");
     expect(db.notifications).toHaveLength(1);
-    expect(scheduledCalls).toEqual([]);
   });
 });

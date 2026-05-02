@@ -11,9 +11,13 @@ import {
   getGoalDraftExpiresAt,
   isGoalInGracePeriod,
   isGoalPlayable,
-  MIN_THEMES_PER_GOAL,
   type WeeklyGoalStateLike,
 } from "@/lib/weeklyGoals";
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+const GRACE_PERIOD_MS = 48 * HOUR;
+const WEEK_MS = 7 * DAY;
 
 function buildGoal(
   overrides: Partial<WeeklyGoalStateLike> = {}
@@ -33,8 +37,11 @@ function buildGoal(
 }
 
 describe("weeklyGoals helpers", () => {
-  it("keeps the minimum lock requirement at two themes", () => {
-    expect(MIN_THEMES_PER_GOAL).toBe(2);
+  it("keeps the mini boss unavailable when theme count is below the minimum", () => {
+    const goal = buildGoal({
+      themes: [{ creatorCompleted: true, partnerCompleted: true }],
+    });
+    expect(getEffectiveMiniBossStatus(goal, 2_000)).toBe("unavailable");
   });
 
   it("counts only jointly completed themes", () => {
@@ -48,11 +55,13 @@ describe("weeklyGoals helpers", () => {
   });
 
   it("derives the delete deadline from the end date plus the grace window", () => {
-    expect(getGoalDeleteAt(1_000)).toBe(172_801_000);
+    const endDate = 1_000;
+    expect(getGoalDeleteAt(endDate)).toBe(endDate + GRACE_PERIOD_MS);
   });
 
   it("derives the draft expiry from createdAt plus the draft TTL", () => {
-    expect(getGoalDraftExpiresAt(1_000)).toBe(604_801_000);
+    const createdAt = 1_000;
+    expect(getGoalDraftExpiresAt(createdAt)).toBe(createdAt + WEEK_MS);
   });
 
   it("formats the grace countdown as total-hours hh:mm:ss", () => {

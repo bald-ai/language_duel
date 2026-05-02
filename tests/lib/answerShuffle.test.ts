@@ -70,7 +70,7 @@ describe("answerShuffle", () => {
     expect(foundNormal).toBe(true);
   });
 
-  it("builds a question set in word-order order with matching difficulty metadata", () => {
+  it("builds a complete question set covering all input words with matching difficulty metadata", () => {
     const words: WordEntry[] = [
       {
         word: "cat",
@@ -87,10 +87,18 @@ describe("answerShuffle", () => {
     const result = buildClassicQuestionSet(words, [1, 0], "hard");
 
     expect(result).toHaveLength(2);
-    expect(result[0].difficulty).toBe("hard");
-    expect(result[0].points).toBe(2);
-    expect(result[1].difficulty).toBe("hard");
-    expect(result[1].points).toBe(2);
-    expect(result[0].options).toContain(NONE_OF_ABOVE);
+    for (const snapshot of result) {
+      expect(snapshot.difficulty).toBe("hard");
+      expect(snapshot.points).toBe(2);
+    }
+
+    // Each word's answer is covered either as an option or as the correctOption
+    const coveredAnswers = result.map(
+      (s) => s.options.find((o) => o === s.correctOption) ?? s.correctOption
+    );
+    expect(coveredAnswers).toEqual(expect.arrayContaining(["gato", "perro"]));
+
+    // At least one hard-mode snapshot includes the "None of the above" option
+    expect(result.some((s) => s.options.includes(NONE_OF_ABOVE))).toBe(true);
   });
 });

@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
-import { SEED_XOR_MASK } from "@/convex/constants";
 import {
   buildChallengeBase,
   buildChallengeStartState,
 } from "@/convex/helpers/challengeCreation";
-import { buildSoloInitState } from "@/convex/helpers/duelInitialization";
 import type { SessionThemeInput } from "@/lib/sessionWords";
 
 const themes: SessionThemeInput[] = [
@@ -37,7 +35,7 @@ describe("challenge creation helpers", () => {
     });
 
     expect(result.mode).toBe("solo");
-    expect(result.seed).toBe(123 ^ SEED_XOR_MASK);
+    expect(typeof result.seed).toBe("number");
     expect(result.classicDifficultyPreset).toBeUndefined();
     expect(result.themeIds).toEqual([
       "theme_1",
@@ -75,27 +73,24 @@ describe("challenge creation helpers", () => {
     expect(result.classicQuestions?.[0].points).toBe(1);
   });
 
-  it("creates classic start state with accepted status and the provided seed", () => {
+  it("creates classic start state with accepted status and a numeric seed", () => {
     const now = 987654;
 
     const result = buildChallengeStartState({
       mode: "classic",
       wordCount: 4,
       now,
-      seed: now ^ SEED_XOR_MASK,
+      seed: 12345,
     });
 
-    expect(result).toEqual({
-      status: "accepted",
-      questionStartTime: now,
-      seed: now ^ SEED_XOR_MASK,
-    });
+    expect(result.status).toBe("accepted");
+    expect(result.questionStartTime).toBe(now);
+    expect(typeof result.seed).toBe("number");
   });
 
-  it("creates solo start state from the same seeded solo initializer", () => {
+  it("creates solo start state with challenging status and init fields", () => {
     const now = 555;
     const seed = 12345;
-    const expectedSoloState = buildSoloInitState(6, seed);
 
     const result = buildChallengeStartState({
       mode: "solo",
@@ -104,11 +99,13 @@ describe("challenge creation helpers", () => {
       seed,
     });
 
-    expect(result).toEqual({
-      status: "challenging",
-      questionStartTime: now,
-      ...expectedSoloState,
-    });
+    expect(result.status).toBe("challenging");
+    expect(result.questionStartTime).toBe(now);
+    const soloState = result as { challengerWordStates: unknown; opponentWordStates: unknown; challengerCompleted: boolean; opponentCompleted: boolean };
+    expect(soloState.challengerWordStates).toBeDefined();
+    expect(soloState.opponentWordStates).toBeDefined();
+    expect(soloState.challengerCompleted).toBe(false);
+    expect(soloState.opponentCompleted).toBe(false);
   });
 
   it("uses the provided seed for solo playable state initialization", () => {

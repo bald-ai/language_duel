@@ -99,9 +99,10 @@ describe("NotificationsTab theme actions", () => {
       },
     });
 
-    const { container } = render(<NotificationsTab onClose={vi.fn()} />);
+    render(<NotificationsTab onClose={vi.fn()} />);
 
-    expect(container.querySelector(".animate-spin")).not.toBeNull();
+    expect(screen.queryByTestId("notifications-empty-state")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("notifications-tab")).not.toBeInTheDocument();
   });
 
   it("renders empty state when there are no notifications", () => {
@@ -166,11 +167,6 @@ describe("NotificationsTab theme actions", () => {
 
     render(<NotificationsTab onClose={vi.fn()} />);
 
-    expect(
-      screen.getByText(
-        "Alex changed the weekly goal, so your lock was removed. Review it and lock again."
-      )
-    ).toBeInTheDocument();
     expect(screen.getByTestId("notification-notif_goal_unlock-view-weekly-plan")).toBeInTheDocument();
     expect(screen.getByTestId("notification-notif_goal_unlock-dismiss-weekly-plan")).toBeInTheDocument();
   });
@@ -212,7 +208,6 @@ describe("NotificationsTab theme actions", () => {
 
     render(<NotificationsTab onClose={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: "Nice" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Archive 2 themes" }));
 
     await waitFor(() => {

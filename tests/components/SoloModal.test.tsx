@@ -43,8 +43,8 @@ function renderSoloModal(
   );
 }
 
-describe("SoloModal weekly-goal mode", () => {
-  it("opens selector-first with provided goal themes prechecked", () => {
+describe("SoloModal Solo Challenge mode", () => {
+  it("opens selector-first with provided Solo Challenge themes prechecked", () => {
     renderSoloModal({
       forceThemeSelectorFirst: true,
       initialDraftThemeIds: ["theme_1" as Id<"themes">, "theme_2" as Id<"themes">],
@@ -55,7 +55,7 @@ describe("SoloModal weekly-goal mode", () => {
     expect(screen.getByTestId("theme-selector-confirm")).toBeEnabled();
   });
 
-  it("continues with a single selected weekly-goal theme", () => {
+  it("deselects a theme and continues with the remaining selection", () => {
     const onContinue = vi.fn();
     renderSoloModal({
       onContinue,

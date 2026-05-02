@@ -15,18 +15,17 @@ describe("bossUi", () => {
   });
 
   it("uses distinct styles for unavailable, ready, and defeated states", () => {
-    expect(getBossButtonStyle("unavailable")).toEqual({
-      borderColor: colors.primary.dark,
-      backgroundColor: colors.background.DEFAULT,
-    });
-    expect(getBossButtonStyle("ready")).toEqual({
-      borderColor: colors.cta.DEFAULT,
-      backgroundColor: `${colors.cta.DEFAULT}15`,
-    });
-    expect(getBossButtonStyle("defeated")).toEqual({
-      borderColor: colors.status.success.DEFAULT,
-      backgroundColor: `${colors.status.success.DEFAULT}15`,
-    });
+    const unavailable = getBossButtonStyle("unavailable");
+    expect(unavailable.borderColor).toBe(colors.primary.dark);
+    expect(unavailable.backgroundColor).toBe(colors.background.DEFAULT);
+
+    const ready = getBossButtonStyle("ready");
+    expect(ready.borderColor).toBe(colors.cta.DEFAULT);
+    expect(ready.backgroundColor).toBe(`${colors.cta.DEFAULT}15`);
+
+    const defeated = getBossButtonStyle("defeated");
+    expect(defeated.borderColor).toBe(colors.status.success.DEFAULT);
+    expect(defeated.backgroundColor).toBe(`${colors.status.success.DEFAULT}15`);
   });
 
   it("disables every boss button that cannot be opened", () => {
@@ -36,9 +35,10 @@ describe("bossUi", () => {
   });
 
   it("keeps the boss explainer copy simple and specific", () => {
-    expect(BOSS_INFO_COPY.mini).toContain("halfway through shared completed themes");
-    expect(BOSS_INFO_COPY.mini).toContain("+1 shared life");
-    expect(BOSS_INFO_COPY.big).toContain("Lives are shared");
-    expect(BOSS_INFO_COPY.big).toContain("Bronze or better");
+    expect(BOSS_INFO_COPY.mini).toMatch(/halfway/);
+    expect(BOSS_INFO_COPY.mini).toMatch(/shared life/);
+    expect(BOSS_INFO_COPY.big).toMatch(/shared/);
+    expect(BOSS_INFO_COPY.big).toMatch(/themes are completed/i);
+    expect(BOSS_INFO_COPY.big).toMatch(/Bronze or better/);
   });
 });

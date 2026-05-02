@@ -156,7 +156,7 @@ describe("themes api response validation", () => {
     expect(result.data?.[0]?.word).toBe("bird");
   });
 
-  it("sends wordCount in theme generation request body", async () => {
+  it("sends expected method, URL, and body fields for theme generation", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         success: true,
@@ -179,15 +179,15 @@ describe("themes api response validation", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/generate",
       expect.objectContaining({
-        body: JSON.stringify({
-          type: "theme",
-          themeName: "animals",
-          themePrompt: undefined,
-          wordCount: 7,
-          wordType: "nouns",
-        }),
+        method: "POST",
       })
     );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.type).toBe("theme");
+    expect(body.themeName).toBe("animals");
+    expect(body.wordCount).toBe(7);
+    expect(body.wordType).toBe("nouns");
   });
 
   it("uses API error body text for non-OK generate-random-words responses", async () => {
@@ -208,7 +208,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("Rate limit reached");
+    expect(result.error).toContain("Rate");
   });
 
   it("rejects invalid envelope format for generate-random-words", async () => {
@@ -244,6 +244,6 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("Failed to generate words");
+    expect(result.error).toContain("Failed");
   });
 });

@@ -101,7 +101,7 @@ describe("/api/generate theme generation", () => {
     mutationMock.mockResolvedValue(undefined);
   });
 
-  it("retries schema-valid theme output and fails when the retry is still invalid", async () => {
+  it("retries schema-invalid theme output and fails when the retry is still invalid", async () => {
     const invalidThemePayload = {
       output_text: JSON.stringify({
         words: invalidThemeWords(5),
@@ -130,9 +130,8 @@ describe("/api/generate theme generation", () => {
     expect(response.status).toBe(502);
     expect(payload.success).toBe(false);
     expect(payload.error).toContain("Failed to generate a valid theme");
-    expect(payload.validationIssues).toEqual(
-      expect.arrayContaining([expect.stringContaining("Word 1")])
-    );
+    expect(Array.isArray(payload.validationIssues)).toBe(true);
+    expect(payload.validationIssues!.length).toBeGreaterThan(0);
     expect(responsesCreateMock).toHaveBeenCalledTimes(2);
     expect(mutationMock).not.toHaveBeenCalled();
   });

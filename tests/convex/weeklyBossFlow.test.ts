@@ -619,7 +619,7 @@ describe("weekly boss flow", () => {
     expect(db.notifications).toHaveLength(0);
   });
 
-  it("rejects mini boss duel after the old midpoint when themes are still incomplete", async () => {
+  it("rejects mini boss duel when mini boss is not ready yet", async () => {
     vi.spyOn(Date, "now").mockReturnValue(12_000);
 
     const db = new InMemoryDb();
@@ -815,11 +815,15 @@ describe("weekly boss flow", () => {
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
     );
 
-    const manyWords = Array.from({ length: 25 }, (_, i) => ({
+    const WORDS_PER_THEME = 25;
+    const manyWords = Array.from({ length: WORDS_PER_THEME }, (_, i) => ({
       word: `word_${i}`,
       answer: `answer_${i}`,
       wrongAnswers: ["a", "b", "c"],
     }));
+    const EXPECTED_TOTAL_WORDS = WORDS_PER_THEME * 2;
+    const BIG_BOSS_LIVES_MINIS_DEFEATED = 4;
+
     db.themes.push(themeDoc({ words: manyWords }));
     db.themes.push(
       themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: manyWords })
@@ -839,13 +843,15 @@ describe("weekly boss flow", () => {
     });
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.length).toBe(50);
-    expect(challenge?.bossLivesTotal).toBe(4);
-    expect(challenge?.bossLivesRemaining).toBe(4);
+    expect(challenge?.sessionWords.length).toBe(EXPECTED_TOTAL_WORDS);
+    expect(challenge?.bossLivesTotal).toBe(BIG_BOSS_LIVES_MINIS_DEFEATED);
+    expect(challenge?.bossLivesRemaining).toBe(BIG_BOSS_LIVES_MINIS_DEFEATED);
   });
 
   it("starts big boss with three lives when mini boss was not defeated", async () => {
     vi.spyOn(Date, "now").mockReturnValue(12_000);
+
+    const BIG_BOSS_LIVES_NO_MINI = 3;
 
     const db = new InMemoryDb();
     db.users.push(
@@ -871,11 +877,11 @@ describe("weekly boss flow", () => {
     });
 
     const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.bossLivesTotal).toBe(3);
-    expect(challenge?.bossLivesRemaining).toBe(3);
+    expect(challenge?.bossLivesTotal).toBe(BIG_BOSS_LIVES_NO_MINI);
+    expect(challenge?.bossLivesRemaining).toBe(BIG_BOSS_LIVES_NO_MINI);
   });
 
-  it("defeats mini boss when the couple finishes with lives left even after a miss", async () => {
+  it("defeats mini boss when the partners finish with lives left even after a miss", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc(),

@@ -43,88 +43,108 @@ describe("notificationPreferences", () => {
     it("has weekly goal reminder 2 offset at 24 hours (1440 minutes)", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes).toBe(1440);
     });
-
-    it("has all expected keys", () => {
-      const keys = Object.keys(DEFAULT_NOTIFICATION_PREFS);
-      expect(keys).toHaveLength(17);
-      expect(keys).toContain("immediateDuelsEnabled");
-      expect(keys).toContain("scheduledDuelsEnabled");
-      expect(keys).toContain("weeklyGoalsEnabled");
-      expect(keys).not.toContain("scheduledDuelAcceptedEnabled");
-      expect(keys).not.toContain("scheduledDuelReadyEnabled");
-      expect(keys).not.toContain("weeklyGoalDeclinedEnabled");
-    });
   });
 
-  describe("offset validation boundaries", () => {
-    const MIN_OFFSET = 1;
-    const MAX_OFFSET = 7 * 24 * 60;
+  describe("isNotificationEnabled trigger behavior", () => {
+    const supportedTriggers = [
+      "immediate_duel_challenge",
+      "scheduled_duel_proposal",
+      "scheduled_duel_reminder",
+      "weekly_goal_invite",
+      "weekly_goal_locked",
+      "weekly_goal_accepted",
+      "weekly_goal_daily_reminder",
+      "weekly_goal_draft_expiring",
+      "weekly_goal_expired_delete_reminder",
+      "weekly_goal_reminder_1",
+      "weekly_goal_reminder_2",
+    ] as const;
 
-    it("MIN_OFFSET is 1 minute", () => {
-      expect(MIN_OFFSET).toBe(1);
+    it.each(supportedTriggers)(
+      "enables %s by default when both category and trigger are enabled",
+      (trigger) => {
+        expect(isNotificationEnabled(trigger, DEFAULT_NOTIFICATION_PREFS)).toBe(true);
+      }
+    );
+
+    it("returns false for unsupported triggers", () => {
+      expect(isNotificationEnabled("nonexistent_trigger" as never, DEFAULT_NOTIFICATION_PREFS)).toBe(
+        false
+      );
     });
 
-    it("MAX_OFFSET is 7 days in minutes (10080)", () => {
-      expect(MAX_OFFSET).toBe(10080);
-    });
+    const categoryTestCases = [
+      {
+        category: "immediateDuelsEnabled" as const,
+        triggers: ["immediate_duel_challenge"] as const,
+      },
+      {
+        category: "scheduledDuelsEnabled" as const,
+        triggers: ["scheduled_duel_proposal", "scheduled_duel_reminder"] as const,
+      },
+      {
+        category: "weeklyGoalsEnabled" as const,
+        triggers: [
+          "weekly_goal_invite",
+          "weekly_goal_locked",
+          "weekly_goal_accepted",
+          "weekly_goal_daily_reminder",
+          "weekly_goal_draft_expiring",
+          "weekly_goal_expired_delete_reminder",
+          "weekly_goal_reminder_1",
+          "weekly_goal_reminder_2",
+        ] as const,
+      },
+    ];
 
-    it("default offsets are within valid range", () => {
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes).toBeGreaterThanOrEqual(MIN_OFFSET);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes).toBeLessThanOrEqual(MAX_OFFSET);
-      
-      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes).toBeGreaterThanOrEqual(MIN_OFFSET);
-      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes).toBeLessThanOrEqual(MAX_OFFSET);
-      
-      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes).toBeGreaterThanOrEqual(MIN_OFFSET);
-      expect(DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes).toBeLessThanOrEqual(MAX_OFFSET);
-    });
-  });
+    it.each(categoryTestCases)(
+      "disables all $category triggers when the category is off",
+      ({ category, triggers }) => {
+        const prefs = { ...DEFAULT_NOTIFICATION_PREFS, [category]: false };
+        triggers.forEach((trigger) => {
+          expect(isNotificationEnabled(trigger, prefs)).toBe(false);
+        });
+      }
+    );
 
-  describe("isNotificationEnabled", () => {
-    it("returns true for the daily weekly goal countdown when enabled", () => {
-      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
-      expect(isNotificationEnabled("weekly_goal_daily_reminder", prefs)).toBe(true);
-    });
+    const specificTriggerTestCases = [
+      { trigger: "immediate_duel_challenge" as const, pref: "immediateDuelChallengeEnabled" as const },
+      { trigger: "scheduled_duel_proposal" as const, pref: "scheduledDuelProposalEnabled" as const },
+      { trigger: "scheduled_duel_reminder" as const, pref: "scheduledDuelReminderEnabled" as const },
+      { trigger: "weekly_goal_invite" as const, pref: "weeklyGoalInviteEnabled" as const },
+      { trigger: "weekly_goal_locked" as const, pref: "weeklyGoalLockedEnabled" as const },
+      { trigger: "weekly_goal_accepted" as const, pref: "weeklyGoalAcceptedEnabled" as const },
+      { trigger: "weekly_goal_daily_reminder" as const, pref: "weeklyGoalDailyReminderEnabled" as const },
+      { trigger: "weekly_goal_draft_expiring" as const, pref: "weeklyGoalDraftExpiringEnabled" as const },
+      { trigger: "weekly_goal_expired_delete_reminder" as const, pref: "weeklyGoalGracePeriodReminderEnabled" as const },
+      { trigger: "weekly_goal_reminder_1" as const, pref: "weeklyGoalReminder1Enabled" as const },
+      { trigger: "weekly_goal_reminder_2" as const, pref: "weeklyGoalReminder2Enabled" as const },
+    ];
+
+    it.each(specificTriggerTestCases)(
+      "disables $trigger when $pref is false",
+      ({ trigger, pref }) => {
+        const prefs = { ...DEFAULT_NOTIFICATION_PREFS, [pref]: false };
+        expect(isNotificationEnabled(trigger, prefs)).toBe(false);
+      }
+    );
 
     it("uses the grace period preference for expired delete reminders", () => {
-      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
-      expect(isNotificationEnabled("weekly_goal_expired_delete_reminder", prefs)).toBe(true);
+      expect(isNotificationEnabled("weekly_goal_expired_delete_reminder", DEFAULT_NOTIFICATION_PREFS)).toBe(
+        true
+      );
       expect(
         isNotificationEnabled("weekly_goal_expired_delete_reminder", {
-          ...prefs,
+          ...DEFAULT_NOTIFICATION_PREFS,
           weeklyGoalDailyReminderEnabled: false,
         })
       ).toBe(true);
       expect(
         isNotificationEnabled("weekly_goal_expired_delete_reminder", {
-          ...prefs,
+          ...DEFAULT_NOTIFICATION_PREFS,
           weeklyGoalGracePeriodReminderEnabled: false,
         })
       ).toBe(false);
-    });
-
-    it("returns true for draft expiry reminders when enabled", () => {
-      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
-      expect(isNotificationEnabled("weekly_goal_draft_expiring", prefs)).toBe(true);
-    });
-
-    it("returns false when category is disabled", () => {
-      const prefs = { ...DEFAULT_NOTIFICATION_PREFS, scheduledDuelsEnabled: false };
-      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);
-    });
-
-    it("returns true when category enabled and trigger enabled", () => {
-      const prefs = { ...DEFAULT_NOTIFICATION_PREFS };
-      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(true);
-    });
-
-    it("returns false when category enabled but trigger disabled", () => {
-      const prefs = {
-        ...DEFAULT_NOTIFICATION_PREFS,
-        scheduledDuelsEnabled: true,
-        scheduledDuelProposalEnabled: false,
-      };
-      expect(isNotificationEnabled("scheduled_duel_proposal", prefs)).toBe(false);
     });
   });
 

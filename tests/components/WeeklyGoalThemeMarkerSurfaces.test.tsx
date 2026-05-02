@@ -65,9 +65,9 @@ describe("weekly goal theme markers", () => {
       />
     );
 
-    expect(screen.getByTestId("weekly-goal-theme-marker")).toHaveAccessibleName(
-      "In your weekly goal"
-    );
+    const markers = screen.getAllByTestId("weekly-goal-theme-marker");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveAccessibleName("In your weekly goal");
   });
 
   it("marks weekly-goal themes in the duel theme selector", () => {
@@ -89,7 +89,9 @@ describe("weekly goal theme markers", () => {
       />
     );
 
-    expect(screen.getByTestId("weekly-goal-theme-marker")).toBeInTheDocument();
+    const markers = screen.getAllByTestId("weekly-goal-theme-marker");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveAccessibleName("In your weekly goal");
   });
 
   it("marks weekly-goal themes in the themes list", () => {
@@ -109,6 +111,8 @@ describe("weekly goal theme markers", () => {
       />
     );
 
-    expect(screen.getByTestId("weekly-goal-theme-marker")).toBeInTheDocument();
+    const markers = screen.getAllByTestId("weekly-goal-theme-marker");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveAccessibleName("In your weekly goal");
   });
 });

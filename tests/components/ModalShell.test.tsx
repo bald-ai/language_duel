@@ -18,15 +18,11 @@ describe("ModalShell", () => {
     expect(screen.getByText("Info Title")).toBeInTheDocument();
     expect(screen.getByText("Body Content")).toBeInTheDocument();
 
-    const tooltipTriggerContainer = screen.getByLabelText("Information").parentElement;
-    if (!tooltipTriggerContainer) {
-      throw new Error("Tooltip trigger container missing");
-    }
-
-    fireEvent.mouseEnter(tooltipTriggerContainer);
+    const infoButton = screen.getByLabelText("Information");
+    fireEvent.mouseOver(infoButton);
     expect(screen.getByText("Helpful details")).toBeInTheDocument();
 
-    fireEvent.mouseLeave(tooltipTriggerContainer);
+    fireEvent.mouseOut(infoButton);
     await waitFor(() => {
       expect(screen.queryByText("Helpful details")).toBeNull();
     });

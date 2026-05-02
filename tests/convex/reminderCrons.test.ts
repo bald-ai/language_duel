@@ -116,7 +116,7 @@ describe("reminder crons", () => {
     expect(sends).toEqual(["user_1", "user_2"]);
   });
 
-  it("daily weekly goal emails run on the configured Prague hour even when minute differs", async () => {
+  it("sends daily weekly goal reminder emails to both participants", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(Date.UTC(2026, 3, 29, 10, 5, 0));
     const goal = buildGoal();

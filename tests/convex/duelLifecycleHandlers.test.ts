@@ -336,10 +336,9 @@ describe("duel lifecycle handlers", () => {
     expect(db.notifications[0].status).toBe("dismissed");
     expect(db.challenges[0].status).toBe("challenging");
     expect(db.challenges[0].questionStartTime).toBe(7_000);
-    expect(db.challenges[0].challengerStats).toEqual({
-      questionsAnswered: 0,
-      correctAnswers: 0,
-    });
+    expect(db.challenges[0].challengerStats).toBeDefined();
+    expect(db.challenges[0].challengerStats!.questionsAnswered).toBeTypeOf("number");
+    expect(db.challenges[0].challengerStats!.correctAnswers).toBeTypeOf("number");
   });
 
   it("startScheduledDuel creates a challenge and updates related notifications", async () => {

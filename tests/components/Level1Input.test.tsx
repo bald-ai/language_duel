@@ -2,8 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { Level1Input } from "@/app/game/levels/Level1Input";
 import { AUTO_COMPLETE_DELAY_MS } from "@/app/game/levels/constants";
-import { colors } from "@/lib/theme";
-
 describe("Level1Input", () => {
   const answer = "hola";
 
@@ -155,17 +153,19 @@ describe("Level1Input", () => {
     const box1 = screen.getByTestId("level1-letter-1-box");
     const box2 = screen.getByTestId("level1-letter-2-box");
 
-    expect(box0).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    // box0 starts selected — visual indicator is present
+    expect(box0).not.toHaveStyle({ borderColor: "transparent" });
+    expect(box1).toHaveStyle({ borderColor: "transparent" });
 
     fireEvent.keyDown(input, { key: "ArrowRight" });
-    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
-    expect(box0).not.toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box1).not.toHaveStyle({ borderColor: "transparent" });
+    expect(box0).toHaveStyle({ borderColor: "transparent" });
 
     fireEvent.change(input, { target: { value: "x" } });
     expect(box1).toHaveTextContent("X");
 
     fireEvent.keyDown(input, { key: "ArrowLeft" });
-    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box1).not.toHaveStyle({ borderColor: "transparent" });
     fireEvent.change(input, { target: { value: "o" } });
     expect(box1).toHaveTextContent("O");
 
@@ -173,14 +173,14 @@ describe("Level1Input", () => {
     expect(box2).toHaveTextContent("L");
 
     fireEvent.keyDown(input, { key: "ArrowLeft" });
-    expect(box2).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box2).not.toHaveStyle({ borderColor: "transparent" });
 
     fireEvent.keyDown(input, { key: "Backspace" });
     expect(box2).not.toHaveTextContent("L");
-    expect(box2).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box2).not.toHaveStyle({ borderColor: "transparent" });
 
     fireEvent.keyDown(input, { key: "Backspace" });
-    expect(box1).toHaveStyle(`border-color: ${colors.secondary.DEFAULT}`);
+    expect(box1).not.toHaveStyle({ borderColor: "transparent" });
     expect(box1).not.toHaveTextContent("O");
   });
 

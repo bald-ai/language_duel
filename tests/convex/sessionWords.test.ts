@@ -18,7 +18,7 @@ const sampleWords: SessionWordEntry[] = [
 describe("getChallengeSessionWords", () => {
   it("returns sessionWords when present", () => {
     const result = getChallengeSessionWords({ sessionWords: sampleWords });
-    expect(result).toBe(sampleWords);
+    expect(result).toEqual(sampleWords);
   });
 
   it("throws when sessionWords is empty", () => {

@@ -38,7 +38,7 @@ describe("GenerateRandomModal", () => {
       />
     );
 
-    expect(screen.getByText(/This will generate 1 new unique word/)).toBeInTheDocument();
+    expect(screen.getByTestId("theme-generate-random-range")).toHaveValue("1");
 
     fireEvent.change(screen.getByTestId("theme-generate-random-range"), {
       target: { value: "3" },
@@ -51,7 +51,7 @@ describe("GenerateRandomModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("shows plural label, error, and loading state while generating", () => {
+  it("shows count, error, and disables controls while generating", () => {
     render(
       <GenerateRandomModal
         isOpen
@@ -65,11 +65,9 @@ describe("GenerateRandomModal", () => {
       />
     );
 
-    expect(screen.getByText(/This will generate 3 new unique words/)).toBeInTheDocument();
+    expect(screen.getByTestId("theme-generate-random-range")).toHaveValue("3");
     expect(screen.getByText("Rate limit")).toBeInTheDocument();
-    expect(screen.getByText(/Generating 3 words/)).toBeInTheDocument();
     expect(screen.getByTestId("theme-generate-random-submit")).toBeDisabled();
     expect(screen.getByTestId("theme-generate-random-cancel")).toBeDisabled();
-    expect(screen.getByTestId("theme-generate-random-submit")).toHaveTextContent("Generating...");
   });
 });

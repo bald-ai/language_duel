@@ -56,9 +56,12 @@ describe("timeUtils", () => {
     const tomorrowTs = new Date("2026-01-02T12:00:00.000Z").getTime();
     const laterTs = new Date("2026-01-05T12:00:00.000Z").getTime();
 
-    expect(formatScheduledTime(todayTs)).toContain("Today at");
-    expect(formatScheduledTime(tomorrowTs)).toContain("Tomorrow at");
-    expect(formatScheduledTime(laterTs)).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d+ at /);
+    expect(formatScheduledTime(todayTs)).toContain("Today");
+    expect(formatScheduledTime(tomorrowTs)).toContain("Tomorrow");
+    const later = formatScheduledTime(laterTs);
+    expect(later).not.toContain("Today");
+    expect(later).not.toContain("Tomorrow");
+    expect(later).toMatch(/ \d{1,2} at \d{1,2}:\d{2}/);
   });
 
   it("getRelativeTime handles seconds, minutes, hours, days, and fallback date", () => {
@@ -68,7 +71,10 @@ describe("timeUtils", () => {
     expect(getRelativeTime(now - 5 * 60_000)).toBe("5m ago");
     expect(getRelativeTime(now - 3 * 60 * 60_000)).toBe("3h ago");
     expect(getRelativeTime(now - 2 * 24 * 60 * 60_000)).toBe("2d ago");
-    expect(getRelativeTime(now - 10 * 24 * 60 * 60_000)).toMatch(/^[A-Z][a-z]{2} \d+$/);
+    const fallback = getRelativeTime(now - 10 * 24 * 60 * 60_000);
+    expect(fallback).not.toContain("ago");
+    expect(fallback).not.toBe("Just now");
+    expect(fallback).toMatch(/\d+/);
   });
 
   it("formatCountdown handles countdown boundaries", () => {

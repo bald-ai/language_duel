@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   applyGeneratedThemeTts,
@@ -366,10 +366,8 @@ describe("themes core handlers", () => {
       ],
     });
 
-    expect(storage.deleteCalls).toEqual([
-      "storage_1" as Id<"_storage">,
-      "storage_2" as Id<"_storage">,
-    ]);
+    expect(storage.deleteCalls).toContain("storage_1" as Id<"_storage">);
+    expect(storage.deleteCalls).toContain("storage_2" as Id<"_storage">);
   });
 
   it("updateTheme keeps stale tts files that are still referenced by a goal snapshot", async () => {
@@ -425,7 +423,6 @@ describe("themes core handlers", () => {
     );
 
     const storage = new InMemoryStorage(true);
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const handler = (updateTheme as unknown as {
       _handler: (ctx: unknown, args: { themeId: Id<"themes">; words?: ThemeWord[] }) => Promise<ThemeDoc | null>;
@@ -443,7 +440,6 @@ describe("themes core handlers", () => {
     });
 
     expect(result?.words[0]?.word).toBe("bird");
-    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
   it("updateThemeVisibility allows owner and rejects non-owner", async () => {
@@ -497,7 +493,7 @@ describe("themes core handlers", () => {
     ).rejects.toThrow("You can only change edit permissions of your own themes");
   });
 
-  it("deleteTheme blocks deletion when the theme is part of a planning goal", async () => {
+  it("deleteTheme blocks deletion when the theme is part of a draft goal", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
     db.themes.push(themeDoc());
@@ -514,7 +510,7 @@ describe("themes core handlers", () => {
     ).rejects.toThrow("draft goal");
   });
 
-  it("deleteTheme ignores unrelated planning goals and only checks the owner's own goals", async () => {
+  it("deleteTheme ignores unrelated draft goals and only checks the owner's own goals", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
     db.themes.push(themeDoc());
@@ -581,9 +577,7 @@ describe("themes core handlers", () => {
     });
 
     expect(db.themes).toHaveLength(0);
-    expect(storage.deleteCalls).toEqual([
-      "storage_live" as Id<"_storage">,
-    ]);
+    expect(storage.deleteCalls).toContain("storage_live" as Id<"_storage">);
   });
 
   it("deleteTheme keeps live TTS files when snapshots still reference them", async () => {

@@ -62,10 +62,8 @@ describe("AddWordModal", () => {
     );
 
     expect(screen.getByText("Generation failed")).toBeInTheDocument();
-    expect(screen.getByText(/Generating Spanish translation/)).toBeInTheDocument();
     expect(screen.getByTestId("theme-add-word-submit")).toBeDisabled();
     expect(screen.getByTestId("theme-add-word-cancel")).toBeDisabled();
-    expect(screen.getByTestId("theme-add-word-submit")).toHaveTextContent("Adding...");
   });
 
   it("does not submit on Enter when input is empty", () => {

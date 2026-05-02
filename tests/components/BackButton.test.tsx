@@ -31,8 +31,17 @@ describe("BackButton", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("uses router.back when history length is greater than one", () => {
-    vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+  it("goes to fallback route when there's no previous page", () => {
+    render(<BackButton dataTestId="back-btn" fallbackHref="/home" />);
+
+    fireEvent.click(screen.getByTestId("back-btn"));
+
+    expect(pushMock).toHaveBeenCalledWith("/home");
+    expect(backMock).not.toHaveBeenCalled();
+  });
+
+  it("navigates back when there is history", () => {
+    window.history.pushState(null, "", "/previous-page");
 
     render(<BackButton dataTestId="back-btn" />);
 
@@ -40,16 +49,5 @@ describe("BackButton", () => {
 
     expect(backMock).toHaveBeenCalledTimes(1);
     expect(pushMock).not.toHaveBeenCalled();
-  });
-
-  it("falls back to router.push when history length is one", () => {
-    vi.spyOn(window.history, "length", "get").mockReturnValue(1);
-
-    render(<BackButton dataTestId="back-btn" fallbackHref="/home" />);
-
-    fireEvent.click(screen.getByTestId("back-btn"));
-
-    expect(pushMock).toHaveBeenCalledWith("/home");
-    expect(backMock).not.toHaveBeenCalled();
   });
 });

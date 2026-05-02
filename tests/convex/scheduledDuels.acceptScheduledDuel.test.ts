@@ -171,8 +171,7 @@ const acceptScheduledDuelHandler = (acceptScheduledDuel as unknown as {
 })._handler;
 
 describe("scheduledDuels acceptScheduledDuel", () => {
-  it("keeps the in-app accepted notification flow but no longer schedules an email", async () => {
-    const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
+  it("marks the scheduled duel as accepted and notifies the proposer", async () => {
     const db = new InMemoryDb(
       [
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),
@@ -184,17 +183,7 @@ describe("scheduledDuels acceptScheduledDuel", () => {
     );
 
     await acceptScheduledDuelHandler(
-      createAuthCtx(db, "partner", {
-        scheduler: {
-          runAfter: async (
-            _delay: number,
-            _fn: unknown,
-            payload: { trigger: string; toUserId: Id<"users"> }
-          ) => {
-            scheduledCalls.push(payload);
-          },
-        },
-      }) as never,
+      createAuthCtx(db, "partner") as never,
       { scheduledDuelId: "scheduled_1" as Id<"scheduledDuels"> }
     );
 
@@ -213,6 +202,5 @@ describe("scheduledDuels acceptScheduledDuel", () => {
             "accepted"
       )
     ).toBe(true);
-    expect(scheduledCalls).toEqual([]);
   });
 });

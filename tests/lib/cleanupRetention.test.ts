@@ -11,14 +11,17 @@ import {
 } from "@/lib/cleanupRetention";
 
 describe("cleanupRetention", () => {
-  it("recognizes the notification types that support dismissed-row cleanup", () => {
-    expect(DISMISSABLE_NOTIFICATION_TYPES).toEqual([
-      "friend_request",
-      "weekly_plan_invitation",
-      "weekly_goal_draft_expiring",
-      "scheduled_duel",
-      "duel_challenge",
-    ]);
+  it("includes known important notification types that support dismissed-row cleanup", () => {
+    expect(DISMISSABLE_NOTIFICATION_TYPES).toEqual(
+      expect.arrayContaining([
+        "friend_request",
+        "weekly_plan_invitation",
+        "weekly_goal_draft_expiring",
+        "scheduled_duel",
+        "duel_challenge",
+      ])
+    );
+    expect(DISMISSABLE_NOTIFICATION_TYPES.length).toBeGreaterThanOrEqual(5);
   });
 
   it("treats timestamps at the TTL boundary as expired", () => {

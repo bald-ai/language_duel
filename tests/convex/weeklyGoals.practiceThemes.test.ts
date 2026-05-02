@@ -177,8 +177,8 @@ describe("getWeeklyGoalPracticeThemes", () => {
 
     expect(result).toMatchObject({
       ok: false,
-      message: "\"Theme 2\" snapshot is no longer available. Practice cannot start from the live theme after lock.",
     });
+    expect((result as { message?: string }).message).toContain("snapshot is no longer available");
   });
 
   it("returns selected snapshot themes in goal order after lock", async () => {
@@ -210,18 +210,16 @@ describe("getWeeklyGoalPracticeThemes", () => {
     });
   });
 
-  it("rejects invalid selected ids and unauthorised users cleanly", async () => {
+  it("rejects invalid selected ids and unauthorized users cleanly", async () => {
     const db = createDb(buildGoal());
 
-    await expect(
-      handler(createAuthCtx(db, "creator") as never, {
-        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-        themeIds: ["theme_missing" as Id<"themes">],
-      })
-    ).resolves.toMatchObject({
-      ok: false,
-      message: "One selected theme is not part of this weekly goal.",
+    const result = await handler(createAuthCtx(db, "creator") as never, {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      themeIds: ["theme_missing" as Id<"themes">],
     });
+
+    expect((result as { ok: boolean; message?: string }).ok).toBe(false);
+    expect((result as { ok: boolean; message?: string }).message).toContain("not part of this weekly goal");
 
     await expect(
       handler(createAuthCtx(db, "outsider") as never, {

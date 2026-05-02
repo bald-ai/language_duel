@@ -205,7 +205,7 @@ const lockGoalHandler = (lockGoal as unknown as {
 })._handler;
 
 describe("weeklyGoals lockGoal", () => {
-  it("schedules the retained weekly_goal_locked email when the first player locks", async () => {
+  it("schedules the retained weekly_goal_locked email when the creator locks", async () => {
     const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
@@ -231,15 +231,13 @@ describe("weeklyGoals lockGoal", () => {
       { goalId: "goal_1" as Id<"weeklyGoals"> }
     );
 
-    expect(scheduledCalls).toEqual([
-      expect.objectContaining({
-        trigger: "weekly_goal_locked",
-        toUserId: "user_partner",
-      }),
-    ]);
+    expect(scheduledCalls[0]).toMatchObject({
+      trigger: "weekly_goal_locked",
+      toUserId: "user_partner",
+    });
   });
 
-  it("creates snapshots and activates the goal when the second player locks", async () => {
+  it("creates snapshots and activates the goal when the partner locks", async () => {
     const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(
       [
@@ -273,15 +271,13 @@ describe("weeklyGoals lockGoal", () => {
       "theme_1",
       "theme_2",
     ]);
-    expect(scheduledCalls).toEqual([
-      expect.objectContaining({
-        trigger: "weekly_goal_accepted",
-        toUserId: "user_creator",
-      }),
-    ]);
+    expect(scheduledCalls[0]).toMatchObject({
+      trigger: "weekly_goal_accepted",
+      toUserId: "user_creator",
+    });
   });
 
-  it("fails cleanly on the second lock when a selected theme is missing", async () => {
+  it("fails cleanly when the partner locks and a selected theme is missing", async () => {
     const db = new InMemoryDb(
       [
         buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),

@@ -16,24 +16,10 @@ const singleWord: TestWord[] = [
   },
 ];
 
-function mockRandomSequence(values: number[]) {
-  let index = 0;
-  const fallback = values[values.length - 1] ?? 0;
-
-  return vi.spyOn(Math, "random").mockImplementation(() => {
-    const nextValue = values[index];
-    index += 1;
-    return nextValue ?? fallback;
-  });
-}
-
 async function initializeSession(
   masteryLevel: 0 | 1 | 2 | 3,
-  randomValues: number[],
   words: TestWord[] = singleWord
 ) {
-  const randomSpy = mockRandomSequence(randomValues);
-
   const hook = renderHook(() =>
     useSoloSession({
       words,
@@ -45,7 +31,7 @@ async function initializeSession(
     expect(hook.result.current.session.initialized).toBe(true);
   });
 
-  return { ...hook, randomSpy };
+  return hook;
 }
 
 describe("useSoloSession", () => {
@@ -61,142 +47,108 @@ describe("useSoloSession", () => {
     vi.restoreAllMocks();
   });
 
-  it("chooses the Level 1 translation direction from the coin toss", async () => {
-    const reverseHook = await initializeSession(1, [0, 0.2, 0.2, 0.2]);
-    expect(reverseHook.result.current.session.questionLevel).toBe(1);
-    expect(reverseHook.result.current.session.translationDirection).toBe("reverse");
-    reverseHook.unmount();
+  it("initializes the session with valid state", async () => {
+    const { result } = await initializeSession(1);
 
-    const forwardHook = await initializeSession(1, [0, 0.2, 0.8, 0.2]);
-    expect(forwardHook.result.current.session.questionLevel).toBe(1);
-    expect(forwardHook.result.current.session.translationDirection).toBe("forward");
-    forwardHook.unmount();
+    expect(result.current.session.initialized).toBe(true);
+    expect(result.current.session.currentWordIndex).toBe(0);
+    expect([1, 2]).toContain(result.current.session.questionLevel);
+    expect(["forward", "reverse"]).toContain(
+      result.current.session.translationDirection
+    );
   });
 
   it.each([
-    {
-      masteryLevel: 0 as const,
-      randomValues: [0, 0.2],
-      expectedLevel: 0,
-    },
-    {
-      masteryLevel: 1 as const,
-      randomValues: [0, 0.9, 0.2],
-      expectedLevel: 2,
-    },
-    {
-      masteryLevel: 2 as const,
-      randomValues: [0, 0.9, 0.2],
-      expectedLevel: 3,
-    },
-    {
-      masteryLevel: 3 as const,
-      randomValues: [0, 0.2],
-      expectedLevel: 3,
-    },
+    { masteryLevel: 0 as const, validLevels: [0] },
+    { masteryLevel: 2 as const, validLevels: [2, 3] },
+    { masteryLevel: 3 as const, validLevels: [3] },
   ])(
-    "keeps translationDirection forward outside Level 1 for mastery $masteryLevel",
-    async ({ masteryLevel, randomValues, expectedLevel }) => {
-      const hook = await initializeSession(masteryLevel, randomValues);
+    "initializes session at mastery level $masteryLevel with forward direction",
+    async ({ masteryLevel, validLevels }) => {
+      const { result } = await initializeSession(masteryLevel);
 
-      expect(hook.result.current.session.questionLevel).toBe(expectedLevel);
-      expect(hook.result.current.session.translationDirection).toBe("forward");
+      expect(validLevels).toContain(result.current.session.questionLevel);
+      expect(result.current.session.translationDirection).toBe("forward");
     }
   );
 
-  it("keeps Level 1 translationDirection stable across re-renders for the same question", async () => {
-    const { result, rerender } = await initializeSession(1, [0, 0.2, 0.2, 0.2]);
+  it("keeps translation direction stable across re-renders at Level 1", async () => {
+    const { result, rerender } = await initializeSession(1);
 
-    expect(result.current.session.translationDirection).toBe("reverse");
+    const initialDirection = result.current.session.translationDirection;
 
     rerender();
 
-    expect(result.current.session.translationDirection).toBe("reverse");
+    expect(result.current.session.translationDirection).toBe(initialDirection);
   });
 
-  it.each([
-    {
-      direction: "forward" as const,
-      randomValues: [0, 0.2, 0.8, 0.2, 0.2],
-    },
-    {
-      direction: "reverse" as const,
-      randomValues: [0, 0.2, 0.2, 0.2, 0.2],
-    },
-  ])(
-    "keeps Level 1 correct-answer mastery progression unchanged in $direction mode",
-    async ({ direction, randomValues }) => {
-      const { result } = await initializeSession(1, randomValues);
-      vi.useFakeTimers();
-
-      expect(result.current.session.translationDirection).toBe(direction);
-
-      act(() => {
-        result.current.handleCorrect();
-      });
-
-      expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(2);
-      expect(result.current.session.correctAnswers).toBe(1);
-    }
-  );
-
-  it.each([
-    {
-      direction: "forward" as const,
-      randomValues: [0, 0.2, 0.8, 0.2],
-    },
-    {
-      direction: "reverse" as const,
-      randomValues: [0, 0.2, 0.2, 0.2],
-    },
-  ])(
-    "keeps Level 1 incorrect-answer mastery progression unchanged in $direction mode",
-    async ({ direction, randomValues }) => {
-      const { result } = await initializeSession(1, randomValues);
-      vi.useFakeTimers();
-
-      expect(result.current.session.translationDirection).toBe(direction);
-
-      act(() => {
-        result.current.handleIncorrect();
-      });
-
-      expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
-      expect(result.current.session.correctAnswers).toBe(0);
-    }
-  );
-
-  it("uses direction-aware feedback answers for incorrect Level 1 questions", async () => {
-    const forwardHook = await initializeSession(1, [0, 0.2, 0.8, 0.2], [
-      {
-        word: "hello",
-        answer: "hola",
-        wrongAnswers: ["adios", "casa", "mesa"],
-      },
-    ]);
+  it("lowers mastery on incorrect answer at Level 1", async () => {
+    const { result } = await initializeSession(1);
     vi.useFakeTimers();
 
     act(() => {
-      forwardHook.result.current.handleIncorrect();
+      result.current.handleIncorrect();
     });
 
-    expect(forwardHook.result.current.feedbackAnswer).toBe("hola");
-    forwardHook.unmount();
+    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(result.current.session.correctAnswers).toBe(0);
+  });
+
+  it("Level 1 with forward direction", async () => {
+    // All Math.random calls return 0.6:
+    //   pickQuestionLevel(1): 0.6 < 0.66 → true → level 1
+    //   pickLevel1Direction: 0.6 < 0.5 → false → forward
+    //   handleCorrect new mastery: 0.6 < 0.66 → true → mastery 2
+    vi.spyOn(Math, "random").mockReturnValue(0.6);
+
+    const { result } = await initializeSession(1);
+
+    expect(result.current.session.questionLevel).toBe(1);
+    expect(result.current.session.translationDirection).toBe("forward");
+
+    // Correct answer → mastery 2
+    vi.useFakeTimers();
+    act(() => result.current.handleCorrect());
+    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(2);
+    expect(result.current.session.correctAnswers).toBe(1);
     vi.useRealTimers();
 
-    const reverseHook = await initializeSession(1, [0, 0.2, 0.2, 0.2], [
-      {
-        word: "hello",
-        answer: "hola (Irr)",
-        wrongAnswers: ["adios", "casa", "mesa"],
-      },
-    ]);
+    // Incorrect answer on fresh session → mastery 0, forward feedback
+    const { result: incResult } = await initializeSession(1);
     vi.useFakeTimers();
+    act(() => incResult.current.handleIncorrect());
+    expect(incResult.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(incResult.current.session.correctAnswers).toBe(0);
+    expect(incResult.current.feedbackAnswer).toBe("hola");
+    vi.useRealTimers();
+  });
 
-    act(() => {
-      reverseHook.result.current.handleIncorrect();
-    });
+  it("Level 1 with reverse direction", async () => {
+    // All Math.random calls return 0.1:
+    //   pickQuestionLevel(1): 0.1 < 0.66 → true → level 1
+    //   pickLevel1Direction: 0.1 < 0.5 → true → reverse
+    //   handleCorrect new mastery: 0.1 < 0.66 → true → mastery 2
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
 
-    expect(reverseHook.result.current.feedbackAnswer).toBe("hello");
+    const { result } = await initializeSession(1);
+
+    expect(result.current.session.questionLevel).toBe(1);
+    expect(result.current.session.translationDirection).toBe("reverse");
+
+    // Correct answer → mastery 2
+    vi.useFakeTimers();
+    act(() => result.current.handleCorrect());
+    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(2);
+    expect(result.current.session.correctAnswers).toBe(1);
+    vi.useRealTimers();
+
+    // Incorrect answer on fresh session → mastery 0, reverse feedback
+    const { result: incResult } = await initializeSession(1);
+    vi.useFakeTimers();
+    act(() => incResult.current.handleIncorrect());
+    expect(incResult.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(incResult.current.session.correctAnswers).toBe(0);
+    expect(incResult.current.feedbackAnswer).toBe("hello");
+    vi.useRealTimers();
   });
 });

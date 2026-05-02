@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   consumeCredits,
@@ -25,6 +25,11 @@ import {
   patchRow,
 } from "./testUtils/inMemoryDb";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function callConvex(fn: any, ctx: unknown, args: Record<string, unknown> = {}) {
+  return fn._handler(ctx, args);
+}
+
 type UserDoc = Pick<
   Doc<"users">,
   | "_id"
@@ -50,7 +55,6 @@ type FriendRequestDoc = Pick<
 >;
 
 type TableName = "users" | "friends" | "friendRequests";
-type NoArgs = Record<string, never>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
@@ -131,15 +135,10 @@ function createCtx(db: InMemoryDb, identitySubject: string | null) {
 }
 
 describe("users core handlers", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("getUsers returns empty list when unauthenticated", async () => {
     const db = new InMemoryDb();
-    const handler = (getUsers as unknown as { _handler: (ctx: unknown, args: NoArgs) => Promise<unknown[]> })._handler;
 
-    const result = await handler(createCtx(db, null), {});
+    const result = await callConvex(getUsers, createCtx(db, null), {});
 
     expect(result).toEqual([]);
   });
@@ -157,11 +156,7 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (getUsers as unknown as {
-      _handler: (ctx: unknown, args: NoArgs) => Promise<Array<Record<string, unknown>>>;
-    })._handler;
-
-    const result = await handler(createCtx(db, "clerk_1"), {});
+    const result = await callConvex(getUsers, createCtx(db, "clerk_1"), {});
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
@@ -173,13 +168,16 @@ describe("users core handlers", () => {
     expect("clerkId" in (result[0] ?? {})).toBe(false);
   });
 
-  it("getCurrentUser returns null unauthenticated and returns normalized authenticated profile", async () => {
+  it("getCurrentUser returns null when unauthenticated", async () => {
     const db = new InMemoryDb();
-    const handler = (getCurrentUser as unknown as { _handler: (ctx: unknown, args: NoArgs) => Promise<unknown> })._handler;
 
-    const unauth = await handler(createCtx(db, null), {});
-    expect(unauth).toBeNull();
+    const result = await callConvex(getCurrentUser, createCtx(db, null), {});
 
+    expect(result).toBeNull();
+  });
+
+  it("getCurrentUser normalizes stale credits and defaults TTS provider", async () => {
+    const db = new InMemoryDb();
     db.users.push(
       userDoc({
         _id: "user_1" as Id<"users">,
@@ -191,15 +189,11 @@ describe("users core handlers", () => {
       })
     );
 
-    const profile = (await handler(createCtx(db, "clerk_1"), {})) as {
-      llmCreditsRemaining: number;
-      ttsGenerationsRemaining: number;
-      ttsProvider: string;
-    };
+    const result = await callConvex(getCurrentUser, createCtx(db, "clerk_1"), {});
 
-    expect(profile.llmCreditsRemaining).toBe(LLM_MONTHLY_CREDITS);
-    expect(profile.ttsGenerationsRemaining).toBe(TTS_MONTHLY_GENERATIONS);
-    expect(profile.ttsProvider).toBe("resemble");
+    expect(result.llmCreditsRemaining).toBe(LLM_MONTHLY_CREDITS);
+    expect(result.ttsGenerationsRemaining).toBe(TTS_MONTHLY_GENERATIONS);
+    expect(result.ttsProvider).toBe("resemble");
   });
 
   it("searchUsers matches nickname#discriminator format", async () => {
@@ -215,13 +209,9 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (searchUsers as unknown as {
-      _handler: (ctx: unknown, args: { searchTerm: string }) => Promise<Array<{ _id: Id<"users"> }>>;
-    })._handler;
+    const result = await callConvex(searchUsers, createCtx(db, "clerk_1"), { searchTerm: "Alex#1234" });
 
-    const result = await handler(createCtx(db, "clerk_1"), { searchTerm: "Alex#1234" });
-
-    expect(result.map((user) => user._id)).toEqual(["user_2"]);
+    expect(result.map((user: { _id: Id<"users"> }) => user._id)).toEqual(["user_2"]);
   });
 
   it("searchUsers marks friend and pending states", async () => {
@@ -235,12 +225,10 @@ describe("users core handlers", () => {
     db.friendRequests.push(requestDoc({ senderId: "user_1" as Id<"users">, receiverId: "user_3" as Id<"users">, status: "pending" }));
     db.friendRequests.push(requestDoc({ _id: "request_2" as Id<"friendRequests">, senderId: "user_4" as Id<"users">, receiverId: "user_1" as Id<"users">, status: "pending" }));
 
-    const handler = (searchUsers as unknown as {
-      _handler: (ctx: unknown, args: { searchTerm: string }) => Promise<Array<{ _id: Id<"users">; isFriend?: boolean; isPending?: boolean }>>;
-    })._handler;
-
-    const result = await handler(createCtx(db, "clerk_1"), { searchTerm: "@example.com" });
-    const byId = new Map(result.map((user) => [user._id, user]));
+    const result = await callConvex(searchUsers, createCtx(db, "clerk_1"), { searchTerm: "@example.com" });
+    const byId = new Map<Id<"users">, { _id: Id<"users">; isFriend?: boolean; isPending?: boolean }>(
+      result.map((user: { _id: Id<"users">; isFriend?: boolean; isPending?: boolean }) => [user._id, user])
+    );
 
     expect(byId.get("user_2" as Id<"users">)?.isFriend).toBe(true);
     expect(byId.get("user_2" as Id<"users">)?.isPending).toBe(false);
@@ -250,25 +238,15 @@ describe("users core handlers", () => {
 
   it("syncUser rejects unauthenticated and mismatched identity", async () => {
     const db = new InMemoryDb();
-    const handler = (syncUser as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { clerkId: string; email: string; name?: string; imageUrl?: string }
-      ) => Promise<Id<"users">>;
-    })._handler;
+    const callSync = (identity: string | null, args: { clerkId: string; email: string; name?: string; imageUrl?: string }) =>
+      callConvex(syncUser, createCtx(db, identity), args);
 
     await expect(
-      handler(createCtx(db, null), {
-        clerkId: "clerk_1",
-        email: "a@example.com",
-      })
+      callSync(null, { clerkId: "clerk_1", email: "a@example.com" })
     ).rejects.toThrow("Unauthorized");
 
     await expect(
-      handler(createCtx(db, "clerk_other"), {
-        clerkId: "clerk_1",
-        email: "a@example.com",
-      })
+      callSync("clerk_other", { clerkId: "clerk_1", email: "a@example.com" })
     ).rejects.toThrow("Cannot sync user for another identity");
   });
 
@@ -283,14 +261,7 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (syncUser as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { clerkId: string; email: string; name?: string; imageUrl?: string }
-      ) => Promise<Id<"users">>;
-    })._handler;
-
-    const id = await handler(createCtx(db, "clerk_1"), {
+    const id = await callConvex(syncUser, createCtx(db, "clerk_1"), {
       clerkId: "clerk_1",
       email: "u@example.com",
       name: "John__",
@@ -314,14 +285,7 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (syncUser as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { clerkId: string; email: string; name?: string; imageUrl?: string }
-      ) => Promise<Id<"users">>;
-    })._handler;
-
-    await handler(createCtx(db, "clerk_1"), {
+    await callConvex(syncUser, createCtx(db, "clerk_1"), {
       clerkId: "clerk_1",
       email: "u@example.com",
       name: "Jane",
@@ -333,28 +297,29 @@ describe("users core handlers", () => {
     expect(updated?.creditsMonth).toBe(currentMonthKey());
   });
 
-  it("updateNickname validates input and applies generated discriminator", async () => {
+  it("updateNickname rejects invalid nicknames", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
 
-    const handler = (updateNickname as unknown as {
-      _handler: (ctx: unknown, args: { nickname: string }) => Promise<{ nickname: string; discriminator: number }>;
-    })._handler;
+    await expect(
+      callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "bad space" })
+    ).rejects.toThrow("Nickname can only contain letters, numbers, and underscores");
 
-    await expect(handler(createCtx(db, "clerk_1"), { nickname: "bad space" })).rejects.toThrow(
-      "Nickname can only contain letters, numbers, and underscores"
-    );
+    await expect(
+      callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "ab" })
+    ).rejects.toThrow("Nickname must be between 3 and 20 characters");
+  });
 
-    await expect(handler(createCtx(db, "clerk_1"), { nickname: "ab" })).rejects.toThrow(
-      "Nickname must be between 3 and 20 characters"
-    );
+  it("updateNickname sets nickname and generates valid discriminator for new nicknames", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
 
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    const result = await handler(createCtx(db, "clerk_1"), { nickname: "ValidName" });
+    const result = await callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "ValidName" });
 
     expect(result.nickname).toBe("ValidName");
-    expect(result.discriminator).toBe(1000);
+    expect(result.discriminator).toBeGreaterThanOrEqual(1000);
+    expect(result.discriminator).toBeLessThanOrEqual(9999);
+    expect(Number.isInteger(result.discriminator)).toBe(true);
     expect(db.users[0]?.nickname).toBe("ValidName");
   });
 
@@ -369,11 +334,7 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (updateNickname as unknown as {
-      _handler: (ctx: unknown, args: { nickname: string }) => Promise<{ nickname: string; discriminator: number }>;
-    })._handler;
-
-    const result = await handler(createCtx(db, "clerk_1"), { nickname: "  SameName  " });
+    const result = await callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "  SameName  " });
 
     expect(result).toEqual({ nickname: "SameName", discriminator: 2468 });
     expect(db.users[0]?.nickname).toBe("SameName");
@@ -384,11 +345,7 @@ describe("users core handlers", () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", ttsProvider: "resemble" }));
 
-    const handler = (updateTtsProvider as unknown as {
-      _handler: (ctx: unknown, args: { ttsProvider: "resemble" | "elevenlabs" }) => Promise<{ ttsProvider: "resemble" | "elevenlabs" }>;
-    })._handler;
-
-    const result = await handler(createCtx(db, "clerk_1"), { ttsProvider: "elevenlabs" });
+    const result = await callConvex(updateTtsProvider, createCtx(db, "clerk_1"), { ttsProvider: "elevenlabs" });
 
     expect(result.ttsProvider).toBe("elevenlabs");
     expect(db.users[0]?.ttsProvider).toBe("elevenlabs");
@@ -405,34 +362,18 @@ describe("users core handlers", () => {
       })
     );
 
-    const handler = (consumeCredits as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { creditType: "llm" | "tts"; cost: number }
-      ) => Promise<{ llmCreditsRemaining: number; ttsGenerationsRemaining: number; creditsMonth: string }>;
-    })._handler;
+    const callConsume = (args: { creditType: "llm" | "tts"; cost: number }) =>
+      callConvex(consumeCredits, createCtx(db, "clerk_1"), args);
 
-    await expect(
-      handler(createCtx(db, "clerk_1"), { creditType: "llm", cost: 0 })
-    ).rejects.toThrow("Invalid credit cost");
-    await expect(
-      handler(createCtx(db, "clerk_1"), { creditType: "tts", cost: TTS_GENERATION_COST + 1 })
-    ).rejects.toThrow("Invalid TTS credit cost");
-    await expect(
-      handler(createCtx(db, "clerk_1"), { creditType: "llm", cost: LLM_THEME_CREDITS + 10 })
-    ).rejects.toThrow("Invalid LLM credit cost");
+    await expect(callConsume({ creditType: "llm", cost: 0 })).rejects.toThrow("Invalid credit cost");
+    await expect(callConsume({ creditType: "tts", cost: TTS_GENERATION_COST + 1 })).rejects.toThrow("Invalid TTS credit cost");
+    await expect(callConsume({ creditType: "llm", cost: LLM_THEME_CREDITS + 10 })).rejects.toThrow("Invalid LLM credit cost");
 
-    const llmResult = await handler(createCtx(db, "clerk_1"), {
-      creditType: "llm",
-      cost: LLM_SMALL_ACTION_CREDITS,
-    });
+    const llmResult = await callConsume({ creditType: "llm", cost: LLM_SMALL_ACTION_CREDITS });
     expect(llmResult.llmCreditsRemaining).toBe(9);
     expect(llmResult.ttsGenerationsRemaining).toBe(3);
 
-    const ttsResult = await handler(createCtx(db, "clerk_1"), {
-      creditType: "tts",
-      cost: TTS_GENERATION_COST,
-    });
+    const ttsResult = await callConsume({ creditType: "tts", cost: TTS_GENERATION_COST });
     expect(ttsResult.llmCreditsRemaining).toBe(9);
     expect(ttsResult.ttsGenerationsRemaining).toBe(2);
   });
@@ -443,16 +384,14 @@ describe("users core handlers", () => {
     expect(isUserOnline(Date.now() - 10 * 60_000)).toBe(false);
 
     const db = new InMemoryDb();
-    const handler = (updatePresence as unknown as {
-      _handler: (ctx: unknown, args: NoArgs) => Promise<void>;
-    })._handler;
-
-    await expect(handler(createCtx(db, null), {})).resolves.toBeUndefined();
+    await expect(
+      callConvex(updatePresence, createCtx(db, null), {})
+    ).resolves.toBeUndefined();
 
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", lastSeenAt: undefined }));
 
     const before = Date.now();
-    await handler(createCtx(db, "clerk_1"), {});
+    await callConvex(updatePresence, createCtx(db, "clerk_1"), {});
     const after = Date.now();
 
     expect((db.users[0]?.lastSeenAt ?? 0) >= before).toBe(true);

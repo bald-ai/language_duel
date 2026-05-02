@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/generate/route";
+import { parseGenerateRequest } from "@/lib/generate/requestValidation";
+import { DEFAULT_THEME_WORD_COUNT } from "@/lib/generate/constants";
 import { THEME_MAX_WRONG_ANSWER_COUNT } from "@/lib/themes/constants";
 
 function createJsonRequest(payload: unknown): NextRequest {
@@ -53,8 +55,28 @@ describe("/api/generate request validation", () => {
         history: [],
       })
     );
+    const payload = (await response.json()) as { success: boolean; error?: string; code?: string };
 
+    // Validation passes because wordCount defaults internally (no 400)
     expect(response.status).not.toBe(400);
+    // The route proceeded past validation: the error comes from a downstream step.
+    // A code field confirms this was a structured error, not a "validation failed" response.
+    expect(payload).toHaveProperty("code");
+    // The default was applied correctly — no wordCount-related complaint
+    expect(payload.error ?? "").not.toContain("wordCount");
+  });
+
+  it("parseGenerateRequest defaults wordCount to DEFAULT_THEME_WORD_COUNT when omitted", () => {
+    const result = parseGenerateRequest({
+      type: "theme",
+      themeName: "Animals",
+      history: [],
+    });
+
+    expect(result.ok).toBe(true);
+    expect((result as { ok: true; data: { wordCount: number } }).data.wordCount).toBe(
+      DEFAULT_THEME_WORD_COUNT
+    );
   });
 
   it("returns 400 when theme wordCount is out of bounds", async () => {

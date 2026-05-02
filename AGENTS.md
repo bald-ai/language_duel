@@ -2,6 +2,8 @@
 
 This file defines the shared rules for AI coding work. Optimize for clarity and fast change, and build for your future AI self.
 
+> **Note:** Project documentation lives at `docs/DOCUMENTATION.md` (not at the repo root).
+
 ## General
 - Future-AI clarity: make intent obvious, keep logic easy to find, and add short comments only when the behavior is not self-evident.
 - Feature-first organization: keep code with the feature unless it is truly shared.
