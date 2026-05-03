@@ -65,8 +65,7 @@ export function getUniqueThemeNames(
 export function summarizeThemeNames(themeNames: string[]): string {
   if (themeNames.length === 0) return "Theme";
   if (themeNames.length === 1) return themeNames[0];
-  if (themeNames.length === 2) return `${themeNames[0]} + ${themeNames[1]}`;
-  return `${themeNames[0]} + ${themeNames.length - 1} more themes`;
+  return `${themeNames.length} themes`;
 }
 
 export function summarizeThemes(themes: Array<Pick<SessionThemeInput, "name">>): string {

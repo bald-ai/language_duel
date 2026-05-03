@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   SignInButton,
@@ -49,6 +50,12 @@ const BellFriendsIcon = () => (
 export function LeftNavButtons() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    router.prefetch("/goals");
+  }, [isSignedIn, router]);
 
   // Track user presence
   usePresence();
@@ -128,6 +135,12 @@ export function LeftNavButtons() {
 export function RightNavButtons() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    router.prefetch("/settings");
+  }, [isSignedIn, router]);
 
   if (!isSignedIn) return null;
 

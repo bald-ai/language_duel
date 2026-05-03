@@ -366,6 +366,15 @@ export default function Home() {
   useSyncUser();
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    router.prefetch("/themes");
+    router.prefetch("/goals");
+    router.prefetch("/settings");
+  }, [isSignedIn, router]);
+
   const [screen, setScreen] = useState<HomeScreenMode>("home");
   const [showMockFeaturesMenu, setShowMockFeaturesMenu] = useState(false);
   const [cards, setCards] = useState<MemoryCard[]>(() => buildMemoryDeck());

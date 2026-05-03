@@ -119,22 +119,22 @@ describe("summarizeThemeNames", () => {
     expect(summarizeThemeNames(["Animals"])).toBe("Animals");
   });
 
-  it("joins two names with +", () => {
-    expect(summarizeThemeNames(["Animals", "Food"])).toBe("Animals + Food");
+  it("summarizes two themes as count", () => {
+    expect(summarizeThemeNames(["Animals", "Food"])).toBe("2 themes");
   });
 
-  it("summarizes 3+ as first + N more themes", () => {
-    expect(summarizeThemeNames(["A", "B", "C"])).toBe("A + 2 more themes");
+  it("summarizes 3+ themes as count", () => {
+    expect(summarizeThemeNames(["A", "B", "C"])).toBe("3 themes");
   });
 
   it("summarizes 4 themes correctly", () => {
-    expect(summarizeThemeNames(["A", "B", "C", "D"])).toBe("A + 3 more themes");
+    expect(summarizeThemeNames(["A", "B", "C", "D"])).toBe("4 themes");
   });
 });
 
 describe("summarizeThemes", () => {
   it("delegates to summarizeThemeNames using theme names", () => {
-    expect(summarizeThemes([themeA, themeB])).toBe("Animals + Food");
+    expect(summarizeThemes([themeA, themeB])).toBe("2 themes");
   });
 
   it("returns 'Theme' for empty array", () => {

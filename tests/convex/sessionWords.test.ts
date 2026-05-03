@@ -41,7 +41,7 @@ describe("summarizeSessionWords", () => {
   });
 
   it("summarizes multi-theme words", () => {
-    expect(summarizeSessionWords(sampleWords)).toBe("Animals + Food");
+    expect(summarizeSessionWords(sampleWords)).toBe("2 themes");
   });
 
   it("returns 'Theme' for empty array", () => {
