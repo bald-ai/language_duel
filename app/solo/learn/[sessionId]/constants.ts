@@ -14,7 +14,6 @@ export const DEFAULT_DURATION = DEFAULT_SOLO_STUDY_DURATION;
 
 // Layout gaps in pixels
 export const LAYOUT = {
-  GAP_REVEALED: 8,  // space-y-2
   GAP_TESTING: 12,  // space-y-3
 } as const;
 
@@ -24,4 +23,3 @@ export const TIMER_THRESHOLDS = {
   YELLOW: 0.17, // > 17% remaining
   // else RED
 } as const;
-

@@ -15,6 +15,8 @@ import { stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components/WordCard";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
 import { LearnHeader } from "./components/LearnHeader";
+import { SetAllDropdown } from "./components/SetAllDropdown";
+import { CONFIDENCE_COLORS, type ConfidenceLevel } from "./components/ConfidenceSlider";
 import { useDraggableList } from "./hooks/useDraggableList";
 import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
@@ -60,12 +62,6 @@ const toggleActiveStyle = {
 const toggleInactiveStyle = {
   backgroundColor: colors.background.elevated,
   borderColor: colors.primary.dark,
-  color: colors.text.muted,
-};
-
-const resetToggleStyle = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.neutral.dark,
   color: colors.text.muted,
 };
 
@@ -161,17 +157,18 @@ export default function LearnPhasePage() {
 
   // Hint states
   const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
-  const [isRevealed, setIsRevealed] = useState(true);
+  const [isAllRevealed, setIsAllRevealed] = useState(false);
 
   const { playingWordKey, playTTS } = useTTS();
 
   // Confidence level per word
-  const [confidenceLevels, setConfidenceLevels] = useState<Record<string, number>>({});
+  const [confidenceLevels, setConfidenceLevels] = useState<Record<string, ConfidenceLevel>>({});
   const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
+  const [isSetAllOpen, setIsSetAllOpen] = useState(false);
 
   // Memoize initial order to avoid creating new array on every render
   const initialOrder = useMemo(() => sessionWords.map((_, i) => i), [sessionWords]);
-  const gap = isRevealed ? LAYOUT.GAP_REVEALED : LAYOUT.GAP_TESTING;
+  const gap = LAYOUT.GAP_TESTING;
 
   const {
     order: wordOrder,
@@ -197,9 +194,9 @@ export default function LearnPhasePage() {
   }, [confidenceLegendStorageKey]);
 
   // --- Helper functions (memoized) ---
-  const getConfidence = useCallback((wordKey: string): number => confidenceLevels[wordKey] ?? 0, [confidenceLevels]);
+  const getConfidence = useCallback((wordKey: string): ConfidenceLevel => confidenceLevels[wordKey] ?? 0, [confidenceLevels]);
 
-  const setConfidence = useCallback((wordKey: string, level: number) => {
+  const setConfidence = useCallback((wordKey: string, level: ConfidenceLevel) => {
     setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
   }, []);
 
@@ -238,9 +235,48 @@ export default function LearnPhasePage() {
       delete newState[wordKey];
       return newState;
     });
+    setIsAllRevealed(false);
   }, []);
 
-  const resetAll = useCallback(() => setHintStates({}), []);
+  const toggleRevealAll = useCallback(() => {
+    if (isAllRevealed) {
+      setHintStates({});
+      setIsAllRevealed(false);
+      return;
+    }
+
+    const nextHintStates: Record<string, HintState> = {};
+    sessionWords.forEach((word, index) => {
+      const allPositions = stripIrr(word.answer)
+        .split("")
+        .map((char, idx) => (char !== " " ? idx : -1))
+        .filter((idx) => idx !== -1);
+
+      nextHintStates[`${sessionSourceKey}-${index}`] = {
+        hintCount: allPositions.length,
+        revealedPositions: allPositions,
+      };
+    });
+
+    setHintStates(nextHintStates);
+    setIsAllRevealed(true);
+  }, [isAllRevealed, sessionSourceKey, sessionWords]);
+
+  const setAllConfidence = useCallback((level: ConfidenceLevel) => {
+    if (sessionWords.length === 0) {
+      setIsSetAllOpen(false);
+      return;
+    }
+
+    setConfidenceLevels((prev) => {
+      const next = { ...prev };
+      sessionWords.forEach((_, index) => {
+        next[`${sessionSourceKey}-${index}`] = level;
+      });
+      return next;
+    });
+    setIsSetAllOpen(false);
+  }, [sessionSourceKey, sessionWords]);
 
   const playingWordIndex = useMemo(() => {
     if (!playingWordKey || !playingWordKey.startsWith("solo-learn-")) {
@@ -504,7 +540,7 @@ export default function LearnPhasePage() {
         <LearnHeader />
 
         <section
-          className="w-full rounded-3xl border-2 p-5 text-center backdrop-blur-sm animate-slide-up delay-200"
+          className="relative z-30 w-full overflow-visible rounded-3xl border-2 p-5 text-center backdrop-blur-sm animate-slide-up delay-200"
           style={cardStyle}
         >
           <div className="text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
@@ -524,63 +560,69 @@ export default function LearnPhasePage() {
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <button
-              onClick={() => setIsRevealed(true)}
-              className={toggleButtonClassName}
-              style={isRevealed ? toggleActiveStyle : toggleInactiveStyle}
-              data-testid="solo-learn-toggle-reveal"
+              type="button"
+              onClick={toggleRevealAll}
+              className={`${toggleButtonClassName} min-w-[10rem]`}
+              style={isAllRevealed ? toggleActiveStyle : toggleInactiveStyle}
+              data-testid="solo-learn-toggle-reveal-all"
             >
-              Reveal
+              {isAllRevealed ? "Hide All" : "Reveal All"}
             </button>
-            <button
-              onClick={() => setIsRevealed(false)}
-              className={toggleButtonClassName}
-              style={!isRevealed ? toggleActiveStyle : toggleInactiveStyle}
-              data-testid="solo-learn-toggle-test"
-            >
-              Test
-            </button>
-            {!isRevealed && (
+            <div className="relative">
+              {/*
+                SetAllDropdown closes on any document `pointerdown` outside it.
+                Stopping propagation here prevents the trigger's own pointerdown
+                from being treated as an outside click, which would close the
+                dropdown a frame before the click that opened it could register.
+              */}
               <button
-                onClick={resetAll}
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => setIsSetAllOpen((open) => !open)}
                 className={toggleButtonClassName}
-                style={resetToggleStyle}
-                data-testid="solo-learn-reset-all"
+                style={isSetAllOpen ? toggleActiveStyle : toggleInactiveStyle}
+                data-testid="solo-learn-set-all-trigger"
               >
-                Reset All
+                Set all
               </button>
-            )}
+              {isSetAllOpen && (
+                <SetAllDropdown
+                  onSelect={setAllConfidence}
+                  onClose={() => setIsSetAllOpen(false)}
+                />
+              )}
+            </div>
           </div>
         </section>
 
         <section
-          className="w-full flex-1 min-h-0 rounded-3xl border-2 p-4 pt-6 mb-4 overflow-y-auto backdrop-blur-sm animate-slide-up delay-300"
+          className="relative z-10 w-full flex-1 min-h-0 rounded-3xl border-2 p-4 pt-6 mb-4 overflow-y-auto backdrop-blur-sm animate-slide-up delay-300"
           style={listCardStyle}
         >
           <div
             ref={containerRef}
-            className={`w-full relative ${isRevealed ? "space-y-2" : "space-y-3"}`}
+            className="w-full relative space-y-3"
           >
             {!isConfidenceLegendDismissed && (
-              <div className="sticky top-2 z-10 w-fit">
+              <div className="sticky top-2 z-10 max-w-full">
                 <div
-                  className="rounded-2xl border-2 px-3 py-2 backdrop-blur-sm"
+                  className="rounded-2xl border-2 px-4 py-3 backdrop-blur-sm"
                   style={{
                     backgroundColor: colors.background.elevated,
                     borderColor: colors.primary.dark,
                   }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div
-                      className="flex h-2 w-20 overflow-hidden rounded-full border"
+                      className="flex h-3 w-28 shrink-0 overflow-hidden rounded-full border"
                       style={{ borderColor: colors.primary.dark }}
                     >
-                      {/* Level 0 uses fixed grey (#6B7280) for consistency across palettes */}
-                      <div className="flex-1" style={{ backgroundColor: "#6B7280" }} />
-                      <div className="flex-1" style={{ backgroundColor: colors.status.success.DEFAULT }} />
-                      <div className="flex-1" style={{ backgroundColor: colors.status.warning.DEFAULT }} />
-                      <div className="flex-1" style={{ backgroundColor: colors.status.danger.DEFAULT }} />
+                      <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[0] }} />
+                      <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[1] }} />
+                      <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[2] }} />
+                      <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[3] }} />
                     </div>
-                    <div className="text-[11px] leading-tight" style={{ color: colors.text.muted }}>
+                    <div className="max-w-[520px] flex-1 text-sm leading-snug" style={{ color: colors.text.muted }}>
                       Confidence sets the starting challenge level (0 quick check {'->'} 3 no hints).
                     </div>
                     <button
@@ -594,11 +636,11 @@ export default function LearnPhasePage() {
                           // ignore
                         }
                       }}
-                      className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full transition hover:brightness-110"
+                      className="ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition hover:brightness-110"
                       style={{ color: colors.text.muted }}
                       data-testid="solo-learn-confidence-dismiss"
                     >
-                      <span className="text-base leading-none">x</span>
+                      <span className="text-lg leading-none">x</span>
                     </button>
                   </div>
                 </div>
@@ -617,7 +659,6 @@ export default function LearnPhasePage() {
                     orderIdx={orderIdx}
                     word={sessionWords[originalIndex]}
                     themeId={sessionSourceKey}
-                    isRevealed={isRevealed}
                     hintState={state}
                     confidence={confidence}
                     playingWordIndex={playingWordIndex}
@@ -657,12 +698,11 @@ export default function LearnPhasePage() {
               const confidence = confidenceLevels[wordKey] ?? 0;
               const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
               const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-              const hintsRemaining = maxHints - state.hintCount;
+              const hintsRemaining = Math.max(0, maxHints - state.hintCount);
 
               return (
                 <WordCard
                   word={word}
-                  isRevealed={isRevealed}
                   confidence={confidence}
                   onConfidenceChange={() => {}}
                   revealedPositions={state.revealedPositions}

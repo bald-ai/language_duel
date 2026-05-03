@@ -3,9 +3,11 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { colors } from "@/lib/theme";
 
+export type ConfidenceLevel = 0 | 1 | 2 | 3;
+
 interface ConfidenceSliderProps {
-  value: number;
-  onChange: (value: number) => void;
+  value: ConfidenceLevel;
+  onChange: (value: ConfidenceLevel) => void;
   compact?: boolean;
   readOnly?: boolean;
   dataTestIdPrefix?: string;
@@ -17,22 +19,26 @@ const CONFIDENCE_LEVEL_0_GREY_LIGHT = "#C9CDD5";
 
 // Border + text use the DEFAULT shade, background uses the LIGHT shade,
 // so the pill reads as a soft tinted chip rather than a saturated block.
-const CONFIDENCE_COLORS = {
+export const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
   0: CONFIDENCE_LEVEL_0_GREY,
   1: colors.status.success.DEFAULT,
   2: colors.status.warning.DEFAULT,
   3: colors.status.danger.DEFAULT,
 } as const;
 
-const CONFIDENCE_COLORS_LIGHT = {
+const CONFIDENCE_COLORS_LIGHT: Record<ConfidenceLevel, string> = {
   0: CONFIDENCE_LEVEL_0_GREY_LIGHT,
   1: colors.status.success.light,
   2: colors.status.warning.light,
   3: colors.status.danger.light,
-} as const;
+};
 
-const MIN_LEVEL = 0;
-const MAX_LEVEL = 3;
+const MIN_LEVEL: ConfidenceLevel = 0;
+const MAX_LEVEL: ConfidenceLevel = 3;
+
+const clampLevel = (n: number): ConfidenceLevel =>
+  Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, n)) as ConfidenceLevel;
+
 const SLIDE_DURATION_MS = 220;
 
 type SlideDirection = "up" | "down";
@@ -61,7 +67,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
   const step = useCallback(
     (delta: number) => {
       if (readOnly) return;
-      const next = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, value + delta));
+      const next = clampLevel(value + delta);
       if (next !== value) onChange(next);
     },
     [onChange, readOnly, value]
@@ -72,8 +78,8 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
 
   const atMin = value <= MIN_LEVEL;
   const atMax = value >= MAX_LEVEL;
-  const currentColor = CONFIDENCE_COLORS[value as 0 | 1 | 2 | 3] ?? CONFIDENCE_LEVEL_0_GREY;
-  const currentBg = CONFIDENCE_COLORS_LIGHT[value as 0 | 1 | 2 | 3] ?? CONFIDENCE_LEVEL_0_GREY_LIGHT;
+  const currentColor = CONFIDENCE_COLORS[value];
+  const currentBg = CONFIDENCE_COLORS_LIGHT[value];
 
   const btnSize = compact ? "w-9 h-9 text-lg" : "w-10 h-10 text-xl";
   const boxSize = compact ? "w-14 h-9 text-lg" : "w-16 h-10 text-xl";

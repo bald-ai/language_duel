@@ -5,6 +5,7 @@ import type { CSSProperties, MouseEvent, RefObject } from "react";
 import { stripIrr } from "@/lib/stringUtils";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { WordCard } from "./WordCard";
+import type { ConfidenceLevel } from "./ConfidenceSlider";
 
 // State for each word: hintCount and revealedPositions
 export interface HintState {
@@ -17,12 +18,11 @@ interface MemoizedWordCardWrapperProps {
   orderIdx: number;
   word: { word: string; answer: string; ttsStorageId?: string };
   themeId: string | null;
-  isRevealed: boolean;
   hintState: HintState;
-  confidence: number;
+  confidence: ConfidenceLevel;
   playingWordIndex: number | null;
   draggedIndex: number | null;
-  setConfidence: (wordKey: string, level: number) => void;
+  setConfidence: (wordKey: string, level: ConfidenceLevel) => void;
   revealLetter: (wordKey: string, position: number) => void;
   revealFullWord: (wordKey: string, answer: string) => void;
   resetWord: (wordKey: string) => void;
@@ -38,7 +38,6 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   orderIdx,
   word,
   themeId,
-  isRevealed,
   hintState,
   confidence,
   playingWordIndex,
@@ -57,11 +56,11 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   const state = hintState;
   const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-  const hintsRemaining = maxHints - state.hintCount;
+  const hintsRemaining = Math.max(0, maxHints - state.hintCount);
 
   // Memoize callbacks for this specific word
   const handleConfidenceChange = useCallback(
-    (val: number) => setConfidence(wordKey, val),
+    (val: ConfidenceLevel) => setConfidence(wordKey, val),
     [setConfidence, wordKey]
   );
 
@@ -100,7 +99,6 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   return (
     <WordCard
       word={word}
-      isRevealed={isRevealed}
       confidence={confidence}
       onConfidenceChange={handleConfidenceChange}
       revealedPositions={state.revealedPositions}
