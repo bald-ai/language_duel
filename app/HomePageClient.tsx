@@ -1542,9 +1542,9 @@ export default function Home() {
               className="mt-3 text-base sm:text-lg text-center max-w-[360px] px-4 font-light tracking-wide animate-slide-up delay-200"
               style={{ color: "var(--color-text)" }}
             >
-              Achieve <b><u>oral mastery</u></b> and find out
+              <b><u>Speak</u></b> like a native,
               <br />
-              which one of you <b><u>sucks</u></b> more
+              <b><u>compete</u></b> like a champion
             </p>
           </header>
 
