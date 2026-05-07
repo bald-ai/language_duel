@@ -58,7 +58,7 @@ Weekly goal lifecycle:
 - Weekly-goal solo practice uses live original themes before full lock. After full lock, it uses the weekly-goal snapshots, so later edits to original themes do not affect snapshot practice.
 - Boss status values are `unavailable`, `ready`, and `defeated`.
 - Completed goals are retained in the database but hidden from the active weekly-goal list.
-- Completed weekly goals feed Spaced Repetition under `/goals/repetition`. SR progress is personal per user, uses the locked weekly-goal snapshots only, and can be advanced by solo completion or by a successful SR duel when that participant's own repetition step is ready.
+- Completed weekly goals feed Spaced Repetition under `/repetition`. SR progress is personal per user, uses the locked weekly-goal snapshots only, and can be advanced by solo completion or by a successful SR duel when that participant's own repetition step is ready.
 - Declined draft goals are deleted.
 - Goal lifecycle `completed` and boss status `defeated` intentionally use different words so the final goal state and boss outcome are not confused.
 

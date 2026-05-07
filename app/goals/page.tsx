@@ -864,22 +864,6 @@ export default function GoalsPage() {
             <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => router.push("/goals/repetition")}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-bold uppercase tracking-wide transition-all hover:brightness-110"
-                style={{
-                  backgroundColor: colors.background.elevated,
-                  borderColor: colors.cta.DEFAULT,
-                  color: colors.text.DEFAULT,
-                }}
-                data-testid="goals-spaced-repetition"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.light} strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3M4 4v5h5M20 20v-5h-5M5.6 9A7 7 0 0117 5.6M18.4 15A7 7 0 017 18.4" />
-                </svg>
-                Spaced repetition
-              </button>
-              <button
-                type="button"
                 onClick={handlePracticeGoalThemes}
                 disabled={!canPracticeGoalThemes}
                 className="flex w-full items-center justify-center gap-3 rounded-xl border-2 px-4 py-3 text-sm font-bold uppercase tracking-wide transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"

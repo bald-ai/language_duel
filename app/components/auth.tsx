@@ -46,6 +46,24 @@ const BellFriendsIcon = () => (
   </svg>
 );
 
+const RepetitionIcon = () => (
+  <svg className="w-[34px] h-[34px]" fill="none" viewBox="0 0 28 28" stroke="currentColor" strokeWidth={1.8}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6.5 9.5A8 8 0 0119.7 6.6L22 9"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M21.5 18.5A8 8 0 018.3 21.4L6 19"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M22 4v5h-5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 24v-5h5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14 9v5l3 2" />
+  </svg>
+);
+
 // Left navigation buttons (Bell and Goals) - for signed-in users
 export function LeftNavButtons() {
   const router = useRouter();
@@ -55,6 +73,7 @@ export function LeftNavButtons() {
     if (!isSignedIn) return;
 
     router.prefetch("/goals");
+    router.prefetch("/repetition");
   }, [isSignedIn, router]);
 
   // Track user presence
@@ -105,6 +124,20 @@ export function LeftNavButtons() {
             {notificationCount > 9 ? "9+" : notificationCount}
           </span>
         )}
+      </div>
+
+      {/* Repetition button */}
+      <div className="relative">
+        <button
+          onClick={() => router.push("/repetition")}
+          className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
+          title="Spaced Repetition"
+          aria-label="Spaced Repetition"
+          style={{ color: "var(--color-text)" }}
+          data-testid="nav-repetition"
+        >
+          <RepetitionIcon />
+        </button>
       </div>
 
       {/* Goal button */}

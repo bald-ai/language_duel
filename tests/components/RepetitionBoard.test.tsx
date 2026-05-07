@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RepetitionBoard } from "@/app/goals/repetition/components/RepetitionBoard";
+import { RepetitionBoard } from "@/app/repetition/components/RepetitionBoard";
 
 const push = vi.fn();
 
@@ -96,7 +96,7 @@ describe("RepetitionBoard", () => {
     render(<RepetitionBoard />);
 
     fireEvent.click(screen.getByTestId("sr-ready-start-duel"));
-    expect(push).toHaveBeenCalledWith("/goals/repetition/goal_ready");
+    expect(push).toHaveBeenCalledWith("/repetition/goal_ready");
   });
 
   it("coming up rows are not startable and done rows are read-only", () => {

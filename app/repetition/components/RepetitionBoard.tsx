@@ -138,7 +138,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => router.push(`/goals/repetition/${item.weeklyGoalId}`)}
+          onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
           disabled={!item.ready}
           className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           style={{
@@ -152,7 +152,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
         </button>
         <button
           type="button"
-          onClick={() => router.push(`/goals/repetition/${item.weeklyGoalId}`)}
+          onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
           disabled={!item.ready}
           className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           style={{
