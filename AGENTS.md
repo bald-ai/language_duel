@@ -8,6 +8,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Future-AI clarity: make intent obvious, keep logic easy to find, and add short comments only when the behavior is not self-evident.
 - Feature-first organization: keep code with the feature unless it is truly shared.
 - Consistent naming: use stable, descriptive names; avoid old/new/temp/v2/fixed; keep naming patterns uniform within a feature.
+- Naming across the entire stack is non-negotiable. Product terms, route names, table names, API names, variables, tests, docs, and UI copy must describe the same concept the same way. Do not leave mismatched legacy names behind as "internal only" cleanup unless the user explicitly approves a temporary transition step.
 - Separation by layer: pages wire, components render UI, hooks orchestrate state, lib holds pure logic. Keep core rules testable without React.
 - Name non-obvious or repeated numbers in `constants.ts`; trivial UI math can stay inline.
 - Explicit input validation and clear errors at boundaries (APIs, external data, user input).
