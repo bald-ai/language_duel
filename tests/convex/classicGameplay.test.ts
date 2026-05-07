@@ -280,6 +280,51 @@ describe("classic gameplay", () => {
     expect(db.challenges[0].opponentPerfectRun).toBe(false);
   });
 
+  it("removes shared SR lives on incorrect classic answers", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.challenges.push(
+      challengeDoc({
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        weeklyGoalChallengeType: "spaced_repetition",
+        spacedRepetitionStep: 1,
+        bossLivesTotal: 2,
+        bossLivesRemaining: 2,
+        challengerPerfectRun: true,
+        opponentPerfectRun: true,
+        opponentAnswered: true,
+        classicQuestions: [
+          {
+            options: ["gato", "perro", "mesa", "casa"],
+            correctOption: "gato",
+            difficulty: "easy",
+            points: 1,
+          },
+        ],
+      })
+    );
+
+    const handler = (answerDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+      ) => Promise<void>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "challenge_1" as Id<"challenges">,
+      selectedAnswer: "perro",
+      questionIndex: 0,
+    });
+
+    expect(db.challenges[0].bossLivesRemaining).toBe(1);
+    expect(db.challenges[0].challengerPerfectRun).toBe(false);
+    expect(db.challenges[0].status).toBe("completed");
+  });
+
   it("ends a boss attempt on the result state when a timeout removes the last life", async () => {
     const db = new InMemoryDb();
     db.users.push(

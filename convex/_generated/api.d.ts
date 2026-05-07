@@ -36,6 +36,7 @@ import type * as scheduledDuels from "../scheduledDuels.js";
 import type * as themes from "../themes.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as users from "../users.js";
+import type * as weeklyGoalRepetitions from "../weeklyGoalRepetitions.js";
 import type * as weeklyGoals from "../weeklyGoals.js";
 
 import type {
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   themes: typeof themes;
   userPreferences: typeof userPreferences;
   users: typeof users;
+  weeklyGoalRepetitions: typeof weeklyGoalRepetitions;
   weeklyGoals: typeof weeklyGoals;
 }>;
 

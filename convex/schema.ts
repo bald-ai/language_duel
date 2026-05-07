@@ -41,6 +41,7 @@ const duelStatusValidator = v.union(
 
 const duelModeValidator = v.union(v.literal("solo"), v.literal("classic"));
 const bossTypeValidator = v.union(v.literal("mini"), v.literal("big"));
+const weeklyGoalChallengeTypeValidator = v.literal("spaced_repetition");
 
 const classicDifficultyPresetValidator = v.union(
   v.literal("easy"),
@@ -288,6 +289,8 @@ export default defineSchema({
     sessionWords: v.array(sessionWordValidator),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     bossType: v.optional(bossTypeValidator),
+    weeklyGoalChallengeType: v.optional(weeklyGoalChallengeTypeValidator),
+    spacedRepetitionStep: v.optional(v.number()),
     bossLivesTotal: v.optional(v.number()),
     bossLivesRemaining: v.optional(v.number()),
     status: duelStatusValidator,
@@ -404,6 +407,7 @@ export default defineSchema({
     miniBossStatus: weeklyGoalBossStatusValidator,
     bossStatus: weeklyGoalBossStatusValidator,
     status: weeklyGoalLifecycleStatusValidator,
+    completedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_creator", ["creatorId"])
@@ -411,6 +415,28 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_status_endDate", ["status", "endDate"]),
+
+  // -------------------------------------------
+  // Weekly Goal Spaced Repetition Table
+  // -------------------------------------------
+  weeklyGoalRepetitions: defineTable({
+    weeklyGoalId: v.id("weeklyGoals"),
+    userId: v.id("users"),
+    completedSteps: v.array(
+      v.object({
+        step: v.number(),
+        intervalDays: v.number(),
+        completedAt: v.number(),
+        mode: v.union(v.literal("solo"), v.literal("classic")),
+        challengeId: v.optional(v.id("challenges")),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_goal", ["weeklyGoalId"])
+    .index("by_goal_user", ["weeklyGoalId", "userId"]),
 
   // -------------------------------------------
   // Weekly Goal Theme Snapshots Table

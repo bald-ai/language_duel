@@ -18,12 +18,16 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: (...args: unknown[]) => useQueryMock(...args),
+  useMutation: () => vi.fn(async () => ({ advanced: true })),
 }));
 
 vi.mock("@/convex/_generated/api", () => ({
   api: {
     weeklyGoals: {
       getBossPracticeSession: "getBossPracticeSession",
+    },
+    weeklyGoalRepetitions: {
+      completeSolo: "completeSolo",
     },
     themes: {
       getThemes: "getThemes",

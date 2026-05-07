@@ -93,13 +93,16 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
   | "createdAt"
 >;
 
+type WeeklyGoalRepetitionDoc = Doc<"weeklyGoalRepetitions">;
+
 type Row =
   | UserDoc
   | ThemeDoc
   | WeeklyGoalDoc
   | ChallengeDoc
   | NotificationDoc
-  | WeeklyGoalThemeSnapshotDoc;
+  | WeeklyGoalThemeSnapshotDoc
+  | WeeklyGoalRepetitionDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
@@ -109,10 +112,12 @@ class InMemoryDb {
   public challenges: ChallengeDoc[] = [];
   public notifications: NotificationDoc[] = [];
   public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
+  public weeklyGoalRepetitions: WeeklyGoalRepetitionDoc[] = [];
 
   private counters = {
     challenges: 10,
     notifications: 10,
+    weeklyGoalRepetitions: 10,
   };
 
   query(
@@ -123,6 +128,7 @@ class InMemoryDb {
       | "challenges"
       | "notifications"
       | "weeklyGoalThemeSnapshots"
+      | "weeklyGoalRepetitions"
   ) {
     return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
@@ -136,6 +142,7 @@ class InMemoryDb {
         this.challenges,
         this.notifications,
         this.weeklyGoalThemeSnapshots,
+        this.weeklyGoalRepetitions,
       ],
       id
     );
@@ -147,9 +154,9 @@ class InMemoryDb {
   }
 
   async insert(
-    table: "challenges" | "notifications" | "weeklyGoalThemeSnapshots",
+    table: "challenges" | "notifications" | "weeklyGoalThemeSnapshots" | "weeklyGoalRepetitions",
     value: Record<string, unknown>
-  ): Promise<Id<"challenges"> | Id<"notifications"> | Id<"weeklyGoalThemeSnapshots">> {
+  ): Promise<Id<"challenges"> | Id<"notifications"> | Id<"weeklyGoalThemeSnapshots"> | Id<"weeklyGoalRepetitions">> {
     if (table === "challenges") {
       const inserted = insertRow<ChallengeDoc>(this.challenges, "challenge", this.counters.challenges, value);
       this.counters.challenges = inserted.nextCounter;
@@ -158,6 +165,15 @@ class InMemoryDb {
       const inserted = insertRow<NotificationDoc>(this.notifications, "notification", this.counters.notifications, value);
       this.counters.notifications = inserted.nextCounter;
       return inserted.id as Id<"notifications">;
+    } else if (table === "weeklyGoalRepetitions") {
+      const inserted = insertRow<WeeklyGoalRepetitionDoc>(
+        this.weeklyGoalRepetitions,
+        "repetition",
+        this.counters.weeklyGoalRepetitions,
+        value
+      );
+      this.counters.weeklyGoalRepetitions = inserted.nextCounter;
+      return inserted.id as Id<"weeklyGoalRepetitions">;
     }
 
     const inserted = insertRow<WeeklyGoalThemeSnapshotDoc>(
@@ -183,6 +199,7 @@ class InMemoryDb {
       | "challenges"
       | "notifications"
       | "weeklyGoalThemeSnapshots"
+      | "weeklyGoalRepetitions"
   ) {
     switch (table) {
       case "users":
@@ -197,18 +214,21 @@ class InMemoryDb {
         return this.notifications;
       case "weeklyGoalThemeSnapshots":
         return this.weeklyGoalThemeSnapshots;
+      case "weeklyGoalRepetitions":
+        return this.weeklyGoalRepetitions;
     }
   }
 
   private findTableForId(
     id: string
-  ): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" | "weeklyGoalThemeSnapshots" {
+  ): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" | "weeklyGoalThemeSnapshots" | "weeklyGoalRepetitions" {
     if (id.startsWith("user_")) return "users";
     if (id.startsWith("theme_")) return "themes";
     if (id.startsWith("goal_")) return "weeklyGoals";
     if (id.startsWith("challenge_")) return "challenges";
     if (id.startsWith("notification_")) return "notifications";
     if (id.startsWith("snapshot_")) return "weeklyGoalThemeSnapshots";
+    if (id.startsWith("repetition_")) return "weeklyGoalRepetitions";
     throw new Error(`Unsupported id: ${id}`);
   }
 }

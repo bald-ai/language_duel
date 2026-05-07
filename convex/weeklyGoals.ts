@@ -37,6 +37,7 @@ import {
   type WeeklyGoalLifecycleStatus,
 } from "../lib/weeklyGoals";
 import { calculateBossStartingLives } from "../lib/bossLives";
+import { ensureRepetitionRecordsForCompletedGoal } from "./weeklyGoalRepetitions";
 
 // Constants
 const MAX_THEMES_PER_GOAL = 10;
@@ -436,12 +437,15 @@ export async function completeWeeklyGoalBoss(
     return;
   }
 
+  const now = Date.now();
   await ctx.db.patch(goal._id, {
     bossStatus: "defeated",
     status: "completed",
+    completedAt: now,
   });
 
-  const now = Date.now();
+  await ensureRepetitionRecordsForCompletedGoal(ctx, goal, now);
+
   const participants = getGoalParticipantIds(goal);
   await upsertWeeklyPlanNotificationForGoal(ctx, {
     toUserId: goal.creatorId,
@@ -721,6 +725,8 @@ export const getBossPracticeSession = query({
 
     return {
       challengeId: challenge._id,
+      weeklyGoalChallengeType: challenge.weeklyGoalChallengeType,
+      spacedRepetitionStep: challenge.spacedRepetitionStep,
       sessionWords: challenge.sessionWords,
       themeSummary: summarizeSessionWords(challenge.sessionWords),
     };

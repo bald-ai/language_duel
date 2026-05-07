@@ -1,0 +1,82 @@
+import { describe, expect, it } from "vitest";
+import {
+  DAY_MS,
+  getLegacyCompletedGoalBackfillCompletedAt,
+  getSpacedRepetitionBucket,
+  getSpacedRepetitionCurrentStep,
+  getSpacedRepetitionDueAt,
+  SPACED_REPETITION_INTERVAL_DAYS,
+} from "@/lib/spacedRepetition";
+
+describe("spacedRepetition helpers", () => {
+  it("makes the first repetition due from goal completion time", () => {
+    const completedAt = 1_000_000;
+    const dueAt = getSpacedRepetitionDueAt({
+      completedSteps: [],
+      goalCompletedAt: completedAt,
+    });
+
+    expect(dueAt).toBe(completedAt + SPACED_REPETITION_INTERVAL_DAYS[0] * DAY_MS);
+  });
+
+  it("makes later repetitions due from the previous SR completion time", () => {
+    const goalCompletedAt = 1_000_000;
+    const previousCompletedAt = goalCompletedAt + 10 * DAY_MS;
+
+    const dueAt = getSpacedRepetitionDueAt({
+      goalCompletedAt,
+      completedSteps: [
+        {
+          step: 1,
+          intervalDays: 3,
+          completedAt: previousCompletedAt,
+        },
+      ],
+    });
+
+    expect(getSpacedRepetitionCurrentStep([{ step: 1, intervalDays: 3, completedAt: previousCompletedAt }])).toBe(2);
+    expect(dueAt).toBe(previousCompletedAt + SPACED_REPETITION_INTERVAL_DAYS[1] * DAY_MS);
+  });
+
+  it("buckets ready, coming up, and done states", () => {
+    const now = 100 * DAY_MS;
+
+    expect(
+      getSpacedRepetitionBucket(
+        { completedSteps: [], goalCompletedAt: now - 3 * DAY_MS },
+        now
+      )
+    ).toBe("ready");
+
+    expect(
+      getSpacedRepetitionBucket(
+        { completedSteps: [], goalCompletedAt: now - 2 * DAY_MS },
+        now
+      )
+    ).toBe("coming_up");
+
+    expect(
+      getSpacedRepetitionBucket(
+        {
+          goalCompletedAt: now - 500 * DAY_MS,
+          completedSteps: SPACED_REPETITION_INTERVAL_DAYS.map((intervalDays, index) => ({
+            step: index + 1,
+            intervalDays,
+            completedAt: now - (6 - index) * DAY_MS,
+          })),
+        },
+        now
+      )
+    ).toBe("done");
+  });
+
+  it("backfills old completed goals as ready immediately", () => {
+    const now = 100 * DAY_MS;
+    const completedAt = getLegacyCompletedGoalBackfillCompletedAt(now);
+
+    expect(completedAt).toBe(now - 3 * DAY_MS);
+    expect(
+      getSpacedRepetitionBucket({ completedSteps: [], goalCompletedAt: completedAt }, now)
+    ).toBe("ready");
+  });
+});

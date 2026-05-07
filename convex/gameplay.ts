@@ -28,6 +28,7 @@ import {
 } from "./constants";
 import { getChallengeSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
+import { completeSpacedRepetitionDuel } from "./weeklyGoalRepetitions";
 
 // ===========================================
 // Helper: Clear hint state on question advance
@@ -77,6 +78,10 @@ function isBossAttempt(duel: Doc<"challenges">): boolean {
   return Boolean(duel.weeklyGoalId && duel.bossType);
 }
 
+function isLivesAttempt(duel: Doc<"challenges">): boolean {
+  return isBossAttempt(duel) || duel.weeklyGoalChallengeType === "spaced_repetition";
+}
+
 function hasBossLivesLeft(duel: Doc<"challenges">): boolean {
   if (typeof duel.bossLivesRemaining === "number") {
     return duel.bossLivesRemaining > 0;
@@ -89,7 +94,7 @@ function getBossMissPatch(
   duel: Doc<"challenges">,
   playerRole: "challenger" | "opponent"
 ): Partial<Doc<"challenges">> {
-  if (!isBossAttempt(duel)) {
+  if (!isLivesAttempt(duel)) {
     return {};
   }
 
@@ -193,6 +198,9 @@ async function advanceClassicDuelIfBothAnswered(
       if (goal) {
         await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
       }
+    }
+    if (duel.weeklyGoalChallengeType === "spaced_repetition") {
+      await completeSpacedRepetitionDuel(ctx, duel, Date.now());
     }
     return;
   }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/lib/stringUtils";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
@@ -69,6 +69,8 @@ export default function SoloChallengePage() {
   const confidenceParam = searchParams.get("confidence");
   const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
   const returnLabel = searchParams.get("returnLabel") || "Back to Home";
+  const completeSpacedRepetitionSolo = useMutation(api.weeklyGoalRepetitions.completeSolo);
+  const spacedRepetitionReportStatusRef = useRef<"idle" | "pending" | "done">("idle");
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
       return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
@@ -130,6 +132,11 @@ export default function SoloChallengePage() {
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]
   );
+  const spacedRepetitionStep =
+    practiceSession?.weeklyGoalChallengeType === "spaced_repetition" &&
+    typeof practiceSession.spacedRepetitionStep === "number"
+    ? practiceSession.spacedRepetitionStep
+    : null;
   const hasMultipleThemes = useMemo(
     () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
     [sessionWords]
@@ -166,6 +173,34 @@ export default function SoloChallengePage() {
     borderColor: colors.primary.dark,
     boxShadow: `0 18px 45px ${colors.primary.glow}`,
   };
+
+  useEffect(() => {
+    if (
+      !challengeId ||
+      spacedRepetitionStep === null ||
+      !session.completed ||
+      spacedRepetitionReportStatusRef.current !== "idle"
+    ) {
+      return;
+    }
+
+    spacedRepetitionReportStatusRef.current = "pending";
+    void completeSpacedRepetitionSolo({
+      challengeId: challengeId as Id<"challenges">,
+      completedStep: spacedRepetitionStep,
+    })
+      .then(() => {
+        spacedRepetitionReportStatusRef.current = "done";
+      })
+      .catch(() => {
+        spacedRepetitionReportStatusRef.current = "idle";
+      });
+  }, [
+    challengeId,
+    completeSpacedRepetitionSolo,
+    session.completed,
+    spacedRepetitionStep,
+  ]);
 
   // Loading states
   if (!challengeId && !weeklyGoalId && requestedThemeIds.length === 0) {
