@@ -812,6 +812,10 @@ export const syncGracePeriodGoalsForUser = mutation({
     for (const goal of uniqueGoals) {
       const effectiveStatus = getEffectiveGoalStatus(goal, now);
 
+      if (effectiveStatus === "completed") {
+        continue;
+      }
+
       if (effectiveStatus === "grace_period" && goal.status !== "grace_period") {
         await ctx.db.patch(goal._id, { status: "grace_period" });
         gracePeriodCount++;
