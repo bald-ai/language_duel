@@ -81,7 +81,3 @@ export function getSpacedRepetitionDaysRemaining(
 
   return Math.ceil((dueAt - now) / DAY_MS);
 }
-
-export function getLegacyCompletedGoalBackfillCompletedAt(now: number): number {
-  return now - SPACED_REPETITION_INTERVAL_DAYS[0] * DAY_MS;
-}

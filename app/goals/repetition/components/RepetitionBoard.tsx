@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { colors } from "@/lib/theme";
@@ -31,7 +31,6 @@ type BoardItem = {
 
 type BoardData = {
   stats: { total: number; ready: number; comingUp: number; done: number };
-  needsBackfill: boolean;
   all: BoardItem[];
   ready: BoardItem[];
   comingUp: BoardItem[];
@@ -309,18 +308,7 @@ function VisibleItems({ tab, board }: { tab: TabKey; board: BoardData }) {
 
 export function RepetitionBoard() {
   const [tab, setTab] = useState<TabKey>("all");
-  const hasRequestedBackfillRef = useRef(false);
   const board = useQuery(api.weeklyGoalRepetitions.getBoard);
-  const lazyBackfill = useMutation(api.weeklyGoalRepetitions.lazyBackfillForCurrentUser);
-
-  useEffect(() => {
-    if (board?.needsBackfill && !hasRequestedBackfillRef.current) {
-      hasRequestedBackfillRef.current = true;
-      void lazyBackfill({}).catch(() => {
-        hasRequestedBackfillRef.current = false;
-      });
-    }
-  }, [board?.needsBackfill, lazyBackfill]);
 
   if (!board) {
     return (

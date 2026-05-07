@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   DAY_MS,
-  getLegacyCompletedGoalBackfillCompletedAt,
   getSpacedRepetitionBucket,
   getSpacedRepetitionCurrentStep,
   getSpacedRepetitionDueAt,
@@ -68,15 +67,5 @@ describe("spacedRepetition helpers", () => {
         now
       )
     ).toBe("done");
-  });
-
-  it("backfills old completed goals as ready immediately", () => {
-    const now = 100 * DAY_MS;
-    const completedAt = getLegacyCompletedGoalBackfillCompletedAt(now);
-
-    expect(completedAt).toBe(now - 3 * DAY_MS);
-    expect(
-      getSpacedRepetitionBucket({ completedSteps: [], goalCompletedAt: completedAt }, now)
-    ).toBe("ready");
   });
 });

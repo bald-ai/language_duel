@@ -3,18 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RepetitionBoard } from "@/app/goals/repetition/components/RepetitionBoard";
 
 const push = vi.fn();
-const lazyBackfill = vi.fn();
 
 const board: {
   stats: { total: number; ready: number; comingUp: number; done: number };
-  needsBackfill: boolean;
   all: Array<Record<string, unknown>>;
   ready: Array<Record<string, unknown>>;
   comingUp: Array<Record<string, unknown>>;
   done: Array<Record<string, unknown>>;
 } = {
   stats: { total: 3, ready: 1, comingUp: 1, done: 1 },
-  needsBackfill: false,
   all: [],
   ready: [
     {
@@ -70,14 +67,12 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: () => board,
-  useMutation: () => lazyBackfill,
 }));
 
 vi.mock("@/convex/_generated/api", () => ({
   api: {
     weeklyGoalRepetitions: {
       getBoard: "getBoard",
-      lazyBackfillForCurrentUser: "lazyBackfillForCurrentUser",
     },
   },
 }));
@@ -85,7 +80,6 @@ vi.mock("@/convex/_generated/api", () => ({
 describe("RepetitionBoard", () => {
   beforeEach(() => {
     push.mockClear();
-    lazyBackfill.mockClear();
   });
 
   it("renders stats, tabs, and grouped All sections", () => {

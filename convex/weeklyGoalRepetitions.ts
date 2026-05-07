@@ -9,7 +9,6 @@ import { loadUsersById } from "./helpers/users";
 import { listWeeklyGoalThemeSnapshots } from "./helpers/weeklyGoalSnapshots";
 import { buildSessionWords } from "../lib/sessionWords";
 import {
-  getLegacyCompletedGoalBackfillCompletedAt,
   getSpacedRepetitionBucket,
   getSpacedRepetitionCurrentStep,
   getSpacedRepetitionDaysRemaining,
@@ -91,37 +90,6 @@ export async function ensureRepetitionRecordsForCompletedGoal(
   }
 }
 
-async function ensureLegacyRepetitionRecordForUser(
-  ctx: MutationCtx,
-  goal: Doc<"weeklyGoals">,
-  userId: Id<"users">,
-  now: number
-) {
-  const existing = await getRepetitionRecord(ctx, goal._id, userId);
-  if (existing) {
-    if (!goal.completedAt) {
-      // Legacy completed goals are intentionally backdated so their first SR step is ready immediately.
-      // Remove this backfill once pre-SR completed goals no longer need support.
-      await ctx.db.patch(goal._id, {
-        completedAt: getLegacyCompletedGoalBackfillCompletedAt(now),
-      });
-    }
-    return existing;
-  }
-
-  const completedAt =
-    goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(now);
-
-  if (!goal.completedAt) {
-    // Legacy completed goals are intentionally backdated so their first SR step is ready immediately.
-    // Remove this backfill once pre-SR completed goals no longer need support.
-    await ctx.db.patch(goal._id, { completedAt });
-  }
-
-  await ensureRepetitionRecordsForCompletedGoal(ctx, { ...goal, completedAt }, completedAt);
-  return await getRepetitionRecord(ctx, goal._id, userId);
-}
-
 async function loadSpacedRepetitionSnapshotContent(
   ctx: CtxWithDb,
   goal: Doc<"weeklyGoals">
@@ -183,8 +151,10 @@ function buildBoardItem(args: {
   content: LoadedSnapshotContent;
   now: number;
 }) {
-  const completedAt =
-    args.goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(args.now);
+  const completedAt = args.goal.completedAt;
+  if (typeof completedAt !== "number") {
+    throw new Error("Completed goal is missing completion time.");
+  }
   const dueAt = getSpacedRepetitionDueAt({
     completedSteps: args.record.completedSteps,
     goalCompletedAt: completedAt,
@@ -227,7 +197,6 @@ export const getBoard = query({
     if (!auth) {
       return {
         stats: { total: 0, ready: 0, comingUp: 0, done: 0 },
-        needsBackfill: false,
         all: [],
         ready: [],
         comingUp: [],
@@ -263,18 +232,16 @@ export const getBoard = query({
       getGoalPartnerId(goal, auth.user._id)
     );
     const usersById = await loadUsersById(ctx, partnerIds);
-    let needsBackfill = false;
 
     for (const goal of goalsById.values()) {
       const record = recordByGoalId.get(String(goal._id));
-      if (!record) {
-        needsBackfill = true;
+      if (!record || typeof goal.completedAt !== "number") {
         continue;
       }
       const bucket = getSpacedRepetitionBucket(
         {
           completedSteps: record.completedSteps,
-          goalCompletedAt: goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(now),
+          goalCompletedAt: goal.completedAt,
         },
         now
       );
@@ -310,46 +277,11 @@ export const getBoard = query({
         comingUp: comingUp.length,
         done: done.length,
       },
-      needsBackfill,
       all: [...ready, ...comingUp, ...done],
       ready,
       comingUp,
       done,
     };
-  },
-});
-
-export const lazyBackfillForCurrentUser = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const { user } = await getAuthenticatedUser(ctx);
-    const now = Date.now();
-
-    const completedGoalsAsCreator = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", user._id))
-      .filter((q) => q.eq(q.field("status"), "completed"))
-      .collect();
-    const completedGoalsAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", user._id))
-      .filter((q) => q.eq(q.field("status"), "completed"))
-      .collect();
-
-    const seen = new Set<string>();
-    let created = 0;
-    for (const goal of [...completedGoalsAsCreator, ...completedGoalsAsPartner]) {
-      const key = String(goal._id);
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const before = await getRepetitionRecord(ctx, goal._id, user._id);
-      await ensureLegacyRepetitionRecordForUser(ctx, goal, user._id, now);
-      const after = await getRepetitionRecord(ctx, goal._id, user._id);
-      if (!before && after) created += 1;
-    }
-
-    return { created };
   },
 });
 
@@ -360,7 +292,12 @@ export const getLaunchPreview = query({
     if (!auth) return null;
 
     const goal = await ctx.db.get(weeklyGoalId);
-    if (!goal || goal.status !== "completed" || !isGoalParticipant(goal, auth.user._id)) {
+    if (
+      !goal ||
+      goal.status !== "completed" ||
+      typeof goal.completedAt !== "number" ||
+      !isGoalParticipant(goal, auth.user._id)
+    ) {
       return null;
     }
 
@@ -400,9 +337,12 @@ async function advanceUserIfReady(args: {
     return false;
   }
 
+  if (typeof args.goal.completedAt !== "number") {
+    return false;
+  }
   const dueAt = getSpacedRepetitionDueAt({
     completedSteps: record.completedSteps,
-    goalCompletedAt: args.goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(args.now),
+    goalCompletedAt: args.goal.completedAt,
   });
   if (dueAt === null || dueAt > args.now) {
     return false;
@@ -477,6 +417,9 @@ export const startDuel = mutation({
     if (!goal || goal.status !== "completed") {
       throw new Error("Spaced repetition is only available for completed goals.");
     }
+    if (typeof goal.completedAt !== "number") {
+      throw new Error("Spaced repetition is not available for this completed goal.");
+    }
     if (!isGoalParticipant(goal, user._id)) {
       throw new Error("Not authorized");
     }
@@ -488,7 +431,7 @@ export const startDuel = mutation({
     const bucket = getSpacedRepetitionBucket(
       {
         completedSteps: record.completedSteps,
-        goalCompletedAt: goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(now),
+        goalCompletedAt: goal.completedAt,
       },
       now
     );
@@ -570,6 +513,9 @@ export const startSolo = mutation({
     if (!goal || goal.status !== "completed") {
       throw new Error("Spaced repetition is only available for completed goals.");
     }
+    if (typeof goal.completedAt !== "number") {
+      throw new Error("Spaced repetition is not available for this completed goal.");
+    }
     if (!isGoalParticipant(goal, user._id)) {
       throw new Error("Not authorized");
     }
@@ -581,7 +527,7 @@ export const startSolo = mutation({
     const bucket = getSpacedRepetitionBucket(
       {
         completedSteps: record.completedSteps,
-        goalCompletedAt: goal.completedAt ?? getLegacyCompletedGoalBackfillCompletedAt(now),
+        goalCompletedAt: goal.completedAt,
       },
       now
     );
