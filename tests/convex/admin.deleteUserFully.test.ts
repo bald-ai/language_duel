@@ -110,7 +110,7 @@ describe("admin deleteUserFully", () => {
       { _id: "solo_1", userId: "user_1", weeklyGoalId: "goal_1" },
       { _id: "solo_2", userId: "user_2", weeklyGoalId: "goal_1" }
     );
-    db.tables.weeklyGoals.push({ _id: "goal_1", creatorId: "user_1", partnerId: "user_2" });
+    db.tables.weeklyGoals.push({ _id: "goal_1", creatorId: "user_1", partnerId: "user_2", status: "locked" });
     db.tables.weeklyGoalRepetitions.push(
       { _id: "repetition_1", weeklyGoalId: "goal_1", userId: "user_1" },
       { _id: "repetition_2", weeklyGoalId: "goal_1", userId: "user_2" }
@@ -154,5 +154,115 @@ describe("admin deleteUserFully", () => {
     expect(db.tables.weeklyGoalRepetitions).toHaveLength(0);
     expect(db.tables.soloPracticeSessions).toHaveLength(0);
     expect(db.tables.notifications).toHaveLength(0);
+  });
+
+  it("keeps completed goals for the remaining participant and removes deleted-user SR data", async () => {
+    const db = new InMemoryDb();
+    db.tables.users.push(
+      { _id: "user_1", email: "delete@example.com" },
+      { _id: "user_2", email: "keep@example.com" }
+    );
+    db.tables.weeklyGoals.push({
+      _id: "goal_completed",
+      creatorId: "user_1",
+      partnerId: "user_2",
+      status: "completed",
+      themes: [{ themeId: "theme_1", themeName: "Animals" }],
+      completedAt: 1_000,
+    });
+    db.tables.weeklyGoalRepetitions.push(
+      { _id: "repetition_deleted_user", weeklyGoalId: "goal_completed", userId: "user_1" },
+      { _id: "repetition_remaining_user", weeklyGoalId: "goal_completed", userId: "user_2" }
+    );
+    db.tables.weeklyGoalThemeSnapshots.push({
+      _id: "snapshot_1",
+      weeklyGoalId: "goal_completed",
+      originalThemeId: "theme_1",
+    });
+    db.tables.soloPracticeSessions.push(
+      { _id: "solo_deleted_user", userId: "user_1", weeklyGoalId: "goal_completed" },
+      { _id: "solo_remaining_user", userId: "user_2", weeklyGoalId: "goal_completed" }
+    );
+    db.tables.challenges.push({
+      _id: "challenge_1",
+      challengerId: "user_1",
+      opponentId: "user_2",
+      weeklyGoalId: "goal_completed",
+      status: "pending",
+    });
+    db.tables.duels.push({
+      _id: "duel_1",
+      challengerId: "user_2",
+      opponentId: "user_1",
+      weeklyGoalId: "goal_completed",
+      status: "active",
+    });
+    db.tables.notifications.push(
+      {
+        _id: "notification_1",
+        fromUserId: "user_2",
+        toUserId: "user_2",
+        payload: { challengeId: "challenge_1" },
+      },
+      {
+        _id: "notification_2",
+        fromUserId: "user_2",
+        toUserId: "user_2",
+        payload: { goalId: "goal_completed" },
+      }
+    );
+    db.tables.emailNotificationLog.push(
+      {
+        _id: "email_log_deleted_challenge",
+        toUserId: "user_2",
+        challengeId: "challenge_1",
+      },
+      {
+        _id: "email_log_deleted_duel",
+        toUserId: "user_2",
+        duelId: "duel_1",
+      },
+      {
+        _id: "email_log_keep",
+        toUserId: "user_2",
+        weeklyGoalId: "goal_completed",
+      }
+    );
+
+    const handler = (deleteUserFully as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { userId: Id<"users"> }
+      ) => Promise<{ deletionReport: Record<string, number> }>;
+    })._handler;
+
+    const result = await handler({ db } as never, {
+      userId: "user_1" as Id<"users">,
+    });
+
+    expect(result.deletionReport).toMatchObject({
+      user: 1,
+      weeklyGoals: 0,
+      weeklyGoalThemeSnapshots: 0,
+      weeklyGoalRepetitions: 1,
+      soloPracticeSessions: 1,
+      challenges: 1,
+      duels: 1,
+      notifications: 1,
+      emailNotificationLog: 2,
+    });
+    expect(db.tables.users).toEqual([{ _id: "user_2", email: "keep@example.com" }]);
+    expect(db.tables.weeklyGoals).toMatchObject([{ _id: "goal_completed" }]);
+    expect(db.tables.weeklyGoalThemeSnapshots).toMatchObject([{ _id: "snapshot_1" }]);
+    expect(db.tables.weeklyGoalRepetitions).toMatchObject([
+      { _id: "repetition_remaining_user", userId: "user_2", weeklyGoalId: "goal_completed" },
+    ]);
+    expect(db.tables.soloPracticeSessions).toMatchObject([
+      { _id: "solo_remaining_user", userId: "user_2", weeklyGoalId: "goal_completed" },
+    ]);
+    expect(db.tables.challenges).toHaveLength(0);
+    expect(db.tables.duels).toHaveLength(0);
+    expect(db.tables.notifications).toMatchObject([{ _id: "notification_2" }]);
+    expect(db.tables.emailNotificationLog).toMatchObject([{ _id: "email_log_keep" }]);
   });
 });

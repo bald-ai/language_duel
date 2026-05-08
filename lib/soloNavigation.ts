@@ -59,7 +59,8 @@ export function buildSoloUrl(
   mode: SoloMode,
   source: SoloNavigationSource
 ): string {
-  const base = mode === "practice_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
+  const pathSessionId = source.soloPracticeSessionId ? "session" : sessionId;
+  const base = mode === "practice_only" ? `/solo/${pathSessionId}` : `/solo/learn/${pathSessionId}`;
   const params = buildSoloSearchParams(source);
   const query = params.toString();
   return query ? `${base}?${query}` : base;

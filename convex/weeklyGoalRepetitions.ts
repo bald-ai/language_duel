@@ -187,6 +187,7 @@ function buildBoardItem(args: {
     unavailableReason: args.content.ok ? undefined : args.content.message,
     completedAt,
     updatedAt: args.record.updatedAt,
+    duelAvailable: args.partner !== null,
   };
 }
 
@@ -319,6 +320,7 @@ export const getLaunchPreview = query({
       ...item,
       themeSummary: content.ok ? content.themeSummary : "",
       livesTotal: goal.themes.length + 1,
+      duelAvailable: partner !== null,
     };
   },
 });
@@ -471,6 +473,10 @@ export const createRepetitionChallenge = mutation({
     }
 
     const opponentId = getGoalPartnerId(goal, user._id);
+    const opponent = await ctx.db.get(opponentId);
+    if (!opponent) {
+      throw new Error("This partner is no longer available. You can still practice solo.");
+    }
     const challengeInvite = buildChallengeInvite({
       challengerId: user._id,
       opponentId,

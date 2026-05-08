@@ -90,6 +90,7 @@ export default function RepetitionLaunchPage() {
 
   const intervalDays = getSpacedRepetitionIntervalDaysForStep(preview.step);
   const canStart = preview.ready && preview.contentAvailable;
+  const duelAvailable = preview.duelAvailable;
 
   return (
     <ThemedPage className="px-4 py-6">
@@ -116,7 +117,7 @@ export default function RepetitionLaunchPage() {
               {preview.title}
             </h1>
             <p className="mt-1 text-sm" style={{ color: colors.text.muted }}>
-              {preview.partner?.nickname || preview.partner?.email?.split("@")[0] || "Your partner"} · {intervalDays}-day mark
+              {preview.partner?.nickname || preview.partner?.email?.split("@")[0] || "Deleted participant"} · {intervalDays}-day mark
             </p>
           </div>
 
@@ -157,21 +158,23 @@ export default function RepetitionLaunchPage() {
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={handleStartDuel}
-              disabled={!canStart || isStarting !== null}
-              className="rounded-xl border-2 px-3 py-3 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{
-                backgroundColor: colors.cta.DEFAULT,
-                borderColor: colors.cta.dark,
-                color: colors.text.inverse,
-              }}
-              data-testid="sr-launch-start-duel"
-            >
-              {isStarting === "duel" ? "Starting..." : "Start Duel"}
-            </button>
+          <div className={`grid gap-2 ${duelAvailable ? "grid-cols-2" : "grid-cols-1"}`}>
+            {duelAvailable && (
+              <button
+                type="button"
+                onClick={handleStartDuel}
+                disabled={!canStart || isStarting !== null}
+                className="rounded-xl border-2 px-3 py-3 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  backgroundColor: colors.cta.DEFAULT,
+                  borderColor: colors.cta.dark,
+                  color: colors.text.inverse,
+                }}
+                data-testid="sr-launch-start-duel"
+              >
+                {isStarting === "duel" ? "Starting..." : "Start Duel"}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleStartSolo}
@@ -187,6 +190,11 @@ export default function RepetitionLaunchPage() {
               {isStarting === "solo" ? "Starting..." : "Solo"}
             </button>
           </div>
+          {!duelAvailable && (
+            <p className="text-xs" style={{ color: colors.text.muted }}>
+              This partner is no longer available. Solo practice is still available.
+            </p>
+          )}
         </section>
       </main>
     </ThemedPage>

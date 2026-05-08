@@ -487,6 +487,24 @@ describe("weekly goal spaced repetition", () => {
     expect(challengeId).toBe("challenge_10");
   });
 
+  it("createRepetitionChallenge fails when partner user no longer exists", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.users = db.users.filter((user) => user._id !== ("user_2" as Id<"users">));
+
+    const handler = (createRepetitionChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals"> }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_1"), {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    })).rejects.toThrow("This partner is no longer available. You can still practice solo.");
+  });
+
   it("startRepetitionSoloPractice creates a persisted solo-practice session", async () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
@@ -515,6 +533,33 @@ describe("weekly goal spaced repetition", () => {
     });
     expect(db.soloPracticeSessions[0].sessionWords).toHaveLength(2);
     expect(db.challenges).toHaveLength(0);
+  });
+
+  it("startRepetitionSoloPractice still works when partner user no longer exists", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.users = db.users.filter((user) => user._id !== ("user_2" as Id<"users">));
+
+    const handler = (startRepetitionSoloPractice as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals"> }
+      ) => Promise<Id<"soloPracticeSessions">>;
+    })._handler;
+
+    const sessionId = await handler(createCtx(db, "clerk_1"), {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    });
+
+    expect(sessionId).toBe("solo_practice_10");
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      userId: "user_1",
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1",
+      spacedRepetitionStep: 1,
+      status: "learning",
+    });
   });
 
   it("completeRepetitionSoloPractice advances the record and completes the solo session", async () => {

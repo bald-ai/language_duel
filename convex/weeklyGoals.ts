@@ -1222,6 +1222,10 @@ export const createBossChallenge = mutation({
     }
 
     const opponentId = isCreator ? goal.partnerId : goal.creatorId;
+    const opponent = await ctx.db.get(opponentId);
+    if (!opponent) {
+      throw new Error("This partner is no longer available. You can still practice solo.");
+    }
     const challengeInvite = buildChallengeInvite({
       challengerId: user._id,
       opponentId,

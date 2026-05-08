@@ -42,12 +42,29 @@ export const deleteUserFully = internalMutation({
     };
 
     const deletedIds = new Set<string>();
+    const deletedGoalIds = new Set<string>();
+    const deletedChallengeIds = new Set<string>();
+    const deletedDuelIds = new Set<string>();
 
     const deleteOnce = async (id: Parameters<typeof ctx.db.delete>[0]) => {
       if (deletedIds.has(id)) return false;
 
       await ctx.db.delete(id);
       deletedIds.add(id);
+      return true;
+    };
+
+    const deleteChallenge = async (challengeId: Parameters<typeof ctx.db.delete>[0]) => {
+      if (!(await deleteOnce(challengeId))) return false;
+      deletedChallengeIds.add(String(challengeId));
+      deletionReport.challenges++;
+      return true;
+    };
+
+    const deleteDuel = async (duelId: Parameters<typeof ctx.db.delete>[0]) => {
+      if (!(await deleteOnce(duelId))) return false;
+      deletedDuelIds.add(String(duelId));
+      deletionReport.duels++;
       return true;
     };
 
@@ -96,7 +113,7 @@ export const deleteUserFully = internalMutation({
       .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
       .collect();
     for (const challenge of challengesAsChallenger) {
-      if (await deleteOnce(challenge._id)) deletionReport.challenges++;
+      await deleteChallenge(challenge._id);
     }
 
     const challengesAsOpponent = await ctx.db
@@ -104,7 +121,7 @@ export const deleteUserFully = internalMutation({
       .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
       .collect();
     for (const challenge of challengesAsOpponent) {
-      if (await deleteOnce(challenge._id)) deletionReport.challenges++;
+      await deleteChallenge(challenge._id);
     }
 
     const duelsAsChallenger = await ctx.db
@@ -112,7 +129,7 @@ export const deleteUserFully = internalMutation({
       .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
       .collect();
     for (const duel of duelsAsChallenger) {
-      if (await deleteOnce(duel._id)) deletionReport.duels++;
+      await deleteDuel(duel._id);
     }
 
     const duelsAsOpponent = await ctx.db
@@ -120,7 +137,7 @@ export const deleteUserFully = internalMutation({
       .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
       .collect();
     for (const duel of duelsAsOpponent) {
-      if (await deleteOnce(duel._id)) deletionReport.duels++;
+      await deleteDuel(duel._id);
     }
 
     const soloPracticeSessions = await ctx.db
@@ -154,11 +171,31 @@ export const deleteUserFully = internalMutation({
     }
 
     for (const goal of goalsById.values()) {
+      const isCompleted = goal.status === "completed";
+      const remainingParticipantId = goal.creatorId === userId ? goal.partnerId : goal.creatorId;
+
+      const goalChallenges = await ctx.db
+        .query("challenges")
+        .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
+        .collect();
+      for (const challenge of goalChallenges) {
+        await deleteChallenge(challenge._id);
+      }
+
+      const goalDuels = await ctx.db
+        .query("duels")
+        .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
+        .collect();
+      for (const duel of goalDuels) {
+        await deleteDuel(duel._id);
+      }
+
       const goalSoloPracticeSessions = await ctx.db
         .query("soloPracticeSessions")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
         .collect();
       for (const session of goalSoloPracticeSessions) {
+        if (isCompleted && session.userId !== userId) continue;
         if (await deleteOnce(session._id)) deletionReport.soloPracticeSessions++;
       }
 
@@ -167,7 +204,14 @@ export const deleteUserFully = internalMutation({
         .withIndex("by_goal", (q) => q.eq("weeklyGoalId", goal._id))
         .collect();
       for (const repetition of repetitions) {
+        if (isCompleted && repetition.userId === remainingParticipantId) {
+          continue;
+        }
         if (await deleteOnce(repetition._id)) deletionReport.weeklyGoalRepetitions++;
+      }
+
+      if (isCompleted) {
+        continue;
       }
 
       const snapshots = await ctx.db
@@ -178,7 +222,28 @@ export const deleteUserFully = internalMutation({
         if (await deleteOnce(snapshot._id)) deletionReport.weeklyGoalThemeSnapshots++;
       }
 
-      if (await deleteOnce(goal._id)) deletionReport.weeklyGoals++;
+      if (await deleteOnce(goal._id)) {
+        deletionReport.weeklyGoals++;
+        deletedGoalIds.add(String(goal._id));
+      }
+    }
+
+    if (deletedChallengeIds.size > 0 || deletedGoalIds.size > 0) {
+      const notifications = await ctx.db.query("notifications").collect();
+      for (const notification of notifications) {
+        const payload = notification.payload as
+          | { challengeId?: string; goalId?: string }
+          | undefined;
+        const referencesDeletedChallenge =
+          typeof payload?.challengeId === "string" &&
+          deletedChallengeIds.has(payload.challengeId);
+        const referencesDeletedGoal =
+          typeof payload?.goalId === "string" &&
+          deletedGoalIds.has(payload.goalId);
+
+        if (!referencesDeletedChallenge && !referencesDeletedGoal) continue;
+        if (await deleteOnce(notification._id)) deletionReport.notifications++;
+      }
     }
 
     const notificationsReceived = await ctx.db
@@ -205,11 +270,18 @@ export const deleteUserFully = internalMutation({
       if (await deleteOnce(preference._id)) deletionReport.notificationPreferences++;
     }
 
-    const emailLogs = await ctx.db
-      .query("emailNotificationLog")
-      .filter((q) => q.eq(q.field("toUserId"), userId))
-      .collect();
+    const emailLogs = [...(await ctx.db.query("emailNotificationLog").collect())];
     for (const emailLog of emailLogs) {
+      const referencesDeletedChallenge =
+        typeof emailLog.challengeId === "string" &&
+        deletedChallengeIds.has(emailLog.challengeId);
+      const referencesDeletedDuel =
+        typeof emailLog.duelId === "string" &&
+        deletedDuelIds.has(emailLog.duelId);
+      const targetsDeletedUser = emailLog.toUserId === userId;
+      if (!referencesDeletedChallenge && !referencesDeletedDuel && !targetsDeletedUser) {
+        continue;
+      }
       if (await deleteOnce(emailLog._id)) deletionReport.emailNotificationLog++;
     }
 

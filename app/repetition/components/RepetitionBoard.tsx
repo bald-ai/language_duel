@@ -18,6 +18,7 @@ type BoardItem = {
   weeklyGoalId: string;
   title: string;
   partner: { nickname?: string; email: string } | null;
+  duelAvailable: boolean;
   themeCount: number;
   dueAt: number | null;
   completedSteps: unknown[];
@@ -43,7 +44,8 @@ function formatShortDate(timestamp: number | null): string {
 }
 
 function partnerLabel(item: BoardItem): string {
-  const partnerName = item.partner?.nickname || item.partner?.email?.split("@")[0] || "partner";
+  if (!item.partner) return "Deleted participant";
+  const partnerName = item.partner.nickname || item.partner.email.split("@")[0] || "partner";
   return `You and ${partnerName}`;
 }
 
@@ -135,26 +137,43 @@ function ReadyCard({ item }: { item: BoardItem }) {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      {item.duelAvailable ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
+            disabled={!item.ready}
+            className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              backgroundColor: colors.cta.DEFAULT,
+              borderColor: colors.cta.dark,
+              color: colors.text.inverse,
+            }}
+            data-testid="sr-ready-start-duel"
+          >
+            Start Duel
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
+            disabled={!item.ready}
+            className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              backgroundColor: colors.background.DEFAULT,
+              borderColor: colors.primary.dark,
+              color: colors.text.DEFAULT,
+            }}
+            data-testid="sr-ready-solo"
+          >
+            Solo
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
           onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
           disabled={!item.ready}
-          className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-          style={{
-            backgroundColor: colors.cta.DEFAULT,
-            borderColor: colors.cta.dark,
-            color: colors.text.inverse,
-          }}
-          data-testid="sr-ready-start-duel"
-        >
-          Start Duel
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
-          disabled={!item.ready}
-          className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           style={{
             backgroundColor: colors.background.DEFAULT,
             borderColor: colors.primary.dark,
@@ -164,7 +183,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
         >
           Solo
         </button>
-      </div>
+      )}
     </article>
   );
 }

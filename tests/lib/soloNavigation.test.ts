@@ -33,6 +33,17 @@ describe("soloNavigation", () => {
     expect(urlObj.searchParams.get("returnLabel")).toBe("Back to weekly goal");
   });
 
+  it("does not duplicate persisted solo-practice ids in the path", () => {
+    const url = buildSoloUrl("solo_practice_1", "learn_practice", {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      returnTo: "/repetition",
+    });
+
+    const urlObj = new URL(url, "http://test.com");
+    expect(urlObj.pathname).toBe("/solo/learn/session");
+    expect(urlObj.searchParams.get("soloPracticeSessionId")).toBe("solo_practice_1");
+  });
+
   it("sanitizes unsafe return targets", () => {
     expect(sanitizeSoloReturnTo("https://example.com")).toBe("/");
     expect(sanitizeSoloReturnTo("//evil.test")).toBe("/");

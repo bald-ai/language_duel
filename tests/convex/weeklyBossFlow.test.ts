@@ -506,6 +506,28 @@ describe("weekly boss flow", () => {
     expect(challengeId).toBe("challenge_10");
   });
 
+  it("createBossChallenge fails when partner user no longer exists", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+    );
+    db.themes.push(themeDoc("theme_1", "Animals"));
+    db.weeklyGoals.push(readyMiniBossGoal());
+
+    const handler = (createBossChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+    })).rejects.toThrow("This partner is no longer available. You can still practice solo.");
+  });
+
   it("startBossSoloPractice creates a solo-practice session, not a challenge", async () => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();
