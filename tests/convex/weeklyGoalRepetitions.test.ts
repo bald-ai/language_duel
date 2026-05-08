@@ -455,6 +455,38 @@ describe("weekly goal spaced repetition", () => {
     expect(schedulerRunAfter).toHaveBeenCalledOnce();
   });
 
+  it("createRepetitionChallenge ignores accepted invite history when no duel is active", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.challenges.push({
+      _id: "challenge_existing" as Id<"challenges">,
+      _creationTime: 1,
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      spacedRepetitionStep: 1,
+      status: "accepted",
+      createdAt: 1,
+    });
+    db.duels.push(duelDoc({ _id: "duel_existing" as Id<"duels">, status: "completed" }));
+
+    const handler = (createRepetitionChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals"> }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    });
+
+    expect(challengeId).toBe("challenge_10");
+  });
+
   it("startRepetitionSoloPractice creates a persisted solo-practice session", async () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();

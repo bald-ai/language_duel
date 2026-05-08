@@ -20,6 +20,8 @@ type EmailLogDoc = Pick<
   | "toUserId"
   | "trigger"
   | "challengeId"
+  | "duelId"
+  | "soloPracticeSessionId"
   | "weeklyGoalId"
   | "reminderOffsetMinutes"
   | "dedupeKey"
@@ -77,6 +79,8 @@ const claimNotificationSendHandler = (claimNotificationSend as unknown as {
       toUserId: Id<"users">;
       trigger: "weekly_goal_draft_expiring";
       weeklyGoalId?: Id<"weeklyGoals">;
+      duelId?: Id<"duels">;
+      soloPracticeSessionId?: Id<"soloPracticeSessions">;
       dedupeKey?: string;
     }
   ) => Promise<{ claimed: boolean; claimId?: Id<"emailNotificationLog"> }>;
@@ -118,6 +122,83 @@ describe("notification email claim-before-send", () => {
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      }
+    );
+
+    expect(result.claimed).toBe(false);
+    expect(db.emailNotificationLog).toHaveLength(1);
+  });
+
+  it("dedupes duel-scoped claims by duelId", async () => {
+    const db = new InMemoryDb([], [
+      {
+        _id: "email_log_1" as Id<"emailNotificationLog">,
+        _creationTime: 1,
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        duelId: "duel_1" as Id<"duels">,
+        sentAt: 123,
+      },
+    ]);
+
+    const result = await claimNotificationSendHandler(
+      { db } as never,
+      {
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        duelId: "duel_1" as Id<"duels">,
+      }
+    );
+
+    expect(result.claimed).toBe(false);
+    expect(db.emailNotificationLog).toHaveLength(1);
+  });
+
+  it("uses duelId over weeklyGoalId when both are present", async () => {
+    const db = new InMemoryDb([], [
+      {
+        _id: "email_log_1" as Id<"emailNotificationLog">,
+        _creationTime: 1,
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        duelId: "duel_1" as Id<"duels">,
+        sentAt: 123,
+      },
+    ]);
+
+    const result = await claimNotificationSendHandler(
+      { db } as never,
+      {
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        duelId: "duel_1" as Id<"duels">,
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      }
+    );
+
+    expect(result.claimed).toBe(false);
+    expect(db.emailNotificationLog).toHaveLength(1);
+  });
+
+
+  it("dedupes solo-practice-scoped claims by soloPracticeSessionId", async () => {
+    const db = new InMemoryDb([], [
+      {
+        _id: "email_log_1" as Id<"emailNotificationLog">,
+        _creationTime: 1,
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+        sentAt: 123,
+      },
+    ]);
+
+    const result = await claimNotificationSendHandler(
+      { db } as never,
+      {
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
       }
     );
 

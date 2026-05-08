@@ -459,7 +459,7 @@ export const createRepetitionChallenge = mutation({
       (challenge) =>
         challenge.sourceType === "spaced_repetition" &&
         challenge.spacedRepetitionStep === step &&
-        (challenge.status === "pending" || challenge.status === "accepted")
+        challenge.status === "pending"
     ) || activeDuels.find(
       (duel) =>
         duel.sourceType === "spaced_repetition" &&

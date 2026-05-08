@@ -31,6 +31,8 @@ type EmailNotificationLogLookupArgs = {
   toUserId: Id<"users">;
   trigger: NotificationTrigger;
   challengeId?: Id<"challenges">;
+  duelId?: Id<"duels">;
+  soloPracticeSessionId?: Id<"soloPracticeSessions">;
   weeklyGoalId?: Id<"weeklyGoals">;
   dedupeKey?: string;
 };
@@ -53,19 +55,6 @@ async function checkEmailNotificationSent(
     return Boolean(log);
   }
 
-  if (args.weeklyGoalId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_weeklyGoal", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("weeklyGoalId", args.weeklyGoalId)
-      )
-      .first();
-    return Boolean(log);
-  }
-
   if (args.challengeId) {
     const log = await ctx.db
       .query("emailNotificationLog")
@@ -74,6 +63,45 @@ async function checkEmailNotificationSent(
           .eq("toUserId", args.toUserId)
           .eq("trigger", args.trigger)
           .eq("challengeId", args.challengeId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.duelId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_duel", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("duelId", args.duelId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.soloPracticeSessionId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_soloPracticeSession", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("soloPracticeSessionId", args.soloPracticeSessionId)
+      )
+      .first();
+    return Boolean(log);
+  }
+
+  if (args.weeklyGoalId) {
+    const log = await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("weeklyGoalId", args.weeklyGoalId)
       )
       .first();
     return Boolean(log);
@@ -121,6 +149,8 @@ export const checkNotificationSent = internalQuery({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
+    duelId: v.optional(v.id("duels")),
+    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -135,6 +165,8 @@ export const logNotificationSent = internalMutation({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
+    duelId: v.optional(v.id("duels")),
+    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -149,6 +181,8 @@ export const logNotificationSent = internalMutation({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
+      duelId: args.duelId,
+      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -163,6 +197,8 @@ export const claimNotificationSend = internalMutation({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
+    duelId: v.optional(v.id("duels")),
+    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -177,6 +213,8 @@ export const claimNotificationSend = internalMutation({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
+      duelId: args.duelId,
+      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -224,6 +262,8 @@ export const sendNotificationEmail = internalAction({
     toUserId: v.id("users"),
     fromUserId: v.optional(v.id("users")),
     challengeId: v.optional(v.id("challenges")),
+    duelId: v.optional(v.id("duels")),
+    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -248,6 +288,8 @@ export const sendNotificationEmail = internalAction({
       toUser,
       fromUserId: args.fromUserId,
       challengeId: args.challengeId,
+      duelId: args.duelId,
+      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -259,6 +301,8 @@ export const sendNotificationEmail = internalAction({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
+      duelId: args.duelId,
+      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -290,6 +334,8 @@ export type BuildEmailArgs = {
   toUser: Doc<"users">;
   fromUserId?: Id<"users">;
   challengeId?: Id<"challenges">;
+  duelId?: Id<"duels">;
+  soloPracticeSessionId?: Id<"soloPracticeSessions">;
   weeklyGoalId?: Id<"weeklyGoals">;
   reminderOffsetMinutes?: number;
   dedupeKey?: string;

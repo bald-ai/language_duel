@@ -450,6 +450,62 @@ describe("weekly boss flow", () => {
     })).rejects.toThrow("A boss attempt is already in progress");
   });
 
+  it("createBossChallenge ignores accepted invite history when no duel is active", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.themes.push(themeDoc("theme_1", "Animals"));
+    db.weeklyGoals.push(readyMiniBossGoal());
+    db.challenges.push({
+      _id: "challenge_existing" as Id<"challenges">,
+      _creationTime: 1,
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      sourceType: "boss",
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+      status: "accepted",
+      createdAt: 1,
+    });
+    db.duels.push({
+      _id: "duel_existing" as Id<"duels">,
+      _creationTime: 1,
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      sessionWords: [],
+      sourceType: "boss",
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+      status: "completed",
+      currentWordIndex: 0,
+      challengerAnswered: false,
+      opponentAnswered: false,
+      challengerScore: 0,
+      opponentScore: 0,
+      createdAt: 1,
+      seed: 123,
+    });
+
+    const handler = (createBossChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "mini",
+    });
+
+    expect(challengeId).toBe("challenge_10");
+  });
+
   it("startBossSoloPractice creates a solo-practice session, not a challenge", async () => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();

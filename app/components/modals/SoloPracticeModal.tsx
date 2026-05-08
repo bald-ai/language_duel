@@ -215,8 +215,8 @@ export function SoloPracticeModal({
             <ModeSelectionButton
               selected={selectedMode === "learn_practice"}
               onClick={() => setSelectedMode("learn_practice")}
-              title="Learn + Test"
-              description="Study first, then challenge"
+              title="Learn + Practice"
+              description="Study first, then practice"
               selectedTone="primary"
               dataTestId="solo-modal-mode-learn-test"
             />

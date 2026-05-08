@@ -1211,7 +1211,7 @@ export const createBossChallenge = mutation({
     const duplicateAttempt = existingGoalChallenges.find(
       (challenge) =>
         challenge.bossType === bossType &&
-        (challenge.status === "pending" || challenge.status === "accepted")
+        challenge.status === "pending"
     ) || existingGoalDuels.find(
       (duel) =>
         duel.bossType === bossType &&

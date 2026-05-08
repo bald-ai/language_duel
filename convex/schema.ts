@@ -480,6 +480,12 @@ export default defineSchema({
       "dedupeKey",
     ])
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
+    .index("by_user_trigger_duel", ["toUserId", "trigger", "duelId"])
+    .index("by_user_trigger_soloPracticeSession", [
+      "toUserId",
+      "trigger",
+      "soloPracticeSessionId",
+    ])
     .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_sentAt", ["sentAt"]),
 });
