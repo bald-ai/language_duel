@@ -3,20 +3,20 @@ import { buildSoloSearchParams, buildSoloUrl, sanitizeSoloReturnTo } from "@/lib
 import type { Id } from "@/convex/_generated/dataModel";
 
 describe("soloNavigation", () => {
-  it("prefers challenge source over weekly-goal and normal themes", () => {
+  it("prefers persisted solo-practice source over weekly-goal and normal themes", () => {
     const params = buildSoloSearchParams({
-      challengeId: "challenge_1" as Id<"challenges">,
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       themeIds: ["theme_1" as Id<"themes">],
     });
 
-    expect(params.get("challengeId")).toBe("challenge_1");
+    expect(params.get("soloPracticeSessionId")).toBe("solo_practice_1");
     expect(params.get("weeklyGoalId")).toBeNull();
     expect(params.get("themeIds")).toBeNull();
   });
 
   it("preserves weekly-goal source, selected themes, return target, and confidence", () => {
-    const url = buildSoloUrl("session_1", "challenge_only", {
+    const url = buildSoloUrl("session_1", "practice_only", {
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       themeIds: ["theme_2" as Id<"themes">, "theme_1" as Id<"themes">],
       returnTo: "/goals",

@@ -10,7 +10,6 @@ interface FriendListItemProps {
     friend: FriendWithDetails;
     hasExistingGoal: boolean;
     onQuickDuel: () => void;
-    onScheduleDuel: () => void;
     onRemoveFriend: () => void;
 }
 
@@ -26,7 +25,6 @@ export function FriendListItem({
     friend,
     hasExistingGoal,
     onQuickDuel,
-    onScheduleDuel,
     onRemoveFriend
 }: FriendListItemProps) {
     const [showMenu, setShowMenu] = useState(false);
@@ -298,22 +296,6 @@ export function FriendListItem({
                         </button>
                     )}
 
-                    {/* Schedule Duel quick action */}
-                    <button
-                        className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
-                        style={{ color: colors.cta.DEFAULT }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onScheduleDuel();
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        title="Schedule Duel"
-                        data-testid={`notifications-friend-${friend.friendId}-schedule-duel`}
-                    >
-                        <CalendarIcon />
-                    </button>
-
                     {/* More options button */}
                     <button
                         ref={menuButtonRef}
@@ -338,14 +320,6 @@ export function FriendListItem({
                 ? createPortal(confirmRemoveDialog, document.body)
                 : confirmRemoveDialog}
         </>
-    );
-}
-
-function CalendarIcon() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
     );
 }
 

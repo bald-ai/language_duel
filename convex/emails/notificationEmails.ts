@@ -10,8 +10,8 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { emailNotificationTriggerValidator } from "../schema";
 import {
-  isNotificationEnabled,
   formatScheduledTimeForEmail,
+  isNotificationEnabled,
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail, type EmailData } from "../../lib/notificationTemplates";
@@ -20,7 +20,7 @@ import {
 } from "../constants";
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
-import { summarizeThemeNames, type SessionWordEntry } from "../../lib/sessionWords";
+import { summarizeThemeNames } from "../../lib/sessionWords";
 import {
   getGoalDeleteAt,
 } from "../../lib/weeklyGoals";
@@ -31,7 +31,6 @@ type EmailNotificationLogLookupArgs = {
   toUserId: Id<"users">;
   trigger: NotificationTrigger;
   challengeId?: Id<"challenges">;
-  scheduledDuelId?: Id<"scheduledDuels">;
   weeklyGoalId?: Id<"weeklyGoals">;
   dedupeKey?: string;
 };
@@ -40,19 +39,6 @@ async function checkEmailNotificationSent(
   ctx: Pick<QueryCtx, "db">,
   args: EmailNotificationLogLookupArgs
 ): Promise<boolean> {
-  if (args.scheduledDuelId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_scheduledDuel", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("scheduledDuelId", args.scheduledDuelId)
-      )
-      .first();
-    return Boolean(log);
-  }
-
   if (args.weeklyGoalId && args.dedupeKey) {
     const log = await ctx.db
       .query("emailNotificationLog")
@@ -116,13 +102,6 @@ export const getChallengeById = internalQuery({
   },
 });
 
-export const getScheduledDuelById = internalQuery({
-  args: { id: v.id("scheduledDuels") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
 export const getWeeklyGoalById = internalQuery({
   args: { id: v.id("weeklyGoals") },
   handler: async (ctx, args) => {
@@ -142,7 +121,6 @@ export const checkNotificationSent = internalQuery({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -157,7 +135,6 @@ export const logNotificationSent = internalMutation({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -172,7 +149,6 @@ export const logNotificationSent = internalMutation({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
-      scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -187,7 +163,6 @@ export const claimNotificationSend = internalMutation({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -202,7 +177,6 @@ export const claimNotificationSend = internalMutation({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
-      scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -250,7 +224,6 @@ export const sendNotificationEmail = internalAction({
     toUserId: v.id("users"),
     fromUserId: v.optional(v.id("users")),
     challengeId: v.optional(v.id("challenges")),
-    scheduledDuelId: v.optional(v.id("scheduledDuels")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -275,7 +248,6 @@ export const sendNotificationEmail = internalAction({
       toUser,
       fromUserId: args.fromUserId,
       challengeId: args.challengeId,
-      scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -287,7 +259,6 @@ export const sendNotificationEmail = internalAction({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
-      scheduledDuelId: args.scheduledDuelId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -319,7 +290,6 @@ export type BuildEmailArgs = {
   toUser: Doc<"users">;
   fromUserId?: Id<"users">;
   challengeId?: Id<"challenges">;
-  scheduledDuelId?: Id<"scheduledDuels">;
   weeklyGoalId?: Id<"weeklyGoals">;
   reminderOffsetMinutes?: number;
   dedupeKey?: string;
@@ -350,45 +320,17 @@ export async function buildEmailData(
       id: args.challengeId,
     });
     if (challenge) {
-      const sessionThemeNames = Array.from(new Set(
-        (challenge.sessionWords ?? [])
-          .map((word) => (word as SessionWordEntry).themeName)
-          .filter((themeName): themeName is string => typeof themeName === "string")
-      ));
-
-      if (sessionThemeNames.length > 0) {
-        data.themeName = summarizeThemeNames(sessionThemeNames);
-      }
-    }
-  }
-
-  if (args.scheduledDuelId) {
-    const scheduledDuel = await ctx.runQuery(internal.emails.notificationEmails.getScheduledDuelById, {
-      id: args.scheduledDuelId,
-    });
-    if (scheduledDuel) {
       const themes = await Promise.all(
-        scheduledDuel.themeIds.map((themeId) =>
-          ctx.runQuery(internal.emails.notificationEmails.getThemeById, {
-            id: themeId,
-          })
+        challenge.themeIds.map((themeId) =>
+          ctx.runQuery(internal.emails.notificationEmails.getThemeById, { id: themeId })
         )
       );
       const themeNames = themes
-        .filter((theme): theme is Doc<"themes"> => theme !== null)
-        .map((theme) => theme.name);
-      data.themeName = summarizeThemeNames(themeNames);
-      data.scheduledTime = formatScheduledTimeForEmail(scheduledDuel.scheduledTime, DEFAULT_TIMEZONE);
-      data.minutesBefore = args.reminderOffsetMinutes;
-      if (!data.partnerName) {
-        const opponentId =
-          scheduledDuel.proposerId === args.toUser._id
-            ? scheduledDuel.recipientId
-            : scheduledDuel.proposerId;
-        const opponent = await ctx.runQuery(internal.emails.notificationEmails.getUserById, {
-          id: opponentId,
-        });
-        data.partnerName = opponent?.nickname ?? opponent?.name ?? "Opponent";
+        .map((theme) => theme?.name)
+        .filter((themeName): themeName is string => typeof themeName === "string");
+
+      if (themeNames.length > 0) {
+        data.themeName = summarizeThemeNames(themeNames);
       }
     }
   }

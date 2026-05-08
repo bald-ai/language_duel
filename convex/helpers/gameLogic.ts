@@ -29,7 +29,7 @@ export interface DifficultyDistribution {
   total: number;
 }
 
-export type ClassicDifficultyPreset = "easy" | "medium" | "hard";
+export type DuelDifficultyPreset = "easy" | "medium" | "hard";
 
 export interface WordState {
   wordIndex: number;

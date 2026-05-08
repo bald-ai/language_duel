@@ -32,8 +32,8 @@ export default function BossLaunchPage() {
       ? { goalId: goalId as Id<"weeklyGoals">, bossType }
       : "skip"
   );
-  const startBossDuel = useMutation(api.weeklyGoals.startBossDuel);
-  const startBossPractice = useMutation(api.weeklyGoals.startBossPractice);
+  const createBossChallenge = useMutation(api.weeklyGoals.createBossChallenge);
+  const startBossSoloPractice = useMutation(api.weeklyGoals.startBossSoloPractice);
   const bossStatus = preview?.bossStatus;
   const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
   const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
@@ -43,11 +43,12 @@ export default function BossLaunchPage() {
     if (!goalId || !bossType) return;
     setIsStartingDuel(true);
     try {
-      const challengeId = await startBossDuel({
+      await createBossChallenge({
         goalId: goalId as Id<"weeklyGoals">,
         bossType,
       });
-      router.push(`/classic-duel/${challengeId}`);
+      toast.success("Boss challenge sent.");
+      router.push("/goals");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start boss duel");
     } finally {
@@ -59,11 +60,15 @@ export default function BossLaunchPage() {
     if (!goalId || !bossType) return;
     setIsStartingPractice(true);
     try {
-      const challengeId = await startBossPractice({
+      const soloPracticeSessionId = await startBossSoloPractice({
         goalId: goalId as Id<"weeklyGoals">,
         bossType,
       });
-      router.push(buildSoloUrl(String(challengeId), "learn_test", { challengeId }));
+      router.push(
+        buildSoloUrl(String(soloPracticeSessionId), "learn_practice", {
+          soloPracticeSessionId,
+        })
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start practice");
     } finally {

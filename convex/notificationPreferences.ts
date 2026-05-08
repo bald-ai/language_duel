@@ -10,22 +10,11 @@ function normalizeNotificationPreferences(
   prefs: Partial<NotificationPreferences> | null | undefined
 ): NotificationPreferences {
   return {
-    immediateDuelsEnabled:
-      prefs?.immediateDuelsEnabled ?? DEFAULT_NOTIFICATION_PREFS.immediateDuelsEnabled,
-    immediateDuelChallengeEnabled:
-      prefs?.immediateDuelChallengeEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.immediateDuelChallengeEnabled,
-    scheduledDuelsEnabled:
-      prefs?.scheduledDuelsEnabled ?? DEFAULT_NOTIFICATION_PREFS.scheduledDuelsEnabled,
-    scheduledDuelProposalEnabled:
-      prefs?.scheduledDuelProposalEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.scheduledDuelProposalEnabled,
-    scheduledDuelReminderEnabled:
-      prefs?.scheduledDuelReminderEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderEnabled,
-    scheduledDuelReminderOffsetMinutes:
-      prefs?.scheduledDuelReminderOffsetMinutes ??
-      DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes,
+    challengeInvitesEnabled:
+      prefs?.challengeInvitesEnabled ?? DEFAULT_NOTIFICATION_PREFS.challengeInvitesEnabled,
+    challengeInviteEmailEnabled:
+      prefs?.challengeInviteEmailEnabled ??
+      DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailEnabled,
     weeklyGoalsEnabled:
       prefs?.weeklyGoalsEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalsEnabled,
     weeklyGoalInviteEnabled:
@@ -101,13 +90,8 @@ const MAX_OFFSET = 7 * 24 * 60;
 
 export const setMyNotificationPreferences = mutation({
   args: {
-    immediateDuelsEnabled: v.boolean(),
-    immediateDuelChallengeEnabled: v.boolean(),
-
-    scheduledDuelsEnabled: v.boolean(),
-    scheduledDuelProposalEnabled: v.boolean(),
-    scheduledDuelReminderEnabled: v.boolean(),
-    scheduledDuelReminderOffsetMinutes: v.number(),
+    challengeInvitesEnabled: v.boolean(),
+    challengeInviteEmailEnabled: v.boolean(),
 
     weeklyGoalsEnabled: v.boolean(),
     weeklyGoalInviteEnabled: v.boolean(),
@@ -124,12 +108,6 @@ export const setMyNotificationPreferences = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    if (
-      args.scheduledDuelReminderOffsetMinutes < MIN_OFFSET ||
-      args.scheduledDuelReminderOffsetMinutes > MAX_OFFSET
-    ) {
-      throw new Error("Invalid scheduled duel reminder offset");
-    }
     if (
       args.weeklyGoalReminder1OffsetMinutes < MIN_OFFSET ||
       args.weeklyGoalReminder1OffsetMinutes > MAX_OFFSET

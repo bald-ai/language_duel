@@ -20,17 +20,10 @@ export function useNotificationSettings() {
 
       try {
         const merged: NotificationPreferences = {
-          immediateDuelsEnabled: updates.immediateDuelsEnabled ?? prefs.immediateDuelsEnabled,
-          immediateDuelChallengeEnabled:
-            updates.immediateDuelChallengeEnabled ?? prefs.immediateDuelChallengeEnabled,
-
-          scheduledDuelsEnabled: updates.scheduledDuelsEnabled ?? prefs.scheduledDuelsEnabled,
-          scheduledDuelProposalEnabled:
-            updates.scheduledDuelProposalEnabled ?? prefs.scheduledDuelProposalEnabled,
-          scheduledDuelReminderEnabled:
-            updates.scheduledDuelReminderEnabled ?? prefs.scheduledDuelReminderEnabled,
-          scheduledDuelReminderOffsetMinutes:
-            updates.scheduledDuelReminderOffsetMinutes ?? prefs.scheduledDuelReminderOffsetMinutes,
+          challengeInvitesEnabled:
+            updates.challengeInvitesEnabled ?? prefs.challengeInvitesEnabled,
+          challengeInviteEmailEnabled:
+            updates.challengeInviteEmailEnabled ?? prefs.challengeInviteEmailEnabled,
 
           weeklyGoalsEnabled: updates.weeklyGoalsEnabled ?? prefs.weeklyGoalsEnabled,
           weeklyGoalInviteEnabled:

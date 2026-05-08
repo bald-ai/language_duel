@@ -1,14 +1,10 @@
 "use client";
-
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { colors } from "@/lib/theme";
 import { useNotifications } from "../hooks/useNotifications";
-import { useScheduledDuel } from "../hooks/useScheduledDuel";
 import { NotificationItem } from "./NotificationItem";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
-import { CounterProposeScheduledDuelModal } from "./CounterProposeScheduledDuelModal";
 
 interface NotificationsTabProps {
     onClose: () => void;
@@ -17,20 +13,10 @@ interface NotificationsTabProps {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null;
 
-const hasScheduledDuelId = (
-    payload: unknown
-): payload is { scheduledDuelId: Id<"scheduledDuels"> } =>
-    isRecord(payload) && "scheduledDuelId" in payload;
-
 const hasGoalId = (
     payload: unknown
 ): payload is { goalId: Id<"weeklyGoals"> } =>
     isRecord(payload) && "goalId" in payload;
-
-const hasMode = (
-    payload: unknown
-): payload is { mode: "solo" | "classic" } =>
-    isRecord(payload) && (payload.mode === "solo" || payload.mode === "classic");
 
 /**
  * NotificationsTab - Display all notification types with actions
@@ -38,21 +24,11 @@ const hasMode = (
  * Features:
  * - Friend requests with accept/reject actions
  * - Weekly plan invitations with view/decline actions
- * - Scheduled duel proposals with accept/counter/decline actions
- * - Duel challenges with accept/decline actions
- * - Ready state management for accepted scheduled duels
+ * - Challenge invites with accept/decline actions
  */
 export function NotificationsTab({ onClose }: NotificationsTabProps) {
     const router = useRouter();
     const { notifications, isLoading, actions } = useNotifications();
-    const { setReady, cancelReady, cancelScheduledDuel, scheduledDuels } = useScheduledDuel();
-    const [counterDuelId, setCounterDuelId] = useState<Id<"scheduledDuels"> | null>(null);
-
-    // Helper to get scheduled duel data from the list
-    const getScheduledDuelData = (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) return null;
-        return scheduledDuels.find((d: { _id: Id<"scheduledDuels"> }) => d._id === scheduledDuelId) || null;
-    };
 
     const handleAcceptFriendRequest = async (notificationId: Id<"notifications">) => {
         try {
@@ -72,33 +48,22 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleAcceptDuelChallenge = async (
-        notificationId: Id<"notifications">,
-        mode: "solo" | "classic" | undefined
-    ) => {
-        if (!mode) {
-            toast.error("Challenge data is incomplete");
-            return;
-        }
+    const handleAcceptChallenge = async (notificationId: Id<"notifications">) => {
         try {
-            const result = await actions.acceptDuelChallenge(notificationId);
+            const result = await actions.acceptChallenge(notificationId);
             toast.success("Challenge accepted!");
             onClose();
-            // Navigate to duel page based on mode
-            if (result?.challengeId) {
-                const route = mode === 'classic'
-                    ? `/classic-duel/${result.challengeId}`
-                    : `/duel/${result.challengeId}`;
-                router.push(route);
+            if (result?.duelId) {
+                router.push(`/duel/${result.duelId}`);
             }
         } catch (_error) {
             toast.error("Failed to accept challenge");
         }
     };
 
-    const handleDeclineDuelChallenge = async (notificationId: Id<"notifications">) => {
+    const handleDeclineChallenge = async (notificationId: Id<"notifications">) => {
         try {
-            await actions.declineDuelChallenge(notificationId);
+            await actions.declineChallenge(notificationId);
             toast.success("Challenge declined");
         } catch (_error) {
             toast.error("Failed to decline challenge");
@@ -150,92 +115,9 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    // ========================================
-    // Scheduled Duel Handlers
-    // ========================================
-    const handleAcceptScheduledDuel = async (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        try {
-            await actions.acceptScheduledDuel(scheduledDuelId);
-            toast.success("Scheduled duel accepted! Get ready when it's time.");
-        } catch (_error) {
-            toast.error("Failed to accept scheduled duel");
-        }
-    };
-
-    const handleCounterProposeScheduledDuel = (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        setCounterDuelId(scheduledDuelId);
-    };
-
-    const handleDeclineScheduledDuel = async (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        try {
-            await actions.declineScheduledDuel(scheduledDuelId);
-            toast.success("Scheduled duel cancelled");
-        } catch (_error) {
-            toast.error("Failed to decline scheduled duel");
-        }
-    };
-
-    // ========================================
-    // Ready State Handlers
-    // ========================================
-    const handleSetReady = async (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        try {
-            const result = await setReady(scheduledDuelId);
-            if (result.bothReady) {
-                toast.success("Both players ready! Starting duel...");
-            } else {
-                toast.success("You're ready! Waiting for opponent...");
-            }
-        } catch (_error) {
-            toast.error("Failed to set ready status");
-        }
-    };
-
-    const handleCancelReady = async (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        try {
-            await cancelReady(scheduledDuelId);
-            toast.info("Ready status cancelled");
-        } catch (_error) {
-            toast.error("Failed to cancel ready status");
-        }
-    };
-
-    const handleCancelScheduledDuel = async (scheduledDuelId?: Id<"scheduledDuels">) => {
-        if (!scheduledDuelId) {
-            toast.error("Invalid scheduled duel");
-            return;
-        }
-        try {
-            await cancelScheduledDuel(scheduledDuelId);
-            toast.success("Scheduled duel cancelled");
-        } catch (_error) {
-            toast.error("Failed to cancel scheduled duel");
-        }
-    };
-
-    const handleSoloChallenge = (themeId: Id<"themes">) => {
+    const handleSoloPractice = (themeId: Id<"themes">) => {
         onClose();
-        router.push(`/?openSolo=true&themeId=${themeId}&soloMode=challenge_only`);
+        router.push(`/?openSolo=true&themeId=${themeId}&soloMode=practice_only`);
     };
 
     if (isLoading) {
@@ -267,15 +149,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         <div className="py-2" data-testid="notifications-tab">
             {notifications.map((notification) => {
                 const payload = notification.payload;
-                const scheduledDuelId = hasScheduledDuelId(payload)
-                    ? payload.scheduledDuelId
-                    : undefined;
-                const duelMode = hasMode(payload) ? payload.mode : undefined;
                 const goalId = hasGoalId(payload) ? payload.goalId : undefined;
-
-                // Get scheduled duel data for ready states
-                const scheduledDuelData = getScheduledDuelData(scheduledDuelId);
-                const isProposer = scheduledDuelData?.isProposer || false;
 
                 return (
                     <NotificationItem
@@ -283,36 +157,18 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         notification={notification}
                         onAcceptFriendRequest={() => handleAcceptFriendRequest(notification._id)}
                         onRejectFriendRequest={() => handleRejectFriendRequest(notification._id)}
-                        onAcceptDuelChallenge={() =>
-                            handleAcceptDuelChallenge(notification._id, duelMode)
-                        }
-                        onDeclineDuelChallenge={() => handleDeclineDuelChallenge(notification._id)}
+                        onAcceptChallenge={() => handleAcceptChallenge(notification._id)}
+                        onDeclineChallenge={() => handleDeclineChallenge(notification._id)}
                         onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}
                         onDismissWeeklyPlan={() => handleDismissWeeklyPlan(notification._id)}
                         onArchiveCompletedGoalThemes={() => handleArchiveCompletedGoalThemes(notification._id)}
                         onDeclineWeeklyPlan={() => handleDeclineWeeklyPlanInvitation(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
-                        onAcceptScheduledDuel={() => handleAcceptScheduledDuel(scheduledDuelId)}
-                        onCounterProposeScheduledDuel={() => handleCounterProposeScheduledDuel(scheduledDuelId)}
-                        onDeclineScheduledDuel={() => handleDeclineScheduledDuel(scheduledDuelId)}
-                        onCancelScheduledDuel={() => handleCancelScheduledDuel(scheduledDuelId)}
-                        // Ready state props
-                        onSetReady={() => handleSetReady(scheduledDuelId)}
-                        onCancelReady={() => handleCancelReady(scheduledDuelId)}
-                        currentUserIsProposer={isProposer}
-                        proposerReady={scheduledDuelData?.proposerReady}
-                        recipientReady={scheduledDuelData?.recipientReady}
                         // Theme quick actions
-                        onSoloChallenge={handleSoloChallenge}
+                        onSoloPractice={handleSoloPractice}
                     />
                 );
             })}
-            {counterDuelId && (
-                <CounterProposeScheduledDuelModal
-                    scheduledDuelId={counterDuelId}
-                    onClose={() => setCounterDuelId(null)}
-                />
-            )}
         </div>
     );
 }

@@ -4,7 +4,7 @@ Disclaimer: This is an indie app currently with no users.
 
 ## What This App Is
 
-Language Duel is a collaborative language-learning app built around shared practice, structured play, and reusable study content. Users create and study themes, run solo challenges, play duels with another person, set weekly goals together, receive notifications and reminders, and use TTS audio to hear answers.
+Language Duel is a collaborative language-learning app built around shared practice, structured play, and reusable study content. Users create and study themes, run solo practice, play duels with another person, set weekly goals together, receive notifications and reminders, and use TTS audio to hear answers.
 
 The product name makes it sound more competitive than it currently feels in practice. The app has competitive mechanics, but the broader experience is closer to learning together with game-like structure than to trying to beat another person at all costs.
 
@@ -18,9 +18,9 @@ The direction is still evolving. AI should treat this thesis as the current best
 
 ## Core User Experiences
 
-- Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo challenge, duels, and weekly goals.
-- Solo challenge: A user practices against the app using duel-style structure without needing another player. The Learn + Test path also covers untimed study with hints and TTS before challenge play.
-- Start or join a duel: Two users use shared challenge structure to practice together in either classic or solo-style modes. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
+- Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
+- Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
+- Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
 - Weekly goals: Two users create a shared plan, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
 
 ## System Map
@@ -36,19 +36,20 @@ The direction is still evolving. AI should treat this thesis as the current best
 - `themes`: user-created word collections with metadata, sharing state, edit permissions, and stored words.
 - `friendRequests`: pending or resolved requests that let users connect before collaborating directly.
 - `friends`: accepted user-to-user relationships used across duels, goals, and shared content flows.
-- `challenges`: the main duel records, including participants, chosen themes, generated session words, mode-specific game state, and optional weekly-goal linkage.
+- `challenges`: pending person-to-person duel invites, including participants, chosen themes, and optional weekly-goal linkage.
+- `duels`: accepted two-person gameplay sessions, including participants, chosen themes, generated session words, game state, and optional weekly-goal linkage.
+- `soloPracticeSessions`: single-player practice sessions, including chosen themes, generated session words, and optional weekly-goal linkage.
 - `weeklyGoals`: shared plans between two users that track chosen themes, participant lock flags, lifecycle state, completion progress, and boss readiness.
-- `notifications`: in-app event records for friend requests, duel activity, scheduled duels, and weekly-goal events.
+- `notifications`: in-app event records for friend requests, challenges, duel activity, and weekly-goal events.
 - `notificationPreferences`: per-user settings controlling which notification and reminder events should fire.
 - `emailNotificationLog`: idempotency and audit support for sent email notifications and reminders.
-- `scheduledDuels`: future duel proposals with participants, timing, mode, readiness state, and optional started-duel linkage.
 
 Important relationships:
 
 - Users own themes and can also see or edit some themes through sharing rules.
-- Users connect through friend requests and `friends`, then collaborate through duels, scheduled duels, and weekly goals.
-- Challenges reference users and themes, and some challenges are created in the context of a weekly goal.
-- Notifications and reminder systems reflect activity from friend, duel, scheduled duel, and weekly-goal flows instead of being standalone features.
+- Users connect through friend requests and `friends`, then collaborate through challenges, duels, and weekly goals.
+- Challenges reference users and themes, and accepted challenges create duels. Some challenges and duels are created in the context of a weekly goal.
+- Notifications and reminder systems reflect activity from friend, challenge, duel, and weekly-goal flows instead of being standalone features.
 
 Weekly goal lifecycle:
 
@@ -74,20 +75,20 @@ Weekly goal lifecycle:
 
 - Theme: the core content unit, made of words and answers plus metadata like description, word type, sharing, and editability.
 - Duel: a structured two-person practice session. The name sounds more competitive than the broader product intent.
-- Solo challenge: a duel-style learning flow without another player.
+- Challenge: a proposal sent to another person to start a duel.
+- Duel: a structured two-person practice session. The name sounds more competitive than the broader product intent.
+- Solo practice: a single-player learning flow without another player.
 - Weekly goal: a shared study plan between two users, built from selected themes and tracked toward completion.
 - Boss: a milestone challenge generated from weekly-goal progress, used to turn shared progress into a more game-like event.
-- Scheduled duel: a duel proposal for a future time, including readiness tracking before the actual challenge starts.
 - TTS: text-to-speech audio attached to theme answers and used to support studying and challenge flows.
 
 ## App-Specific Gotchas
 
 - Theme access is not just public versus private. Themes can be private or shared, and shared themes can separately allow or forbid friend editing.
 - "Duel" does not always mean head-to-head competition. Many flows use duel mechanics as structure for collaborative practice.
-- There are multiple challenge modes, especially classic and solo-style, and they do not share the same state shape or UX expectations.
+- Challenge invites, accepted duels, and solo-practice sessions are separate records with separate state shapes.
 - Weekly goals, boss challenges, notifications, and reminders are connected. Changes in one area can affect behavior in the others.
-- Scheduled duels are their own system, not just delayed normal duels. They have proposal, counter-proposal, readiness, and start-transition behavior.
-- Themes are reused across study, solo challenge, duels, and weekly goals, so content changes can have effects in multiple surfaces.
+- Themes are reused across study, solo practice, duels, and weekly goals, so content changes can have effects in multiple surfaces.
 
 ## Risks And Active Decisions
 

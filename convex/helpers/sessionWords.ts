@@ -15,12 +15,6 @@ export function getThemeIdsFromChallenge(
   return challenge.themeIds;
 }
 
-export function getThemeIdsFromScheduledDuel(
-  scheduledDuel: Pick<Doc<"scheduledDuels">, "themeIds">
-): Id<"themes">[] {
-  return scheduledDuel.themeIds;
-}
-
 export function summarizeSessionWords(sessionWords: SessionWordEntry[]): string {
   return summarizeThemeNames(
     Array.from(new Set(sessionWords.map((word) => word.themeName)))
@@ -53,20 +47,13 @@ export async function loadThemesByIds(
   );
 }
 
-export function getChallengeSessionWords(
-  challenge: Pick<Doc<"challenges">, "sessionWords">
+export function getSessionWords(
+  session: Pick<Doc<"duels"> | Doc<"soloPracticeSessions">, "sessionWords">
 ): SessionWordEntry[] {
-  if (!challenge.sessionWords || challenge.sessionWords.length === 0) {
-    throw new Error("Challenge is missing sessionWords");
+  if (!session.sessionWords || session.sessionWords.length === 0) {
+    throw new Error("Session is missing words");
   }
-  return challenge.sessionWords;
-}
-
-export async function getScheduledDuelThemes(
-  ctx: CtxWithDb,
-  scheduledDuel: Pick<Doc<"scheduledDuels">, "themeIds">
-): Promise<SessionThemeInput[]> {
-  return loadThemesByIds(ctx, getThemeIdsFromScheduledDuel(scheduledDuel));
+  return session.sessionWords;
 }
 
 export function getThemeIdsFromSessionWords(

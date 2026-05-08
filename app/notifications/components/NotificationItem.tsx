@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { colors } from "@/lib/theme";
-import { getRelativeTime, formatScheduledTime } from "@/lib/timeUtils";
-import { useCountdown } from "../hooks/useCountdown";
+import { getRelativeTime } from "@/lib/timeUtils";
 import { NOTIFICATION_TYPES } from "../constants";
 import { ThemeNameDropdown } from "./ThemeNameDropdown";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -19,14 +16,10 @@ interface NotificationData {
     } | null;
     payload?: {
         challengeId?: Id<"challenges">;
-        scheduledDuelId?: Id<"scheduledDuels">;
         goalId?: Id<"weeklyGoals">;
         friendRequestId?: Id<"friendRequests">;
         themeId?: Id<"themes">;
         themeName?: string;
-        scheduledTime?: number;
-        mode?: "solo" | "classic";
-        isCounterProposal?: boolean;
         themeCount?: number;
         event?:
             | "invite"
@@ -36,11 +29,6 @@ interface NotificationData {
             | "goal_activated"
             | "goal_completed"
             | "draft_expiring";
-        scheduledDuelStatus?: string;
-        startedDuelId?: Id<"challenges">;
-        proposerReady?: boolean;
-        recipientReady?: boolean;
-        isProposer?: boolean;
     };
     createdAt: number;
     status: string;
@@ -50,27 +38,15 @@ interface NotificationItemProps {
     notification: NotificationData;
     onAcceptFriendRequest: () => void;
     onRejectFriendRequest: () => void;
-    onAcceptDuelChallenge: () => void;
-    onDeclineDuelChallenge: () => void;
+    onAcceptChallenge: () => void;
+    onDeclineChallenge: () => void;
     onViewWeeklyPlan: () => void;
     onDeclineWeeklyPlan: () => void;
     onDismissWeeklyPlan: () => void;
     onArchiveCompletedGoalThemes: () => void;
     onDismiss: () => void;
-    // Scheduled duel handlers
-    onAcceptScheduledDuel: () => void;
-    onCounterProposeScheduledDuel: () => void;
-    onDeclineScheduledDuel: () => void;
-    onCancelScheduledDuel?: () => void; // For cancelling accepted duels
-    // Ready state handlers
-    onSetReady?: () => void;
-    onCancelReady?: () => void;
-    // Current user info for ready state
-    currentUserIsProposer?: boolean;
-    proposerReady?: boolean;
-    recipientReady?: boolean;
     // Theme quick actions
-    onSoloChallenge?: (themeId: Id<"themes">) => void;
+    onSoloPractice?: (themeId: Id<"themes">) => void;
 }
 
 /**
@@ -81,92 +57,29 @@ interface NotificationItemProps {
  * - User avatar/name
  * - Relative timestamp
  * - Action buttons per notification type
- * - Countdown and ready state for accepted scheduled duels
  */
 export function NotificationItem({
     notification,
     onAcceptFriendRequest,
     onRejectFriendRequest,
-    onAcceptDuelChallenge,
-    onDeclineDuelChallenge,
+    onAcceptChallenge,
+    onDeclineChallenge,
     onViewWeeklyPlan,
     onDeclineWeeklyPlan,
     onDismissWeeklyPlan,
     onArchiveCompletedGoalThemes,
     onDismiss,
-    onAcceptScheduledDuel,
-    onCounterProposeScheduledDuel,
-    onDeclineScheduledDuel,
-    onCancelScheduledDuel,
-    onSetReady,
-    onCancelReady,
-    currentUserIsProposer,
-    proposerReady,
-    recipientReady,
-    onSoloChallenge,
+    onSoloPractice,
 }: NotificationItemProps) {
     const { type, fromUser, payload, createdAt } = notification;
-    const router = useRouter();
-    const onDismissRef = useRef(onDismiss);
-    const navigationScheduledRef = useRef(false);
-    const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-        onDismissRef.current = onDismiss;
-    }, [onDismiss]);
-
-    // Countdown for scheduled duels
-    const scheduledTime = payload?.scheduledTime || 0;
-    const countdown = useCountdown(scheduledTime);
-
-    // Determine if this is an accepted scheduled duel
-    const isAcceptedScheduledDuel =
-        type === NOTIFICATION_TYPES.SCHEDULED_DUEL &&
-        payload?.scheduledDuelStatus === "accepted";
-
-    // Determine ready states
-    const currentUserReady = currentUserIsProposer ? proposerReady : recipientReady;
-    const opponentReady = currentUserIsProposer ? recipientReady : proposerReady;
-    const bothReady = proposerReady && recipientReady;
-
-    // Duel started check
-    const duelStarted = !!payload?.startedDuelId;
-
-    // Auto-navigate when duel starts and dismiss notification
-    useEffect(() => {
-        if (!duelStarted || !payload?.startedDuelId || !payload?.mode || navigationScheduledRef.current) {
-            return;
-        }
-
-        navigationScheduledRef.current = true;
-        // Small delay to show "Joining..." state, then navigate and dismiss
-        const route = payload.mode === "classic"
-            ? `/classic-duel/${payload.startedDuelId}`
-            : `/duel/${payload.startedDuelId}`;
-
-        navigationTimerRef.current = setTimeout(() => {
-            router.push(route);
-            // Dismiss the notification so it doesn't linger
-            onDismissRef.current();
-        }, 1500);
-    }, [duelStarted, payload?.startedDuelId, payload?.mode, router]);
-
-    useEffect(() => {
-        return () => {
-            if (navigationTimerRef.current) {
-                clearTimeout(navigationTimerRef.current);
-                navigationTimerRef.current = null;
-            }
-        };
-    }, []);
 
     const renderThemeName = (themeName: string, themeId?: Id<"themes">) => {
-        if (onSoloChallenge && themeId) {
+        if (onSoloPractice && themeId) {
             return (
                 <ThemeNameDropdown
                     themeName={themeName}
                     themeId={themeId}
-                    onSoloChallenge={onSoloChallenge}
+                    onSoloPractice={onSoloPractice}
                 />
             );
         }
@@ -369,210 +282,23 @@ export function NotificationItem({
                     ),
                 };
 
-            case NOTIFICATION_TYPES.SCHEDULED_DUEL:
-                const isCounter = payload?.isCounterProposal;
-                const formattedTime = payload?.scheduledTime
-                    ? formatScheduledTime(payload.scheduledTime)
-                    : 'soon';
-
-                // Check if duel has started - show joining state with fallback dismiss
-                if (duelStarted) {
-                    if (!payload?.mode) {
-                        return {
-                            icon: <SwordIcon />,
-                            message: "Scheduled duel is ready, but its notification data is incomplete.",
-                            actions: (
-                                <div className="flex gap-2 mt-3">
-                                    <ActionButton
-                                        onClick={onDismiss}
-                                        variant="dismiss"
-                                        dataTestId={`notification-${notification._id}-dismiss`}
-                                    >
-                                        Dismiss
-                                    </ActionButton>
-                                </div>
-                            ),
-                        };
-                    }
-                    return {
-                        icon: <SwordIcon />,
-                        message: <>{renderThemeName(themeName, themeId)} — Joining duel...</>,
-                        actions: (
-                            <div className="flex items-center gap-2 mt-3">
-                                <div
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium animate-pulse"
-                                    style={{
-                                        backgroundColor: `${colors.cta.DEFAULT}15`,
-                                        color: colors.cta.DEFAULT
-                                    }}
-                                >
-                                    <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                    Joining...
-                                </div>
-                                <button
-                                    onClick={onDismiss}
-                                    className="text-xs opacity-50 hover:opacity-100 transition-opacity"
-                                    style={{ color: colors.text.muted }}
-                                    data-testid={`notification-${notification._id}-dismiss-joining`}
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        ),
-                    };
-                }
-                // Accepted state - improved UX with clear status/action separation
-                if (isAcceptedScheduledDuel) {
-                    const countdownText = countdown.isExpired
-                        ? 'Ready to start!'
-                        : `in ${countdown.formattedTime}`;
-
-                    // Both ready - show starting state
-                    if (bothReady) {
-                        return {
-                            icon: <ClockIcon />,
-                            message: <>Scheduled duel: {renderThemeName(themeName, themeId)}</>,
-                            actions: (
-                                <div className="flex flex-col gap-2 mt-3">
-                                    <div
-                                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium animate-pulse"
-                                        style={{
-                                            backgroundColor: `${colors.cta.DEFAULT}15`,
-                                            color: colors.cta.DEFAULT
-                                        }}
-                                    >
-                                        <span>✓ You</span>
-                                        <span>✓ {userName}</span>
-                                        <span className="ml-1">— Starting...</span>
-                                    </div>
-                                </div>
-                            ),
-                        };
-                    }
-
-                    return {
-                        icon: <ClockIcon />,
-                        message: <>Scheduled duel: {renderThemeName(themeName, themeId)} {countdownText}</>,
-                        actions: (
-                            <div className="flex flex-col gap-2 mt-3">
-                                {/* Status row - who's ready */}
-                                <div
-                                    className="flex items-center gap-3 text-xs"
-                                    style={{ color: colors.text.muted }}
-                                >
-                                    <span style={{ color: currentUserReady ? colors.cta.DEFAULT : colors.text.muted }}>
-                                        {currentUserReady ? '✓ You' : '○ You'}
-                                    </span>
-                                    <span style={{ color: opponentReady ? colors.cta.DEFAULT : colors.text.muted }}>
-                                        {opponentReady ? `✓ ${userName}` : `○ ${userName}`}
-                                    </span>
-                                </div>
-
-                                {/* Action row - buttons */}
-                                <div className="flex gap-2">
-                                    {currentUserReady ? (
-                                        <button
-                                            onClick={onCancelReady || (() => { })}
-                                            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                                            style={{
-                                                backgroundColor: `${colors.cta.DEFAULT}15`,
-                                                color: colors.cta.dark
-                                            }}
-                                            data-testid={`notification-${notification._id}-cancel-ready`}
-                                        >
-                                            Ready ✓ <span className="opacity-60 ml-1">undo</span>
-                                        </button>
-                                    ) : (
-                                        onSetReady && (
-                                            <ActionButton
-                                                onClick={onSetReady}
-                                                variant="accept"
-                                                dataTestId={`notification-${notification._id}-set-ready`}
-                                            >
-                                                Ready Up
-                                            </ActionButton>
-                                        )
-                                    )}
-                                    <ActionButton
-                                        onClick={onCancelScheduledDuel || onDeclineScheduledDuel}
-                                        variant="reject"
-                                        dataTestId={`notification-${notification._id}-cancel-scheduled-duel`}
-                                    >
-                                        Cancel
-                                    </ActionButton>
-                                </div>
-                            </div>
-                        ),
-                    };
-                }
-
-                // Pending/counter-proposed state - show accept/counter/decline
-                return {
-                    icon: <ClockIcon />,
-                    message: isCounter
-                        ? <>{userName} counter-proposed: {renderThemeName(themeName, themeId)} at {formattedTime}</>
-                        : <>{userName} proposes a duel: {renderThemeName(themeName, themeId)} at {formattedTime}</>,
-                    actions: (
-                        <div className="flex gap-2 mt-3">
-                            <ActionButton
-                                onClick={onAcceptScheduledDuel}
-                                variant="accept"
-                                dataTestId={`notification-${notification._id}-accept-scheduled-duel`}
-                            >
-                                Accept
-                            </ActionButton>
-                            <ActionButton
-                                onClick={onCounterProposeScheduledDuel}
-                                variant="secondary"
-                                dataTestId={`notification-${notification._id}-counter-scheduled-duel`}
-                            >
-                                Counter
-                            </ActionButton>
-                            <ActionButton
-                                onClick={onDeclineScheduledDuel}
-                                variant="reject"
-                                dataTestId={`notification-${notification._id}-decline-scheduled-duel`}
-                            >
-                                Decline
-                            </ActionButton>
-                        </div>
-                    ),
-                };
-
-            case NOTIFICATION_TYPES.DUEL_CHALLENGE:
-                if (!payload?.mode) {
-                    return {
-                        icon: <SwordIcon />,
-                        message: `${userName} sent a duel challenge with incomplete data`,
-                        actions: (
-                            <div className="flex gap-2 mt-3">
-                                <ActionButton
-                                    onClick={onDismiss}
-                                    variant="dismiss"
-                                    dataTestId={`notification-${notification._id}-dismiss`}
-                                >
-                                    Dismiss
-                                </ActionButton>
-                            </div>
-                        ),
-                    };
-                }
+            case NOTIFICATION_TYPES.CHALLENGE_INVITE:
                 return {
                     icon: <SwordIcon />,
-                    message: <>{userName} challenges you to a {payload.mode} duel: {renderThemeName(themeName, themeId)}</>,
+                    message: <>{userName} challenged you: {renderThemeName(themeName, themeId)}</>,
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton
-                                onClick={onAcceptDuelChallenge}
+                                onClick={onAcceptChallenge}
                                 variant="accept"
-                                dataTestId={`notification-${notification._id}-accept-duel-challenge`}
+                                dataTestId={`notification-${notification._id}-accept-challenge`}
                             >
                                 Accept
                             </ActionButton>
                             <ActionButton
-                                onClick={onDeclineDuelChallenge}
+                                onClick={onDeclineChallenge}
                                 variant="reject"
-                                dataTestId={`notification-${notification._id}-decline-duel-challenge`}
+                                dataTestId={`notification-${notification._id}-decline-challenge`}
                             >
                                 Decline
                             </ActionButton>
@@ -697,14 +423,6 @@ function CalendarIcon() {
     return (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.cta.DEFAULT} strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-    );
-}
-
-function ClockIcon() {
-    return (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke={colors.status.warning.DEFAULT} strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
     );
 }

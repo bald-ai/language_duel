@@ -5,10 +5,8 @@ import { NOTIFICATION_TYPES } from "@/app/notifications/constants";
 
 const pushMock = vi.fn();
 const useNotificationsMock = vi.fn();
-const useScheduledDuelMock = vi.fn();
 const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
-const toastInfoMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -18,7 +16,6 @@ vi.mock("sonner", () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccessMock(...args),
     error: (...args: unknown[]) => toastErrorMock(...args),
-    info: (...args: unknown[]) => toastInfoMock(...args),
   },
 }));
 
@@ -26,23 +23,30 @@ vi.mock("@/app/notifications/hooks/useNotifications", () => ({
   useNotifications: () => useNotificationsMock(),
 }));
 
-vi.mock("@/app/notifications/hooks/useScheduledDuel", () => ({
-  useScheduledDuel: () => useScheduledDuelMock(),
-}));
+const makeActions = (overrides: Record<string, unknown> = {}) => ({
+  dismissNotification: vi.fn(),
+  markAsRead: vi.fn(),
+  acceptFriendRequest: vi.fn(),
+  rejectFriendRequest: vi.fn(),
+  acceptChallenge: vi.fn(),
+  declineChallenge: vi.fn(),
+  dismissWeeklyPlanInvitation: vi.fn(),
+  declineWeeklyPlanInvitation: vi.fn(),
+  archiveCompletedGoalThemes: vi.fn(),
+  ...overrides,
+});
 
-const notification = {
+const challengeNotification = {
   _id: "notif_1",
-  type: NOTIFICATION_TYPES.SCHEDULED_DUEL,
+  type: NOTIFICATION_TYPES.CHALLENGE_INVITE,
   fromUser: { nickname: "Alex" },
   payload: {
-    scheduledDuelId: "sched_1",
+    challengeId: "challenge_1",
     themeId: "theme_1",
     themeName: "Test Theme",
-    scheduledTime: Date.now() + 60_000,
-    mode: "classic",
   },
   createdAt: Date.now(),
-  status: "unread",
+  status: "pending",
 };
 
 describe("NotificationsTab theme actions", () => {
@@ -50,31 +54,11 @@ describe("NotificationsTab theme actions", () => {
     pushMock.mockClear();
     toastSuccessMock.mockClear();
     toastErrorMock.mockClear();
-    toastInfoMock.mockClear();
     useNotificationsMock.mockReturnValue({
-      notifications: [notification],
+      notifications: [challengeNotification],
       notificationCount: 1,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
-    });
-    useScheduledDuelMock.mockReturnValue({
-      setReady: vi.fn(),
-      cancelReady: vi.fn(),
-      cancelScheduledDuel: vi.fn(),
-      scheduledDuels: [],
+      actions: makeActions(),
     });
   });
 
@@ -83,20 +67,7 @@ describe("NotificationsTab theme actions", () => {
       notifications: [],
       notificationCount: 0,
       isLoading: true,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions(),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);
@@ -110,20 +81,7 @@ describe("NotificationsTab theme actions", () => {
       notifications: [],
       notificationCount: 0,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions(),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);
@@ -149,20 +107,7 @@ describe("NotificationsTab theme actions", () => {
       ],
       notificationCount: 1,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions(),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);
@@ -190,20 +135,7 @@ describe("NotificationsTab theme actions", () => {
       ],
       notificationCount: 1,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes,
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions({ archiveCompletedGoalThemes }),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);
@@ -235,20 +167,7 @@ describe("NotificationsTab theme actions", () => {
       ],
       notificationCount: 1,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes,
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions({ archiveCompletedGoalThemes }),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);
@@ -261,84 +180,17 @@ describe("NotificationsTab theme actions", () => {
     expect(toastSuccessMock).toHaveBeenCalledWith("Themes already archived");
   });
 
-  it("shows both ready-state success messages", async () => {
-    const setReadyMock = vi
-      .fn()
-      .mockResolvedValueOnce({ bothReady: true })
-      .mockResolvedValueOnce({ bothReady: false });
-
-    useNotificationsMock.mockReturnValue({
-      notifications: [
-        {
-          ...notification,
-          payload: {
-            ...notification.payload,
-            scheduledDuelStatus: "accepted",
-          },
-        },
-      ],
-      notificationCount: 1,
-      isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
-    });
-    useScheduledDuelMock.mockReturnValue({
-      setReady: setReadyMock,
-      cancelReady: vi.fn(),
-      cancelScheduledDuel: vi.fn(),
-      scheduledDuels: [
-        {
-          _id: "sched_1",
-          isProposer: true,
-          proposerReady: false,
-          recipientReady: false,
-        },
-      ],
-    });
-
-    render(<NotificationsTab onClose={vi.fn()} />);
-
-    fireEvent.click(await screen.findByTestId("notification-notif_1-set-ready"));
-    await waitFor(() => {
-      expect(setReadyMock).toHaveBeenCalledTimes(1);
-    });
-    expect(toastSuccessMock).toHaveBeenCalledWith(
-      "Both players ready! Starting duel..."
-    );
-
-    fireEvent.click(await screen.findByTestId("notification-notif_1-set-ready"));
-    await waitFor(() => {
-      expect(setReadyMock).toHaveBeenCalledTimes(2);
-    });
-
-    expect(toastSuccessMock).toHaveBeenCalledWith(
-      "You're ready! Waiting for opponent..."
-    );
-  });
-
-  it("navigates to solo challenge when selecting Solo Challenge", () => {
+  it("navigates to solo practice when selecting Solo Practice from a theme", () => {
     const onClose = vi.fn();
 
     render(<NotificationsTab onClose={onClose} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Test Theme" }));
-    fireEvent.click(screen.getByRole("button", { name: "Solo Challenge" }));
+    fireEvent.click(screen.getByRole("button", { name: "Solo Practice" }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(pushMock).toHaveBeenCalledWith(
-      "/?openSolo=true&themeId=theme_1&soloMode=challenge_only"
+      "/?openSolo=true&themeId=theme_1&soloMode=practice_only"
     );
   });
 
@@ -370,20 +222,7 @@ describe("NotificationsTab theme actions", () => {
       ],
       notificationCount: 2,
       isLoading: false,
-      actions: {
-        dismissNotification: vi.fn(),
-        markAsRead: vi.fn(),
-        acceptFriendRequest: vi.fn(),
-        rejectFriendRequest: vi.fn(),
-        acceptDuelChallenge: vi.fn(),
-        declineDuelChallenge: vi.fn(),
-        dismissWeeklyPlanInvitation: vi.fn(),
-        declineWeeklyPlanInvitation: vi.fn(),
-        archiveCompletedGoalThemes: vi.fn(),
-        acceptScheduledDuel: vi.fn(),
-        counterProposeScheduledDuel: vi.fn(),
-        declineScheduledDuel: vi.fn(),
-      },
+      actions: makeActions(),
     });
 
     render(<NotificationsTab onClose={vi.fn()} />);

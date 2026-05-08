@@ -15,7 +15,8 @@ const makeParams = (
         visibility: "private",
     },
     challenges: [],
-    scheduledDuels: [],
+    duels: [],
+    soloPracticeSessions: [],
     weeklyGoals: [],
     friendships: [],
     ...overrides,
@@ -48,7 +49,7 @@ describe("hasThemeAccess", () => {
     });
 
     describe("challenge access", () => {
-        it("grants access when user is challenger in a duel with this theme", () => {
+        it("grants access when user sent a challenge with this theme", () => {
             const params = makeParams({
                 challenges: [
                     {
@@ -61,7 +62,7 @@ describe("hasThemeAccess", () => {
             expect(hasThemeAccess(params)).toBe(true);
         });
 
-        it("grants access when user is opponent in a duel with this theme", () => {
+        it("grants access when user received a challenge with this theme", () => {
             const params = makeParams({
                 challenges: [
                     {
@@ -74,7 +75,7 @@ describe("hasThemeAccess", () => {
             expect(hasThemeAccess(params)).toBe(true);
         });
 
-        it("denies access when duel uses different theme", () => {
+        it("denies access when challenge uses different theme", () => {
             const params = makeParams({
                 challenges: [
                     {
@@ -88,89 +89,32 @@ describe("hasThemeAccess", () => {
         });
     });
 
-    describe("scheduled duel access", () => {
-        it("grants access when user is proposer in pending scheduled duel", () => {
+    describe("duel access", () => {
+        it("grants access when user is in an active duel with this theme", () => {
             const params = makeParams({
-                scheduledDuels: [
+                duels: [
                     {
-                        proposerId: userId("user1"),
-                        recipientId: userId("other"),
+                        challengerId: userId("other"),
+                        opponentId: userId("user1"),
                         themeIds: [themeId("theme1")],
-                        status: "pending",
                     },
                 ],
             });
             expect(hasThemeAccess(params)).toBe(true);
         });
+    });
 
-        it("grants access when user is recipient in accepted scheduled duel", () => {
+    describe("solo practice access", () => {
+        it("grants access when user has a solo practice session with this theme", () => {
             const params = makeParams({
-                scheduledDuels: [
+                soloPracticeSessions: [
                     {
-                        proposerId: userId("other"),
-                        recipientId: userId("user1"),
+                        userId: userId("user1"),
                         themeIds: [themeId("theme1")],
-                        status: "accepted",
                     },
                 ],
             });
             expect(hasThemeAccess(params)).toBe(true);
-        });
-
-        it("grants access for counter_proposed status", () => {
-            const params = makeParams({
-                scheduledDuels: [
-                    {
-                        proposerId: userId("user1"),
-                        recipientId: userId("other"),
-                        themeIds: [themeId("theme1")],
-                        status: "counter_proposed",
-                    },
-                ],
-            });
-            expect(hasThemeAccess(params)).toBe(true);
-        });
-
-        it("denies access when scheduled duel is declined", () => {
-            const params = makeParams({
-                scheduledDuels: [
-                    {
-                        proposerId: userId("user1"),
-                        recipientId: userId("other"),
-                        themeIds: [themeId("theme1")],
-                        status: "declined",
-                    },
-                ],
-            });
-            expect(hasThemeAccess(params)).toBe(false);
-        });
-
-        it("denies access when scheduled duel is cancelled", () => {
-            const params = makeParams({
-                scheduledDuels: [
-                    {
-                        proposerId: userId("user1"),
-                        recipientId: userId("other"),
-                        themeIds: [themeId("theme1")],
-                        status: "cancelled",
-                    },
-                ],
-            });
-            expect(hasThemeAccess(params)).toBe(false);
-        });
-
-        it("denies access when scheduled duel is expired", () => {
-            const params = makeParams({
-                scheduledDuels: [
-                    {
-                        proposerId: userId("user1"),
-                        recipientId: userId("other"),
-                        themeIds: [themeId("theme1")],
-                        status: "expired",
-                    },
-                ],
-            });
-            expect(hasThemeAccess(params)).toBe(false);
         });
     });
 

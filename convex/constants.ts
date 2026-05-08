@@ -34,7 +34,7 @@ export const POOL_EXPANSION_THRESHOLD = 0.65;
 export const POOL_EXPANSION_SIZE = 2;
 
 // ===========================================
-// Level Probabilities (solo-style duel mode) [NOT ACTIVE] — not currently used in app, kept for future revisit.
+// Level Probabilities (solo practice) [NOT ACTIVE] — not currently used in app, kept for future revisit.
 // ===========================================
 /** Probability of starting at Level 1 (vs Level 2) */
 export const LEVEL_1_START_PROBABILITY = 0.66;
@@ -57,17 +57,17 @@ export const HINT_TIME_BONUS_MS = 3000;
 /** Maximum letter hints that can be provided */
 export const MAX_LETTER_HINTS = 3;
 
-/** Maximum wrong options that can be eliminated (classic mode) */
-export const MAX_ELIMINATED_OPTIONS_CLASSIC = 2;
+/** Maximum wrong options that can be eliminated in a duel */
+export const MAX_ELIMINATED_OPTIONS_DUEL = 2;
 
 /** Maximum wrong options that can be eliminated (L2 multiple choice) */
 export const MAX_ELIMINATED_OPTIONS_L2 = 2;
 
-/** Allowed hint types for solo-style L1/L3 hints */
+/** Allowed hint types for solo-practice L1/L3 hints */
 export const SOLO_HINT_TYPES = ["letters", "tts", "flash", "anagram"] as const;
 export type SoloHintType = (typeof SOLO_HINT_TYPES)[number];
 
-/** Allowed hint types for solo-style L2 hints */
+/** Allowed hint types for solo-practice L2 hints */
 export const SOLO_HINT_L2_TYPES = ["eliminate", "tts", "flash"] as const;
 export type SoloHintL2Type = (typeof SOLO_HINT_L2_TYPES)[number];
 
@@ -87,7 +87,7 @@ export const SABOTAGE_STICKY_DURATION_MS = 7000;
 export const SABOTAGE_FALLBACK_DURATION_MS = 25000;
 
 // ===========================================
-// Scoring (Classic Mode)
+// Scoring (Duel Mode)
 // ===========================================
 /** Points for easy difficulty questions */
 export const POINTS_EASY = 1;
@@ -102,7 +102,7 @@ export const POINTS_HARD = 2;
 export const HINT_PROVIDER_BONUS = 0.5;
 
 // ===========================================
-// Difficulty Distribution Ratios (Classic Mode)
+// Difficulty Distribution Ratios (Duel Mode)
 // ===========================================
 /** Target ratio for easy difficulty: 40% Easy, 30% Medium, 30% Hard */
 export const DIFFICULTY_RATIO_EASY = 0.4;
@@ -141,8 +141,8 @@ export const DISCRIMINATOR_MAX = 9999;
 // ===========================================
 // Notification Cleanup TTLs
 // ===========================================
-/** Expire unanswered duel challenge notifications after 60 minutes */
-export const DUEL_CHALLENGE_TTL_MS = 60 * 60 * 1000;
+/** Expire unanswered challenge invite notifications after 60 minutes */
+export const CHALLENGE_INVITE_TTL_MS = 60 * 60 * 1000;
 
 /** Expire pending friend requests after 7 days */
 export const FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -169,6 +169,3 @@ export const WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR = 12;
 
 /** Delete accepted/rejected friend requests 7 days after creation */
 export const RESOLVED_FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-/** Delete terminal scheduled duel rows 14 days after last update */
-export const TERMINAL_SCHEDULED_DUEL_TTL_MS = 14 * 24 * 60 * 60 * 1000;

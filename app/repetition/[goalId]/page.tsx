@@ -24,16 +24,16 @@ export default function RepetitionLaunchPage() {
     api.weeklyGoalRepetitions.getLaunchPreview,
     goalId ? { weeklyGoalId: goalId as Id<"weeklyGoals"> } : "skip"
   );
-  const startDuel = useMutation(api.weeklyGoalRepetitions.startDuel);
-  const startSolo = useMutation(api.weeklyGoalRepetitions.startSolo);
+  const createRepetitionChallenge = useMutation(api.weeklyGoalRepetitions.createRepetitionChallenge);
+  const startRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.startRepetitionSoloPractice);
   const [isStarting, setIsStarting] = useState<"duel" | "solo" | null>(null);
 
   const handleStartDuel = async () => {
     setIsStarting("duel");
     try {
-      const challengeId = await startDuel({ weeklyGoalId: goalId as Id<"weeklyGoals"> });
+      await createRepetitionChallenge({ weeklyGoalId: goalId as Id<"weeklyGoals"> });
       toast.success("Spaced repetition duel invite sent.");
-      router.push(`/duel/${challengeId}`);
+      router.push("/repetition");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not start duel");
     } finally {
@@ -44,10 +44,10 @@ export default function RepetitionLaunchPage() {
   const handleStartSolo = async () => {
     setIsStarting("solo");
     try {
-      const challengeId = await startSolo({ weeklyGoalId: goalId as Id<"weeklyGoals"> });
+      const soloPracticeSessionId = await startRepetitionSoloPractice({ weeklyGoalId: goalId as Id<"weeklyGoals"> });
       router.push(
-        buildSoloUrl(crypto.randomUUID(), "challenge_only", {
-          challengeId,
+        buildSoloUrl(String(soloPracticeSessionId), "practice_only", {
+          soloPracticeSessionId,
           returnTo: "/repetition",
           returnLabel: "Back to repetition",
         })

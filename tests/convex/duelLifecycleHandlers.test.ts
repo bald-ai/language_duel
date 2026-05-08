@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { initializeDuelChallenge } from "@/convex/gameplay";
-import { acceptDuel, acceptDuelChallenge } from "@/convex/lobby";
-import { startScheduledDuel } from "@/convex/scheduledDuels";
+import {
+  acceptChallenge,
+  acceptChallengeFromNotification,
+  declineChallenge,
+} from "@/convex/lobby";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -37,7 +39,21 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
+    | "sourceType"
+    | "status"
+    | "createdAt"
+  >;
+
+type DuelDoc = Partial<Doc<"duels">> &
+  Pick<
+    Doc<"duels">,
+    | "_id"
+    | "_creationTime"
+    | "challengerId"
+    | "opponentId"
+    | "themeIds"
     | "sessionWords"
+    | "sourceType"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -45,6 +61,7 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "challengerScore"
     | "opponentScore"
     | "createdAt"
+    | "seed"
   >;
 
 type NotificationDoc = Partial<Doc<"notifications">> &
@@ -59,42 +76,28 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     | "createdAt"
   >;
 
-type ScheduledDuelDoc = Partial<Doc<"scheduledDuels">> &
-  Pick<
-    Doc<"scheduledDuels">,
-    | "_id"
-    | "_creationTime"
-    | "proposerId"
-    | "recipientId"
-    | "themeIds"
-    | "scheduledTime"
-    | "status"
-    | "createdAt"
-    | "updatedAt"
-  >;
-
-type Row = UserDoc | ThemeDoc | ChallengeDoc | NotificationDoc | ScheduledDuelDoc;
+type Row = UserDoc | ThemeDoc | ChallengeDoc | DuelDoc | NotificationDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
   public challenges: ChallengeDoc[] = [];
+  public duels: DuelDoc[] = [];
   public notifications: NotificationDoc[] = [];
-  public scheduledDuels: ScheduledDuelDoc[] = [];
 
   private counters = {
-    challenges: 10,
+    duels: 10,
     notifications: 10,
   };
 
-  query(table: "users" | "themes" | "challenges" | "notifications" | "scheduledDuels") {
+  query(table: "users" | "themes" | "challenges" | "duels" | "notifications") {
     return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
     return findRowById<Row>(
-      [this.users, this.themes, this.challenges, this.notifications, this.scheduledDuels],
+      [this.users, this.themes, this.challenges, this.duels, this.notifications],
       id
     );
   }
@@ -105,21 +108,26 @@ class InMemoryDb {
   }
 
   async insert(
-    table: "challenges" | "notifications",
+    table: "duels" | "notifications",
     value: Record<string, unknown>
-  ): Promise<Id<"challenges"> | Id<"notifications">> {
-    if (table === "challenges") {
-      const inserted = insertRow<ChallengeDoc>(this.challenges, "challenge", this.counters.challenges, value);
-      this.counters.challenges = inserted.nextCounter;
-      return inserted.id as Id<"challenges">;
-    } else {
-      const inserted = insertRow<NotificationDoc>(this.notifications, "notification", this.counters.notifications, value);
-      this.counters.notifications = inserted.nextCounter;
-      return inserted.id as Id<"notifications">;
+  ): Promise<Id<"duels"> | Id<"notifications">> {
+    if (table === "duels") {
+      const inserted = insertRow<DuelDoc>(this.duels, "duel", this.counters.duels, value);
+      this.counters.duels = inserted.nextCounter;
+      return inserted.id as Id<"duels">;
     }
+
+    const inserted = insertRow<NotificationDoc>(
+      this.notifications,
+      "notification",
+      this.counters.notifications,
+      value
+    );
+    this.counters.notifications = inserted.nextCounter;
+    return inserted.id as Id<"notifications">;
   }
 
-  private getTable(table: "users" | "themes" | "challenges" | "notifications" | "scheduledDuels") {
+  private getTable(table: "users" | "themes" | "challenges" | "duels" | "notifications") {
     switch (table) {
       case "users":
         return this.users;
@@ -127,19 +135,19 @@ class InMemoryDb {
         return this.themes;
       case "challenges":
         return this.challenges;
+      case "duels":
+        return this.duels;
       case "notifications":
         return this.notifications;
-      case "scheduledDuels":
-        return this.scheduledDuels;
     }
   }
 
-  private findTableForId(id: string): "users" | "themes" | "challenges" | "notifications" | "scheduledDuels" {
+  private findTableForId(id: string): "users" | "themes" | "challenges" | "duels" | "notifications" {
     if (id.startsWith("user_")) return "users";
     if (id.startsWith("theme_")) return "themes";
     if (id.startsWith("challenge_")) return "challenges";
+    if (id.startsWith("duel_")) return "duels";
     if (id.startsWith("notification_")) return "notifications";
-    if (id.startsWith("scheduled_")) return "scheduledDuels";
     throw new Error(`Unsupported id: ${id}`);
   }
 }
@@ -184,37 +192,9 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
-      {
-        word: "cat",
-        answer: "kocka",
-        wrongAnswers: ["strom", "most", "more"],
-        themeId: "theme_1" as Id<"themes">,
-        themeName: "Animals",
-      },
-      {
-        word: "dog",
-        answer: "pes",
-        wrongAnswers: ["dom", "vlak", "mesto"],
-        themeId: "theme_1" as Id<"themes">,
-        themeName: "Animals",
-      },
-      {
-        word: "bird",
-        answer: "vtak",
-        wrongAnswers: ["auto", "pole", "rieka"],
-        themeId: "theme_1" as Id<"themes">,
-        themeName: "Animals",
-      },
-    ],
+    sourceType: "normal",
     status: "pending",
-    mode: "solo",
-    currentWordIndex: 0,
-    seed: 123,
-    challengerAnswered: false,
-    opponentAnswered: false,
-    challengerScore: 0,
-    opponentScore: 0,
+    duelDifficultyPreset: "hard",
     createdAt: 1,
     ...overrides,
   };
@@ -224,39 +204,26 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
   return {
     _id: "notification_1" as Id<"notifications">,
     _creationTime: 1,
-    type: "duel_challenge",
+    type: "challenge_invite",
     fromUserId: "user_1" as Id<"users">,
     toUserId: "user_2" as Id<"users">,
     status: "pending",
     createdAt: 1,
     payload: {
       challengeId: "challenge_1" as Id<"challenges">,
-      mode: "solo",
+      themeName: "Animals",
+      duelDifficultyPreset: "hard",
     },
     ...overrides,
   };
 }
 
-function scheduledDuelDoc(overrides: Partial<ScheduledDuelDoc> = {}): ScheduledDuelDoc {
-  return {
-    _id: "scheduled_1" as Id<"scheduledDuels">,
-    _creationTime: 1,
-    proposerId: "user_1" as Id<"users">,
-    recipientId: "user_2" as Id<"users">,
-    themeIds: ["theme_1" as Id<"themes">],
-    scheduledTime: 10_000,
-    status: "accepted",
-    mode: "solo",
-    createdAt: 1,
-    updatedAt: 1,
-    proposerReady: true,
-    recipientReady: true,
-    ...overrides,
-  };
-}
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("duel lifecycle handlers", () => {
-  it("acceptDuel activates a classic duel for the opponent with the stored seed", async () => {
+  it("acceptChallenge creates a duel and resolves the challenge invite", async () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
 
     const db = new InMemoryDb();
@@ -265,48 +232,59 @@ describe("duel lifecycle handlers", () => {
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc());
-    db.challenges.push(
-      challengeDoc({
-        mode: "classic",
-        classicDifficultyPreset: "hard",
-      })
-    );
+    db.challenges.push(challengeDoc());
 
-    const handler = (acceptDuel as unknown as {
-      _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
+    const handler = (acceptChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<{ duelId: Id<"duels"> }>;
     })._handler;
 
-    await handler(createCtx(db, "clerk_2"), {
-      duelId: "challenge_1" as Id<"challenges">,
+    const result = await handler(createCtx(db, "clerk_2"), {
+      challengeId: "challenge_1" as Id<"challenges">,
     });
 
-    const duel = db.challenges[0];
-    expect(duel.status).toBe("accepted");
-    expect(duel.questionStartTime).toBe(5_000);
-    expect(duel.seed).toBe(123);
+    expect(result.duelId).toBe("duel_10");
+    expect(db.challenges[0]).toMatchObject({
+      status: "accepted",
+      acceptedAt: 5_000,
+      resolvedAt: 5_000,
+      duelId: "duel_10",
+    });
+    expect(db.duels[0]).toMatchObject({
+      _id: "duel_10",
+      challengeId: "challenge_1",
+      challengerId: "user_1",
+      opponentId: "user_2",
+      sourceType: "normal",
+      status: "active",
+      currentWordIndex: 0,
+      challengerScore: 0,
+      opponentScore: 0,
+      questionStartTime: 5_000,
+    });
+    expect(db.duels[0].sessionWords).toHaveLength(3);
+    expect(db.duels[0].duelQuestions).toHaveLength(3);
   });
 
-  it("acceptDuel rejects challenges missing mode", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(6_000);
-
+  it("acceptChallenge rejects non-pending challenges", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc());
-    db.challenges.push(challengeDoc({ mode: undefined }));
+    db.challenges.push(challengeDoc({ status: "accepted" }));
 
-    const handler = (acceptDuel as unknown as {
-      _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
+    const handler = (acceptChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<{ duelId: Id<"duels"> }>;
     })._handler;
 
     await expect(handler(createCtx(db, "clerk_2"), {
-      duelId: "challenge_1" as Id<"challenges">,
-    })).rejects.toThrow("Challenge is missing mode");
+      challengeId: "challenge_1" as Id<"challenges">,
+    })).rejects.toThrow("Challenge is not pending");
+    expect(db.duels).toHaveLength(0);
   });
 
-  it("acceptDuelChallenge initializes the duel and dismisses the notification", async () => {
+  it("acceptChallengeFromNotification creates a duel and dismisses the notification", async () => {
     vi.spyOn(Date, "now").mockReturnValue(7_000);
 
     const db = new InMemoryDb();
@@ -315,137 +293,49 @@ describe("duel lifecycle handlers", () => {
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc());
-    db.challenges.push(challengeDoc({ mode: "solo" }));
+    db.challenges.push(challengeDoc());
     db.notifications.push(notificationDoc());
 
-    const handler = (acceptDuelChallenge as unknown as {
+    const handler = (acceptChallengeFromNotification as unknown as {
       _handler: (
         ctx: unknown,
         args: { notificationId: Id<"notifications"> }
-      ) => Promise<{ success: boolean; challengeId: Id<"challenges"> }>;
+      ) => Promise<{ success: boolean; duelId: Id<"duels"> }>;
     })._handler;
 
     const result = await handler(createCtx(db, "clerk_2"), {
       notificationId: "notification_1" as Id<"notifications">,
     });
 
-    expect(result).toEqual({
-      success: true,
-      challengeId: "challenge_1",
-    });
+    expect(result).toEqual({ success: true, duelId: "duel_10" });
     expect(db.notifications[0].status).toBe("dismissed");
-    expect(db.challenges[0].status).toBe("challenging");
-    expect(db.challenges[0].questionStartTime).toBe(7_000);
-    expect(db.challenges[0].challengerStats).toBeDefined();
-    expect(db.challenges[0].challengerStats!.questionsAnswered).toBeTypeOf("number");
-    expect(db.challenges[0].challengerStats!.correctAnswers).toBeTypeOf("number");
+    expect(db.challenges[0].status).toBe("accepted");
+    expect(db.challenges[0].duelId).toBe("duel_10");
+    expect(db.duels[0].status).toBe("active");
   });
 
-  it("startScheduledDuel creates a challenge and updates related notifications", async () => {
+  it("declineChallenge resolves a pending invite without creating a duel", async () => {
     vi.spyOn(Date, "now").mockReturnValue(8_000);
-
-    const db = new InMemoryDb();
-    db.themes.push(themeDoc());
-    db.scheduledDuels.push(scheduledDuelDoc());
-    db.notifications.push({
-      ...notificationDoc({
-        _id: "notification_5" as Id<"notifications">,
-        type: "scheduled_duel",
-        payload: {
-          scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
-          themeId: "theme_1" as Id<"themes">,
-          mode: "solo",
-        },
-      }),
-    });
-
-    const handler = (startScheduledDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { scheduledDuelId: Id<"scheduledDuels"> }
-      ) => Promise<{ success: boolean; challengeId: Id<"challenges"> }>;
-    })._handler;
-
-    const result = await handler(createCtx(db, null), {
-      scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.challengeId).toBeDefined();
-
-    const createdChallenge = db.challenges[0];
-    expect(createdChallenge.mode).toBe("solo");
-    expect(createdChallenge.status).toBe("challenging");
-    expect(createdChallenge.questionStartTime).toBe(8_000);
-    expect(createdChallenge.seed).toBeTypeOf("number");
-    expect(createdChallenge.themeIds).toEqual(["theme_1"]);
-    expect(createdChallenge.sessionWords).toHaveLength(3);
-
-    expect(db.scheduledDuels[0].startedDuelId).toBe(createdChallenge._id);
-    expect(db.notifications[0].payload).toMatchObject({
-      scheduledDuelId: "scheduled_1",
-      startedDuelId: createdChallenge._id,
-      mode: "solo",
-    });
-  });
-
-  it("startScheduledDuel rejects scheduled duels missing mode", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(8_000);
-
-    const db = new InMemoryDb();
-    db.themes.push(themeDoc());
-    db.scheduledDuels.push(
-      scheduledDuelDoc({
-        mode: undefined,
-      })
-    );
-    db.notifications.push({
-      ...notificationDoc({
-        _id: "notification_5" as Id<"notifications">,
-        type: "scheduled_duel",
-        payload: {
-          scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
-          themeId: "theme_1" as Id<"themes">,
-          mode: "solo",
-        },
-      }),
-    });
-
-    const handler = (startScheduledDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { scheduledDuelId: Id<"scheduledDuels"> }
-      ) => Promise<{ success: boolean; challengeId: Id<"challenges"> }>;
-    })._handler;
-
-    await expect(handler(createCtx(db, null), {
-      scheduledDuelId: "scheduled_1" as Id<"scheduledDuels">,
-    })).rejects.toThrow("Challenge is missing mode");
-  });
-
-  it("initializeDuelChallenge rejects learning duels missing seed", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(9_000);
 
     const db = new InMemoryDb();
     db.users.push(
       userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
-    db.themes.push(themeDoc());
-    db.challenges.push(
-      challengeDoc({
-        status: "learning",
-        mode: "solo",
-        seed: undefined,
-      })
-    );
+    db.challenges.push(challengeDoc());
 
-    const handler = (initializeDuelChallenge as unknown as {
-      _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
+    const handler = (declineChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<void>;
     })._handler;
 
-    await expect(handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
-    })).rejects.toThrow("Challenge is missing seed");
+    await handler(createCtx(db, "clerk_2"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    });
+
+    expect(db.challenges[0]).toMatchObject({
+      status: "declined",
+      resolvedAt: 8_000,
+    });
+    expect(db.duels).toHaveLength(0);
   });
 });

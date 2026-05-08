@@ -90,7 +90,7 @@ export default function LearnPhasePage() {
   const sessionId = params.sessionId as string;
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
-  const challengeId = searchParams.get("challengeId");
+  const soloPracticeSessionId = searchParams.get("soloPracticeSessionId");
   const weeklyGoalId = searchParams.get("weeklyGoalId");
   const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
   const returnLabel = searchParams.get("returnLabel") || "Back to Home";
@@ -107,26 +107,26 @@ export default function LearnPhasePage() {
     return themeId ? [themeId as Id<"themes">] : [];
   }, [themeId, themeIdsParam]);
   const themeIdsKey = useMemo(() => requestedThemeIds.join(","), [requestedThemeIds]);
-  const sessionSourceKey = challengeId
-    ? `boss:${challengeId}`
+  const sessionSourceKey = soloPracticeSessionId
+    ? `solo-practice:${soloPracticeSessionId}`
     : weeklyGoalId
       ? `weeklyGoal:${weeklyGoalId}:${themeIdsKey}`
       : themeIdsKey || "no-theme";
 
   const practiceSession = useQuery(
     api.weeklyGoals.getBossPracticeSession,
-    challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
+    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
   );
   const weeklyGoalPractice = useQuery(
     api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    !challengeId && weeklyGoalId
+    !soloPracticeSessionId && weeklyGoalId
       ? {
           weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
           themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
         }
       : "skip"
   );
-  const allThemes = useQuery(api.themes.getThemes, challengeId || weeklyGoalId ? "skip" : {});
+  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
   const selectedThemes = useMemo(() => {
     if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
     if (!allThemes) return [];
@@ -145,7 +145,7 @@ export default function LearnPhasePage() {
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]
   );
-  const isSessionReady = challengeId
+  const isSessionReady = soloPracticeSessionId
     ? practiceSession !== undefined && practiceSession !== null
     : weeklyGoalId
       ? Boolean(weeklyGoalPractice?.ok && selectedThemes.length > 0)
@@ -304,7 +304,7 @@ export default function LearnPhasePage() {
   useEffect(() => {
     if (timeRemaining === 0 && isSessionReady) {
       const params = buildSoloSearchParams({
-        challengeId,
+        soloPracticeSessionId,
         weeklyGoalId,
         themeIds: requestedThemeIds,
         returnTo,
@@ -312,7 +312,7 @@ export default function LearnPhasePage() {
       });
       router.push(`/solo/${sessionId}?${params.toString()}`);
     }
-  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, challengeId, weeklyGoalId, returnTo, returnLabel]);
+  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
 
   // --- TTS ---
   const playWordTTS = useCallback(
@@ -331,7 +331,7 @@ export default function LearnPhasePage() {
     });
 
     const urlParams = buildSoloSearchParams({
-      challengeId,
+      soloPracticeSessionId,
       weeklyGoalId,
       themeIds: requestedThemeIds,
       returnTo,
@@ -340,7 +340,7 @@ export default function LearnPhasePage() {
     urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, challengeId, weeklyGoalId, returnTo, returnLabel]);
+  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
 
   const handleExit = useCallback(() => router.push(returnTo), [router, returnTo]);
 
@@ -356,7 +356,7 @@ export default function LearnPhasePage() {
   }, [timeRemaining, duration]);
 
   // --- Loading states ---
-  if (!challengeId && !weeklyGoalId && requestedThemeIds.length === 0) {
+  if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -392,9 +392,9 @@ export default function LearnPhasePage() {
   }
 
   if (
-    (challengeId && practiceSession === undefined) ||
-    (!challengeId && weeklyGoalId && weeklyGoalPractice === undefined) ||
-    (!challengeId && !weeklyGoalId && allThemes === undefined)
+    (soloPracticeSessionId && practiceSession === undefined) ||
+    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === undefined) ||
+    (!soloPracticeSessionId && !weeklyGoalId && allThemes === undefined)
   ) {
     return (
       <ThemedPage>
@@ -422,7 +422,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if ((challengeId && practiceSession === null) || (!challengeId && weeklyGoalId && weeklyGoalPractice === null)) {
+  if ((soloPracticeSessionId && practiceSession === null) || (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === null)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -450,7 +450,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (!challengeId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
+  if (!soloPracticeSessionId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -479,7 +479,7 @@ export default function LearnPhasePage() {
     );
   }
 
-  if (!challengeId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
+  if (!soloPracticeSessionId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -623,7 +623,7 @@ export default function LearnPhasePage() {
                       <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[3] }} />
                     </div>
                     <div className="max-w-[520px] flex-1 text-sm leading-snug" style={{ color: colors.text.muted }}>
-                      Confidence sets the starting challenge level (0 quick check {'->'} 3 no hints).
+                      Confidence sets the starting practice level (0 quick check {'->'} 3 no hints).
                     </div>
                     <button
                       type="button"
@@ -727,7 +727,7 @@ export default function LearnPhasePage() {
             style={ctaActionStyle}
             data-testid="solo-learn-skip"
           >
-            Skip to Challenge {'->'}
+            Skip to Practice {'->'}
           </button>
         </div>
       </div>

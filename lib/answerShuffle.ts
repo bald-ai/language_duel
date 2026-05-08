@@ -1,21 +1,21 @@
 /**
  * Answer shuffling utilities for duel questions.
- * Uses seeded PRNG so the server can prepare a stable classic-question snapshot.
+ * Uses seeded PRNG so the server can prepare a stable duel-question snapshot.
  */
 
 import { hashSeed, seededShuffle, mulberry32 } from "./prng";
 import { HARD_MODE_NONE_CHANCE } from "./constants";
 import {
   DIFFICULTY_POINTS,
-  calculateClassicDifficultyDistribution,
+  calculateDuelDifficultyDistribution,
   getDifficultyForIndex,
-  type ClassicDifficultyPreset,
+  type DuelDifficultyPreset,
 } from "./difficultyUtils";
 import type { DifficultyInfo, DifficultyLevel, WordEntry, ShuffleDifficultyInfo } from "./types";
 
 export const NONE_OF_ABOVE = "None of the above" as const;
 
-export interface ClassicQuestionSnapshot {
+export interface DuelQuestionSnapshot {
   options: string[];
   correctOption: string;
   difficulty: DifficultyLevel;
@@ -27,13 +27,13 @@ function getPointsForDifficulty(difficulty: ShuffleDifficultyInfo | DifficultyIn
 }
 
 /**
- * Builds the authoritative answer snapshot for a classic duel question.
+ * Builds the authoritative answer snapshot for a duel question.
  */
-export function buildClassicQuestionSnapshot(
+export function buildDuelQuestionSnapshot(
   word: WordEntry,
   questionIndex: number,
   difficulty: ShuffleDifficultyInfo
-): ClassicQuestionSnapshot {
+): DuelQuestionSnapshot {
   if (!word.wrongAnswers?.length) {
     return {
       options: [],
@@ -82,15 +82,15 @@ export function buildClassicQuestionSnapshot(
   };
 }
 
-export function buildClassicQuestionSet(
+export function buildDuelQuestionSet(
   words: WordEntry[],
   wordOrder: number[],
-  preset: ClassicDifficultyPreset = "easy"
-): ClassicQuestionSnapshot[] {
-  const distribution = calculateClassicDifficultyDistribution(wordOrder.length, preset);
+  preset: DuelDifficultyPreset = "easy"
+): DuelQuestionSnapshot[] {
+  const distribution = calculateDuelDifficultyDistribution(wordOrder.length, preset);
 
   return wordOrder.map((wordIndex, questionIndex) => {
     const difficulty = getDifficultyForIndex(questionIndex, distribution);
-    return buildClassicQuestionSnapshot(words[wordIndex], questionIndex, difficulty);
+    return buildDuelQuestionSnapshot(words[wordIndex], questionIndex, difficulty);
   });
 }

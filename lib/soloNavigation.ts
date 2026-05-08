@@ -1,9 +1,9 @@
 import type { Id } from "@/convex/_generated/dataModel";
 
-export type SoloMode = "challenge_only" | "learn_test";
+export type SoloMode = "practice_only" | "learn_practice";
 
 export interface SoloNavigationSource {
-  challengeId?: Id<"challenges"> | string | null;
+  soloPracticeSessionId?: Id<"soloPracticeSessions"> | string | null;
   weeklyGoalId?: Id<"weeklyGoals"> | string | null;
   themeIds?: Array<Id<"themes"> | string>;
   returnTo?: string | null;
@@ -22,8 +22,8 @@ export function sanitizeSoloReturnTo(returnTo?: string | null): string {
 export function buildSoloSearchParams(source: SoloNavigationSource): URLSearchParams {
   const params = new URLSearchParams();
 
-  if (source.challengeId) {
-    params.set("challengeId", String(source.challengeId));
+  if (source.soloPracticeSessionId) {
+    params.set("soloPracticeSessionId", String(source.soloPracticeSessionId));
   } else if (source.weeklyGoalId) {
     params.set("weeklyGoalId", String(source.weeklyGoalId));
     if (source.themeIds && source.themeIds.length > 0) {
@@ -59,7 +59,7 @@ export function buildSoloUrl(
   mode: SoloMode,
   source: SoloNavigationSource
 ): string {
-  const base = mode === "challenge_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
+  const base = mode === "practice_only" ? `/solo/${sessionId}` : `/solo/learn/${sessionId}`;
   const params = buildSoloSearchParams(source);
   const query = params.toString();
   return query ? `${base}?${query}` : base;

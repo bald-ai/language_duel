@@ -17,28 +17,28 @@ import {
   TIMER_UPDATE_INTERVAL_MS,
 } from "@/lib/duelConstants";
 import { useSabotageEffect } from "./hooks/useSabotageEffect";
-import { useClassicDuelAudio } from "./hooks/useClassicDuelAudio";
-import { ClassicDuelView, type FrozenData } from "./components/ClassicDuelView";
+import { useDuelAudio } from "./hooks/useDuelAudio";
+import { DuelView, type FrozenData } from "./components/DuelView";
 import { colors } from "@/lib/theme";
 
 // Props interface
-interface ClassicDuelChallengeProps {
-  duel: Doc<"challenges">;
+interface DuelSessionProps {
+  duel: Doc<"duels">;
   challenger: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
 }
 
-export default function ClassicDuelChallenge({
+export default function DuelSession({
   duel,
   challenger,
   opponent,
   viewerRole,
-}: ClassicDuelChallengeProps) {
+}: DuelSessionProps) {
   const router = useRouter();
   const { user } = useUser();
   const viewerIsChallenger = viewerRole === "challenger";
-  const { isPlayingAudio, playAudio } = useClassicDuelAudio();
+  const { isPlayingAudio, playAudio } = useDuelAudio();
 
   const [selectedAnswerRaw, setSelectedAnswerRaw] = useState<string | null>(null);
   // Track which question index the selectedAnswer belongs to
@@ -63,17 +63,17 @@ export default function ClassicDuelChallenge({
   const [revealComplete, setRevealComplete] = useState(false);
 
   // Mutations
-  const answer = useMutation(api.duel.answerDuel);
-  const stopDuel = useMutation(api.duel.stopDuel);
-  const requestHint = useMutation(api.duel.requestHint);
-  const acceptHint = useMutation(api.duel.acceptHint);
-  const eliminateOption = useMutation(api.duel.eliminateOption);
-  const timeoutAnswer = useMutation(api.duel.timeoutAnswer);
-  const sendSabotage = useMutation(api.duel.sendSabotage);
-  const pauseCountdown = useMutation(api.duel.pauseCountdown);
-  const requestUnpauseCountdown = useMutation(api.duel.requestUnpauseCountdown);
-  const confirmUnpauseCountdown = useMutation(api.duel.confirmUnpauseCountdown);
-  const skipCountdown = useMutation(api.duel.skipCountdown);
+  const answer = useMutation(api.gameplay.answerDuel);
+  const stopDuel = useMutation(api.lobby.stopDuel);
+  const requestHint = useMutation(api.hints.requestHint);
+  const acceptHint = useMutation(api.hints.acceptHint);
+  const eliminateOption = useMutation(api.hints.eliminateOption);
+  const timeoutAnswer = useMutation(api.gameplay.timeoutAnswer);
+  const sendSabotage = useMutation(api.sabotage.sendSabotage);
+  const pauseCountdown = useMutation(api.gameplay.pauseCountdown);
+  const requestUnpauseCountdown = useMutation(api.gameplay.requestUnpauseCountdown);
+  const confirmUnpauseCountdown = useMutation(api.gameplay.confirmUnpauseCountdown);
+  const skipCountdown = useMutation(api.gameplay.skipCountdown);
 
   // Question timer state
   const [questionTimer, setQuestionTimer] = useState<number | null>(null);
@@ -109,7 +109,7 @@ export default function ClassicDuelChallenge({
   });
 
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
-  const currentQuestion = duel.classicQuestions![index];
+  const currentQuestion = duel.duelQuestions![index];
   // Memoize currentWord to avoid creating new object reference on every render
   const currentWord = useMemo(
     () => words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] },
@@ -147,7 +147,7 @@ export default function ClassicDuelChallenge({
     if (shouldShowTransition) {
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-      const prevQuestion = duel.classicQuestions![prevIndex];
+      const prevQuestion = duel.duelQuestions![prevIndex];
 
       const opponentLastAnswer = viewerIsChallenger
         ? duel.opponentLastAnswer
@@ -182,7 +182,7 @@ export default function ClassicDuelChallenge({
 
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, duel.classicQuestions]);
+  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, duel.duelQuestions]);
 
   // Countdown timer
   const countdownPausedBy = duel.countdownPausedBy;
@@ -272,7 +272,7 @@ export default function ClassicDuelChallenge({
   // Monitor status for redirects
   useEffect(() => {
     const status = duel.status;
-    if (status === "stopped" || status === "rejected") {
+    if (status === "stopped") {
       router.push('/');
     }
   }, [duel.status, router]);
@@ -323,7 +323,7 @@ export default function ClassicDuelChallenge({
     const status = duel.status;
     const questionStartTime = duel.questionStartTime;
 
-    if (phase !== 'answering' || status !== "accepted" || !questionStartTime) {
+    if (phase !== 'answering' || status !== "active" || !questionStartTime) {
       setQuestionTimer(null);
       return;
     }
@@ -473,7 +473,7 @@ export default function ClassicDuelChallenge({
       : currentWord;
     const correctAnswer = activeWord?.answer;
     if (!correctAnswer || correctAnswer === "done") return;
-    playAudio(`classic-answer-${correctAnswer}`, correctAnswer, activeWord.ttsStorageId);
+    playAudio(`duel-answer-${correctAnswer}`, correctAnswer, activeWord.ttsStorageId);
   }, [currentWord, frozenData, playAudio, wordOrder, words]);
 
   // Early returns AFTER all hooks are defined
@@ -551,7 +551,7 @@ export default function ClassicDuelChallenge({
   const difficultyForView = { level: difficulty.level, points: difficulty.points };
 
   return (
-    <ClassicDuelView
+    <DuelView
       activeSabotage={activeSabotage}
       sabotagePhase={sabotagePhase}
       status={status}

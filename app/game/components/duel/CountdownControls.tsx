@@ -11,7 +11,7 @@ interface CountdownControlsProps {
   onPause: () => void;
   onRequestUnpause: () => void;
   onConfirmUnpause: () => void;
-  // Optional skip functionality (for classic duel)
+  // Optional skip functionality (for duel)
   countdownSkipRequestedBy?: string[];
   onSkip?: () => void;
   dataTestIdBase?: string;

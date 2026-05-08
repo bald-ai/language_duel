@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import { ThemeSelector } from "@/app/components/modals/ThemeSelector";
-import { UnifiedDuelModal } from "@/app/components/modals/UnifiedDuelModal";
+import { ChallengeModal } from "@/app/components/modals/ChallengeModal";
 import { ThemeList } from "@/app/themes/components/ThemeList";
 
 const useWeeklyGoalThemeIdsMock = vi.hoisted(() => vi.fn());
@@ -72,18 +72,18 @@ describe("weekly goal theme markers", () => {
 
   it("marks weekly-goal themes in the duel theme selector", () => {
     render(
-      <UnifiedDuelModal
+      <ChallengeModal
         users={[{ _id: "user_1" as Id<"users">, nickname: "Misha" }]}
         themes={[
           pickerTheme("theme_1", "Animals"),
           pickerTheme("theme_2", "Travel"),
         ]}
-        pendingDuels={[]}
+        pendingChallenges={[]}
         isJoiningDuel={false}
-        isCreatingDuel={false}
-        onAcceptDuel={vi.fn()}
-        onRejectDuel={vi.fn()}
-        onCreateDuel={vi.fn()}
+        isCreatingChallenge={false}
+        onAcceptChallenge={vi.fn()}
+        onDeclineChallenge={vi.fn()}
+        onCreateChallenge={vi.fn()}
         onClose={vi.fn()}
         onNavigateToThemes={vi.fn()}
       />

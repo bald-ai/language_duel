@@ -39,8 +39,8 @@ const GoalThemeSelector = dynamic(
   () => import("./components/GoalThemeSelector").then((mod) => mod.GoalThemeSelector),
   { loading: () => null }
 );
-const SoloModal = dynamic(
-  () => import("@/app/components/modals/SoloModal").then((mod) => mod.SoloModal),
+const SoloPracticeModal = dynamic(
+  () => import("@/app/components/modals/SoloPracticeModal").then((mod) => mod.SoloPracticeModal),
   { loading: () => null }
 );
 
@@ -990,7 +990,7 @@ export default function GoalsPage() {
 
         {showPracticeModal && selectedPlan?.goal && (
           weeklyGoalPracticeThemes && weeklyGoalPracticeThemes.ok ? (
-            <SoloModal
+            <SoloPracticeModal
               key={`${selectedPlan.goal._id}:${weeklyGoalPracticeThemes.source}`}
               themes={weeklyGoalPracticeThemes.themes}
               onContinue={handleContinuePractice}

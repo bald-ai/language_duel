@@ -56,13 +56,13 @@ export interface DifficultyDistribution {
   total: number;
 }
 
-export type ClassicDifficultyPreset = "easy" | "medium" | "hard";
+export type DuelDifficultyPreset = "easy" | "medium" | "hard";
 
 // ============================================================================
 // Distribution Calculators
 // ============================================================================
 
-function calculateProgressiveClassicDistribution(wordCount: number): DifficultyDistribution {
+function calculateProgressiveDuelDistribution(wordCount: number): DifficultyDistribution {
   const baseEasy = Math.floor(wordCount * PROGRESSIVE_RATIOS.easy);
   const baseMedium = Math.floor(wordCount * PROGRESSIVE_RATIOS.medium);
   const baseHard = Math.floor(wordCount * PROGRESSIVE_RATIOS.hard);
@@ -88,9 +88,9 @@ function calculateProgressiveClassicDistribution(wordCount: number): DifficultyD
   };
 }
 
-export function calculateClassicDifficultyDistribution(
+export function calculateDuelDifficultyDistribution(
   wordCount: number,
-  preset: ClassicDifficultyPreset = "easy"
+  preset: DuelDifficultyPreset = "easy"
 ): DifficultyDistribution {
   if (wordCount <= 0) {
     return { easy: 0, medium: 0, hard: 0, easyEnd: 0, mediumEnd: 0, total: 0 };
@@ -108,7 +108,7 @@ export function calculateClassicDifficultyDistribution(
     }
     case "easy":
     default:
-      return calculateProgressiveClassicDistribution(wordCount);
+      return calculateProgressiveDuelDistribution(wordCount);
   }
 }
 

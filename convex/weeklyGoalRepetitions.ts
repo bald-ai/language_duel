@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { buildChallengeBase, buildChallengeStartState } from "./helpers/challengeCreation";
+import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessionCreation";
 import { summarizeSessionWords } from "./helpers/sessionWords";
 import { loadUsersById } from "./helpers/users";
 import { listWeeklyGoalThemeSnapshots } from "./helpers/weeklyGoalSnapshots";
@@ -20,7 +20,7 @@ import {
 
 type CtxWithDb = QueryCtx | MutationCtx;
 type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
-type SpacedRepetitionMode = "solo" | "classic";
+type SpacedRepetitionCompletion = "solo_practice" | "duel";
 
 type LoadedSnapshotContent =
   | {
@@ -327,8 +327,9 @@ async function advanceUserIfReady(args: {
   ctx: MutationCtx;
   goal: Doc<"weeklyGoals">;
   userId: Id<"users">;
-  mode: SpacedRepetitionMode;
-  challengeId?: Id<"challenges">;
+  completedVia: SpacedRepetitionCompletion;
+  duelId?: Id<"duels">;
+  soloPracticeSessionId?: Id<"soloPracticeSessions">;
   expectedStep?: number;
   now: number;
 }) {
@@ -361,8 +362,9 @@ async function advanceUserIfReady(args: {
         step,
         intervalDays,
         completedAt: args.now,
-        mode: args.mode,
-        challengeId: args.challengeId,
+        completedVia: args.completedVia,
+        duelId: args.duelId,
+        soloPracticeSessionId: args.soloPracticeSessionId,
       },
     ],
     updatedAt: args.now,
@@ -372,43 +374,43 @@ async function advanceUserIfReady(args: {
 
 export async function completeSpacedRepetitionDuel(
   ctx: MutationCtx,
-  challenge: Doc<"challenges">,
+  duel: Doc<"duels">,
   now: number
 ) {
   if (
-    challenge.weeklyGoalChallengeType !== "spaced_repetition" ||
-    !challenge.weeklyGoalId ||
-    typeof challenge.spacedRepetitionStep !== "number" ||
-    typeof challenge.bossLivesRemaining !== "number" ||
-    challenge.bossLivesRemaining <= 0
+    duel.sourceType !== "spaced_repetition" ||
+    !duel.weeklyGoalId ||
+    typeof duel.spacedRepetitionStep !== "number" ||
+    typeof duel.bossLivesRemaining !== "number" ||
+    duel.bossLivesRemaining <= 0
   ) {
     return;
   }
 
-  const goal = await ctx.db.get(challenge.weeklyGoalId);
+  const goal = await ctx.db.get(duel.weeklyGoalId);
   if (!goal || goal.status !== "completed") return;
 
   await advanceUserIfReady({
     ctx,
     goal,
-    userId: challenge.challengerId,
-    mode: "classic",
-    challengeId: challenge._id,
-    expectedStep: challenge.spacedRepetitionStep,
+    userId: duel.challengerId,
+    completedVia: "duel",
+    duelId: duel._id,
+    expectedStep: duel.spacedRepetitionStep,
     now,
   });
   await advanceUserIfReady({
     ctx,
     goal,
-    userId: challenge.opponentId,
-    mode: "classic",
-    challengeId: challenge._id,
-    expectedStep: challenge.spacedRepetitionStep,
+    userId: duel.opponentId,
+    completedVia: "duel",
+    duelId: duel._id,
+    expectedStep: duel.spacedRepetitionStep,
     now,
   });
 }
 
-export const startDuel = mutation({
+export const createRepetitionChallenge = mutation({
   args: { weeklyGoalId: v.id("weeklyGoals") },
   handler: async (ctx, { weeklyGoalId }) => {
     const { user } = await getAuthenticatedUser(ctx);
@@ -449,52 +451,54 @@ export const startDuel = mutation({
       .query("challenges")
       .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", weeklyGoalId))
       .collect();
+    const activeDuels = await ctx.db
+      .query("duels")
+      .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", weeklyGoalId))
+      .collect();
     const duplicateAttempt = activeAttempts.find(
       (challenge) =>
-        challenge.weeklyGoalChallengeType === "spaced_repetition" &&
+        challenge.sourceType === "spaced_repetition" &&
         challenge.spacedRepetitionStep === step &&
         (challenge.status === "pending" || challenge.status === "accepted")
+    ) || activeDuels.find(
+      (duel) =>
+        duel.sourceType === "spaced_repetition" &&
+        duel.spacedRepetitionStep === step &&
+        duel.status === "active"
     );
     if (duplicateAttempt) {
       throw new Error("A spaced repetition duel is already in progress.");
     }
 
     const opponentId = getGoalPartnerId(goal, user._id);
-    const challengeBase = buildChallengeBase({
+    const challengeInvite = buildChallengeInvite({
       challengerId: user._id,
       opponentId,
-      sessionWords: content.sessionWords,
-      mode: "classic",
+      themeIds: goal.themes.map((theme) => theme.themeId),
+      sourceType: "spaced_repetition",
+      weeklyGoalId,
+      spacedRepetitionStep: step,
       createdAt: now,
     });
     const challengeId = await ctx.db.insert("challenges", {
-      ...challengeBase,
-      weeklyGoalId,
-      weeklyGoalChallengeType: "spaced_repetition",
-      spacedRepetitionStep: step,
-      bossLivesTotal: content.themeCount + 1,
-      bossLivesRemaining: content.themeCount + 1,
-      challengerPerfectRun: true,
-      opponentPerfectRun: true,
-      status: "pending",
+      ...challengeInvite,
     });
 
     await ctx.db.insert("notifications", {
-      type: "duel_challenge",
+      type: "challenge_invite",
       fromUserId: user._id,
       toUserId: opponentId,
       status: "pending",
       payload: {
         challengeId,
         themeName: `Spaced Repetition ${step}/${SPACED_REPETITION_TOTAL_STEPS}: ${content.themeSummary}`,
-        mode: challengeBase.mode,
-        classicDifficultyPreset: challengeBase.classicDifficultyPreset,
+        duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
       },
       createdAt: now,
     });
 
     await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_duel_challenge",
+      trigger: "immediate_challenge_invite",
       toUserId: opponentId,
       fromUserId: user._id,
       challengeId,
@@ -504,7 +508,7 @@ export const startDuel = mutation({
   },
 });
 
-export const startSolo = mutation({
+export const startRepetitionSoloPractice = mutation({
   args: { weeklyGoalId: v.id("weeklyGoals") },
   handler: async (ctx, { weeklyGoalId }) => {
     const { user } = await getAuthenticatedUser(ctx);
@@ -540,62 +544,50 @@ export const startSolo = mutation({
       throw new Error(content.message);
     }
 
-    const challengeBase = buildChallengeBase({
-      challengerId: user._id,
-      opponentId: user._id,
-      sessionWords: content.sessionWords,
-      mode: "solo",
-      createdAt: now,
-    });
-    const startState = buildChallengeStartState({
-      mode: "solo",
-      wordCount: content.sessionWords.length,
-      now,
-      seed: challengeBase.seed,
-    });
     const step = getSpacedRepetitionCurrentStep(record.completedSteps);
 
-    return await ctx.db.insert("challenges", {
-      ...challengeBase,
+    return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
+      userId: user._id,
+      sessionWords: content.sessionWords,
+      sourceType: "spaced_repetition",
       weeklyGoalId,
-      weeklyGoalChallengeType: "spaced_repetition",
       spacedRepetitionStep: step,
-      ...startState,
-    });
+      startsInLearning: true,
+      createdAt: now,
+    }));
   },
 });
 
-export const completeSolo = mutation({
+export const completeRepetitionSoloPractice = mutation({
   args: {
-    challengeId: v.id("challenges"),
+    soloPracticeSessionId: v.id("soloPracticeSessions"),
     completedStep: v.number(),
   },
-  handler: async (ctx, { challengeId, completedStep }) => {
+  handler: async (ctx, { soloPracticeSessionId, completedStep }) => {
     const { user } = await getAuthenticatedUser(ctx);
     const now = Date.now();
-    const challenge = await ctx.db.get(challengeId);
+    const session = await ctx.db.get(soloPracticeSessionId);
     if (
-      !challenge ||
-      challenge.weeklyGoalChallengeType !== "spaced_repetition" ||
-      !challenge.weeklyGoalId ||
-      challenge.mode !== "solo" ||
-      challenge.status !== "challenging" ||
-      typeof challenge.spacedRepetitionStep !== "number" ||
-      challenge.challengerId !== user._id ||
-      challenge.opponentId !== user._id
+      !session ||
+      session.sourceType !== "spaced_repetition" ||
+      typeof session.spacedRepetitionStep !== "number" ||
+      session.userId !== user._id
     ) {
       return { advanced: false };
     }
+    if (session.status === "completed") {
+      return { advanced: false };
+    }
 
-    const wordCount = challenge.sessionWords.length;
+    const wordCount = session.sessionWords.length;
     if (
       !Number.isInteger(completedStep) ||
-      completedStep !== challenge.spacedRepetitionStep
+      completedStep !== session.spacedRepetitionStep
     ) {
       return { advanced: false };
     }
 
-    const goal = await ctx.db.get(challenge.weeklyGoalId);
+    const goal = await ctx.db.get(session.weeklyGoalId);
     if (!goal || goal.status !== "completed") {
       return { advanced: false };
     }
@@ -604,18 +596,21 @@ export const completeSolo = mutation({
       ctx,
       goal,
       userId: user._id,
-      mode: "solo",
-      challengeId,
-      expectedStep: challenge.spacedRepetitionStep,
+      completedVia: "solo_practice",
+      soloPracticeSessionId,
+      expectedStep: session.spacedRepetitionStep,
       now,
     });
 
-    await ctx.db.patch(challengeId, {
+    await ctx.db.patch(soloPracticeSessionId, {
       status: "completed",
       currentWordIndex: wordCount,
-      challengerScore: wordCount,
-      opponentScore: wordCount,
       questionStartTime: undefined,
+      completedAt: now,
+      finalStats: {
+        questionsAnswered: wordCount,
+        correctAnswers: wordCount,
+      },
     });
 
     return { advanced };

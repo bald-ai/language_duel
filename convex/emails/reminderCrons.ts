@@ -4,7 +4,6 @@ import {
   getTimeZoneDateKey,
   getTimeZoneDateParts,
   isNotificationEnabled,
-  shouldSendScheduledDuelReminder,
   shouldSendWeeklyGoalReminder,
 } from "../../lib/notificationPreferences";
 import {
@@ -19,48 +18,6 @@ async function runEmailSend(send: () => Promise<unknown>, context: string) {
     console.error(`Failed to send reminder email: ${context}`, error);
   }
 }
-
-export const sendScheduledDuelReminders = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-
-    const upcomingDuels = await ctx.runQuery(
-      internal.scheduledDuels.getUpcomingAcceptedDuels,
-      {}
-    );
-
-    for (const duel of upcomingDuels) {
-      const participants = [duel.proposerId, duel.recipientId];
-
-      for (const userId of participants) {
-        const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
-          userId,
-        });
-
-        if (
-          isNotificationEnabled("scheduled_duel_reminder", prefs) &&
-          shouldSendScheduledDuelReminder(
-            duel,
-            now,
-            prefs.scheduledDuelReminderOffsetMinutes
-          )
-        ) {
-          await runEmailSend(
-            () =>
-              ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
-                trigger: "scheduled_duel_reminder",
-                toUserId: userId,
-                scheduledDuelId: duel._id,
-                reminderOffsetMinutes: prefs.scheduledDuelReminderOffsetMinutes,
-              }),
-            `scheduled duel ${duel._id} for user ${userId}`
-          );
-        }
-      }
-    }
-  },
-});
 
 export const sendWeeklyGoalReminders = internalAction({
   args: {},

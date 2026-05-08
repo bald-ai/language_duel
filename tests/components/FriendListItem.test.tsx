@@ -26,7 +26,6 @@ describe("FriendListItem", () => {
         friend={friend}
         hasExistingGoal={false}
         onQuickDuel={vi.fn()}
-        onScheduleDuel={vi.fn()}
         onRemoveFriend={onRemoveFriend}
       />
     );
@@ -51,7 +50,6 @@ describe("FriendListItem", () => {
         friend={friend}
         hasExistingGoal={true}
         onQuickDuel={vi.fn()}
-        onScheduleDuel={vi.fn()}
         onRemoveFriend={vi.fn()}
       />
     );

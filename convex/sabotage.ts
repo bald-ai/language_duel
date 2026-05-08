@@ -42,7 +42,7 @@ function isSabotageActive(params: {
 
 export const sendSabotage = mutation({
   args: {
-    duelId: v.id("challenges"),
+    duelId: v.id("duels"),
     effect: v.union(
       v.literal("sticky"),
       v.literal("bounce"),
@@ -54,7 +54,7 @@ export const sendSabotage = mutation({
     const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (!isDuelActive(duel)) {
-      throw new Error("Challenge is not active");
+      throw new Error("Duel is not active");
     }
 
     // Check sabotage usage limit

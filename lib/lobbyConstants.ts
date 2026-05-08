@@ -2,16 +2,16 @@
  * Constants for the home page / lobby.
  */
 
-import type { ClassicDifficultyPreset } from "./difficultyUtils";
+import type { DuelDifficultyPreset } from "./difficultyUtils";
 
-export interface ClassicDifficultyOption {
-  preset: ClassicDifficultyPreset;
+export interface DuelDifficultyOption {
+  preset: DuelDifficultyPreset;
   label: string;
   description: string;
   isDefault?: boolean;
 }
 
-export const CLASSIC_DIFFICULTY_OPTIONS: ClassicDifficultyOption[] = [
+export const DUEL_DIFFICULTY_OPTIONS: DuelDifficultyOption[] = [
   {
     preset: "easy",
     label: "Easy",
@@ -29,4 +29,3 @@ export const CLASSIC_DIFFICULTY_OPTIONS: ClassicDifficultyOption[] = [
     description: "Hard questions only",
   },
 ];
-

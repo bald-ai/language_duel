@@ -28,7 +28,7 @@ const primaryActionStyle = {
 };
 
 /**
- * Displays the solo challenge completion summary with stats and exit option.
+ * Displays the solo practice completion summary with stats and exit option.
  */
 export function CompletionScreen({
   questionsAnswered,
@@ -66,7 +66,7 @@ export function CompletionScreen({
         className="title-font text-2xl sm:text-3xl uppercase tracking-widest"
         style={{ color: colors.text.DEFAULT }}
       >
-        Challenge Complete
+        Practice Complete
       </div>
       <p className="mt-2 text-xs sm:text-sm" style={{ color: colors.text.muted }}>
         Nice work. Here is your summary.
@@ -114,7 +114,7 @@ export function CompletionScreen({
         onClick={onExit}
         className={`${actionButtonClassName} mt-6`}
         style={primaryActionStyle}
-        data-testid="solo-challenge-complete-back"
+        data-testid="solo-practice-complete-back"
       >
         {exitLabel}
       </button>

@@ -68,43 +68,16 @@ export default function NotificationSettingsPage() {
           }}
         >
           <CategoryToggle
-            label="Immediate Duels"
-            enabled={prefs.immediateDuelsEnabled}
-            onChange={(v) => updatePrefs({ immediateDuelsEnabled: v })}
-            data-testid="category-immediate-duels"
+            label="Challenge Invites"
+            enabled={prefs.challengeInvitesEnabled}
+            onChange={(v) => updatePrefs({ challengeInvitesEnabled: v })}
+            data-testid="category-challenge-invites"
           >
             <NotificationToggle
-              label="Challenge received"
-              enabled={prefs.immediateDuelChallengeEnabled}
-              disabled={!prefs.immediateDuelsEnabled}
-              onChange={(v) => updatePrefs({ immediateDuelChallengeEnabled: v })}
-            />
-          </CategoryToggle>
-
-          <CategoryToggle
-            label="Scheduled Duels"
-            enabled={prefs.scheduledDuelsEnabled}
-            onChange={(v) => updatePrefs({ scheduledDuelsEnabled: v })}
-            data-testid="category-scheduled-duels"
-          >
-            <NotificationToggle
-              label="Proposal received"
-              enabled={prefs.scheduledDuelProposalEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelProposalEnabled: v })}
-            />
-            <NotificationToggle
-              label="Duel reminder"
-              enabled={prefs.scheduledDuelReminderEnabled}
-              disabled={!prefs.scheduledDuelsEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelReminderEnabled: v })}
-            />
-            <ReminderOffsetInput
-              label="Remind me before"
-              valueMinutes={prefs.scheduledDuelReminderOffsetMinutes}
-              disabled={!prefs.scheduledDuelsEnabled || !prefs.scheduledDuelReminderEnabled}
-              onChange={(v) => updatePrefs({ scheduledDuelReminderOffsetMinutes: v })}
-              data-testid="scheduled-duel-reminder-offset"
+              label="Challenge invite email"
+              enabled={prefs.challengeInviteEmailEnabled}
+              disabled={!prefs.challengeInvitesEnabled}
+              onChange={(v) => updatePrefs({ challengeInviteEmailEnabled: v })}
             />
           </CategoryToggle>
 

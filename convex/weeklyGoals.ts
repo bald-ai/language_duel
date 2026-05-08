@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { buildChallengeBase, buildChallengeStartState } from "./helpers/challengeCreation";
+import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessionCreation";
 import { shuffleArray } from "./helpers/gameLogic";
 import { loadThemesByIds, summarizeSessionWords } from "./helpers/sessionWords";
 import { loadUsersById } from "./helpers/users";
@@ -331,7 +331,7 @@ async function dismissChallengeNotifications(
   for (const userId of participantIds) {
     const notifications = await ctx.db
       .query("notifications")
-      .withIndex("by_type", (q) => q.eq("type", "duel_challenge").eq("toUserId", userId))
+      .withIndex("by_type", (q) => q.eq("type", "challenge_invite").eq("toUserId", userId))
       .collect();
 
     for (const notification of notifications) {
@@ -347,7 +347,7 @@ async function dismissChallengeNotifications(
   }
 }
 
-async function deleteBossChallengesForGoal(
+async function deleteGoalPlayRecordsForGoal(
   ctx: MutationCtx,
   goal: Doc<"weeklyGoals">
 ) {
@@ -356,13 +356,27 @@ async function deleteBossChallengesForGoal(
     .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
     .collect();
 
-  if (challenges.length === 0) return;
-
   const challengeIds = challenges.map((challenge) => challenge._id);
   await dismissChallengeNotifications(ctx, getGoalParticipantIds(goal), challengeIds);
 
   for (const challenge of challenges) {
     await ctx.db.delete(challenge._id);
+  }
+
+  const duels = await ctx.db
+    .query("duels")
+    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
+    .collect();
+  for (const duel of duels) {
+    await ctx.db.delete(duel._id);
+  }
+
+  const soloPracticeSessions = await ctx.db
+    .query("soloPracticeSessions")
+    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
+    .collect();
+  for (const session of soloPracticeSessions) {
+    await ctx.db.delete(session._id);
   }
 }
 
@@ -370,7 +384,7 @@ async function deleteGoalAndRelatedData(
   ctx: MutationCtx,
   goal: Doc<"weeklyGoals">
 ) {
-  await deleteBossChallengesForGoal(ctx, goal);
+  await deleteGoalPlayRecordsForGoal(ctx, goal);
   await deleteWeeklyGoalThemeSnapshots(ctx, goal._id);
   await ctx.db.delete(goal._id);
 }
@@ -705,30 +719,24 @@ export const getBossLaunchPreview = query({
 });
 
 export const getBossPracticeSession = query({
-  args: { challengeId: v.id("challenges") },
-  handler: async (ctx, { challengeId }) => {
+  args: { soloPracticeSessionId: v.id("soloPracticeSessions") },
+  handler: async (ctx, { soloPracticeSessionId }) => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const challenge = await ctx.db.get(challengeId);
-    if (!challenge) return null;
+    const session = await ctx.db.get(soloPracticeSessionId);
+    if (!session || session.userId !== auth.user._id) return null;
 
-    const isOwnPracticeChallenge =
-      challenge.challengerId === auth.user._id &&
-      challenge.opponentId === auth.user._id &&
-      challenge.mode === "solo" &&
-      !challenge.bossType;
-
-    if (!isOwnPracticeChallenge) {
+    if (session.sourceType !== "boss" && session.sourceType !== "spaced_repetition") {
       return null;
     }
 
     return {
-      challengeId: challenge._id,
-      weeklyGoalChallengeType: challenge.weeklyGoalChallengeType,
-      spacedRepetitionStep: challenge.spacedRepetitionStep,
-      sessionWords: challenge.sessionWords,
-      themeSummary: summarizeSessionWords(challenge.sessionWords),
+      soloPracticeSessionId: session._id,
+      sourceType: session.sourceType,
+      spacedRepetitionStep: session.spacedRepetitionStep,
+      sessionWords: session.sessionWords,
+      themeSummary: summarizeSessionWords(session.sessionWords),
     };
   },
 });
@@ -1179,26 +1187,24 @@ async function validateAndPrepareBoss(
 
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
   const sessionWords = buildBossSessionWords(themes);
-  const startingLives = calculateBossStartingLives({
-    bossType,
-    themeCount: themes.length,
-    miniBossDefeated: goal.miniBossStatus === "defeated",
-  });
-
-  return { user, goal, isCreator, now, sessionWords, startingLives };
+  return { user, goal, isCreator, now, sessionWords };
 }
 
-export const startBossDuel = mutation({
+export const createBossChallenge = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, goal, isCreator, now, sessionWords, startingLives } =
+    const { user, goal, isCreator, now, sessionWords } =
       await validateAndPrepareBoss(ctx, goalId, bossType);
 
     const existingGoalChallenges = await ctx.db
       .query("challenges")
+      .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
+      .collect();
+    const existingGoalDuels = await ctx.db
+      .query("duels")
       .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
       .collect();
 
@@ -1206,48 +1212,46 @@ export const startBossDuel = mutation({
       (challenge) =>
         challenge.bossType === bossType &&
         (challenge.status === "pending" || challenge.status === "accepted")
+    ) || existingGoalDuels.find(
+      (duel) =>
+        duel.bossType === bossType &&
+        duel.status === "active"
     );
     if (duplicateAttempt) {
       throw new Error("A boss attempt is already in progress");
     }
 
     const opponentId = isCreator ? goal.partnerId : goal.creatorId;
-    const challengeBase = buildChallengeBase({
+    const challengeInvite = buildChallengeInvite({
       challengerId: user._id,
       opponentId,
-      sessionWords,
-      mode: "classic",
+      themeIds: getEligibleThemeIdsForBoss(goal, bossType),
+      sourceType: "boss",
+      weeklyGoalId: goalId,
+      bossType,
       createdAt: now,
     });
 
     const challengeId = await ctx.db.insert("challenges", {
-      ...challengeBase,
-      weeklyGoalId: goalId,
-      bossType,
-      bossLivesTotal: startingLives,
-      bossLivesRemaining: startingLives,
-      challengerPerfectRun: true,
-      opponentPerfectRun: true,
-      status: "pending",
+      ...challengeInvite,
     });
 
     const bossLabel = bossType === "mini" ? "Mini Boss" : "Big Boss";
     await ctx.db.insert("notifications", {
-      type: "duel_challenge",
+      type: "challenge_invite",
       fromUserId: user._id,
       toUserId: opponentId,
       status: "pending",
       payload: {
         challengeId,
         themeName: `${bossLabel}: ${summarizeSessionWords(sessionWords)}`,
-        mode: challengeBase.mode,
-        classicDifficultyPreset: challengeBase.classicDifficultyPreset,
+        duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
       },
       createdAt: now,
     });
 
     await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_duel_challenge",
+      trigger: "immediate_challenge_invite",
       toUserId: opponentId,
       fromUserId: user._id,
       challengeId,
@@ -1257,7 +1261,7 @@ export const startBossDuel = mutation({
   },
 });
 
-export const startBossPractice = mutation({
+export const startBossSoloPractice = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     bossType: v.union(v.literal("mini"), v.literal("big")),
@@ -1266,25 +1270,15 @@ export const startBossPractice = mutation({
     const { user, now, sessionWords } =
       await validateAndPrepareBoss(ctx, goalId, bossType);
 
-    const challengeBase = buildChallengeBase({
-      challengerId: user._id,
-      opponentId: user._id,
+    return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
+      userId: user._id,
       sessionWords,
-      mode: "solo",
-      createdAt: now,
-    });
-    const startState = buildChallengeStartState({
-      mode: "solo",
-      wordCount: sessionWords.length,
-      now,
-      seed: challengeBase.seed,
-    });
-
-    return await ctx.db.insert("challenges", {
-      ...challengeBase,
+      sourceType: "boss",
       weeklyGoalId: goalId,
-      ...startState,
-    });
+      bossType,
+      startsInLearning: true,
+      createdAt: now,
+    }));
   },
 });
 

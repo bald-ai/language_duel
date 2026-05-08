@@ -8,8 +8,6 @@ import {
   getOtherRole,
   hasPlayerAnswered,
   isDuelActive,
-  isDuelChallenging,
-  isDuelLearning,
 } from "@/convex/helpers/auth";
 import {
   createIdentityCtx,
@@ -18,21 +16,21 @@ import {
 
 type UserDoc = Pick<Doc<"users">, "_id" | "_creationTime" | "clerkId" | "email">;
 
-type ChallengeDoc = Pick<
-  Doc<"challenges">,
+type DuelDoc = Pick<
+  Doc<"duels">,
   "_id" | "_creationTime" | "challengerId" | "opponentId" | "status" | "challengerAnswered" | "opponentAnswered"
 >;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
-  public challenges: ChallengeDoc[] = [];
+  public duels: DuelDoc[] = [];
 
   query(table: "users") {
     return createIndexedQuery(table === "users" ? this.users : []);
   }
 
-  async get(id: Id<"challenges">): Promise<ChallengeDoc | null> {
-    return this.challenges.find((challenge) => challenge._id === id) ?? null;
+  async get(id: Id<"duels">): Promise<DuelDoc | null> {
+    return this.duels.find((duel) => duel._id === id) ?? null;
   }
 }
 
@@ -50,13 +48,13 @@ function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
   };
 }
 
-function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
+function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
   return {
-    _id: "challenge_1" as Id<"challenges">,
+    _id: "duel_1" as Id<"duels">,
     _creationTime: Date.now(),
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
-    status: "challenging",
+    status: "active",
     challengerAnswered: false,
     opponentAnswered: false,
     ...overrides,
@@ -100,20 +98,20 @@ describe("auth helpers", () => {
     expect(missing).toBeNull();
   });
 
-  it("getDuelParticipant throws for missing challenge and non-participant", async () => {
+  it("getDuelParticipant throws for missing duel and non-participant", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
 
     await expect(
       getDuelParticipant(
         createCtx(db, { subject: "clerk_1" }) as never,
-        "challenge_missing" as Id<"challenges">
+        "duel_missing" as Id<"duels">
       )
-    ).rejects.toThrow("Challenge not found");
+    ).rejects.toThrow("Duel not found");
 
-    db.challenges.push(
-      challengeDoc({
-        _id: "challenge_2" as Id<"challenges">,
+    db.duels.push(
+      duelDoc({
+        _id: "duel_2" as Id<"duels">,
         challengerId: "user_9" as Id<"users">,
         opponentId: "user_8" as Id<"users">,
       })
@@ -122,17 +120,17 @@ describe("auth helpers", () => {
     await expect(
       getDuelParticipant(
         createCtx(db, { subject: "clerk_1" }) as never,
-        "challenge_2" as Id<"challenges">
+        "duel_2" as Id<"duels">
       )
-    ).rejects.toThrow("User not part of this challenge");
+    ).rejects.toThrow("User not part of this duel");
   });
 
   it("getDuelParticipant returns challenger role flags", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
-    db.challenges.push(
-      challengeDoc({
-        _id: "challenge_1" as Id<"challenges">,
+    db.duels.push(
+      duelDoc({
+        _id: "duel_1" as Id<"duels">,
         challengerId: "user_1" as Id<"users">,
         opponentId: "user_2" as Id<"users">,
       })
@@ -140,7 +138,7 @@ describe("auth helpers", () => {
 
     const result = await getDuelParticipant(
       createCtx(db, { subject: "clerk_1" }) as never,
-      "challenge_1" as Id<"challenges">
+      "duel_1" as Id<"duels">
     );
 
     expect(result.playerRole).toBe("challenger");
@@ -151,9 +149,9 @@ describe("auth helpers", () => {
   it("getDuelParticipantOrNull returns null when auth/duel/participant checks fail", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
-    db.challenges.push(
-      challengeDoc({
-        _id: "challenge_3" as Id<"challenges">,
+    db.duels.push(
+      duelDoc({
+        _id: "duel_3" as Id<"duels">,
         challengerId: "user_9" as Id<"users">,
         opponentId: "user_8" as Id<"users">,
       })
@@ -161,26 +159,26 @@ describe("auth helpers", () => {
 
     const unauth = await getDuelParticipantOrNull(
       createCtx(db, null) as never,
-      "challenge_3" as Id<"challenges">
+      "duel_3" as Id<"duels">
     );
     expect(unauth).toBeNull();
 
     const missingDuel = await getDuelParticipantOrNull(
       createCtx(db, { subject: "clerk_1" }) as never,
-      "challenge_missing" as Id<"challenges">
+      "duel_missing" as Id<"duels">
     );
     expect(missingDuel).toBeNull();
 
     const nonParticipant = await getDuelParticipantOrNull(
       createCtx(db, { subject: "clerk_1" }) as never,
-      "challenge_3" as Id<"challenges">
+      "duel_3" as Id<"duels">
     );
     expect(nonParticipant).toBeNull();
   });
 
   it("helper predicates return expected role/status results", () => {
-    const duel = challengeDoc({
-      status: "accepted",
+    const duel = duelDoc({
+      status: "active",
       challengerAnswered: true,
       opponentAnswered: false,
     });
@@ -188,19 +186,10 @@ describe("auth helpers", () => {
     expect(getOtherRole("challenger")).toBe("opponent");
     expect(getOtherRole("opponent")).toBe("challenger");
 
-    expect(isDuelActive(duel as Doc<"challenges">)).toBe(true);
-    expect(
-      isDuelActive(challengeDoc({ status: "pending" }) as Doc<"challenges">)
-    ).toBe(false);
+    expect(isDuelActive(duel as Doc<"duels">)).toBe(true);
+    expect(isDuelActive(duelDoc({ status: "completed" }) as Doc<"duels">)).toBe(false);
 
-    expect(
-      isDuelLearning(challengeDoc({ status: "learning" }) as Doc<"challenges">)
-    ).toBe(true);
-    expect(
-      isDuelChallenging(challengeDoc({ status: "challenging" }) as Doc<"challenges">)
-    ).toBe(true);
-
-    expect(hasPlayerAnswered(duel as Doc<"challenges">, "challenger")).toBe(true);
-    expect(hasPlayerAnswered(duel as Doc<"challenges">, "opponent")).toBe(false);
+    expect(hasPlayerAnswered(duel as Doc<"duels">, "challenger")).toBe(true);
+    expect(hasPlayerAnswered(duel as Doc<"duels">, "opponent")).toBe(false);
   });
 });

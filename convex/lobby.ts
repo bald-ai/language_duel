@@ -1,36 +1,106 @@
 /**
- * Lobby mutations for duel creation, acceptance, rejection, and cancellation.
+ * Challenge lobby mutations for creating, accepting, declining, and cancelling
+ * person-to-person duel invites.
  */
 
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getAuthenticatedUser,
   getAuthenticatedUserOrNull,
+  getChallengeParticipant,
   getDuelParticipant,
 } from "./helpers/auth";
 import {
-  buildChallengeBase,
-  buildChallengeStartState,
-} from "./helpers/challengeCreation";
+  buildChallengeInvite,
+  buildDuelSession,
+} from "./helpers/sessionCreation";
 import {
-  getChallengeSessionWords,
   loadThemesByIds,
   summarizeSessionWords,
 } from "./helpers/sessionWords";
-import { isDuelChallengePayload } from "./notificationPayloads";
-import { DUEL_CHALLENGE_TTL_MS } from "./constants";
+import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnapshots";
+import { isChallengeInvitePayload } from "./notificationPayloads";
+import { CHALLENGE_INVITE_TTL_MS } from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
-import { summarizeThemes } from "../lib/sessionWords";
+import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
+import { calculateBossStartingLives } from "../lib/bossLives";
 
-export const createDuel = mutation({
+type CtxWithDb = QueryCtx | MutationCtx;
+
+async function buildDuelWordsForChallenge(
+  ctx: CtxWithDb,
+  challenge: Doc<"challenges">
+) {
+  const themes = challenge.weeklyGoalId
+    ? await loadWeeklyGoalSessionThemesByThemeIds(ctx, { _id: challenge.weeklyGoalId }, challenge.themeIds)
+    : await loadThemesByIds(ctx, challenge.themeIds);
+
+  const sessionWords = buildSessionWords(themes);
+  if (sessionWords.length === 0) {
+    throw new Error("Challenge has no playable words");
+  }
+  return sessionWords;
+}
+
+async function insertDuelSessionForChallenge(
+  ctx: MutationCtx,
+  challenge: Doc<"challenges">,
+  now: number
+): Promise<Id<"duels">> {
+  const sessionWords = await buildDuelWordsForChallenge(ctx, challenge);
+  const livesTotal = challenge.sourceType === "boss"
+    ? await resolveBossLives(ctx, challenge)
+    : challenge.sourceType === "spaced_repetition"
+      ? await resolveSpacedRepetitionLives(ctx, challenge)
+      : undefined;
+
+  return await ctx.db.insert("duels", buildDuelSession({
+    challengeId: challenge._id,
+    challengerId: challenge.challengerId,
+    opponentId: challenge.opponentId,
+    sessionWords,
+    sourceType: challenge.sourceType,
+    weeklyGoalId: challenge.weeklyGoalId,
+    bossType: challenge.bossType,
+    spacedRepetitionStep: challenge.spacedRepetitionStep,
+    bossLivesTotal: livesTotal,
+    bossLivesRemaining: livesTotal,
+    duelDifficultyPreset: challenge.duelDifficultyPreset,
+    createdAt: now,
+  }));
+}
+
+async function resolveBossLives(
+  ctx: CtxWithDb,
+  challenge: Doc<"challenges">
+): Promise<number | undefined> {
+  if (!challenge.weeklyGoalId || !challenge.bossType) return undefined;
+  const goal = await ctx.db.get(challenge.weeklyGoalId);
+  if (!goal) return undefined;
+  return calculateBossStartingLives({
+    bossType: challenge.bossType,
+    themeCount: challenge.themeIds.length,
+    miniBossDefeated: goal.miniBossStatus === "defeated",
+  });
+}
+
+async function resolveSpacedRepetitionLives(
+  ctx: CtxWithDb,
+  challenge: Doc<"challenges">
+): Promise<number | undefined> {
+  if (!challenge.weeklyGoalId) return undefined;
+  const goal = await ctx.db.get(challenge.weeklyGoalId);
+  return goal ? goal.themes.length + 1 : undefined;
+}
+
+export const createChallenge = mutation({
   args: {
     opponentId: v.id("users"),
     themeIds: v.array(v.id("themes")),
-    mode: v.union(v.literal("solo"), v.literal("classic")),
-    classicDifficultyPreset: v.optional(
+    duelDifficultyPreset: v.optional(
       v.union(
         v.literal("easy"),
         v.literal("medium"),
@@ -38,10 +108,9 @@ export const createDuel = mutation({
       )
     ),
   },
-  handler: async (ctx, { opponentId, themeIds, mode, classicDifficultyPreset }) => {
+  handler: async (ctx, { opponentId, themeIds, duelDifficultyPreset }) => {
     const { user: challenger } = await getAuthenticatedUser(ctx);
 
-    // Verify opponent exists
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) throw new Error("Opponent not found");
 
@@ -62,39 +131,32 @@ export const createDuel = mutation({
     );
 
     const now = Date.now();
-    const challengeBase = buildChallengeBase({
+    const challengeId = await ctx.db.insert("challenges", buildChallengeInvite({
       challengerId: challenger._id,
       opponentId,
-      themes: resolvedThemes,
-      mode,
-      classicDifficultyPreset,
+      themeIds: orderedThemeIds,
+      sourceType: "normal",
+      duelDifficultyPreset,
       createdAt: now,
-    });
-
-    const challengeId = await ctx.db.insert("challenges", {
-      ...challengeBase,
-      status: "pending",
-    });
+    }));
 
     const themeSummary = summarizeThemes(resolvedThemes);
 
-    // Create notification for the opponent
     await ctx.db.insert("notifications", {
-      type: "duel_challenge",
+      type: "challenge_invite",
       fromUserId: challenger._id,
       toUserId: opponentId,
       status: "pending",
       payload: {
         challengeId,
         themeName: themeSummary,
-        mode: challengeBase.mode,
-        classicDifficultyPreset: challengeBase.classicDifficultyPreset,
+        duelDifficultyPreset,
       },
       createdAt: now,
     });
 
     await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_duel_challenge",
+      trigger: "immediate_challenge_invite",
       toUserId: opponentId,
       fromUserId: challenger._id,
       challengeId,
@@ -105,7 +167,7 @@ export const createDuel = mutation({
 });
 
 export const getDuel = query({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
@@ -113,7 +175,6 @@ export const getDuel = query({
     const duel = await ctx.db.get(duelId);
     if (!duel) return null;
 
-    // Verify caller is part of this duel
     const isChallenger = auth.user._id === duel.challengerId;
     const isOpponent = auth.user._id === duel.opponentId;
     if (!isChallenger && !isOpponent) return null;
@@ -127,12 +188,11 @@ export const getDuel = query({
     const themes = await loadThemesByIds(ctx, duel.themeIds);
     const theme = themes.length === 1 ? themes[0] : null;
 
-    // Return only safe user fields (no email, no clerkId)
     return {
       duel,
       theme,
       themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
-      themeSummary: summarizeSessionWords(getChallengeSessionWords(duel)),
+      themeSummary: summarizeSessionWords(duel.sessionWords),
       viewerRole,
       viewer: {
         _id: auth.user._id,
@@ -157,7 +217,22 @@ export const getDuel = query({
   },
 });
 
-export const getPendingDuels = query({
+export const getChallenge = query({
+  args: { challengeId: v.id("challenges") },
+  handler: async (ctx, { challengeId }) => {
+    const auth = await getAuthenticatedUserOrNull(ctx);
+    if (!auth) return null;
+
+    const challenge = await ctx.db.get(challengeId);
+    if (!challenge) return null;
+    if (challenge.challengerId !== auth.user._id && challenge.opponentId !== auth.user._id) {
+      return null;
+    }
+    return { challenge };
+  },
+});
+
+export const getPendingChallenges = query({
   args: {},
   handler: async (ctx) => {
     const auth = await getAuthenticatedUserOrNull(ctx);
@@ -183,93 +258,81 @@ export const getPendingDuels = query({
   },
 });
 
-export const acceptDuel = mutation({
-  args: { duelId: v.id("challenges") },
-  handler: async (ctx, { duelId }) => {
-    const { duel, isOpponent } = await getDuelParticipant(ctx, duelId);
+export const acceptChallenge = mutation({
+  args: { challengeId: v.id("challenges") },
+  handler: async (ctx, { challengeId }) => {
+    const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
 
-    // Only opponent can accept
     if (!isOpponent) {
       throw new Error("Only opponent can accept challenge");
     }
-
-    // Guard: can only accept pending duels
-    if (duel.status !== "pending") {
-      throw new Error("Duel is not pending");
+    if (challenge.status !== "pending") {
+      throw new Error("Challenge is not pending");
     }
 
-    const sessionWords = getChallengeSessionWords(duel);
-
     const now = Date.now();
-    const startState = buildChallengeStartState({
-      mode: duel.mode,
-      wordCount: sessionWords.length,
-      now,
-      seed: duel.seed,
+    const duelId = await insertDuelSessionForChallenge(ctx, challenge, now);
+    await ctx.db.patch(challengeId, {
+      status: "accepted",
+      acceptedAt: now,
+      resolvedAt: now,
+      duelId,
     });
-
-    await ctx.db.patch(duelId, startState);
+    return { duelId };
   },
 });
 
-export const rejectDuel = mutation({
-  args: { duelId: v.id("challenges") },
-  handler: async (ctx, { duelId }) => {
-    const { duel, isOpponent } = await getDuelParticipant(ctx, duelId);
+export const declineChallenge = mutation({
+  args: { challengeId: v.id("challenges") },
+  handler: async (ctx, { challengeId }) => {
+    const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
 
-    // Only opponent can reject
     if (!isOpponent) {
-      throw new Error("Only opponent can reject challenge");
+      throw new Error("Only opponent can decline challenge");
+    }
+    if (challenge.status !== "pending") {
+      throw new Error("Challenge is not pending");
     }
 
-    // Guard: can only reject pending duels
-    if (duel.status !== "pending") {
-      throw new Error("Duel is not pending");
-    }
-
-    await ctx.db.patch(duelId, { status: "rejected" });
+    await ctx.db.patch(challengeId, { status: "declined", resolvedAt: Date.now() });
   },
 });
 
 export const stopDuel = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
-    // Just verify participant - both can stop
-    await getDuelParticipant(ctx, duelId);
+    const { duel } = await getDuelParticipant(ctx, duelId);
+    if (duel.status === "completed") return;
     await ctx.db.patch(duelId, { status: "stopped" });
   },
 });
 
-export const cancelPendingDuel = mutation({
-  args: { duelId: v.id("challenges") },
-  handler: async (ctx, { duelId }) => {
-    const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
+export const cancelChallenge = mutation({
+  args: { challengeId: v.id("challenges") },
+  handler: async (ctx, { challengeId }) => {
+    const { challenge, isChallenger } = await getChallengeParticipant(ctx, challengeId);
 
-    // Only challenger can cancel a pending duel
     if (!isChallenger) {
-      throw new Error("Only challenger can cancel a pending duel");
+      throw new Error("Only challenger can cancel a pending challenge");
+    }
+    if (challenge.status !== "pending") {
+      throw new Error("Can only cancel pending challenges");
     }
 
-    // Can only cancel if still pending
-    if (duel.status !== "pending") {
-      throw new Error("Can only cancel pending duels");
-    }
+    await ctx.db.patch(challengeId, { status: "cancelled", resolvedAt: Date.now() });
 
-    await ctx.db.patch(duelId, { status: "cancelled" });
-
-    // Dismiss the associated duel_challenge notification
     const notifications = await ctx.db
       .query("notifications")
       .withIndex("by_type", (q) =>
-        q.eq("type", "duel_challenge").eq("toUserId", duel.opponentId)
+        q.eq("type", "challenge_invite").eq("toUserId", challenge.opponentId)
       )
       .collect();
 
     for (const notification of notifications) {
       if (
         (notification.status === "pending" || notification.status === "read") &&
-        isDuelChallengePayload(notification.payload) &&
-        notification.payload.challengeId === duelId
+        isChallengeInvitePayload(notification.payload) &&
+        notification.payload.challengeId === challengeId
       ) {
         await ctx.db.patch(notification._id, { status: "dismissed" });
       }
@@ -277,7 +340,7 @@ export const cancelPendingDuel = mutation({
   },
 });
 
-export const acceptDuelChallenge = mutation({
+export const acceptChallengeFromNotification = mutation({
   args: {
     notificationId: v.id("notifications"),
   },
@@ -288,50 +351,46 @@ export const acceptDuelChallenge = mutation({
     if (!notification) {
       throw new Error("Notification not found");
     }
-
     if (notification.toUserId !== user._id) {
       throw new Error("Not authorized");
     }
-
-    if (notification.type !== "duel_challenge") {
+    if (notification.type !== "challenge_invite") {
       throw new Error("Invalid notification type");
     }
-
     const payload = notification.payload;
-    if (!isDuelChallengePayload(payload)) {
+    if (!isChallengeInvitePayload(payload)) {
       throw new Error("Challenge ID not found in notification");
     }
-    const challengeId = payload.challengeId;
 
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
       throw new Error("Challenge not found");
     }
-
     if (challenge.status !== "pending") {
       throw new Error("Challenge is no longer pending");
     }
+    if (challenge.opponentId !== user._id) {
+      throw new Error("Not authorized");
+    }
 
-    const sessionWords = getChallengeSessionWords(challenge);
     const now = Date.now();
-    const startState = buildChallengeStartState({
-      mode: challenge.mode,
-      wordCount: sessionWords.length,
-      now,
-      seed: challenge.seed,
+    const duelId = await insertDuelSessionForChallenge(ctx, challenge, now);
+    await ctx.db.patch(challenge._id, {
+      status: "accepted",
+      acceptedAt: now,
+      resolvedAt: now,
+      duelId,
     });
-
-    await ctx.db.patch(challengeId, startState);
 
     await ctx.db.patch(args.notificationId, {
       status: "dismissed",
     });
 
-    return { success: true, challengeId };
+    return { success: true, duelId };
   },
 });
 
-export const declineDuelChallenge = mutation({
+export const declineChallengeFromNotification = mutation({
   args: {
     notificationId: v.id("notifications"),
   },
@@ -342,28 +401,25 @@ export const declineDuelChallenge = mutation({
     if (!notification) {
       throw new Error("Notification not found");
     }
-
     if (notification.toUserId !== user._id) {
       throw new Error("Not authorized");
     }
-
-    if (notification.type !== "duel_challenge") {
+    if (notification.type !== "challenge_invite") {
       throw new Error("Invalid notification type");
     }
-
     const payload = notification.payload;
-    if (!isDuelChallengePayload(payload)) {
+    if (!isChallengeInvitePayload(payload)) {
       throw new Error("Challenge ID not found in notification");
     }
-    const challengeId = payload.challengeId;
 
-    const challenge = await ctx.db.get(challengeId);
+    const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
       throw new Error("Challenge not found");
     }
 
-    await ctx.db.patch(challengeId, {
-      status: "rejected",
+    await ctx.db.patch(challenge._id, {
+      status: "declined",
+      resolvedAt: Date.now(),
     });
 
     await ctx.db.patch(args.notificationId, {
@@ -375,25 +431,25 @@ export const declineDuelChallenge = mutation({
 });
 
 /**
- * Auto-dismiss stale duel challenge notifications and cancel unresolved challenges.
+ * Auto-dismiss stale challenge invite notifications and cancel unresolved challenges.
  */
-export const cleanupExpiredDuelChallenges = internalMutation({
+export const cleanupExpiredChallengeInvites = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const cutoff = now - DUEL_CHALLENGE_TTL_MS;
+    const cutoff = now - CHALLENGE_INVITE_TTL_MS;
 
     const expiredPendingNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_type_status_createdAt", (q) =>
-        q.eq("type", "duel_challenge").eq("status", "pending").lt("createdAt", cutoff)
+        q.eq("type", "challenge_invite").eq("status", "pending").lt("createdAt", cutoff)
       )
       .collect();
 
     const expiredReadNotifications = await ctx.db
       .query("notifications")
       .withIndex("by_type_status_createdAt", (q) =>
-        q.eq("type", "duel_challenge").eq("status", "read").lt("createdAt", cutoff)
+        q.eq("type", "challenge_invite").eq("status", "read").lt("createdAt", cutoff)
       )
       .collect();
 
@@ -401,8 +457,8 @@ export const cleanupExpiredDuelChallenges = internalMutation({
     const resolvedChallengeIds = new Set<string>();
 
     for (const notification of notifications) {
-      if (!isCreatedAtExpired(notification.createdAt, now, DUEL_CHALLENGE_TTL_MS)) continue;
-      if (!isDuelChallengePayload(notification.payload)) continue;
+      if (!isCreatedAtExpired(notification.createdAt, now, CHALLENGE_INVITE_TTL_MS)) continue;
+      if (!isChallengeInvitePayload(notification.payload)) continue;
 
       const challengeId = notification.payload.challengeId;
       const challengeKey = String(challengeId);
@@ -410,7 +466,7 @@ export const cleanupExpiredDuelChallenges = internalMutation({
       if (!resolvedChallengeIds.has(challengeKey)) {
         const challenge = await ctx.db.get(challengeId);
         if (challenge?.status === "pending") {
-          await ctx.db.patch(challengeId, { status: "cancelled" });
+          await ctx.db.patch(challengeId, { status: "cancelled", resolvedAt: now });
         }
         resolvedChallengeIds.add(challengeKey);
       }

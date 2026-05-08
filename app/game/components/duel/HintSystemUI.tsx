@@ -14,7 +14,7 @@ interface HintSystemUIProps {
   eliminatedOptionsCount: number;
   onRequestHint: () => void;
   onAcceptHint: () => void;
-  // Optional custom button text (for classic duel)
+  // Optional custom button text (for duel)
   requestHintText?: string;
   acceptHintText?: string;
   dataTestIdBase?: string;

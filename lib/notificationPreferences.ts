@@ -4,9 +4,7 @@ import {
 } from "./notificationPreferencesDefaults";
 
 const _NOTIFICATION_TRIGGERS = [
-  "immediate_duel_challenge",
-  "scheduled_duel_proposal",
-  "scheduled_duel_reminder",
+  "immediate_challenge_invite",
   "weekly_goal_invite",
   "weekly_goal_locked",
   "weekly_goal_accepted",
@@ -30,17 +28,9 @@ export function isNotificationEnabled(
       trigger: keyof NotificationPreferences;
     }
   > = {
-    immediate_duel_challenge: {
-      category: "immediateDuelsEnabled",
-      trigger: "immediateDuelChallengeEnabled",
-    },
-    scheduled_duel_proposal: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelProposalEnabled",
-    },
-    scheduled_duel_reminder: {
-      category: "scheduledDuelsEnabled",
-      trigger: "scheduledDuelReminderEnabled",
+    immediate_challenge_invite: {
+      category: "challengeInvitesEnabled",
+      trigger: "challengeInviteEmailEnabled",
     },
     weekly_goal_invite: {
       category: "weeklyGoalsEnabled",
@@ -80,21 +70,6 @@ export function isNotificationEnabled(
   if (!config) return false;
 
   return prefs[config.category] === true && prefs[config.trigger] === true;
-}
-
-export function shouldSendScheduledDuelReminder(
-  duel: { scheduledTime: number; status: string; startedDuelId?: string },
-  now: number,
-  reminderOffsetMinutes: number,
-  windowMs = 10 * 60 * 1000
-): boolean {
-  if (duel.status !== "accepted") return false;
-  if (duel.startedDuelId) return false;
-  if (duel.scheduledTime <= now) return false;
-
-  const offsetMs = reminderOffsetMinutes * 60 * 1000;
-  const reminderTime = duel.scheduledTime - offsetMs;
-  return reminderTime <= now && reminderTime >= now - windowMs;
 }
 
 export function shouldSendWeeklyGoalReminder(

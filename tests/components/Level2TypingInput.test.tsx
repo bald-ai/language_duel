@@ -17,7 +17,7 @@ function renderLevel2TypingInput(overrides: Partial<Props> = {}) {
     onCorrect: vi.fn(),
     onWrong: vi.fn(),
     onSkip: vi.fn(),
-    mode: "solo",
+    mode: "duel",
     dataTestIdBase: "l2",
     ...overrides,
   };

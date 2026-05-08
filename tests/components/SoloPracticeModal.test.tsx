@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { SoloModal } from "@/app/components/modals/SoloModal";
+import { SoloPracticeModal } from "@/app/components/modals/SoloPracticeModal";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ComponentProps } from "react";
 
@@ -29,11 +29,11 @@ const themes = [
   },
 ];
 
-function renderSoloModal(
-  props: Partial<ComponentProps<typeof SoloModal>> = {}
+function renderSoloPracticeModal(
+  props: Partial<ComponentProps<typeof SoloPracticeModal>> = {}
 ) {
   return render(
-    <SoloModal
+    <SoloPracticeModal
       themes={themes}
       onContinue={vi.fn()}
       onClose={vi.fn()}
@@ -43,9 +43,9 @@ function renderSoloModal(
   );
 }
 
-describe("SoloModal Solo Challenge mode", () => {
-  it("opens selector-first with provided Solo Challenge themes prechecked", () => {
-    renderSoloModal({
+describe("SoloPracticeModal Solo Practice mode", () => {
+  it("opens selector-first with provided Solo Practice themes prechecked", () => {
+    renderSoloPracticeModal({
       forceThemeSelectorFirst: true,
       initialDraftThemeIds: ["theme_1" as Id<"themes">, "theme_2" as Id<"themes">],
       hideCreateThemeButton: true,
@@ -57,7 +57,7 @@ describe("SoloModal Solo Challenge mode", () => {
 
   it("deselects a theme and continues with the remaining selection", () => {
     const onContinue = vi.fn();
-    renderSoloModal({
+    renderSoloPracticeModal({
       onContinue,
       forceThemeSelectorFirst: true,
       initialDraftThemeIds: ["theme_1" as Id<"themes">, "theme_2" as Id<"themes">],
@@ -65,14 +65,14 @@ describe("SoloModal Solo Challenge mode", () => {
 
     fireEvent.click(screen.getByTestId("theme-selector-item-theme_2"));
     fireEvent.click(screen.getByTestId("theme-selector-confirm"));
-    fireEvent.click(screen.getByTestId("solo-modal-mode-challenge"));
+    fireEvent.click(screen.getByTestId("solo-modal-mode-practice"));
     fireEvent.click(screen.getByTestId("solo-modal-continue"));
 
-    expect(onContinue).toHaveBeenCalledWith(["theme_1"], "challenge_only", undefined);
+    expect(onContinue).toHaveBeenCalledWith(["theme_1"], "practice_only", undefined);
   });
 
   it("shows the selector notice only before mode selection", () => {
-    renderSoloModal({
+    renderSoloPracticeModal({
       forceThemeSelectorFirst: true,
       initialDraftThemeIds: ["theme_1" as Id<"themes">],
       themeSelectorNotice: "Snapshot practice notice",

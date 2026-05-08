@@ -47,7 +47,7 @@ export interface FrozenData {
   difficulty: DifficultyPillData;
 }
 
-export interface ClassicDuelViewProps {
+export interface DuelViewProps {
   activeSabotage: SabotageEffect | null;
   sabotagePhase: SabotagePhase;
   status: string;
@@ -110,7 +110,7 @@ export interface ClassicDuelViewProps {
   onBackToHome: () => void;
 }
 
-export function ClassicDuelView({
+export function DuelView({
   activeSabotage,
   sabotagePhase,
   status,
@@ -171,7 +171,7 @@ export function ClassicDuelView({
   onExit,
   duelDuration,
   onBackToHome,
-}: ClassicDuelViewProps) {
+}: DuelViewProps) {
   const displayWord = frozenData ? frozenData.word : word;
   const displayIndex = frozenData ? frozenData.wordIndex : index;
   const displayAnswers = frozenData ? frozenData.shuffledAnswers : shuffledAnswers;
@@ -222,8 +222,8 @@ export function ClassicDuelView({
   const confirmDisabled = !selectedAnswer || isLocked;
 
   const gameContainerStyle = {
-    "--classic-bg": `${colors.background.DEFAULT}E6`,
-    "--classic-bg-elevated": `${colors.background.elevated}80`,
+    "--duel-bg": `${colors.background.DEFAULT}E6`,
+    "--duel-bg-elevated": `${colors.background.elevated}80`,
     borderColor: colors.primary.dark,
   } as CSSProperties;
 
@@ -301,7 +301,7 @@ export function ClassicDuelView({
 
       {/* Game Container - full screen on mobile, centered card on desktop */}
       <div
-        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--classic-bg)] md:bg-[var(--classic-bg-elevated)]"
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
         style={gameContainerStyle}
       >
         {/* Header: Scoreboard + Exit */}
@@ -322,7 +322,7 @@ export function ClassicDuelView({
               onClick={onExit}
               className="font-bold py-2 px-5 rounded-lg text-base flex-shrink-0 transition hover:brightness-110"
               style={exitButtonStyle}
-              data-testid="classic-duel-exit"
+              data-testid="duel-exit"
             >
               Exit Duel
             </button>
@@ -398,7 +398,7 @@ export function ClassicDuelView({
                 onConfirmUnpause={onConfirmUnpause}
                 countdownSkipRequestedBy={countdownSkipRequestedBy}
                 onSkip={onSkipCountdown}
-                dataTestIdBase="classic-duel-countdown"
+                dataTestIdBase="duel-countdown"
               />
             )}
           </div>
@@ -411,7 +411,7 @@ export function ClassicDuelView({
               className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${isPlayingAudio ? "cursor-not-allowed" : "hover:brightness-110"
                 }`}
               style={listenButtonStyle}
-              data-testid="classic-duel-listen"
+              data-testid="duel-listen"
             >
               <span className="text-lg">{isPlayingAudio ? "🔊" : "🔈"}</span>
               <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
@@ -446,7 +446,7 @@ export function ClassicDuelView({
                       revealComplete={revealComplete}
                       hasNoneOption={displayHasNone}
                       isShowingFeedback={isShowingFeedback}
-                      dataTestId={`classic-duel-answer-${i}`}
+                      dataTestId={`duel-answer-${i}`}
                     />
                   );
                 })}
@@ -472,7 +472,7 @@ export function ClassicDuelView({
                         hasNoneOption={displayHasNone}
                         isShowingFeedback={isShowingFeedback}
                         isFlying
-                        dataTestId={`classic-duel-answer-${i}-fly`}
+                        dataTestId={`duel-answer-${i}-fly`}
                         style={{
                           position: "absolute",
                           left: bouncePos.x,
@@ -509,7 +509,7 @@ export function ClassicDuelView({
                         hasNoneOption={displayHasNone}
                         isShowingFeedback={isShowingFeedback}
                         isFlying
-                        dataTestId={`classic-duel-answer-${i}-fly`}
+                        dataTestId={`duel-answer-${i}-fly`}
                         style={{
                           position: "absolute",
                           left: trampPos.x + trampPos.shakeOffset.x,
@@ -541,7 +541,7 @@ export function ClassicDuelView({
               style={confirmButtonStyle}
               disabled={confirmDisabled}
               onClick={onConfirmAnswer}
-              data-testid="classic-duel-confirm"
+              data-testid="duel-confirm"
             >
               Confirm Answer
             </button>
@@ -562,7 +562,7 @@ export function ClassicDuelView({
               onAcceptHint={onAcceptHint}
               requestHintText="Begging for help!"
               acceptHintText="Bafoon is begging"
-              dataTestIdBase="classic-duel-hint"
+              dataTestIdBase="duel-hint"
             />
           )}
 
@@ -577,7 +577,7 @@ export function ClassicDuelView({
             isOutgoingSabotageActive={isOutgoingSabotageActive}
             opponentHasAnswered={opponentHasAnswered}
             onSendSabotage={onSendSabotage}
-            dataTestIdBase="classic-duel-sabotage"
+            dataTestIdBase="duel-sabotage"
           />
 
           {/* Waiting message */}
@@ -599,7 +599,7 @@ export function ClassicDuelView({
               theirScore={theirScore}
               onBackToHome={onBackToHome}
               duelDuration={duelDuration}
-              dataTestIdBack="classic-duel-back-home"
+              dataTestIdBack="duel-back-home"
               bossType={bossType}
               bossLivesRemaining={bossLivesRemaining}
               bossLivesTotal={bossLivesTotal}

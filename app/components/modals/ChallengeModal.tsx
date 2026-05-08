@@ -2,10 +2,9 @@
 
 import { useState, memo } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
-import type { ClassicDifficultyPreset } from "@/lib/difficultyUtils";
-import { CLASSIC_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
+import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
+import { DUEL_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
 import { ModalShell } from "./ModalShell";
-import { ModeSelectionButton } from "./ModeSelectionButton";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { colors } from "@/lib/theme";
@@ -29,33 +28,30 @@ interface Theme {
   words: unknown[];
 }
 
-interface PendingDuel {
-  challenge: { _id: Id<"challenges">; mode: "classic" | "solo" };
+interface PendingChallenge {
+  challenge: { _id: Id<"challenges"> };
   challenger: { name?: string; nickname?: string; discriminator?: number } | null;
 }
 
-interface CreateDuelOptions {
+interface CreateChallengeOptions {
   opponentId: Id<"users">;
   themeIds: Id<"themes">[];
-  mode: "solo" | "classic";
-  classicDifficultyPreset?: ClassicDifficultyPreset;
+  duelDifficultyPreset?: DuelDifficultyPreset;
 }
 
-interface UnifiedDuelModalProps {
+interface ChallengeModalProps {
   users: User[] | undefined;
   themes: Theme[] | undefined;
-  pendingDuels: PendingDuel[] | undefined;
+  pendingChallenges: PendingChallenge[] | undefined;
   isJoiningDuel: boolean;
-  isCreatingDuel: boolean;
-  onAcceptDuel: (duelId: Id<"challenges">) => void;
-  onRejectDuel: (duelId: Id<"challenges">) => void;
-  onCreateDuel: (options: CreateDuelOptions) => void;
+  isCreatingChallenge: boolean;
+  onAcceptChallenge: (challengeId: Id<"challenges">) => void;
+  onDeclineChallenge: (challengeId: Id<"challenges">) => void;
+  onCreateChallenge: (options: CreateChallengeOptions) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
   initialOpponentId?: Id<"users"> | null;
 }
-
-type DuelMode = "classic" | "solo";
 
 const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semibold";
 
@@ -70,49 +66,47 @@ function formatUserLabel(user: { name?: string; nickname?: string; discriminator
   return user.name || "Unknown";
 }
 
-export function UnifiedDuelModal({
+export function ChallengeModal({
   users,
   themes,
-  pendingDuels,
+  pendingChallenges,
   isJoiningDuel,
-  isCreatingDuel,
-  onAcceptDuel,
-  onRejectDuel,
-  onCreateDuel,
+  isCreatingChallenge,
+  onAcceptChallenge,
+  onDeclineChallenge,
+  onCreateChallenge,
   onClose,
   onNavigateToThemes,
   initialOpponentId,
-}: UnifiedDuelModalProps) {
+}: ChallengeModalProps) {
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
-  const [selectedDuelMode, setSelectedDuelMode] = useState<DuelMode>("classic");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<ClassicDifficultyPreset>("easy");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
 
   const selectedOpponent = users?.find((user) => user._id === selectedOpponentId) || null;
   const selectedThemes = themes?.filter((theme) => selectedThemeIds.includes(theme._id)) || [];
 
-  const canCreate = selectedOpponentId && selectedThemeIds.length > 0 && selectedDuelMode;
+  const canCreate = selectedOpponentId && selectedThemeIds.length > 0;
 
-  const handleCreateDuel = () => {
+  const handleCreateChallenge = () => {
     if (!selectedOpponentId || selectedThemeIds.length === 0) return;
-    onCreateDuel({
+    onCreateChallenge({
       opponentId: selectedOpponentId,
       themeIds: selectedThemeIds,
-      mode: selectedDuelMode,
-      classicDifficultyPreset: selectedDuelMode === "classic" ? selectedDifficulty : undefined,
+      duelDifficultyPreset: selectedDifficulty,
     });
   };
 
   return (
-    <ModalShell title="Create Duel" maxHeight>
+    <ModalShell title="Create Challenge" maxHeight>
       <div
         className="flex-1 overflow-y-auto border-2 rounded-xl p-4 space-y-4"
         style={{
           borderColor: colors.primary.dark,
         }}
       >
-        {/* Pending Duels Section */}
-        {pendingDuels === undefined ? (
+        {/* Pending Challenges Section */}
+        {pendingChallenges === undefined ? (
           <div
             className="p-4 border-2 rounded-2xl text-center"
             style={{
@@ -124,14 +118,14 @@ export function UnifiedDuelModal({
               Checking for pending invites...
             </p>
           </div>
-        ) : pendingDuels.length > 0 ? (
+        ) : pendingChallenges.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-widest font-emphasis" style={{ color: colors.text.muted }}>
               Incoming Challenges
             </p>
-            {pendingDuels.map(({ challenge: duel, challenger }) => (
+            {pendingChallenges.map(({ challenge, challenger }) => (
               <div
-                key={duel._id}
+                key={challenge._id}
                 className="p-3 border-2 rounded-xl"
                 style={{
                   backgroundColor: colors.background.DEFAULT,
@@ -143,45 +137,45 @@ export function UnifiedDuelModal({
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-emphasis shrink-0"
                       style={{
-                        backgroundColor: duel.mode === "classic" ? `${colors.cta.DEFAULT}20` : `${colors.secondary.DEFAULT}20`,
-                        color: duel.mode === "classic" ? colors.cta.DEFAULT : colors.secondary.DEFAULT,
+                        backgroundColor: `${colors.cta.DEFAULT}20`,
+                        color: colors.cta.DEFAULT,
                       }}
                     >
-                      {duel.mode === "classic" ? "⚔️" : "📝"}
+                      ⚔️
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-emphasis truncate" style={{ color: colors.text.DEFAULT }}>
                         {formatUserLabel(challenger)}
                       </p>
                       <p className="text-xs" style={{ color: colors.text.muted }}>
-                        {duel.mode === "classic" ? "Classic Duel" : "Solo Style"}
+                        Challenge invite
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button
-                      onClick={() => onAcceptDuel(duel._id)}
+                      onClick={() => onAcceptChallenge(challenge._id)}
                       disabled={isJoiningDuel}
                       className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
                       style={{
                         backgroundColor: colors.status.success.DEFAULT,
                         color: colors.background.DEFAULT,
                       }}
-                      data-testid={`duel-modal-accept-${duel._id}`}
+                      data-testid={`challenge-modal-accept-${challenge._id}`}
                     >
                       Accept
                     </button>
                     <button
-                      onClick={() => onRejectDuel(duel._id)}
+                      onClick={() => onDeclineChallenge(challenge._id)}
                       disabled={isJoiningDuel}
                       className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
                       style={{
                         backgroundColor: `${colors.status.danger.DEFAULT}20`,
                         color: colors.status.danger.DEFAULT,
                       }}
-                      data-testid={`duel-modal-reject-${duel._id}`}
+                      data-testid={`challenge-modal-decline-${challenge._id}`}
                     >
-                      Reject
+                      Decline
                     </button>
                   </div>
                 </div>
@@ -234,47 +228,19 @@ export function UnifiedDuelModal({
           />
         </div>
 
-        {/* Section 4: Duel Type Selector */}
-        <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-            Duel Type
-          </p>
-          <div className="space-y-3">
-            <ModeSelectionButton
-              selected={selectedDuelMode === "classic"}
-              onClick={() => setSelectedDuelMode("classic")}
-              title="Classic Duel"
-              description="Real-time countdown, hints & sabotage system"
-              selectedTone="cta"
-              dataTestId="duel-modal-mode-classic"
-            />
-            {/* 
-              Solo Style Duel - Currently disabled (50/50 on keeping it)
-              Keeping the code here until I make a final decision on whether to keep this feature.
-              Will revisit and decide: either re-enable or remove completely.
-            */}
-            {/* <ModeSelectionButton
-              selected={selectedDuelMode === "solo"}
-              onClick={() => setSelectedDuelMode("solo")}
-              title="Solo Style Duel"
-              description="Independent progress, 3-level system with typing"
-              selectedTone="secondary"
-            /> */}
-          </div>
-        </div>
       </div>
 
       {/* Footer with action buttons */}
       <div className="mt-4 space-y-3">
         <button
           type="button"
-          onClick={handleCreateDuel}
-          disabled={!canCreate || isCreatingDuel}
+          onClick={handleCreateChallenge}
+          disabled={!canCreate || isCreatingChallenge}
           className={actionButtonClassName}
           style={ctaActionStyle}
           data-testid="duel-modal-create"
         >
-          {isCreatingDuel ? "Creating..." : "Create Duel"}
+          {isCreatingChallenge ? "Creating..." : "Create Challenge"}
         </button>
         <button
           onClick={onClose}
@@ -531,14 +497,14 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
 });
 
 interface DifficultySelectorProps {
-  selectedDifficulty: ClassicDifficultyPreset;
-  onSelect: (preset: ClassicDifficultyPreset) => void;
+  selectedDifficulty: DuelDifficultyPreset;
+  onSelect: (preset: DuelDifficultyPreset) => void;
 }
 
 const DifficultySelector = memo(function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelectorProps) {
   return (
     <div className="space-y-2">
-      {CLASSIC_DIFFICULTY_OPTIONS.map((opt) => {
+      {DUEL_DIFFICULTY_OPTIONS.map((opt) => {
         const isSelected = selectedDifficulty === opt.preset;
         return (
           <button

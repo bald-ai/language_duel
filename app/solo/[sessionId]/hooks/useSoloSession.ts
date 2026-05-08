@@ -79,7 +79,7 @@ const initialSession: SessionState = {
 };
 
 /**
- * Manages the solo challenge session state machine.
+ * Manages the solo practice session state machine.
  * Handles word pool management, mastery progression, and question selection.
  */
 export function useSoloSession({

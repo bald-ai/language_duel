@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { calculateAccuracy, calculateMaxScore, calculateSuccessRate } from "@/lib/scoring";
-import { calculateClassicDifficultyDistribution } from "@/lib/difficultyUtils";
+import { calculateDuelDifficultyDistribution } from "@/lib/difficultyUtils";
 
 describe("scoring", () => {
   it("calculateMaxScore sums difficulty points", () => {
-    const distribution = calculateClassicDifficultyDistribution(3, "easy");
+    const distribution = calculateDuelDifficultyDistribution(3, "easy");
     expect(calculateMaxScore(3, distribution)).toBe(3.5);
   });
 

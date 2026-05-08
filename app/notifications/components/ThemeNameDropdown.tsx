@@ -7,13 +7,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 interface ThemeNameDropdownProps {
     themeName: string;
     themeId?: Id<"themes">;
-    onSoloChallenge: (themeId: Id<"themes">) => void;
+    onSoloPractice: (themeId: Id<"themes">) => void;
 }
 
 export function ThemeNameDropdown({
     themeName,
     themeId,
-    onSoloChallenge,
+    onSoloPractice,
 }: ThemeNameDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,13 +60,13 @@ export function ThemeNameDropdown({
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsOpen(false);
-                            onSoloChallenge(themeId);
+                            onSoloPractice(themeId);
                         }}
                         className="w-full px-3 py-2 text-left text-sm hover:opacity-80 transition-opacity flex items-center gap-2"
                         style={{ color: colors.text.DEFAULT }}
                     >
                         <SwordIcon />
-                        Solo Challenge
+                        Solo Practice
                     </button>
                 </div>
             )}

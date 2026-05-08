@@ -1,5 +1,5 @@
 /**
- * Solo Challenge Configuration Constants
+ * Solo Practice Configuration Constants
  * Centralized game mechanics tuning values
  */
 

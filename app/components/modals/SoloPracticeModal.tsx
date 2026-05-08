@@ -25,9 +25,9 @@ interface Theme {
   words: unknown[];
 }
 
-type SoloMode = "challenge_only" | "learn_test";
+type SoloMode = "practice_only" | "learn_practice";
 
-interface SoloModalProps {
+interface SoloPracticeModalProps {
   themes: Theme[] | undefined;
   onContinue: (themeIds: Id<"themes">[], mode: SoloMode, durationSeconds?: number) => void;
   onClose: () => void;
@@ -56,7 +56,7 @@ const timerOptionInactiveStyle = {
   color: colors.text.muted,
 };
 
-export function SoloModal({
+export function SoloPracticeModal({
   themes,
   onContinue,
   onClose,
@@ -67,7 +67,7 @@ export function SoloModal({
   forceThemeSelectorFirst = false,
   themeSelectorNotice,
   hideCreateThemeButton = false,
-}: SoloModalProps) {
+}: SoloPracticeModalProps) {
   const resolvedInitialThemeIds = useMemo(() => {
     if (!initialThemeIds || initialThemeIds.length === 0 || !themes || themes.length === 0) {
       return [] as Id<"themes">[];
@@ -86,7 +86,7 @@ export function SoloModal({
   const [draftThemeIds, setDraftThemeIds] = useState<Id<"themes">[]>(resolvedInitialDraftThemeIds);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [ignoreInitialThemes, setIgnoreInitialThemes] = useState(forceThemeSelectorFirst);
-  const [selectedMode, setSelectedMode] = useState<SoloMode | null>(initialMode ?? "learn_test");
+  const [selectedMode, setSelectedMode] = useState<SoloMode | null>(initialMode ?? "learn_practice");
   const [selectedDuration, setSelectedDuration] = useState(DEFAULT_SOLO_STUDY_DURATION);
   const hasConfirmedThemeSelection = selectedThemeIds.length > 0;
   const effectiveThemeIds = !ignoreInitialThemes && !forceThemeSelectorFirst && resolvedInitialThemeIds.length > 0
@@ -100,12 +100,12 @@ export function SoloModal({
   const handleConfirmThemeSelection = (confirmedThemeIds: Id<"themes">[]) => {
     if (confirmedThemeIds.length === 0) return;
     setSelectedThemeIds(confirmedThemeIds);
-    setSelectedMode("learn_test");
+    setSelectedMode("learn_practice");
   };
 
   const handleContinue = () => {
     if (effectiveThemeIds.length === 0 || !selectedMode) return;
-    onContinue(effectiveThemeIds, selectedMode, selectedMode === "learn_test" ? selectedDuration : undefined);
+    onContinue(effectiveThemeIds, selectedMode, selectedMode === "learn_practice" ? selectedDuration : undefined);
   };
 
   const handleBack = () => {
@@ -116,7 +116,7 @@ export function SoloModal({
   };
 
   return (
-    <ModalShell title="Solo Challenge">
+    <ModalShell title="Solo Practice">
       {/* Step 1: Select Theme */}
       {isThemeSelectorStep && (
         <>
@@ -205,16 +205,16 @@ export function SoloModal({
           </p>
           <div className="space-y-3">
             <ModeSelectionButton
-              selected={selectedMode === "challenge_only"}
-              onClick={() => setSelectedMode("challenge_only")}
-              title="Challenge Only"
-              description="Jump straight into the challenge"
+              selected={selectedMode === "practice_only"}
+              onClick={() => setSelectedMode("practice_only")}
+              title="Practice Only"
+              description="Jump straight into practice"
               selectedTone="secondary"
-              dataTestId="solo-modal-mode-challenge"
+              dataTestId="solo-modal-mode-practice"
             />
             <ModeSelectionButton
-              selected={selectedMode === "learn_test"}
-              onClick={() => setSelectedMode("learn_test")}
+              selected={selectedMode === "learn_practice"}
+              onClick={() => setSelectedMode("learn_practice")}
               title="Learn + Test"
               description="Study first, then challenge"
               selectedTone="primary"
@@ -222,7 +222,7 @@ export function SoloModal({
             />
           </div>
 
-          {selectedMode === "learn_test" && (
+          {selectedMode === "learn_practice" && (
             <div
               className="mt-4 rounded-2xl border-2 p-4 text-center"
               style={{
@@ -258,7 +258,7 @@ export function SoloModal({
             style={ctaActionStyle}
             data-testid="solo-modal-continue"
           >
-            {selectedMode === "challenge_only" ? "Start Challenge" : "Start Learning"}
+            {selectedMode === "practice_only" ? "Start Practice" : "Start Learning"}
           </button>
 
           <div className="mt-3 grid grid-cols-2 gap-3">

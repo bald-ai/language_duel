@@ -1,16 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
-  archiveCompletedGoalThemesFromNotification,
-  completeWeeklyGoalBoss,
-  startBossDuel,
-  startBossPractice,
+  createBossChallenge,
+  getBossPracticeSession,
+  startBossSoloPractice,
 } from "@/convex/weeklyGoals";
-import { answerDuel } from "@/convex/gameplay";
 import {
   createAuthCtx,
   createIndexedQuery,
-  deleteRow,
   findRowById,
   insertRow,
   patchRow,
@@ -18,21 +15,23 @@ import {
 
 type UserDoc = Pick<
   Doc<"users">,
-  "_id" | "_creationTime" | "clerkId" | "email" | "name" | "imageUrl" | "archivedThemeIds"
+  "_id" | "_creationTime" | "clerkId" | "email" | "nickname"
 >;
+
+type ThemeWord = {
+  word: string;
+  answer: string;
+  wrongAnswers: string[];
+};
 
 type ThemeDoc = Pick<
   Doc<"themes">,
   "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId"
 > & {
-  words: Array<{
-    word: string;
-    answer: string;
-    wrongAnswers: string[];
-  }>;
+  words: ThemeWord[];
 };
 
-type WeeklyGoalDoc = Pick<
+type GoalDoc = Pick<
   Doc<"weeklyGoals">,
   | "_id"
   | "_creationTime"
@@ -41,12 +40,13 @@ type WeeklyGoalDoc = Pick<
   | "themes"
   | "creatorLocked"
   | "partnerLocked"
-  | "status"
-  | "createdAt"
+  | "lockedAt"
+  | "endDate"
   | "miniBossStatus"
   | "bossStatus"
-> &
-  Partial<Pick<Doc<"weeklyGoals">, "lockedAt" | "endDate">>;
+  | "status"
+  | "createdAt"
+>;
 
 type ChallengeDoc = Partial<Doc<"challenges">> &
   Pick<
@@ -56,7 +56,25 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
+    | "sourceType"
+    | "weeklyGoalId"
+    | "bossType"
+    | "status"
+    | "createdAt"
+  >;
+
+type DuelDoc = Partial<Doc<"duels">> &
+  Pick<
+    Doc<"duels">,
+    | "_id"
+    | "_creationTime"
+    | "challengerId"
+    | "opponentId"
+    | "themeIds"
     | "sessionWords"
+    | "sourceType"
+    | "weeklyGoalId"
+    | "bossType"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -64,21 +82,32 @@ type ChallengeDoc = Partial<Doc<"challenges">> &
     | "challengerScore"
     | "opponentScore"
     | "createdAt"
+    | "seed"
+  >;
+
+type SoloPracticeSessionDoc = Partial<Doc<"soloPracticeSessions">> &
+  Pick<
+    Doc<"soloPracticeSessions">,
+    | "_id"
+    | "_creationTime"
+    | "userId"
+    | "themeIds"
+    | "sessionWords"
+    | "sourceType"
+    | "weeklyGoalId"
+    | "status"
+    | "currentWordIndex"
+    | "seed"
+    | "createdAt"
   >;
 
 type NotificationDoc = Partial<Doc<"notifications">> &
   Pick<
     Doc<"notifications">,
-    | "_id"
-    | "_creationTime"
-    | "type"
-    | "fromUserId"
-    | "toUserId"
-    | "status"
-    | "createdAt"
+    "_id" | "_creationTime" | "type" | "fromUserId" | "toUserId" | "status" | "createdAt"
   >;
 
-type WeeklyGoalThemeSnapshotDoc = Pick<
+type SnapshotDoc = Pick<
   Doc<"weeklyGoalThemeSnapshots">,
   | "_id"
   | "_creationTime"
@@ -87,37 +116,36 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
   | "order"
   | "name"
   | "description"
-  | "wordType"
   | "words"
   | "lockedAt"
   | "createdAt"
 >;
 
-type WeeklyGoalRepetitionDoc = Doc<"weeklyGoalRepetitions">;
-
 type Row =
   | UserDoc
   | ThemeDoc
-  | WeeklyGoalDoc
+  | GoalDoc
   | ChallengeDoc
+  | DuelDoc
+  | SoloPracticeSessionDoc
   | NotificationDoc
-  | WeeklyGoalThemeSnapshotDoc
-  | WeeklyGoalRepetitionDoc;
+  | SnapshotDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
-  public weeklyGoals: WeeklyGoalDoc[] = [];
+  public weeklyGoals: GoalDoc[] = [];
   public challenges: ChallengeDoc[] = [];
+  public duels: DuelDoc[] = [];
+  public soloPracticeSessions: SoloPracticeSessionDoc[] = [];
   public notifications: NotificationDoc[] = [];
-  public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
-  public weeklyGoalRepetitions: WeeklyGoalRepetitionDoc[] = [];
+  public weeklyGoalThemeSnapshots: SnapshotDoc[] = [];
 
   private counters = {
     challenges: 10,
+    soloPracticeSessions: 10,
     notifications: 10,
-    weeklyGoalRepetitions: 10,
   };
 
   query(
@@ -126,9 +154,10 @@ class InMemoryDb {
       | "themes"
       | "weeklyGoals"
       | "challenges"
+      | "duels"
+      | "soloPracticeSessions"
       | "notifications"
       | "weeklyGoalThemeSnapshots"
-      | "weeklyGoalRepetitions"
   ) {
     return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
@@ -140,55 +169,51 @@ class InMemoryDb {
         this.themes,
         this.weeklyGoals,
         this.challenges,
+        this.duels,
+        this.soloPracticeSessions,
         this.notifications,
         this.weeklyGoalThemeSnapshots,
-        this.weeklyGoalRepetitions,
       ],
       id
     );
   }
 
   async patch(id: string, value: Record<string, unknown>): Promise<void> {
-    const table = this.findTableForId(id);
-    patchRow<Row>(this.getTable(table) as TableRows, id, value);
+    patchRow<Row>(this.getTable(this.findTableForId(id)) as TableRows, id, value);
   }
 
   async insert(
-    table: "challenges" | "notifications" | "weeklyGoalThemeSnapshots" | "weeklyGoalRepetitions",
+    table: "challenges" | "soloPracticeSessions" | "notifications",
     value: Record<string, unknown>
-  ): Promise<Id<"challenges"> | Id<"notifications"> | Id<"weeklyGoalThemeSnapshots"> | Id<"weeklyGoalRepetitions">> {
+  ) {
     if (table === "challenges") {
-      const inserted = insertRow<ChallengeDoc>(this.challenges, "challenge", this.counters.challenges, value);
-      this.counters.challenges = inserted.nextCounter;
-      return inserted.id as Id<"challenges">;
-    } else if (table === "notifications") {
-      const inserted = insertRow<NotificationDoc>(this.notifications, "notification", this.counters.notifications, value);
-      this.counters.notifications = inserted.nextCounter;
-      return inserted.id as Id<"notifications">;
-    } else if (table === "weeklyGoalRepetitions") {
-      const inserted = insertRow<WeeklyGoalRepetitionDoc>(
-        this.weeklyGoalRepetitions,
-        "repetition",
-        this.counters.weeklyGoalRepetitions,
+      const inserted = insertRow<ChallengeDoc>(
+        this.challenges,
+        "challenge",
+        this.counters.challenges,
         value
       );
-      this.counters.weeklyGoalRepetitions = inserted.nextCounter;
-      return inserted.id as Id<"weeklyGoalRepetitions">;
+      this.counters.challenges = inserted.nextCounter;
+      return inserted.id as Id<"challenges">;
     }
-
-    const inserted = insertRow<WeeklyGoalThemeSnapshotDoc>(
-      this.weeklyGoalThemeSnapshots,
-      "snapshot",
+    if (table === "soloPracticeSessions") {
+      const inserted = insertRow<SoloPracticeSessionDoc>(
+        this.soloPracticeSessions,
+        "solo_practice",
+        this.counters.soloPracticeSessions,
+        value
+      );
+      this.counters.soloPracticeSessions = inserted.nextCounter;
+      return inserted.id as Id<"soloPracticeSessions">;
+    }
+    const inserted = insertRow<NotificationDoc>(
+      this.notifications,
+      "notification",
       this.counters.notifications,
       value
     );
     this.counters.notifications = inserted.nextCounter;
-    return inserted.id as Id<"weeklyGoalThemeSnapshots">;
-  }
-
-  async delete(id: string): Promise<void> {
-    const table = this.findTableForId(id);
-    deleteRow<Row>(this.getTable(table) as TableRows, id);
+    return inserted.id as Id<"notifications">;
   }
 
   private getTable(
@@ -197,9 +222,10 @@ class InMemoryDb {
       | "themes"
       | "weeklyGoals"
       | "challenges"
+      | "duels"
+      | "soloPracticeSessions"
       | "notifications"
       | "weeklyGoalThemeSnapshots"
-      | "weeklyGoalRepetitions"
   ) {
     switch (table) {
       case "users":
@@ -210,33 +236,44 @@ class InMemoryDb {
         return this.weeklyGoals;
       case "challenges":
         return this.challenges;
+      case "duels":
+        return this.duels;
+      case "soloPracticeSessions":
+        return this.soloPracticeSessions;
       case "notifications":
         return this.notifications;
       case "weeklyGoalThemeSnapshots":
         return this.weeklyGoalThemeSnapshots;
-      case "weeklyGoalRepetitions":
-        return this.weeklyGoalRepetitions;
     }
   }
 
   private findTableForId(
     id: string
-  ): "users" | "themes" | "weeklyGoals" | "challenges" | "notifications" | "weeklyGoalThemeSnapshots" | "weeklyGoalRepetitions" {
+  ):
+    | "users"
+    | "themes"
+    | "weeklyGoals"
+    | "challenges"
+    | "duels"
+    | "soloPracticeSessions"
+    | "notifications"
+    | "weeklyGoalThemeSnapshots" {
     if (id.startsWith("user_")) return "users";
     if (id.startsWith("theme_")) return "themes";
     if (id.startsWith("goal_")) return "weeklyGoals";
     if (id.startsWith("challenge_")) return "challenges";
+    if (id.startsWith("duel_")) return "duels";
+    if (id.startsWith("solo_practice_")) return "soloPracticeSessions";
     if (id.startsWith("notification_")) return "notifications";
     if (id.startsWith("snapshot_")) return "weeklyGoalThemeSnapshots";
-    if (id.startsWith("repetition_")) return "weeklyGoalRepetitions";
     throw new Error(`Unsupported id: ${id}`);
   }
 }
 
-function createCtx(db: InMemoryDb, identitySubject: string | null) {
+function createCtx(db: InMemoryDb, identitySubject: string | null, schedulerRunAfter = vi.fn()) {
   return createAuthCtx(db, identitySubject, {
     scheduler: {
-      runAfter: vi.fn(async () => undefined),
+      runAfter: schedulerRunAfter,
     },
   });
 }
@@ -247,29 +284,27 @@ function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
     _creationTime: 1,
     clerkId: "clerk_1",
     email: "user@example.com",
-    name: "User",
-    imageUrl: "https://example.com/user.png",
+    nickname: "User",
     ...overrides,
   };
 }
 
-function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
+function themeDoc(id: string, name: string): ThemeDoc {
   return {
-    _id: "theme_1" as Id<"themes">,
+    _id: id as Id<"themes">,
     _creationTime: 1,
-    name: "Animals",
-    description: "Words about animals",
+    name,
+    description: `${name} words`,
     createdAt: 1,
     ownerId: "user_1" as Id<"users">,
     words: [
-      { word: "cat", answer: "kocka", wrongAnswers: ["strom", "most", "more"] },
-      { word: "dog", answer: "pes", wrongAnswers: ["dom", "vlak", "mesto"] },
+      { word: `${name} 1`, answer: `${name} answer 1`, wrongAnswers: ["a", "b", "c"] },
+      { word: `${name} 2`, answer: `${name} answer 2`, wrongAnswers: ["d", "e", "f"] },
     ],
-    ...overrides,
   };
 }
 
-function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
+function readyMiniBossGoal(overrides: Partial<GoalDoc> = {}): GoalDoc {
   return {
     _id: "goal_1" as Id<"weeklyGoals">,
     _creationTime: 1,
@@ -285,15 +320,15 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
       {
         themeId: "theme_2" as Id<"themes">,
         themeName: "Food",
-        creatorCompleted: true,
-        partnerCompleted: true,
+        creatorCompleted: false,
+        partnerCompleted: false,
       },
     ],
     creatorLocked: true,
     partnerLocked: true,
-    lockedAt: 1_000,
-    endDate: 20_000,
-    miniBossStatus: "defeated",
+    lockedAt: 1,
+    endDate: 999_999,
+    miniBossStatus: "ready",
     bossStatus: "unavailable",
     status: "locked",
     createdAt: 1,
@@ -301,769 +336,182 @@ function weeklyGoalDoc(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
   };
 }
 
-function notificationDoc(overrides: Partial<NotificationDoc> = {}): NotificationDoc {
+function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {}): SoloPracticeSessionDoc {
   return {
-    _id: "notification_1" as Id<"notifications">,
+    _id: "solo_practice_1" as Id<"soloPracticeSessions">,
     _creationTime: 1,
-    type: "weekly_plan_invitation",
-    fromUserId: "user_2" as Id<"users">,
-    toUserId: "user_1" as Id<"users">,
-    status: "pending",
-    payload: {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      themeCount: 2,
-      event: "goal_completed",
-    },
+    userId: "user_1" as Id<"users">,
+    themeIds: ["theme_1" as Id<"themes">],
+    sessionWords: [
+      {
+        word: "cat",
+        answer: "gato",
+        wrongAnswers: ["perro", "pez", "pajaro"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
+      },
+    ],
+    sourceType: "boss",
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    bossType: "mini",
+    status: "learning",
+    currentWordIndex: 0,
+    seed: 123,
     createdAt: 1,
     ...overrides,
   };
 }
 
-const archiveCompletedGoalThemesHandler = (archiveCompletedGoalThemesFromNotification as unknown as {
-  _handler: (
-    ctx: unknown,
-    args: { notificationId: Id<"notifications"> }
-  ) => Promise<{ archivedCount: number }>;
-})._handler;
-
-function weeklyGoalThemeSnapshotDoc(
-  overrides: Partial<WeeklyGoalThemeSnapshotDoc> = {}
-): WeeklyGoalThemeSnapshotDoc {
-  return {
-    _id: "snapshot_1" as Id<"weeklyGoalThemeSnapshots">,
-    _creationTime: 1,
-    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-    originalThemeId: "theme_1" as Id<"themes">,
-    order: 0,
-    name: "Animals (Locked)",
-    description: "Locked copy",
-    wordType: "nouns",
-    words: [
-      { word: "cat", answer: "kocka", wrongAnswers: ["strom", "dom", "most"] },
-      { word: "dog", answer: "pes", wrongAnswers: ["vlak", "more", "dom"] },
-    ],
-    lockedAt: 1_000,
-    createdAt: 1_000,
-    ...overrides,
-  };
-}
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("weekly boss flow", () => {
-  it("starts a boss duel with sampled session words and boss metadata", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
+  it("createBossChallenge creates a pending challenge invite, not a duel row", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const schedulerRunAfter = vi.fn();
     const db = new InMemoryDb();
     db.users.push(
-      userDoc(),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-      })
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
-    db.themes.push(
-      themeDoc(),
-      themeDoc({
-        _id: "theme_2" as Id<"themes">,
-        name: "Food",
-        ownerId: "user_2" as Id<"users">,
-        words: [
-          { word: "bread", answer: "chlieb", wrongAnswers: ["pes", "vlak", "more"] },
-          { word: "apple", answer: "jablko", wrongAnswers: ["dom", "strom", "pole"] },
-        ],
-      })
-    );
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
-        ],
-        miniBossStatus: "ready",
-        bossStatus: "unavailable",
-      })
-    );
+    db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
+    db.weeklyGoals.push(readyMiniBossGoal());
 
-    const handler = (startBossDuel as unknown as {
+    const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
         args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
+    const challengeId = await handler(createCtx(db, "clerk_1", schedulerRunAfter), {
       goalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
     });
 
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge).toBeDefined();
-    expect(challenge?.mode).toBe("classic");
-    expect(challenge?.status).toBe("pending");
-    expect(challenge?.weeklyGoalId).toBe("goal_1");
-    expect(challenge?.bossType).toBe("mini");
-    expect(challenge?.challengerPerfectRun).toBe(true);
-    expect(challenge?.opponentPerfectRun).toBe(true);
-    expect(challenge?.bossLivesTotal).toBe(2);
-    expect(challenge?.bossLivesRemaining).toBe(2);
-    expect(challenge?.sessionWords.length).toBe(2);
-    expect(challenge?.classicQuestions).toHaveLength(2);
-    expect(challenge?.classicQuestions?.[0].options.length).toBeGreaterThan(0);
-
-    expect(db.notifications).toHaveLength(1);
-    expect(db.notifications[0].type).toBe("duel_challenge");
-    expect(db.notifications[0].toUserId).toBe("user_2");
-  });
-
-  it("starts solo boss practice without goal linkage", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(13_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-      })
-    );
-    db.themes.push(
-      themeDoc(),
-      themeDoc({
-        _id: "theme_2" as Id<"themes">,
-        name: "Food",
-        ownerId: "user_2" as Id<"users">,
-      })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc());
-
-    const handler = (startBossPractice as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "big",
+    expect(challengeId).toBe("challenge_10");
+    expect(db.challenges[0]).toMatchObject({
+      challengerId: "user_1",
+      opponentId: "user_2",
+      sourceType: "boss",
+      weeklyGoalId: "goal_1",
+      bossType: "mini",
+      status: "pending",
+      themeIds: ["theme_1"],
     });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge).toBeDefined();
-    expect(challenge?.mode).toBe("solo");
-    expect(challenge?.status).toBe("challenging");
-    expect(challenge?.challengerId).toBe("user_1");
-    expect(challenge?.opponentId).toBe("user_1");
-    expect(challenge?.themeIds).toHaveLength(2);
-    expect(challenge?.themeIds).toEqual(expect.arrayContaining(["theme_1", "theme_2"]));
-    expect(challenge?.seed).toBeTypeOf("number");
-    expect(challenge?.weeklyGoalId).toBe("goal_1");
-    expect(challenge?.bossType).toBeUndefined();
-  });
-
-  it("marks the goal completed and creates celebration notifications for a big boss win", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(14_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-      })
-    );
-    const goal = weeklyGoalDoc();
-    db.weeklyGoals.push(goal);
-
-    await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "big");
-
-    expect(db.weeklyGoals[0].bossStatus).toBe("defeated");
-    expect(db.weeklyGoals[0].status).toBe("completed");
-    expect(db.notifications).toHaveLength(2);
-    expect(db.notifications.every((notification) => notification.type === "weekly_plan_invitation")).toBe(true);
-    expect(
-      db.notifications.every(
-        (notification) =>
-          notification.payload &&
-          "event" in notification.payload &&
-          notification.payload.event === "goal_completed"
-      )
-    ).toBe(true);
-  });
-
-  it("archives completed goal themes for the notification recipient and dismisses the notification", async () => {
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc({ archivedThemeIds: undefined }),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-        archivedThemeIds: ["theme_partner_archived" as Id<"themes">],
-      })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
-    db.notifications.push(notificationDoc());
-    db.weeklyGoalThemeSnapshots.push(weeklyGoalThemeSnapshotDoc());
-
-    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-      notificationId: "notification_1" as Id<"notifications">,
+    expect("sessionWords" in db.challenges[0]).toBe(false);
+    expect(db.duels).toHaveLength(0);
+    expect(db.notifications[0]).toMatchObject({
+      type: "challenge_invite",
+      fromUserId: "user_1",
+      toUserId: "user_2",
+      status: "pending",
+      payload: {
+        challengeId: "challenge_10",
+        themeName: "Mini Boss: Animals",
+      },
     });
-
-    expect(result).toEqual({ archivedCount: 2 });
-    expect(db.users[0].archivedThemeIds).toEqual(["theme_1", "theme_2"]);
-    expect(db.users[1].archivedThemeIds).toEqual(["theme_partner_archived"]);
-    expect(db.notifications[0].status).toBe("dismissed");
-    expect(db.weeklyGoalThemeSnapshots).toHaveLength(1);
+    expect(schedulerRunAfter).toHaveBeenCalledOnce();
   });
 
-  it("returns only newly archived themes and does not duplicate archived IDs", async () => {
+  it("createBossChallenge blocks duplicate pending or active boss attempts", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ archivedThemeIds: ["theme_1" as Id<"themes">] }),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-      })
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
-    db.notifications.push(notificationDoc());
-
-    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-      notificationId: "notification_1" as Id<"notifications">,
-    });
-
-    expect(result).toEqual({ archivedCount: 1 });
-    expect(db.users[0].archivedThemeIds).toEqual(["theme_1", "theme_2"]);
-    expect(db.notifications[0].status).toBe("dismissed");
-  });
-
-  it("dismisses a completed-goal archive notification when the goal is already deleted", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc({ archivedThemeIds: [] }));
-    db.notifications.push(notificationDoc());
-
-    const result = await archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-      notificationId: "notification_1" as Id<"notifications">,
-    });
-
-    expect(result).toEqual({ archivedCount: 0 });
-    expect(db.users[0].archivedThemeIds).toEqual([]);
-    expect(db.notifications[0].status).toBe("dismissed");
-  });
-
-  it("rejects completed-goal archive when the notification belongs to another user", async () => {
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "partner@example.com",
-        name: "Partner",
-      })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
-    db.notifications.push(notificationDoc({ toUserId: "user_2" as Id<"users"> }));
-
-    await expect(
-      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-        notificationId: "notification_1" as Id<"notifications">,
-      })
-    ).rejects.toThrow("Not authorized");
-  });
-
-  it("rejects archive from a weekly-goal notification that is not completed", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc());
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "completed" }));
-    db.notifications.push(
-      notificationDoc({
-        payload: {
-          goalId: "goal_1" as Id<"weeklyGoals">,
-          themeCount: 2,
-          event: "invite",
-        },
-      })
-    );
-
-    await expect(
-      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-        notificationId: "notification_1" as Id<"notifications">,
-      })
-    ).rejects.toThrow("Invalid completed goal notification");
-  });
-
-  it("rejects archive when the notification says completed but the goal is not completed", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc());
-    db.weeklyGoals.push(weeklyGoalDoc({ status: "locked" }));
-    db.notifications.push(notificationDoc());
-
-    await expect(
-      archiveCompletedGoalThemesHandler(createCtx(db, "clerk_1"), {
-        notificationId: "notification_1" as Id<"notifications">,
-      })
-    ).rejects.toThrow("Weekly goal is not completed");
-  });
-
-  it("marks only miniBossStatus as defeated for a mini boss win", async () => {
-    const db = new InMemoryDb();
-    const goal = weeklyGoalDoc({ miniBossStatus: "unavailable", bossStatus: "unavailable" });
-    db.weeklyGoals.push(goal);
-
-    await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "mini");
-
-    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
-    expect(db.weeklyGoals[0].bossStatus).toBe("unavailable");
-    expect(db.weeklyGoals[0].status).toBe("locked");
-    expect(db.notifications).toHaveLength(0);
-  });
-
-  it("is idempotent — defeating an already-defeated boss is a no-op", async () => {
-    const db = new InMemoryDb();
-    const goal = weeklyGoalDoc({ miniBossStatus: "defeated" });
-    db.weeklyGoals.push(goal);
-
-    await completeWeeklyGoalBoss(createCtx(db, "clerk_1") as never, goal as Doc<"weeklyGoals">, "mini");
-
-    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
-    expect(db.notifications).toHaveLength(0);
-  });
-
-  it("rejects mini boss duel when mini boss is not ready yet", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(userDoc());
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: false, partnerCompleted: false },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
-        ],
-        miniBossStatus: "unavailable",
-        bossStatus: "unavailable",
-      })
-    );
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    await expect(
-      handler(createCtx(db, "clerk_1"), {
-        goalId: "goal_1" as Id<"weeklyGoals">,
-        bossType: "mini",
-      })
-    ).rejects.toThrow("not ready yet");
-  });
-
-  it("rejects boss duel when an attempt is already in progress", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.themes.push(
-      themeDoc(),
-      themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: [{ word: "a", answer: "b", wrongAnswers: ["c"] }] })
-    );
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
-        ],
-        miniBossStatus: "ready",
-      })
-    );
+    db.themes.push(themeDoc("theme_1", "Animals"));
+    db.weeklyGoals.push(readyMiniBossGoal());
     db.challenges.push({
       _id: "challenge_existing" as Id<"challenges">,
       _creationTime: 1,
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      themeIds: [],
-      sessionWords: [],
-      status: "pending",
-      currentWordIndex: 0,
-      challengerAnswered: false,
-      opponentAnswered: false,
-      challengerScore: 0,
-      opponentScore: 0,
-      createdAt: 1,
-      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "mini",
-    } as ChallengeDoc);
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    await expect(
-      handler(createCtx(db, "clerk_1"), {
-        goalId: "goal_1" as Id<"weeklyGoals">,
-        bossType: "mini",
-      })
-    ).rejects.toThrow("already in progress");
-  });
-
-  it("mini boss samples only from completed themes", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.themes.push(
-      themeDoc({ words: [{ word: "cat", answer: "kocka", wrongAnswers: ["a", "b", "c"] }] }),
-      themeDoc({
-        _id: "theme_2" as Id<"themes">,
-        name: "Food",
-        ownerId: "user_2" as Id<"users">,
-        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
-      })
-    );
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: true },
-        ],
-        miniBossStatus: "ready",
-      })
-    );
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "mini",
-    });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.every((w) => w.themeName === "Animals")).toBe(true);
-  });
-
-  it("mini boss uses all completed themes before the full goal is done", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.themes.push(
-      themeDoc({ words: [{ word: "cat", answer: "kocka", wrongAnswers: ["a", "b", "c"] }] }),
-      themeDoc({
-        _id: "theme_2" as Id<"themes">,
-        name: "Food",
-        ownerId: "user_2" as Id<"users">,
-        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
-      }),
-      themeDoc({
-        _id: "theme_3" as Id<"themes">,
-        name: "Travel",
-        ownerId: "user_2" as Id<"users">,
-        words: [{ word: "train", answer: "vlak", wrongAnswers: ["x", "y", "z"] }],
-      }),
-      themeDoc({
-        _id: "theme_4" as Id<"themes">,
-        name: "Work",
-        ownerId: "user_2" as Id<"users">,
-        words: [{ word: "desk", answer: "stol", wrongAnswers: ["x", "y", "z"] }],
-      })
-    );
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_3" as Id<"themes">, themeName: "Travel", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_4" as Id<"themes">, themeName: "Work", creatorCompleted: false, partnerCompleted: false },
-        ],
-        miniBossStatus: "ready",
-      })
-    );
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "mini",
-    });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    const usedThemeIds = new Set(challenge?.sessionWords.map((word) => word.themeId) ?? []);
-
-    expect(usedThemeIds.size).toBe(3);
-  });
-
-  it("uses all boss session words without a word cap", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-
-    const WORDS_PER_THEME = 25;
-    const manyWords = Array.from({ length: WORDS_PER_THEME }, (_, i) => ({
-      word: `word_${i}`,
-      answer: `answer_${i}`,
-      wrongAnswers: ["a", "b", "c"],
-    }));
-    const EXPECTED_TOTAL_WORDS = WORDS_PER_THEME * 2;
-    const BIG_BOSS_LIVES_MINIS_DEFEATED = 4;
-
-    db.themes.push(themeDoc({ words: manyWords }));
-    db.themes.push(
-      themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users">, words: manyWords })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc());
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "big",
-    });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.length).toBe(EXPECTED_TOTAL_WORDS);
-    expect(challenge?.bossLivesTotal).toBe(BIG_BOSS_LIVES_MINIS_DEFEATED);
-    expect(challenge?.bossLivesRemaining).toBe(BIG_BOSS_LIVES_MINIS_DEFEATED);
-  });
-
-  it("starts big boss with three lives when mini boss was not defeated", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const BIG_BOSS_LIVES_NO_MINI = 3;
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.themes.push(
-      themeDoc(),
-      themeDoc({ _id: "theme_2" as Id<"themes">, name: "Food", ownerId: "user_2" as Id<"users"> })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc({ miniBossStatus: "unavailable" }));
-
-    const handler = (startBossDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
-    })._handler;
-
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
-      goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "big",
-    });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.bossLivesTotal).toBe(BIG_BOSS_LIVES_NO_MINI);
-    expect(challenge?.bossLivesRemaining).toBe(BIG_BOSS_LIVES_NO_MINI);
-  });
-
-  it("defeats mini boss when the partners finish with lives left even after a miss", async () => {
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.weeklyGoals.push(
-      weeklyGoalDoc({
-        themes: [
-          { themeId: "theme_1" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: true },
-          { themeId: "theme_2" as Id<"themes">, themeName: "Food", creatorCompleted: false, partnerCompleted: false },
-        ],
-        miniBossStatus: "ready",
-        bossStatus: "unavailable",
-      })
-    );
-    db.challenges.push({
-      _id: "challenge_1" as Id<"challenges">,
-      _creationTime: 1,
-      challengerId: "user_1" as Id<"users">,
-      opponentId: "user_2" as Id<"users">,
       themeIds: ["theme_1" as Id<"themes">],
-      sessionWords: [
-        {
-          word: "cat",
-          answer: "kocka",
-          wrongAnswers: ["pes", "dom", "vlak"],
-          themeId: "theme_1" as Id<"themes">,
-          themeName: "Animals",
-        },
-      ],
-      classicQuestions: [
-        {
-          options: ["kocka", "pes", "dom", "vlak"],
-          correctOption: "kocka",
-          difficulty: "easy",
-          points: 1,
-        },
-      ],
-      status: "accepted",
-      mode: "classic",
-      currentWordIndex: 0,
-      challengerAnswered: false,
-      opponentAnswered: false,
-      challengerScore: 0,
-      opponentScore: 0,
-      challengerPerfectRun: true,
-      opponentPerfectRun: true,
-      bossLivesTotal: 2,
-      bossLivesRemaining: 2,
-      createdAt: 1,
+      sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
-    } as ChallengeDoc);
-
-    const handler = (answerDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
-      ) => Promise<void>;
-    })._handler;
-
-    await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
-      selectedAnswer: "pes",
-      questionIndex: 0,
-    });
-    await handler(createCtx(db, "clerk_2"), {
-      duelId: "challenge_1" as Id<"challenges">,
-      selectedAnswer: "kocka",
-      questionIndex: 0,
+      status: "pending",
+      createdAt: 1,
     });
 
-    expect(db.challenges[0].status).toBe("completed");
-    expect(db.challenges[0].bossLivesRemaining).toBe(1);
-    expect(db.challenges[0].challengerPerfectRun).toBe(false);
-    expect(db.weeklyGoals[0].miniBossStatus).toBe("defeated");
-    expect(db.weeklyGoals[0].bossStatus).toBe("unavailable");
-  });
-
-  it("uses snapshots for boss words after the original theme is edited", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.themes.push(
-      themeDoc({
-        words: [{ word: "edited", answer: "upraveny", wrongAnswers: ["a", "b", "c"] }],
-      }),
-      themeDoc({
-        _id: "theme_2" as Id<"themes">,
-        name: "Food",
-        ownerId: "user_2" as Id<"users">,
-        words: [{ word: "edited_food", answer: "jedlo", wrongAnswers: ["x", "y", "z"] }],
-      })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc());
-    db.weeklyGoalThemeSnapshots.push(
-      weeklyGoalThemeSnapshotDoc(),
-      weeklyGoalThemeSnapshotDoc({
-        _id: "snapshot_2" as Id<"weeklyGoalThemeSnapshots">,
-        originalThemeId: "theme_2" as Id<"themes">,
-        order: 1,
-        name: "Food (Locked)",
-        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
-      })
-    );
-
-    const handler = (startBossDuel as unknown as {
+    const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
         args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
+    await expect(handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "big",
-    });
-
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.some((word) => word.word === "cat")).toBe(true);
-    expect(challenge?.sessionWords.some((word) => word.word === "edited")).toBe(false);
+      bossType: "mini",
+    })).rejects.toThrow("A boss attempt is already in progress");
   });
 
-  it("uses snapshots for boss words after the original theme is deleted", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(12_000);
-
+  it("startBossSoloPractice creates a solo-practice session, not a challenge", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@e.com", name: "P" })
-    );
-    db.weeklyGoals.push(weeklyGoalDoc());
-    db.weeklyGoalThemeSnapshots.push(
-      weeklyGoalThemeSnapshotDoc(),
-      weeklyGoalThemeSnapshotDoc({
-        _id: "snapshot_2" as Id<"weeklyGoalThemeSnapshots">,
-        originalThemeId: "theme_2" as Id<"themes">,
-        order: 1,
-        name: "Food (Locked)",
-        words: [{ word: "bread", answer: "chlieb", wrongAnswers: ["x", "y", "z"] }],
-      })
-    );
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
+    db.weeklyGoals.push(readyMiniBossGoal());
 
-    const handler = (startBossDuel as unknown as {
+    const handler = (startBossSoloPractice as unknown as {
       _handler: (
         ctx: unknown,
         args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
-      ) => Promise<Id<"challenges">>;
+      ) => Promise<Id<"soloPracticeSessions">>;
     })._handler;
 
-    const challengeId = await handler(createCtx(db, "clerk_1"), {
+    const sessionId = await handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
-      bossType: "big",
+      bossType: "mini",
     });
 
-    const challenge = db.challenges.find((entry) => entry._id === challengeId);
-    expect(challenge?.sessionWords.map((word) => word.word)).toEqual(
-      expect.arrayContaining(["cat", "bread"])
+    expect(sessionId).toBe("solo_practice_10");
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      userId: "user_1",
+      sourceType: "boss",
+      weeklyGoalId: "goal_1",
+      bossType: "mini",
+      status: "learning",
+      themeIds: ["theme_1"],
+      createdAt: 6_000,
+    });
+    expect(db.soloPracticeSessions[0].sessionWords).toHaveLength(2);
+    expect(db.challenges).toHaveLength(0);
+    expect(db.duels).toHaveLength(0);
+  });
+
+  it("getBossPracticeSession reads persisted solo-practice sessions by soloPracticeSessionId", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
+    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+
+    const handler = (getBossPracticeSession as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions"> }
+      ) => Promise<unknown>;
+    })._handler;
+
+    const result = await handler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+    });
+
+    expect(result).toMatchObject({
+      soloPracticeSessionId: "solo_practice_1",
+      sourceType: "boss",
+      themeSummary: "Animals",
+    });
+
+    const unauthorized = await handler(createCtx(db, "clerk_2"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+    });
+    expect(unauthorized).toBeNull();
   });
 });

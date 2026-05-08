@@ -263,21 +263,7 @@ export const getThemes = query({
         friendSharedThemes.push(...batchResults.flat());
       }
 
-      // Query 3: Themes from active scheduled duels
-      const scheduledAsProposer = await ctx.db
-        .query("scheduledDuels")
-        .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
-        .collect();
-      const scheduledAsRecipient = await ctx.db
-        .query("scheduledDuels")
-        .withIndex("by_recipient", (q) => q.eq("recipientId", currentUserId))
-        .collect();
-      const activeScheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].filter(
-        (sd) => sd.status === "pending" || sd.status === "accepted" || sd.status === "counter_proposed"
-      );
-      const scheduledThemeIds = activeScheduledDuels.flatMap((sd) => sd.themeIds);
-
-      // Query 4: Themes from draft weekly goals
+      // Query 3: Themes from draft weekly goals
       const goalsAsCreator = await ctx.db
         .query("weeklyGoals")
         .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
@@ -291,8 +277,8 @@ export const getThemes = query({
       );
       const goalThemeIds = draftGoals.flatMap((g) => g.themes.map((t) => t.themeId));
 
-      // Fetch themes from scheduled duels and weekly goals
-      const accessThemeIds = [...new Set([...scheduledThemeIds, ...goalThemeIds])];
+      // Fetch themes from weekly goals
+      const accessThemeIds = [...new Set(goalThemeIds)];
       const accessThemes = await Promise.all(
         accessThemeIds.map((id) => ctx.db.get(id))
       );
@@ -365,8 +351,9 @@ export const getTheme = query({
     const [
       challengesAsChallenger,
       challengesAsOpponent,
-      scheduledAsProposer,
-      scheduledAsRecipient,
+      duelsAsChallenger,
+      duelsAsOpponent,
+      soloPracticeSessions,
       goalsAsCreator,
       goalsAsPartner,
       friendshipsFromUser,
@@ -381,12 +368,16 @@ export const getTheme = query({
         .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
         .collect(),
       ctx.db
-        .query("scheduledDuels")
-        .withIndex("by_proposer", (q) => q.eq("proposerId", currentUserId))
+        .query("duels")
+        .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
         .collect(),
       ctx.db
-        .query("scheduledDuels")
-        .withIndex("by_recipient", (q) => q.eq("recipientId", currentUserId))
+        .query("duels")
+        .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
+        .collect(),
+      ctx.db
+        .query("soloPracticeSessions")
+        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
         .collect(),
       ctx.db
         .query("weeklyGoals")
@@ -418,11 +409,15 @@ export const getTheme = query({
       themeIds: c.themeIds,
     }));
 
-    const scheduledDuels = [...scheduledAsProposer, ...scheduledAsRecipient].map((sd) => ({
-      proposerId: sd.proposerId,
-      recipientId: sd.recipientId,
-      themeIds: sd.themeIds,
-      status: sd.status,
+    const duels = [...duelsAsChallenger, ...duelsAsOpponent].map((duel) => ({
+      challengerId: duel.challengerId,
+      opponentId: duel.opponentId,
+      themeIds: duel.themeIds,
+    }));
+
+    const soloPracticeAccess = soloPracticeSessions.map((session) => ({
+      userId: session.userId,
+      themeIds: session.themeIds,
     }));
 
     const weeklyGoals = [...goalsAsCreator, ...goalsAsPartner].map((g) => ({
@@ -445,7 +440,8 @@ export const getTheme = query({
         visibility: theme.visibility,
       },
       challenges,
-      scheduledDuels,
+      duels,
+      soloPracticeSessions: soloPracticeAccess,
       weeklyGoals,
       friendships,
     });

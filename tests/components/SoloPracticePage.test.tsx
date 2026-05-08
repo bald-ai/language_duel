@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import SoloChallengePage from "@/app/solo/[sessionId]/page";
+import SoloPracticePage from "@/app/solo/[sessionId]/page";
 
 const pushMock = vi.fn();
 const useQueryMock = vi.fn();
@@ -49,19 +49,19 @@ vi.mock("@/app/components/ThemedPage", () => ({
 
 vi.mock("@/app/game/levels", () => ({
   Level0Input: ({ word, answer }: { word: string; answer: string }) => (
-    <div data-testid="solo-challenge-level0">{`${word}:${answer}`}</div>
+    <div data-testid="solo-practice-level0">{`${word}:${answer}`}</div>
   ),
   Level1Input: ({ answer }: { answer: string }) => (
-    <div data-testid="solo-challenge-level1">{`Level1:${answer}`}</div>
+    <div data-testid="solo-practice-level1">{`Level1:${answer}`}</div>
   ),
   Level2TypingInput: ({ answer }: { answer: string }) => (
-    <div data-testid="solo-challenge-level2-typing">{`Level2Typing:${answer}`}</div>
+    <div data-testid="solo-practice-level2-typing">{`Level2Typing:${answer}`}</div>
   ),
   Level2MultipleChoice: ({ answer }: { answer: string }) => (
-    <div data-testid="solo-challenge-level2-mc">{`Level2MC:${answer}`}</div>
+    <div data-testid="solo-practice-level2-mc">{`Level2MC:${answer}`}</div>
   ),
   Level3Input: ({ answer }: { answer: string }) => (
-    <div data-testid="solo-challenge-level3">{`Level3:${answer}`}</div>
+    <div data-testid="solo-practice-level3">{`Level3:${answer}`}</div>
   ),
 }));
 
@@ -167,7 +167,7 @@ function createBaseHookReturn(): HookReturnMock {
   };
 }
 
-describe("SoloChallengePage", () => {
+describe("SoloPracticePage", () => {
   beforeEach(() => {
     pushMock.mockReset();
     useQueryMock.mockReset();
@@ -197,23 +197,23 @@ describe("SoloChallengePage", () => {
       })
     );
 
-    render(<SoloChallengePage />);
+    render(<SoloPracticePage />);
 
     expect(screen.getByText("hablar")).toBeInTheDocument();
     expect(screen.getByText("Translate to English")).toBeInTheDocument();
-    expect(screen.getByTestId("solo-challenge-level2-typing")).toHaveTextContent("Level2Typing:to speak");
-    expect(screen.queryByTestId("solo-challenge-level1")).not.toBeInTheDocument();
+    expect(screen.getByTestId("solo-practice-level2-typing")).toHaveTextContent("Level2Typing:to speak");
+    expect(screen.queryByTestId("solo-practice-level1")).not.toBeInTheDocument();
   });
 
   it("keeps forward Level 1 on Level1Input with Translate to Spanish", () => {
     useSoloSessionMock.mockReturnValue(createHookReturn());
 
-    render(<SoloChallengePage />);
+    render(<SoloPracticePage />);
 
     expect(screen.getByText("cat")).toBeInTheDocument();
     expect(screen.getByText("Translate to Spanish")).toBeInTheDocument();
-    expect(screen.getByTestId("solo-challenge-level1")).toHaveTextContent("Level1:gato");
-    expect(screen.queryByTestId("solo-challenge-level2-typing")).not.toBeInTheDocument();
+    expect(screen.getByTestId("solo-practice-level1")).toHaveTextContent("Level1:gato");
+    expect(screen.queryByTestId("solo-practice-level2-typing")).not.toBeInTheDocument();
   });
 
   it("keeps Level 2 multiple choice unchanged", () => {
@@ -227,11 +227,11 @@ describe("SoloChallengePage", () => {
       })
     );
 
-    render(<SoloChallengePage />);
+    render(<SoloPracticePage />);
 
     expect(screen.getByText("Translate to Spanish")).toBeInTheDocument();
-    expect(screen.getByTestId("solo-challenge-level2-mc")).toHaveTextContent("Level2MC:gato");
-    expect(screen.queryByTestId("solo-challenge-level2-typing")).not.toBeInTheDocument();
+    expect(screen.getByTestId("solo-practice-level2-mc")).toHaveTextContent("Level2MC:gato");
+    expect(screen.queryByTestId("solo-practice-level2-typing")).not.toBeInTheDocument();
   });
 
   it("shows the English answer in wrong-answer feedback for reverse Level 1", () => {
@@ -253,7 +253,7 @@ describe("SoloChallengePage", () => {
       })
     );
 
-    render(<SoloChallengePage />);
+    render(<SoloPracticePage />);
 
     expect(screen.getByText("hablar")).toBeInTheDocument();
     expect(screen.getByText("Translate to English")).toBeInTheDocument();

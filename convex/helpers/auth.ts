@@ -15,7 +15,15 @@ export interface AuthenticatedUser {
 
 export interface DuelParticipant {
   user: Doc<"users">;
-  duel: Doc<"challenges">;
+  duel: Doc<"duels">;
+  playerRole: PlayerRole;
+  isChallenger: boolean;
+  isOpponent: boolean;
+}
+
+export interface ChallengeParticipant {
+  user: Doc<"users">;
+  challenge: Doc<"challenges">;
   playerRole: PlayerRole;
   isChallenger: boolean;
   isOpponent: boolean;
@@ -75,17 +83,40 @@ export async function getAuthenticatedUserOrNull(
  */
 export async function getDuelParticipant(
   ctx: QueryCtx | MutationCtx,
-  duelId: Id<"challenges">
+  duelId: Id<"duels">
 ): Promise<DuelParticipant> {
   const { user } = await getAuthenticatedUser(ctx);
 
   const duel = await ctx.db.get(duelId);
   if (!duel) {
-    throw new Error("Challenge not found");
+    throw new Error("Duel not found");
   }
 
   const isChallenger = duel.challengerId === user._id;
   const isOpponent = duel.opponentId === user._id;
+
+  if (!isChallenger && !isOpponent) {
+    throw new Error("User not part of this duel");
+  }
+
+  const playerRole: PlayerRole = isChallenger ? "challenger" : "opponent";
+
+  return { user, duel, playerRole, isChallenger, isOpponent };
+}
+
+export async function getChallengeParticipant(
+  ctx: QueryCtx | MutationCtx,
+  challengeId: Id<"challenges">
+): Promise<ChallengeParticipant> {
+  const { user } = await getAuthenticatedUser(ctx);
+
+  const challenge = await ctx.db.get(challengeId);
+  if (!challenge) {
+    throw new Error("Challenge not found");
+  }
+
+  const isChallenger = challenge.challengerId === user._id;
+  const isOpponent = challenge.opponentId === user._id;
 
   if (!isChallenger && !isOpponent) {
     throw new Error("User not part of this challenge");
@@ -93,7 +124,7 @@ export async function getDuelParticipant(
 
   const playerRole: PlayerRole = isChallenger ? "challenger" : "opponent";
 
-  return { user, duel, playerRole, isChallenger, isOpponent };
+  return { user, challenge, playerRole, isChallenger, isOpponent };
 }
 
 /**
@@ -102,7 +133,7 @@ export async function getDuelParticipant(
  */
 export async function getDuelParticipantOrNull(
   ctx: QueryCtx | MutationCtx,
-  duelId: Id<"challenges">
+  duelId: Id<"duels">
 ): Promise<DuelParticipant | null> {
   const auth = await getAuthenticatedUserOrNull(ctx);
   if (!auth) return null;
@@ -130,30 +161,15 @@ export function getOtherRole(role: PlayerRole): PlayerRole {
 /**
  * Check if a duel is in an active state (can receive answers/actions).
  */
-export function isDuelActive(duel: Doc<"challenges">): boolean {
-  const status = duel.status;
-  return status === "accepted" || status === "challenging";
-}
-
-/**
- * Check if the duel is in the learning phase.
- */
-export function isDuelLearning(duel: Doc<"challenges">): boolean {
-  return duel.status === "learning";
-}
-
-/**
- * Check if the duel is in the challenging phase.
- */
-export function isDuelChallenging(duel: Doc<"challenges">): boolean {
-  return duel.status === "challenging";
+export function isDuelActive(duel: Doc<"duels">): boolean {
+  return duel.status === "active";
 }
 
 /**
  * Check if a player has answered the current question.
  */
 export function hasPlayerAnswered(
-  duel: Doc<"challenges">,
+  duel: Doc<"duels">,
   role: PlayerRole
 ): boolean {
   return role === "challenger"

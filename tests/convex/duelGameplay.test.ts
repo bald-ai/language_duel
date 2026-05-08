@@ -15,43 +15,44 @@ type UserDoc = Pick<
   "_id" | "_creationTime" | "clerkId" | "email" | "name" | "imageUrl"
 >;
 
-type ChallengeDoc = Partial<Doc<"challenges">> &
+type DuelDoc = Partial<Doc<"duels">> &
   Pick<
-    Doc<"challenges">,
+    Doc<"duels">,
     | "_id"
     | "_creationTime"
     | "challengerId"
     | "opponentId"
     | "themeIds"
     | "sessionWords"
+    | "sourceType"
     | "status"
-    | "mode"
     | "currentWordIndex"
     | "challengerAnswered"
     | "opponentAnswered"
     | "challengerScore"
     | "opponentScore"
     | "createdAt"
-    | "classicQuestions"
+    | "duelQuestions"
+    | "seed"
   >;
 
-type Row = UserDoc | ChallengeDoc;
+type Row = UserDoc | DuelDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
-  public challenges: ChallengeDoc[] = [];
+  public duels: DuelDoc[] = [];
 
-  query(table: "users" | "challenges") {
-    return createIndexedQuery((table === "users" ? this.users : this.challenges) as TableRows);
+  query(table: "users" | "duels") {
+    return createIndexedQuery((table === "users" ? this.users : this.duels) as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
-    return findRowById<Row>([this.users, this.challenges], id);
+    return findRowById<Row>([this.users, this.duels], id);
   }
 
   async patch(id: string, value: Record<string, unknown>): Promise<void> {
-    patchRow<Row>((id.startsWith("user_") ? this.users : this.challenges) as TableRows, id, value);
+    patchRow<Row>((id.startsWith("user_") ? this.users : this.duels) as TableRows, id, value);
   }
 }
 
@@ -71,9 +72,9 @@ function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
   };
 }
 
-function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
+function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
   return {
-    _id: "challenge_1" as Id<"challenges">,
+    _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
@@ -87,7 +88,7 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
         themeName: "Animals",
       },
     ],
-    classicQuestions: [
+    duelQuestions: [
       {
         options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
         correctOption: "gato",
@@ -95,28 +96,29 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
         points: 2,
       },
     ],
-    status: "accepted",
-    mode: "classic",
+    sourceType: "normal",
+    status: "active",
     currentWordIndex: 0,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
     opponentScore: 0,
     createdAt: 1,
+    seed: 123,
     ...overrides,
   };
 }
 
-describe("classic gameplay", () => {
+describe("duel gameplay", () => {
   it("scores None of the above using the stored server question snapshot", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc(),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
     );
-    db.challenges.push(
-      challengeDoc({
-        classicQuestions: [
+    db.duels.push(
+      duelDoc({
+        duelQuestions: [
           {
             options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
             correctOption: NONE_OF_ABOVE,
@@ -130,18 +132,18 @@ describe("classic gameplay", () => {
     const handler = (answerDuel as unknown as {
       _handler: (
         ctx: unknown,
-        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+        args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
       ) => Promise<void>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
+      duelId: "duel_1" as Id<"duels">,
       selectedAnswer: NONE_OF_ABOVE,
       questionIndex: 0,
     });
 
-    expect(db.challenges[0].challengerScore).toBe(2);
-    expect(db.challenges[0].challengerAnswered).toBe(true);
+    expect(db.duels[0].challengerScore).toBe(2);
+    expect(db.duels[0].challengerAnswered).toBe(true);
   });
 
   it("awards the hint-provider bonus after both players have answered", async () => {
@@ -150,8 +152,8 @@ describe("classic gameplay", () => {
       userDoc(),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
     );
-    db.challenges.push(
-      challengeDoc({
+    db.duels.push(
+      duelDoc({
         challengerScore: 0,
         opponentScore: 1,
         opponentAnswered: true,
@@ -159,7 +161,7 @@ describe("classic gameplay", () => {
         hintRequestedBy: "challenger",
         hintAccepted: true,
         eliminatedOptions: ["mesa"],
-        classicQuestions: [
+        duelQuestions: [
           {
             options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
@@ -173,20 +175,20 @@ describe("classic gameplay", () => {
     const handler = (answerDuel as unknown as {
       _handler: (
         ctx: unknown,
-        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+        args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
       ) => Promise<void>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
+      duelId: "duel_1" as Id<"duels">,
       selectedAnswer: "gato",
       questionIndex: 0,
     });
 
-    expect(db.challenges[0].challengerScore).toBe(1);
-    expect(db.challenges[0].opponentScore).toBe(1.5);
-    expect(db.challenges[0].status).toBe("completed");
-    expect(db.challenges[0].hintRequestedBy).toBeUndefined();
+    expect(db.duels[0].challengerScore).toBe(1);
+    expect(db.duels[0].opponentScore).toBe(1.5);
+    expect(db.duels[0].status).toBe("completed");
+    expect(db.duels[0].hintRequestedBy).toBeUndefined();
   });
 
   it("blocks eliminating the stored correct option when None of the above is right", async () => {
@@ -195,13 +197,13 @@ describe("classic gameplay", () => {
       userDoc(),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
     );
-    db.challenges.push(
-      challengeDoc({
+    db.duels.push(
+      duelDoc({
         challengerAnswered: false,
         opponentAnswered: true,
         hintRequestedBy: "challenger",
         hintAccepted: true,
-        classicQuestions: [
+        duelQuestions: [
           {
             options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
             correctOption: NONE_OF_ABOVE,
@@ -215,33 +217,34 @@ describe("classic gameplay", () => {
     const handler = (eliminateOption as unknown as {
       _handler: (
         ctx: unknown,
-        args: { duelId: Id<"challenges">; option: string }
+        args: { duelId: Id<"duels">; option: string }
       ) => Promise<void>;
     })._handler;
 
     await expect(
       handler(createCtx(db, "clerk_2"), {
-        duelId: "challenge_1" as Id<"challenges">,
+        duelId: "duel_1" as Id<"duels">,
         option: NONE_OF_ABOVE,
       })
     ).rejects.toThrow("Cannot eliminate the correct answer");
   });
 
-  it("removes two shared boss lives when both players miss the same question", async () => {
+  it("removes shared boss lives when players miss", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc(),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
     );
-    db.challenges.push(
-      challengeDoc({
+    db.duels.push(
+      duelDoc({
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        sourceType: "boss",
         bossType: "big",
         bossLivesTotal: 3,
         bossLivesRemaining: 3,
         challengerPerfectRun: true,
         opponentPerfectRun: true,
-        classicQuestions: [
+        duelQuestions: [
           {
             options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
@@ -255,74 +258,29 @@ describe("classic gameplay", () => {
     const handler = (answerDuel as unknown as {
       _handler: (
         ctx: unknown,
-        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
+        args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
       ) => Promise<void>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
+      duelId: "duel_1" as Id<"duels">,
       selectedAnswer: "perro",
       questionIndex: 0,
     });
 
-    expect(db.challenges[0].bossLivesRemaining).toBe(2);
-    expect(db.challenges[0].status).toBe("accepted");
-    expect(db.challenges[0].challengerPerfectRun).toBe(false);
+    expect(db.duels[0].bossLivesRemaining).toBe(2);
+    expect(db.duels[0].status).toBe("active");
+    expect(db.duels[0].challengerPerfectRun).toBe(false);
 
     await handler(createCtx(db, "clerk_2"), {
-      duelId: "challenge_1" as Id<"challenges">,
+      duelId: "duel_1" as Id<"duels">,
       selectedAnswer: "mesa",
       questionIndex: 0,
     });
 
-    expect(db.challenges[0].bossLivesRemaining).toBe(1);
-    expect(db.challenges[0].status).toBe("completed");
-    expect(db.challenges[0].opponentPerfectRun).toBe(false);
-  });
-
-  it("removes shared SR lives on incorrect classic answers", async () => {
-    const db = new InMemoryDb();
-    db.users.push(
-      userDoc(),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
-    );
-    db.challenges.push(
-      challengeDoc({
-        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-        weeklyGoalChallengeType: "spaced_repetition",
-        spacedRepetitionStep: 1,
-        bossLivesTotal: 2,
-        bossLivesRemaining: 2,
-        challengerPerfectRun: true,
-        opponentPerfectRun: true,
-        opponentAnswered: true,
-        classicQuestions: [
-          {
-            options: ["gato", "perro", "mesa", "casa"],
-            correctOption: "gato",
-            difficulty: "easy",
-            points: 1,
-          },
-        ],
-      })
-    );
-
-    const handler = (answerDuel as unknown as {
-      _handler: (
-        ctx: unknown,
-        args: { duelId: Id<"challenges">; selectedAnswer: string; questionIndex: number }
-      ) => Promise<void>;
-    })._handler;
-
-    await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
-      selectedAnswer: "perro",
-      questionIndex: 0,
-    });
-
-    expect(db.challenges[0].bossLivesRemaining).toBe(1);
-    expect(db.challenges[0].challengerPerfectRun).toBe(false);
-    expect(db.challenges[0].status).toBe("completed");
+    expect(db.duels[0].bossLivesRemaining).toBe(1);
+    expect(db.duels[0].status).toBe("completed");
+    expect(db.duels[0].opponentPerfectRun).toBe(false);
   });
 
   it("ends a boss attempt on the result state when a timeout removes the last life", async () => {
@@ -331,9 +289,10 @@ describe("classic gameplay", () => {
       userDoc(),
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
     );
-    db.challenges.push(
-      challengeDoc({
+    db.duels.push(
+      duelDoc({
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        sourceType: "boss",
         bossType: "mini",
         bossLivesTotal: 1,
         bossLivesRemaining: 1,
@@ -343,15 +302,15 @@ describe("classic gameplay", () => {
     );
 
     const handler = (timeoutAnswer as unknown as {
-      _handler: (ctx: unknown, args: { duelId: Id<"challenges"> }) => Promise<void>;
+      _handler: (ctx: unknown, args: { duelId: Id<"duels"> }) => Promise<void>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
-      duelId: "challenge_1" as Id<"challenges">,
+      duelId: "duel_1" as Id<"duels">,
     });
 
-    expect(db.challenges[0].bossLivesRemaining).toBe(0);
-    expect(db.challenges[0].status).toBe("completed");
-    expect(db.challenges[0].challengerLastAnswer).toBe("__TIMEOUT__");
+    expect(db.duels[0].bossLivesRemaining).toBe(0);
+    expect(db.duels[0].status).toBe("completed");
+    expect(db.duels[0].challengerLastAnswer).toBe("__TIMEOUT__");
   });
 });

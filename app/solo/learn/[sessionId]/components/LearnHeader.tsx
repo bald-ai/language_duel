@@ -29,7 +29,7 @@ export function LearnHeader() {
             backgroundClip: "text",
           }}
         >
-          Challenge
+          Practice
         </span>
       </h1>
 
@@ -37,7 +37,7 @@ export function LearnHeader() {
         className="mt-2 text-xs sm:text-sm font-light tracking-wide"
         style={{ color: colors.text.muted }}
       >
-        Study first, then jump into the challenge
+        Study first, then jump into practice
       </p>
 
       <div className="flex items-center gap-2 mt-3">

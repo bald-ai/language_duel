@@ -17,16 +17,11 @@ export function useNotifications() {
     const markReadMutation = useMutation(api.notifications.markNotificationRead);
     const acceptFriendRequestMutation = useMutation(api.friends.acceptFriendRequestNotification);
     const rejectFriendRequestMutation = useMutation(api.friends.rejectFriendRequestNotification);
-    const acceptDuelChallengeMutation = useMutation(api.lobby.acceptDuelChallenge);
-    const declineDuelChallengeMutation = useMutation(api.lobby.declineDuelChallenge);
+    const acceptChallengeMutation = useMutation(api.lobby.acceptChallengeFromNotification);
+    const declineChallengeMutation = useMutation(api.lobby.declineChallengeFromNotification);
     const dismissWeeklyPlanMutation = useMutation(api.weeklyGoals.dismissWeeklyPlanInvitation);
     const archiveCompletedGoalThemesMutation = useMutation(api.weeklyGoals.archiveCompletedGoalThemesFromNotification);
     const declineWeeklyPlanMutation = useMutation(api.weeklyGoals.declineWeeklyPlanInvitation);
-
-    // Scheduled duel mutations
-    const acceptScheduledDuelMutation = useMutation(api.scheduledDuels.acceptScheduledDuel);
-    const counterProposeScheduledDuelMutation = useMutation(api.scheduledDuels.counterProposeScheduledDuel);
-    const declineScheduledDuelMutation = useMutation(api.scheduledDuels.declineScheduledDuel);
 
     const dismissNotification = useCallback(async (notificationId: Id<"notifications">) => {
         try {
@@ -66,25 +61,25 @@ export function useNotifications() {
         }
     }, [rejectFriendRequestMutation]);
 
-    const acceptDuelChallenge = useCallback(async (notificationId: Id<"notifications">) => {
+    const acceptChallenge = useCallback(async (notificationId: Id<"notifications">) => {
         try {
-            const result = await acceptDuelChallengeMutation({ notificationId });
+            const result = await acceptChallengeMutation({ notificationId });
             return result;
         } catch (error) {
-            console.error("Failed to accept duel challenge:", error);
+            console.error("Failed to accept challenge:", error);
             throw error;
         }
-    }, [acceptDuelChallengeMutation]);
+    }, [acceptChallengeMutation]);
 
-    const declineDuelChallenge = useCallback(async (notificationId: Id<"notifications">) => {
+    const declineChallenge = useCallback(async (notificationId: Id<"notifications">) => {
         try {
-            await declineDuelChallengeMutation({ notificationId });
+            await declineChallengeMutation({ notificationId });
             return { success: true };
         } catch (error) {
-            console.error("Failed to decline duel challenge:", error);
+            console.error("Failed to decline challenge:", error);
             throw error;
         }
-    }, [declineDuelChallengeMutation]);
+    }, [declineChallengeMutation]);
 
     const dismissWeeklyPlanInvitation = useCallback(async (notificationId: Id<"notifications">) => {
         try {
@@ -115,43 +110,6 @@ export function useNotifications() {
         }
     }, [archiveCompletedGoalThemesMutation]);
 
-    const acceptScheduledDuel = useCallback(async (scheduledDuelId: Id<"scheduledDuels">) => {
-        try {
-            await acceptScheduledDuelMutation({ scheduledDuelId });
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to accept scheduled duel:", error);
-            throw error;
-        }
-    }, [acceptScheduledDuelMutation]);
-
-    const counterProposeScheduledDuel = useCallback(async (
-        scheduledDuelId: Id<"scheduledDuels">,
-        data: { newScheduledTime?: number; newThemeIds?: Id<"themes">[] }
-    ) => {
-        try {
-            await counterProposeScheduledDuelMutation({
-                scheduledDuelId,
-                newScheduledTime: data.newScheduledTime,
-                newThemeIds: data.newThemeIds,
-            });
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to counter-propose scheduled duel:", error);
-            throw error;
-        }
-    }, [counterProposeScheduledDuelMutation]);
-
-    const declineScheduledDuel = useCallback(async (scheduledDuelId: Id<"scheduledDuels">) => {
-        try {
-            await declineScheduledDuelMutation({ scheduledDuelId });
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to decline scheduled duel:", error);
-            throw error;
-        }
-    }, [declineScheduledDuelMutation]);
-
     return {
         // Data
         notifications: notifications ?? [],
@@ -164,14 +122,11 @@ export function useNotifications() {
             markAsRead,
             acceptFriendRequest,
             rejectFriendRequest,
-            acceptDuelChallenge,
-            declineDuelChallenge,
+            acceptChallenge,
+            declineChallenge,
             dismissWeeklyPlanInvitation,
             declineWeeklyPlanInvitation,
             archiveCompletedGoalThemes,
-            acceptScheduledDuel,
-            counterProposeScheduledDuel,
-            declineScheduledDuel,
         },
     };
 }

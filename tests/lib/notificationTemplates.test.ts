@@ -13,51 +13,15 @@ describe("renderNotificationEmail", () => {
     }
   });
 
-  describe("immediate duel challenge", () => {
+  describe("immediate challenge invite", () => {
     it("renders correct subject and body", () => {
       const data = { recipientName: "Player", senderName: "Challenger", themeName: "Spanish Verbs" };
-      const { subject, html } = renderNotificationEmail("immediate_duel_challenge", data);
+      const { subject, html } = renderNotificationEmail("immediate_challenge_invite", data);
 
       expect(subject).toContain("Challenger");
       expect(subject).toContain("gauntlet");
       expect(html).toContain("Challenger");
       expect(html).toContain("Spanish Verbs");
-    });
-  });
-
-  describe("scheduled duel proposal", () => {
-    it("renders correct subject and body", () => {
-      const data = {
-        recipientName: "Player",
-        senderName: "Proposer",
-        themeName: "French Nouns",
-        scheduledTime: "Feb 5, 2026 at 14:00",
-      };
-      const { subject, html } = renderNotificationEmail("scheduled_duel_proposal", data);
-
-      expect(subject).toContain("Proposer");
-      expect(subject).toContain("duel");
-      expect(html).toContain("Proposer");
-      expect(html).toContain("French Nouns");
-      expect(html).toContain("Feb 5, 2026 at 14:00");
-    });
-  });
-
-  describe("scheduled duel reminder", () => {
-    it("renders correct subject and body with minutes", () => {
-      const data = {
-        recipientName: "Player",
-        partnerName: "Opponent",
-        themeName: "Italian Phrases",
-        scheduledTime: "Feb 7, 2026 at 18:00",
-        minutesBefore: 15,
-      };
-      const { subject, html } = renderNotificationEmail("scheduled_duel_reminder", data);
-
-      expect(subject).toContain("15");
-      expect(subject).toContain("showdown");
-      expect(html).toContain("Opponent");
-      expect(html).toContain("Italian Phrases");
     });
   });
 
@@ -174,9 +138,7 @@ describe("renderNotificationEmail", () => {
 
   describe("all triggers render without error", () => {
     const triggers = [
-      "immediate_duel_challenge",
-      "scheduled_duel_proposal",
-      "scheduled_duel_reminder",
+      "immediate_challenge_invite",
       "weekly_goal_invite",
       "weekly_goal_locked",
       "weekly_goal_accepted",
@@ -205,12 +167,10 @@ describe("renderNotificationEmail", () => {
 
   describe("email safety", () => {
     it("escapes user-controlled HTML while keeping template markup", () => {
-      const { html } = renderNotificationEmail("scheduled_duel_reminder", {
+      const { html } = renderNotificationEmail("immediate_challenge_invite", {
         recipientName: "<img src=x onerror=alert(1)>",
-        partnerName: "<b>Partner</b>",
+        senderName: "<b>Partner</b>",
         themeName: "<script>alert(1)</script>",
-        scheduledTime: "Feb 7, 2026 at 18:00",
-        minutesBefore: 15,
       });
 
       expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
@@ -247,7 +207,7 @@ describe("renderNotificationEmail", () => {
 
 describe("getSubjectForTrigger", () => {
   it("uses sender name in subject when available", () => {
-    const subject = getSubjectForTrigger("immediate_duel_challenge", { senderName: "Alice", recipientName: "User" });
+    const subject = getSubjectForTrigger("immediate_challenge_invite", { senderName: "Alice", recipientName: "User" });
     expect(subject).toContain("Alice");
   });
 });

@@ -28,39 +28,51 @@ const difficultyLevelValidator = v.union(
   v.literal("hard")
 );
 
-const duelStatusValidator = v.union(
+const challengeStatusValidator = v.union(
   v.literal("pending"),
   v.literal("accepted"),
-  v.literal("rejected"),
-  v.literal("completed"),
-  v.literal("stopped"),
-  v.literal("cancelled"),
-  v.literal("learning"),
-  v.literal("challenging")
+  v.literal("declined"),
+  v.literal("cancelled")
 );
 
-const duelModeValidator = v.union(v.literal("solo"), v.literal("classic"));
-const bossTypeValidator = v.union(v.literal("mini"), v.literal("big"));
-const weeklyGoalChallengeTypeValidator = v.literal("spaced_repetition");
+const duelStatusValidator = v.union(
+  v.literal("active"),
+  v.literal("completed"),
+  v.literal("stopped")
+);
 
-const classicDifficultyPresetValidator = v.union(
+const soloPracticeStatusValidator = v.union(
+  v.literal("learning"),
+  v.literal("practicing"),
+  v.literal("completed"),
+  v.literal("stopped")
+);
+
+const duelSourceTypeValidator = v.union(
+  v.literal("normal"),
+  v.literal("boss"),
+  v.literal("spaced_repetition")
+);
+
+const soloPracticeSourceTypeValidator = v.union(
+  v.literal("weekly_goal"),
+  v.literal("boss"),
+  v.literal("spaced_repetition")
+);
+
+const bossTypeValidator = v.union(v.literal("mini"), v.literal("big"));
+
+const duelDifficultyPresetValidator = v.union(
   v.literal("easy"),
   v.literal("medium"),
   v.literal("hard")
 );
 
-const classicQuestionValidator = v.object({
+const duelQuestionValidator = v.object({
   options: v.array(v.string()),
   correctOption: v.string(),
   difficulty: difficultyLevelValidator,
   points: v.number(),
-});
-
-const wordStateValidator = v.object({
-  wordIndex: v.number(),
-  currentLevel: v.number(),
-  completedLevel3: v.boolean(),
-  answeredLevel2Plus: v.boolean(),
 });
 
 const playerStatsValidator = v.object({
@@ -80,35 +92,6 @@ const sabotageValidator = v.object({
   timestamp: v.number(),
 });
 
-const soloHintTypeValidator = v.union(
-  v.literal("letters"),
-  v.literal("tts"),
-  v.literal("flash"),
-  v.literal("anagram")
-);
-
-const soloHintL2TypeValidator = v.union(
-  v.literal("eliminate"),
-  v.literal("tts"),
-  v.literal("flash")
-);
-
-const learnTimerSelectionValidator = v.object({
-  challengerSelection: v.optional(v.number()),
-  opponentSelection: v.optional(v.number()),
-  challengerConfirmed: v.optional(v.boolean()),
-  opponentConfirmed: v.optional(v.boolean()),
-  confirmedDuration: v.optional(v.number()),
-  learnStartTime: v.optional(v.number()),
-});
-
-const soloHintRequesterStateValidator = v.object({
-  wordIndex: v.number(),
-  typedLetters: v.array(v.string()),
-  revealedPositions: v.array(v.number()),
-  level: v.optional(v.number()),
-});
-
 // ===========================================
 // Schema Definition
 // ===========================================
@@ -118,23 +101,13 @@ export const notificationTypeValidator = v.union(
   v.literal("friend_request"),
   v.literal("weekly_plan_invitation"),
   v.literal("weekly_goal_draft_expiring"),
-  v.literal("scheduled_duel"),
-  v.literal("duel_challenge")
+  v.literal("challenge_invite")
 );
 
 const notificationStatusValidator = v.union(
   v.literal("pending"),
   v.literal("read"),
   v.literal("dismissed")
-);
-
-const scheduledDuelStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("accepted"),
-  v.literal("counter_proposed"),
-  v.literal("declined"),
-  v.literal("cancelled"),
-  v.literal("expired")
 );
 
 const weeklyGoalLifecycleStatusValidator = v.union(
@@ -172,18 +145,7 @@ export const notificationPayloadValidator = v.union(
   v.object({
     challengeId: v.id("challenges"),
     themeName: v.optional(v.string()),
-    mode: duelModeValidator,
-    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
-  }),
-  v.object({
-    scheduledDuelId: v.id("scheduledDuels"),
-    themeId: v.optional(v.id("themes")),
-    themeName: v.optional(v.string()),
-    scheduledTime: v.optional(v.number()),
-    mode: duelModeValidator,
-    isCounterProposal: v.optional(v.boolean()),
-    scheduledDuelStatus: v.optional(scheduledDuelStatusValidator),
-    startedDuelId: v.optional(v.id("challenges")),
+    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
   })
 );
 
@@ -191,9 +153,7 @@ export type NotificationPayload = Infer<typeof notificationPayloadValidator>;
 
 // Email notification trigger types
 export const emailNotificationTriggerValidator = v.union(
-  v.literal("immediate_duel_challenge"),
-  v.literal("scheduled_duel_proposal"),
-  v.literal("scheduled_duel_reminder"),
+  v.literal("immediate_challenge_invite"),
   v.literal("weekly_goal_invite"),
   v.literal("weekly_goal_locked"),
   v.literal("weekly_goal_accepted"),
@@ -279,105 +239,79 @@ export default defineSchema({
     .index("by_friend", ["friendId"]),
 
   // -------------------------------------------
-  // Challenges (Duels) Table
+  // Challenges Table
   // -------------------------------------------
   challenges: defineTable({
-    // === Core Fields ===
+    challengerId: v.id("users"),
+    opponentId: v.id("users"),
+    themeIds: v.array(v.id("themes")),
+    sourceType: duelSourceTypeValidator,
+    weeklyGoalId: v.optional(v.id("weeklyGoals")),
+    bossType: v.optional(bossTypeValidator),
+    spacedRepetitionStep: v.optional(v.number()),
+    status: challengeStatusValidator,
+    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelId: v.optional(v.id("duels")),
+    createdAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_challenger", ["challengerId"])
+    .index("by_opponent", ["opponentId"])
+    .index("by_opponent_status", ["opponentId", "status"])
+    .index("by_status", ["status"])
+    .index("by_weeklyGoalId", ["weeklyGoalId"]),
+
+  // -------------------------------------------
+  // Duels Table
+  // -------------------------------------------
+  duels: defineTable({
+    challengeId: v.optional(v.id("challenges")),
     challengerId: v.id("users"),
     opponentId: v.id("users"),
     themeIds: v.array(v.id("themes")),
     sessionWords: v.array(sessionWordValidator),
+    sourceType: duelSourceTypeValidator,
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     bossType: v.optional(bossTypeValidator),
-    weeklyGoalChallengeType: v.optional(weeklyGoalChallengeTypeValidator),
     spacedRepetitionStep: v.optional(v.number()),
     bossLivesTotal: v.optional(v.number()),
     bossLivesRemaining: v.optional(v.number()),
     status: duelStatusValidator,
-    mode: duelModeValidator,
     createdAt: v.number(),
 
-    // === Classic Mode: Shared Game State ===
     currentWordIndex: v.number(),
     wordOrder: v.optional(v.array(v.number())),
-    classicQuestions: v.optional(v.array(classicQuestionValidator)),
+    duelQuestions: v.optional(v.array(duelQuestionValidator)),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
     challengerScore: v.number(),
     opponentScore: v.number(),
     challengerPerfectRun: v.optional(v.boolean()),
     opponentPerfectRun: v.optional(v.boolean()),
-    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
+    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
 
-    // === Classic Mode: Timer State ===
     questionStartTime: v.optional(v.number()),
     questionTimerPausedAt: v.optional(v.number()),
     questionTimerPausedBy: v.optional(playerRoleValidator),
 
-    // === Classic Mode: Last Answers (for review screen) ===
     challengerLastAnswer: v.optional(v.string()),
     opponentLastAnswer: v.optional(v.string()),
 
-    // === Classic Mode: Hint System ===
     hintRequestedBy: v.optional(playerRoleValidator),
     hintAccepted: v.optional(v.boolean()),
     eliminatedOptions: v.optional(v.array(v.string())),
 
-    // === Classic Mode: Countdown Pause/Skip ===
     countdownPausedBy: v.optional(playerRoleValidator),
     countdownUnpauseRequestedBy: v.optional(playerRoleValidator),
     countdownPausedAt: v.optional(v.number()),
     countdownSkipRequestedBy: v.optional(v.array(playerRoleValidator)),
 
-    // === Classic Mode: Sabotage System ===
     challengerSabotage: v.optional(sabotageValidator),
     opponentSabotage: v.optional(sabotageValidator),
     challengerSabotagesUsed: v.optional(v.number()),
     opponentSabotagesUsed: v.optional(v.number()),
 
-    // === Solo Mode: Learn Phase Timer ===
-    learnTimerSelection: v.optional(learnTimerSelectionValidator),
-
-    // === Solo Mode: Per-Player Word States ===
-    challengerWordStates: v.optional(v.array(wordStateValidator)),
-    opponentWordStates: v.optional(v.array(wordStateValidator)),
-
-    // === Solo Mode: Per-Player Word Pools ===
-    challengerActivePool: v.optional(v.array(v.number())),
-    challengerRemainingPool: v.optional(v.array(v.number())),
-    opponentActivePool: v.optional(v.array(v.number())),
-    opponentRemainingPool: v.optional(v.array(v.number())),
-
-    // === Solo Mode: Per-Player Current Question ===
-    challengerCurrentWordIndex: v.optional(v.number()),
-    challengerCurrentLevel: v.optional(v.number()),
-    challengerLevel2Mode: v.optional(v.string()),
-    opponentCurrentWordIndex: v.optional(v.number()),
-    opponentCurrentLevel: v.optional(v.number()),
-    opponentLevel2Mode: v.optional(v.string()),
-
-    // === Solo Mode: Completion & Stats ===
-    challengerCompleted: v.optional(v.boolean()),
-    opponentCompleted: v.optional(v.boolean()),
-    challengerStats: v.optional(playerStatsValidator),
-    opponentStats: v.optional(playerStatsValidator),
-
-    // === Solo Mode: Typing Hint System ===
-    soloHintRequestedBy: v.optional(playerRoleValidator),
-    soloHintAccepted: v.optional(v.boolean()),
-    soloHintRequesterState: v.optional(soloHintRequesterStateValidator),
-    soloHintRevealedPositions: v.optional(v.array(v.number())),
-    soloHintType: v.optional(soloHintTypeValidator),
-
-    // === Solo Mode: L2 Multiple Choice Hint System ===
-    soloHintL2RequestedBy: v.optional(playerRoleValidator),
-    soloHintL2Accepted: v.optional(v.boolean()),
-    soloHintL2WordIndex: v.optional(v.number()),
-    soloHintL2Options: v.optional(v.array(v.string())),
-    soloHintL2EliminatedOptions: v.optional(v.array(v.string())),
-    soloHintL2Type: v.optional(soloHintL2TypeValidator),
-
-    // === Seeded PRNG for Deterministic Random ===
     seed: v.number(),
   })
     .index("by_challenger", ["challengerId"])
@@ -385,6 +319,29 @@ export default defineSchema({
     .index("by_opponent_status", ["opponentId", "status"])
     .index("by_status", ["status"])
     .index("by_weeklyGoalId", ["weeklyGoalId"]),
+
+  // -------------------------------------------
+  // Solo Practice Sessions Table
+  // -------------------------------------------
+  soloPracticeSessions: defineTable({
+    userId: v.id("users"),
+    themeIds: v.array(v.id("themes")),
+    sessionWords: v.array(sessionWordValidator),
+    sourceType: soloPracticeSourceTypeValidator,
+    weeklyGoalId: v.id("weeklyGoals"),
+    bossType: v.optional(bossTypeValidator),
+    spacedRepetitionStep: v.optional(v.number()),
+    status: soloPracticeStatusValidator,
+    currentWordIndex: v.number(),
+    seed: v.number(),
+    questionStartTime: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    finalStats: v.optional(playerStatsValidator),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_weeklyGoalId", ["weeklyGoalId"])
+    .index("by_user_status", ["userId", "status"]),
 
   // -------------------------------------------
   // Weekly Goals Table
@@ -427,8 +384,9 @@ export default defineSchema({
         step: v.number(),
         intervalDays: v.number(),
         completedAt: v.number(),
-        mode: v.union(v.literal("solo"), v.literal("classic")),
-        challengeId: v.optional(v.id("challenges")),
+        completedVia: v.union(v.literal("duel"), v.literal("solo_practice")),
+        duelId: v.optional(v.id("duels")),
+        soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
       })
     ),
     createdAt: v.number(),
@@ -480,15 +438,9 @@ export default defineSchema({
   notificationPreferences: defineTable({
     userId: v.id("users"),
 
-    // Immediate Duels
-    immediateDuelsEnabled: v.boolean(),
-    immediateDuelChallengeEnabled: v.boolean(),
-
-    // Scheduled Duels
-    scheduledDuelsEnabled: v.boolean(),
-    scheduledDuelProposalEnabled: v.boolean(),
-    scheduledDuelReminderEnabled: v.boolean(),
-    scheduledDuelReminderOffsetMinutes: v.number(),
+    // Challenge Invites
+    challengeInvitesEnabled: v.boolean(),
+    challengeInviteEmailEnabled: v.boolean(),
 
     // Weekly Goals
     weeklyGoalsEnabled: v.boolean(),
@@ -513,13 +465,13 @@ export default defineSchema({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    scheduledDuelId: v.optional(v.id("scheduledDuels")),
+    duelId: v.optional(v.id("duels")),
+    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
     sentAt: v.number(),
   })
-    .index("by_user_trigger_scheduledDuel", ["toUserId", "trigger", "scheduledDuelId"])
     .index("by_user_trigger_weeklyGoal", ["toUserId", "trigger", "weeklyGoalId"])
     .index("by_user_trigger_weeklyGoal_dedupeKey", [
       "toUserId",
@@ -530,31 +482,4 @@ export default defineSchema({
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
     .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_sentAt", ["sentAt"]),
-
-  // -------------------------------------------
-  // Scheduled Duels Table
-  // -------------------------------------------
-  scheduledDuels: defineTable({
-    proposerId: v.id("users"),
-    recipientId: v.id("users"),
-    themeIds: v.array(v.id("themes")),
-    scheduledTime: v.number(), // Unix timestamp
-    status: scheduledDuelStatusValidator,
-    mode: v.union(v.literal("solo"), v.literal("classic")),
-    classicDifficultyPreset: v.optional(classicDifficultyPresetValidator),
-    // Ready state tracking
-    proposerReady: v.optional(v.boolean()),
-    recipientReady: v.optional(v.boolean()),
-    proposerReadyAt: v.optional(v.number()),
-    recipientReadyAt: v.optional(v.number()),
-    // Reference to started duel (if both players are ready)
-    startedDuelId: v.optional(v.id("challenges")),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_proposer", ["proposerId"])
-    .index("by_recipient", ["recipientId", "status"])
-    .index("by_status", ["status"])
-    .index("by_scheduled_time", ["scheduledTime"])
-    .index("by_status_scheduled_time", ["status", "scheduledTime"]),
 });

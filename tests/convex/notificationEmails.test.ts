@@ -20,7 +20,6 @@ type EmailLogDoc = Pick<
   | "toUserId"
   | "trigger"
   | "challengeId"
-  | "scheduledDuelId"
   | "weeklyGoalId"
   | "reminderOffsetMinutes"
   | "dedupeKey"

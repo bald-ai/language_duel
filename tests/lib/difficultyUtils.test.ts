@@ -1,29 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
-  calculateClassicDifficultyDistribution,
+  calculateDuelDifficultyDistribution,
   getDifficultyForIndex,
 } from "@/lib/difficultyUtils";
 
 describe("difficultyUtils", () => {
-  it("calculateClassicDifficultyDistribution uses progressive split for easy", () => {
-    const distribution20 = calculateClassicDifficultyDistribution(20, "easy");
+  it("calculateDuelDifficultyDistribution uses progressive split for easy", () => {
+    const distribution20 = calculateDuelDifficultyDistribution(20, "easy");
     expect(distribution20.easy).toBe(8);
     expect(distribution20.medium).toBe(6);
     expect(distribution20.hard).toBe(6);
 
-    const distribution10 = calculateClassicDifficultyDistribution(10, "easy");
+    const distribution10 = calculateDuelDifficultyDistribution(10, "easy");
     expect(distribution10.easy).toBe(4);
     expect(distribution10.medium).toBe(3);
     expect(distribution10.hard).toBe(3);
   });
 
-  it("calculateClassicDifficultyDistribution handles presets", () => {
-    const medium = calculateClassicDifficultyDistribution(5, "medium");
+  it("calculateDuelDifficultyDistribution handles presets", () => {
+    const medium = calculateDuelDifficultyDistribution(5, "medium");
     expect(medium.easy).toBe(0);
     expect(medium.medium).toBe(3);
     expect(medium.hard).toBe(2);
 
-    const hard = calculateClassicDifficultyDistribution(4, "hard");
+    const hard = calculateDuelDifficultyDistribution(4, "hard");
     expect(hard.easy).toBe(0);
     expect(hard.medium).toBe(0);
     expect(hard.hard).toBe(4);
@@ -44,7 +44,7 @@ describe("difficultyUtils", () => {
   });
 
   it("handles empty word count", () => {
-    const distribution = calculateClassicDifficultyDistribution(0, "easy");
+    const distribution = calculateDuelDifficultyDistribution(0, "easy");
     expect(distribution.total).toBe(0);
   });
 });

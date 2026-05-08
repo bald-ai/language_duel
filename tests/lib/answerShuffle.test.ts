@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildClassicQuestionSet,
-  buildClassicQuestionSnapshot,
+  buildDuelQuestionSet,
+  buildDuelQuestionSnapshot,
   NONE_OF_ABOVE,
 } from "@/lib/answerShuffle";
 import type { WordEntry, ShuffleDifficultyInfo } from "@/lib/types";
@@ -14,7 +14,7 @@ describe("answerShuffle", () => {
   };
 
   it("returns empty options when wrongAnswers missing", () => {
-    const result = buildClassicQuestionSnapshot({ word: "x", answer: "y", wrongAnswers: [] }, 0, {
+    const result = buildDuelQuestionSnapshot({ word: "x", answer: "y", wrongAnswers: [] }, 0, {
       level: "easy",
       wrongCount: 3,
     });
@@ -24,8 +24,8 @@ describe("answerShuffle", () => {
 
   it("shuffles deterministically for easy/medium", () => {
     const difficulty: ShuffleDifficultyInfo = { level: "easy", wrongCount: 3 };
-    const first = buildClassicQuestionSnapshot(word, 1, difficulty);
-    const second = buildClassicQuestionSnapshot(word, 1, difficulty);
+    const first = buildDuelQuestionSnapshot(word, 1, difficulty);
+    const second = buildDuelQuestionSnapshot(word, 1, difficulty);
     expect(first.options).toEqual(second.options);
     expect(first.options).toContain(word.answer);
     expect(first.options.length).toBe(4);
@@ -34,7 +34,7 @@ describe("answerShuffle", () => {
 
   it("hard mode includes None of the above and sets hasNoneOption consistently", () => {
     const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 4 };
-    const result = buildClassicQuestionSnapshot(word, 2, difficulty);
+    const result = buildDuelQuestionSnapshot(word, 2, difficulty);
 
     expect(result.options.length).toBe(5);
     expect(result.options).toContain(NONE_OF_ABOVE);
@@ -54,7 +54,7 @@ describe("answerShuffle", () => {
     let foundNormal = false;
 
     for (let i = 0; i < 50; i++) {
-      const result = buildClassicQuestionSnapshot(word, i, difficulty);
+      const result = buildDuelQuestionSnapshot(word, i, difficulty);
       if (result.correctOption === NONE_OF_ABOVE) {
         foundNoneCorrect = true;
         expect(result.options).not.toContain(word.answer);
@@ -84,7 +84,7 @@ describe("answerShuffle", () => {
       },
     ];
 
-    const result = buildClassicQuestionSet(words, [1, 0], "hard");
+    const result = buildDuelQuestionSet(words, [1, 0], "hard");
 
     expect(result).toHaveLength(2);
     for (const snapshot of result) {

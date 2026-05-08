@@ -14,14 +14,14 @@ describe("Level0Input", () => {
         answer="hello"
         onGotIt={onGotIt}
         onNotYet={onNotYet}
-        dataTestIdBase="solo-challenge-level0"
+        dataTestIdBase="solo-practice-level0"
       />
     );
 
-    fireEvent.click(screen.getByTestId("solo-challenge-level0-got-it"));
+    fireEvent.click(screen.getByTestId("solo-practice-level0-got-it"));
     expect(onGotIt).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByTestId("solo-challenge-level0-not-yet"));
+    fireEvent.click(screen.getByTestId("solo-practice-level0-not-yet"));
     expect(onNotYet).toHaveBeenCalledTimes(1);
   });
 
@@ -56,7 +56,7 @@ describe("Level0Input", () => {
         answer="hello"
         onGotIt={onGotIt}
         onNotYet={onNotYet}
-        dataTestIdBase="solo-challenge-level0"
+        dataTestIdBase="solo-practice-level0"
       />
     );
 
@@ -83,7 +83,7 @@ describe("Level0Input", () => {
         answer="hello"
         onGotIt={onGotIt}
         onNotYet={onNotYet}
-        dataTestIdBase="solo-challenge-level0"
+        dataTestIdBase="solo-practice-level0"
       />
     );
 

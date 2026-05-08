@@ -1,18 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import {
-  sendDailyWeeklyGoalReminderEmails,
-  sendScheduledDuelReminders,
-} from "@/convex/emails/reminderCrons";
+import { sendDailyWeeklyGoalReminderEmails } from "@/convex/emails/reminderCrons";
 import { getDraftGoalsExpiringSoon } from "@/convex/weeklyGoals";
 import { WEEKLY_GOAL_DRAFT_TTL_MS } from "@/convex/constants";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPreferences";
 import { createIndexedQuery } from "./testUtils/inMemoryDb";
-
-type ScheduledDuelDoc = Pick<
-  Doc<"scheduledDuels">,
-  "_id" | "proposerId" | "recipientId" | "scheduledTime" | "status" | "startedDuelId"
->;
 
 type WeeklyGoalDoc = Pick<
   Doc<"weeklyGoals">,
@@ -37,10 +29,6 @@ class InMemoryDb {
     return createIndexedQuery(this.weeklyGoals);
   }
 }
-
-const sendScheduledDuelRemindersHandler = (sendScheduledDuelReminders as unknown as {
-  _handler: (ctx: unknown, args: Record<string, never>) => Promise<void>;
-})._handler;
 
 const sendDailyWeeklyGoalReminderEmailsHandler = (sendDailyWeeklyGoalReminderEmails as unknown as {
   _handler: (ctx: unknown, args: Record<string, never>) => Promise<void>;
@@ -71,49 +59,6 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
 describe("reminder crons", () => {
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it("continues scheduled duel reminders after one send fails", async () => {
-    vi.useFakeTimers();
-    const now = Date.UTC(2026, 3, 29, 10, 0, 0);
-    vi.setSystemTime(now);
-    const duel: ScheduledDuelDoc = {
-      _id: "scheduled_1" as Id<"scheduledDuels">,
-      proposerId: "user_1" as Id<"users">,
-      recipientId: "user_2" as Id<"users">,
-      scheduledTime: now + 6 * 60 * 1000,
-      status: "accepted",
-      startedDuelId: undefined,
-    };
-    const sends: Array<Id<"users">> = [];
-
-    await sendScheduledDuelRemindersHandler(
-      {
-        runQuery: async (_fn: unknown, args: { userId?: Id<"users"> }) => {
-          if (args.userId) {
-            return {
-              ...DEFAULT_NOTIFICATION_PREFS,
-              userId: args.userId,
-              scheduledDuelReminderOffsetMinutes: 15,
-            };
-          }
-          return [duel];
-        },
-        runAction: async (
-          _fn: unknown,
-          args: { toUserId: Id<"users"> }
-        ) => {
-          sends.push(args.toUserId);
-          if (args.toUserId === "user_1") {
-            throw new Error("send failed");
-          }
-          return { sent: true };
-        },
-      } as never,
-      {}
-    );
-
-    expect(sends).toEqual(["user_1", "user_2"]);
   });
 
   it("sends daily weekly goal reminder emails to both participants", async () => {

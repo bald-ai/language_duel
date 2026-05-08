@@ -8,25 +8,12 @@ import { v } from "convex/values";
 import {
   getDuelParticipant,
   hasPlayerAnswered,
-  isDuelChallenging,
-  isDuelLearning,
 } from "./helpers/auth";
 import {
-  updateWordStateAfterAnswerSeeded,
-  shouldExpandPool,
-  expandPoolSeeded,
-  pickNextQuestionSeeded,
-  updatePlayerStats,
-  type WordState,
-} from "./helpers/gameLogic";
-import { buildSoloInitState } from "./helpers/duelInitialization";
-import {
   HINT_PROVIDER_BONUS,
-  TIMER_OPTIONS,
-  DEFAULT_TIMER_DURATION,
   TIMEOUT_ANSWER,
 } from "./constants";
-import { getChallengeSessionWords } from "./helpers/sessionWords";
+import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
 import { completeSpacedRepetitionDuel } from "./weeklyGoalRepetitions";
 
@@ -48,23 +35,7 @@ function getHintClearFields(): Record<string, undefined> {
   };
 }
 
-function getSoloHintClearFields(): Record<string, undefined> {
-  return {
-    soloHintRequestedBy: undefined,
-    soloHintAccepted: undefined,
-    soloHintRequesterState: undefined,
-    soloHintRevealedPositions: undefined,
-    soloHintType: undefined,
-    soloHintL2RequestedBy: undefined,
-    soloHintL2Accepted: undefined,
-    soloHintL2WordIndex: undefined,
-    soloHintL2Options: undefined,
-    soloHintL2EliminatedOptions: undefined,
-    soloHintL2Type: undefined,
-  };
-}
-
-function getBossAttemptEndFields(): Partial<Doc<"challenges">> {
+function getBossAttemptEndFields(): Partial<Doc<"duels">> {
   return {
     status: "completed",
     questionStartTime: undefined,
@@ -74,15 +45,15 @@ function getBossAttemptEndFields(): Partial<Doc<"challenges">> {
   };
 }
 
-function isBossAttempt(duel: Doc<"challenges">): boolean {
+function isBossAttempt(duel: Doc<"duels">): boolean {
   return Boolean(duel.weeklyGoalId && duel.bossType);
 }
 
-function isLivesAttempt(duel: Doc<"challenges">): boolean {
-  return isBossAttempt(duel) || duel.weeklyGoalChallengeType === "spaced_repetition";
+function isLivesAttempt(duel: Doc<"duels">): boolean {
+  return isBossAttempt(duel) || duel.sourceType === "spaced_repetition";
 }
 
-function hasBossLivesLeft(duel: Doc<"challenges">): boolean {
+function hasBossLivesLeft(duel: Doc<"duels">): boolean {
   if (typeof duel.bossLivesRemaining === "number") {
     return duel.bossLivesRemaining > 0;
   }
@@ -91,9 +62,9 @@ function hasBossLivesLeft(duel: Doc<"challenges">): boolean {
 }
 
 function getBossMissPatch(
-  duel: Doc<"challenges">,
+  duel: Doc<"duels">,
   playerRole: "challenger" | "opponent"
-): Partial<Doc<"challenges">> {
+): Partial<Doc<"duels">> {
   if (!isLivesAttempt(duel)) {
     return {};
   }
@@ -102,7 +73,7 @@ function getBossMissPatch(
     ? Math.max(0, duel.bossLivesRemaining - 1)
     : undefined;
 
-  const patch: Partial<Doc<"challenges">> = playerRole === "challenger"
+  const patch: Partial<Doc<"duels">> = playerRole === "challenger"
     ? { challengerPerfectRun: false }
     : { opponentPerfectRun: false };
 
@@ -117,27 +88,20 @@ function getBossMissPatch(
   };
 }
 
-function getClassicQuestionOrThrow(
-  duel: Doc<"challenges">,
+function getDuelQuestionOrThrow(
+  duel: Doc<"duels">,
   questionIndex = duel.currentWordIndex
 ) {
-  const question = duel.classicQuestions?.[questionIndex];
+  const question = duel.duelQuestions?.[questionIndex];
   if (!question) {
-    throw new Error("Classic question data is missing");
+    throw new Error("Duel question data is missing");
   }
   return question;
 }
 
-function getChallengeSeedOrThrow(duel: Doc<"challenges">): number {
-  if (!Number.isFinite(duel.seed)) {
-    throw new Error("Challenge is missing seed");
-  }
-  return duel.seed;
-}
-
 function getHintProviderBonusPatch(
-  duel: Doc<"challenges">
-): Partial<Doc<"challenges">> {
+  duel: Doc<"duels">
+): Partial<Doc<"duels">> {
   if (
     duel.hintAccepted !== true ||
     !duel.hintRequestedBy ||
@@ -146,7 +110,7 @@ function getHintProviderBonusPatch(
     return {};
   }
 
-  const currentQuestion = getClassicQuestionOrThrow(duel);
+  const currentQuestion = getDuelQuestionOrThrow(duel);
   const requesterLastAnswer = duel.hintRequestedBy === "challenger"
     ? duel.challengerLastAnswer
     : duel.opponentLastAnswer;
@@ -166,10 +130,10 @@ function getHintProviderBonusPatch(
   };
 }
 
-async function advanceClassicDuelIfBothAnswered(
+async function advanceDuelIfBothAnswered(
   ctx: MutationCtx,
-  duelId: Id<"challenges">,
-  duel: Doc<"challenges">,
+  duelId: Id<"duels">,
+  duel: Doc<"duels">,
   wordCount: number
 ): Promise<void> {
   if (!duel.challengerAnswered || !duel.opponentAnswered) {
@@ -199,7 +163,7 @@ async function advanceClassicDuelIfBothAnswered(
         await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
       }
     }
-    if (duel.weeklyGoalChallengeType === "spaced_repetition") {
+    if (duel.sourceType === "spaced_repetition") {
       await completeSpacedRepetitionDuel(ctx, duel, Date.now());
     }
     return;
@@ -216,27 +180,20 @@ async function advanceClassicDuelIfBothAnswered(
 }
 
 // ===========================================
-// Classic Mode Answer
+// Duel Answer
 // ===========================================
 
 export const answerDuel = mutation({
   args: {
-    duelId: v.id("challenges"),
+    duelId: v.id("duels"),
     selectedAnswer: v.string(),
     questionIndex: v.number(),
   },
   handler: async (ctx, { duelId, selectedAnswer, questionIndex }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
-    // Mode guard: this mutation is for classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
-
-    // Check if challenge is active
-    const status = duel.status;
-    if (status !== "accepted") {
-      throw new Error("Challenge is not active");
+    if (duel.status !== "active") {
+      throw new Error("Duel is not active");
     }
 
     // Stale answer guard: validate questionIndex matches server state
@@ -244,9 +201,9 @@ export const answerDuel = mutation({
       throw new Error("Stale answer: question has changed");
     }
 
-    const sessionWords = getChallengeSessionWords(duel);
+    const sessionWords = getSessionWords(duel);
     const wordCount = sessionWords.length;
-    const currentQuestion = getClassicQuestionOrThrow(duel, questionIndex);
+    const currentQuestion = getDuelQuestionOrThrow(duel, questionIndex);
     const isCorrect = selectedAnswer === currentQuestion.correctOption;
 
     // Mark as answered and update scores
@@ -274,25 +231,19 @@ export const answerDuel = mutation({
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel && updatedDuel.status === "accepted") {
-      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
+    if (updatedDuel && updatedDuel.status === "active") {
+      await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
     }
   },
 });
 
 export const timeoutAnswer = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
-    // Mode guard: this mutation is for classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
-
-    const status = duel.status;
-    if (status !== "accepted") {
-      throw new Error("Challenge is not active");
+    if (duel.status !== "active") {
+      throw new Error("Duel is not active");
     }
 
     // Mark as answered with 0 points (timeout)
@@ -315,26 +266,21 @@ export const timeoutAnswer = mutation({
 
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel && updatedDuel.status === "accepted") {
-      const sessionWords = getChallengeSessionWords(updatedDuel);
-      await advanceClassicDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
+    if (updatedDuel && updatedDuel.status === "active") {
+      const sessionWords = getSessionWords(updatedDuel);
+      await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
     }
   },
 });
 
 // ===========================================
-// Countdown Control (Classic Mode)
+// Countdown Control
 // ===========================================
 
 export const pauseCountdown = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-
-    // Mode guard: classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
 
     if (duel.countdownPausedBy) {
       throw new Error("Countdown already paused");
@@ -349,14 +295,9 @@ export const pauseCountdown = mutation({
 });
 
 export const requestUnpauseCountdown = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-
-    // Mode guard: classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
 
     if (!duel.countdownPausedBy) {
       throw new Error("Countdown is not paused");
@@ -369,14 +310,9 @@ export const requestUnpauseCountdown = mutation({
 });
 
 export const confirmUnpauseCountdown = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-
-    // Mode guard: classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
 
     // Idempotency: if the request was already confirmed (or cleared), just no-op.
     if (!duel.countdownUnpauseRequestedBy) {
@@ -403,14 +339,9 @@ export const confirmUnpauseCountdown = mutation({
 });
 
 export const skipCountdown = mutation({
-  args: { duelId: v.id("challenges") },
+  args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-
-    // Mode guard: classic mode only
-    if (duel.mode !== "classic") {
-      throw new Error("Not a classic duel");
-    }
 
     if (duel.countdownPausedBy) {
       throw new Error("Cannot skip while countdown is paused");
@@ -430,212 +361,5 @@ export const skipCountdown = mutation({
     });
 
     return { bothSkipped };
-  },
-});
-
-// ===========================================
-// Solo-Style Timer Selection
-// ===========================================
-
-export const selectLearnTimer = mutation({
-  args: {
-    duelId: v.id("challenges"),
-    duration: v.number(),
-  },
-  handler: async (ctx, { duelId, duration }) => {
-    const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
-
-    if (!isDuelLearning(duel)) throw new Error("Not in learning phase");
-    if (!TIMER_OPTIONS.includes(duration as (typeof TIMER_OPTIONS)[number])) {
-      throw new Error("Invalid timer duration");
-    }
-
-    const current = duel.learnTimerSelection || {};
-    if (isChallenger && current.challengerConfirmed) throw new Error("Already confirmed");
-    if (!isChallenger && current.opponentConfirmed) throw new Error("Already confirmed");
-
-    const update = isChallenger
-      ? { ...current, challengerSelection: duration }
-      : { ...current, opponentSelection: duration };
-
-    await ctx.db.patch(duelId, { learnTimerSelection: update });
-  },
-});
-
-export const confirmLearnTimer = mutation({
-  args: { duelId: v.id("challenges") },
-  handler: async (ctx, { duelId }) => {
-    const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
-
-    if (!isDuelLearning(duel)) throw new Error("Not in learning phase");
-
-    const current = duel.learnTimerSelection || {};
-    const update = isChallenger
-      ? { ...current, challengerConfirmed: true }
-      : { ...current, opponentConfirmed: true };
-
-    // Check if both confirmed
-    const bothConfirmed =
-      (isChallenger ? true : current.challengerConfirmed) &&
-      (!isChallenger ? true : current.opponentConfirmed);
-
-    if (bothConfirmed) {
-      const challengerDuration = current.challengerSelection || DEFAULT_TIMER_DURATION;
-      const opponentDuration = current.opponentSelection || DEFAULT_TIMER_DURATION;
-      const confirmedDuration = Math.max(challengerDuration, opponentDuration);
-
-      update.confirmedDuration = confirmedDuration;
-      update.learnStartTime = Date.now();
-    }
-
-    await ctx.db.patch(duelId, { learnTimerSelection: update });
-  },
-});
-
-export const initializeDuelChallenge = mutation({
-  args: { duelId: v.id("challenges") },
-  handler: async (ctx, { duelId }) => {
-    const { duel } = await getDuelParticipant(ctx, duelId);
-
-    if (!isDuelLearning(duel)) throw new Error("Not in learning phase");
-
-    // Re-read to handle race conditions
-    const freshDuel = await ctx.db.get(duelId);
-    if (!freshDuel || freshDuel.status === "challenging") return;
-
-    const sessionWords = getChallengeSessionWords(duel);
-    const seed = getChallengeSeedOrThrow(duel);
-
-    const soloState = buildSoloInitState(
-      sessionWords.length,
-      seed
-    );
-
-    await ctx.db.patch(duelId, {
-      status: "challenging",
-      ...soloState,
-    });
-  },
-});
-
-// ===========================================
-// Solo-Style Answer Submission
-// ===========================================
-
-export const submitSoloAnswer = mutation({
-  args: {
-    duelId: v.id("challenges"),
-    answer: v.string(),
-    questionIndex: v.number(),
-  },
-  handler: async (ctx, { duelId, answer, questionIndex }) => {
-    const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
-
-    if (!isDuelChallenging(duel)) throw new Error("Not in challenging phase");
-
-    // Get player-specific state
-    const wordStates = (isChallenger ? duel.challengerWordStates : duel.opponentWordStates) as
-      | WordState[]
-      | undefined;
-    const activePool = isChallenger ? duel.challengerActivePool : duel.opponentActivePool;
-    const remainingPool = isChallenger ? duel.challengerRemainingPool : duel.opponentRemainingPool;
-    const currentWordIndex = isChallenger
-      ? duel.challengerCurrentWordIndex
-      : duel.opponentCurrentWordIndex;
-    const currentLevel = isChallenger
-      ? duel.challengerCurrentLevel
-      : duel.opponentCurrentLevel;
-    const stats = isChallenger ? duel.challengerStats : duel.opponentStats;
-
-    if (
-      !wordStates ||
-      !activePool ||
-      currentWordIndex === undefined ||
-      currentLevel === undefined ||
-      !stats
-    ) {
-      throw new Error("Player state not initialized");
-    }
-
-    // Stale answer guard: validate questionIndex matches player's current word
-    if (currentWordIndex !== questionIndex) {
-      throw new Error("Stale answer: question has changed");
-    }
-
-    const sessionWords = getChallengeSessionWords(duel);
-    const currentWord = sessionWords[currentWordIndex];
-    if (!currentWord) throw new Error("Word not found");
-
-    const isCorrect = answer === currentWord.answer;
-
-    // Use the stored duel seed so solo progression stays deterministic.
-    let seed = getChallengeSeedOrThrow(duel);
-
-    // Find and update word state
-    const newWordStates = [...wordStates];
-    const wordStateIndex = newWordStates.findIndex((ws) => ws.wordIndex === currentWordIndex);
-    if (wordStateIndex === -1) throw new Error("Word state not found");
-
-    const wordStateResult = updateWordStateAfterAnswerSeeded(
-      newWordStates[wordStateIndex],
-      currentLevel,
-      isCorrect,
-      seed
-    );
-    newWordStates[wordStateIndex] = wordStateResult.wordState;
-    seed = wordStateResult.newSeed;
-
-    // Update stats
-    const newStats = updatePlayerStats(stats, isCorrect);
-
-    // Check pool expansion
-    let newActivePool = [...activePool];
-    let newRemainingPool = [...(remainingPool || [])];
-
-    if (shouldExpandPool(newActivePool, newWordStates, newRemainingPool)) {
-      const expanded = expandPoolSeeded(newActivePool, newRemainingPool, seed);
-      newActivePool = expanded.newActivePool;
-      newRemainingPool = expanded.newRemainingPool;
-      seed = expanded.newSeed;
-    }
-
-    // Pick next question
-    const nextResult = pickNextQuestionSeeded(newActivePool, newWordStates, currentWordIndex, seed);
-    const next = nextResult.result;
-    seed = nextResult.newSeed;
-
-    // Build update object
-    const update: Partial<Doc<"challenges">> = {
-      ...getSoloHintClearFields(),
-      seed,
-    };
-
-    if (isChallenger) {
-      update.challengerWordStates = newWordStates;
-      update.challengerActivePool = newActivePool;
-      update.challengerRemainingPool = newRemainingPool;
-      update.challengerCurrentWordIndex = next.wordIndex;
-      update.challengerCurrentLevel = next.level;
-      update.challengerLevel2Mode = next.level2Mode;
-      update.challengerCompleted = next.isComplete;
-      update.challengerStats = newStats;
-    } else {
-      update.opponentWordStates = newWordStates;
-      update.opponentActivePool = newActivePool;
-      update.opponentRemainingPool = newRemainingPool;
-      update.opponentCurrentWordIndex = next.wordIndex;
-      update.opponentCurrentLevel = next.level;
-      update.opponentLevel2Mode = next.level2Mode;
-      update.opponentCompleted = next.isComplete;
-      update.opponentStats = newStats;
-    }
-
-    // Check if both players completed
-    const otherCompleted = isChallenger ? duel.opponentCompleted : duel.challengerCompleted;
-    if (next.isComplete && otherCompleted) {
-      update.status = "completed";
-    }
-
-    await ctx.db.patch(duelId, update);
   },
 });

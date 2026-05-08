@@ -2,26 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   isNotificationEnabled,
-  shouldSendScheduledDuelReminder,
   shouldSendWeeklyGoalReminder,
   formatScheduledTimeForEmail,
 } from "@/lib/notificationPreferences";
 
 describe("notificationPreferences", () => {
   describe("DEFAULT_NOTIFICATION_PREFS", () => {
-    it("has all immediate duel settings enabled by default", () => {
-      expect(DEFAULT_NOTIFICATION_PREFS.immediateDuelsEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.immediateDuelChallengeEnabled).toBe(true);
-    });
-
-    it("has the supported scheduled duel email settings enabled by default", () => {
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelsEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelProposalEnabled).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderEnabled).toBe(true);
-    });
-
-    it("has scheduled duel reminder offset at 15 minutes", () => {
-      expect(DEFAULT_NOTIFICATION_PREFS.scheduledDuelReminderOffsetMinutes).toBe(15);
+    it("has challenge invite email settings enabled by default", () => {
+      expect(DEFAULT_NOTIFICATION_PREFS.challengeInvitesEnabled).toBe(true);
+      expect(DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailEnabled).toBe(true);
     });
 
     it("has the supported weekly goal email settings enabled by default", () => {
@@ -47,9 +36,7 @@ describe("notificationPreferences", () => {
 
   describe("isNotificationEnabled trigger behavior", () => {
     const supportedTriggers = [
-      "immediate_duel_challenge",
-      "scheduled_duel_proposal",
-      "scheduled_duel_reminder",
+      "immediate_challenge_invite",
       "weekly_goal_invite",
       "weekly_goal_locked",
       "weekly_goal_accepted",
@@ -75,12 +62,8 @@ describe("notificationPreferences", () => {
 
     const categoryTestCases = [
       {
-        category: "immediateDuelsEnabled" as const,
-        triggers: ["immediate_duel_challenge"] as const,
-      },
-      {
-        category: "scheduledDuelsEnabled" as const,
-        triggers: ["scheduled_duel_proposal", "scheduled_duel_reminder"] as const,
+        category: "challengeInvitesEnabled" as const,
+        triggers: ["immediate_challenge_invite"] as const,
       },
       {
         category: "weeklyGoalsEnabled" as const,
@@ -108,9 +91,7 @@ describe("notificationPreferences", () => {
     );
 
     const specificTriggerTestCases = [
-      { trigger: "immediate_duel_challenge" as const, pref: "immediateDuelChallengeEnabled" as const },
-      { trigger: "scheduled_duel_proposal" as const, pref: "scheduledDuelProposalEnabled" as const },
-      { trigger: "scheduled_duel_reminder" as const, pref: "scheduledDuelReminderEnabled" as const },
+      { trigger: "immediate_challenge_invite" as const, pref: "challengeInviteEmailEnabled" as const },
       { trigger: "weekly_goal_invite" as const, pref: "weeklyGoalInviteEnabled" as const },
       { trigger: "weekly_goal_locked" as const, pref: "weeklyGoalLockedEnabled" as const },
       { trigger: "weekly_goal_accepted" as const, pref: "weeklyGoalAcceptedEnabled" as const },
@@ -145,46 +126,6 @@ describe("notificationPreferences", () => {
           weeklyGoalGracePeriodReminderEnabled: false,
         })
       ).toBe(false);
-    });
-  });
-
-  describe("shouldSendScheduledDuelReminder", () => {
-    const MINUTE = 60 * 1000;
-
-    it("returns true when within reminder window", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now + 10 * MINUTE, status: "accepted" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(true);
-    });
-
-    it("returns true when a cron is delayed by the 10 minute window", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now + 6 * MINUTE, status: "accepted" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(true);
-    });
-
-    it("returns false when too early for reminder", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now + 60 * MINUTE, status: "accepted" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(false);
-    });
-
-    it("returns false when duel already started", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now + 10 * MINUTE, status: "accepted", startedDuelId: "123" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(false);
-    });
-
-    it("returns false when duel is declined", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now + 10 * MINUTE, status: "declined" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(false);
-    });
-
-    it("returns false when past scheduled time", () => {
-      const now = Date.now();
-      const duel = { scheduledTime: now - 5 * MINUTE, status: "accepted" };
-      expect(shouldSendScheduledDuelReminder(duel, now, 15)).toBe(false);
     });
   });
 

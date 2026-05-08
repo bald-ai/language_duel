@@ -53,23 +53,23 @@ const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: stri
 };
 
 /**
- * Solo Challenge Page - Controller component
+ * Solo Practice Page - Controller component
  * Orchestrates the solo learning experience by connecting:
  * - Theme data from Convex
  * - Session state from useSoloSession hook
  * - Level input components
  */
-export default function SoloChallengePage() {
+export default function SoloPracticePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const themeId = searchParams.get("themeId");
   const themeIdsParam = searchParams.get("themeIds");
-  const challengeId = searchParams.get("challengeId");
+  const soloPracticeSessionId = searchParams.get("soloPracticeSessionId");
   const weeklyGoalId = searchParams.get("weeklyGoalId");
   const confidenceParam = searchParams.get("confidence");
   const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
   const returnLabel = searchParams.get("returnLabel") || "Back to Home";
-  const completeSpacedRepetitionSolo = useMutation(api.weeklyGoalRepetitions.completeSolo);
+  const completeSpacedRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.completeRepetitionSoloPractice);
   const spacedRepetitionReportStatusRef = useRef<"idle" | "pending" | "done">("idle");
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
@@ -102,18 +102,18 @@ export default function SoloChallengePage() {
 
   const practiceSession = useQuery(
     api.weeklyGoals.getBossPracticeSession,
-    challengeId ? { challengeId: challengeId as Id<"challenges"> } : "skip"
+    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
   );
   const weeklyGoalPractice = useQuery(
     api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    !challengeId && weeklyGoalId
+    !soloPracticeSessionId && weeklyGoalId
       ? {
           weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
           themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
         }
       : "skip"
   );
-  const allThemes = useQuery(api.themes.getThemes, challengeId || weeklyGoalId ? "skip" : {});
+  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
   const selectedThemes = useMemo(() => {
     if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
     if (!allThemes) return [];
@@ -133,7 +133,7 @@ export default function SoloChallengePage() {
     [practiceSession?.themeSummary, selectedThemes]
   );
   const spacedRepetitionStep =
-    practiceSession?.weeklyGoalChallengeType === "spaced_repetition" &&
+    practiceSession?.sourceType === "spaced_repetition" &&
     typeof practiceSession.spacedRepetitionStep === "number"
     ? practiceSession.spacedRepetitionStep
     : null;
@@ -176,7 +176,7 @@ export default function SoloChallengePage() {
 
   useEffect(() => {
     if (
-      !challengeId ||
+      !soloPracticeSessionId ||
       spacedRepetitionStep === null ||
       !session.completed ||
       spacedRepetitionReportStatusRef.current !== "idle"
@@ -185,8 +185,8 @@ export default function SoloChallengePage() {
     }
 
     spacedRepetitionReportStatusRef.current = "pending";
-    void completeSpacedRepetitionSolo({
-      challengeId: challengeId as Id<"challenges">,
+    void completeSpacedRepetitionSoloPractice({
+      soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
       completedStep: spacedRepetitionStep,
     })
       .then(() => {
@@ -196,14 +196,14 @@ export default function SoloChallengePage() {
         spacedRepetitionReportStatusRef.current = "idle";
       });
   }, [
-    challengeId,
-    completeSpacedRepetitionSolo,
+    soloPracticeSessionId,
+    completeSpacedRepetitionSoloPractice,
     session.completed,
     spacedRepetitionStep,
   ]);
 
   // Loading states
-  if (!challengeId && !weeklyGoalId && requestedThemeIds.length === 0) {
+  if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -226,7 +226,7 @@ export default function SoloChallengePage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
-              data-testid="solo-challenge-back-home"
+              data-testid="solo-practice-back-home"
             >
               {returnLabel}
             </button>
@@ -243,9 +243,9 @@ export default function SoloChallengePage() {
   }
 
   if (
-    (challengeId && practiceSession === undefined) ||
-    (!challengeId && weeklyGoalId && weeklyGoalPractice === undefined) ||
-    (!challengeId && !weeklyGoalId && allThemes === undefined)
+    (soloPracticeSessionId && practiceSession === undefined) ||
+    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === undefined) ||
+    (!soloPracticeSessionId && !weeklyGoalId && allThemes === undefined)
   ) {
     return (
       <ThemedPage>
@@ -259,7 +259,7 @@ export default function SoloChallengePage() {
               style={{ borderColor: colors.cta.light }}
             />
             <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
-              Loading challenge...
+              Loading practice...
             </p>
           </div>
         </div>
@@ -273,7 +273,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if ((challengeId && practiceSession === null) || (!challengeId && weeklyGoalId && weeklyGoalPractice === null)) {
+  if ((soloPracticeSessionId && practiceSession === null) || (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === null)) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -305,7 +305,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (!challengeId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
+  if (!soloPracticeSessionId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -328,7 +328,7 @@ export default function SoloChallengePage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
-              data-testid="solo-challenge-back-home"
+              data-testid="solo-practice-back-home"
             >
               {returnLabel}
             </button>
@@ -338,7 +338,7 @@ export default function SoloChallengePage() {
     );
   }
 
-  if (!challengeId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
+  if (!soloPracticeSessionId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -361,7 +361,7 @@ export default function SoloChallengePage() {
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
-              data-testid="solo-challenge-back-home"
+              data-testid="solo-practice-back-home"
             >
               {returnLabel}
             </button>
@@ -431,7 +431,7 @@ export default function SoloChallengePage() {
         </span>{" "}
         <span
           className="title-text-outline-accent"
-          data-text="Challenge"
+          data-text="Practice"
           style={{
             background: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`,
             WebkitBackgroundClip: "text",
@@ -439,7 +439,7 @@ export default function SoloChallengePage() {
             backgroundClip: "text",
           }}
         >
-          Challenge
+          Practice
         </span>
       </h1>
 
@@ -502,7 +502,7 @@ export default function SoloChallengePage() {
             color: "#FFFFFF",
             textShadow: "0 2px 4px rgba(0,0,0,0.3)",
           }}
-          data-testid="solo-challenge-exit"
+          data-testid="solo-practice-exit"
         >
           Exit
         </button>
@@ -628,7 +628,7 @@ export default function SoloChallengePage() {
                 answer={currentWord.answer}
                 onGotIt={handleLevel0GotIt}
                 onNotYet={handleLevel0NotYet}
-                dataTestIdBase="solo-challenge-level0"
+                dataTestIdBase="solo-practice-level0"
               />
               </>
             )}
@@ -640,7 +640,7 @@ export default function SoloChallengePage() {
                 onCorrect={handleCorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
-                dataTestIdBase="solo-challenge-level1"
+                dataTestIdBase="solo-practice-level1"
               />
             )}
 
@@ -652,7 +652,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
-                dataTestIdBase="solo-challenge-level1-reverse"
+                dataTestIdBase="solo-practice-level1-reverse"
               />
             )}
 
@@ -664,7 +664,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
-                dataTestIdBase="solo-challenge-level2-typing"
+                dataTestIdBase="solo-practice-level2-typing"
               />
             )}
 
@@ -677,7 +677,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
-                dataTestIdBase="solo-challenge-level2-mc"
+                dataTestIdBase="solo-practice-level2-mc"
               />
             )}
 
@@ -689,7 +689,7 @@ export default function SoloChallengePage() {
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
-                dataTestIdBase="solo-challenge-level3"
+                dataTestIdBase="solo-practice-level3"
               />
             )}
           </>

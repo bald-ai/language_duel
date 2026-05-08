@@ -34,7 +34,6 @@ export const deleteUserFully = internalMutation({
             challenges: 0,
             weeklyGoals: 0,
             notifications: 0,
-            scheduledDuels: 0,
         };
 
         // 1. Delete themes owned by this user
@@ -142,26 +141,7 @@ export const deleteUserFully = internalMutation({
             deletionReport.notifications++;
         }
 
-        // 7. Delete scheduled duels (as proposer or recipient)
-        const scheduledAsProposer = await ctx.db
-            .query("scheduledDuels")
-            .withIndex("by_proposer", (q) => q.eq("proposerId", userId))
-            .collect();
-        for (const sd of scheduledAsProposer) {
-            await ctx.db.delete(sd._id);
-            deletionReport.scheduledDuels++;
-        }
-
-        const scheduledAsRecipient = await ctx.db
-            .query("scheduledDuels")
-            .filter((q) => q.eq(q.field("recipientId"), userId))
-            .collect();
-        for (const sd of scheduledAsRecipient) {
-            await ctx.db.delete(sd._id);
-            deletionReport.scheduledDuels++;
-        }
-
-        // 8. Finally, delete the user
+        // 7. Finally, delete the user
         await ctx.db.delete(userId);
         deletionReport.user = 1;
 

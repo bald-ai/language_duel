@@ -10,7 +10,7 @@ interface FinalResultsPanelProps {
   myScore: number;
   theirScore: number;
   onBackToHome: () => void;
-  // Optional duration display (for classic duel)
+  // Optional duration display (for duel)
   duelDuration?: number;
   dataTestIdBack?: string;
   bossType?: BossType;

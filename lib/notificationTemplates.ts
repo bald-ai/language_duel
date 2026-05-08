@@ -65,12 +65,8 @@ export function getSubjectForTrigger(
 ): string {
   const sender = data.senderName ?? "Someone mysterious";
   switch (trigger) {
-    case "immediate_duel_challenge":
+    case "immediate_challenge_invite":
       return `${sender} just threw down the gauntlet!`;
-    case "scheduled_duel_proposal":
-      return `${sender} wants to duel -- you in?`;
-    case "scheduled_duel_reminder":
-      return `${data.minutesBefore ?? 0} min until showdown!`;
     case "weekly_goal_invite":
       return `${sender} dares you to a weekly goal`;
     case "weekly_goal_locked":
@@ -104,22 +100,10 @@ export function getBodyForTrigger(
   const partner = data.partnerName ?? "your rival";
 
   switch (trigger) {
-    case "immediate_duel_challenge":
+    case "immediate_challenge_invite":
       return {
         heading: `${sender} is calling you out!`,
         body: `Think you know <strong>${theme}</strong>? ${sender} doesn't think so. They just challenged you to a duel and the clock is ticking. Don't leave them hanging!`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_proposal":
-      return {
-        heading: `A duel has been proposed`,
-        body: `${sender} wants to battle you on <strong>${theme}</strong> at <strong>${time}</strong>. You can accept, decline, or counter with a time that works better for you. Ball's in your court.`,
-        cta: "Open Language Duel",
-      };
-    case "scheduled_duel_reminder":
-      return {
-        heading: `Showtime is almost here!`,
-        body: `Your duel with ${partner} on <strong>${theme}</strong> kicks off at <strong>${time}</strong>. That's just <strong>${data.minutesBefore ?? 0} minutes</strong> from now. Get in there!`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_invite":

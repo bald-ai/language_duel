@@ -1,5 +1,5 @@
 /**
- * Time utilities for scheduled duels
+ * Time utilities for display and reminder deadlines.
  */
 
 export interface TimeSlot {

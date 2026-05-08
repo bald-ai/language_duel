@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  getChallengeSessionWords,
+  getSessionWords,
   summarizeSessionWords,
   getThemeIdsFromSessionWords,
 } from "@/convex/helpers/sessionWords";
@@ -15,22 +15,22 @@ const sampleWords: SessionWordEntry[] = [
   { word: "dog", answer: "perro", wrongAnswers: ["gato"], themeId: themeId("t1"), themeName: "Animals" },
 ];
 
-describe("getChallengeSessionWords", () => {
+describe("getSessionWords", () => {
   it("returns sessionWords when present", () => {
-    const result = getChallengeSessionWords({ sessionWords: sampleWords });
+    const result = getSessionWords({ sessionWords: sampleWords });
     expect(result).toEqual(sampleWords);
   });
 
   it("throws when sessionWords is empty", () => {
-    expect(() => getChallengeSessionWords({ sessionWords: [] })).toThrow(
-      "Challenge is missing sessionWords"
+    expect(() => getSessionWords({ sessionWords: [] })).toThrow(
+      "Session is missing words"
     );
   });
 
   it("throws when sessionWords is undefined", () => {
     expect(() =>
-      getChallengeSessionWords({ sessionWords: undefined } as never)
-    ).toThrow("Challenge is missing sessionWords");
+      getSessionWords({ sessionWords: undefined } as never)
+    ).toThrow("Session is missing words");
   });
 });
 

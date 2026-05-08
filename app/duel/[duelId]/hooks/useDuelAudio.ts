@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useTTS } from "@/app/game/hooks/useTTS";
 
-export function useClassicDuelAudio() {
+export function useDuelAudio() {
   const { isPlaying, playTTS } = useTTS();
 
   const playAudio = useCallback(

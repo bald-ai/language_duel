@@ -19,7 +19,7 @@ interface SabotageSystemUIProps {
 
 /**
  * SabotageSystemUI component displays the sabotage controls.
- * It is extracted from the main ClassicDuelChallenge to adhere to the "Skinny Page" rule.
+ * It is extracted from the main DuelSession to adhere to the "Skinny Page" rule.
  * 
  * Principle: No magic numbers in component code. (Uses MAX_SABOTAGES from constants)
  * Principle: Co-locate feature-specific components.

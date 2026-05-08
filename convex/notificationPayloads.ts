@@ -9,13 +9,9 @@ export type WeeklyPlanPayload = Extract<
   NotificationPayload,
   { goalId: Id<"weeklyGoals"> }
 >;
-export type DuelChallengePayload = Extract<
+export type ChallengeInvitePayload = Extract<
   NotificationPayload,
   { challengeId: Id<"challenges"> }
->;
-export type ScheduledDuelPayload = Extract<
-  NotificationPayload,
-  { scheduledDuelId: Id<"scheduledDuels"> }
 >;
 
 export const isFriendRequestPayload = (
@@ -26,10 +22,6 @@ export const isWeeklyPlanPayload = (
   payload?: NotificationPayload
 ): payload is WeeklyPlanPayload => !!payload && "goalId" in payload;
 
-export const isDuelChallengePayload = (
+export const isChallengeInvitePayload = (
   payload?: NotificationPayload
-): payload is DuelChallengePayload => !!payload && "challengeId" in payload;
-
-export const isScheduledDuelPayload = (
-  payload?: NotificationPayload
-): payload is ScheduledDuelPayload => !!payload && "scheduledDuelId" in payload;
+): payload is ChallengeInvitePayload => !!payload && "challengeId" in payload;

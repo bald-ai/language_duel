@@ -15,7 +15,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - No `any` in app code; avoid `@ts-ignore` unless documented. Generated code is the exception.
 - Stable UI selectors for key controls (`data-testid`/IDs).
 - No new dependencies or tooling changes without approval.
-- File size guideline: aim to keep files under ~700 LOC; split/refactor when it improves clarity or testability. Exceptions: convex/scheduledDuels.ts, convex/weeklyGoals.ts, app/themes/hooks/useThemesController.ts.
+- File size guideline: aim to keep files under ~700 LOC; split/refactor when it improves clarity or testability. Exceptions: convex/weeklyGoals.ts, app/themes/hooks/useThemesController.ts.
 
 ## Testing
 - Coverage bar: Thresholds at 70% for lines/branches/functions/statements.

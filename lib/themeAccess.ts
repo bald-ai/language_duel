@@ -12,11 +12,15 @@ export type ChallengeAccessData = {
     themeIds: Id<"themes">[];
 };
 
-export type ScheduledDuelAccessData = {
-    proposerId: Id<"users">;
-    recipientId: Id<"users">;
+export type DuelAccessData = {
+    challengerId: Id<"users">;
+    opponentId: Id<"users">;
     themeIds: Id<"themes">[];
-    status: "pending" | "accepted" | "counter_proposed" | "declined" | "cancelled" | "expired";
+};
+
+export type SoloPracticeAccessData = {
+    userId: Id<"users">;
+    themeIds: Id<"themes">[];
 };
 
 export type WeeklyGoalAccessData = {
@@ -35,16 +39,16 @@ export type ThemeAccessParams = {
     userId: Id<"users">;
     theme: ThemeAccessData;
     challenges: ChallengeAccessData[];
-    scheduledDuels: ScheduledDuelAccessData[];
+    duels: DuelAccessData[];
+    soloPracticeSessions: SoloPracticeAccessData[];
     weeklyGoals: WeeklyGoalAccessData[];
     friendships: FriendshipData[];
 };
 
-const ACTIVE_SCHEDULED_DUEL_STATUSES = ["pending", "accepted", "counter_proposed"] as const;
 const WEEKLY_GOAL_ACCESS_STATUSES = ["draft"] as const;
 
 export function hasThemeAccess(params: ThemeAccessParams): boolean {
-    const { userId, theme, challenges, scheduledDuels, weeklyGoals, friendships } = params;
+    const { userId, theme, challenges, duels, soloPracticeSessions, weeklyGoals, friendships } = params;
 
     if (isOwner(userId, theme)) {
         return true;
@@ -54,7 +58,11 @@ export function hasThemeAccess(params: ThemeAccessParams): boolean {
         return true;
     }
 
-    if (hasAccessViaScheduledDuel(userId, theme.themeId, scheduledDuels)) {
+    if (hasAccessViaDuel(userId, theme.themeId, duels)) {
+        return true;
+    }
+
+    if (hasAccessViaSoloPractice(userId, theme.themeId, soloPracticeSessions)) {
         return true;
     }
 
@@ -67,6 +75,28 @@ export function hasThemeAccess(params: ThemeAccessParams): boolean {
     }
 
     return false;
+}
+
+function hasAccessViaDuel(
+    userId: Id<"users">,
+    themeId: Id<"themes">,
+    duels: DuelAccessData[]
+): boolean {
+    return duels.some(
+        (duel) =>
+            duel.themeIds.includes(themeId) &&
+            (duel.challengerId === userId || duel.opponentId === userId)
+    );
+}
+
+function hasAccessViaSoloPractice(
+    userId: Id<"users">,
+    themeId: Id<"themes">,
+    soloPracticeSessions: SoloPracticeAccessData[]
+): boolean {
+    return soloPracticeSessions.some(
+        (session) => session.userId === userId && session.themeIds.includes(themeId)
+    );
 }
 
 function isOwner(userId: Id<"users">, theme: ThemeAccessData): boolean {
@@ -82,19 +112,6 @@ function hasAccessViaChallenge(
         (c) =>
             c.themeIds.includes(themeId) &&
             (c.challengerId === userId || c.opponentId === userId)
-    );
-}
-
-function hasAccessViaScheduledDuel(
-    userId: Id<"users">,
-    themeId: Id<"themes">,
-    scheduledDuels: ScheduledDuelAccessData[]
-): boolean {
-    return scheduledDuels.some(
-        (sd) =>
-            sd.themeIds.includes(themeId) &&
-            ACTIVE_SCHEDULED_DUEL_STATUSES.includes(sd.status as typeof ACTIVE_SCHEDULED_DUEL_STATUSES[number]) &&
-            (sd.proposerId === userId || sd.recipientId === userId)
     );
 }
 

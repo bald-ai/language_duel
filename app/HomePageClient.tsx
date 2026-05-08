@@ -5,11 +5,11 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSyncUser } from "@/hooks/useSyncUser";
-import { useDuelLobby } from "@/hooks/useDuelLobby";
+import { useChallengeLobby } from "@/hooks/useChallengeLobby";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
-import { buildClassicQuestionSnapshot } from "@/lib/answerShuffle";
+import { buildDuelQuestionSnapshot } from "@/lib/answerShuffle";
 import type { WordEntry } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -343,13 +343,13 @@ const MockFeaturesIcon = () => (
   </svg>
 );
 
-const UnifiedDuelModal = dynamic(
+const ChallengeModal = dynamic(
   () =>
-    import("@/app/components/modals/UnifiedDuelModal").then((mod) => mod.UnifiedDuelModal),
+    import("@/app/components/modals/ChallengeModal").then((mod) => mod.ChallengeModal),
   { loading: () => null }
 );
-const SoloModal = dynamic(
-  () => import("@/app/components/modals/SoloModal").then((mod) => mod.SoloModal),
+const SoloPracticeModal = dynamic(
+  () => import("@/app/components/modals/SoloPracticeModal").then((mod) => mod.SoloPracticeModal),
   { loading: () => null }
 );
 const WaitingModal = dynamic(
@@ -408,9 +408,9 @@ export default function Home() {
     [isSignedIn]
   );
   const searchParams = useSearchParams();
-  const lobby = useDuelLobby();
+  const lobby = useChallengeLobby();
   const handledSoloDeepLinkRef = useRef<string | null>(null);
-  const { openSoloModal } = lobby;
+  const { openSoloPracticeModal } = lobby;
 
   const openSoloParam = searchParams.get("openSolo");
   const themeIdParam = searchParams.get("themeId");
@@ -430,8 +430,8 @@ export default function Home() {
     [openSoloParam, themeIdParam, themeIdsParam]
   );
   const soloInitialMode =
-    openSoloParam === "true" && soloModeParam === "challenge_only"
-      ? "challenge_only"
+    openSoloParam === "true" && soloModeParam === "practice_only"
+      ? "practice_only"
       : undefined;
   const soloDeepLinkKey =
     openSoloParam === "true"
@@ -450,7 +450,7 @@ export default function Home() {
       return null;
     }
 
-    return buildClassicQuestionSnapshot(
+    return buildDuelQuestionSnapshot(
       speedModeExercise,
       speedModeSession.currentCardIndex,
       { level: "easy", wrongCount: 3 }
@@ -672,7 +672,7 @@ export default function Home() {
         return currentSession;
       }
 
-      const question = buildClassicQuestionSnapshot(
+      const question = buildDuelQuestionSnapshot(
         SPEED_MODE_EXERCISES[currentSession.currentCardIndex],
         currentSession.currentCardIndex,
         { level: "easy", wrongCount: 3 }
@@ -850,11 +850,11 @@ export default function Home() {
     }
 
     handledSoloDeepLinkRef.current = soloDeepLinkKey;
-    openSoloModal();
-  }, [soloThemeIds, soloDeepLinkKey, openSoloModal]);
+    openSoloPracticeModal();
+  }, [soloThemeIds, soloDeepLinkKey, openSoloPracticeModal]);
 
-  const handleCloseSoloModal = () => {
-    lobby.closeSoloModal();
+  const handleCloseSoloPracticeModal = () => {
+    lobby.closeSoloPracticeModal();
   };
 
   const renderSentenceCompletion = () => (
@@ -1595,14 +1595,14 @@ export default function Home() {
               ) : (
                 <>
                   <div className="animate-slide-up delay-300">
-                    <MenuButton onClick={() => guardAuth(lobby.openSoloModal)} dataTestId="home-solo-challenge">
+                    <MenuButton onClick={() => guardAuth(lobby.openSoloPracticeModal)} dataTestId="home-solo-practice">
                       <SoloIcon />
-                      Solo Challenge
+                      Solo Practice
                     </MenuButton>
                   </div>
 
                   <div className="animate-slide-up delay-400">
-                    <MenuButton onClick={() => guardAuth(lobby.openUnifiedDuelModal)} dataTestId="home-duel">
+                    <MenuButton onClick={() => guardAuth(lobby.openChallengeModal)} dataTestId="home-duel">
                       <DuelIcon />
                       Duel
                     </MenuButton>
@@ -1852,35 +1852,26 @@ export default function Home() {
         renderSentencePrototypeShell(renderRebuildSentencePanel(), "Rebuild Sentence", "rebuild_sentence")
       )}
 
-      {lobby.showUnifiedDuelModal && (
-        <UnifiedDuelModal
+      {lobby.showChallengeModal && (
+        <ChallengeModal
           users={lobby.users}
           themes={lobby.themes}
-          pendingDuels={[
-            ...(lobby.pendingClassicDuels?.map((duel) => ({
-              ...duel,
-              challenge: { ...duel.challenge, mode: "classic" as const },
-            })) || []),
-            ...(lobby.pendingSoloStyleDuels?.map((duel) => ({
-              ...duel,
-              challenge: { ...duel.challenge, mode: "solo" as const },
-            })) || []),
-          ]}
+          pendingChallenges={lobby.pendingChallenges}
           isJoiningDuel={lobby.isJoiningDuel}
-          isCreatingDuel={lobby.isCreatingDuel}
-          onAcceptDuel={lobby.handleAcceptDuel}
-          onRejectDuel={lobby.handleRejectDuel}
-          onCreateDuel={lobby.handleCreateDuel}
-          onClose={lobby.closeUnifiedDuelModal}
+          isCreatingChallenge={lobby.isCreatingChallenge}
+          onAcceptChallenge={lobby.handleAcceptChallenge}
+          onDeclineChallenge={lobby.handleDeclineChallenge}
+          onCreateChallenge={lobby.handleCreateChallenge}
+          onClose={lobby.closeChallengeModal}
           onNavigateToThemes={lobby.navigateToThemes}
         />
       )}
 
-      {lobby.showSoloModal && (
-        <SoloModal
+      {lobby.showSoloPracticeModal && (
+        <SoloPracticeModal
           themes={lobby.themes}
-          onContinue={lobby.handleContinueSolo}
-          onClose={handleCloseSoloModal}
+          onContinue={lobby.handleContinueSoloPractice}
+          onClose={handleCloseSoloPracticeModal}
           onNavigateToThemes={lobby.navigateToThemes}
           initialThemeIds={soloThemeIds}
           initialMode={soloInitialMode}
@@ -1889,7 +1880,7 @@ export default function Home() {
 
       {lobby.showWaitingModal && (
         <WaitingModal
-          isCancelling={lobby.isCancellingDuel}
+          isCancelling={lobby.isCancellingChallenge}
           onCancel={lobby.handleCancelWaiting}
         />
       )}

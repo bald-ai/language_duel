@@ -1,11 +1,6 @@
 export type NotificationPreferences = {
-  immediateDuelsEnabled: boolean;
-  immediateDuelChallengeEnabled: boolean;
-
-  scheduledDuelsEnabled: boolean;
-  scheduledDuelProposalEnabled: boolean;
-  scheduledDuelReminderEnabled: boolean;
-  scheduledDuelReminderOffsetMinutes: number;
+  challengeInvitesEnabled: boolean;
+  challengeInviteEmailEnabled: boolean;
 
   weeklyGoalsEnabled: boolean;
   weeklyGoalInviteEnabled: boolean;
@@ -21,13 +16,8 @@ export type NotificationPreferences = {
 };
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
-  immediateDuelsEnabled: true,
-  immediateDuelChallengeEnabled: true,
-
-  scheduledDuelsEnabled: true,
-  scheduledDuelProposalEnabled: true,
-  scheduledDuelReminderEnabled: true,
-  scheduledDuelReminderOffsetMinutes: 15,
+  challengeInvitesEnabled: true,
+  challengeInviteEmailEnabled: true,
 
   weeklyGoalsEnabled: true,
   weeklyGoalInviteEnabled: true,

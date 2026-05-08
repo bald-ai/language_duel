@@ -4,9 +4,6 @@ import {
   isDismissedNotificationPastRetention,
   isEmailLogPastRetention,
   isResolvedFriendRequestPastRetention,
-  isStartedScheduledDuelPastRetention,
-  isTerminalScheduledDuelPastRetention,
-  isTerminalScheduledDuelStatus,
   isTimestampPastRetention,
 } from "@/lib/cleanupRetention";
 
@@ -17,11 +14,10 @@ describe("cleanupRetention", () => {
         "friend_request",
         "weekly_plan_invitation",
         "weekly_goal_draft_expiring",
-        "scheduled_duel",
-        "duel_challenge",
+        "challenge_invite",
       ])
     );
-    expect(DISMISSABLE_NOTIFICATION_TYPES.length).toBeGreaterThanOrEqual(5);
+    expect(DISMISSABLE_NOTIFICATION_TYPES.length).toBeGreaterThanOrEqual(4);
   });
 
   it("treats timestamps at the TTL boundary as expired", () => {
@@ -75,53 +71,4 @@ describe("cleanupRetention", () => {
     ).toBe(true);
   });
 
-  it("recognizes terminal scheduled duel statuses", () => {
-    expect(isTerminalScheduledDuelStatus("declined")).toBe(true);
-    expect(isTerminalScheduledDuelStatus("cancelled")).toBe(true);
-    expect(isTerminalScheduledDuelStatus("expired")).toBe(true);
-    expect(isTerminalScheduledDuelStatus("accepted")).toBe(false);
-  });
-
-  it("expires terminal scheduled duels based on updatedAt", () => {
-    expect(
-      isTerminalScheduledDuelPastRetention(
-        { status: "expired", updatedAt: 1_000 },
-        15 * 24 * 60 * 60 * 1000,
-        14 * 24 * 60 * 60 * 1000
-      )
-    ).toBe(true);
-
-    expect(
-      isTerminalScheduledDuelPastRetention(
-        { status: "accepted", updatedAt: 1_000 },
-        15 * 24 * 60 * 60 * 1000,
-        14 * 24 * 60 * 60 * 1000
-      )
-    ).toBe(false);
-  });
-
-  it("expires started scheduled duels only after they have a started duel id", () => {
-    expect(
-      isStartedScheduledDuelPastRetention(
-        {
-          status: "accepted",
-          startedDuelId: "challenge_1",
-          updatedAt: 1_000,
-        },
-        15 * 24 * 60 * 60 * 1000,
-        14 * 24 * 60 * 60 * 1000
-      )
-    ).toBe(true);
-
-    expect(
-      isStartedScheduledDuelPastRetention(
-        {
-          status: "accepted",
-          updatedAt: 1_000,
-        },
-        15 * 24 * 60 * 60 * 1000,
-        14 * 24 * 60 * 60 * 1000
-      )
-    ).toBe(false);
-  });
 });
