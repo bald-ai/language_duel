@@ -3,7 +3,7 @@
 import { useState, memo } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
-import { DUEL_DIFFICULTY_OPTIONS } from "@/lib/lobbyConstants";
+import { DUEL_DIFFICULTY_OPTIONS } from "./challengeOptions";
 import { ModalShell } from "./ModalShell";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";

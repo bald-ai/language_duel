@@ -10,7 +10,7 @@ import {
   getSoloLearnTimerLabel,
   isSoloStudyTimerInfinite,
   shouldShowSoloLearnTimer,
-} from "@/lib/soloLearnTimer";
+} from "@/app/solo/learn/soloLearnTimer";
 import { stripIrr } from "@/lib/stringUtils";
 import { WordCard } from "./components/WordCard";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";

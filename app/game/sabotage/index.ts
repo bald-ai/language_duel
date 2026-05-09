@@ -1,7 +1,7 @@
 // Re-export lib types and constants for convenience
 export type { SabotageEffect, SabotagePhase } from "@/lib/sabotage/types";
 export { SABOTAGE_DURATION_MS, MAX_SABOTAGES } from "@/lib/sabotage/constants";
-export { SABOTAGE_OPTIONS } from "@/lib/sabotage/options";
+export { SABOTAGE_OPTIONS } from "./options";
 export {
   BUTTON_WIDTH,
   BUTTON_HEIGHT,

@@ -115,11 +115,6 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleSoloPractice = (themeId: Id<"themes">) => {
-        onClose();
-        router.push(`/?openSolo=true&themeId=${themeId}&soloMode=practice_only`);
-    };
-
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -164,8 +159,6 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         onArchiveCompletedGoalThemes={() => handleArchiveCompletedGoalThemes(notification._id)}
                         onDeclineWeeklyPlan={() => handleDeclineWeeklyPlanInvitation(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
-                        // Theme quick actions
-                        onSoloPractice={handleSoloPractice}
                     />
                 );
             })}

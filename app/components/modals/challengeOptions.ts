@@ -1,10 +1,6 @@
-/**
- * Constants for the home page / lobby.
- */
+import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
 
-import type { DuelDifficultyPreset } from "./difficultyUtils";
-
-export interface DuelDifficultyOption {
+interface DuelDifficultyOption {
   preset: DuelDifficultyPreset;
   label: string;
   description: string;

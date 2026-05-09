@@ -28,7 +28,7 @@ import {
   formatBossStatus,
   getBossButtonStyle,
   isBossButtonDisabled,
-} from "@/lib/bossUi";
+} from "./bossUi";
 import { useCountdown } from "@/app/notifications/hooks/useCountdown";
 import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
 

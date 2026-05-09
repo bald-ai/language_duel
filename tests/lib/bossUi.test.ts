@@ -4,7 +4,7 @@ import {
   formatBossStatus,
   getBossButtonStyle,
   isBossButtonDisabled,
-} from "@/lib/bossUi";
+} from "@/app/goals/bossUi";
 import { colors } from "@/lib/theme";
 
 describe("bossUi", () => {

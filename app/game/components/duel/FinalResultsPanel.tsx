@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDuration } from "@/lib/stringUtils";
+import { formatDuration } from "@/app/utils/displayFormat";
 import { colors } from "@/lib/theme";
 import { formatBossTrophy, getBossTrophy, type BossType } from "@/lib/bossLives";
 

@@ -1355,7 +1355,9 @@ export const lockGoal = mutation({
       throw new Error("You already locked this goal");
 
     if (goal.themes.length < MIN_THEMES_PER_GOAL) {
-      throw new Error(`Add at least ${MIN_THEMES_PER_GOAL} themes before locking`);
+      const minThemesRequired: number = MIN_THEMES_PER_GOAL;
+      const themeLabel = minThemesRequired === 1 ? "theme" : "themes";
+      throw new Error(`Add at least ${minThemesRequired} ${themeLabel} before locking`);
     }
 
     if (typeof goal.endDate !== "number") {

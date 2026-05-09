@@ -1,5 +1,5 @@
-import { colors } from "./theme";
-import type { WeeklyGoalBossStatus } from "./weeklyGoals";
+import { colors } from "@/lib/theme";
+import type { WeeklyGoalBossStatus } from "@/lib/weeklyGoals";
 
 export function formatBossStatus(status: WeeklyGoalBossStatus): string {
   switch (status) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDuration } from "@/lib/stringUtils";
+import { formatDuration } from "@/app/utils/displayFormat";
 import { calculateAccuracy } from "@/lib/scoring";
 import { ACCURACY_THRESHOLDS } from "../constants";
 import { buttonStyles, colors } from "@/lib/theme";

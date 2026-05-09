@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import { colors } from "@/lib/theme";
-import { BACKGROUND_OPTIONS } from "@/lib/preferences/backgrounds";
+import type { BackgroundFilename } from "@/lib/preferences/backgrounds";
+
+const BACKGROUND_OPTIONS: ReadonlyArray<{
+  filename: BackgroundFilename;
+  label: string;
+}> = [
+  { filename: "background.jpg", label: "Castle Lights" },
+  { filename: "background_2.jpg", label: "Mystic Forest" },
+];
 
 type BackgroundSelectorProps = {
   selectedBackground: string | null;

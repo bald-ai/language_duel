@@ -3,7 +3,6 @@
 import { colors } from "@/lib/theme";
 import { getRelativeTime } from "@/lib/timeUtils";
 import { NOTIFICATION_TYPES } from "../constants";
-import { ThemeNameDropdown } from "./ThemeNameDropdown";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface NotificationData {
@@ -18,7 +17,6 @@ interface NotificationData {
         challengeId?: Id<"challenges">;
         goalId?: Id<"weeklyGoals">;
         friendRequestId?: Id<"friendRequests">;
-        themeId?: Id<"themes">;
         themeName?: string;
         themeCount?: number;
         event?:
@@ -45,8 +43,6 @@ interface NotificationItemProps {
     onDismissWeeklyPlan: () => void;
     onArchiveCompletedGoalThemes: () => void;
     onDismiss: () => void;
-    // Theme quick actions
-    onSoloPractice?: (themeId: Id<"themes">) => void;
 }
 
 /**
@@ -69,27 +65,12 @@ export function NotificationItem({
     onDismissWeeklyPlan,
     onArchiveCompletedGoalThemes,
     onDismiss,
-    onSoloPractice,
 }: NotificationItemProps) {
     const { type, fromUser, payload, createdAt } = notification;
-
-    const renderThemeName = (themeName: string, themeId?: Id<"themes">) => {
-        if (onSoloPractice && themeId) {
-            return (
-                <ThemeNameDropdown
-                    themeName={themeName}
-                    themeId={themeId}
-                    onSoloPractice={onSoloPractice}
-                />
-            );
-        }
-        return <span className="font-semibold">{themeName}</span>;
-    };
 
     const getNotificationContent = () => {
         const userName = fromUser?.nickname || 'Someone';
         const themeName = payload?.themeName || 'Theme';
-        const themeId = payload?.themeId;
 
         switch (type) {
             case NOTIFICATION_TYPES.FRIEND_REQUEST:
@@ -285,7 +266,11 @@ export function NotificationItem({
             case NOTIFICATION_TYPES.CHALLENGE_INVITE:
                 return {
                     icon: <SwordIcon />,
-                    message: <>{userName} challenged you: {renderThemeName(themeName, themeId)}</>,
+                    message: (
+                        <>
+                            {userName} challenged you: <span className="font-semibold">{themeName}</span>
+                        </>
+                    ),
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton

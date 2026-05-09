@@ -3,7 +3,6 @@ import {
   stripIrr,
   normalizeAccents,
   normalizeForComparison,
-  formatDuration,
 } from "@/lib/stringUtils";
 
 describe("stringUtils", () => {
@@ -28,11 +27,5 @@ describe("stringUtils", () => {
     expect(normalizeForComparison("EL cafe")).toBe("el cafe");
     expect(normalizeForComparison("ir(Irr)")).toBe("ir");
     expect(normalizeForComparison(" inglés ")).toBe("ingles");
-  });
-
-  it("formatDuration returns MM:SS or H:MM:SS", () => {
-    expect(formatDuration(59)).toBe("0:59");
-    expect(formatDuration(60)).toBe("1:00");
-    expect(formatDuration(3661)).toBe("1:01:01");
   });
 });

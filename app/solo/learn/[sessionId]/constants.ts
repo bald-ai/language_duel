@@ -6,7 +6,7 @@ import {
   DEFAULT_SOLO_STUDY_DURATION,
   SOLO_INFINITE_STUDY_SECONDS,
   SOLO_TIMER_OPTIONS,
-} from "@/lib/soloLearnTimer";
+} from "@/app/solo/learn/soloLearnTimer";
 
 export { SOLO_INFINITE_STUDY_SECONDS, SOLO_TIMER_OPTIONS };
 

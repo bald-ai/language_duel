@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { formatDuration } from "@/lib/stringUtils";
+import { formatDuration } from "@/app/utils/displayFormat";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 

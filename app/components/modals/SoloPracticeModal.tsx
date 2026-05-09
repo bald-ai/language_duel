@@ -11,7 +11,7 @@ import {
   SOLO_TIMER_OPTIONS,
   getSoloLearnTimerLabel,
   getSoloLearnTimerTestIdSuffix,
-} from "@/lib/soloLearnTimer";
+} from "@/app/solo/learn/soloLearnTimer";
 import {
   actionButtonClassName,
   ctaActionStyle,

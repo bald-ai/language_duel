@@ -42,7 +42,6 @@ const challengeNotification = {
   fromUser: { nickname: "Alex" },
   payload: {
     challengeId: "challenge_1",
-    themeId: "theme_1",
     themeName: "Test Theme",
   },
   createdAt: Date.now(),
@@ -178,20 +177,6 @@ describe("NotificationsTab theme actions", () => {
       expect(archiveCompletedGoalThemes).toHaveBeenCalledWith("notif_goal_completed");
     });
     expect(toastSuccessMock).toHaveBeenCalledWith("Themes already archived");
-  });
-
-  it("navigates to solo practice when selecting Solo Practice from a theme", () => {
-    const onClose = vi.fn();
-
-    render(<NotificationsTab onClose={onClose} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Test Theme" }));
-    fireEvent.click(screen.getByRole("button", { name: "Solo Practice" }));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
-    expect(pushMock).toHaveBeenCalledWith(
-      "/?openSolo=true&themeId=theme_1&soloMode=practice_only"
-    );
   });
 
   it("shows decline action for weekly goal invites and no view action for declined event", () => {

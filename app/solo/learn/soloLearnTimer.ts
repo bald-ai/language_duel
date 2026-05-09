@@ -1,4 +1,4 @@
-import { formatDuration } from "@/lib/stringUtils";
+import { formatDuration } from "@/app/utils/displayFormat";
 
 /**
  * "No time limit" solo learn study: seconds sentinel so a real session never
