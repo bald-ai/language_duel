@@ -1,9 +1,8 @@
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { loadUsersById } from "./helpers/users";
-import { isUserOnline } from "./users";
+import { isUserOnline, loadUsersById } from "./helpers/users";
 import { isFriendRequestPayload } from "./notificationPayloads";
 import { closeVisibleGoalsBetweenParticipants } from "./weeklyGoals";
 import {
@@ -39,6 +38,140 @@ export type SentRequestWithDetails = {
   imageUrl?: string;
   createdAt: number;
 };
+
+type FriendRequestAction = "accepted" | "rejected";
+
+export type RelationshipMap = {
+  friendIds: Set<string>;
+  pendingFriendRequestUserIds: Set<string>;
+};
+
+export async function getRelationshipMapForUser(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<RelationshipMap> {
+  const friends = await ctx.db
+    .query("friends")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const friendIds = new Set(friends.map((friendship) => friendship.friendId.toString()));
+
+  const sentRequests = await ctx.db
+    .query("friendRequests")
+    .withIndex("by_sender", (q) => q.eq("senderId", userId))
+    .collect();
+  const pendingSentIds = sentRequests
+    .filter((request) => request.status === "pending")
+    .map((request) => request.receiverId.toString());
+
+  const receivedRequests = await ctx.db
+    .query("friendRequests")
+    .withIndex("by_receiver", (q) => q.eq("receiverId", userId).eq("status", "pending"))
+    .collect();
+  const pendingReceivedIds = receivedRequests.map((request) => request.senderId.toString());
+
+  return {
+    friendIds,
+    pendingFriendRequestUserIds: new Set([...pendingSentIds, ...pendingReceivedIds]),
+  };
+}
+
+function requireFriendRequestId(payload: Doc<"notifications">["payload"]): Id<"friendRequests"> {
+  if (!isFriendRequestPayload(payload)) {
+    throw new Error("Friend request ID not found in notification");
+  }
+
+  return payload.friendRequestId;
+}
+
+async function dismissFriendRequestNotifications(
+  ctx: MutationCtx,
+  receiverId: Id<"users">,
+  friendRequestId: Id<"friendRequests">
+) {
+  const pendingNotifications = await ctx.db
+    .query("notifications")
+    .withIndex("by_type_status", (q) =>
+      q.eq("type", "friend_request").eq("toUserId", receiverId).eq("status", "pending")
+    )
+    .collect();
+
+  const readNotifications = await ctx.db
+    .query("notifications")
+    .withIndex("by_type_status", (q) =>
+      q.eq("type", "friend_request").eq("toUserId", receiverId).eq("status", "read")
+    )
+    .collect();
+
+  const notifications = [...pendingNotifications, ...readNotifications];
+
+  for (const notification of notifications) {
+    if (
+      isFriendRequestPayload(notification.payload) &&
+      notification.payload.friendRequestId === friendRequestId
+    ) {
+      await ctx.db.patch(notification._id, { status: "dismissed" });
+    }
+  }
+}
+
+async function resolvePendingFriendRequestForReceiver(
+  ctx: MutationCtx,
+  requestId: Id<"friendRequests">,
+  receiverId: Id<"users">,
+  action: FriendRequestAction
+) {
+  const request = await ctx.db.get(requestId);
+  if (!request) {
+    throw new Error("Friend request not found");
+  }
+
+  if (request.receiverId !== receiverId) {
+    throw new Error(`Cannot ${action === "accepted" ? "accept" : "reject"} this friend request`);
+  }
+
+  if (request.status !== "pending") {
+    throw new Error("Friend request is no longer pending");
+  }
+
+  await ctx.db.patch(requestId, { status: action });
+  await dismissFriendRequestNotifications(ctx, receiverId, requestId);
+
+  return request;
+}
+
+async function acceptFriendRequestCore(
+  ctx: MutationCtx,
+  requestId: Id<"friendRequests">,
+  receiverId: Id<"users">
+) {
+  const request = await resolvePendingFriendRequestForReceiver(
+    ctx,
+    requestId,
+    receiverId,
+    "accepted"
+  );
+
+  const now = Date.now();
+  await ctx.db.insert("friends", {
+    userId: receiverId,
+    friendId: request.senderId,
+    createdAt: now,
+  });
+  await ctx.db.insert("friends", {
+    userId: request.senderId,
+    friendId: receiverId,
+    createdAt: now,
+  });
+}
+
+async function rejectFriendRequestCore(
+  ctx: MutationCtx,
+  requestId: Id<"friendRequests">,
+  receiverId: Id<"users">
+) {
+  await resolvePendingFriendRequestForReceiver(ctx, requestId, receiverId, "rejected");
+}
 
 /**
  * Get friend requests sent by current user
@@ -208,60 +341,7 @@ export const acceptFriendRequest = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const request = await ctx.db.get(args.requestId);
-    if (!request) {
-      throw new Error("Friend request not found");
-    }
-
-    if (request.receiverId !== user._id) {
-      throw new Error("Cannot accept this friend request");
-    }
-
-    if (request.status !== "pending") {
-      throw new Error("Friend request is no longer pending");
-    }
-
-    // Update request status
-    await ctx.db.patch(args.requestId, { status: "accepted" });
-
-    // Dismiss any related friend request notifications for this request
-    const pendingNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "pending")
-      )
-      .collect();
-
-    const readNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "read")
-      )
-      .collect();
-
-    const notifications = [...pendingNotifications, ...readNotifications];
-
-    for (const notification of notifications) {
-      if (
-        isFriendRequestPayload(notification.payload) &&
-        notification.payload.friendRequestId === args.requestId
-      ) {
-        await ctx.db.patch(notification._id, { status: "dismissed" });
-      }
-    }
-
-    // Create bidirectional friendship
-    const now = Date.now();
-    await ctx.db.insert("friends", {
-      userId: user._id,
-      friendId: request.senderId,
-      createdAt: now,
-    });
-    await ctx.db.insert("friends", {
-      userId: request.senderId,
-      friendId: user._id,
-      createdAt: now,
-    });
+    await acceptFriendRequestCore(ctx, args.requestId, user._id);
 
     return { success: true };
   },
@@ -277,47 +357,7 @@ export const rejectFriendRequest = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const request = await ctx.db.get(args.requestId);
-    if (!request) {
-      throw new Error("Friend request not found");
-    }
-
-    if (request.receiverId !== user._id) {
-      throw new Error("Cannot reject this friend request");
-    }
-
-    if (request.status !== "pending") {
-      throw new Error("Friend request is no longer pending");
-    }
-
-    // Update request status
-    await ctx.db.patch(args.requestId, { status: "rejected" });
-
-    // Dismiss any related friend request notifications for this request
-    const pendingNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "pending")
-      )
-      .collect();
-
-    const readNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status", (q) =>
-        q.eq("type", "friend_request").eq("toUserId", user._id).eq("status", "read")
-      )
-      .collect();
-
-    const notifications = [...pendingNotifications, ...readNotifications];
-
-    for (const notification of notifications) {
-      if (
-        isFriendRequestPayload(notification.payload) &&
-        notification.payload.friendRequestId === args.requestId
-      ) {
-        await ctx.db.patch(notification._id, { status: "dismissed" });
-      }
-    }
+    await rejectFriendRequestCore(ctx, args.requestId, user._id);
 
     return { success: true };
   },
@@ -338,17 +378,17 @@ export const removeFriend = mutation({
       .query("friends")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
-    const friendship1 =
+    const outgoingFriendship =
       friendshipsFromUser.find((friendship) => friendship.friendId === args.friendId) ?? null;
 
     const friendshipsToUser = await ctx.db
       .query("friends")
       .withIndex("by_user", (q) => q.eq("userId", args.friendId))
       .collect();
-    const friendship2 =
+    const incomingFriendship =
       friendshipsToUser.find((friendship) => friendship.friendId === user._id) ?? null;
 
-    if (!friendship1 && !friendship2) {
+    if (!outgoingFriendship && !incomingFriendship) {
       throw new Error("Friendship not found");
     }
 
@@ -358,8 +398,8 @@ export const removeFriend = mutation({
       args.friendId
     );
 
-    if (friendship1) await ctx.db.delete(friendship1._id);
-    if (friendship2) await ctx.db.delete(friendship2._id);
+    if (outgoingFriendship) await ctx.db.delete(outgoingFriendship._id);
+    if (incomingFriendship) await ctx.db.delete(incomingFriendship._id);
 
     return { success: true, closedGoalCount };
   },
@@ -469,40 +509,8 @@ export const acceptFriendRequestNotification = mutation({
       throw new Error("Invalid notification type");
     }
 
-    const payload = notification.payload;
-    if (!isFriendRequestPayload(payload)) {
-      throw new Error("Friend request ID not found in notification");
-    }
-    const friendRequestId = payload.friendRequestId;
-
-    const friendRequest = await ctx.db.get(friendRequestId);
-    if (!friendRequest) {
-      throw new Error("Friend request not found");
-    }
-
-    if (friendRequest.status !== "pending") {
-      throw new Error("Friend request is no longer pending");
-    }
-
-    await ctx.db.patch(friendRequestId, {
-      status: "accepted",
-    });
-
-    const now = Date.now();
-    await ctx.db.insert("friends", {
-      userId: friendRequest.senderId,
-      friendId: friendRequest.receiverId,
-      createdAt: now,
-    });
-    await ctx.db.insert("friends", {
-      userId: friendRequest.receiverId,
-      friendId: friendRequest.senderId,
-      createdAt: now,
-    });
-
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
-    });
+    const friendRequestId = requireFriendRequestId(notification.payload);
+    await acceptFriendRequestCore(ctx, friendRequestId, user._id);
 
     return { success: true };
   },
@@ -528,24 +536,8 @@ export const rejectFriendRequestNotification = mutation({
       throw new Error("Invalid notification type");
     }
 
-    const payload = notification.payload;
-    if (!isFriendRequestPayload(payload)) {
-      throw new Error("Friend request ID not found in notification");
-    }
-    const friendRequestId = payload.friendRequestId;
-
-    const friendRequest = await ctx.db.get(friendRequestId);
-    if (!friendRequest) {
-      throw new Error("Friend request not found");
-    }
-
-    await ctx.db.patch(friendRequestId, {
-      status: "rejected",
-    });
-
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
-    });
+    const friendRequestId = requireFriendRequestId(notification.payload);
+    await rejectFriendRequestCore(ctx, friendRequestId, user._id);
 
     return { success: true };
   },

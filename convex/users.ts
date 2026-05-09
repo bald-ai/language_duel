@@ -2,6 +2,7 @@ import { internalMutation, mutation, query, type QueryCtx, type MutationCtx } fr
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
+import { getRelationshipMapForUser } from "./friends";
 import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX } from "./constants";
 import {
   DEFAULT_NICKNAME,
@@ -16,6 +17,8 @@ import {
   LLM_SMALL_ACTION_CREDITS,
   TTS_GENERATION_COST,
 } from "../lib/credits/constants";
+
+export { isUserOnline } from "./helpers/users";
 
 // Public user profile (no sensitive fields)
 export type PublicUser = {
@@ -240,30 +243,7 @@ export const searchUsers = query({
 
     const users = await ctx.db.query("users").take(MAX_USERS_QUERY);
 
-    // Get current user's friends
-    const friends = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", auth.user._id))
-      .collect();
-    const friendIds = new Set(friends.map((f) => f.friendId.toString()));
-
-    // Get pending friend requests sent by current user
-    const sentRequests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_sender", (q) => q.eq("senderId", auth.user._id))
-      .collect();
-    const pendingSentIds = new Set(
-      sentRequests.filter((r) => r.status === "pending").map((r) => r.receiverId.toString())
-    );
-
-    // Get pending friend requests received by current user
-    const receivedRequests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_receiver", (q) => q.eq("receiverId", auth.user._id).eq("status", "pending"))
-      .collect();
-    const pendingReceivedIds = new Set(
-      receivedRequests.map((r) => r.senderId.toString())
-    );
+    const relationshipMap = await getRelationshipMapForUser(ctx, auth.user._id);
 
     return users
       .filter((u) => {
@@ -290,8 +270,8 @@ export const searchUsers = query({
         imageUrl: u.imageUrl,
         nickname: u.nickname,
         discriminator: u.discriminator,
-        isFriend: friendIds.has(u._id.toString()),
-        isPending: pendingSentIds.has(u._id.toString()) || pendingReceivedIds.has(u._id.toString()),
+        isFriend: relationshipMap.friendIds.has(u._id.toString()),
+        isPending: relationshipMap.pendingFriendRequestUserIds.has(u._id.toString()),
       }));
   },
 });
@@ -473,17 +453,6 @@ export const releaseTtsGenerationLock = internalMutation({
 // ===========================================
 // Presence Tracking
 // ===========================================
-
-// Consider user online if lastSeenAt is within this duration
-const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Helper to determine if a user is online based on lastSeenAt
- */
-export function isUserOnline(lastSeenAt: number | undefined): boolean {
-  if (!lastSeenAt) return false;
-  return Date.now() - lastSeenAt < ONLINE_THRESHOLD_MS;
-}
 
 /**
  * Update user presence (call periodically from client)

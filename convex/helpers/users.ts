@@ -22,3 +22,10 @@ export async function loadUsersById(
 
   return usersById;
 }
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+
+export function isUserOnline(lastSeenAt: number | undefined): boolean {
+  if (!lastSeenAt) return false;
+  return Date.now() - lastSeenAt < ONLINE_THRESHOLD_MS;
+}
