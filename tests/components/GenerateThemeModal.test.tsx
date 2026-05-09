@@ -51,6 +51,76 @@ describe("GenerateThemeModal", () => {
     expect(onWordCountChange).toHaveBeenCalledWith(15);
   });
 
+  it("cycles word type with the carousel arrows", () => {
+    const onWordTypeChange = vi.fn();
+
+    const { rerender } = render(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="nouns"
+        wordCount={10}
+        isGenerating={false}
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={onWordTypeChange}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("theme-generate-type-next"));
+
+    rerender(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="verbs"
+        wordCount={10}
+        isGenerating={false}
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={onWordTypeChange}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("theme-generate-type-previous"));
+
+    expect(onWordTypeChange).toHaveBeenNthCalledWith(1, "verbs");
+    expect(onWordTypeChange).toHaveBeenNthCalledWith(2, "nouns");
+  });
+
+  it("selects word type with the carousel dots", () => {
+    const onWordTypeChange = vi.fn();
+
+    render(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="nouns"
+        wordCount={10}
+        isGenerating={false}
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={onWordTypeChange}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("theme-generate-type-verbs"));
+
+    expect(onWordTypeChange).toHaveBeenCalledWith("verbs");
+  });
+
   it("shows a generation error when provided", () => {
     render(
       <GenerateThemeModal

@@ -11,6 +11,11 @@ import {
 import { colors } from "@/lib/theme";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
+const WORD_TYPE_OPTIONS: Array<{ value: WordType; label: string }> = [
+  { value: "nouns", label: "Nouns" },
+  { value: "verbs", label: "Verbs" },
+];
+
 interface GenerateThemeModalProps {
   isOpen: boolean;
   themeName: string;
@@ -44,6 +49,15 @@ export function GenerateThemeModal({
 }: GenerateThemeModalProps) {
   if (!isOpen) return null;
 
+  const selectedWordTypeIndex = WORD_TYPE_OPTIONS.findIndex((option) => option.value === wordType);
+  const currentWordType = WORD_TYPE_OPTIONS[selectedWordTypeIndex] || WORD_TYPE_OPTIONS[0];
+
+  const cycleWordType = (direction: -1 | 1) => {
+    const nextIndex =
+      (selectedWordTypeIndex + direction + WORD_TYPE_OPTIONS.length) % WORD_TYPE_OPTIONS.length;
+    onWordTypeChange(WORD_TYPE_OPTIONS[nextIndex].value);
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -57,50 +71,77 @@ export function GenerateThemeModal({
           New Theme
         </h2>
 
-        {/* Word Type Toggle */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => onWordTypeChange("nouns")}
-            disabled={isGenerating}
-            className="flex-1 py-3 rounded-xl font-bold uppercase transition hover:brightness-110 border-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={
-              wordType === "nouns"
-                ? {
-                    backgroundColor: colors.primary.DEFAULT,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.DEFAULT,
-                  }
-                : {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.muted,
-                }
-            }
-            data-testid="theme-generate-type-nouns"
-          >
-            Nouns
-          </button>
-          <button
-            onClick={() => onWordTypeChange("verbs")}
-            disabled={isGenerating}
-            className="flex-1 py-3 rounded-xl font-bold uppercase transition hover:brightness-110 border-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={
-              wordType === "verbs"
-                ? {
-                    backgroundColor: colors.primary.DEFAULT,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.DEFAULT,
-                  }
-                : {
-                    backgroundColor: colors.background.DEFAULT,
-                    borderColor: colors.primary.dark,
-                    color: colors.text.muted,
-                }
-            }
-            data-testid="theme-generate-type-verbs"
-          >
-            Verbs
-          </button>
+        <div className="mb-6" data-testid="theme-generate-type-carousel">
+          <div className="grid grid-cols-[3.5rem_1fr_3.5rem] items-center gap-5">
+            <button
+              type="button"
+              onClick={() => cycleWordType(-1)}
+              disabled={isGenerating}
+              className="flex h-11 w-11 items-center justify-center justify-self-center rounded-xl border-2 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+              aria-label="Previous word type"
+              data-testid="theme-generate-type-previous"
+            >
+              <ChevronLeftIcon />
+            </button>
+
+            <div
+              className="min-w-0 rounded-xl border-2 px-6 py-3 text-center text-sm font-bold uppercase tracking-widest shadow-lg"
+              style={{
+                backgroundImage: `linear-gradient(to bottom, ${colors.primary.light}, ${colors.primary.DEFAULT})`,
+                borderColor: colors.primary.dark,
+                color: colors.text.inverse,
+                boxShadow: `0 10px 24px ${colors.primary.glow}`,
+                opacity: isGenerating ? 0.5 : 1,
+              }}
+              aria-live="polite"
+              data-testid="theme-generate-type-selected"
+            >
+              {currentWordType.label}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => cycleWordType(1)}
+              disabled={isGenerating}
+              className="flex h-11 w-11 items-center justify-center justify-self-center rounded-xl border-2 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                backgroundColor: colors.background.elevated,
+                borderColor: colors.primary.dark,
+                color: colors.text.DEFAULT,
+              }}
+              aria-label="Next word type"
+              data-testid="theme-generate-type-next"
+            >
+              <ChevronRightIcon />
+            </button>
+          </div>
+
+          <div className="mt-5 flex justify-center gap-3" aria-label="Word type options">
+            {WORD_TYPE_OPTIONS.map((option) => {
+              const selected = option.value === wordType;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onWordTypeChange(option.value)}
+                  disabled={isGenerating}
+                  className="h-2.5 rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    width: selected ? "1.5rem" : "0.625rem",
+                    backgroundColor: selected ? colors.primary.dark : colors.neutral.light,
+                  }}
+                  aria-label={`Select ${option.label}`}
+                  aria-pressed={selected}
+                  data-testid={`theme-generate-type-${option.value}`}
+                />
+              );
+            })}
+          </div>
         </div>
 
         <div className="mb-6 space-y-4">
@@ -223,5 +264,21 @@ export function GenerateThemeModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
