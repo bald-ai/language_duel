@@ -9,7 +9,6 @@ import {
   syncUser,
   updateNickname,
   updatePresence,
-  updateTtsProvider,
 } from "@/convex/users";
 import {
   LLM_MONTHLY_CREDITS,
@@ -24,6 +23,7 @@ import {
   insertRow,
   patchRow,
 } from "./testUtils/inMemoryDb";
+import { NICKNAME_ERRORS } from "@/lib/users/constants";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function callConvex(fn: any, ctx: unknown, args: Record<string, unknown> = {}) {
@@ -303,11 +303,11 @@ describe("users core handlers", () => {
 
     await expect(
       callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "bad space" })
-    ).rejects.toThrow("Nickname can only contain letters, numbers, and underscores");
+    ).rejects.toThrow(NICKNAME_ERRORS.INVALID_CHARS);
 
     await expect(
       callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "ab" })
-    ).rejects.toThrow("Nickname must be between 3 and 20 characters");
+    ).rejects.toThrow(NICKNAME_ERRORS.TOO_SHORT);
   });
 
   it("updateNickname sets nickname and generates valid discriminator for new nicknames", async () => {
@@ -339,16 +339,6 @@ describe("users core handlers", () => {
     expect(result).toEqual({ nickname: "SameName", discriminator: 2468 });
     expect(db.users[0]?.nickname).toBe("SameName");
     expect(db.users[0]?.discriminator).toBe(2468);
-  });
-
-  it("updateTtsProvider updates preference", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", ttsProvider: "resemble" }));
-
-    const result = await callConvex(updateTtsProvider, createCtx(db, "clerk_1"), { ttsProvider: "elevenlabs" });
-
-    expect(result.ttsProvider).toBe("elevenlabs");
-    expect(db.users[0]?.ttsProvider).toBe("elevenlabs");
   });
 
   it("consumeCredits rejects invalid costs and decrements balances on success", async () => {

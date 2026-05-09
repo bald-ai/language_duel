@@ -1,33 +1,34 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 import { useTTSProvider, type TtsProvider } from "../hooks/useTTSProvider";
 
 const TTS_PROVIDERS: Array<{
-    id: TtsProvider;
-    label: string;
-    description: string;
-    icon: string;
+  id: TtsProvider;
+  label: string;
+  description: string;
+  icon: string;
 }> = [
-        {
-            id: "resemble",
-            label: "Resemble AI",
-            description: "High quality, slow",
-            icon: "🗣️",
-        },
-        {
-            id: "elevenlabs",
-            label: "ElevenLabs",
-            description: "Fast, normal quality",
-            icon: "🎙️",
-        },
-    ];
+  {
+    id: "resemble",
+    label: "Resemble AI",
+    description: "High quality, slow",
+    icon: "🗣️",
+  },
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    description: "Fast, normal quality",
+    icon: "🎙️",
+  },
+];
 
 /**
  * TTSProviderSelector - Allows users to select their preferred TTS provider
  */
 export function TTSProviderSelector() {
-    const { provider, setProvider, isUpdating } = useTTSProvider();
+  const colors = useThemeColors();
+  const { provider, setProvider, isUpdating } = useTTSProvider();
 
     return (
         <section

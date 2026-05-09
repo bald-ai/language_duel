@@ -1,6 +1,6 @@
 "use client";
 
-import { colors, themeOptions } from "@/lib/theme";
+import { themeOptions } from "@/lib/theme";
 import { useColorSet } from "@/app/components/ThemeProvider";
 
 /**
@@ -8,7 +8,7 @@ import { useColorSet } from "@/app/components/ThemeProvider";
  * Displays palette name with 3 color dots (bg, primary, accent)
  */
 export function ColorSetSelector() {
-  const { colorSetName, setColorSet } = useColorSet();
+  const { colorSetName, setColorSet, colors } = useColorSet();
 
   return (
     <section

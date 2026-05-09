@@ -81,7 +81,7 @@ export const colorPalettes: ColorPalette[] = [
 // THEME SHAPES
 // =============================================================================
 
-type ThemeColors = {
+export type ThemeColors = {
   primary: {
     DEFAULT: string;
     light: string;

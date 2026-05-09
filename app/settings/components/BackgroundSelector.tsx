@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 import type { BackgroundFilename } from "@/lib/preferences/backgrounds";
 
 const BACKGROUND_OPTIONS: ReadonlyArray<{
@@ -14,7 +14,7 @@ const BACKGROUND_OPTIONS: ReadonlyArray<{
 
 type BackgroundSelectorProps = {
   selectedBackground: string | null;
-  onSelect: (background: string) => void;
+  onSelect: (background: BackgroundFilename) => void;
   isUpdating?: boolean;
 };
 
@@ -23,6 +23,7 @@ export function BackgroundSelector({
   onSelect,
   isUpdating = false,
 }: BackgroundSelectorProps) {
+  const colors = useThemeColors();
   // Default to first background if none selected
   const activeBackground = selectedBackground || BACKGROUND_OPTIONS[0].filename;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 import { useNotificationSettings } from "./hooks/useNotificationSettings";
 import { CategoryToggle } from "./components/CategoryToggle";
 import { NotificationToggle } from "./components/NotificationToggle";
@@ -10,6 +10,7 @@ import { ReminderOffsetInput } from "./components/ReminderOffsetInput";
 export default function NotificationSettingsPage() {
   const router = useRouter();
   const { prefs, isLoading, updatePrefs } = useNotificationSettings();
+  const colors = useThemeColors();
 
   if (isLoading) {
     return (

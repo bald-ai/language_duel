@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { NICKNAME_MAX_LENGTH } from "../constants";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 
 interface NicknameEditorProps {
   currentNickname?: string;
@@ -21,6 +21,7 @@ export function NicknameEditor({
   onUpdate,
   onClearError,
 }: NicknameEditorProps) {
+  const colors = useThemeColors();
   const [nickname, setNickname] = useState(currentNickname || "");
 
   const handleInputChange = useCallback(

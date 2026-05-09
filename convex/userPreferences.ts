@@ -2,15 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isValidBackground } from "../lib/preferences/backgrounds";
-
-// Valid color set names (must match colorPalettes in lib/theme.ts)
-const VALID_COLOR_SETS = [
-  "playful-duo",
-  "toybox-adventure",
-  "warm-mischief",
-  "friendly-rivalry",
-  "candy-coop",
-] as const;
+import { isThemeName } from "../lib/theme";
 
 /**
  * Get current user's preferences (color set and background)
@@ -26,6 +18,7 @@ export const getUserPreferences = query({
     return {
       selectedColorSet: auth.user.selectedColorSet ?? null,
       selectedBackground: auth.user.selectedBackground ?? null,
+      ttsProvider: auth.user.ttsProvider ?? "resemble",
     };
   },
 });
@@ -33,7 +26,7 @@ export const getUserPreferences = query({
 /**
  * Update current user's selected color set preference
  */
-export const updateColorSetPreference = mutation({
+export const updateColorSet = mutation({
   args: {
     colorSet: v.string(),
   },
@@ -41,7 +34,7 @@ export const updateColorSetPreference = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     // Validate color set name
-    if (!VALID_COLOR_SETS.includes(args.colorSet as typeof VALID_COLOR_SETS[number])) {
+    if (!isThemeName(args.colorSet)) {
       throw new Error(`Invalid color set: ${args.colorSet}`);
     }
 
@@ -56,7 +49,7 @@ export const updateColorSetPreference = mutation({
 /**
  * Update current user's selected background preference
  */
-export const updateBackgroundPreference = mutation({
+export const updateBackground = mutation({
   args: {
     background: v.string(),
   },
@@ -73,5 +66,23 @@ export const updateBackgroundPreference = mutation({
     });
 
     return { selectedBackground: args.background };
+  },
+});
+
+/**
+ * Update current user's TTS provider preference
+ */
+export const updateTtsProvider = mutation({
+  args: {
+    ttsProvider: v.union(v.literal("resemble"), v.literal("elevenlabs")),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    await ctx.db.patch(user._id, {
+      ttsProvider: args.ttsProvider,
+    });
+
+    return { ttsProvider: args.ttsProvider };
   },
 });

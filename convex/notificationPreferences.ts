@@ -88,7 +88,7 @@ export const getByUserId = internalQuery({
 const MIN_OFFSET = 1;
 const MAX_OFFSET = 7 * 24 * 60;
 
-export const setMyNotificationPreferences = mutation({
+export const updateNotificationPreferences = mutation({
   args: {
     challengeInvitesEnabled: v.boolean(),
     challengeInviteEmailEnabled: v.boolean(),

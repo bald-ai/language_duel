@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 
 type ReminderOffsetInputProps = {
   label: string;
@@ -18,6 +18,7 @@ export function ReminderOffsetInput({
   onChange,
   "data-testid": testId,
 }: ReminderOffsetInputProps) {
+  const colors = useThemeColors();
   const [unit, setUnit] = useState<"minutes" | "hours">(
     valueMinutes >= 60 && valueMinutes % 60 === 0 ? "hours" : "minutes"
   );

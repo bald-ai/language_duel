@@ -9,6 +9,7 @@ import {
   NICKNAME_MAX_LENGTH,
   NICKNAME_MIN_LENGTH,
   NICKNAME_REGEX,
+  NICKNAME_ERRORS,
 } from "../lib/users/constants";
 import {
   LLM_MONTHLY_CREDITS,
@@ -169,9 +170,7 @@ export const updateNickname = mutation({
     const nextNickname = args.nickname.trim();
 
     if (!nextNickname) {
-      throw new Error(
-        `Nickname must be between ${NICKNAME_MIN_LENGTH} and ${NICKNAME_MAX_LENGTH} characters`
-      );
+      throw new Error(NICKNAME_ERRORS.TOO_SHORT);
     }
 
     if (nextNickname === user.nickname) {
@@ -183,15 +182,13 @@ export const updateNickname = mutation({
 
     // Validate nickname format (alphanumeric + underscore, shared length bounds)
     if (!NICKNAME_REGEX.test(nextNickname)) {
-      throw new Error("Nickname can only contain letters, numbers, and underscores");
+      throw new Error(NICKNAME_ERRORS.INVALID_CHARS);
     }
-    if (
-      nextNickname.length < NICKNAME_MIN_LENGTH ||
-      nextNickname.length > NICKNAME_MAX_LENGTH
-    ) {
-      throw new Error(
-        `Nickname must be between ${NICKNAME_MIN_LENGTH} and ${NICKNAME_MAX_LENGTH} characters`
-      );
+    if (nextNickname.length < NICKNAME_MIN_LENGTH) {
+      throw new Error(NICKNAME_ERRORS.TOO_SHORT);
+    }
+    if (nextNickname.length > NICKNAME_MAX_LENGTH) {
+      throw new Error(NICKNAME_ERRORS.TOO_LONG);
     }
 
     // Generate new discriminator for the new nickname
@@ -203,24 +200,6 @@ export const updateNickname = mutation({
     });
 
     return { nickname: nextNickname, discriminator };
-  },
-});
-
-/**
- * Update current user's TTS provider preference
- */
-export const updateTtsProvider = mutation({
-  args: {
-    ttsProvider: v.union(v.literal("resemble"), v.literal("elevenlabs")),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    await ctx.db.patch(user._id, {
-      ttsProvider: args.ttsProvider,
-    });
-
-    return { ttsProvider: args.ttsProvider };
   },
 });
 

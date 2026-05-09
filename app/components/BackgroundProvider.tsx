@@ -1,90 +1,43 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
-import { DEFAULT_BACKGROUND, isValidBackground } from "@/lib/preferences/backgrounds";
+import { toast } from "sonner";
+import { DEFAULT_BACKGROUND, isValidBackground, type BackgroundFilename } from "@/lib/preferences/backgrounds";
+import { usePersistedPreference } from "./usePersistedPreference";
 
 const BACKGROUND_STORAGE_KEY = "language-duel-background";
 
 type BackgroundContextValue = {
-  background: string;
-  setBackground: (background: string) => void;
+  background: BackgroundFilename;
+  setBackground: (background: BackgroundFilename) => void;
   isLoading: boolean;
 };
 
 const BackgroundContext = createContext<BackgroundContextValue | undefined>(undefined);
 
 export function BackgroundProvider({ children }: { children: React.ReactNode }) {
-  // Always start with the default background to match SSR
-  const [background, setBackgroundState] = useState<string>(DEFAULT_BACKGROUND);
-  const [hasHydrated, setHasHydrated] = useState(false);
-  const [hasAppliedServerPref, setHasAppliedServerPref] = useState(false);
-  const { userPreferences, isLoading, updateBackgroundPreference } = useUserPreferences();
-
-  // Apply localStorage preference after hydration (to avoid SSR mismatch)
-  useEffect(() => {
-    if (!hasHydrated) {
-      const storedBackground = window.localStorage.getItem(BACKGROUND_STORAGE_KEY);
-      if (storedBackground && isValidBackground(storedBackground)) {
-        // Defer state update to avoid synchronous setState in effect
-        queueMicrotask(() => setBackgroundState(storedBackground));
-      }
-      queueMicrotask(() => setHasHydrated(true));
-    }
-  }, [hasHydrated]);
-
-  // Apply server preference on first load (prioritize Convex over localStorage)
-  useEffect(() => {
-    if (hasHydrated && userPreferences && !hasAppliedServerPref) {
-      const serverBackground = userPreferences.selectedBackground;
-      if (
-        serverBackground &&
-        isValidBackground(serverBackground) &&
-        serverBackground !== background
-      ) {
-        // Defer state update to avoid synchronous setState in effect
-        queueMicrotask(() => {
-          setBackgroundState(serverBackground);
-          // Also update localStorage to keep in sync
-          window.localStorage.setItem(BACKGROUND_STORAGE_KEY, serverBackground);
-        });
-      }
-      queueMicrotask(() => setHasAppliedServerPref(true));
-    }
-  }, [userPreferences, hasAppliedServerPref, background, hasHydrated]);
-
-  const handleSetBackground = useCallback(
-    (nextBackground: string) => {
-      if (!isValidBackground(nextBackground)) {
-        return;
-      }
-
-      setBackgroundState((current) => {
-        if (nextBackground === current) {
-          return current;
-        }
-        window.localStorage.setItem(BACKGROUND_STORAGE_KEY, nextBackground);
-
-        // If user is authenticated, save to Convex
-        if (userPreferences !== undefined && userPreferences !== null) {
-          updateBackgroundPreference(nextBackground).catch((error) => {
-            console.error("Failed to save background preference:", error);
-          });
-        }
-
-        return nextBackground;
-      });
+  const { userPreferences, isLoading, updateBackground } = useUserPreferences();
+  const { value: background, setValue: setBackground } = usePersistedPreference<BackgroundFilename>({
+    defaultValue: DEFAULT_BACKGROUND,
+    storageKey: BACKGROUND_STORAGE_KEY,
+    serverValue: userPreferences?.selectedBackground,
+    serverValueLoaded: userPreferences !== undefined,
+    isValid: isValidBackground,
+    saveValue: userPreferences ? updateBackground : undefined,
+    onSaveError: (error) => {
+      const message = error instanceof Error ? error.message : "Failed to save background";
+      toast.error(message);
     },
-    [userPreferences, updateBackgroundPreference]
-  );
+  });
 
   const value = useMemo(
     () => ({
       background,
-      setBackground: handleSetBackground,
+      setBackground,
       isLoading,
     }),
-    [background, handleSetBackground, isLoading]
+    [background, setBackground, isLoading]
   );
 
   return (

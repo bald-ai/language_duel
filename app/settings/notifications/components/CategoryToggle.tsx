@@ -1,6 +1,6 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/app/components/ThemeProvider";
 
 type CategoryToggleProps = {
   label: string;
@@ -17,6 +17,7 @@ export function CategoryToggle({
   children,
   "data-testid": testId,
 }: CategoryToggleProps) {
+  const colors = useThemeColors();
   return (
     <div className="mb-6">
       <div
