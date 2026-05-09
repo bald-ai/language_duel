@@ -14,7 +14,7 @@ export interface WeeklyGoalThemeProgress {
   partnerCompleted: boolean;
 }
 
-export interface WeeklyGoalStateLike {
+export interface WeeklyGoalState {
   themes: WeeklyGoalThemeProgress[];
   status: WeeklyGoalLifecycleStatus;
   lockedAt?: number;
@@ -61,7 +61,7 @@ export function getGoalDraftExpiresAt(
 }
 
 export function isGoalInGracePeriod(
-  goal: Pick<WeeklyGoalStateLike, "endDate" | "status" | "bossStatus">,
+  goal: Pick<WeeklyGoalState, "endDate" | "status" | "bossStatus">,
   now: number
 ): boolean {
   if (goal.status === "completed" || goal.bossStatus === "defeated") {
@@ -77,7 +77,7 @@ export function isGoalInGracePeriod(
 }
 
 export function isGoalPlayable(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   now: number
 ): boolean {
   const effectiveStatus = getEffectiveGoalStatus(goal, now);
@@ -100,7 +100,7 @@ export function formatGoalGraceCountdown(timeRemainingMs: number): string {
 }
 
 export function getEffectiveGoalStatus(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   now: number
 ): WeeklyGoalLifecycleStatus {
   if (goal.status === "completed" || goal.bossStatus === "defeated") {
@@ -123,7 +123,7 @@ export function getEffectiveGoalStatus(
 }
 
 export function getEffectiveMiniBossStatus(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   now: number
 ): WeeklyGoalBossStatus {
   if (getEffectiveGoalStatus(goal, now) === "draft") {
@@ -152,7 +152,7 @@ export function getEffectiveMiniBossStatus(
 }
 
 export function getEffectiveBossStatus(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   now: number
 ): WeeklyGoalBossStatus {
   if (goal.bossStatus === "defeated") {
@@ -173,14 +173,14 @@ export function getEffectiveBossStatus(
 }
 
 export function canEditGoalEndDate(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   now: number
 ): boolean {
   return getEffectiveGoalStatus(goal, now) === "draft";
 }
 
 export function canTriggerGoalBoss(
-  goal: WeeklyGoalStateLike,
+  goal: WeeklyGoalState,
   which: "mini" | "big",
   now: number
 ): boolean {

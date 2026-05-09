@@ -6,19 +6,19 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type SpacedRepetitionBucket = "ready" | "coming_up" | "done";
 
-export interface SpacedRepetitionStepLike {
+export interface SpacedRepetitionStep {
   step: number;
   intervalDays: number;
   completedAt: number;
 }
 
-export interface SpacedRepetitionStateLike {
-  completedSteps: SpacedRepetitionStepLike[];
+export interface SpacedRepetitionState {
+  completedSteps: SpacedRepetitionStep[];
   goalCompletedAt: number;
 }
 
 export function getSpacedRepetitionCurrentStep(
-  completedSteps: SpacedRepetitionStepLike[]
+  completedSteps: SpacedRepetitionStep[]
 ): number {
   return Math.min(completedSteps.length + 1, SPACED_REPETITION_TOTAL_STEPS + 1);
 }
@@ -28,13 +28,13 @@ export function getSpacedRepetitionIntervalDaysForStep(step: number): number {
 }
 
 export function isSpacedRepetitionDone(
-  completedSteps: SpacedRepetitionStepLike[]
+  completedSteps: SpacedRepetitionStep[]
 ): boolean {
   return completedSteps.length >= SPACED_REPETITION_TOTAL_STEPS;
 }
 
 export function getSpacedRepetitionDueAt(
-  state: SpacedRepetitionStateLike
+  state: SpacedRepetitionState
 ): number | null {
   if (isSpacedRepetitionDone(state.completedSteps)) {
     return null;
@@ -49,7 +49,7 @@ export function getSpacedRepetitionDueAt(
 }
 
 export function getSpacedRepetitionBucket(
-  state: SpacedRepetitionStateLike,
+  state: SpacedRepetitionState,
   now: number
 ): SpacedRepetitionBucket {
   const dueAt = getSpacedRepetitionDueAt(state);
@@ -62,7 +62,7 @@ export function getSpacedRepetitionBucket(
 }
 
 export function getSpacedRepetitionProgressDots(
-  completedSteps: SpacedRepetitionStepLike[]
+  completedSteps: SpacedRepetitionStep[]
 ): boolean[] {
   const completedCount = Math.min(completedSteps.length, SPACED_REPETITION_TOTAL_STEPS);
   return Array.from(

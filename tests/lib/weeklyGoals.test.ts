@@ -11,7 +11,7 @@ import {
   getGoalDraftExpiresAt,
   isGoalInGracePeriod,
   isGoalPlayable,
-  type WeeklyGoalStateLike,
+  type WeeklyGoalState,
 } from "@/lib/weeklyGoals";
 
 const HOUR = 60 * 60 * 1000;
@@ -20,8 +20,8 @@ const GRACE_PERIOD_MS = 48 * HOUR;
 const WEEK_MS = 7 * DAY;
 
 function buildGoal(
-  overrides: Partial<WeeklyGoalStateLike> = {}
-): WeeklyGoalStateLike {
+  overrides: Partial<WeeklyGoalState> = {}
+): WeeklyGoalState {
   return {
     themes: [
       { creatorCompleted: true, partnerCompleted: true },

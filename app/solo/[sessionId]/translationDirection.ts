@@ -2,13 +2,13 @@ import { stripIrr } from "@/lib/stringUtils";
 
 export type TranslationDirection = "forward" | "reverse";
 
-interface DirectionalWordLike {
+interface DirectionalWord {
   word: string;
   answer: string;
 }
 
 export function getDirectionalCopy(
-  word: DirectionalWordLike,
+  word: DirectionalWord,
   direction: TranslationDirection
 ) {
   if (direction === "reverse") {
