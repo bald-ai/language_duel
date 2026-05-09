@@ -15,7 +15,7 @@ import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { ThemeCardMenu } from "./ThemeCardMenu";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
-import { themeActionButtonClassName, getThemeActionButtonStyle } from "./themeStyles";
+import { getThemeActionButtonStyle } from "./themeStyles";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -463,7 +463,7 @@ export function ThemeList({
         <div className="mt-3 animate-slide-up delay-100">
           <button
             onClick={onGenerateNew}
-            className={themeActionButtonClassName}
+            className="w-full bg-gradient-to-b border-t-2 border-b-3 border-x-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-md"
             style={getThemeActionButtonStyle("cta")}
             data-testid="themes-generate-new"
           >
