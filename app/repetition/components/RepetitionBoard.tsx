@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import { colors } from "@/lib/theme";
 import {
   getSpacedRepetitionIntervalDaysForStep,
+  type SpacedRepetitionStep,
   SPACED_REPETITION_TOTAL_STEPS,
 } from "@/lib/spacedRepetition";
 import { RepetitionProgress } from "./RepetitionProgress";
@@ -16,13 +17,13 @@ type TabKey = "all" | "ready" | "comingUp" | "done";
 
 type BoardItem = {
   weeklyGoalId: string;
-  title: string;
+  themeNames: string[];
   partner: { nickname?: string; email: string } | null;
   duelAvailable: boolean;
   themeCount: number;
   dueAt: number | null;
-  completedSteps: unknown[];
-  step: number;
+  completedSteps: SpacedRepetitionStep[];
+  step: number | null;
   totalSteps: number;
   ready: boolean;
   contentAvailable: boolean;
@@ -47,6 +48,13 @@ function partnerLabel(item: BoardItem): string {
   if (!item.partner) return "Deleted participant";
   const partnerName = item.partner.nickname || item.partner.email.split("@")[0] || "partner";
   return `You and ${partnerName}`;
+}
+
+function themeTitle(item: BoardItem): string {
+  const [firstThemeName] = item.themeNames;
+  if (!firstThemeName) return "Completed goal";
+  if (item.themeNames.length === 1) return firstThemeName;
+  return `${firstThemeName} + ${item.themeNames.length - 1} more`;
 }
 
 function sectionTitle(tab: TabKey): string {
@@ -80,7 +88,8 @@ function EmptyState({ label }: { label: string }) {
 
 function ReadyCard({ item }: { item: BoardItem }) {
   const router = useRouter();
-  const intervalDays = getSpacedRepetitionIntervalDaysForStep(item.step);
+  const currentStep = item.step ?? item.totalSteps;
+  const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
 
   return (
     <article
@@ -106,14 +115,14 @@ function ReadyCard({ item }: { item: BoardItem }) {
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             <h2 className="truncate text-base font-bold" style={{ color: colors.text.DEFAULT }}>
-              {item.title}
+              {themeTitle(item)}
             </h2>
             <p className="text-xs" style={{ color: colors.text.muted }}>
               {partnerLabel(item)} · {item.themeCount} theme{item.themeCount === 1 ? "" : "s"} · ready since {formatShortDate(item.dueAt)}
             </p>
           </div>
           <p className="text-xs font-semibold" style={{ color: colors.text.DEFAULT }}>
-            Repetition {item.step} of {item.totalSteps}{" "}
+            Repetition {currentStep} of {item.totalSteps}{" "}
             <span
               className="rounded-full border px-2 py-0.5"
               style={{
@@ -127,7 +136,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
           </p>
           <RepetitionProgress
             completedCount={item.completedSteps.length}
-            currentStep={item.step}
+            currentStep={currentStep}
             showLabels
           />
           {!item.contentAvailable && (
@@ -207,14 +216,14 @@ function CompactRow({ item, kind }: { item: BoardItem; kind: "coming" | "done" }
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <p className="truncate text-sm font-bold" style={{ color: colors.text.DEFAULT }}>
-          {item.title}
+          {themeTitle(item)}
         </p>
         <p className="text-xs" style={{ color: colors.text.muted }}>
-          {partnerLabel(item)} · Repetition {Math.min(item.step, item.totalSteps)} of {item.totalSteps}
+          {partnerLabel(item)} · Repetition {item.step ?? item.totalSteps} of {item.totalSteps}
         </p>
         <RepetitionProgress
           completedCount={item.completedSteps.length}
-          currentStep={item.step}
+          currentStep={item.step ?? item.totalSteps}
         />
       </div>
       <div className="w-16 shrink-0 text-right">
@@ -267,61 +276,64 @@ function CompactSection({ title, meta, children }: { title: string; meta: string
 }
 
 function VisibleItems({ tab, board }: { tab: TabKey; board: BoardData }) {
-  if (tab === "all") {
-    if (board.all.length === 0) {
-      return <EmptyState label="Completed weekly goals will appear here." />;
-    }
-    return (
-      <div className="space-y-5">
-        {board.ready.length > 0 && (
-          <section className="space-y-2">
-            <div className="flex items-end justify-between gap-3">
-              <h2 className="text-sm font-black uppercase tracking-wide" style={{ color: colors.text.DEFAULT }}>
-                Ready Now
-              </h2>
-              <span className="text-xs" style={{ color: colors.text.muted }}>Oldest first</span>
-            </div>
-            <div className="space-y-3">
-              {board.ready.map((item) => <ReadyCard key={item.weeklyGoalId} item={item} />)}
-            </div>
-          </section>
-        )}
-        {board.comingUp.length > 0 && (
-          <CompactSection title="Coming Up" meta="Soonest unlock first">
-            {board.comingUp.map((item) => <CompactRow key={item.weeklyGoalId} item={item} kind="coming" />)}
-          </CompactSection>
-        )}
-        {board.done.length > 0 && (
-          <CompactSection title="Done" meta={`${board.done.length} goal${board.done.length === 1 ? "" : "s"}`}>
-            {board.done.map((item) => <CompactRow key={item.weeklyGoalId} item={item} kind="done" />)}
-          </CompactSection>
-        )}
-      </div>
-    );
-  }
+  const sections = tab === "all"
+    ? [
+        { key: "ready" as const, items: board.ready, meta: "Oldest first" },
+        { key: "comingUp" as const, items: board.comingUp, meta: "Soonest unlock first" },
+        { key: "done" as const, items: board.done, meta: `${board.done.length} goal${board.done.length === 1 ? "" : "s"}` },
+      ]
+    : [
+        {
+          key: tab,
+          items: board[tab],
+          meta: tab === "comingUp" ? "Soonest unlock first" : "Most recent first",
+        },
+      ];
 
-  const items = board[tab];
-  if (items.length === 0) {
-    return <EmptyState label={`No ${sectionTitle(tab).toLowerCase()} repetitions yet.`} />;
-  }
-
-  if (tab === "ready") {
-    return <div className="space-y-3">{items.map((item) => <ReadyCard key={item.weeklyGoalId} item={item} />)}</div>;
+  const visibleSections = sections.filter((section) => section.items.length > 0);
+  if (visibleSections.length === 0) {
+    const label = tab === "all"
+      ? "Completed weekly goals will appear here."
+      : `No ${sectionTitle(tab).toLowerCase()} repetitions yet.`;
+    return <EmptyState label={label} />;
   }
 
   return (
-    <CompactSection
-      title={sectionTitle(tab)}
-      meta={tab === "comingUp" ? "Soonest unlock first" : "Most recent first"}
-    >
-      {items.map((item) => (
-        <CompactRow
-          key={item.weeklyGoalId}
-          item={item}
-          kind={tab === "done" ? "done" : "coming"}
-        />
-      ))}
-    </CompactSection>
+    <div className="space-y-5">
+      {visibleSections.map((section) => {
+        if (section.key === "ready") {
+          return (
+            <section key={section.key} className="space-y-2">
+              <div className="flex items-end justify-between gap-3">
+                <h2 className="text-sm font-black uppercase tracking-wide" style={{ color: colors.text.DEFAULT }}>
+                  Ready Now
+                </h2>
+                <span className="text-xs" style={{ color: colors.text.muted }}>{section.meta}</span>
+              </div>
+              <div className="space-y-3">
+                {section.items.map((item) => <ReadyCard key={item.weeklyGoalId} item={item} />)}
+              </div>
+            </section>
+          );
+        }
+
+        return (
+          <CompactSection
+            key={section.key}
+            title={sectionTitle(section.key)}
+            meta={section.meta}
+          >
+            {section.items.map((item) => (
+              <CompactRow
+                key={item.weeklyGoalId}
+                item={item}
+                kind={section.key === "done" ? "done" : "coming"}
+              />
+            ))}
+          </CompactSection>
+        );
+      })}
+    </div>
   );
 }
 

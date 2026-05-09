@@ -54,6 +54,7 @@ export default function RepetitionLaunchPage() {
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not start solo");
+    } finally {
       setIsStarting(null);
     }
   };
@@ -88,9 +89,17 @@ export default function RepetitionLaunchPage() {
     );
   }
 
-  const intervalDays = getSpacedRepetitionIntervalDaysForStep(preview.step);
+  const currentStep = preview.step ?? preview.totalSteps;
+  const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
   const canStart = preview.ready && preview.contentAvailable;
   const duelAvailable = preview.duelAvailable;
+  const wordCountLabel = canStart ? preview.wordCount : "-";
+  const [firstThemeName] = preview.themeNames;
+  const title = firstThemeName
+    ? preview.themeNames.length === 1
+      ? firstThemeName
+      : `${firstThemeName} + ${preview.themeNames.length - 1} more`
+    : "Completed goal";
 
   return (
     <ThemedPage className="px-4 py-6">
@@ -111,10 +120,10 @@ export default function RepetitionLaunchPage() {
         >
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: colors.text.muted }}>
-              Spaced Repetition {preview.step}/{preview.totalSteps}
+              Spaced Repetition {currentStep}/{preview.totalSteps}
             </p>
             <h1 className="mt-2 text-2xl font-black" style={{ color: colors.text.DEFAULT }}>
-              {preview.title}
+              {title}
             </h1>
             <p className="mt-1 text-sm" style={{ color: colors.text.muted }}>
               {preview.partner?.nickname || preview.partner?.email?.split("@")[0] || "Deleted participant"} · {intervalDays}-day mark
@@ -128,7 +137,7 @@ export default function RepetitionLaunchPage() {
             </div>
             <div className="rounded-xl border p-3" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
               <p className="text-[10px] uppercase tracking-wide" style={{ color: colors.text.muted }}>Words</p>
-              <p className="text-xl font-black" style={{ color: colors.text.DEFAULT }}>{preview.wordCount}</p>
+              <p className="text-xl font-black" style={{ color: colors.text.DEFAULT }}>{wordCountLabel}</p>
             </div>
             <div className="rounded-xl border p-3" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
               <p className="text-[10px] uppercase tracking-wide" style={{ color: colors.text.muted }}>Lives</p>
@@ -138,7 +147,7 @@ export default function RepetitionLaunchPage() {
 
           <RepetitionProgress
             completedCount={preview.completedSteps.length}
-            currentStep={preview.step}
+            currentStep={currentStep}
             showLabels
           />
 

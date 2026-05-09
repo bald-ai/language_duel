@@ -16,8 +16,9 @@ const board: {
   ready: [
     {
       weeklyGoalId: "goal_ready",
-      title: "Food + 1 more",
+      themeNames: ["Food", "Drinks"],
       partner: { email: "partner@example.com" },
+      duelAvailable: true,
       themeCount: 2,
       dueAt: Date.UTC(2026, 4, 1),
       completedSteps: [],
@@ -31,11 +32,12 @@ const board: {
   comingUp: [
     {
       weeklyGoalId: "goal_coming",
-      title: "Travel",
+      themeNames: ["Travel"],
       partner: { email: "partner@example.com" },
+      duelAvailable: true,
       themeCount: 1,
       dueAt: Date.UTC(2026, 4, 10),
-      completedSteps: [{ step: 1 }],
+      completedSteps: [{ step: 1, intervalDays: 3, completedAt: Date.UTC(2026, 4, 1) }],
       step: 2,
       totalSteps: 6,
       ready: false,
@@ -46,12 +48,20 @@ const board: {
   done: [
     {
       weeklyGoalId: "goal_done",
-      title: "Numbers",
+      themeNames: ["Numbers"],
       partner: { email: "partner@example.com" },
+      duelAvailable: true,
       themeCount: 1,
       dueAt: null,
-      completedSteps: [{}, {}, {}, {}, {}, {}],
-      step: 7,
+      completedSteps: [
+        { step: 1, intervalDays: 3, completedAt: Date.UTC(2026, 4, 1) },
+        { step: 2, intervalDays: 7, completedAt: Date.UTC(2026, 4, 8) },
+        { step: 3, intervalDays: 14, completedAt: Date.UTC(2026, 4, 22) },
+        { step: 4, intervalDays: 30, completedAt: Date.UTC(2026, 5, 21) },
+        { step: 5, intervalDays: 60, completedAt: Date.UTC(2026, 7, 20) },
+        { step: 6, intervalDays: 90, completedAt: Date.UTC(2026, 10, 18) },
+      ],
+      step: null,
       totalSteps: 6,
       ready: false,
       contentAvailable: true,

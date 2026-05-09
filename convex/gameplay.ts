@@ -15,7 +15,7 @@ import {
 } from "./constants";
 import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
-import { completeSpacedRepetitionDuel } from "./weeklyGoalRepetitions";
+import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
 
 // ===========================================
 // Helper: Clear hint state on question advance
@@ -164,7 +164,7 @@ async function advanceDuelIfBothAnswered(
       }
     }
     if (duel.sourceType === "spaced_repetition") {
-      await completeSpacedRepetitionDuel(ctx, duel, Date.now());
+      await completeRepetitionDuel(ctx, duel, Date.now());
     }
     return;
   }

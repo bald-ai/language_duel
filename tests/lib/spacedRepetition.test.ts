@@ -37,6 +37,17 @@ describe("spacedRepetition helpers", () => {
     expect(dueAt).toBe(previousCompletedAt + SPACED_REPETITION_INTERVAL_DAYS[1] * DAY_MS);
   });
 
+  it("returns no current step after the schedule is complete", () => {
+    const completedSteps = SPACED_REPETITION_INTERVAL_DAYS.map((intervalDays, index) => ({
+      step: index + 1,
+      intervalDays,
+      completedAt: (index + 1) * DAY_MS,
+    }));
+
+    expect(getSpacedRepetitionCurrentStep(completedSteps)).toBeNull();
+    expect(getSpacedRepetitionDueAt({ completedSteps, goalCompletedAt: 1 })).toBeNull();
+  });
+
   it("buckets ready, coming up, and done states", () => {
     const now = 100 * DAY_MS;
 

@@ -10,6 +10,9 @@ export interface SpacedRepetitionStep {
   step: number;
   intervalDays: number;
   completedAt: number;
+  completedVia?: "duel" | "solo_practice";
+  duelId?: string;
+  soloPracticeSessionId?: string;
 }
 
 export interface SpacedRepetitionState {
@@ -19,8 +22,12 @@ export interface SpacedRepetitionState {
 
 export function getSpacedRepetitionCurrentStep(
   completedSteps: SpacedRepetitionStep[]
-): number {
-  return Math.min(completedSteps.length + 1, SPACED_REPETITION_TOTAL_STEPS + 1);
+): number | null {
+  if (isSpacedRepetitionDone(completedSteps)) {
+    return null;
+  }
+
+  return completedSteps.length + 1;
 }
 
 export function getSpacedRepetitionIntervalDaysForStep(step: number): number {
@@ -41,6 +48,10 @@ export function getSpacedRepetitionDueAt(
   }
 
   const currentStep = getSpacedRepetitionCurrentStep(state.completedSteps);
+  if (currentStep === null) {
+    return null;
+  }
+
   const intervalDays = SPACED_REPETITION_INTERVAL_DAYS[currentStep - 1];
   const previousCompletion = state.completedSteps[state.completedSteps.length - 1];
   const baseTime = previousCompletion?.completedAt ?? state.goalCompletedAt;

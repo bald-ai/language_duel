@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
+  completeRepetitionDuel,
   completeRepetitionSoloPractice,
-  completeSpacedRepetitionDuel,
   createRepetitionChallenge,
   startRepetitionSoloPractice,
 } from "@/convex/weeklyGoalRepetitions";
@@ -602,7 +602,7 @@ describe("weekly goal spaced repetition", () => {
     });
   });
 
-  it("completeSpacedRepetitionDuel advances both participants with duel completion metadata", async () => {
+  it("completeRepetitionDuel advances both participants with duel completion metadata", async () => {
     const db = new InMemoryDb();
     db.weeklyGoals.push(completedGoal());
     db.weeklyGoalRepetitions.push(
@@ -611,7 +611,7 @@ describe("weekly goal spaced repetition", () => {
     );
     const duel = duelDoc();
 
-    await completeSpacedRepetitionDuel({ db } as never, duel as Doc<"duels">, READY_NOW);
+    await completeRepetitionDuel({ db } as never, duel as Doc<"duels">, READY_NOW);
 
     expect(db.weeklyGoalRepetitions[0].completedSteps[0]).toMatchObject({
       step: 1,

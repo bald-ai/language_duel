@@ -21,6 +21,13 @@ import {
 type CtxWithDb = QueryCtx | MutationCtx;
 type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
 type SpacedRepetitionCompletion = "solo_practice" | "duel";
+type ReadyRepetitionContext = {
+  goal: Doc<"weeklyGoals">;
+  record: Doc<"weeklyGoalRepetitions">;
+  bucket: "ready";
+  content: Extract<LoadedSnapshotContent, { ok: true }>;
+  step: number;
+};
 
 type LoadedSnapshotContent =
   | {
@@ -56,6 +63,10 @@ function getGoalPartnerId(goal: Doc<"weeklyGoals">, userId: Id<"users">): Id<"us
 
 function isGoalParticipant(goal: Doc<"weeklyGoals">, userId: Id<"users">): boolean {
   return goal.creatorId === userId || goal.partnerId === userId;
+}
+
+function getThemeNames(goal: Doc<"weeklyGoals">): string[] {
+  return goal.themes.map((theme) => theme.themeName);
 }
 
 async function getRepetitionRecord(
@@ -144,6 +155,51 @@ async function loadSpacedRepetitionSnapshotContent(
   };
 }
 
+async function loadReadyRepetitionContext(args: {
+  ctx: CtxWithDb;
+  weeklyGoalId: Id<"weeklyGoals">;
+  userId: Id<"users">;
+  now: number;
+}): Promise<ReadyRepetitionContext> {
+  const goal = await args.ctx.db.get(args.weeklyGoalId);
+  if (!goal || goal.status !== "completed") {
+    throw new Error("Spaced repetition is only available for completed goals.");
+  }
+  if (typeof goal.completedAt !== "number") {
+    throw new Error("Spaced repetition is not available for this completed goal.");
+  }
+  if (!isGoalParticipant(goal, args.userId)) {
+    throw new Error("Not authorized");
+  }
+
+  const record = await getRepetitionRecord(args.ctx, args.weeklyGoalId, args.userId);
+  if (!record) {
+    throw new Error("Spaced repetition is not ready yet. Refresh the board and try again.");
+  }
+  const bucket = getSpacedRepetitionBucket(
+    {
+      completedSteps: record.completedSteps,
+      goalCompletedAt: goal.completedAt,
+    },
+    args.now
+  );
+  if (bucket !== "ready") {
+    throw new Error("This repetition is not ready yet.");
+  }
+
+  const content = await loadSpacedRepetitionSnapshotContent(args.ctx, goal);
+  if (!content.ok) {
+    throw new Error(content.message);
+  }
+
+  const step = getSpacedRepetitionCurrentStep(record.completedSteps);
+  if (step === null) {
+    throw new Error("This repetition is already complete.");
+  }
+
+  return { goal, record, bucket, content, step };
+}
+
 function buildBoardItem(args: {
   goal: Doc<"weeklyGoals">;
   record: Doc<"weeklyGoalRepetitions">;
@@ -170,9 +226,7 @@ function buildBoardItem(args: {
 
   return {
     weeklyGoalId: args.goal._id,
-    title: args.goal.themes.length === 1
-      ? args.goal.themes[0].themeName
-      : `${args.goal.themes[0]?.themeName ?? "Completed goal"} + ${Math.max(0, args.goal.themes.length - 1)} more`,
+    themeNames: getThemeNames(args.goal),
     partner: args.partner,
     themeCount: args.goal.themes.length,
     wordCount: args.content.ok ? args.content.wordCount : 0,
@@ -306,7 +360,17 @@ export const getLaunchPreview = query({
     if (!record) return null;
 
     const now = Date.now();
-    const content = await loadSpacedRepetitionSnapshotContent(ctx, goal);
+    const bucket = getSpacedRepetitionBucket(
+      {
+        completedSteps: record.completedSteps,
+        goalCompletedAt: goal.completedAt,
+      },
+      now
+    );
+    const content =
+      bucket === "ready"
+        ? await loadSpacedRepetitionSnapshotContent(ctx, goal)
+        : buildDeferredSnapshotContent(goal);
     const partner = await ctx.db.get(getGoalPartnerId(goal, auth.user._id));
     const item = buildBoardItem({
       goal,
@@ -337,10 +401,18 @@ async function advanceUserIfReady(args: {
 }) {
   const record = await getRepetitionRecord(args.ctx, args.goal._id, args.userId);
   if (!record || isSpacedRepetitionDone(record.completedSteps)) {
+    console.warn("Skipping spaced repetition advance: record missing or already done.", {
+      weeklyGoalId: args.goal._id,
+      userId: args.userId,
+    });
     return false;
   }
 
   if (typeof args.goal.completedAt !== "number") {
+    console.warn("Skipping spaced repetition advance: completed goal is missing completedAt.", {
+      weeklyGoalId: args.goal._id,
+      userId: args.userId,
+    });
     return false;
   }
   const dueAt = getSpacedRepetitionDueAt({
@@ -348,11 +420,23 @@ async function advanceUserIfReady(args: {
     goalCompletedAt: args.goal.completedAt,
   });
   if (dueAt === null || dueAt > args.now) {
+    console.warn("Skipping spaced repetition advance: repetition is not due.", {
+      weeklyGoalId: args.goal._id,
+      userId: args.userId,
+      dueAt,
+      now: args.now,
+    });
     return false;
   }
 
   const step = getSpacedRepetitionCurrentStep(record.completedSteps);
-  if (args.expectedStep !== undefined && step !== args.expectedStep) {
+  if (step === null || (args.expectedStep !== undefined && step !== args.expectedStep)) {
+    console.warn("Skipping spaced repetition advance: step mismatch.", {
+      weeklyGoalId: args.goal._id,
+      userId: args.userId,
+      expectedStep: args.expectedStep,
+      actualStep: step,
+    });
     return false;
   }
 
@@ -374,7 +458,7 @@ async function advanceUserIfReady(args: {
   return true;
 }
 
-export async function completeSpacedRepetitionDuel(
+export async function completeRepetitionDuel(
   ctx: MutationCtx,
   duel: Doc<"duels">,
   now: number
@@ -386,11 +470,24 @@ export async function completeSpacedRepetitionDuel(
     typeof duel.bossLivesRemaining !== "number" ||
     duel.bossLivesRemaining <= 0
   ) {
+    console.warn("Skipping spaced repetition duel completion: duel is not a successful SR attempt.", {
+      duelId: duel._id,
+      sourceType: duel.sourceType,
+      weeklyGoalId: duel.weeklyGoalId,
+      spacedRepetitionStep: duel.spacedRepetitionStep,
+      bossLivesRemaining: duel.bossLivesRemaining,
+    });
     return;
   }
 
   const goal = await ctx.db.get(duel.weeklyGoalId);
-  if (!goal || goal.status !== "completed") return;
+  if (!goal || goal.status !== "completed") {
+    console.warn("Skipping spaced repetition duel completion: goal is missing or not completed.", {
+      duelId: duel._id,
+      weeklyGoalId: duel.weeklyGoalId,
+    });
+    return;
+  }
 
   await advanceUserIfReady({
     ctx,
@@ -417,38 +514,12 @@ export const createRepetitionChallenge = mutation({
   handler: async (ctx, { weeklyGoalId }) => {
     const { user } = await getAuthenticatedUser(ctx);
     const now = Date.now();
-    const goal = await ctx.db.get(weeklyGoalId);
-    if (!goal || goal.status !== "completed") {
-      throw new Error("Spaced repetition is only available for completed goals.");
-    }
-    if (typeof goal.completedAt !== "number") {
-      throw new Error("Spaced repetition is not available for this completed goal.");
-    }
-    if (!isGoalParticipant(goal, user._id)) {
-      throw new Error("Not authorized");
-    }
-
-    const record = await getRepetitionRecord(ctx, weeklyGoalId, user._id);
-    if (!record) {
-      throw new Error("Spaced repetition is not ready yet. Refresh the board and try again.");
-    }
-    const bucket = getSpacedRepetitionBucket(
-      {
-        completedSteps: record.completedSteps,
-        goalCompletedAt: goal.completedAt,
-      },
-      now
-    );
-    if (bucket !== "ready") {
-      throw new Error("This repetition is not ready yet.");
-    }
-
-    const content = await loadSpacedRepetitionSnapshotContent(ctx, goal);
-    if (!content.ok) {
-      throw new Error(content.message);
-    }
-
-    const step = getSpacedRepetitionCurrentStep(record.completedSteps);
+    const { goal, content, step } = await loadReadyRepetitionContext({
+      ctx,
+      weeklyGoalId,
+      userId: user._id,
+      now,
+    });
     const activeAttempts = await ctx.db
       .query("challenges")
       .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", weeklyGoalId))
@@ -519,38 +590,12 @@ export const startRepetitionSoloPractice = mutation({
   handler: async (ctx, { weeklyGoalId }) => {
     const { user } = await getAuthenticatedUser(ctx);
     const now = Date.now();
-    const goal = await ctx.db.get(weeklyGoalId);
-    if (!goal || goal.status !== "completed") {
-      throw new Error("Spaced repetition is only available for completed goals.");
-    }
-    if (typeof goal.completedAt !== "number") {
-      throw new Error("Spaced repetition is not available for this completed goal.");
-    }
-    if (!isGoalParticipant(goal, user._id)) {
-      throw new Error("Not authorized");
-    }
-
-    const record = await getRepetitionRecord(ctx, weeklyGoalId, user._id);
-    if (!record) {
-      throw new Error("Spaced repetition is not ready yet. Refresh the board and try again.");
-    }
-    const bucket = getSpacedRepetitionBucket(
-      {
-        completedSteps: record.completedSteps,
-        goalCompletedAt: goal.completedAt,
-      },
-      now
-    );
-    if (bucket !== "ready") {
-      throw new Error("This repetition is not ready yet.");
-    }
-
-    const content = await loadSpacedRepetitionSnapshotContent(ctx, goal);
-    if (!content.ok) {
-      throw new Error(content.message);
-    }
-
-    const step = getSpacedRepetitionCurrentStep(record.completedSteps);
+    const { content, step } = await loadReadyRepetitionContext({
+      ctx,
+      weeklyGoalId,
+      userId: user._id,
+      now,
+    });
 
     return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
       userId: user._id,
@@ -579,9 +624,15 @@ export const completeRepetitionSoloPractice = mutation({
       typeof session.spacedRepetitionStep !== "number" ||
       session.userId !== user._id
     ) {
+      console.warn("Skipping spaced repetition solo completion: session is not a matching SR session.", {
+        soloPracticeSessionId,
+      });
       return { advanced: false };
     }
     if (session.status === "completed") {
+      console.warn("Skipping spaced repetition solo completion: session is already completed.", {
+        soloPracticeSessionId,
+      });
       return { advanced: false };
     }
 
@@ -590,11 +641,20 @@ export const completeRepetitionSoloPractice = mutation({
       !Number.isInteger(completedStep) ||
       completedStep !== session.spacedRepetitionStep
     ) {
+      console.warn("Skipping spaced repetition solo completion: completed step mismatch.", {
+        soloPracticeSessionId,
+        completedStep,
+        expectedStep: session.spacedRepetitionStep,
+      });
       return { advanced: false };
     }
 
     const goal = await ctx.db.get(session.weeklyGoalId);
     if (!goal || goal.status !== "completed") {
+      console.warn("Skipping spaced repetition solo completion: goal is missing or not completed.", {
+        soloPracticeSessionId,
+        weeklyGoalId: session.weeklyGoalId,
+      });
       return { advanced: false };
     }
 
