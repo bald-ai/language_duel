@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { NICKNAME_MAX_LENGTH } from "../constants";
+import { FormError } from "@/app/components/FormError";
 import { useThemeColors } from "@/app/components/ThemeProvider";
 
 interface NicknameEditorProps {
@@ -105,17 +106,7 @@ export function NicknameEditor({
           </p>
         </div>
 
-        {error && (
-          <div 
-            className="p-3 rounded-lg border"
-            style={{
-              backgroundColor: `${colors.cta.dark}20`,
-              borderColor: `${colors.cta.DEFAULT}50`,
-            }}
-          >
-            <p className="text-sm" style={{ color: colors.cta.light }}>{error}</p>
-          </div>
-        )}
+        {error && <FormError message={error} variant="warning" />}
 
         <button
           type="submit"

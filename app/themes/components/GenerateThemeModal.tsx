@@ -1,6 +1,7 @@
 "use client";
 
 import type { WordType } from "@/lib/themes/api";
+import { FormError } from "@/app/components/FormError";
 import {
   MAX_GENERATED_WORDS_COUNT,
   MIN_GENERATED_WORDS_COUNT,
@@ -197,17 +198,7 @@ export function GenerateThemeModal({
         )}
 
         {error && !isGenerating && (
-          <p
-            className="mb-4 rounded-xl border-2 px-3 py-2 text-sm font-medium"
-            style={{
-              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-              borderColor: `${colors.status.danger.DEFAULT}66`,
-              color: colors.status.danger.light,
-            }}
-            data-testid="theme-generate-error"
-          >
-            {error}
-          </p>
+          <FormError message={error} className="mb-4" dataTestId="theme-generate-error" />
         )}
 
         <div className="flex gap-3">

@@ -5,10 +5,7 @@
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
-import {
-  getDuelParticipant,
-  hasPlayerAnswered,
-} from "./helpers/auth";
+import { getDuelParticipant } from "./helpers/auth";
 import {
   HINT_PROVIDER_BONUS,
   TIMEOUT_ANSWER,
@@ -16,12 +13,13 @@ import {
 import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
 import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
+import { forRole } from "../lib/duelRole";
 
 // ===========================================
 // Helper: Clear hint state on question advance
 // ===========================================
 
-function getHintClearFields(): Record<string, undefined> {
+function getHintClearFields(): Partial<Doc<"duels">> {
   return {
     hintRequestedBy: undefined,
     hintAccepted: undefined,
@@ -205,12 +203,13 @@ export const answerDuel = mutation({
     const wordCount = sessionWords.length;
     const currentQuestion = getDuelQuestionOrThrow(duel, questionIndex);
     const isCorrect = selectedAnswer === currentQuestion.correctOption;
+    const roleView = forRole(duel, playerRole);
 
     // Mark as answered and update scores
-    const myAnswered = hasPlayerAnswered(duel, playerRole);
-    if (!myAnswered) {
-      const myScore = isChallenger ? duel.challengerScore || 0 : duel.opponentScore || 0;
-      const newMyScore = isCorrect ? myScore + currentQuestion.points : myScore;
+    if (!roleView.myAnswered) {
+      const newMyScore = isCorrect
+        ? roleView.myScore + currentQuestion.points
+        : roleView.myScore;
 
       if (isChallenger) {
         await ctx.db.patch(duelId, {
@@ -246,9 +245,10 @@ export const timeoutAnswer = mutation({
       throw new Error("Duel is not active");
     }
 
+    const roleView = forRole(duel, playerRole);
+
     // Mark as answered with 0 points (timeout)
-    const myAnswered = hasPlayerAnswered(duel, playerRole);
-    if (!myAnswered) {
+    if (!roleView.myAnswered) {
       if (isChallenger) {
         await ctx.db.patch(duelId, {
           challengerAnswered: true,

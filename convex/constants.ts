@@ -77,15 +77,6 @@ export type SoloHintL2Type = (typeof SOLO_HINT_L2_TYPES)[number];
 export const SABOTAGE_EFFECTS = ["sticky", "bounce", "trampoline", "reverse"] as const;
 export type SabotageEffect = (typeof SABOTAGE_EFFECTS)[number];
 
-/** Maximum sabotages each player can use per duel */
-export const MAX_SABOTAGES_PER_DUEL = 5;
-
-/** Duration of "sticky" sabotage effect (ms) */
-export const SABOTAGE_STICKY_DURATION_MS = 7000;
-
-/** Fallback duration for sabotages when questionStartTime is unavailable (ms) */
-export const SABOTAGE_FALLBACK_DURATION_MS = 25000;
-
 // ===========================================
 // Scoring (Duel Mode)
 // ===========================================

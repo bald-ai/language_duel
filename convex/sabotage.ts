@@ -5,40 +5,9 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getDuelParticipant, isDuelActive } from "./helpers/auth";
-import {
-  MAX_SABOTAGES_PER_DUEL,
-  SABOTAGE_STICKY_DURATION_MS,
-  SABOTAGE_FALLBACK_DURATION_MS,
-} from "./constants";
-
-/**
- * Check if a sabotage effect is currently active.
- */
-function isSabotageActive(params: {
-  sabotage?: { effect: string; timestamp: number };
-  now: number;
-  questionStartTime?: number;
-}): boolean {
-  const { sabotage, now, questionStartTime } = params;
-  if (!sabotage) return false;
-
-  if (sabotage.effect === "sticky") {
-    return now - sabotage.timestamp < SABOTAGE_STICKY_DURATION_MS;
-  }
-
-  if (
-    sabotage.effect === "bounce" ||
-    sabotage.effect === "trampoline" ||
-    sabotage.effect === "reverse"
-  ) {
-    if (typeof questionStartTime === "number") {
-      return sabotage.timestamp >= questionStartTime;
-    }
-    return now - sabotage.timestamp < SABOTAGE_FALLBACK_DURATION_MS;
-  }
-
-  return false;
-}
+import { forRole } from "../lib/duelRole";
+import { isSabotageActive } from "../lib/sabotage/active";
+import { MAX_SABOTAGES } from "../lib/sabotage/constants";
 
 export const sendSabotage = mutation({
   args: {
@@ -51,38 +20,29 @@ export const sendSabotage = mutation({
     ),
   },
   handler: async (ctx, { duelId, effect }) => {
-    const { duel, isChallenger } = await getDuelParticipant(ctx, duelId);
+    const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (!isDuelActive(duel)) {
       throw new Error("Duel is not active");
     }
 
-    // Check sabotage usage limit
-    const sabotagesUsed = isChallenger
-      ? duel.challengerSabotagesUsed || 0
-      : duel.opponentSabotagesUsed || 0;
+    const roleView = forRole(duel, playerRole);
+    const sabotagesUsed = roleView.mySabotagesUsed;
 
-    if (sabotagesUsed >= MAX_SABOTAGES_PER_DUEL) {
+    if (sabotagesUsed >= MAX_SABOTAGES) {
       throw new Error("No sabotages remaining");
     }
 
     // Check if target already has an active sabotage
     const now = Date.now();
-    const targetSabotage = isChallenger
-      ? duel.opponentSabotage
-      : duel.challengerSabotage;
 
-    const targetHasAnswered = isChallenger
-      ? duel.opponentAnswered
-      : duel.challengerAnswered;
-
-    if (targetHasAnswered) {
+    if (roleView.theirAnswered) {
       throw new Error("Opponent has already answered this question");
     }
 
     if (
       isSabotageActive({
-        sabotage: targetSabotage,
+        sabotage: roleView.theirSabotage,
         now,
         questionStartTime:
           typeof duel.questionStartTime === "number"

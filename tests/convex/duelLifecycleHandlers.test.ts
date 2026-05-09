@@ -4,6 +4,7 @@ import {
   acceptChallenge,
   acceptChallengeFromNotification,
   declineChallenge,
+  stopDuel,
 } from "@/convex/lobby";
 import {
   createAuthCtx,
@@ -200,6 +201,27 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
   };
 }
 
+function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+  return {
+    _id: "duel_1" as Id<"duels">,
+    _creationTime: 1,
+    challengerId: "user_1" as Id<"users">,
+    opponentId: "user_2" as Id<"users">,
+    themeIds: ["theme_1" as Id<"themes">],
+    sessionWords: [],
+    sourceType: "normal",
+    status: "active",
+    currentWordIndex: 0,
+    challengerAnswered: false,
+    opponentAnswered: false,
+    challengerScore: 0,
+    opponentScore: 0,
+    createdAt: 1,
+    seed: 123,
+    ...overrides,
+  };
+}
+
 function notificationDoc(overrides: Partial<NotificationDoc> = {}): NotificationDoc {
   return {
     _id: "notification_1" as Id<"notifications">,
@@ -337,5 +359,34 @@ describe("duel lifecycle handlers", () => {
       resolvedAt: 8_000,
     });
     expect(db.duels).toHaveLength(0);
+  });
+
+  it("stopDuel only patches active duels", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.duels.push(duelDoc({ status: "stopped" }));
+
+    const handler = (stopDuel as unknown as {
+      _handler: (ctx: unknown, args: { duelId: Id<"duels"> }) => Promise<void>;
+    })._handler;
+    const patchSpy = vi.spyOn(db, "patch");
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    expect(patchSpy).not.toHaveBeenCalled();
+
+    db.duels[0].status = "active";
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    expect(patchSpy).toHaveBeenCalledTimes(1);
+    expect(db.duels[0].status).toBe("stopped");
   });
 });

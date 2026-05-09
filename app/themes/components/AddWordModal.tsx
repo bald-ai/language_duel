@@ -2,6 +2,7 @@
 
 import { colors } from "@/lib/theme";
 import { THEME_WORD_INPUT_MAX_LENGTH } from "@/lib/themes/constants";
+import { FormError } from "@/app/components/FormError";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
 interface AddWordModalProps {
@@ -72,18 +73,7 @@ export function AddWordModal({
           </p>
         </div>
 
-        {error && (
-          <div
-            className="mb-4 p-3 border-2 rounded-xl text-sm"
-            style={{
-              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-              borderColor: `${colors.status.danger.DEFAULT}66`,
-              color: colors.status.danger.light,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        {error && <FormError message={error} className="mb-4" />}
 
         {isAdding && (
           <div className="mb-4 text-center">

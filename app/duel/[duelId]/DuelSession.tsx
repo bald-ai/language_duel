@@ -7,8 +7,14 @@ import { api } from "@/convex/_generated/api";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { SabotageEffect } from "@/lib/sabotage/types";
-import { SABOTAGE_DURATION_MS, MAX_SABOTAGES } from "@/lib/sabotage/constants";
+import {
+  SABOTAGE_DURATION_MS,
+  SABOTAGE_FALLBACK_DURATION_MS,
+  MAX_SABOTAGES,
+} from "@/lib/sabotage/constants";
+import { getSabotageExpiryAt, isSabotageActive } from "@/lib/sabotage/active";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
+import { forRole } from "@/lib/duelRole";
 import {
   QUESTION_TIMER_SECONDS,
   TRANSITION_COUNTDOWN_SECONDS,
@@ -20,6 +26,7 @@ import { useSabotageEffect } from "./hooks/useSabotageEffect";
 import { useDuelAudio } from "./hooks/useDuelAudio";
 import { DuelView, type FrozenData } from "./components/DuelView";
 import { colors } from "@/lib/theme";
+import { toast } from "sonner";
 
 // Props interface
 interface DuelSessionProps {
@@ -28,6 +35,15 @@ interface DuelSessionProps {
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
 }
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const isExpectedDuelRaceError = (error: unknown) =>
+  error instanceof Error && (
+    error.message.includes("Stale answer: question has changed") ||
+    error.message.includes("Duel is not active")
+  );
 
 export default function DuelSession({
   duel,
@@ -56,6 +72,7 @@ export default function DuelSession({
   }, []);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [frozenData, setFrozenData] = useState<FrozenData | null>(null);
+  const [sabotageNow, setSabotageNow] = useState(() => Date.now());
 
   // Type reveal effect state for "None of the above" correct answer
   const [isRevealing, setIsRevealing] = useState(false);
@@ -99,9 +116,20 @@ export default function DuelSession({
   const selectedAnswer = (selectedAnswerIndexRef.current === index) ? selectedAnswerRaw : null;
   // Computed isLocked that's only valid for the current question (prevents race condition)
   const isLocked = (isLockedIndexRef.current === index) ? isLockedRaw : false;
+  const roleView = forRole(duel, viewerRole);
+  const {
+    myScore,
+    theirScore,
+    myAnswered,
+    theirAnswered,
+    mySabotage,
+    theirSabotage,
+    mySabotagesUsed,
+    theirLastAnswer,
+    theirRole,
+  } = roleView;
 
   // Sabotage effect management (extracted to hook)
-  const mySabotage = viewerIsChallenger ? duel.challengerSabotage : duel.opponentSabotage;
   const { activeSabotage, sabotagePhase } = useSabotageEffect({
     mySabotage,
     phase,
@@ -149,17 +177,13 @@ export default function DuelSession({
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
       const prevQuestion = duel.duelQuestions![prevIndex];
 
-      const opponentLastAnswer = viewerIsChallenger
-        ? duel.opponentLastAnswer
-        : duel.challengerLastAnswer;
-
       setPhase('transition');
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
         shuffledAnswers: prevQuestion.options,
         selectedAnswer: lockedAnswerRef.current,
-        opponentAnswer: opponentLastAnswer || null,
+        opponentAnswer: theirLastAnswer || null,
         wordIndex: prevIndex,
         hasNoneOption: prevQuestion.correctOption === NONE_OF_ABOVE,
         difficulty: {
@@ -182,7 +206,7 @@ export default function DuelSession({
 
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, wordOrder, viewerIsChallenger, duel.opponentLastAnswer, duel.challengerLastAnswer, isLocked, duel.duelQuestions]);
+  }, [currentWordIndex, words, wordOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
 
   // Countdown timer
   const countdownPausedBy = duel.countdownPausedBy;
@@ -339,12 +363,13 @@ export default function DuelSession({
 
       if (remaining <= 0 && !hasTimedOutRef.current) {
         hasTimedOutRef.current = true;
-        const hasAnswered = viewerIsChallenger
-          ? duel.challengerAnswered
-          : duel.opponentAnswered;
 
-        if (!hasAnswered && duel._id) {
-          timeoutAnswer({ duelId: duel._id }).catch(console.error);
+        if (!myAnswered && duel._id) {
+          timeoutAnswer({ duelId: duel._id }).catch((error) => {
+            if (!isExpectedDuelRaceError(error)) {
+              console.error("Failed to submit timeout answer:", error);
+            }
+          });
         }
       }
     };
@@ -365,9 +390,7 @@ export default function DuelSession({
     duel.questionStartTime,
     duel.questionTimerPausedAt,
     duel.currentWordIndex,
-    duel.challengerAnswered,
-    duel.opponentAnswered,
-    viewerIsChallenger,
+    myAnswered,
     timeoutAnswer,
   ]);
 
@@ -384,33 +407,48 @@ export default function DuelSession({
   // Check role (needed for useMemo below)
   const isChallenger = viewerIsChallenger;
   const isOpponent = viewerRole === "opponent";
-  const outgoingSabotage = isChallenger ? duel.opponentSabotage : duel.challengerSabotage;
+  const outgoingSabotage = theirSabotage;
+  const outgoingSabotageEffect = outgoingSabotage?.effect;
+  const outgoingSabotageTimestamp = outgoingSabotage?.timestamp;
+
+  useEffect(() => {
+    if (!outgoingSabotageEffect || typeof outgoingSabotageTimestamp !== "number") return;
+
+    setSabotageNow(Date.now());
+
+    const expiresAt = getSabotageExpiryAt({
+      sabotage: { effect: outgoingSabotageEffect, timestamp: outgoingSabotageTimestamp },
+      questionStartTime:
+        typeof duel.questionStartTime === "number"
+          ? duel.questionStartTime
+          : undefined,
+      sabotageDurationMs: SABOTAGE_DURATION_MS,
+      sabotageFallbackDurationMs: SABOTAGE_FALLBACK_DURATION_MS,
+    });
+
+    if (expiresAt === null) return;
+
+    const timer = setTimeout(
+      () => setSabotageNow(Date.now()),
+      Math.max(0, expiresAt - Date.now() + 50)
+    );
+
+    return () => clearTimeout(timer);
+  }, [outgoingSabotageEffect, outgoingSabotageTimestamp, duel.questionStartTime]);
 
   // Memoized sabotage active check - updates when sabotage or question changes
   // MUST be called before any early returns to follow React Hook rules
-  const isOutgoingSabotageActive = useMemo(() => {
-    if (!outgoingSabotage) return false;
-
-    // For sticky, check if within duration of last sabotage
-    // Note: This won't auto-expire but will update on next state change
-    if (outgoingSabotage.effect === "sticky") {
-      const now = Date.now();
-      return now - outgoingSabotage.timestamp < SABOTAGE_DURATION_MS;
-    }
-
-    // For bounce/trampoline/reverse, active if sent during current question
-    if (
-      outgoingSabotage.effect === "bounce" ||
-      outgoingSabotage.effect === "trampoline" ||
-      outgoingSabotage.effect === "reverse"
-    ) {
-      return typeof duel.questionStartTime === "number"
-        ? outgoingSabotage.timestamp >= duel.questionStartTime
-        : true; // Assume active if no question start time
-    }
-
-    return false;
-  }, [outgoingSabotage, duel.questionStartTime]);
+  const isOutgoingSabotageActive = useMemo(
+    () => isSabotageActive({
+      sabotage: outgoingSabotage,
+      now: sabotageNow,
+      questionStartTime:
+        typeof duel.questionStartTime === "number"
+          ? duel.questionStartTime
+          : undefined,
+    }),
+    [outgoingSabotage, sabotageNow, duel.questionStartTime]
+  );
 
   // All useCallback hooks MUST be defined before any early returns (React rules of hooks)
   const handleStopDuel = useCallback(async () => {
@@ -419,6 +457,7 @@ export default function DuelSession({
       router.push('/');
     } catch (error) {
       console.error("Failed to stop duel:", error);
+      toast.error(getErrorMessage(error, "Failed to stop duel"));
     }
   }, [stopDuel, duel._id, router]);
 
@@ -429,7 +468,11 @@ export default function DuelSession({
     try {
       await answer({ duelId: duel._id, selectedAnswer, questionIndex: index });
     } catch (error) {
+      if (isExpectedDuelRaceError(error)) {
+        return;
+      }
       console.error("Failed to submit answer:", error);
+      toast.error(getErrorMessage(error, "Failed to submit answer"));
       setIsLocked(false);
       lockedAnswerRef.current = null;
     }
@@ -440,6 +483,7 @@ export default function DuelSession({
       await requestHint({ duelId: duel._id });
     } catch (error) {
       console.error("Failed to request hint:", error);
+      toast.error(getErrorMessage(error, "Failed to request hint"));
     }
   }, [requestHint, duel._id]);
 
@@ -448,6 +492,7 @@ export default function DuelSession({
       await acceptHint({ duelId: duel._id });
     } catch (error) {
       console.error("Failed to accept hint:", error);
+      toast.error(getErrorMessage(error, "Failed to accept hint"));
     }
   }, [acceptHint, duel._id]);
 
@@ -456,6 +501,7 @@ export default function DuelSession({
       await eliminateOption({ duelId: duel._id, option });
     } catch (error) {
       console.error("Failed to eliminate option:", error);
+      toast.error(getErrorMessage(error, "Failed to eliminate option"));
     }
   }, [eliminateOption, duel._id]);
 
@@ -464,6 +510,7 @@ export default function DuelSession({
       await sendSabotage({ duelId: duel._id, effect });
     } catch (error) {
       console.error("Failed to send sabotage:", error);
+      toast.error(getErrorMessage(error, "Failed to send sabotage"));
     }
   }, [sendSabotage, duel._id]);
 
@@ -502,18 +549,15 @@ export default function DuelSession({
   }
 
   // Raw hasAnswered from server (may be stale during question transitions)
-  const hasAnsweredRaw = (isChallenger && duel.challengerAnswered) ||
-    (isOpponent && duel.opponentAnswered);
+  const hasAnsweredRaw = myAnswered;
   // Computed hasAnswered that's only valid for the current question (prevents race condition)
   // We already set isLockedIndexRef when user confirms answer, so hasAnswered should only be true
   // if the lock was set for the current question
   const hasAnswered = hasAnsweredRaw && (isLockedIndexRef.current === index);
-  const opponentHasAnswered = (isChallenger && duel.opponentAnswered) ||
-    (isOpponent && duel.challengerAnswered);
+  const opponentHasAnswered = theirAnswered;
 
   // Hint system state
-  const myRole = isChallenger ? "challenger" : "opponent";
-  const theirRole = isChallenger ? "opponent" : "challenger";
+  const myRole = viewerRole;
   const hintRequestedBy = duel.hintRequestedBy;
   const hintAccepted = duel.hintAccepted;
   const eliminatedOptions = duel.eliminatedOptions || [];
@@ -526,18 +570,11 @@ export default function DuelSession({
   const canEliminate = isHintProvider && eliminatedOptions.length < 2;
 
   // Scores
-  const challengerScore = duel.challengerScore || 0;
-  const opponentScore = duel.opponentScore || 0;
-  const myScore = isChallenger ? challengerScore : opponentScore;
-  const theirScore = isChallenger ? opponentScore : challengerScore;
   const myName = (isChallenger ? challenger?.name : opponent?.name) || "You";
   const theirName = (isChallenger ? opponent?.name : challenger?.name) || "Opponent";
 
-  const mySabotagesUsed = isChallenger
-    ? (duel.challengerSabotagesUsed || 0)
-    : (duel.opponentSabotagesUsed || 0);
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
-  const opponentLastAnswer = isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer;
+  const opponentLastAnswer = theirLastAnswer;
 
   const handleOptionClick = (ans: string, canEliminateThis: boolean, isEliminated: boolean) => {
     if (phase !== 'answering') return;
@@ -547,7 +584,7 @@ export default function DuelSession({
       setSelectedAnswer(ans, index);
     }
   };
-  const userRole = isChallenger ? "challenger" : "opponent";
+  const userRole = viewerRole;
   const difficultyForView = { level: difficulty.level, points: difficulty.points };
 
   return (
@@ -569,10 +606,22 @@ export default function DuelSession({
       countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
       countdownSkipRequestedBy={countdownSkipRequestedBy}
       userRole={userRole}
-      onPauseCountdown={() => pauseCountdown({ duelId: duel._id }).catch(console.error)}
-      onRequestUnpause={() => requestUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
-      onConfirmUnpause={() => confirmUnpauseCountdown({ duelId: duel._id }).catch(console.error)}
-      onSkipCountdown={() => skipCountdown({ duelId: duel._id }).catch(console.error)}
+      onPauseCountdown={() => pauseCountdown({ duelId: duel._id }).catch((error) => {
+        console.error("Failed to pause countdown:", error);
+        toast.error(getErrorMessage(error, "Failed to pause countdown"));
+      })}
+      onRequestUnpause={() => requestUnpauseCountdown({ duelId: duel._id }).catch((error) => {
+        console.error("Failed to request countdown resume:", error);
+        toast.error(getErrorMessage(error, "Failed to request countdown resume"));
+      })}
+      onConfirmUnpause={() => confirmUnpauseCountdown({ duelId: duel._id }).catch((error) => {
+        console.error("Failed to resume countdown:", error);
+        toast.error(getErrorMessage(error, "Failed to resume countdown"));
+      })}
+      onSkipCountdown={() => skipCountdown({ duelId: duel._id }).catch((error) => {
+        console.error("Failed to skip countdown:", error);
+        toast.error(getErrorMessage(error, "Failed to skip countdown"));
+      })}
       isPlayingAudio={isPlayingAudio}
       onPlayAudio={handlePlayAudio}
       shuffledAnswers={shuffledAnswers}

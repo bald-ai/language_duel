@@ -47,7 +47,6 @@ export function useNicknameUpdate() {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update nickname";
         setError(message);
-        toast.error(message);
         return false;
       } finally {
         setIsUpdating(false);
@@ -66,4 +65,3 @@ export function useNicknameUpdate() {
     validateNickname,
   };
 }
-

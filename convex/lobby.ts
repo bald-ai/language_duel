@@ -302,7 +302,7 @@ export const stopDuel = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel } = await getDuelParticipant(ctx, duelId);
-    if (duel.status === "completed") return;
+    if (duel.status !== "active") return;
     await ctx.db.patch(duelId, { status: "stopped" });
   },
 });

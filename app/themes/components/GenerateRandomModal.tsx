@@ -2,6 +2,7 @@
 
 import { MAX_RANDOM_WORD_COUNT } from "../constants";
 import { colors } from "@/lib/theme";
+import { FormError } from "@/app/components/FormError";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
 interface GenerateRandomModalProps {
@@ -66,18 +67,7 @@ export function GenerateRandomModal({
           This will generate {count} new unique word{count > 1 ? "s" : ""} for the theme &quot;{themeName}&quot;
         </p>
 
-        {error && (
-          <div
-            className="mb-4 p-3 border-2 rounded-xl text-sm"
-            style={{
-              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-              borderColor: `${colors.status.danger.DEFAULT}66`,
-              color: colors.status.danger.light,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        {error && <FormError message={error} className="mb-4" />}
 
         {isGenerating && (
           <div className="mb-4 text-center">

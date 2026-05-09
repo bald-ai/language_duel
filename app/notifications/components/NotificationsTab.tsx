@@ -18,6 +18,9 @@ const hasGoalId = (
 ): payload is { goalId: Id<"weeklyGoals"> } =>
     isRecord(payload) && "goalId" in payload;
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
 /**
  * NotificationsTab - Display all notification types with actions
  * 
@@ -34,8 +37,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.acceptFriendRequest(notificationId);
             toast.success("Friend request accepted!");
-        } catch (_error) {
-            toast.error("Failed to accept friend request");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to accept friend request"));
         }
     };
 
@@ -43,8 +46,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.rejectFriendRequest(notificationId);
             toast.success("Friend request rejected");
-        } catch (_error) {
-            toast.error("Failed to reject friend request");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to reject friend request"));
         }
     };
 
@@ -56,8 +59,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             if (result?.duelId) {
                 router.push(`/duel/${result.duelId}`);
             }
-        } catch (_error) {
-            toast.error("Failed to accept challenge");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to accept challenge"));
         }
     };
 
@@ -65,8 +68,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.declineChallenge(notificationId);
             toast.success("Challenge declined");
-        } catch (_error) {
-            toast.error("Failed to decline challenge");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to decline challenge"));
         }
     };
 
@@ -78,8 +81,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
     const handleDismissWeeklyPlan = async (notificationId: Id<"notifications">) => {
         try {
             await actions.dismissWeeklyPlanInvitation(notificationId);
-        } catch (_error) {
-            toast.error("Failed to dismiss notification");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to dismiss notification"));
         }
     };
 
@@ -93,8 +96,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             } else {
                 toast.success(`Archived ${result.archivedCount} themes`);
             }
-        } catch (_error) {
-            toast.error("Failed to archive themes");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to archive themes"));
         }
     };
 
@@ -102,16 +105,16 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         try {
             await actions.declineWeeklyPlanInvitation(notificationId);
             toast.success("Weekly goal invitation declined");
-        } catch (_error) {
-            toast.error("Failed to decline weekly goal invitation");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to decline weekly goal invitation"));
         }
     };
 
     const handleDismissNotification = async (notificationId: Id<"notifications">) => {
         try {
             await actions.dismissNotification(notificationId);
-        } catch (_error) {
-            toast.error("Failed to dismiss notification");
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Failed to dismiss notification"));
         }
     };
 

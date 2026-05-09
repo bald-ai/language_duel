@@ -179,6 +179,27 @@ describe("NotificationsTab theme actions", () => {
     expect(toastSuccessMock).toHaveBeenCalledWith("Themes already archived");
   });
 
+  it("surfaces server error messages from notification actions", async () => {
+    const acceptChallenge = vi
+      .fn()
+      .mockRejectedValue(new Error("Challenge is no longer pending"));
+    useNotificationsMock.mockReturnValue({
+      notifications: [challengeNotification],
+      notificationCount: 1,
+      isLoading: false,
+      actions: makeActions({ acceptChallenge }),
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId("notification-notif_1-accept-challenge"));
+
+    await waitFor(() => {
+      expect(acceptChallenge).toHaveBeenCalledWith("notif_1");
+    });
+    expect(toastErrorMock).toHaveBeenCalledWith("Challenge is no longer pending");
+  });
+
   it("shows decline action for weekly goal invites and no view action for declined event", () => {
     useNotificationsMock.mockReturnValue({
       notifications: [
