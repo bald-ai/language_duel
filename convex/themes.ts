@@ -9,7 +9,9 @@ import {
   deleteUnreferencedStorageIdsForTheme,
   getSnapshotReferencedStorageIdsForTheme,
 } from "./helpers/themeTtsStorage";
+import { getResembleApiKey, generateResembleTTS, RESEMBLE_TIMEOUT_MS } from "./helpers/resembleTts";
 import { loadUsersById } from "./helpers/users";
+import { requireThemeOwner, requireThemeEditor } from "./helpers/permissions";
 import { hasThemeAccess } from "../lib/themeAccess";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
@@ -31,12 +33,6 @@ const wordValidator = v.object({
   ttsStorageId: v.optional(v.id("_storage")),
 });
 
-const RESEMBLE_BASE_URL = "https://app.resemble.ai/api/v2";
-const RESEMBLE_PROJECT_UUID = "5d2d9092";
-const RESEMBLE_VOICE_UUID = "a253156d";
-const RESEMBLE_TIMEOUT_MS = 30_000;
-const RESEMBLE_MAX_POLL_ATTEMPTS = 30;
-const RESEMBLE_POLL_INTERVAL_MS = 500;
 const TTS_GENERATION_LOCK_MS = 10 * 60 * 1000;
 const DUPLICATE_THEME_SUFFIX = "(DUPLICATE)";
 
@@ -62,20 +58,6 @@ function createTtsGenerationLockToken(): string {
   return `tts-lock-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function getResembleApiKey(): string | null {
-  const apiKey = process.env.RESEMBLE_API_KEY;
-  if (!apiKey) return null;
-  const trimmed = apiKey.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function getResembleHeaders(apiKey: string) {
-  return {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
-  };
-}
-
 function buildDuplicateThemeName(originalName: string): string {
   const normalizedBaseName = originalName.trim().toUpperCase();
   if (
@@ -90,96 +72,6 @@ function buildDuplicateThemeName(originalName: string): string {
     THEME_NAME_MAX_LENGTH - DUPLICATE_THEME_SUFFIX.length
   );
   return `${normalizedBaseName.slice(0, maxBaseLength)}${DUPLICATE_THEME_SUFFIX}`;
-}
-
-async function createResembleClip(
-  text: string,
-  signal: AbortSignal,
-  apiKey: string
-): Promise<{ uuid: string; audio_src?: string } | null> {
-  const response = await fetch(
-    `${RESEMBLE_BASE_URL}/projects/${RESEMBLE_PROJECT_UUID}/clips`,
-    {
-      method: "POST",
-      headers: getResembleHeaders(apiKey),
-      body: JSON.stringify({
-        voice_uuid: RESEMBLE_VOICE_UUID,
-        body: text,
-        is_public: false,
-        is_archived: false,
-      }),
-      signal,
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[Theme TTS] Resemble clip create failed:", errorText);
-    return null;
-  }
-
-  const data = await response.json();
-  return data.item || data.data || data;
-}
-
-async function waitForResembleAudio(
-  clipUuid: string,
-  signal: AbortSignal,
-  apiKey: string
-): Promise<string | null> {
-  for (let i = 0; i < RESEMBLE_MAX_POLL_ATTEMPTS; i += 1) {
-    if (signal.aborted) {
-      const abortError = new Error("Aborted");
-      abortError.name = "AbortError";
-      throw abortError;
-    }
-
-    const response = await fetch(
-      `${RESEMBLE_BASE_URL}/projects/${RESEMBLE_PROJECT_UUID}/clips/${clipUuid}`,
-      {
-        method: "GET",
-        headers: getResembleHeaders(apiKey),
-        signal,
-      }
-    );
-
-    if (!response.ok) {
-      console.error("[Theme TTS] Resemble clip poll failed");
-      return null;
-    }
-
-    const data = await response.json();
-    const clip = data.item || data.data || data;
-
-    if (clip.audio_src) {
-      return clip.audio_src as string;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, RESEMBLE_POLL_INTERVAL_MS));
-  }
-
-  console.error("[Theme TTS] Resemble clip poll timeout");
-  return null;
-}
-
-async function generateResembleTTS(
-  text: string,
-  signal: AbortSignal,
-  apiKey: string
-): Promise<ArrayBuffer | null> {
-  const clip = await createResembleClip(text, signal, apiKey);
-  if (!clip) return null;
-
-  const audioUrl = clip.audio_src || (await waitForResembleAudio(clip.uuid, signal, apiKey));
-  if (!audioUrl) return null;
-
-  const audioResponse = await fetch(audioUrl, { signal });
-  if (!audioResponse.ok) {
-    console.error("[Theme TTS] Resemble audio download failed");
-    return null;
-  }
-
-  return audioResponse.arrayBuffer();
 }
 
 // Theme with owner details and edit permissions
@@ -320,7 +212,7 @@ export const getThemes = query({
         }
       }
 
-      const isOwner = theme.ownerId?.toString() === currentUserId.toString();
+      const isOwner = theme.ownerId === currentUserId;
       // canEdit: owner can always edit, friends can edit if theme is shared AND friendsCanEdit is true
       const canEdit = isOwner || (theme.visibility === "shared" && theme.friendsCanEdit === true);
 
@@ -468,6 +360,7 @@ export const createTheme = mutation({
     words: v.array(wordValidator),
     wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+    friendsCanEdit: v.optional(v.boolean()),
     saveRequestId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"themes">> => {
@@ -500,6 +393,7 @@ export const createTheme = mutation({
       createdAt: Date.now(),
       ownerId: user._id,
       visibility: args.visibility || "private",
+      friendsCanEdit: args.friendsCanEdit ?? false,
       saveRequestId: normalizedSaveRequestId,
     });
   },
@@ -515,16 +409,7 @@ export const updateTheme = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    // Verify ownership or edit permission
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    const isOwner = theme.ownerId === user._id;
-    const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
-
-    if (!isOwner && !canEditAsNonOwner) {
-      throw new Error("You don't have permission to edit this theme");
-    }
+    const theme = await requireThemeEditor(ctx.db, args.themeId, user._id);
 
     const { themeId, ...updates } = args;
     const filteredUpdates: Record<string, unknown> = {};
@@ -582,12 +467,7 @@ export const updateThemeVisibility = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    if (theme.ownerId !== user._id) {
-      throw new Error("You can only change visibility of your own themes");
-    }
+    await requireThemeOwner(ctx.db, args.themeId, user._id, "You can only change visibility of your own themes");
 
     await ctx.db.patch(args.themeId, { visibility: args.visibility });
     return await ctx.db.get(args.themeId);
@@ -605,13 +485,7 @@ export const updateThemeFriendsCanEdit = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    // Only owner can change this setting
-    if (theme.ownerId !== user._id) {
-      throw new Error("You can only change edit permissions of your own themes");
-    }
+    await requireThemeOwner(ctx.db, args.themeId, user._id, "You can only change edit permissions of your own themes");
 
     await ctx.db.patch(args.themeId, { friendsCanEdit: args.friendsCanEdit });
     return await ctx.db.get(args.themeId);
@@ -623,13 +497,7 @@ export const deleteTheme = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    // Verify ownership
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new Error("Theme not found");
-
-    if (theme.ownerId !== user._id) {
-      throw new Error("You can only delete your own themes");
-    }
+    const theme = await requireThemeOwner(ctx.db, args.themeId, user._id, "You can only delete your own themes");
 
     const goalsAsCreator = await ctx.db
       .query("weeklyGoals")

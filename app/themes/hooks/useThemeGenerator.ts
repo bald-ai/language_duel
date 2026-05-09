@@ -70,13 +70,12 @@ export function useThemeGenerator() {
       });
 
       if (!result.success || !result.data) {
-        const message = result.error || "Generation failed";
         setState((prev) => ({
           ...prev,
           isGenerating: false,
-          error: message,
+          error: result.error || "Generation failed",
         }));
-        throw new Error(message);
+        return null;
       }
 
       setState((prev) => ({ ...prev, isGenerating: false }));
@@ -84,7 +83,7 @@ export function useThemeGenerator() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
-      throw new Error(errorMsg);
+      return null;
     }
   }, [state.themeName, state.themePrompt, state.wordType, state.wordCount]);
 

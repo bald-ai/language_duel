@@ -65,7 +65,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("invalid response data");
+    expect(result.error).toContain("expected WordEntry[]");
   });
 
   it("rejects malformed field data even if success=true", async () => {
@@ -87,7 +87,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("invalid response data");
+    expect(result.error).toContain("expected word, answer, or wrongAnswers");
   });
 
   it("rejects malformed regenerate-for-word data", async () => {
@@ -105,7 +105,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("invalid response data");
+    expect(result.error).toContain("expected answer and wrongAnswers");
   });
 
   it("accepts a valid add-word payload", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
 interface RegenerateConfirmModalProps {
   isOpen: boolean;
@@ -10,28 +11,6 @@ interface RegenerateConfirmModalProps {
   onSkip: () => void;
   onCancel: () => void;
 }
-
-const actionButtonClassName =
-  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
-
-const primaryActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
-  borderTopColor: buttonStyles.primary.border.top,
-  borderBottomColor: buttonStyles.primary.border.bottom,
-  borderLeftColor: buttonStyles.primary.border.sides,
-  borderRightColor: buttonStyles.primary.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
-const outlineButtonClassName =
-  "flex-1 border-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-const outlineButtonStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-};
 
 export function RegenerateConfirmModal({
   isOpen,
@@ -50,11 +29,7 @@ export function RegenerateConfirmModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={{
-          backgroundColor: colors.background.elevated,
-          borderColor: colors.primary.dark,
-          boxShadow: `0 20px 60px ${colors.primary.glow}`,
-        }}
+        style={themeModalPanelStyle}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Regenerate Answers?
@@ -95,8 +70,8 @@ export function RegenerateConfirmModal({
           <button
             onClick={onConfirm}
             disabled={isRegenerating}
-            className={actionButtonClassName}
-            style={primaryActionStyle}
+            className={themeActionButtonClassName}
+            style={getThemeActionButtonStyle("primary")}
             data-testid="theme-regenerate-confirm"
           >
             {isRegenerating ? "..." : "Yes"}
@@ -104,8 +79,8 @@ export function RegenerateConfirmModal({
           <button
             onClick={onSkip}
             disabled={isRegenerating}
-            className={outlineButtonClassName}
-            style={outlineButtonStyle}
+            className={themeOutlineButtonClassName}
+            style={themeOutlineButtonStyle}
             data-testid="theme-regenerate-skip"
           >
             No
@@ -113,8 +88,8 @@ export function RegenerateConfirmModal({
           <button
             onClick={onCancel}
             disabled={isRegenerating}
-            className={outlineButtonClassName}
-            style={outlineButtonStyle}
+            className={themeOutlineButtonClassName}
+            style={themeOutlineButtonStyle}
             data-testid="theme-regenerate-cancel"
           >
             Cancel

@@ -32,48 +32,16 @@ function isWordEntryArray(value: unknown): value is WordEntry[] {
   return Array.isArray(value) && value.every((item) => isWordEntry(item));
 }
 
-export interface GenerateThemeParams {
-  themeName: string;
-  themePrompt?: string;
-  wordType: WordType;
-  wordCount: number;
-}
-
-export interface GenerateThemeResult {
-  success: boolean;
-  data?: WordEntry[];
-  error?: string;
-}
-
-export interface GenerateFieldParams {
-  fieldType: FieldType;
-  themeName: string;
-  wordType: WordType;
-  currentWord: string;
-  currentAnswer: string;
-  currentWrongAnswers: string[];
-  fieldIndex?: number;
-  existingWords?: string[];
-  rejectedWords?: string[];
-  history?: { role: "user" | "assistant"; content: string }[];
-  customInstructions?: string;
-}
-
-export interface GenerateFieldResult {
-  success: boolean;
-  prompt?: string;
-  data?: {
-    word?: string;
-    answer?: string;
-    wrongAnswer?: string;
-    wrongAnswers?: string[];
-  };
-  error?: string;
+function isAnswerAndWrongsData(
+  value: unknown
+): value is { answer: string; wrongAnswers: string[] } {
+  if (!isRecord(value)) return false;
+  return typeof value.answer === "string" && isStringArray(value.wrongAnswers);
 }
 
 function isGenerateFieldData(
   value: unknown
-): value is NonNullable<GenerateFieldResult["data"]> {
+): value is { word?: string; answer?: string; wrongAnswer?: string; wrongAnswers?: string[] } {
   if (!isRecord(value)) return false;
   if (value.word !== undefined && typeof value.word !== "string") return false;
   if (value.answer !== undefined && typeof value.answer !== "string") return false;
@@ -86,54 +54,6 @@ function isGenerateFieldData(
     value.wrongAnswer !== undefined ||
     value.wrongAnswers !== undefined
   );
-}
-
-export interface RegenerateForWordParams {
-  themeName: string;
-  wordType: WordType;
-  newWord: string;
-}
-
-export interface RegenerateForWordResult {
-  success: boolean;
-  data?: {
-    answer: string;
-    wrongAnswers: string[];
-  };
-  error?: string;
-}
-
-function isAnswerAndWrongsData(
-  value: unknown
-): value is NonNullable<RegenerateForWordResult["data"]> {
-  if (!isRecord(value)) return false;
-  return typeof value.answer === "string" && isStringArray(value.wrongAnswers);
-}
-
-export interface AddWordParams {
-  themeName: string;
-  wordType: WordType;
-  newWord: string;
-  existingWords: string[];
-}
-
-export interface AddWordResult {
-  success: boolean;
-  data?: WordEntry;
-  error?: string;
-}
-
-export interface GenerateRandomWordsParams {
-  themeName: string;
-  wordType: WordType;
-  count: number;
-  existingWords: string[];
-}
-
-export interface GenerateRandomWordsResult {
-  success: boolean;
-  data?: WordEntry[];
-  error?: string;
 }
 
 function parseGenerateApiEnvelope(payload: unknown): GenerateApiEnvelope | null {
@@ -162,20 +82,18 @@ function parseGenerateApiEnvelope(payload: unknown): GenerateApiEnvelope | null 
   };
 }
 
-/**
- * Generate a new theme with words via AI.
- */
-export async function generateTheme(params: GenerateThemeParams): Promise<GenerateThemeResult> {
+type TypeGuard<T> = (value: unknown) => value is T;
+
+async function callGenerateApi<T>(
+  body: Record<string, unknown>,
+  validate: TypeGuard<T>,
+  expectedShape: string,
+  errorPrefix: string
+): Promise<{ success: true; data: T; prompt?: string } | { success: false; error: string }> {
   const response = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "theme",
-      themeName: params.themeName,
-      themePrompt: params.themePrompt || undefined,
-      wordCount: params.wordCount,
-      wordType: params.wordType,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -185,28 +103,80 @@ export async function generateTheme(params: GenerateThemeParams): Promise<Genera
 
   const payload = parseGenerateApiEnvelope(await response.json());
   if (!payload) {
-    return { success: false, error: "Generation failed: invalid response format" };
+    return { success: false, error: `${errorPrefix}: invalid response format` };
   }
 
   if (!payload.success) {
-    return { success: false, error: payload.error || "Generation failed" };
+    return { success: false, error: payload.error || errorPrefix };
   }
 
-  if (!isWordEntryArray(payload.data)) {
-    return { success: false, error: "Generation failed: invalid response data" };
+  if (!validate(payload.data)) {
+    return { success: false, error: `${errorPrefix}: expected ${expectedShape}` };
   }
 
-  return { success: true, data: payload.data };
+  return { success: true, data: payload.data, prompt: payload.prompt };
 }
 
-/**
- * Generate/regenerate a single field (word, answer, or wrong answer).
- */
+export interface GenerateThemeParams {
+  themeName: string;
+  themePrompt?: string;
+  wordType: WordType;
+  wordCount: number;
+}
+
+export interface GenerateThemeResult {
+  success: boolean;
+  data?: WordEntry[];
+  error?: string;
+}
+
+export async function generateTheme(params: GenerateThemeParams): Promise<GenerateThemeResult> {
+  const result = await callGenerateApi(
+    {
+      type: "theme",
+      themeName: params.themeName,
+      themePrompt: params.themePrompt || undefined,
+      wordCount: params.wordCount,
+      wordType: params.wordType,
+    },
+    isWordEntryArray,
+    "WordEntry[]",
+    "Generation failed"
+  );
+
+  if (!result.success) return result;
+  return { success: true, data: result.data };
+}
+
+export interface GenerateFieldParams {
+  fieldType: FieldType;
+  themeName: string;
+  wordType: WordType;
+  currentWord: string;
+  currentAnswer: string;
+  currentWrongAnswers: string[];
+  fieldIndex?: number;
+  existingWords?: string[];
+  rejectedWords?: string[];
+  history?: { role: "user" | "assistant"; content: string }[];
+  customInstructions?: string;
+}
+
+export interface GenerateFieldResult {
+  success: boolean;
+  prompt?: string;
+  data?: {
+    word?: string;
+    answer?: string;
+    wrongAnswer?: string;
+    wrongAnswers?: string[];
+  };
+  error?: string;
+}
+
 export async function generateField(params: GenerateFieldParams): Promise<GenerateFieldResult> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const result = await callGenerateApi(
+    {
       type: "field",
       fieldType: params.fieldType,
       themeName: params.themeName,
@@ -219,140 +189,106 @@ export async function generateField(params: GenerateFieldParams): Promise<Genera
       rejectedWords: params.rejectedWords,
       history: params.history,
       customInstructions: params.customInstructions,
-    }),
-  });
+    },
+    isGenerateFieldData,
+    "word, answer, or wrongAnswers",
+    "Generation failed"
+  );
 
-  if (!response.ok) {
-    const errorMsg = await getResponseErrorMessage(response);
-    return { success: false, error: errorMsg };
-  }
-
-  const payload = parseGenerateApiEnvelope(await response.json());
-  if (!payload) {
-    return { success: false, error: "Generation failed: invalid response format" };
-  }
-
-  if (!payload.success) {
-    return { success: false, error: payload.error || "Generation failed" };
-  }
-
-  if (!isGenerateFieldData(payload.data)) {
-    return { success: false, error: "Generation failed: invalid response data" };
-  }
-
-  return {
-    success: true,
-    prompt: payload.prompt,
-    data: payload.data,
-  };
+  if (!result.success) return { success: false, error: result.error };
+  return { success: true, prompt: result.prompt, data: result.data };
 }
 
-/**
- * Regenerate answer and wrong answers for a manually edited word.
- */
+export interface RegenerateForWordParams {
+  themeName: string;
+  wordType: WordType;
+  newWord: string;
+}
+
+export interface RegenerateForWordResult {
+  success: boolean;
+  data?: {
+    answer: string;
+    wrongAnswers: string[];
+  };
+  error?: string;
+}
+
 export async function regenerateForWord(params: RegenerateForWordParams): Promise<RegenerateForWordResult> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const result = await callGenerateApi(
+    {
       type: "regenerate-for-word",
       themeName: params.themeName,
       wordType: params.wordType,
       newWord: params.newWord,
-    }),
-  });
+    },
+    isAnswerAndWrongsData,
+    "answer and wrongAnswers",
+    "Regeneration failed"
+  );
 
-  if (!response.ok) {
-    const errorMsg = await getResponseErrorMessage(response);
-    return { success: false, error: errorMsg };
-  }
-
-  const payload = parseGenerateApiEnvelope(await response.json());
-  if (!payload) {
-    return { success: false, error: "Regeneration failed: invalid response format" };
-  }
-
-  if (!payload.success) {
-    return { success: false, error: payload.error || "Regeneration failed" };
-  }
-
-  if (!isAnswerAndWrongsData(payload.data)) {
-    return { success: false, error: "Regeneration failed: invalid response data" };
-  }
-
-  return { success: true, data: payload.data };
+  if (!result.success) return result;
+  return { success: true, data: result.data };
 }
 
-/**
- * Add a new word to a theme (generates answer and wrong answers).
- */
+export interface AddWordParams {
+  themeName: string;
+  wordType: WordType;
+  newWord: string;
+  existingWords: string[];
+}
+
+export interface AddWordResult {
+  success: boolean;
+  data?: WordEntry;
+  error?: string;
+}
+
 export async function addWord(params: AddWordParams): Promise<AddWordResult> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const result = await callGenerateApi(
+    {
       type: "add-word",
       themeName: params.themeName,
       wordType: params.wordType,
       newWord: params.newWord,
       existingWords: params.existingWords,
-    }),
-  });
+    },
+    isWordEntry,
+    "WordEntry",
+    "Failed to generate word"
+  );
 
-  if (!response.ok) {
-    const errorMsg = await getResponseErrorMessage(response);
-    return { success: false, error: errorMsg };
-  }
-
-  const payload = parseGenerateApiEnvelope(await response.json());
-  if (!payload) {
-    return { success: false, error: "Failed to generate word: invalid response format" };
-  }
-
-  if (!payload.success) {
-    return { success: false, error: payload.error || "Failed to generate word" };
-  }
-
-  if (!isWordEntry(payload.data)) {
-    return { success: false, error: "Failed to generate word: invalid response data" };
-  }
-
-  return { success: true, data: payload.data };
+  if (!result.success) return result;
+  return { success: true, data: result.data };
 }
 
-/**
- * Generate random words for a theme.
- */
+export interface GenerateRandomWordsParams {
+  themeName: string;
+  wordType: WordType;
+  count: number;
+  existingWords: string[];
+}
+
+export interface GenerateRandomWordsResult {
+  success: boolean;
+  data?: WordEntry[];
+  error?: string;
+}
+
 export async function generateRandomWords(params: GenerateRandomWordsParams): Promise<GenerateRandomWordsResult> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const result = await callGenerateApi(
+    {
       type: "generate-random-words",
       themeName: params.themeName,
       wordType: params.wordType,
       count: params.count,
       existingWords: params.existingWords,
-    }),
-  });
+    },
+    isWordEntryArray,
+    "WordEntry[]",
+    "Failed to generate words"
+  );
 
-  if (!response.ok) {
-    const errorMsg = await getResponseErrorMessage(response);
-    return { success: false, error: errorMsg };
-  }
-
-  const payload = parseGenerateApiEnvelope(await response.json());
-  if (!payload) {
-    return { success: false, error: "Failed to generate words: invalid response format" };
-  }
-
-  if (!payload.success) {
-    return { success: false, error: payload.error || "Failed to generate words" };
-  }
-
-  if (!isWordEntryArray(payload.data)) {
-    return { success: false, error: "Failed to generate words: invalid response data" };
-  }
-
-  return { success: true, data: payload.data };
+  if (!result.success) return result;
+  return { success: true, data: result.data };
 }

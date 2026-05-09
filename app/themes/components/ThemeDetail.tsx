@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useMemo, useState } from "react";
-import type { Doc } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import {
   getDuplicateWordIndices,
@@ -10,20 +9,29 @@ import {
   getThemeRepairIssueForFlags,
   getThemeRepairIssueForWords,
 } from "@/lib/themes/validators";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
 import type { FieldType } from "../constants";
 import { THEME_NAME_MAX_LENGTH } from "../constants";
 import { AddWordModal } from "./AddWordModal";
 import { GenerateRandomModal } from "./GenerateRandomModal";
+import { getThemeActionButtonStyle, themeOutlineButtonStyle } from "./themeStyles";
+
+export type ThemeDetailTheme = {
+  name: string;
+  description: string;
+  words: WordEntry[];
+  wordType?: "nouns" | "verbs";
+  visibility?: "private" | "shared";
+  friendsCanEdit?: boolean;
+  ownerNickname?: string;
+  ownerDiscriminator?: number;
+  isOwner: boolean;
+  canEdit: boolean;
+};
 
 interface ThemeDetailProps {
-  theme: Doc<"themes"> & {
-    ownerNickname?: string;
-    ownerDiscriminator?: number;
-    isOwner: boolean;
-    canEdit: boolean;
-  };
+  theme: ThemeDetailTheme;
   localWords: WordEntry[];
   onThemeNameChange: (name: string) => void;
   onDeleteWord: (index: number) => void;
@@ -72,33 +80,11 @@ interface ThemeDetailProps {
 const rowActionButtonClassName =
   "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-2xl py-2.5 px-4 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
 
-const ctaActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
-  borderTopColor: buttonStyles.cta.border.top,
-  borderBottomColor: buttonStyles.cta.border.bottom,
-  borderLeftColor: buttonStyles.cta.border.sides,
-  borderRightColor: buttonStyles.cta.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
 const outlineButtonClassName =
   "flex-1 border-2 rounded-2xl py-2.5 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition hover:brightness-110";
 
 const utilityButtonClassName =
   "border-2 rounded-xl px-3 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider transition hover:brightness-110 whitespace-nowrap";
-
-const outlineButtonStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-};
-
-const secondaryActionStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-};
 
 const secondaryAccentStyle = {
   backgroundColor: colors.background.elevated,
@@ -528,7 +514,7 @@ export function ThemeDetail({
                   <button
                     onClick={handleAddWordClick}
                     className={utilityButtonClassName}
-                    style={secondaryActionStyle}
+                    style={themeOutlineButtonStyle}
                     data-testid="theme-add-word"
                   >
                     + Add Word
@@ -696,7 +682,7 @@ export function ThemeDetail({
                   onClick={onSave}
                   disabled={isSaveDisabled}
                   className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={ctaActionStyle}
+                  style={getThemeActionButtonStyle("cta")}
                   data-testid="theme-save"
                 >
                   {isSaving ? "Saving..." : "Save"}
@@ -705,7 +691,7 @@ export function ThemeDetail({
                   onClick={onCancel}
                   disabled={isSaving}
                   className={`${outlineButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={outlineButtonStyle}
+                  style={themeOutlineButtonStyle}
                   data-testid="theme-cancel"
                 >
                   Cancel

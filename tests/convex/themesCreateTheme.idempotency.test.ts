@@ -24,6 +24,7 @@ type ThemeDoc = {
   createdAt: number;
   ownerId: Id<"users">;
   visibility: "private" | "shared";
+  friendsCanEdit?: boolean;
   saveRequestId?: string;
 };
 
@@ -210,5 +211,56 @@ describe("themes.createTheme idempotency", () => {
         visibility: "private" as const,
       })
     ).rejects.toThrow(/matches the correct answer/);
+  });
+
+  it("persists friendsCanEdit=true when provided on create", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await handler(ctx, {
+      name: "ANIMALS",
+      description: "Generated theme for animals",
+      words: validWords,
+      wordType: "nouns" as const,
+      visibility: "shared" as const,
+      friendsCanEdit: true,
+    });
+
+    expect(db.themes).toHaveLength(1);
+    expect(db.themes[0]?.friendsCanEdit).toBe(true);
+  });
+
+  it("defaults friendsCanEdit to false when omitted on create", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await handler(ctx, {
+      name: "ANIMALS",
+      description: "Generated theme for animals",
+      words: validWords,
+      wordType: "nouns" as const,
+      visibility: "shared" as const,
+    });
+
+    expect(db.themes).toHaveLength(1);
+    expect(db.themes[0]?.friendsCanEdit).toBe(false);
   });
 });

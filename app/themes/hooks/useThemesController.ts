@@ -19,6 +19,7 @@ import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../const
 import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
 import { useWordEditor } from "./useWordEditor";
 import { useThemeActions } from "./useThemeActions";
+import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { toast } from "sonner";
 
 interface DeleteConfirmState {
@@ -28,6 +29,21 @@ interface DeleteConfirmState {
   wordIndex?: number;
   wordName?: string;
 }
+
+type NewThemeDraft = {
+  name: string;
+  description: string;
+  words: WordEntry[];
+  wordType: "nouns" | "verbs";
+  visibility: "private" | "shared";
+  friendsCanEdit: boolean;
+  saveRequestId: string;
+};
+
+type SelectedThemeState =
+  | { kind: "saved"; theme: ThemeWithOwner }
+  | { kind: "unsaved"; draft: NewThemeDraft }
+  | null;
 
 function createSaveRequestId(): string {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
@@ -110,15 +126,24 @@ export function useThemesController() {
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
-  const [selectedTheme, setSelectedTheme] = useState<ThemeWithOwner | null>(null);
+  const [selectedThemeState, setSelectedThemeState] = useState<SelectedThemeState>(null);
+  const selectedTheme = useMemo<ThemeDetailTheme | null>(() => {
+    if (!selectedThemeState) return null;
+    if (selectedThemeState.kind === "saved") return selectedThemeState.theme;
+    const draft = selectedThemeState.draft;
+    return {
+      name: draft.name,
+      description: draft.description,
+      words: draft.words,
+      wordType: draft.wordType,
+      visibility: draft.visibility,
+      friendsCanEdit: draft.friendsCanEdit,
+      isOwner: true,
+      canEdit: true,
+    };
+  }, [selectedThemeState]);
+  const selectedWordType = selectedTheme?.wordType || "nouns";
   const [localWords, setLocalWords] = useState<WordEntry[]>([]);
-  // Track pending (unsaved) theme data - only set for newly generated themes
-  const [pendingThemeData, setPendingThemeData] = useState<{
-    themeName: string;
-    description: string;
-    wordType: "nouns" | "verbs";
-    saveRequestId: string;
-  } | null>(null);
 
   // Modal state
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -127,24 +152,24 @@ export function useThemesController() {
   const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
 
-  const rawThemes = useMemo(() => rawThemesQuery || [], [rawThemesQuery]);
+  const rawThemes = useMemo(() => rawThemesQuery ?? [], [rawThemesQuery]);
 
   const themes = rawThemes;
   const persistedSelectedTheme = useMemo(() => {
-    if (!selectedTheme || selectedTheme._id === "") return null;
-    return rawThemes.find((theme) => theme._id === selectedTheme._id) ?? null;
-  }, [rawThemes, selectedTheme]);
+    if (!selectedThemeState || selectedThemeState.kind === "unsaved") return null;
+    return rawThemes.find((theme) => theme._id === selectedThemeState.theme._id) ?? null;
+  }, [rawThemes, selectedThemeState]);
   const hasUnsavedThemeChanges = useMemo(() => {
-    if (!selectedTheme) return false;
-    if (selectedTheme._id === "") return true;
+    if (!selectedThemeState) return false;
+    if (selectedThemeState.kind === "unsaved") return true;
     if (!persistedSelectedTheme) return false;
 
-    if (selectedTheme.name !== persistedSelectedTheme.name) {
+    if (selectedThemeState.theme.name !== persistedSelectedTheme.name) {
       return true;
     }
 
     return !areWordsEqual(localWords, persistedSelectedTheme.words as WordEntry[]);
-  }, [localWords, persistedSelectedTheme, selectedTheme]);
+  }, [localWords, persistedSelectedTheme, selectedThemeState]);
 
   // Get selected friend details for display
   const selectedFriend = useMemo(() => {
@@ -157,18 +182,22 @@ export function useThemesController() {
     async (visibility: "private" | "shared") => {
       if (!selectedTheme || selectedTheme.isOwner === false) return;
 
-      if (selectedTheme._id === "") {
-        setSelectedTheme((prev) => (prev ? { ...prev, visibility } : null));
+      if (selectedThemeState?.kind === "unsaved") {
+        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, visibility } });
         return;
       }
 
       setIsUpdatingVisibility(true);
       try {
+        if (selectedThemeState?.kind !== "saved") return;
         await updateVisibilityMutation({
-          themeId: selectedTheme._id,
+          themeId: selectedThemeState.theme._id,
           visibility,
         });
-        setSelectedTheme((prev) => (prev ? { ...prev, visibility } : null));
+        setSelectedThemeState((prev) => {
+          if (!prev || prev.kind !== "saved") return prev;
+          return { kind: "saved", theme: { ...prev.theme, visibility } };
+        });
         toast.success(`Theme is now ${visibility}`);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update visibility";
@@ -177,7 +206,7 @@ export function useThemesController() {
         setIsUpdatingVisibility(false);
       }
     },
-    [selectedTheme, updateVisibilityMutation]
+    [selectedTheme, selectedThemeState, updateVisibilityMutation]
   );
 
   // Friends can edit change handler
@@ -185,18 +214,22 @@ export function useThemesController() {
     async (friendsCanEdit: boolean) => {
       if (!selectedTheme || selectedTheme.isOwner === false) return;
 
-      if (selectedTheme._id === "") {
-        setSelectedTheme((prev) => (prev ? { ...prev, friendsCanEdit } : null));
+      if (selectedThemeState?.kind === "unsaved") {
+        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, friendsCanEdit } });
         return;
       }
 
       setIsUpdatingFriendsCanEdit(true);
       try {
+        if (selectedThemeState?.kind !== "saved") return;
         await updateFriendsCanEditMutation({
-          themeId: selectedTheme._id,
+          themeId: selectedThemeState.theme._id,
           friendsCanEdit,
         });
-        setSelectedTheme((prev) => (prev ? { ...prev, friendsCanEdit } : null));
+        setSelectedThemeState((prev) => {
+          if (!prev || prev.kind !== "saved") return prev;
+          return { kind: "saved", theme: { ...prev.theme, friendsCanEdit } };
+        });
         toast.success(friendsCanEdit ? "Friends can now edit this theme" : "Theme is now view-only for friends");
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update edit permissions";
@@ -205,15 +238,16 @@ export function useThemesController() {
         setIsUpdatingFriendsCanEdit(false);
       }
     },
-    [selectedTheme, updateFriendsCanEditMutation]
+    [selectedTheme, selectedThemeState, updateFriendsCanEditMutation]
   );
 
   const handleGenerateThemeTTS = useCallback(async () => {
     if (!selectedTheme || selectedTheme.canEdit === false || isGeneratingTTS) return;
-    if (selectedTheme._id === "") {
+    if (selectedThemeState?.kind === "unsaved") {
       toast.error("Save the theme first before generating TTS");
       return;
     }
+    if (selectedThemeState?.kind !== "saved") return;
     if (hasUnsavedThemeChanges) {
       toast.error("Save your theme changes first, then generate TTS");
       return;
@@ -221,13 +255,16 @@ export function useThemesController() {
 
     setIsGeneratingTTS(true);
     try {
-      const result = await generateThemeTTSAction({ themeId: selectedTheme._id });
+      const result = await generateThemeTTSAction({ themeId: selectedThemeState.theme._id });
 
       const refreshedTheme = await convex.query(api.themes.getTheme, {
-        themeId: selectedTheme._id,
+        themeId: selectedThemeState.theme._id,
       });
       if (refreshedTheme) {
-        setSelectedTheme((prev) => (prev ? { ...prev, ...refreshedTheme } : prev));
+        setSelectedThemeState((prev) => {
+          if (!prev || prev.kind !== "saved") return prev;
+          return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
+        });
         setLocalWords([...refreshedTheme.words]);
       }
 
@@ -250,7 +287,7 @@ export function useThemesController() {
     } finally {
       setIsGeneratingTTS(false);
     }
-  }, [convex, generateThemeTTSAction, hasUnsavedThemeChanges, isGeneratingTTS, selectedTheme]);
+  }, [convex, generateThemeTTSAction, hasUnsavedThemeChanges, isGeneratingTTS, selectedTheme, selectedThemeState]);
 
   const handlePlayThemeWordTTS = useCallback(
     (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => {
@@ -287,7 +324,7 @@ export function useThemesController() {
       wordEditor.reset();
     } else if (viewMode === VIEW_MODES.DETAIL) {
       setViewMode(VIEW_MODES.LIST);
-      setSelectedTheme(null);
+      setSelectedThemeState(null);
       setLocalWords([]);
     } else {
       if (typeof window !== "undefined" && window.history.length > 1) {
@@ -312,7 +349,7 @@ export function useThemesController() {
   );
 
   const openTheme = useCallback((theme: ThemeWithOwner) => {
-    setSelectedTheme(theme);
+    setSelectedThemeState({ kind: "saved", theme });
     setLocalWords([...theme.words]);
     setViewMode(VIEW_MODES.DETAIL);
   }, []);
@@ -365,33 +402,17 @@ export function useThemesController() {
       const words = await themeGenerator.generate();
       if (!words) return;
 
-      // Store pending theme data without persisting to database
-      // Theme will only be saved when user explicitly clicks Save
-      const pendingData = {
-        themeName: themeGenerator.themeName,
-        description: `Generated theme for: ${themeGenerator.themeName}`,
-        wordType: themeGenerator.wordType,
-        saveRequestId: createSaveRequestId(),
-      };
-      setPendingThemeData(pendingData);
-
-      // Build temporary theme object for local editing
-      // Using empty string as _id to mark this as unsaved
-      const newTheme: ThemeWithOwner = {
-        _id: "" as Id<"themes">,
-        _creationTime: Date.now(),
+      const draft: NewThemeDraft = {
         name: themeGenerator.themeName.toUpperCase(),
-        description: pendingData.description,
+        description: `Generated theme for: ${themeGenerator.themeName}`,
         words,
         wordType: themeGenerator.wordType,
-        createdAt: Date.now(),
         visibility: "private",
-        isOwner: true,
-        canEdit: true,
+        friendsCanEdit: false,
+        saveRequestId: createSaveRequestId(),
       };
 
-      // Open for review but don't persist yet
-      setSelectedTheme(newTheme);
+      setSelectedThemeState({ kind: "unsaved", draft });
       setLocalWords([...words]);
       setViewMode(VIEW_MODES.DETAIL);
       setShowGenerateModal(false);
@@ -399,7 +420,6 @@ export function useThemesController() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Generation failed";
       toast.error(message);
-      themeGenerator.setError(null);
     }
   }, [themeGenerator]);
 
@@ -410,7 +430,11 @@ export function useThemesController() {
 
   // Theme detail actions
   const handleThemeNameChange = useCallback((name: string) => {
-    setSelectedTheme((prev) => (prev ? { ...prev, name } : null));
+    setSelectedThemeState((prev) => {
+      if (!prev) return null;
+      if (prev.kind === "unsaved") return { kind: "unsaved", draft: { ...prev.draft, name } };
+      return { kind: "saved", theme: { ...prev.theme, name } };
+    });
   }, []);
 
   const handleDeleteWord = useCallback(
@@ -456,47 +480,41 @@ export function useThemesController() {
       return;
     }
 
-    // Check if this is a pending (unsaved) theme
-    const isPendingTheme = pendingThemeData !== null && selectedTheme._id === "";
-
-    if (isPendingTheme) {
-      // Create new theme in database
+    if (selectedThemeState?.kind === "unsaved") {
+      const draft = selectedThemeState.draft;
       const result = await themeActions.create(
         selectedTheme.name,
-        pendingThemeData.description,
+        draft.description,
         localWords,
-        pendingThemeData.wordType,
-        pendingThemeData.saveRequestId,
-        selectedTheme.visibility
+        draft.wordType,
+        draft.saveRequestId,
+        selectedTheme.visibility,
+        selectedTheme.friendsCanEdit ?? false
       );
       if (result.ok) {
-        setPendingThemeData(null);
+        setSelectedThemeState(null);
         setViewMode(VIEW_MODES.LIST);
-        setSelectedTheme(null);
         setLocalWords([]);
         toast.success("Theme created successfully");
       } else {
         toast.error(result.error || "Failed to create theme");
       }
     } else {
-      // Update existing theme
-      const result = await themeActions.update(selectedTheme._id, selectedTheme.name, localWords);
+      if (selectedThemeState?.kind !== "saved") return;
+      const result = await themeActions.update(selectedThemeState.theme._id, selectedTheme.name, localWords);
       if (result.ok) {
+        setSelectedThemeState(null);
         setViewMode(VIEW_MODES.LIST);
-        setSelectedTheme(null);
         setLocalWords([]);
       } else {
         toast.error(result.error || "Failed to save theme");
       }
     }
-  }, [selectedTheme, localWords, themeActions, pendingThemeData]);
+  }, [selectedTheme, selectedThemeState, localWords, themeActions]);
 
   const handleCancelTheme = useCallback(() => {
-    // For pending themes, simply discard local state - nothing was persisted
-    // For existing themes, just navigate back without any database changes
-    setPendingThemeData(null);
+    setSelectedThemeState(null);
     setViewMode(VIEW_MODES.LIST);
-    setSelectedTheme(null);
     setLocalWords([]);
   }, []);
 
@@ -513,7 +531,7 @@ export function useThemesController() {
     const existingWords = localWords.map((w) => w.word);
     const newWord = await addWordHook.add(
       selectedTheme.name,
-      selectedTheme.wordType || "nouns",
+      selectedWordType,
       existingWords
     );
 
@@ -522,7 +540,7 @@ export function useThemesController() {
       addWordHook.reset();
       setShowAddWordModal(false); // Close modal on success
     }
-  }, [selectedTheme, localWords, addWordHook]);
+  }, [selectedTheme, selectedWordType, localWords, addWordHook]);
 
   // Generate random words actions
   const handleGenerateRandom = useCallback(async () => {
@@ -531,7 +549,7 @@ export function useThemesController() {
     const existingWords = localWords.map((w) => w.word);
     const newWords = await generateRandomHook.generate(
       selectedTheme.name,
-      selectedTheme.wordType || "nouns",
+      selectedWordType,
       existingWords
     );
 
@@ -540,7 +558,7 @@ export function useThemesController() {
       generateRandomHook.reset();
       setShowGenerateRandomModal(false); // Close modal on success
     }
-  }, [selectedTheme, localWords, generateRandomHook]);
+  }, [selectedTheme, selectedWordType, localWords, generateRandomHook]);
 
   // Word editor actions
   const handleGenerate = useCallback(async () => {
@@ -554,14 +572,14 @@ export function useThemesController() {
     try {
       await wordEditor.generate(
         selectedTheme.name,
-        selectedTheme.wordType || "nouns",
+        selectedWordType,
         word,
         existingWords
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
     }
-  }, [wordEditor, selectedTheme, localWords]);
+  }, [wordEditor, selectedTheme, selectedWordType, localWords]);
 
   const handleRegenerate = useCallback(async () => {
     if (wordEditor.editingWordIndex === null || !selectedTheme) return;
@@ -574,14 +592,14 @@ export function useThemesController() {
     try {
       await wordEditor.regenerate(
         selectedTheme.name,
-        selectedTheme.wordType || "nouns",
+        selectedWordType,
         word,
         existingWords
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
-  }, [wordEditor, selectedTheme, localWords]);
+  }, [wordEditor, selectedTheme, selectedWordType, localWords]);
 
   const handleAcceptGenerated = useCallback(() => {
     if (wordEditor.editingWordIndex === null || !wordEditor.editingField) return;
@@ -670,7 +688,7 @@ export function useThemesController() {
     try {
       const result = await wordEditor.regenerateAnswersForWord(
         selectedTheme.name,
-        selectedTheme.wordType || "nouns"
+        selectedWordType
       );
 
       if (result) {
@@ -693,7 +711,7 @@ export function useThemesController() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
-  }, [wordEditor, selectedTheme]);
+  }, [wordEditor, selectedTheme, selectedWordType]);
 
   const listProps = useMemo(
     () => ({
@@ -819,7 +837,7 @@ export function useThemesController() {
         wordEditor.editingField,
         selectedTheme.name,
         localWords[wordEditor.editingWordIndex]?.word || "",
-        selectedTheme.wordType || "nouns",
+        selectedWordType,
         wordEditor.editingWrongIndex
       );
     }
@@ -830,6 +848,7 @@ export function useThemesController() {
     wordEditor.editingWordIndex,
     wordEditor.editingWrongIndex,
     selectedTheme,
+    selectedWordType,
     localWords,
   ]);
 
@@ -929,6 +948,7 @@ export function useThemesController() {
       wordType: themeGenerator.wordType,
       wordCount: themeGenerator.wordCount,
       isGenerating: themeGenerator.isGenerating,
+      error: themeGenerator.error,
       onThemeNameChange: themeGenerator.setThemeName,
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,

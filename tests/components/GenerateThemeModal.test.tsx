@@ -50,4 +50,26 @@ describe("GenerateThemeModal", () => {
 
     expect(onWordCountChange).toHaveBeenCalledWith(15);
   });
+
+  it("shows a generation error when provided", () => {
+    render(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="nouns"
+        wordCount={10}
+        isGenerating={false}
+        error="Generation failed"
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={vi.fn()}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-generate-error")).toHaveTextContent("Generation failed");
+  });
 });

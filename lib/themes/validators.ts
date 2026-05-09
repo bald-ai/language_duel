@@ -43,21 +43,11 @@ const THEME_REPAIR_ISSUE_PRIORITY: readonly ThemeRepairIssueDefinition[] = [
   },
 ] as const;
 
-/**
- * Accent-aware normalization used by theme validation.
- */
-export function relaxedNormalize(str: string): string {
-  return normalizeForComparison(str);
-}
-
-/**
- * Get indices of wrong answers that duplicate another wrong answer.
- */
 export function getDuplicateWrongAnswerIndices(word: WordEntry): Set<number> {
   const wrongAnswerMap = new Map<string, number[]>();
 
   word.wrongAnswers.forEach((wrongAnswer, index) => {
-    const normalizedWrongAnswer = relaxedNormalize(wrongAnswer);
+    const normalizedWrongAnswer = normalizeForComparison(wrongAnswer);
     if (!wrongAnswerMap.has(normalizedWrongAnswer)) {
       wrongAnswerMap.set(normalizedWrongAnswer, []);
     }
@@ -85,11 +75,11 @@ export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
  * Get indices of wrong answers that match the correct answer.
  */
 export function getWrongIndicesMatchingAnswer(word: WordEntry): Set<number> {
-  const normalizedAnswer = relaxedNormalize(word.answer);
+  const normalizedAnswer = normalizeForComparison(word.answer);
   const matchingIndices = new Set<number>();
 
   word.wrongAnswers.forEach((wrongAnswer, index) => {
-    if (relaxedNormalize(wrongAnswer) === normalizedAnswer) {
+    if (normalizeForComparison(wrongAnswer) === normalizedAnswer) {
       matchingIndices.add(index);
     }
   });
@@ -159,7 +149,7 @@ export function getThemeSaveErrorMessage(words: WordEntry[]): string | null {
 export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
   const wordSet = new Set<string>();
   for (const word of words) {
-    const lowerWord = relaxedNormalize(word.word);
+    const lowerWord = normalizeForComparison(word.word);
     if (wordSet.has(lowerWord)) {
       return true;
     }
@@ -174,7 +164,7 @@ export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
 export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
   const wordMap = new Map<string, number[]>();
   words.forEach((word, index) => {
-    const lowerWord = relaxedNormalize(word.word);
+    const lowerWord = normalizeForComparison(word.word);
     if (!wordMap.has(lowerWord)) {
       wordMap.set(lowerWord, []);
     }
@@ -194,6 +184,6 @@ export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
  * Check if a word already exists in the list.
  */
 export function isWordDuplicate(word: string, existingWords: WordEntry[]): boolean {
-  const normalizedWord = relaxedNormalize(word);
-  return existingWords.some((w) => relaxedNormalize(w.word) === normalizedWord);
+  const normalizedWord = normalizeForComparison(word);
+  return existingWords.some((w) => normalizeForComparison(w.word) === normalizedWord);
 }

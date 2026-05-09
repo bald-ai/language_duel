@@ -7,7 +7,8 @@ import {
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,
 } from "../constants";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
 interface GenerateThemeModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface GenerateThemeModalProps {
   wordType: WordType;
   wordCount: number;
   isGenerating: boolean;
+  error?: string | null;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
   onWordTypeChange: (wordType: WordType) => void;
@@ -24,28 +26,6 @@ interface GenerateThemeModalProps {
   onClose: () => void;
 }
 
-const actionButtonClassName =
-  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
-
-const ctaActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
-  borderTopColor: buttonStyles.cta.border.top,
-  borderBottomColor: buttonStyles.cta.border.bottom,
-  borderLeftColor: buttonStyles.cta.border.sides,
-  borderRightColor: buttonStyles.cta.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
-const outlineButtonClassName =
-  "flex-1 border-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-const outlineButtonStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
-};
-
 export function GenerateThemeModal({
   isOpen,
   themeName,
@@ -53,6 +33,7 @@ export function GenerateThemeModal({
   wordType,
   wordCount,
   isGenerating,
+  error,
   onThemeNameChange,
   onThemePromptChange,
   onWordTypeChange,
@@ -69,11 +50,7 @@ export function GenerateThemeModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={{
-          backgroundColor: colors.background.elevated,
-          borderColor: colors.primary.dark,
-          boxShadow: `0 20px 60px ${colors.primary.glow}`,
-        }}
+        style={themeModalPanelStyle}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           New Theme
@@ -219,12 +196,26 @@ export function GenerateThemeModal({
           </div>
         )}
 
+        {error && !isGenerating && (
+          <p
+            className="mb-4 rounded-xl border-2 px-3 py-2 text-sm font-medium"
+            style={{
+              backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+              borderColor: `${colors.status.danger.DEFAULT}66`,
+              color: colors.status.danger.light,
+            }}
+            data-testid="theme-generate-error"
+          >
+            {error}
+          </p>
+        )}
+
         <div className="flex gap-3">
           <button
             onClick={onGenerate}
             disabled={!themeName.trim() || isGenerating}
-            className={actionButtonClassName}
-            style={ctaActionStyle}
+            className={themeActionButtonClassName}
+            style={getThemeActionButtonStyle("cta")}
             data-testid="theme-generate-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
@@ -232,8 +223,8 @@ export function GenerateThemeModal({
           <button
             onClick={onClose}
             disabled={isGenerating}
-            className={outlineButtonClassName}
-            style={outlineButtonStyle}
+            className={themeOutlineButtonClassName}
+            style={themeOutlineButtonStyle}
             data-testid="theme-generate-cancel"
           >
             Cancel

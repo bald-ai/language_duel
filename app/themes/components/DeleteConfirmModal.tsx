@@ -1,6 +1,7 @@
 "use client";
 
 import { colors } from "@/lib/theme";
+import { themeActionButtonClassName, themeOutlineButtonClassName, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -11,9 +12,6 @@ interface DeleteConfirmModalProps {
   onCancel: () => void;
 }
 
-const actionButtonClassName =
-  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";
-
 const dangerActionStyle = {
   backgroundImage: `linear-gradient(to bottom, ${colors.status.danger.DEFAULT}, ${colors.status.danger.dark})`,
   borderTopColor: colors.status.danger.light,
@@ -22,15 +20,6 @@ const dangerActionStyle = {
   borderRightColor: colors.status.danger.DEFAULT,
   color: colors.text.DEFAULT,
   textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
-const outlineButtonClassName =
-  "flex-1 border-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-const outlineButtonStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
 };
 
 export function DeleteConfirmModal({
@@ -50,11 +39,7 @@ export function DeleteConfirmModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={{
-          backgroundColor: colors.background.elevated,
-          borderColor: colors.primary.dark,
-          boxShadow: `0 20px 60px ${colors.primary.glow}`,
-        }}
+        style={themeModalPanelStyle}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Delete {itemType === "theme" ? "Theme" : "Word"}?
@@ -85,8 +70,8 @@ export function DeleteConfirmModal({
           <button
             onClick={onCancel}
             disabled={isDeleting}
-            className={outlineButtonClassName}
-            style={outlineButtonStyle}
+            className={themeOutlineButtonClassName}
+            style={themeOutlineButtonStyle}
             data-testid="theme-delete-cancel"
           >
             Cancel
@@ -94,7 +79,7 @@ export function DeleteConfirmModal({
           <button
             onClick={onConfirm}
             disabled={isDeleting}
-            className={actionButtonClassName}
+            className={themeActionButtonClassName}
             style={dangerActionStyle}
             data-testid="theme-delete-confirm"
           >

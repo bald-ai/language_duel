@@ -20,6 +20,8 @@ import type * as helpers_auth from "../helpers/auth.js";
 import type * as helpers_duelInitialization from "../helpers/duelInitialization.js";
 import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
+import type * as helpers_permissions from "../helpers/permissions.js";
+import type * as helpers_resembleTts from "../helpers/resembleTts.js";
 import type * as helpers_sessionCreation from "../helpers/sessionCreation.js";
 import type * as helpers_sessionWords from "../helpers/sessionWords.js";
 import type * as helpers_themeTtsStorage from "../helpers/themeTtsStorage.js";
@@ -56,6 +58,8 @@ declare const fullApi: ApiFromModules<{
   "helpers/duelInitialization": typeof helpers_duelInitialization;
   "helpers/gameLogic": typeof helpers_gameLogic;
   "helpers/index": typeof helpers_index;
+  "helpers/permissions": typeof helpers_permissions;
+  "helpers/resembleTts": typeof helpers_resembleTts;
   "helpers/sessionCreation": typeof helpers_sessionCreation;
   "helpers/sessionWords": typeof helpers_sessionWords;
   "helpers/themeTtsStorage": typeof helpers_themeTtsStorage;

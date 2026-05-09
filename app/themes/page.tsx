@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { VIEW_MODES } from "./constants";
 import { useThemesController } from "./hooks/useThemesController";
@@ -31,23 +30,6 @@ const FriendFilterModal = dynamic(
 
 export default function ThemesPage() {
   const controller = useThemesController();
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
-      return;
-    }
-
-    performance.mark("themes-page-mounted");
-
-    const idleTimeout = window.setTimeout(() => {
-      performance.mark("themes-page-interactive");
-      performance.measure("themes-tti", "themes-page-mounted", "themes-page-interactive");
-    }, 0);
-
-    return () => {
-      window.clearTimeout(idleTimeout);
-    };
-  }, []);
 
   return (
     <ThemedPage className="h-dvh overflow-hidden">

@@ -9,12 +9,13 @@ import {
   type ListChildComponentProps,
   type VariableSizeList,
 } from "react-window";
-import { buttonStyles, colors } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { ThemeCardMenu } from "./ThemeCardMenu";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
+import { themeActionButtonClassName, getThemeActionButtonStyle } from "./themeStyles";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -35,21 +36,9 @@ interface ThemeListProps {
   onToggleArchive?: (themeId: Id<"themes">) => void;
 }
 
-const actionButtonClassName =
-  "w-full bg-gradient-to-b border-t-2 border-b-3 border-x-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-md";
-
-const ctaActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
-  borderTopColor: buttonStyles.cta.border.top,
-  borderBottomColor: buttonStyles.cta.border.bottom,
-  borderLeftColor: buttonStyles.cta.border.sides,
-  borderRightColor: buttonStyles.cta.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
-
 const ITEM_GAP = 8;
 const ITEM_SIZE = 72;
+const LIST_VIEWPORT_RESERVED_PX = 308;
 const LIST_CONTAINER_PADDING = 24;
 
 interface ThemeCardProps {
@@ -392,7 +381,7 @@ export function ThemeList({
     // Fallback before ResizeObserver fires: estimate based on viewport height
     // Subtract approximate space for header (~200px), footer button (~60px), and page padding (~48px)
     const estimatedAvailableHeight =
-      typeof window !== "undefined" ? Math.max(300, window.innerHeight - 308) : 500;
+      typeof window !== "undefined" ? Math.max(300, window.innerHeight - LIST_VIEWPORT_RESERVED_PX) : 500;
     const availableSpace = availableHeight > 0 ? availableHeight : estimatedAvailableHeight;
     const listSpace = Math.max(0, availableSpace - LIST_CONTAINER_PADDING);
 
@@ -474,8 +463,8 @@ export function ThemeList({
         <div className="mt-3 animate-slide-up delay-100">
           <button
             onClick={onGenerateNew}
-            className={actionButtonClassName}
-            style={ctaActionStyle}
+            className={themeActionButtonClassName}
+            style={getThemeActionButtonStyle("cta")}
             data-testid="themes-generate-new"
           >
             Generate New
