@@ -7,14 +7,16 @@ import {
   LCG_MULTIPLIER,
   LCG_INCREMENT,
   LCG_MODULUS,
-  INITIAL_POOL_RATIO,
-  POOL_EXPANSION_THRESHOLD,
-  POOL_EXPANSION_SIZE,
   LEVEL_1_START_PROBABILITY,
   LEVEL_2_TYPING_PROBABILITY,
   L1_TO_L2_PROBABILITY,
   L2_STAY_PROBABILITY,
 } from "../constants";
+import {
+  INITIAL_POOL_RATIO,
+  POOL_EXPANSION_SIZE,
+  POOL_EXPANSION_THRESHOLD,
+} from "../../lib/constants";
 
 // ===========================================
 // Types

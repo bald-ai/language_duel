@@ -670,8 +670,6 @@ export const completeRepetitionSoloPractice = mutation({
 
     await ctx.db.patch(soloPracticeSessionId, {
       status: "completed",
-      currentWordIndex: wordCount,
-      questionStartTime: undefined,
       completedAt: now,
       finalStats: {
         questionsAnswered: wordCount,

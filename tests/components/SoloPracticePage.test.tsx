@@ -110,7 +110,7 @@ type HookReturnMock = {
     wrongAnswers: string[];
     themeId: string;
     themeName: string;
-  };
+  } | null;
   masteredCount: number;
 };
 
@@ -214,6 +214,27 @@ describe("SoloPracticePage", () => {
     expect(screen.getByText("Translate to Spanish")).toBeInTheDocument();
     expect(screen.getByTestId("solo-practice-level1")).toHaveTextContent("Level1:gato");
     expect(screen.queryByTestId("solo-practice-level2-typing")).not.toBeInTheDocument();
+  });
+
+  it("shows an explicit empty theme error instead of preparing forever", () => {
+    useQueryMock.mockImplementation((query: unknown) => {
+      if (query === "getThemes") {
+        return [{ _id: "theme_1", name: "Basics", words: [] }];
+      }
+      return undefined;
+    });
+    useSoloSessionMock.mockReturnValue(
+      createHookReturn({
+        session: buildSessionState({ initialized: false, currentWordIndex: null }),
+        currentWord: null,
+      })
+    );
+
+    render(<SoloPracticePage />);
+
+    expect(screen.getByText("This theme has no words to practice")).toBeInTheDocument();
+    expect(screen.getByTestId("solo-practice-back-home")).toHaveTextContent("Back to Home");
+    expect(screen.queryByText("Preparing your next question...")).not.toBeInTheDocument();
   });
 
   it("keeps Level 2 multiple choice unchanged", () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useCallback } from "react";
-import type { CSSProperties, MouseEvent, RefObject } from "react";
 import { stripIrr } from "@/lib/stringUtils";
 import { LETTERS_PER_HINT } from "@/app/game/constants";
 import { WordCard } from "./WordCard";
@@ -15,41 +14,31 @@ export interface HintState {
 
 interface MemoizedWordCardWrapperProps {
   originalIndex: number;
-  orderIdx: number;
   word: { word: string; answer: string; ttsStorageId?: string };
   themeId: string | null;
   hintState: HintState;
   confidence: ConfidenceLevel;
   playingWordIndex: number | null;
-  draggedIndex: number | null;
   setConfidence: (wordKey: string, level: ConfidenceLevel) => void;
   revealLetter: (wordKey: string, position: number) => void;
   revealFullWord: (wordKey: string, answer: string) => void;
   resetWord: (wordKey: string) => void;
   playTTS: (wordIndex: number, spanishWord: string, storageId?: string) => void;
-  handleMouseDown: (e: MouseEvent, orderIdx: number) => void;
-  getItemStyle: (orderIdx: number, originalIndex: number) => CSSProperties;
-  itemRefs: RefObject<Map<number, HTMLDivElement | null>>;
   dataTestIdBase?: string;
 }
 
 export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   originalIndex,
-  orderIdx,
   word,
   themeId,
   hintState,
   confidence,
   playingWordIndex,
-  draggedIndex,
   setConfidence,
   revealLetter,
   revealFullWord,
   resetWord,
   playTTS,
-  handleMouseDown,
-  getItemStyle,
-  itemRefs,
   dataTestIdBase,
 }: MemoizedWordCardWrapperProps) {
   const wordKey = `${themeId}-${originalIndex}`;
@@ -84,18 +73,6 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
     [playTTS, originalIndex, word.answer, word.ttsStorageId]
   );
 
-  const handleMouseDownWrapper = useCallback(
-    (e: MouseEvent) => handleMouseDown(e, orderIdx),
-    [handleMouseDown, orderIdx]
-  );
-
-  // Inline ref callback - refs are stable by design, no need for useCallback
-  const refCallback = (el: HTMLDivElement | null) => {
-    itemRefs.current?.set(originalIndex, el);
-  };
-
-  const style = getItemStyle(orderIdx, originalIndex);
-
   return (
     <WordCard
       word={word}
@@ -109,10 +86,6 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
       isTTSPlaying={playingWordIndex === originalIndex}
       isTTSDisabled={playingWordIndex !== null}
       onPlayTTS={handlePlayTTS}
-      isDragging={draggedIndex === orderIdx}
-      onMouseDown={handleMouseDownWrapper}
-      style={style}
-      refCallback={refCallback}
       dataTestIdBase={dataTestIdBase}
     />
   );

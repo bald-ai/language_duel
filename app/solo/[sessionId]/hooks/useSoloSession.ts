@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  INITIAL_POOL_RATIO,
-  POOL_EXPANSION_THRESHOLD,
-  POOL_EXPANSION_COUNT,
   LEVEL_UP_CHANCE,
   LEVEL2_TYPING_CHANCE,
   LEVEL1_REVERSE_CHANCE,
   SOLO_CORRECT_ADVANCE_DELAY_MS,
   SOLO_INCORRECT_ADVANCE_DELAY_MS,
 } from "../constants";
+import {
+  INITIAL_POOL_RATIO,
+  POOL_EXPANSION_SIZE,
+  POOL_EXPANSION_THRESHOLD,
+} from "@/lib/constants";
 import { getDirectionalCopy, type TranslationDirection } from "../translationDirection";
 
 // Types
@@ -205,7 +207,7 @@ export function useSoloSession({
 
       if (shouldExpand) {
         // Add up to N random words from remaining
-        const toAdd = Math.min(POOL_EXPANSION_COUNT, remainingPool.length);
+        const toAdd = Math.min(POOL_EXPANSION_SIZE, remainingPool.length);
         const shuffledRemaining = [...remainingPool].sort(() => Math.random() - 0.5);
         const wordsToAdd = shuffledRemaining.slice(0, toAdd);
         newActivePool = [...activePool, ...wordsToAdd];
@@ -254,13 +256,22 @@ export function useSoloSession({
    * Handle correct answer - progress mastery and auto-advance.
    */
   const handleCorrect = useCallback(() => {
+    if (
+      session.currentWordIndex === null ||
+      !session.wordStates.has(session.currentWordIndex)
+    ) {
+      return;
+    }
+
     setFeedbackCorrect(true);
     setShowFeedback(true);
     setFeedbackAnswer(null);
 
     setSession((prev) => {
+      if (prev.currentWordIndex === null) return prev;
       const newWordStates = new Map(prev.wordStates);
-      const wordState = newWordStates.get(prev.currentWordIndex!)!;
+      const wordState = newWordStates.get(prev.currentWordIndex);
+      if (!wordState) return prev;
 
       // Progress mastery level
       let newMastery = wordState.masteryLevel;
@@ -278,7 +289,7 @@ export function useSoloSession({
         answeredLevel2Plus = true;
       }
 
-      newWordStates.set(prev.currentWordIndex!, {
+      newWordStates.set(prev.currentWordIndex, {
         ...wordState,
         masteryLevel: newMastery,
         completedLevel3,
@@ -297,7 +308,7 @@ export function useSoloSession({
     setTimeout(() => {
       selectNextQuestion();
     }, SOLO_CORRECT_ADVANCE_DELAY_MS);
-  }, [selectNextQuestion]);
+  }, [selectNextQuestion, session.currentWordIndex, session.wordStates]);
 
   /**
    * Handle incorrect answer - drop mastery by 1, show correct answer.
@@ -306,6 +317,8 @@ export function useSoloSession({
     if (!words || session.currentWordIndex === null) return;
 
     const currentWord = words[session.currentWordIndex];
+    if (!currentWord || !session.wordStates.has(session.currentWordIndex)) return;
+
     setFeedbackCorrect(false);
     setShowFeedback(true);
     setFeedbackAnswer(
@@ -313,8 +326,10 @@ export function useSoloSession({
     );
 
     setSession((prev) => {
+      if (prev.currentWordIndex === null) return prev;
       const newWordStates = new Map(prev.wordStates);
-      const wordState = newWordStates.get(prev.currentWordIndex!)!;
+      const wordState = newWordStates.get(prev.currentWordIndex);
+      if (!wordState) return prev;
 
       // Lower mastery by 1 if possible
       let newMastery = wordState.masteryLevel;
@@ -322,7 +337,7 @@ export function useSoloSession({
         newMastery = (newMastery - 1) as 0 | 1 | 2 | 3;
       }
 
-      newWordStates.set(prev.currentWordIndex!, {
+      newWordStates.set(prev.currentWordIndex, {
         ...wordState,
         masteryLevel: newMastery,
       });
@@ -338,7 +353,13 @@ export function useSoloSession({
     setTimeout(() => {
       selectNextQuestion();
     }, SOLO_INCORRECT_ADVANCE_DELAY_MS);
-  }, [selectNextQuestion, words, session.currentWordIndex, session.translationDirection]);
+  }, [
+    selectNextQuestion,
+    words,
+    session.currentWordIndex,
+    session.translationDirection,
+    session.wordStates,
+  ]);
 
   /**
    * Level 0: User indicates they know the word.

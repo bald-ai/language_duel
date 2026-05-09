@@ -96,8 +96,6 @@ type SoloPracticeSessionDoc = Partial<Doc<"soloPracticeSessions">> &
     | "sourceType"
     | "weeklyGoalId"
     | "status"
-    | "currentWordIndex"
-    | "seed"
     | "createdAt"
   >;
 
@@ -355,8 +353,6 @@ function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {})
     weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
     bossType: "mini",
     status: "learning",
-    currentWordIndex: 0,
-    seed: 123,
     createdAt: 1,
     ...overrides,
   };

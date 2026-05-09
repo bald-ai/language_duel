@@ -60,9 +60,6 @@ export interface SoloPracticeSessionFields {
   bossType?: "mini" | "big";
   spacedRepetitionStep?: number;
   status: "learning" | "practicing";
-  currentWordIndex: number;
-  seed: number;
-  questionStartTime: number;
   createdAt: number;
 }
 
@@ -175,9 +172,6 @@ export function buildSoloPracticeSession(args: {
     bossType: args.bossType,
     spacedRepetitionStep: args.spacedRepetitionStep,
     status: args.startsInLearning ? "learning" : "practicing",
-    currentWordIndex: 0,
-    seed: args.createdAt ^ SEED_XOR_MASK,
-    questionStartTime: args.createdAt,
     createdAt: args.createdAt,
   };
 }

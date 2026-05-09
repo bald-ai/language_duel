@@ -101,12 +101,13 @@ describe("session creation helpers", () => {
       weeklyGoalId: "goal_1",
       spacedRepetitionStep: 2,
       status: "learning",
-      currentWordIndex: 0,
-      questionStartTime: 789,
       createdAt: 789,
     });
     expect(result.themeIds).toEqual(["theme_1", "theme_2"]);
     expect(result.sessionWords).toHaveLength(3);
+    expect("currentWordIndex" in result).toBe(false);
+    expect("questionStartTime" in result).toBe(false);
+    expect("seed" in result).toBe(false);
     expect("challengerId" in result).toBe(false);
     expect("opponentId" in result).toBe(false);
     expect("duelQuestions" in result).toBe(false);

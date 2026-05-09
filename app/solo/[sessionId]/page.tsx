@@ -14,6 +14,7 @@ import { useSoloSession } from "./hooks/useSoloSession";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { getDirectionalCopy } from "./translationDirection";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
 import { colors } from "@/lib/theme";
 
 // Shared Level components
@@ -207,30 +208,13 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              No theme selected
-            </p>
-            <button
-              onClick={handleExit}
-              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-              data-testid="solo-practice-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="No theme selected"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-practice-back-home"
+          />
         </div>
         <div
           className="relative z-10 h-1"
@@ -250,18 +234,7 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={baseCardStyle}
-          >
-            <div
-              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-              style={{ borderColor: colors.cta.light }}
-            />
-            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
-              Loading practice...
-            </p>
-          </div>
+          <SoloStatusCard message="Loading practice..." variant="loading" />
         </div>
         <div
           className="relative z-10 h-1"
@@ -277,29 +250,12 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              This practice session is no longer available
-            </p>
-            <button
-              onClick={handleExit}
-              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="This practice session is no longer available"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+          />
         </div>
       </ThemedPage>
     );
@@ -309,30 +265,13 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              {weeklyGoalPractice.message}
-            </p>
-            <button
-              onClick={handleExit}
-              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-              data-testid="solo-practice-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message={weeklyGoalPractice.message}
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-practice-back-home"
+          />
         </div>
       </ThemedPage>
     );
@@ -342,30 +281,35 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              Theme not found
-            </p>
-            <button
-              onClick={handleExit}
-              className="mt-6 px-4 py-2 rounded-xl border-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
-              style={{
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
-              data-testid="solo-practice-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="Theme not found"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-practice-back-home"
+          />
+        </div>
+        <div
+          className="relative z-10 h-1"
+          style={{
+            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
+          }}
+        />
+      </ThemedPage>
+    );
+  }
+
+  if (sessionWords.length === 0) {
+    return (
+      <ThemedPage>
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
+          <SoloStatusCard
+            message="This theme has no words to practice"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-practice-back-home"
+          />
         </div>
         <div
           className="relative z-10 h-1"
@@ -381,18 +325,7 @@ export default function SoloPracticePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={baseCardStyle}
-          >
-            <div
-              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-              style={{ borderColor: colors.cta.light }}
-            />
-            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
-              Preparing your next question...
-            </p>
-          </div>
+          <SoloStatusCard message="Preparing your next question..." variant="loading" />
         </div>
         <div
           className="relative z-10 h-1"

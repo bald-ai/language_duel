@@ -22,18 +22,6 @@ export const DEFAULT_TIMER_DURATION = 300; // 5 minutes
 export const SOLO_INFINITE_STUDY_SECONDS = 999_999_999;
 
 // ===========================================
-// Pool & Progression Settings
-// ===========================================
-/** Percentage of words to include in initial active pool */
-export const INITIAL_POOL_RATIO = 0.4;
-
-/** Threshold to trigger pool expansion (% of active pool with L2+ answered) */
-export const POOL_EXPANSION_THRESHOLD = 0.65;
-
-/** Number of words to add when expanding pool */
-export const POOL_EXPANSION_SIZE = 2;
-
-// ===========================================
 // Level Probabilities (solo practice) [NOT ACTIVE] — not currently used in app, kept for future revisit.
 // ===========================================
 /** Probability of starting at Level 1 (vs Level 2) */
@@ -62,14 +50,6 @@ export const MAX_ELIMINATED_OPTIONS_DUEL = 2;
 
 /** Maximum wrong options that can be eliminated (L2 multiple choice) */
 export const MAX_ELIMINATED_OPTIONS_L2 = 2;
-
-/** Allowed hint types for solo-practice L1/L3 hints */
-export const SOLO_HINT_TYPES = ["letters", "tts", "flash", "anagram"] as const;
-export type SoloHintType = (typeof SOLO_HINT_TYPES)[number];
-
-/** Allowed hint types for solo-practice L2 hints */
-export const SOLO_HINT_L2_TYPES = ["eliminate", "tts", "flash"] as const;
-export type SoloHintL2Type = (typeof SOLO_HINT_L2_TYPES)[number];
 
 // ===========================================
 // Sabotage System

@@ -93,8 +93,6 @@ type SoloPracticeSessionDoc = Partial<Doc<"soloPracticeSessions">> &
     | "weeklyGoalId"
     | "spacedRepetitionStep"
     | "status"
-    | "currentWordIndex"
-    | "seed"
     | "createdAt"
   >;
 
@@ -362,8 +360,6 @@ function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {})
     weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
     spacedRepetitionStep: 1,
     status: "practicing",
-    currentWordIndex: 0,
-    seed: 123,
     createdAt: 1,
     ...overrides,
   };
@@ -593,7 +589,6 @@ describe("weekly goal spaced repetition", () => {
     ]);
     expect(db.soloPracticeSessions[0]).toMatchObject({
       status: "completed",
-      currentWordIndex: 1,
       completedAt: READY_NOW,
       finalStats: {
         questionsAnswered: 1,

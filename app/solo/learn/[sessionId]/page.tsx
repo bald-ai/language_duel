@@ -12,15 +12,13 @@ import {
   shouldShowSoloLearnTimer,
 } from "@/app/solo/learn/soloLearnTimer";
 import { stripIrr } from "@/lib/stringUtils";
-import { WordCard } from "./components/WordCard";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
 import { LearnHeader } from "./components/LearnHeader";
 import { SetAllDropdown } from "./components/SetAllDropdown";
 import { CONFIDENCE_COLORS, type ConfidenceLevel } from "./components/ConfidenceSlider";
-import { useDraggableList } from "./hooks/useDraggableList";
-import { DEFAULT_DURATION, LAYOUT, TIMER_THRESHOLDS } from "./constants";
-import { LETTERS_PER_HINT } from "@/app/game/constants";
+import { DEFAULT_DURATION, TIMER_THRESHOLDS } from "./constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
 import { buttonStyles, colors } from "@/lib/theme";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
@@ -47,7 +45,6 @@ const buildActionStyle = (variant: "primary" | "cta") => {
   };
 };
 
-const primaryActionStyle = buildActionStyle("primary");
 const ctaActionStyle = buildActionStyle("cta");
 
 const toggleButtonClassName =
@@ -165,23 +162,6 @@ export default function LearnPhasePage() {
   const [confidenceLevels, setConfidenceLevels] = useState<Record<string, ConfidenceLevel>>({});
   const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
   const [isSetAllOpen, setIsSetAllOpen] = useState(false);
-
-  // Memoize initial order to avoid creating new array on every render
-  const initialOrder = useMemo(() => sessionWords.map((_, i) => i), [sessionWords]);
-  const gap = LAYOUT.GAP_TESTING;
-
-  const {
-    order: wordOrder,
-    dragState,
-    containerRef,
-    itemRefs,
-    dragLayerRef,
-    handleMouseDown,
-    getItemStyle,
-  } = useDraggableList<number>(initialOrder, {
-    itemCount: sessionWords.length,
-    gap,
-  });
 
   const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${sessionSourceKey}`;
 
@@ -360,26 +340,13 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              No theme selected
-            </p>
-            <button
-              onClick={handleExit}
-              className={`${actionButtonClassName} mt-6`}
-              style={primaryActionStyle}
-              data-testid="solo-learn-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="No theme selected"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-learn-back-home"
+          />
         </div>
         <div
           className="relative z-10 h-1"
@@ -399,18 +366,7 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={cardStyle}
-          >
-            <div
-              className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
-              style={{ borderColor: colors.cta.light }}
-            />
-            <p className="mt-4 text-sm" style={{ color: colors.text.muted }}>
-              Loading study session...
-            </p>
-          </div>
+          <SoloStatusCard message="Loading study session..." variant="loading" />
         </div>
         <div
           className="relative z-10 h-1"
@@ -426,25 +382,12 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              This practice session is no longer available
-            </p>
-            <button
-              onClick={handleExit}
-              className={`${actionButtonClassName} mt-6`}
-              style={primaryActionStyle}
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="This practice session is no longer available"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+          />
         </div>
       </ThemedPage>
     );
@@ -454,26 +397,13 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              {weeklyGoalPractice.message}
-            </p>
-            <button
-              onClick={handleExit}
-              className={`${actionButtonClassName} mt-6`}
-              style={primaryActionStyle}
-              data-testid="solo-learn-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message={weeklyGoalPractice.message}
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-learn-back-home"
+          />
         </div>
       </ThemedPage>
     );
@@ -483,26 +413,13 @@ export default function LearnPhasePage() {
     return (
       <ThemedPage>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <div
-            className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.status.danger.DEFAULT,
-              boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
-            }}
-          >
-            <p className="text-lg font-semibold" style={{ color: colors.status.danger.light }}>
-              Theme not found
-            </p>
-            <button
-              onClick={handleExit}
-              className={`${actionButtonClassName} mt-6`}
-              style={primaryActionStyle}
-              data-testid="solo-learn-back-home"
-            >
-              {returnLabel}
-            </button>
-          </div>
+          <SoloStatusCard
+            message="Theme not found"
+            variant="error"
+            buttonLabel={returnLabel}
+            onButtonClick={handleExit}
+            dataTestId="solo-learn-back-home"
+          />
         </div>
         <div
           className="relative z-10 h-1"
@@ -599,10 +516,7 @@ export default function LearnPhasePage() {
           className="relative z-10 w-full flex-1 min-h-0 rounded-3xl border-2 p-4 pt-6 mb-4 overflow-y-auto backdrop-blur-sm animate-slide-up delay-300"
           style={listCardStyle}
         >
-          <div
-            ref={containerRef}
-            className="w-full relative space-y-3"
-          >
+          <div className="w-full relative space-y-3">
             {!isConfidenceLegendDismissed && (
               <div className="sticky top-2 z-10 max-w-full">
                 <div
@@ -647,7 +561,7 @@ export default function LearnPhasePage() {
               </div>
             )}
 
-            {wordOrder.map((originalIndex, orderIdx) => {
+            {sessionWords.map((word, originalIndex) => {
               const wordKey = `${sessionSourceKey}-${originalIndex}`;
               const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
@@ -656,21 +570,16 @@ export default function LearnPhasePage() {
                 <div key={originalIndex} style={listItemStyle}>
                   <MemoizedWordCardWrapper
                     originalIndex={originalIndex}
-                    orderIdx={orderIdx}
-                    word={sessionWords[originalIndex]}
+                    word={word}
                     themeId={sessionSourceKey}
                     hintState={state}
                     confidence={confidence}
                     playingWordIndex={playingWordIndex}
-                    draggedIndex={dragState.draggedIndex}
                     setConfidence={setConfidence}
                     revealLetter={revealLetter}
                     revealFullWord={revealFullWord}
                     resetWord={resetWord}
                     playTTS={playWordTTS}
-                    handleMouseDown={handleMouseDown}
-                    getItemStyle={getItemStyle}
-                    itemRefs={itemRefs}
                     dataTestIdBase={`solo-learn-word-${originalIndex}`}
                   />
                 </div>
@@ -678,47 +587,6 @@ export default function LearnPhasePage() {
             })}
           </div>
         </section>
-
-        {dragState.draggedIndex !== null && wordOrder.length > 0 && (
-          <div
-            ref={dragLayerRef}
-            className="fixed pointer-events-none z-50 will-change-transform"
-            style={{
-              // Initial position set here, subsequent moves use transform via ref
-              left: 0,
-              top: 0,
-              transform: `translate3d(${dragState.mousePos.x - dragState.dragOffset.x}px, ${dragState.mousePos.y - dragState.dragOffset.y}px, 0)`,
-            }}
-          >
-            {(() => {
-              const originalIndex = wordOrder[dragState.draggedIndex];
-              const word = sessionWords[originalIndex];
-              const wordKey = `${sessionSourceKey}-${originalIndex}`;
-              const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
-              const confidence = confidenceLevels[wordKey] ?? 0;
-              const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
-              const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-              const hintsRemaining = Math.max(0, maxHints - state.hintCount);
-
-              return (
-                <WordCard
-                  word={word}
-                  confidence={confidence}
-                  onConfidenceChange={() => {}}
-                  revealedPositions={state.revealedPositions}
-                  hintsRemaining={hintsRemaining}
-                  onRevealLetter={() => {}}
-                  onRevealFullWord={() => {}}
-                  onResetWord={() => {}}
-                  isTTSPlaying={playingWordIndex === originalIndex}
-                  isTTSDisabled={playingWordIndex !== null}
-                  onPlayTTS={() => {}}
-                  isFloating
-                />
-              );
-            })()}
-          </div>
-        )}
 
         <div className="w-full pb-[calc(env(safe-area-inset-bottom)+1.5rem)] animate-slide-up delay-400">
           <button

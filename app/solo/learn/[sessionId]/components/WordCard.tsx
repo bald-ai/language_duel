@@ -24,12 +24,6 @@ interface WordCardProps {
   isTTSPlaying: boolean;
   isTTSDisabled: boolean;
   onPlayTTS: () => void;
-  // Drag props
-  isDragging?: boolean;
-  isFloating?: boolean;
-  onMouseDown?: (e: React.MouseEvent) => void;
-  style?: React.CSSProperties;
-  refCallback?: (el: HTMLDivElement | null) => void;
   dataTestIdBase?: string;
 }
 
@@ -37,11 +31,6 @@ interface WordCardProps {
 const cardStyleBase = {
   backgroundColor: colors.background.DEFAULT,
   borderColor: colors.primary.dark,
-} as const;
-
-const floatingStyleAdditions = {
-  borderColor: colors.primary.light,
-  boxShadow: `0 22px 50px ${colors.primary.glow}`,
 } as const;
 
 const iconButtonStyleConst = {
@@ -87,19 +76,12 @@ export const WordCard = memo(function WordCard({
   isTTSPlaying,
   isTTSDisabled,
   onPlayTTS,
-  isDragging = false,
-  isFloating = false,
-  onMouseDown,
-  style,
-  refCallback,
   dataTestIdBase,
 }: WordCardProps) {
   // Memoize computed styles to avoid recreation
   const computedStyle = useMemo(() => ({
-    ...style,
     ...cardStyleBase,
-    ...(isFloating ? floatingStyleAdditions : null),
-  }), [style, isFloating]);
+  }), []);
 
   const revealablePositions = useMemo(
     () =>
@@ -118,17 +100,12 @@ export const WordCard = memo(function WordCard({
     ? disabledButtonStyleConst
     : iconButtonStyleConst;
 
-  const baseClasses = "rounded-2xl border-2 p-4 select-none transition";
-
-  const cursorClasses = isFloating ? "" : "cursor-grab active:cursor-grabbing";
-  const visibilityClasses = isDragging ? "opacity-0" : "";
+  const baseClasses = "rounded-2xl border-2 p-4 transition";
 
   return (
     <div
-      ref={refCallback}
-      onMouseDown={onMouseDown}
       style={computedStyle}
-      className={`${baseClasses} ${cursorClasses} ${visibilityClasses}`}
+      className={baseClasses}
       data-testid={dataTestIdBase}
     >
       <div className="flex flex-col gap-3">
@@ -164,7 +141,6 @@ export const WordCard = memo(function WordCard({
           <ConfidenceSlider
             value={confidence}
             onChange={onConfidenceChange}
-            readOnly={isFloating}
             dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined}
           />
         </div>
