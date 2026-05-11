@@ -81,7 +81,7 @@ export function ModalShell({
                       backgroundColor: colors.background.elevated,
                       borderColor: colors.primary.dark,
                       color: colors.text.DEFAULT,
-                      boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3)`,
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
                     }}
                   >
                     {infoTooltip}

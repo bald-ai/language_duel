@@ -84,7 +84,7 @@ export function getSubjectForTrigger(
     case "weekly_goal_reminder_1":
       return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
     case "weekly_goal_reminder_2":
-      return `Last chance! Your weekly goal is almost up`;
+      return "Last chance! Your weekly goal is almost up";
     default:
       return "Something's happening on Language Duel";
   }
@@ -108,19 +108,19 @@ export function getBodyForTrigger(
       };
     case "weekly_goal_invite":
       return {
-        heading: `You've been challenged`,
+        heading: "You've been challenged",
         body: `${sender} wants to team up (or compete?) on a weekly goal. Think you can keep up? Open the app to see the details and make it official.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_locked":
       return {
-        heading: `Your partner locked in`,
+        heading: "Your partner locked in",
         body: `${sender} just locked their side of the weekly goal. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app and lock too when you're ready.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_accepted":
       return {
-        heading: `Let's gooo!`,
+        heading: "Let's gooo!",
         body: `${sender} accepted your weekly goal invite! The goal is locked and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
         cta: "Open Language Duel",
       };
@@ -132,7 +132,7 @@ export function getBodyForTrigger(
       };
     case "weekly_goal_expired_delete_reminder":
       return {
-        heading: `Grace period, but still winnable`,
+        heading: "Grace period, but still winnable",
         body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
         cta: "Open Language Duel",
       };
@@ -144,20 +144,20 @@ export function getBodyForTrigger(
       };
     case "weekly_goal_reminder_1":
       return {
-        heading: `The clock is ticking!`,
+        heading: "The clock is ticking!",
         body: `You and ${partner} have <strong>${data.hoursLeft ?? 0} hours</strong> left. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Don't let this one slip away!`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_2":
       return {
-        heading: `This is it -- final stretch!`,
+        heading: "This is it -- final stretch!",
         body: `Your goal with ${partner} expires soon. You're sitting at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Sprint to the finish line!`,
         cta: "Open Language Duel",
       };
     default:
       return {
-        heading: `Something's up!`,
-        body: `There's a new update waiting for you on Language Duel. Hop in and check it out.`,
+        heading: "Something's up!",
+        body: "There's a new update waiting for you on Language Duel. Hop in and check it out.",
         cta: "Open Language Duel",
       };
   }

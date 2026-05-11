@@ -38,7 +38,7 @@ export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore,
       <div className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: colors.text.muted }}>Scoreboard</div>
       <div className="flex justify-between items-center gap-2 mb-0.5 sm:mb-1">
         <span className="font-medium text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none" style={{ color: myColor }}>
-          You ({myName?.split(' ')[0] || 'You'})
+          You ({myName?.split(" ")[0] || "You"})
         </span>
         <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums" style={{ color: myColor }}>
           {formatScore(myScore)}
@@ -46,7 +46,7 @@ export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore,
       </div>
       <div className="flex justify-between items-center gap-2">
         <span className="font-medium text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none" style={{ color: theirColor }}>
-          {theirName?.split(' ')[0] || 'Opponent'}
+          {theirName?.split(" ")[0] || "Opponent"}
         </span>
         <span className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums" style={{ color: theirColor }}>
           {formatScore(theirScore)}

@@ -32,6 +32,8 @@ const eslintConfig = defineConfig([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+      "quotes": ["error", "double", { "avoidEscape": true }],
+      "jsx-quotes": ["error", "prefer-double"]
     },
   },
 ]);

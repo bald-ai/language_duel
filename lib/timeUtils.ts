@@ -48,9 +48,9 @@ export function generateTimeSlots(date: Date = new Date()): TimeSlot[] {
  * Format hour and minute as a readable time string
  */
 export function formatTime(hour: number, minute: number): string {
-    const period = hour >= 12 ? 'PM' : 'AM';
+    const period = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
-    const displayMinute = minute.toString().padStart(2, '0');
+    const displayMinute = minute.toString().padStart(2, "0");
     return `${displayHour}:${displayMinute} ${period}`;
 }
 
@@ -91,8 +91,8 @@ export function formatScheduledTime(timestamp: number): string {
     }
 
     // Otherwise show full date
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     return `${dayNames[date.getDay()]}, ${monthNames[date.getMonth()]} ${date.getDate()} at ${timeStr}`;
 }
@@ -110,7 +110,7 @@ export function getRelativeTime(timestamp: number): string {
     const days = Math.floor(hours / 24);
 
     if (seconds < 60) {
-        return 'Just now';
+        return "Just now";
     } else if (minutes < 60) {
         return `${minutes}m ago`;
     } else if (hours < 24) {
@@ -119,7 +119,7 @@ export function getRelativeTime(timestamp: number): string {
         return `${days}d ago`;
     } else {
         const date = new Date(timestamp);
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         return `${monthNames[date.getMonth()]} ${date.getDate()}`;
     }
 }
@@ -133,7 +133,7 @@ export function formatCountdown(targetTimestamp: number): string {
     const diff = targetTimestamp - now;
 
     if (diff <= 0) {
-        return 'Starting soon!';
+        return "Starting soon!";
     }
 
     const seconds = Math.floor(diff / 1000);
@@ -142,7 +142,7 @@ export function formatCountdown(targetTimestamp: number): string {
     const days = Math.floor(hours / 24);
 
     if (seconds < 60) {
-        return 'Starting soon!';
+        return "Starting soon!";
     } else if (minutes < 60) {
         return `${minutes}m`;
     } else if (hours < 24) {

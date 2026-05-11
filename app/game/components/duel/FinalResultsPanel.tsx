@@ -137,7 +137,7 @@ export function FinalResultsPanel({
           </div>
           <div className="flex justify-between items-center mb-2">
             <span className="font-medium" style={{ color: myColor }}>
-              You ({myName?.split(' ')[0] || 'You'})
+              You ({myName?.split(" ")[0] || "You"})
             </span>
             <span className="text-2xl font-bold" style={{ color: myColor }}>
               {formatScore(myScore)}
@@ -145,7 +145,7 @@ export function FinalResultsPanel({
           </div>
           <div className="flex justify-between items-center">
             <span className="font-medium" style={{ color: theirColor }}>
-              {theirName?.split(' ')[0] || 'Opponent'}
+              {theirName?.split(" ")[0] || "Opponent"}
             </span>
             <span className="text-2xl font-bold" style={{ color: theirColor }}>
               {formatScore(theirScore)}

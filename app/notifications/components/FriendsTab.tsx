@@ -128,7 +128,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                                                 {request.nickname || request.name || request.email}
                                                 {request.discriminator && (
                                                     <span style={{ color: colors.text.muted }}>
-                                                        #{request.discriminator.toString().padStart(4, '0')}
+                                                        #{request.discriminator.toString().padStart(4, "0")}
                                                     </span>
                                                 )}
                                             </p>

@@ -50,11 +50,11 @@ export function NotificationPanel({
         if (isOpen) {
             // Delay adding listener to avoid immediate close
             const timer = setTimeout(() => {
-                document.addEventListener('mousedown', handleClickOutside);
+                document.addEventListener("mousedown", handleClickOutside);
             }, 100);
             return () => {
                 clearTimeout(timer);
-                document.removeEventListener('mousedown', handleClickOutside);
+                document.removeEventListener("mousedown", handleClickOutside);
             };
         }
     }, [isOpen, onClose]);

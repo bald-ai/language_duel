@@ -69,8 +69,8 @@ export function NotificationItem({
     const { type, fromUser, payload, createdAt } = notification;
 
     const getNotificationContent = () => {
-        const userName = fromUser?.nickname || 'Someone';
-        const themeName = payload?.themeName || 'Theme';
+        const userName = fromUser?.nickname || "Someone";
+        const themeName = payload?.themeName || "Theme";
 
         switch (type) {
             case NOTIFICATION_TYPES.FRIEND_REQUEST:
@@ -294,7 +294,7 @@ export function NotificationItem({
             default:
                 return {
                     icon: <BellIcon />,
-                    message: 'You have a notification',
+                    message: "You have a notification",
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton
@@ -352,7 +352,7 @@ export function NotificationItem({
 
 interface ActionButtonProps {
     onClick: () => void;
-    variant: 'accept' | 'reject' | 'dismiss' | 'secondary';
+    variant: "accept" | "reject" | "dismiss" | "secondary";
     children: React.ReactNode;
     dataTestId?: string;
 }
@@ -360,22 +360,22 @@ interface ActionButtonProps {
 function ActionButton({ onClick, variant, children, dataTestId }: ActionButtonProps) {
     const getStyles = () => {
         switch (variant) {
-            case 'accept':
+            case "accept":
                 return {
                     backgroundColor: colors.cta.DEFAULT,
-                    color: 'white',
+                    color: "white",
                 };
-            case 'reject':
+            case "reject":
                 return {
                     backgroundColor: colors.status.danger.light,
                     color: colors.status.danger.dark,
                 };
-            case 'dismiss':
+            case "dismiss":
                 return {
                     backgroundColor: colors.background.DEFAULT,
                     color: colors.text.muted,
                 };
-            case 'secondary':
+            case "secondary":
                 return {
                     backgroundColor: colors.primary.light,
                     color: colors.primary.dark,

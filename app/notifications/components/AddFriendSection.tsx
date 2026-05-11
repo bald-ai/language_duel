@@ -117,7 +117,7 @@ export function AddFriendSection() {
                                             {user.nickname || user.name || "Unknown user"}
                                             {user.nickname && user.discriminator && (
                                                 <span style={{ color: colors.text.muted }}>
-                                                    #{user.discriminator.toString().padStart(4, '0')}
+                                                    #{user.discriminator.toString().padStart(4, "0")}
                                                 </span>
                                             )}
                                         </p>

@@ -102,7 +102,7 @@ export function LeftNavButtons() {
           }}
           className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
           title="Notifications & Friends"
-          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}
+          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ""}`}
           style={{ color: "var(--color-text)" }}
           data-testid="nav-notifications"
         >

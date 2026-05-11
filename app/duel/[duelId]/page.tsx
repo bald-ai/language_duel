@@ -38,7 +38,7 @@ export default function DuelPage() {
     if (!duel) return;
     
     if (duel.status === "stopped") {
-      router.push('/');
+      router.push("/");
     }
   }, [duel, duelId, router]);
 

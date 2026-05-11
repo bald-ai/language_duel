@@ -91,8 +91,8 @@ export function FriendListItem({
         };
 
         if (showMenu || showConfirmRemove) {
-            document.addEventListener('click', handleClickOutside);
-            return () => document.removeEventListener('click', handleClickOutside);
+            document.addEventListener("click", handleClickOutside);
+            return () => document.removeEventListener("click", handleClickOutside);
         }
     }, [showMenu, showConfirmRemove]);
 
@@ -213,7 +213,7 @@ export function FriendListItem({
                 ref={itemRef}
                 className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-opacity-60"
                 style={{
-                    backgroundColor: showMenu ? `${colors.primary.DEFAULT}10` : 'transparent'
+                    backgroundColor: showMenu ? `${colors.primary.DEFAULT}10` : "transparent"
                 }}
                 onContextMenu={handleContextMenu}
                 onTouchStart={handleTouchStart}
@@ -264,7 +264,7 @@ export function FriendListItem({
                         {friend.nickname || friend.name || friend.email}
                         {friend.discriminator && (
                             <span style={{ color: colors.text.muted }}>
-                                #{friend.discriminator.toString().padStart(4, '0')}
+                                #{friend.discriminator.toString().padStart(4, "0")}
                             </span>
                         )}
                     </p>
@@ -272,7 +272,7 @@ export function FriendListItem({
                         className="text-xs"
                         style={{ color: friend.isOnline ? colors.cta.DEFAULT : colors.text.muted }}
                     >
-                        {friend.isOnline ? 'Online' : 'Offline'}
+                        {friend.isOnline ? "Online" : "Offline"}
                     </p>
                 </div>
 
@@ -288,7 +288,7 @@ export function FriendListItem({
                                 onQuickDuel();
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                             title="Start Duel"
                             data-testid={`notifications-friend-${friend.friendId}-quick-duel`}
                         >
@@ -303,7 +303,7 @@ export function FriendListItem({
                         style={{ color: colors.text.muted }}
                         onClick={handleMenuClick}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                         title="More options"
                         data-testid={`notifications-friend-${friend.friendId}-menu`}
                     >

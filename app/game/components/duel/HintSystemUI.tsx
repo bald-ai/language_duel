@@ -90,7 +90,7 @@ export const HintSystemUI = memo(function HintSystemUI({
       {isHintProvider && (
         <div className="text-center">
           <div className="font-medium mb-1" style={{ color: colors.status.warning.light }}>
-            🎯 Click on {2 - eliminatedOptionsCount} wrong option{2 - eliminatedOptionsCount !== 1 ? 's' : ''} to eliminate
+            🎯 Click on {2 - eliminatedOptionsCount} wrong option{2 - eliminatedOptionsCount !== 1 ? "s" : ""} to eliminate
           </div>
           <div className="text-xs" style={{ color: colors.text.muted }}>
             You&apos;ll get +0.5 points if they answer after your hint

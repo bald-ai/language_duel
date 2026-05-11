@@ -537,7 +537,7 @@ export default function LearnPhasePage() {
                       <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[3] }} />
                     </div>
                     <div className="max-w-[520px] flex-1 text-sm leading-snug" style={{ color: colors.text.muted }}>
-                      Confidence sets the starting practice level (0 quick check {'->'} 3 no hints).
+                      Confidence sets the starting practice level (0 quick check {"->"} 3 no hints).
                     </div>
                     <button
                       type="button"
@@ -595,7 +595,7 @@ export default function LearnPhasePage() {
             style={ctaActionStyle}
             data-testid="solo-learn-skip"
           >
-            Skip to Practice {'->'}
+            Skip to Practice {"->"}
           </button>
         </div>
       </div>

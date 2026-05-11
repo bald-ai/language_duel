@@ -102,7 +102,7 @@ export default function DuelSession({
   const [duelDuration, setDuelDuration] = useState<number>(0);
 
   // Phase-based state machine for question flow
-  const [phase, setPhase] = useState<'idle' | 'answering' | 'transition'>('idle');
+  const [phase, setPhase] = useState<"idle" | "answering" | "transition">("idle");
   const activeQuestionIndexRef = useRef<number | null>(null);
   const lockedAnswerRef = useRef<string | null>(null);
 
@@ -163,7 +163,7 @@ export default function DuelSession({
 
     if (activeQuestionIndexRef.current === null) {
       activeQuestionIndexRef.current = currentWordIndex;
-      setPhase('answering');
+      setPhase("answering");
       return;
     }
 
@@ -177,7 +177,7 @@ export default function DuelSession({
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
       const prevQuestion = duel.duelQuestions![prevIndex];
 
-      setPhase('transition');
+      setPhase("transition");
       setFrozenData({
         word: prevWord.word,
         correctAnswer: prevWord.answer,
@@ -197,7 +197,7 @@ export default function DuelSession({
         setCountdown(5);
       }
     } else {
-      setPhase('answering');
+      setPhase("answering");
       setSelectedAnswer(null);
       setIsLocked(false);
       lockedAnswerRef.current = null;
@@ -224,7 +224,7 @@ export default function DuelSession({
     const wasPaused = prevCountdownPausedByRef.current;
     const isNowUnpaused = !countdownPausedBy;
 
-    if (wasPaused && isNowUnpaused && countdown !== null && phase === 'transition') {
+    if (wasPaused && isNowUnpaused && countdown !== null && phase === "transition") {
       // Unpause confirmed - reset countdown to 1 second
       setCountdown(1);
     }
@@ -233,7 +233,7 @@ export default function DuelSession({
   }, [countdownPausedBy, countdown, phase]);
 
   useEffect(() => {
-    if (countdown === null || phase !== 'transition') return;
+    if (countdown === null || phase !== "transition") return;
     if (countdownPausedBy) return;
 
     if (countdown > 0) {
@@ -241,7 +241,7 @@ export default function DuelSession({
       return () => clearTimeout(timer);
     } else {
       if (duel.status !== "completed") {
-        setPhase('answering');
+        setPhase("answering");
         setFrozenData(null);
         setSelectedAnswer(null);
         setIsLocked(false);
@@ -258,7 +258,7 @@ export default function DuelSession({
 
   // Detect when both players have skipped - immediately proceed to next question
   useEffect(() => {
-    if (countdown === null || phase !== 'transition') return;
+    if (countdown === null || phase !== "transition") return;
     if (countdownSkipRequestedBy.includes("challenger") && countdownSkipRequestedBy.includes("opponent")) {
       // Both players skipped - immediately go to 0
       setCountdown(0);
@@ -297,7 +297,7 @@ export default function DuelSession({
   useEffect(() => {
     const status = duel.status;
     if (status === "stopped") {
-      router.push('/');
+      router.push("/");
     }
   }, [duel.status, router]);
 
@@ -315,8 +315,8 @@ export default function DuelSession({
 
   // Reset timeout flag ONLY when transitioning into 'answering' phase
   useEffect(() => {
-    const wasNotAnswering = prevPhaseRef.current !== 'answering';
-    const isNowAnswering = phase === 'answering';
+    const wasNotAnswering = prevPhaseRef.current !== "answering";
+    const isNowAnswering = phase === "answering";
     prevPhaseRef.current = phase;
 
     if (wasNotAnswering && isNowAnswering) {
@@ -347,7 +347,7 @@ export default function DuelSession({
     const status = duel.status;
     const questionStartTime = duel.questionStartTime;
 
-    if (phase !== 'answering' || status !== "active" || !questionStartTime) {
+    if (phase !== "answering" || status !== "active" || !questionStartTime) {
       setQuestionTimer(null);
       return;
     }
@@ -454,7 +454,7 @@ export default function DuelSession({
   const handleStopDuel = useCallback(async () => {
     try {
       await stopDuel({ duelId: duel._id });
-      router.push('/');
+      router.push("/");
     } catch (error) {
       console.error("Failed to stop duel:", error);
       toast.error(getErrorMessage(error, "Failed to stop duel"));
@@ -577,7 +577,7 @@ export default function DuelSession({
   const opponentLastAnswer = theirLastAnswer;
 
   const handleOptionClick = (ans: string, canEliminateThis: boolean, isEliminated: boolean) => {
-    if (phase !== 'answering') return;
+    if (phase !== "answering") return;
     if (canEliminateThis) {
       handleEliminateOption(ans);
     } else if (!hasAnswered && !isLocked && !isEliminated) {

@@ -68,7 +68,7 @@ export function StickyNotes({ phase, seed = 0 }: StickyNotesProps) {
             backgroundColor: note.color,
             animationDelay: `${note.delay}s`,
             animation: `stick 0.5s ease-out forwards, note-wobble ${note.wobbleSpeed}s ease-in-out infinite`,
-            boxShadow: `5px 5px 15px rgba(0,0,0,0.4)`,
+            boxShadow: "5px 5px 15px rgba(0,0,0,0.4)",
           }}
         >
           <div className="w-full h-full flex items-center justify-center text-black font-extrabold text-base text-center p-3">
