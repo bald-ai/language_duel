@@ -12,6 +12,15 @@ const wordValidator = v.object({
   ttsStorageId: v.optional(v.id("_storage")),
 });
 
+export const wordTypeValidator = v.union(
+  v.literal("nouns"),
+  v.literal("verbs"),
+  v.literal("adjectives"),
+  v.literal("adverbs")
+);
+
+export const optionalWordTypeValidator = v.optional(wordTypeValidator);
+
 const sessionWordValidator = v.object({
   word: v.string(),
   answer: v.string(),
@@ -200,7 +209,7 @@ export default defineSchema({
   themes: defineTable({
     name: v.string(),
     description: v.string(),
-    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    wordType: optionalWordTypeValidator,
     words: v.array(wordValidator),
     createdAt: v.number(),
     ownerId: v.optional(v.id("users")),
@@ -402,7 +411,7 @@ export default defineSchema({
     order: v.number(),
     name: v.string(),
     description: v.string(),
-    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    wordType: optionalWordTypeValidator,
     words: v.array(wordValidator),
     lockedAt: v.number(),
     createdAt: v.number(),

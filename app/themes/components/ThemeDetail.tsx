@@ -11,8 +11,11 @@ import {
 } from "@/lib/themes/validators";
 import { colors } from "@/lib/theme";
 import { BackButton } from "@/app/components/BackButton";
-import type { FieldType } from "../constants";
-import { THEME_NAME_MAX_LENGTH } from "../constants";
+import type { FieldType, WordType } from "../constants";
+import {
+  THEME_NAME_MAX_LENGTH,
+  wordTypeAllowsCorrectAnswerMarker,
+} from "../constants";
 import { AddWordModal } from "./AddWordModal";
 import { GenerateRandomModal } from "./GenerateRandomModal";
 import { getThemeActionButtonStyle, themeOutlineButtonStyle } from "./themeStyles";
@@ -21,7 +24,7 @@ export type ThemeDetailTheme = {
   name: string;
   description: string;
   words: WordEntry[];
-  wordType?: "nouns" | "verbs";
+  wordType?: WordType;
   visibility?: "private" | "shared";
   friendsCanEdit?: boolean;
   ownerNickname?: string;
@@ -628,13 +631,14 @@ export function ThemeDetail({
             boxShadow: `0 20px 60px ${colors.primary.glow}`,
           }}
         >
-          {/* Legend */}
-          <div className="text-xs mb-4 px-1" style={{ color: colors.text.muted }}>
-            <span className="font-medium" style={{ color: colors.status.warning.light }}>
-              (Irr)
-            </span>{" "}
-            = Irregular verb
-          </div>
+          {wordTypeAllowsCorrectAnswerMarker(theme.wordType) && (
+            <div className="text-xs mb-4 px-1" style={{ color: colors.text.muted }}>
+              <span className="font-medium" style={{ color: colors.status.warning.light }}>
+                (Irr)
+              </span>{" "}
+              = Irregular verb
+            </div>
+          )}
 
           <div className="flex flex-col gap-4">
             {localWords.map((word, index) => {

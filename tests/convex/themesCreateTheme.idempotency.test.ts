@@ -20,7 +20,7 @@ type ThemeDoc = {
   name: string;
   description: string;
   words: Array<{ word: string; answer: string; wrongAnswers: string[] }>;
-  wordType: "nouns" | "verbs";
+  wordType: "nouns" | "verbs" | "adjectives" | "adverbs";
   createdAt: number;
   ownerId: Id<"users">;
   visibility: "private" | "shared";
@@ -211,6 +211,36 @@ describe("themes.createTheme idempotency", () => {
         visibility: "private" as const,
       })
     ).rejects.toThrow(/matches the correct answer/);
+  });
+
+  it("accepts adjective wordType on create", async () => {
+    const db = new InMemoryDb();
+    db.users.push({
+      _id: "user_1" as Id<"users">,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "test@example.com",
+    });
+
+    const ctx = createCtx(db);
+    const handler = (createTheme as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">> })
+      ._handler;
+
+    await handler(ctx, {
+      name: "ADJECTIVES",
+      description: "Generated theme for adjectives",
+      words: [
+        {
+          word: "red",
+          answer: "rojo",
+          wrongAnswers: ["azul", "verde", "cansado"],
+        },
+      ],
+      wordType: "adjectives" as const,
+      visibility: "private" as const,
+    });
+
+    expect(db.themes[0]?.wordType).toBe("adjectives");
   });
 
   it("persists friendsCanEdit=true when provided on create", async () => {

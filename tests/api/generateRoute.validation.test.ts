@@ -79,6 +79,46 @@ describe("/api/generate request validation", () => {
     );
   });
 
+  it("parseGenerateRequest rejects invalid wordType", () => {
+    const result = parseGenerateRequest({
+      type: "theme",
+      themeName: "Animals",
+      wordType: "prepositions",
+      history: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect((result as { ok: false; error: string }).error).toContain("wordType");
+  });
+
+  it("parseGenerateRequest accepts adjective wordType", () => {
+    const result = parseGenerateRequest({
+      type: "theme",
+      themeName: "Feelings",
+      wordType: "adjectives",
+      history: [],
+    });
+
+    expect(result.ok).toBe(true);
+    expect((result as { ok: true; data: { wordType?: string } }).data.wordType).toBe(
+      "adjectives"
+    );
+  });
+
+  it("parseGenerateRequest accepts adverb wordType", () => {
+    const result = parseGenerateRequest({
+      type: "theme",
+      themeName: "Routines",
+      wordType: "adverbs",
+      history: [],
+    });
+
+    expect(result.ok).toBe(true);
+    expect((result as { ok: true; data: { wordType?: string } }).data.wordType).toBe(
+      "adverbs"
+    );
+  });
+
   it("returns 400 when theme wordCount is out of bounds", async () => {
     const response = await POST(
       createJsonRequest({

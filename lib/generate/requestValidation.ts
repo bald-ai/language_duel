@@ -16,11 +16,15 @@ import {
   THEME_WORD_INPUT_MAX_LENGTH,
   THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
 } from "@/lib/themes/constants";
+import {
+  isWordType,
+  WORD_TYPE_VALUES,
+  type WordType,
+} from "@/lib/themes/wordTypes";
 
 const MAX_HISTORY_MESSAGES = 50;
 const MAX_WORDS_ARRAY_ITEMS = 500;
 
-type WordType = "nouns" | "verbs";
 type FieldType = "word" | "answer" | "wrong";
 
 type HistoryMessage = {
@@ -113,8 +117,8 @@ function parseTrimmedString(params: {
 
 function parseWordType(value: unknown): WordType | undefined {
   if (value === undefined) return undefined;
-  if (value === "nouns" || value === "verbs") return value;
-  throw new Error("wordType must be either \"nouns\" or \"verbs\"");
+  if (isWordType(value)) return value;
+  throw new Error(`wordType must be one of: ${WORD_TYPE_VALUES.join(", ")}`);
 }
 
 function parseHistory(value: unknown): HistoryMessage[] | undefined {

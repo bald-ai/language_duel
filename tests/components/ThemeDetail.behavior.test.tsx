@@ -157,6 +157,30 @@ describe("ThemeDetail behavior", () => {
     expect(onShowGenerateRandomModal).toHaveBeenCalledWith(true);
   });
 
+  it("shows the irregular marker legend only for verb themes", () => {
+    makeProps();
+
+    expect(screen.queryByText("= Irregular verb")).toBeNull();
+
+    makeProps({
+      theme: {
+        ...baseTheme,
+        wordType: "adjectives",
+      } as ThemeDetailTheme,
+    });
+
+    expect(screen.queryByText("= Irregular verb")).toBeNull();
+
+    makeProps({
+      theme: {
+        ...baseTheme,
+        wordType: "verbs",
+      } as ThemeDetailTheme,
+    });
+
+    expect(screen.getByText("= Irregular verb")).toBeInTheDocument();
+  });
+
   it("closes add/generate modals through cancel actions", () => {
     const {
       onAddWordReset,

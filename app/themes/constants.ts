@@ -9,6 +9,18 @@ import {
   MAX_THEME_GENERATION_WORD_COUNT,
   MIN_THEME_GENERATION_WORD_COUNT,
 } from "@/lib/generate/constants";
+export {
+  DEFAULT_WORD_TYPE,
+  WORD_TYPE_CONFIG,
+  WORD_TYPE_OPTIONS,
+  WORD_TYPES,
+  getDefaultWordType,
+  getWordTypeConfig,
+  getWordTypeLabel,
+  isWordType,
+  wordTypeAllowsCorrectAnswerMarker,
+  type WordType,
+} from "@/lib/themes/wordTypes";
 
 export const VIEW_MODES = {
   LIST: "list",
@@ -25,13 +37,6 @@ export const EDIT_MODES = {
 } as const;
 
 export type EditMode = (typeof EDIT_MODES)[keyof typeof EDIT_MODES];
-
-export const WORD_TYPES = {
-  NOUNS: "nouns",
-  VERBS: "verbs",
-} as const;
-
-export type WordType = (typeof WORD_TYPES)[keyof typeof WORD_TYPES];
 
 export const FIELD_TYPES = {
   WORD: "word",

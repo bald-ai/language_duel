@@ -16,6 +16,7 @@ import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { ThemeCardMenu } from "./ThemeCardMenu";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
 import { getThemeActionButtonStyle } from "./themeStyles";
+import { getWordTypeLabel } from "../constants";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -66,12 +67,10 @@ const ThemeCard = memo(function ThemeCard({
 }: ThemeCardProps) {
   const isMutating = isDeleting || isDuplicating;
 
-  const categoryLabel =
-    theme.wordType === "verbs"
-      ? "VERBS"
-      : theme.wordType === "nouns"
-        ? "NOUNS"
-        : "NO CATEGORY";
+  const categoryLabel = getWordTypeLabel(theme.wordType, {
+    fallback: "No category",
+    uppercase: true,
+  });
 
   const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
 

@@ -7,14 +7,10 @@ import {
   MIN_GENERATED_WORDS_COUNT,
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,
+  WORD_TYPE_OPTIONS,
 } from "../constants";
 import { colors } from "@/lib/theme";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
-
-const WORD_TYPE_OPTIONS: Array<{ value: WordType; label: string }> = [
-  { value: "nouns", label: "Nouns" },
-  { value: "verbs", label: "Verbs" },
-];
 
 interface GenerateThemeModalProps {
   isOpen: boolean;

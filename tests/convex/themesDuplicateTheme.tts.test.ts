@@ -28,7 +28,7 @@ type ThemeDoc = {
   name: string;
   description: string;
   words: ThemeWord[];
-  wordType: "nouns" | "verbs";
+  wordType: "nouns" | "verbs" | "adjectives" | "adverbs";
   createdAt: number;
   ownerId: Id<"users">;
   visibility: "private" | "shared";

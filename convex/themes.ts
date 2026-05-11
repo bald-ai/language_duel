@@ -23,6 +23,7 @@ import {
   normalizeThemeWords,
 } from "../lib/themes/serverValidation";
 import { THEME_NAME_MAX_LENGTH } from "../lib/themes/constants";
+import { optionalWordTypeValidator } from "./schema";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
@@ -358,7 +359,7 @@ export const createTheme = mutation({
     name: v.string(),
     description: v.string(),
     words: v.array(wordValidator),
-    wordType: v.optional(v.union(v.literal("nouns"), v.literal("verbs"))),
+    wordType: optionalWordTypeValidator,
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
     friendsCanEdit: v.optional(v.boolean()),
     saveRequestId: v.optional(v.string()),

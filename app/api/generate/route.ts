@@ -6,10 +6,11 @@ import { api } from "@/convex/_generated/api";
 import {
   buildAddWordPrompt,
   buildFieldSystemPrompt,
+  buildGenerateRandomWordsUserMessage,
+  buildGenerateThemeUserMessage,
   buildGenerateRandomWordsPrompt,
   buildRegenerateForWordPrompt,
   buildThemeSystemPrompt,
-  buildVerbThemeSystemPrompt,
 } from "@/lib/generate/prompts";
 import {
   answerAndWrongsSchema,
@@ -31,8 +32,9 @@ import {
   formatThemeValidationIssue,
   type ThemeWordInput,
 } from "@/lib/themes/serverValidation";
+import { getDefaultWordType } from "@/lib/themes/wordTypes";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 const OPENAI_MODEL = "gpt-5.4-2026-03-05" as const;
 const OPENAI_REASONING_EFFORT = "low" as const;
@@ -189,14 +191,18 @@ export async function POST(request: NextRequest) {
 
     if (body.type === "theme") {
       const wordCount = body.wordCount;
-      const systemPrompt = body.wordType === "verbs"
-        ? buildVerbThemeSystemPrompt(body.themeName, wordCount, body.themePrompt)
-        : buildThemeSystemPrompt(body.themeName, wordCount, body.themePrompt);
-
-      const firstUserMessage =
-        body.wordType === "verbs"
-          ? `Generate ${wordCount} Spanish verbs for the theme "${body.themeName}".`
-          : `Generate ${wordCount} Spanish vocabulary words for the theme "${body.themeName}".`;
+      const wordType = body.wordType || getDefaultWordType();
+      const systemPrompt = buildThemeSystemPrompt(
+        body.themeName,
+        wordCount,
+        body.themePrompt,
+        wordType
+      );
+      const firstUserMessage = buildGenerateThemeUserMessage(
+        body.themeName,
+        wordCount,
+        wordType
+      );
 
       const baseMessages: ChatMessage[] = [
         { role: "system", content: systemPrompt },
@@ -275,7 +281,7 @@ export async function POST(request: NextRequest) {
         fieldIndex,
         existingWords,
         rejectedWords,
-        wordType || "nouns",
+        wordType || getDefaultWordType(),
         customInstructions
       );
 
@@ -319,7 +325,11 @@ export async function POST(request: NextRequest) {
     if (body.type === "regenerate-for-word") {
       const { themeName, wordType, newWord } = body;
 
-      const systemPrompt = buildRegenerateForWordPrompt(themeName, newWord, wordType || "nouns");
+      const systemPrompt = buildRegenerateForWordPrompt(
+        themeName,
+        newWord,
+        wordType || getDefaultWordType()
+      );
 
       const messages = buildMessages({
         systemPrompt,
@@ -346,7 +356,12 @@ export async function POST(request: NextRequest) {
     if (body.type === "add-word") {
       const { themeName, wordType, newWord, existingWords } = body;
 
-      const systemPrompt = buildAddWordPrompt(themeName, newWord, existingWords, wordType || "nouns");
+      const systemPrompt = buildAddWordPrompt(
+        themeName,
+        newWord,
+        existingWords,
+        wordType || getDefaultWordType()
+      );
 
       const messages = buildMessages({
         systemPrompt,
@@ -379,11 +394,18 @@ export async function POST(request: NextRequest) {
 
       const validCount = count;
 
-      const systemPrompt = buildGenerateRandomWordsPrompt(themeName, validCount, existingWords, wordType || "nouns");
-
-      const userMessage = wordType === "verbs"
-        ? `Generate ${validCount} new Spanish verbs for the theme "${themeName}".`
-        : `Generate ${validCount} new Spanish vocabulary words for the theme "${themeName}".`;
+      const resolvedWordType = wordType || getDefaultWordType();
+      const systemPrompt = buildGenerateRandomWordsPrompt(
+        themeName,
+        validCount,
+        existingWords,
+        resolvedWordType
+      );
+      const userMessage = buildGenerateRandomWordsUserMessage(
+        themeName,
+        validCount,
+        resolvedWordType
+      );
 
       const messages = buildMessages({
         systemPrompt,

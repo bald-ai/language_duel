@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
+import type { WordType } from "@/lib/themes/wordTypes";
 
 interface ThemeActionsState {
   isCreating: boolean;
@@ -42,7 +43,7 @@ export function useThemeActions() {
       name: string,
       description: string,
       words: WordEntry[],
-      wordType: "nouns" | "verbs",
+      wordType: WordType,
       saveRequestId?: string,
       visibility?: "private" | "shared",
       friendsCanEdit?: boolean

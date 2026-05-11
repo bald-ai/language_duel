@@ -29,13 +29,13 @@ function pickerTheme(id: string, name: string) {
   };
 }
 
-function themeWithOwner(id: string, name: string): ThemeWithOwner {
+function themeWithOwner(id: string, name: string, wordType: ThemeWithOwner["wordType"] = "nouns"): ThemeWithOwner {
   return {
     _id: id as Id<"themes">,
     _creationTime: 1,
     name,
     description: `${name} description`,
-    wordType: "nouns",
+    wordType,
     words: [{ word: "cat", answer: "kocka", wrongAnswers: ["strom", "auto", "more"] }],
     createdAt: 1,
     visibility: "private",
@@ -114,5 +114,22 @@ describe("weekly goal theme markers", () => {
     const markers = screen.getAllByTestId("weekly-goal-theme-marker");
     expect(markers).toHaveLength(1);
     expect(markers[0]).toHaveAccessibleName("In your weekly goal");
+  });
+
+  it("shows adjective theme cards as ADJECTIVES", () => {
+    render(
+      <ThemeList
+        themes={[themeWithOwner("theme_3", "Descriptions", "adjectives")]}
+        deletingThemeId={null}
+        duplicatingThemeId={null}
+        onOpenTheme={vi.fn()}
+        onDeleteTheme={vi.fn()}
+        onDuplicateTheme={vi.fn()}
+        onGenerateNew={vi.fn()}
+        onBack={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-card-theme_3")).toHaveTextContent("ADJECTIVES");
   });
 });

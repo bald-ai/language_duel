@@ -4,6 +4,7 @@ import type { WordEntry } from "@/lib/types";
 import {
   DEFAULT_GENERATED_WORDS_COUNT,
   DEFAULT_RANDOM_WORD_COUNT,
+  getDefaultWordType,
 } from "../constants";
 
 interface ThemeGeneratorState {
@@ -21,7 +22,7 @@ export function useThemeGenerator() {
     error: null,
     themeName: "",
     themePrompt: "",
-    wordType: "nouns",
+    wordType: getDefaultWordType(),
     wordCount: DEFAULT_GENERATED_WORDS_COUNT,
   });
 
@@ -51,7 +52,7 @@ export function useThemeGenerator() {
       error: null,
       themeName: "",
       themePrompt: "",
-      wordType: "nouns",
+      wordType: getDefaultWordType(),
       wordCount: DEFAULT_GENERATED_WORDS_COUNT,
     });
   }, []);

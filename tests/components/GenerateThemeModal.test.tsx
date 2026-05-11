@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { GenerateThemeModal } from "@/app/themes/components/GenerateThemeModal";
+import { WORD_TYPE_OPTIONS } from "@/lib/themes/wordTypes";
 
 describe("GenerateThemeModal", () => {
   it("renders nothing when closed", () => {
@@ -73,6 +74,8 @@ describe("GenerateThemeModal", () => {
 
     fireEvent.click(screen.getByTestId("theme-generate-type-next"));
 
+    expect(onWordTypeChange).toHaveBeenNthCalledWith(1, "verbs");
+
     rerender(
       <GenerateThemeModal
         isOpen
@@ -90,10 +93,59 @@ describe("GenerateThemeModal", () => {
       />
     );
 
+    fireEvent.click(screen.getByTestId("theme-generate-type-next"));
+
+    expect(onWordTypeChange).toHaveBeenNthCalledWith(2, "adjectives");
+
+    rerender(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="adjectives"
+        wordCount={10}
+        isGenerating={false}
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={onWordTypeChange}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
     fireEvent.click(screen.getByTestId("theme-generate-type-previous"));
 
-    expect(onWordTypeChange).toHaveBeenNthCalledWith(1, "verbs");
-    expect(onWordTypeChange).toHaveBeenNthCalledWith(2, "nouns");
+    expect(onWordTypeChange).toHaveBeenNthCalledWith(3, "verbs");
+  });
+
+  it("renders labels from the shared word type options", () => {
+    render(
+      <GenerateThemeModal
+        isOpen
+        themeName="Animals"
+        themePrompt=""
+        wordType="nouns"
+        wordCount={10}
+        isGenerating={false}
+        onThemeNameChange={vi.fn()}
+        onThemePromptChange={vi.fn()}
+        onWordTypeChange={vi.fn()}
+        onWordCountChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-generate-type-selected")).toHaveTextContent(
+      WORD_TYPE_OPTIONS[0].label
+    );
+    for (const option of WORD_TYPE_OPTIONS) {
+      expect(screen.getByTestId(`theme-generate-type-${option.value}`)).toHaveAttribute(
+        "aria-label",
+        `Select ${option.label}`
+      );
+    }
   });
 
   it("selects word type with the carousel dots", () => {

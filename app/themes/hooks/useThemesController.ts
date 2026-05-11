@@ -15,7 +15,14 @@ import { buildFieldSummary } from "@/lib/generate/prompts";
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
 import { useTTS } from "@/app/game/hooks/useTTS";
-import { VIEW_MODES, FIELD_TYPES, type ViewMode, type FieldType } from "../constants";
+import {
+  getDefaultWordType,
+  VIEW_MODES,
+  FIELD_TYPES,
+  type ViewMode,
+  type FieldType,
+  type WordType,
+} from "../constants";
 import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
 import { useWordEditor } from "./useWordEditor";
 import { useThemeActions } from "./useThemeActions";
@@ -34,7 +41,7 @@ type NewThemeDraft = {
   name: string;
   description: string;
   words: WordEntry[];
-  wordType: "nouns" | "verbs";
+  wordType: WordType;
   visibility: "private" | "shared";
   friendsCanEdit: boolean;
   saveRequestId: string;
@@ -142,7 +149,7 @@ export function useThemesController() {
       canEdit: true,
     };
   }, [selectedThemeState]);
-  const selectedWordType = selectedTheme?.wordType || "nouns";
+  const selectedWordType = selectedTheme?.wordType || getDefaultWordType();
   const [localWords, setLocalWords] = useState<WordEntry[]>([]);
 
   // Modal state

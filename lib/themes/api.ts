@@ -1,7 +1,8 @@
 import type { WordEntry } from "@/lib/types";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import type { WordType } from "@/lib/themes/wordTypes";
+export type { WordType } from "@/lib/themes/wordTypes";
 
-export type WordType = "nouns" | "verbs";
 export type FieldType = "word" | "answer" | "wrong";
 
 type GenerateApiEnvelope = {
