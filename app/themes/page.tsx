@@ -23,6 +23,14 @@ const DeleteConfirmModal = dynamic(
   () => import("./components/DeleteConfirmModal").then((mod) => mod.DeleteConfirmModal),
   { loading: () => null }
 );
+const DiscardPickAndPruneModal = dynamic(
+  () => import("./components/DiscardPickAndPruneModal").then((mod) => mod.DiscardPickAndPruneModal),
+  { loading: () => null }
+);
+const PickAndPruneReview = dynamic(
+  () => import("./components/PickAndPruneReview").then((mod) => mod.PickAndPruneReview),
+  { loading: () => null }
+);
 const FriendFilterModal = dynamic(
   () => import("./components/FriendFilterModal").then((mod) => mod.FriendFilterModal),
   { loading: () => null }
@@ -49,6 +57,10 @@ export default function ThemesPage() {
         {controller.viewMode === VIEW_MODES.EDIT_WORD && controller.wordEditorState.editingField && (
           <WordEditor {...controller.wordEditorProps} />
         )}
+
+        {controller.viewMode === VIEW_MODES.PICK_AND_PRUNE_REVIEW && (
+          <PickAndPruneReview {...controller.pickAndPruneReviewProps} />
+        )}
       </div>
 
       <div
@@ -59,6 +71,7 @@ export default function ThemesPage() {
       />
 
       <DeleteConfirmModal {...controller.deleteConfirmProps} />
+      <DiscardPickAndPruneModal {...controller.discardPickAndPruneProps} />
     </ThemedPage>
   );
 }

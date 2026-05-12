@@ -1,6 +1,9 @@
 "use client";
 
-import { MAX_RANDOM_WORD_COUNT } from "../constants";
+import {
+  GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
+  MAX_RANDOM_WORD_COUNT,
+} from "../constants";
 import { colors } from "@/lib/theme";
 import { FormError } from "@/app/components/FormError";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
@@ -10,9 +13,11 @@ interface GenerateRandomModalProps {
   themeName: string;
   count: number;
   isGenerating: boolean;
+  generationMode: "standard" | "pick-and-prune" | null;
   error: string | null;
   onCountChange: (count: number) => void;
   onGenerate: () => void;
+  onGeneratePickAndPrune: () => void;
   onClose: () => void;
 }
 
@@ -21,9 +26,11 @@ export function GenerateRandomModal({
   themeName,
   count,
   isGenerating,
+  generationMode,
   error,
   onCountChange,
   onGenerate,
+  onGeneratePickAndPrune,
   onClose,
 }: GenerateRandomModalProps) {
   if (!isOpen) return null;
@@ -76,7 +83,9 @@ export function GenerateRandomModal({
               style={{ borderColor: colors.cta.light }}
             />
             <p className="text-sm" style={{ color: colors.text.muted }}>
-              Generating {count} words... This may take a moment.
+              {generationMode === "pick-and-prune"
+                ? `Generating ${GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
+                : `Generating ${count} words... This may take a moment.`}
             </p>
           </div>
         )}
@@ -99,6 +108,35 @@ export function GenerateRandomModal({
             data-testid="theme-generate-random-cancel"
           >
             Cancel
+          </button>
+        </div>
+
+        <div
+          className="mt-4 rounded-2xl border p-3"
+          style={{
+            backgroundColor: `${colors.primary.DEFAULT}14`,
+            borderColor: `${colors.primary.DEFAULT}55`,
+          }}
+          data-testid="theme-generate-random-pick-prune-info"
+        >
+          <p
+            className="text-xs font-bold uppercase tracking-[0.2em]"
+            style={{ color: colors.primary.light }}
+          >
+            Try Pick & Prune
+          </p>
+          <p className="mt-1 text-xs" style={{ color: colors.text.muted }}>
+            Click Try to generate {GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT} new unique words for this theme, then review which ones to keep.
+          </p>
+          <button
+            type="button"
+            onClick={onGeneratePickAndPrune}
+            disabled={isGenerating}
+            className={`${themeOutlineButtonClassName} mt-3 w-full`}
+            style={themeOutlineButtonStyle}
+            data-testid="theme-generate-random-pick-prune-try"
+          >
+            Try
           </button>
         </div>
       </div>

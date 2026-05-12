@@ -48,9 +48,10 @@ function renderThemeDetail(isSaving: boolean) {
       onAddWordReset={vi.fn()}
       showGenerateRandomModal={false}
       onShowGenerateRandomModal={vi.fn()}
-      generateRandomState={{ count: 5, isGenerating: false, error: null }}
+      generateRandomState={{ count: 5, isGenerating: false, generationMode: null, error: null }}
       onRandomCountChange={vi.fn()}
       onGenerateRandom={vi.fn()}
+      onGenerateRandomPickAndPrune={vi.fn()}
       onGenerateRandomReset={vi.fn()}
       visibility="private"
       isUpdatingVisibility={false}

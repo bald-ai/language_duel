@@ -5,6 +5,7 @@ import { FormError } from "@/app/components/FormError";
 import {
   MAX_GENERATED_WORDS_COUNT,
   MIN_GENERATED_WORDS_COUNT,
+  PICK_AND_PRUNE_WORD_COUNT,
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,
   WORD_TYPE_OPTIONS,
@@ -18,13 +19,14 @@ interface GenerateThemeModalProps {
   themePrompt: string;
   wordType: WordType;
   wordCount: number;
-  isGenerating: boolean;
+  generationMode: "standard" | "pick-and-prune" | null;
   error?: string | null;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
   onWordTypeChange: (wordType: WordType) => void;
   onWordCountChange: (wordCount: number) => void;
   onGenerate: () => void;
+  onGeneratePickAndPrune: () => void;
   onClose: () => void;
 }
 
@@ -34,17 +36,19 @@ export function GenerateThemeModal({
   themePrompt,
   wordType,
   wordCount,
-  isGenerating,
+  generationMode,
   error,
   onThemeNameChange,
   onThemePromptChange,
   onWordTypeChange,
   onWordCountChange,
   onGenerate,
+  onGeneratePickAndPrune,
   onClose,
 }: GenerateThemeModalProps) {
   if (!isOpen) return null;
 
+  const isGenerating = generationMode !== null;
   const selectedWordTypeIndex = WORD_TYPE_OPTIONS.findIndex((option) => option.value === wordType);
   const currentWordType = WORD_TYPE_OPTIONS[selectedWordTypeIndex] || WORD_TYPE_OPTIONS[0];
 
@@ -229,7 +233,9 @@ export function GenerateThemeModal({
               style={{ borderColor: colors.cta.light }}
             />
             <p className="text-sm" style={{ color: colors.text.muted }}>
-              Generating {wordCount} words... This may take a moment.
+              {generationMode === "pick-and-prune"
+                ? `Generating ${PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
+                : `Generating ${wordCount} words... This may take a moment.`}
             </p>
           </div>
         )}
@@ -256,6 +262,35 @@ export function GenerateThemeModal({
             data-testid="theme-generate-cancel"
           >
             Cancel
+          </button>
+        </div>
+
+        <div
+          className="mt-4 rounded-2xl border p-3"
+          style={{
+            backgroundColor: `${colors.primary.DEFAULT}14`,
+            borderColor: `${colors.primary.DEFAULT}55`,
+          }}
+          data-testid="theme-pick-prune-info"
+        >
+          <p
+            className="text-xs font-bold uppercase tracking-[0.2em]"
+            style={{ color: colors.primary.light }}
+          >
+            Try Pick & Prune
+          </p>
+          <p className="mt-1 text-xs" style={{ color: colors.text.muted }}>
+            Use the theme name above, add optional details if you want, then click Try to generate{" "}
+            {PICK_AND_PRUNE_WORD_COUNT} words for review.
+          </p>
+          <button
+            onClick={onGeneratePickAndPrune}
+            disabled={!themeName.trim() || isGenerating}
+            className={`${themeOutlineButtonClassName} mt-3 w-full`}
+            style={themeOutlineButtonStyle}
+            data-testid="theme-pick-prune-try"
+          >
+            Try
           </button>
         </div>
       </div>

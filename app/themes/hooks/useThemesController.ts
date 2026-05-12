@@ -19,14 +19,18 @@ import {
   getDefaultWordType,
   VIEW_MODES,
   FIELD_TYPES,
+  GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
+  PICK_AND_PRUNE_WORD_COUNT,
   type ViewMode,
   type FieldType,
   type WordType,
 } from "../constants";
 import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
+import { usePickAndPrune } from "./usePickAndPrune";
 import { useWordEditor } from "./useWordEditor";
 import { useThemeActions } from "./useThemeActions";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
+import { createSaveRequestId } from "../lib/saveRequestId";
 import { toast } from "sonner";
 
 interface DeleteConfirmState {
@@ -51,14 +55,6 @@ type SelectedThemeState =
   | { kind: "saved"; theme: ThemeWithOwner }
   | { kind: "unsaved"; draft: NewThemeDraft }
   | null;
-
-function createSaveRequestId(): string {
-  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `theme-save-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function areWordsEqual(left: readonly WordEntry[], right: readonly WordEntry[]): boolean {
   if (left.length !== right.length) return false;
@@ -126,6 +122,7 @@ export function useThemesController() {
 
   // Custom hooks
   const themeGenerator = useThemeGenerator();
+  const pickAndPrune = usePickAndPrune();
   const addWordHook = useAddWord();
   const generateRandomHook = useGenerateRandom();
   const wordEditor = useWordEditor();
@@ -329,6 +326,8 @@ export function useThemesController() {
     if (viewMode === VIEW_MODES.EDIT_WORD) {
       setViewMode(VIEW_MODES.DETAIL);
       wordEditor.reset();
+    } else if (viewMode === VIEW_MODES.PICK_AND_PRUNE_REVIEW) {
+      pickAndPrune.requestDiscard();
     } else if (viewMode === VIEW_MODES.DETAIL) {
       setViewMode(VIEW_MODES.LIST);
       setSelectedThemeState(null);
@@ -340,7 +339,7 @@ export function useThemesController() {
         router.push("/");
       }
     }
-  }, [viewMode, wordEditor, router]);
+  }, [viewMode, wordEditor, pickAndPrune, router]);
 
   // Archive actions
   const handleToggleArchive = useCallback(
@@ -401,12 +400,13 @@ export function useThemesController() {
     }
 
     themeGenerator.reset();
+    pickAndPrune.clear();
     setShowGenerateModal(true);
-  }, [currentUser, themeGenerator]);
+  }, [currentUser, pickAndPrune, themeGenerator]);
 
   const handleGenerateNewTheme = useCallback(async () => {
     try {
-      const words = await themeGenerator.generate();
+      const words = await themeGenerator.generate({ mode: "standard" });
       if (!words) return;
 
       const draft: NewThemeDraft = {
@@ -430,10 +430,80 @@ export function useThemesController() {
     }
   }, [themeGenerator]);
 
+  const handleGeneratePickAndPruneTheme = useCallback(async () => {
+    const themeName = themeGenerator.themeName;
+    const wordType = themeGenerator.wordType;
+
+    try {
+      const words = await themeGenerator.generate({
+        wordCountOverride: PICK_AND_PRUNE_WORD_COUNT,
+        mode: "pick-and-prune",
+      });
+      if (!words) return;
+
+      pickAndPrune.initialize({
+        name: themeName.toUpperCase(),
+        description: `Generated theme for: ${themeName}`,
+        wordType,
+        visibility: "private",
+        friendsCanEdit: false,
+        words,
+      });
+      setShowGenerateModal(false);
+      themeGenerator.reset();
+      setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Generation failed";
+      toast.error(message);
+    }
+  }, [pickAndPrune, themeGenerator]);
+
   const handleCloseGenerateModal = useCallback(() => {
     setShowGenerateModal(false);
     themeGenerator.reset();
   }, [themeGenerator]);
+
+  const handleContinuePickAndPrune = useCallback(() => {
+    if (!pickAndPrune.draft) return;
+
+    const keptWords = pickAndPrune.getActiveWordEntries();
+    if (keptWords.length === 0) return;
+
+    if (pickAndPrune.draft.kind === "existing-theme") {
+      setLocalWords((previousWords) => [...previousWords, ...keptWords]);
+      setViewMode(VIEW_MODES.DETAIL);
+      pickAndPrune.clear();
+      return;
+    }
+
+    const draft: NewThemeDraft = {
+      name: pickAndPrune.draft.name,
+      description: pickAndPrune.draft.description,
+      wordType: pickAndPrune.draft.wordType,
+      visibility: pickAndPrune.draft.visibility,
+      friendsCanEdit: pickAndPrune.draft.friendsCanEdit,
+      saveRequestId: pickAndPrune.draft.saveRequestId,
+      words: keptWords,
+    };
+
+    setSelectedThemeState({ kind: "unsaved", draft });
+    setLocalWords(keptWords);
+    setViewMode(VIEW_MODES.DETAIL);
+    pickAndPrune.clear();
+  }, [pickAndPrune]);
+
+  const handleConfirmDiscardPickAndPrune = useCallback(() => {
+    const isExistingThemeReview = pickAndPrune.draft?.kind === "existing-theme";
+    pickAndPrune.clear();
+    if (isExistingThemeReview) {
+      setViewMode(VIEW_MODES.DETAIL);
+      return;
+    }
+
+    setSelectedThemeState(null);
+    setLocalWords([]);
+    setViewMode(VIEW_MODES.LIST);
+  }, [pickAndPrune]);
 
   // Theme detail actions
   const handleThemeNameChange = useCallback((name: string) => {
@@ -566,6 +636,31 @@ export function useThemesController() {
       setShowGenerateRandomModal(false); // Close modal on success
     }
   }, [selectedTheme, selectedWordType, localWords, generateRandomHook]);
+
+  const handleGenerateRandomPickAndPrune = useCallback(async () => {
+    if (!selectedTheme) return;
+
+    const existingWords = localWords.map((w) => w.word);
+    const newWords = await generateRandomHook.generate(
+      selectedTheme.name,
+      selectedWordType,
+      existingWords,
+      {
+        countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
+        mode: "pick-and-prune",
+      }
+    );
+
+    if (newWords) {
+      pickAndPrune.initialize({
+        kind: "existing-theme",
+        words: newWords,
+      });
+      generateRandomHook.reset();
+      setShowGenerateRandomModal(false);
+      setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
+    }
+  }, [selectedTheme, selectedWordType, localWords, generateRandomHook, pickAndPrune]);
 
   // Word editor actions
   const handleGenerate = useCallback(async () => {
@@ -782,10 +877,12 @@ export function useThemesController() {
       generateRandomState: {
         count: generateRandomHook.count,
         isGenerating: generateRandomHook.isGenerating,
+        generationMode: generateRandomHook.generationMode,
         error: generateRandomHook.error,
       },
       onRandomCountChange: generateRandomHook.setCount,
       onGenerateRandom: handleGenerateRandom,
+      onGenerateRandomPickAndPrune: handleGenerateRandomPickAndPrune,
       onGenerateRandomReset: generateRandomHook.reset,
       visibility: selectedTheme?.visibility || "private",
       isUpdatingVisibility,
@@ -823,9 +920,11 @@ export function useThemesController() {
       setShowGenerateRandomModal,
       generateRandomHook.count,
       generateRandomHook.isGenerating,
+      generateRandomHook.generationMode,
       generateRandomHook.error,
       generateRandomHook.setCount,
       handleGenerateRandom,
+      handleGenerateRandomPickAndPrune,
       generateRandomHook.reset,
       isUpdatingVisibility,
       handleVisibilityChange,
@@ -954,14 +1053,26 @@ export function useThemesController() {
       themePrompt: themeGenerator.themePrompt,
       wordType: themeGenerator.wordType,
       wordCount: themeGenerator.wordCount,
-      isGenerating: themeGenerator.isGenerating,
+      generationMode: themeGenerator.generationMode,
       error: themeGenerator.error,
       onThemeNameChange: themeGenerator.setThemeName,
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,
       onWordCountChange: themeGenerator.setWordCount,
       onGenerate: handleGenerateNewTheme,
+      onGeneratePickAndPrune: handleGeneratePickAndPruneTheme,
       onClose: handleCloseGenerateModal,
+    },
+
+    pickAndPruneReviewProps: {
+      activeWords: pickAndPrune.activeWords,
+      removedWords: pickAndPrune.removedWords,
+      removedOpen: pickAndPrune.removedOpen,
+      onRemovedOpenChange: pickAndPrune.setRemovedOpen,
+      onRemove: pickAndPrune.removeWord,
+      onRestore: pickAndPrune.restoreWord,
+      onContinue: handleContinuePickAndPrune,
+      onCancel: pickAndPrune.requestDiscard,
     },
 
     // Theme detail props
@@ -977,6 +1088,12 @@ export function useThemesController() {
       itemType: (deleteConfirm?.type || "word") as "theme" | "word",
       onConfirm: deleteConfirm?.type === "theme" ? confirmDeleteTheme : confirmDeleteWord,
       onCancel: () => setDeleteConfirm(null),
+    },
+
+    discardPickAndPruneProps: {
+      isOpen: pickAndPrune.showDiscardConfirm,
+      onConfirm: handleConfirmDiscardPickAndPrune,
+      onCancel: pickAndPrune.cancelDiscard,
     },
 
     // Word editor state for conditional rendering

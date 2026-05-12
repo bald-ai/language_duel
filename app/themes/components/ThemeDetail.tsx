@@ -59,10 +59,12 @@ interface ThemeDetailProps {
   generateRandomState: {
     count: number;
     isGenerating: boolean;
+    generationMode: "standard" | "pick-and-prune" | null;
     error: string | null;
   };
   onRandomCountChange: (count: number) => void;
   onGenerateRandom: () => void;
+  onGenerateRandomPickAndPrune: () => void;
   onGenerateRandomReset: () => void;
   // Visibility
   visibility?: "private" | "shared";
@@ -356,6 +358,7 @@ export function ThemeDetail({
   generateRandomState,
   onRandomCountChange,
   onGenerateRandom,
+  onGenerateRandomPickAndPrune,
   onGenerateRandomReset,
   visibility,
   isUpdatingVisibility,
@@ -737,9 +740,11 @@ export function ThemeDetail({
         themeName={theme.name}
         count={generateRandomState.count}
         isGenerating={generateRandomState.isGenerating}
+        generationMode={generateRandomState.generationMode}
         error={generateRandomState.error}
         onCountChange={onRandomCountChange}
         onGenerate={onGenerateRandom}
+        onGeneratePickAndPrune={onGenerateRandomPickAndPrune}
         onClose={handleGenerateRandomClose}
       />
     </div>

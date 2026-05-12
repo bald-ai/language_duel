@@ -7,8 +7,10 @@ import {
   getDefaultWordType,
 } from "../constants";
 
+export type GenerationMode = "standard" | "pick-and-prune";
+
 interface ThemeGeneratorState {
-  isGenerating: boolean;
+  generationMode: GenerationMode | null;
   error: string | null;
   themeName: string;
   themePrompt: string;
@@ -18,7 +20,7 @@ interface ThemeGeneratorState {
 
 export function useThemeGenerator() {
   const [state, setState] = useState<ThemeGeneratorState>({
-    isGenerating: false,
+    generationMode: null,
     error: null,
     themeName: "",
     themePrompt: "",
@@ -48,7 +50,7 @@ export function useThemeGenerator() {
 
   const reset = useCallback(() => {
     setState({
-      isGenerating: false,
+      generationMode: null,
       error: null,
       themeName: "",
       themePrompt: "",
@@ -57,39 +59,47 @@ export function useThemeGenerator() {
     });
   }, []);
 
-  const generate = useCallback(async (): Promise<WordEntry[] | null> => {
+  const generate = useCallback(async (options?: {
+    wordCountOverride?: number;
+    mode?: GenerationMode;
+  }): Promise<WordEntry[] | null> => {
     if (!state.themeName.trim()) return null;
 
-    setState((prev) => ({ ...prev, isGenerating: true, error: null }));
+    const generationMode = options?.mode ?? "standard";
+    const wordCount = options?.wordCountOverride ?? state.wordCount;
+    setState((prev) => ({ ...prev, generationMode, error: null }));
 
     try {
       const result = await generateTheme({
         themeName: state.themeName,
         themePrompt: state.themePrompt.trim() || undefined,
         wordType: state.wordType,
-        wordCount: state.wordCount,
+        wordCount,
       });
 
       if (!result.success || !result.data) {
         setState((prev) => ({
           ...prev,
-          isGenerating: false,
+          generationMode: null,
           error: result.error || "Generation failed",
         }));
         return null;
       }
 
-      setState((prev) => ({ ...prev, isGenerating: false }));
+      setState((prev) => ({ ...prev, generationMode: null }));
       return result.data;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
+      setState((prev) => ({ ...prev, generationMode: null, error: errorMsg }));
       return null;
     }
   }, [state.themeName, state.themePrompt, state.wordType, state.wordCount]);
 
+  const isGenerating = state.generationMode !== null;
+
   return {
     ...state,
+    isGenerating,
     setThemeName,
     setThemePrompt,
     setWordType,
@@ -179,6 +189,7 @@ export function useAddWord() {
 
 interface GenerateRandomState {
   isGenerating: boolean;
+  generationMode: "standard" | "pick-and-prune" | null;
   error: string | null;
   count: number;
 }
@@ -186,6 +197,7 @@ interface GenerateRandomState {
 export function useGenerateRandom() {
   const [state, setState] = useState<GenerateRandomState>({
     isGenerating: false,
+    generationMode: null,
     error: null,
     count: DEFAULT_RANDOM_WORD_COUNT,
   });
@@ -201,6 +213,7 @@ export function useGenerateRandom() {
   const reset = useCallback(() => {
     setState({
       isGenerating: false,
+      generationMode: null,
       error: null,
       count: DEFAULT_RANDOM_WORD_COUNT,
     });
@@ -210,15 +223,21 @@ export function useGenerateRandom() {
     async (
       themeName: string,
       wordType: WordType,
-      existingWords: string[]
+      existingWords: string[],
+      options: { countOverride?: number; mode?: "standard" | "pick-and-prune" } = {}
     ): Promise<WordEntry[] | null> => {
-      setState((prev) => ({ ...prev, isGenerating: true, error: null }));
+      setState((prev) => ({
+        ...prev,
+        isGenerating: true,
+        generationMode: options.mode ?? "standard",
+        error: null,
+      }));
 
       try {
         const result = await generateRandomWords({
           themeName,
           wordType,
-          count: state.count,
+          count: options.countOverride ?? state.count,
           existingWords,
         });
 
@@ -226,16 +245,22 @@ export function useGenerateRandom() {
           setState((prev) => ({
             ...prev,
             isGenerating: false,
+            generationMode: null,
             error: result.error || "Failed to generate words",
           }));
           return null;
         }
 
-        setState((prev) => ({ ...prev, isGenerating: false }));
+        setState((prev) => ({ ...prev, isGenerating: false, generationMode: null }));
         return result.data;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
+        setState((prev) => ({
+          ...prev,
+          isGenerating: false,
+          generationMode: null,
+          error: errorMsg,
+        }));
         return null;
       }
     },
