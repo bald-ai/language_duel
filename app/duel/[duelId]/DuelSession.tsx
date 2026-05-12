@@ -42,6 +42,7 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 const isExpectedDuelRaceError = (error: unknown) =>
   error instanceof Error && (
     error.message.includes("Stale answer: question has changed") ||
+    error.message.includes("Stale timeout: question has changed") ||
     error.message.includes("Duel is not active")
   );
 
@@ -365,7 +366,7 @@ export default function DuelSession({
         hasTimedOutRef.current = true;
 
         if (!myAnswered && duel._id) {
-          timeoutAnswer({ duelId: duel._id }).catch((error) => {
+          timeoutAnswer({ duelId: duel._id, questionIndex: index }).catch((error) => {
             if (!isExpectedDuelRaceError(error)) {
               console.error("Failed to submit timeout answer:", error);
             }
@@ -390,6 +391,7 @@ export default function DuelSession({
     duel.questionStartTime,
     duel.questionTimerPausedAt,
     duel.currentWordIndex,
+    index,
     myAnswered,
     timeoutAnswer,
   ]);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   applyGeneratedThemeTts,
+  createTheme,
   deleteTheme,
   toggleThemeArchive,
   updateTheme,
@@ -11,6 +12,7 @@ import {
 import {
   createAuthCtx,
   createIndexedQuery,
+  insertRow,
   patchRow,
 } from "./testUtils/inMemoryDb";
 
@@ -54,15 +56,18 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
 >;
 
 class InMemoryDb {
+  private themeCounter = 10;
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
   public weeklyGoals: WeeklyGoalDoc[] = [];
   public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
 
-  query(table: "users" | "weeklyGoals" | "weeklyGoalThemeSnapshots") {
+  query(table: "users" | "themes" | "weeklyGoals" | "weeklyGoalThemeSnapshots") {
     switch (table) {
       case "users":
         return createIndexedQuery(this.users);
+      case "themes":
+        return createIndexedQuery(this.themes);
       case "weeklyGoals":
         return createIndexedQuery(this.weeklyGoals);
       case "weeklyGoalThemeSnapshots":
@@ -102,6 +107,12 @@ class InMemoryDb {
     if (index >= 0) {
       this.weeklyGoalThemeSnapshots.splice(index, 1);
     }
+  }
+
+  async insert(table: "themes", value: Record<string, unknown>): Promise<Id<"themes">> {
+    const { id, nextCounter } = insertRow(this.themes, "theme", this.themeCounter, value);
+    this.themeCounter = nextCounter;
+    return id as Id<"themes">;
   }
 }
 
@@ -200,6 +211,52 @@ function snapshotDoc(
 }
 
 describe("themes core handlers", () => {
+  it("createTheme rejects empty words", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+
+    const handler = (createTheme as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          name: string;
+          description: string;
+          words: ThemeWord[];
+          wordType?: Doc<"themes">["wordType"];
+        }
+      ) => Promise<Id<"themes">>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db), {
+        name: "Empty",
+        description: "No words",
+        words: [],
+      })
+    ).rejects.toThrow("Theme must have at least one word");
+
+    expect(db.themes).toHaveLength(0);
+  });
+
+  it("updateTheme rejects empty words", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push(themeDoc());
+
+    const handler = (updateTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes">; words?: ThemeWord[] }) => Promise<ThemeDoc | null>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db), {
+        themeId: "theme_1" as Id<"themes">,
+        words: [],
+      })
+    ).rejects.toThrow("Theme must have at least one word");
+
+    expect(db.themes[0]?.words).toHaveLength(1);
+  });
+
   it("updateTheme throws when theme is missing", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_owner" }));

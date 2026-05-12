@@ -285,7 +285,37 @@ describe("DuelSession", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(mutationMocks.timeoutAnswer).toHaveBeenCalledWith({ duelId: "duel_1" });
+    expect(mutationMocks.timeoutAnswer).toHaveBeenCalledWith({
+      duelId: "duel_1",
+      questionIndex: 0,
+    });
+    expect(toastMocks.error).not.toHaveBeenCalled();
+  });
+
+  it("auto-submits timeout without showing toasts for stale timeout races", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    mutationMocks.timeoutAnswer.mockRejectedValue(new Error("Stale timeout: question has changed"));
+
+    render(
+      <DuelSession
+        duel={createDuel({
+          questionStartTime: 100_000 - (QUESTION_TIMER_SECONDS + 1) * 1_000,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(mutationMocks.timeoutAnswer).toHaveBeenCalledWith({
+      duelId: "duel_1",
+      questionIndex: 0,
+    });
     expect(toastMocks.error).not.toHaveBeenCalled();
   });
 

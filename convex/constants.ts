@@ -140,3 +140,13 @@ export const WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR = 12;
 
 /** Delete accepted/rejected friend requests 7 days after creation */
 export const RESOLVED_FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ===========================================
+// Theme Validation
+// ===========================================
+export const MIN_THEME_WORDS = 1;
+
+// ===========================================
+// Weekly Goals
+// ===========================================
+export const MIN_GOAL_DURATION_MS = 24 * 60 * 60 * 1000;

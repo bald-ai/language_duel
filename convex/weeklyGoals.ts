@@ -19,7 +19,7 @@ import {
 } from "./helpers/weeklyGoalSnapshots";
 import { isWeeklyPlanPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
-import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
+import { GRACE_PERIOD_MS, MIN_GOAL_DURATION_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
 import {
   isCreatedAtExpired,
   isGoalPastGracePeriod,
@@ -554,6 +554,12 @@ function buildGoalWithUsers(
 function validateEndDateTimestamp(endDate: number): void {
   if (!Number.isFinite(endDate)) {
     throw new Error("Invalid end date");
+  }
+}
+
+export function validateGoalEndDateAtLeast24hAhead(endDate: number, now: number): void {
+  if (endDate - now < MIN_GOAL_DURATION_MS) {
+    throw new Error("End date must be at least 24 hours from now");
   }
 }
 
@@ -1142,9 +1148,7 @@ export const setGoalEndDate = mutation({
     validateEndDateTimestamp(endDate);
 
     const now = Date.now();
-    if (endDate <= now) {
-      throw new Error("End date must be in the future");
-    }
+    validateGoalEndDateAtLeast24hAhead(endDate, now);
 
     if (!canEditGoalEndDate(goal, now)) {
       throw new Error("End date can no longer be changed");
@@ -1376,9 +1380,7 @@ export const lockGoal = mutation({
 
     const now = Date.now();
 
-    if (goal.endDate <= now) {
-      throw new Error("End date must be in the future");
-    }
+    validateGoalEndDateAtLeast24hAhead(goal.endDate, now);
 
     if (bothLocked) {
       await createWeeklyGoalThemeSnapshots(ctx, goal, now);

@@ -237,12 +237,19 @@ export const answerDuel = mutation({
 });
 
 export const timeoutAnswer = mutation({
-  args: { duelId: v.id("duels") },
-  handler: async (ctx, { duelId }) => {
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (duel.status !== "active") {
       throw new Error("Duel is not active");
+    }
+
+    if (duel.currentWordIndex !== questionIndex) {
+      throw new Error("Stale timeout: question has changed");
     }
 
     const roleView = forRole(duel, playerRole);

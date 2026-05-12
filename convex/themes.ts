@@ -24,6 +24,7 @@ import {
 } from "../lib/themes/serverValidation";
 import { THEME_NAME_MAX_LENGTH } from "../lib/themes/constants";
 import { optionalWordTypeValidator } from "./schema";
+import { MIN_THEME_WORDS } from "./constants";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
@@ -73,6 +74,12 @@ function buildDuplicateThemeName(originalName: string): string {
     THEME_NAME_MAX_LENGTH - DUPLICATE_THEME_SUFFIX.length
   );
   return `${normalizedBaseName.slice(0, maxBaseLength)}${DUPLICATE_THEME_SUFFIX}`;
+}
+
+function validateThemeHasWords(words: ThemeWordWithTts[]): void {
+  if (words.length < MIN_THEME_WORDS) {
+    throw new Error("Theme must have at least one word");
+  }
 }
 
 // Theme with owner details and edit permissions
@@ -368,7 +375,9 @@ export const createTheme = mutation({
     const { user } = await getAuthenticatedUser(ctx);
     const normalizedName = normalizeThemeName(args.name);
     const normalizedDescription = normalizeThemeDescription(args.description);
+    validateThemeHasWords(args.words as ThemeWordWithTts[]);
     const normalizedWords = normalizeThemeWords(args.words as ThemeWordWithTts[]);
+    validateThemeHasWords(normalizedWords);
     const normalizedSaveRequestId = args.saveRequestId
       ? normalizeSaveRequestId(args.saveRequestId)
       : undefined;
@@ -422,7 +431,9 @@ export const updateTheme = mutation({
       filteredUpdates.description = normalizeThemeDescription(updates.description);
     }
     if (updates.words !== undefined) {
+      validateThemeHasWords(updates.words as ThemeWordWithTts[]);
       const normalizedWords = normalizeThemeWords(updates.words as ThemeWordWithTts[]);
+      validateThemeHasWords(normalizedWords);
       const previousWords = theme.words as ThemeWordWithTts[];
       const reconciledWords = reconcileThemeWordTts(
         previousWords as Parameters<typeof reconcileThemeWordTts>[0],

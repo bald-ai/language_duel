@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { lockGoal } from "@/convex/weeklyGoals";
+import { lockGoal, setGoalEndDate } from "@/convex/weeklyGoals";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -174,7 +174,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     bossStatus: "unavailable",
     status: "draft",
     createdAt: Date.now(),
-    endDate: Date.now() + 24 * 60 * 60 * 1000,
+    endDate: Date.now() + 25 * 60 * 60 * 1000,
     lockedAt: undefined,
     ...overrides,
   };
@@ -203,8 +203,63 @@ function buildTheme(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
 const lockGoalHandler = (lockGoal as unknown as {
   _handler: (ctx: unknown, args: { goalId: Id<"weeklyGoals"> }) => Promise<void>;
 })._handler;
+const setGoalEndDateHandler = (setGoalEndDate as unknown as {
+  _handler: (
+    ctx: unknown,
+    args: { goalId: Id<"weeklyGoals">; endDate: number }
+  ) => Promise<void>;
+})._handler;
 
 describe("weeklyGoals lockGoal", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("rejects setting an end date less than 24 hours ahead", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const db = new InMemoryDb(
+      [
+        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),
+        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner", nickname: "Partner" }),
+      ],
+      [buildGoal()]
+    );
+
+    await expect(
+      setGoalEndDateHandler(createAuthCtx(db, "creator") as never, {
+        goalId: "goal_1" as Id<"weeklyGoals">,
+        endDate: 1_000_000 + 23 * 60 * 60 * 1000,
+      })
+    ).rejects.toThrow("End date must be at least 24 hours from now");
+  });
+
+  it("rejects locking a goal with an end date less than 24 hours ahead", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const db = new InMemoryDb(
+      [
+        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),
+        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner", nickname: "Partner" }),
+      ],
+      [buildGoal({ endDate: 1_000_000 + 23 * 60 * 60 * 1000 })],
+      [buildTheme(), buildTheme({ _id: "theme_2" as Id<"themes">, name: "Theme 2" })]
+    );
+
+    await expect(
+      lockGoalHandler(
+        createAuthCtx(db, "creator", {
+          scheduler: {
+            runAfter: async () => undefined,
+          },
+        }) as never,
+        { goalId: "goal_1" as Id<"weeklyGoals"> }
+      )
+    ).rejects.toThrow("End date must be at least 24 hours from now");
+
+    expect(db.weeklyGoals[0]?.creatorLocked).toBe(false);
+  });
+
   it("schedules the retained weekly_goal_locked email when the creator locks", async () => {
     const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
     const db = new InMemoryDb(

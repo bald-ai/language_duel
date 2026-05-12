@@ -302,15 +302,80 @@ describe("duel gameplay", () => {
     );
 
     const handler = (timeoutAnswer as unknown as {
-      _handler: (ctx: unknown, args: { duelId: Id<"duels"> }) => Promise<void>;
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"duels">; questionIndex: number }
+      ) => Promise<void>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
       duelId: "duel_1" as Id<"duels">,
+      questionIndex: 0,
     });
 
     expect(db.duels[0].bossLivesRemaining).toBe(0);
     expect(db.duels[0].status).toBe("completed");
     expect(db.duels[0].challengerLastAnswer).toBe("__TIMEOUT__");
+  });
+
+  it("rejects stale timeout submissions without marking the active question timed out", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.duels.push(
+      duelDoc({
+        currentWordIndex: 1,
+        sessionWords: [
+          {
+            word: "cat",
+            answer: "gato",
+            wrongAnswers: ["perro", "mesa", "casa"],
+            themeId: "theme_1" as Id<"themes">,
+            themeName: "Animals",
+          },
+          {
+            word: "dog",
+            answer: "perro",
+            wrongAnswers: ["gato", "mesa", "casa"],
+            themeId: "theme_1" as Id<"themes">,
+            themeName: "Animals",
+          },
+        ],
+        duelQuestions: [
+          {
+            options: ["gato", "perro", "mesa", "casa"],
+            correctOption: "gato",
+            difficulty: "easy",
+            points: 1,
+          },
+          {
+            options: ["perro", "gato", "mesa", "casa"],
+            correctOption: "perro",
+            difficulty: "medium",
+            points: 1.5,
+          },
+        ],
+      })
+    );
+
+    const handler = (timeoutAnswer as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"duels">; questionIndex: number }
+      ) => Promise<void>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        questionIndex: 0,
+      })
+    ).rejects.toThrow("Stale timeout: question has changed");
+
+    expect(db.duels[0].challengerAnswered).toBe(false);
+    expect(db.duels[0].challengerLastAnswer).toBeUndefined();
+    expect(db.duels[0].currentWordIndex).toBe(1);
   });
 });
