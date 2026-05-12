@@ -282,6 +282,24 @@ function parseFieldRequest(body: Record<string, unknown>): RegenerateFieldReques
     throw new Error("fieldType must be \"word\", \"answer\", or \"wrong\"");
   }
 
+  const currentWrongAnswers = parseStringArray({
+    value: body.currentWrongAnswers,
+    field: "currentWrongAnswers",
+    minItems: THEME_MIN_WRONG_ANSWER_COUNT,
+    maxItems: THEME_MAX_WRONG_ANSWER_COUNT,
+    maxItemLength: THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
+  });
+  const fieldIndex = parseFieldIndex(body.fieldIndex);
+
+  if (body.fieldType === "wrong") {
+    if (fieldIndex === undefined) {
+      throw new Error("fieldIndex is required when fieldType is \"wrong\"");
+    }
+    if (fieldIndex >= currentWrongAnswers.length) {
+      throw new Error("fieldIndex must reference an existing wrong answer");
+    }
+  }
+
   return {
     type: "field",
     fieldType: body.fieldType,
@@ -299,14 +317,8 @@ function parseFieldRequest(body: Record<string, unknown>): RegenerateFieldReques
       min: 1,
       max: THEME_ANSWER_INPUT_MAX_LENGTH,
     }),
-    currentWrongAnswers: parseStringArray({
-      value: body.currentWrongAnswers,
-      field: "currentWrongAnswers",
-      minItems: THEME_MIN_WRONG_ANSWER_COUNT,
-      maxItems: THEME_MAX_WRONG_ANSWER_COUNT,
-      maxItemLength: THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
-    }),
-    fieldIndex: parseFieldIndex(body.fieldIndex),
+    currentWrongAnswers,
+    fieldIndex,
     existingWords:
       body.existingWords === undefined
         ? undefined

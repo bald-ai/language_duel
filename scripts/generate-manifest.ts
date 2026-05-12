@@ -38,7 +38,7 @@ const manifest = {
 const outputPath = path.join(__dirname, "../public/manifest.json");
 fs.writeFileSync(outputPath, JSON.stringify(manifest, null, 2) + "\n");
 
-console.log(`✓ Generated manifest.json with theme colors:`);
+console.log("✓ Generated manifest.json with theme colors:");
 console.log(`  background_color: ${manifest.background_color}`);
 console.log(`  theme_color: ${manifest.theme_color}`);
 

@@ -129,7 +129,7 @@ describe("/api/generate theme generation", () => {
 
     expect(response.status).toBe(502);
     expect(payload.success).toBe(false);
-    expect(payload.error).toContain("Failed to generate a valid theme");
+    expect(payload.error).toContain("Failed to generate valid content");
     expect(Array.isArray(payload.validationIssues)).toBe(true);
     expect(payload.validationIssues!.length).toBeGreaterThan(0);
     expect(responsesCreateMock).toHaveBeenCalledTimes(2);

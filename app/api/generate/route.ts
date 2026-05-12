@@ -33,6 +33,11 @@ import {
   type ThemeWordInput,
 } from "@/lib/themes/serverValidation";
 import { getDefaultWordType } from "@/lib/themes/wordTypes";
+import { normalizeForComparison } from "@/lib/stringUtils";
+import {
+  THEME_ANSWER_INPUT_MAX_LENGTH,
+  THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
+} from "@/lib/themes/constants";
 
 export const runtime = "nodejs";
 
@@ -153,15 +158,156 @@ function creditFailureResponse(error: unknown) {
 }
 
 function validateGeneratedTheme(words: ThemeWordInput[]): string[] {
-  return collectThemeIssues(words).map(formatThemeValidationIssue);
+  return collectThemeIssues(words).map((issue) => formatThemeValidationIssue(issue));
 }
 
-function buildThemeGenerationError(validationIssues: string[]): string {
-  if (validationIssues.length === 0) {
-    return "Failed to generate a valid theme. Please try again.";
+function validateGeneratedWordEntry(
+  entry: ThemeWordInput,
+  wordLabel?: string
+): string[] {
+  return collectThemeIssues([entry]).map((issue) =>
+    formatThemeValidationIssue(issue, wordLabel ? { wordLabel } : undefined)
+  );
+}
+
+function validateGeneratedAnswer(
+  currentWord: string,
+  generatedAnswer: string,
+  currentWrongAnswers: string[]
+): string[] {
+  const issues: string[] = [];
+  const label = `Word "${currentWord}"`;
+  const trimmedAnswer = generatedAnswer.trim();
+
+  if (trimmedAnswer.length < 1) {
+    issues.push(`${label}: answer must be at least 1 character`);
+  } else if (trimmedAnswer.length > THEME_ANSWER_INPUT_MAX_LENGTH) {
+    issues.push(`${label}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`);
   }
 
-  return `Failed to generate a valid theme. ${validationIssues[0]}`;
+  const comparableAnswer = normalizeForComparison(generatedAnswer);
+  if (comparableAnswer !== "") {
+    const matchingWrongAnswer = currentWrongAnswers.find(
+      (wrongAnswer) => normalizeForComparison(wrongAnswer) === comparableAnswer
+    );
+    if (matchingWrongAnswer) {
+      issues.push(
+        `${label}: generated answer "${generatedAnswer}" matches wrong answer "${matchingWrongAnswer}" after normalization.`
+      );
+    }
+  }
+
+  return issues;
+}
+
+function validateGeneratedWrongAnswer(
+  currentWord: string,
+  currentAnswer: string,
+  currentWrongAnswers: string[],
+  fieldIndex: number,
+  generatedWrong: string
+): string[] {
+  const issues: string[] = [];
+  const trimmedWrong = generatedWrong.trim();
+
+  if (trimmedWrong.length < 1) {
+    issues.push(`Word "${currentWord}": wrong answer ${fieldIndex + 1} must be at least 1 character`);
+  } else if (trimmedWrong.length > THEME_WRONG_ANSWER_INPUT_MAX_LENGTH) {
+    issues.push(
+      `Word "${currentWord}": wrong answer ${fieldIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`
+    );
+  }
+
+  const comparableWrong = normalizeForComparison(generatedWrong);
+  const comparableAnswer = normalizeForComparison(currentAnswer);
+  if (trimmedWrong !== "" && comparableWrong === comparableAnswer && comparableAnswer !== "") {
+    issues.push(
+      `Word "${currentWord}": wrong answer "${generatedWrong}" matches the correct answer "${currentAnswer}" after normalization.`
+    );
+  }
+
+  const duplicateWrong = currentWrongAnswers.find(
+    (wrongAnswer, index) =>
+      index !== fieldIndex &&
+      normalizeForComparison(wrongAnswer) === comparableWrong &&
+      comparableWrong !== ""
+  );
+  if (duplicateWrong) {
+    issues.push(
+      `Word "${currentWord}": wrong answers "${duplicateWrong}" and "${generatedWrong}" are duplicates after normalization.`
+    );
+  }
+
+  return issues;
+}
+
+function validateGeneratedWordsAgainstExisting(
+  generatedWords: string[],
+  existingWords: string[],
+  matchPhrase: "an existing word" | "a previously rejected word" = "an existing word"
+): string[] {
+  const existingByComparable = new Map<string, string>();
+  existingWords.forEach((word) => {
+    const comparableWord = normalizeForComparison(word);
+    if (comparableWord !== "" && !existingByComparable.has(comparableWord)) {
+      existingByComparable.set(comparableWord, word);
+    }
+  });
+
+  return generatedWords.flatMap((word, index) => {
+    const matchingExistingWord = existingByComparable.get(normalizeForComparison(word));
+    if (!matchingExistingWord) return [];
+    return [
+      `Word ${index + 1}: generated word "${word}" duplicates ${matchPhrase} "${matchingExistingWord}" after normalization.`,
+    ];
+  });
+}
+
+function buildGenerationValidationError(validationIssues: string[]): string {
+  if (validationIssues.length === 0) {
+    return "Failed to generate valid content. Please try again.";
+  }
+
+  return `Failed to generate valid content. ${validationIssues[0]}`;
+}
+
+function validationFailureResponse(params: {
+  validationIssues: string[];
+  prompt: string;
+  status: 400 | 502;
+}) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: buildGenerationValidationError(params.validationIssues),
+      prompt: params.prompt,
+      validationIssues: params.validationIssues,
+    },
+    { status: params.status }
+  );
+}
+
+function buildRetryMessages(params: {
+  systemPrompt: string;
+  userMessage: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  parsed: unknown;
+  validationIssues: string[];
+  retryInstruction: string;
+}): ChatMessage[] {
+  const issueLines = params.validationIssues.join("\n- ");
+  return [
+    ...buildMessages({
+      systemPrompt: params.systemPrompt,
+      userMessage: params.userMessage,
+      history: params.history,
+    }),
+    { role: "assistant", content: JSON.stringify(params.parsed) },
+    {
+      role: "user",
+      content: `${params.retryInstruction}\n- ${issueLines}`,
+    },
+  ];
 }
 
 export async function POST(request: NextRequest) {
@@ -182,6 +328,28 @@ export async function POST(request: NextRequest) {
       convexClient = await ensureLlmCreditsAvailable(creditCost);
     } catch (error) {
       return creditFailureResponse(error);
+    }
+
+    let addWordSystemPrompt: string | undefined;
+    if (body.type === "add-word") {
+      addWordSystemPrompt = buildAddWordPrompt(
+        body.themeName,
+        body.newWord,
+        body.existingWords,
+        body.wordType || getDefaultWordType()
+      );
+      const duplicateWordIssues = validateGeneratedWordsAgainstExisting(
+        [body.newWord],
+        body.existingWords,
+        "an existing word"
+      );
+      if (duplicateWordIssues.length > 0) {
+        return validationFailureResponse({
+          validationIssues: duplicateWordIssues,
+          prompt: addWordSystemPrompt,
+          status: 400,
+        });
+      }
     }
 
     const openai = new OpenAI({
@@ -246,15 +414,11 @@ export async function POST(request: NextRequest) {
       }
 
       if (validationIssues.length > 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: buildThemeGenerationError(validationIssues),
-            prompt: systemPrompt,
-            validationIssues,
-          },
-          { status: 502 }
-        );
+        return validationFailureResponse({
+          validationIssues,
+          prompt: systemPrompt,
+          status: 502,
+        });
       }
 
       try {
@@ -305,11 +469,69 @@ export async function POST(request: NextRequest) {
         history,
       });
 
-      const parsed = await callOpenAIJson<FieldGeneratedData>(openai, {
+      let parsed = await callOpenAIJson<FieldGeneratedData>(openai, {
         messages,
         schemaName,
         schema: schema as JsonSchema,
       });
+
+      const validateFieldOutput = (data: FieldGeneratedData) => {
+        if (fieldType === "word") {
+          const generatedWord = data as WordWithChoices;
+          return [
+            ...validateGeneratedWordEntry(generatedWord),
+            ...validateGeneratedWordsAgainstExisting(
+              [generatedWord.word],
+              existingWords || [],
+              "an existing word"
+            ),
+            ...validateGeneratedWordsAgainstExisting(
+              [generatedWord.word],
+              rejectedWords || [],
+              "a previously rejected word"
+            ),
+          ];
+        }
+        if (fieldType === "answer") {
+          return validateGeneratedAnswer(
+            currentWord,
+            (data as AnswerOnly).answer,
+            currentWrongAnswers
+          );
+        }
+        return validateGeneratedWrongAnswer(
+          currentWord,
+          currentAnswer,
+          currentWrongAnswers,
+          fieldIndex as number,
+          (data as WrongAnswerOnly).wrongAnswer
+        );
+      };
+
+      let validationIssues = validateFieldOutput(parsed);
+      if (validationIssues.length > 0) {
+        parsed = await callOpenAIJson<FieldGeneratedData>(openai, {
+          messages: buildRetryMessages({
+            systemPrompt,
+            userMessage: `Generate the new ${fieldType === "wrong" ? "wrong answer" : fieldType}.`,
+            history,
+            parsed,
+            validationIssues,
+            retryInstruction: `The previous result is invalid. Regenerate the ${fieldType === "wrong" ? "wrong answer" : fieldType} and fix these issues:`,
+          }),
+          schemaName,
+          schema: schema as JsonSchema,
+        });
+        validationIssues = validateFieldOutput(parsed);
+      }
+
+      if (validationIssues.length > 0) {
+        return validationFailureResponse({
+          validationIssues,
+          prompt: systemPrompt,
+          status: 502,
+        });
+      }
       try {
         await consumeLlmCredits(convexClient, creditCost);
       } catch (error) {
@@ -331,16 +553,56 @@ export async function POST(request: NextRequest) {
         wordType || getDefaultWordType()
       );
 
+      const wordLabel = `Word "${newWord}"`;
       const messages = buildMessages({
         systemPrompt,
         userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
       });
 
-      const parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
+      let parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
         messages,
         schemaName: "answer_and_wrongs",
         schema: answerAndWrongsSchema,
       });
+      let validationIssues = validateGeneratedWordEntry(
+        {
+          word: newWord,
+          answer: parsed.answer,
+          wrongAnswers: parsed.wrongAnswers,
+        },
+        wordLabel
+      );
+
+      if (validationIssues.length > 0) {
+        parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
+          messages: buildRetryMessages({
+            systemPrompt,
+            userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
+            parsed,
+            validationIssues,
+            retryInstruction:
+              "The previous result is invalid. Regenerate the answer and wrong answers and fix these issues:",
+          }),
+          schemaName: "answer_and_wrongs",
+          schema: answerAndWrongsSchema,
+        });
+        validationIssues = validateGeneratedWordEntry(
+          {
+            word: newWord,
+            answer: parsed.answer,
+            wrongAnswers: parsed.wrongAnswers,
+          },
+          wordLabel
+        );
+      }
+
+      if (validationIssues.length > 0) {
+        return validationFailureResponse({
+          validationIssues,
+          prompt: systemPrompt,
+          status: 502,
+        });
+      }
       try {
         await consumeLlmCredits(convexClient, creditCost);
       } catch (error) {
@@ -354,25 +616,59 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.type === "add-word") {
-      const { themeName, wordType, newWord, existingWords } = body;
-
-      const systemPrompt = buildAddWordPrompt(
-        themeName,
-        newWord,
-        existingWords,
-        wordType || getDefaultWordType()
-      );
+      const { newWord } = body;
+      const systemPrompt = addWordSystemPrompt!;
+      const wordLabel = `Word "${newWord}"`;
 
       const messages = buildMessages({
         systemPrompt,
         userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
       });
 
-      const parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
+      let parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
         messages,
         schemaName: "answer_and_wrongs",
         schema: answerAndWrongsSchema,
       });
+      let validationIssues = validateGeneratedWordEntry(
+        {
+          word: newWord,
+          answer: parsed.answer,
+          wrongAnswers: parsed.wrongAnswers,
+        },
+        wordLabel
+      );
+
+      if (validationIssues.length > 0) {
+        parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
+          messages: buildRetryMessages({
+            systemPrompt,
+            userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
+            parsed,
+            validationIssues,
+            retryInstruction:
+              "The previous result is invalid. Regenerate the answer and wrong answers and fix these issues:",
+          }),
+          schemaName: "answer_and_wrongs",
+          schema: answerAndWrongsSchema,
+        });
+        validationIssues = validateGeneratedWordEntry(
+          {
+            word: newWord,
+            answer: parsed.answer,
+            wrongAnswers: parsed.wrongAnswers,
+          },
+          wordLabel
+        );
+      }
+
+      if (validationIssues.length > 0) {
+        return validationFailureResponse({
+          validationIssues,
+          prompt: systemPrompt,
+          status: 502,
+        });
+      }
       try {
         await consumeLlmCredits(convexClient, creditCost);
       } catch (error) {
@@ -412,7 +708,7 @@ export async function POST(request: NextRequest) {
         userMessage,
       });
 
-      const parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
+      let parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
         openai,
         {
           messages,
@@ -420,6 +716,48 @@ export async function POST(request: NextRequest) {
           schema: createRandomWordsSchema(validCount),
         }
       );
+      let validationIssues = [
+        ...validateGeneratedTheme(parsed.words),
+        ...validateGeneratedWordsAgainstExisting(
+          parsed.words.map((word) => word.word),
+          existingWords,
+          "an existing word"
+        ),
+      ];
+
+      if (validationIssues.length > 0) {
+        parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
+          openai,
+          {
+            messages: buildRetryMessages({
+              systemPrompt,
+              userMessage,
+              parsed,
+              validationIssues,
+              retryInstruction:
+                "The previous result is invalid. Regenerate all random words and fix these issues:",
+            }),
+            schemaName: "random_words",
+            schema: createRandomWordsSchema(validCount),
+          }
+        );
+        validationIssues = [
+          ...validateGeneratedTheme(parsed.words),
+          ...validateGeneratedWordsAgainstExisting(
+            parsed.words.map((word) => word.word),
+            existingWords,
+            "an existing word"
+          ),
+        ];
+      }
+
+      if (validationIssues.length > 0) {
+        return validationFailureResponse({
+          validationIssues,
+          prompt: systemPrompt,
+          status: 502,
+        });
+      }
       try {
         await consumeLlmCredits(convexClient, creditCost);
       } catch (error) {

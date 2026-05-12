@@ -55,33 +55,39 @@ function normalizeComparableValue(value: string): string {
   return normalizeForComparison(value);
 }
 
-export function formatThemeValidationIssue(issue: ThemeValidationIssue): string {
+export function formatThemeValidationIssue(
+  issue: ThemeValidationIssue,
+  options?: { wordLabel?: string }
+): string {
+  const wordLabel = options?.wordLabel;
+  const labelFor = (index: number) => wordLabel ?? `Word ${index + 1}`;
+
   if (issue.type === "word_empty") {
-    return `Word ${issue.wordIndex + 1}: word must be at least 1 character`;
+    return `${labelFor(issue.wordIndex)}: word must be at least 1 character`;
   }
   if (issue.type === "word_too_long") {
-    return `Word ${issue.wordIndex + 1}: word must be at most ${THEME_WORD_INPUT_MAX_LENGTH} characters`;
+    return `${labelFor(issue.wordIndex)}: word must be at most ${THEME_WORD_INPUT_MAX_LENGTH} characters`;
   }
   if (issue.type === "answer_empty") {
-    return `Word ${issue.wordIndex + 1}: answer must be at least 1 character`;
+    return `${labelFor(issue.wordIndex)}: answer must be at least 1 character`;
   }
   if (issue.type === "answer_too_long") {
-    return `Word ${issue.wordIndex + 1}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`;
+    return `${labelFor(issue.wordIndex)}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`;
   }
   if (issue.type === "wrong_answer_empty") {
-    return `Word ${issue.wordIndex + 1}: wrong answer ${issue.wrongIndex + 1} must be at least 1 character`;
+    return `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at least 1 character`;
   }
   if (issue.type === "wrong_answer_too_long") {
-    return `Word ${issue.wordIndex + 1}: wrong answer ${issue.wrongIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`;
+    return `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`;
   }
   if (issue.type === "wrong_answer_count") {
-    return `Word ${issue.wordIndex + 1}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`;
+    return `${labelFor(issue.wordIndex)}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`;
   }
   if (issue.type === "wrong_answer_matches_correct") {
-    return `Word ${issue.wordIndex + 1}: wrong answer "${issue.wrongAnswer}" matches the correct answer "${issue.answer}" after normalization.`;
+    return `${labelFor(issue.wordIndex)}: wrong answer "${issue.wrongAnswer}" matches the correct answer "${issue.answer}" after normalization.`;
   }
   if (issue.type === "duplicate_wrong_answer") {
-    return `Word ${issue.wordIndex + 1}: wrong answers "${issue.firstWrongAnswer}" and "${issue.secondWrongAnswer}" are duplicates after normalization.`;
+    return `${labelFor(issue.wordIndex)}: wrong answers "${issue.firstWrongAnswer}" and "${issue.secondWrongAnswer}" are duplicates after normalization.`;
   }
   return `Words ${issue.firstWordIndex + 1} and ${issue.secondWordIndex + 1}: "${issue.firstWord}" and "${issue.secondWord}" are duplicates after normalization.`;
 }
@@ -183,7 +189,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
 }
 
 export function describeThemeValidationIssues(words: ThemeWordInput[]): string[] {
-  return collectThemeIssues(words).map(formatThemeValidationIssue);
+  return collectThemeIssues(words).map((issue) => formatThemeValidationIssue(issue));
 }
 
 function ensureLength(params: {
@@ -231,7 +237,7 @@ export function normalizeThemeWords(words: ThemeWordInput[]): ThemeWordInput[] {
 
   const issues = collectThemeIssues(words);
   if (issues.length > 0) {
-    throw new Error(issues.map(formatThemeValidationIssue).join("\n"));
+    throw new Error(issues.map((issue) => formatThemeValidationIssue(issue)).join("\n"));
   }
 
   return words.map((word) => ({
