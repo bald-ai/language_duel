@@ -21,7 +21,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
-- Weekly goals: Two users create a shared plan, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
+- Weekly goals: Two users create a shared goal, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
 
 ## System Map
 
@@ -39,7 +39,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - `challenges`: pending person-to-person duel invites, including participants, chosen themes, and optional weekly-goal linkage.
 - `duels`: accepted two-person gameplay sessions, including participants, chosen themes, generated session words, game state, and optional weekly-goal linkage.
 - `soloPracticeSessions`: single-player practice sessions, including chosen themes, generated session words, and optional weekly-goal linkage.
-- `weeklyGoals`: shared plans between two users that track chosen themes, participant lock flags, lifecycle state, completion progress, and boss readiness.
+- `weeklyGoals`: shared goals between two users that track chosen themes, participant lock flags, lifecycle state, completion progress, and boss readiness.
 - `notifications`: in-app event records for friend requests, challenges, duel activity, and weekly-goal events.
 - `notificationPreferences`: per-user settings controlling which notification and reminder events should fire.
 - `emailNotificationLog`: idempotency and audit support for sent email notifications and reminders.

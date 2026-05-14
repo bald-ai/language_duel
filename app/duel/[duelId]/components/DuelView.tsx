@@ -48,130 +48,170 @@ export interface FrozenData {
 }
 
 export interface DuelViewProps {
-  activeSabotage: SabotageEffect | null;
-  sabotagePhase: SabotagePhase;
   status: string;
   phase: "idle" | "answering" | "transition";
-  wordsCount: number;
-  index: number;
-  word: string;
-  sourceThemeName?: string | null;
-  frozenData: FrozenData | null;
-  difficulty: DifficultyPillData;
-  questionTimer: number | null;
-  questionTimerPausedAt?: number | null;
-  countdown: number | null;
-  countdownPausedBy?: string;
-  countdownUnpauseRequestedBy?: string;
-  countdownSkipRequestedBy: string[];
-  userRole: "challenger" | "opponent";
-  onPauseCountdown: () => void;
-  onRequestUnpause: () => void;
-  onConfirmUnpause: () => void;
-  onSkipCountdown: () => void;
-  isPlayingAudio: boolean;
-  onPlayAudio: () => void;
-  shuffledAnswers: string[];
-  selectedAnswer: string | null;
-  correctAnswer: string;
-  hasNoneOption: boolean;
-  eliminatedOptions: string[];
-  canEliminate: boolean;
-  opponentLastAnswer: string | null;
-  onOptionClick: (answer: string, canEliminateThis: boolean, isEliminated: boolean) => void;
-  isRevealing: boolean;
-  typedText: string;
-  revealComplete: boolean;
-  onConfirmAnswer: () => void;
-  canRequestHint: boolean;
-  iRequestedHint: boolean;
-  theyRequestedHint: boolean;
-  hintAccepted: boolean;
-  canAcceptHint: boolean;
-  isHintProvider: boolean;
-  hasAnswered: boolean;
-  eliminatedOptionsCount: number;
-  onRequestHint: () => void;
-  onAcceptHint: () => void;
-  sabotagesRemaining: number;
-  isOutgoingSabotageActive: boolean;
-  opponentHasAnswered: boolean;
-  isLocked: boolean;
-  onSendSabotage: (effect: SabotageEffect) => void;
-  myName: string;
-  theirName: string;
-  myScore: number;
-  theirScore: number;
-  bossType?: BossType;
-  bossLivesRemaining?: number;
-  bossLivesTotal?: number;
-  onExit: () => void;
-  duelDuration: number;
-  onBackToHome: () => void;
+  round: {
+    wordsCount: number;
+    index: number;
+    word: string;
+    sourceThemeName?: string | null;
+    frozenData: FrozenData | null;
+    difficulty: DifficultyPillData;
+    duelDuration: number;
+  };
+  timer: {
+    questionTimer: number | null;
+    questionTimerPausedAt?: number | null;
+  };
+  countdown: {
+    value: number | null;
+    pausedBy?: string;
+    unpauseRequestedBy?: string;
+    skipRequestedBy: string[];
+    userRole: "challenger" | "opponent";
+  };
+  answers: {
+    shuffledAnswers: string[];
+    selectedAnswer: string | null;
+    correctAnswer: string;
+    hasNoneOption: boolean;
+    eliminatedOptions: string[];
+    opponentLastAnswer: string | null;
+    isRevealing: boolean;
+    typedText: string;
+    revealComplete: boolean;
+    hasAnswered: boolean;
+    opponentHasAnswered: boolean;
+    isLocked: boolean;
+  };
+  hints: {
+    canRequestHint: boolean;
+    iRequestedHint: boolean;
+    theyRequestedHint: boolean;
+    hintAccepted: boolean;
+    canAcceptHint: boolean;
+    isHintProvider: boolean;
+    canEliminate: boolean;
+    eliminatedOptionsCount: number;
+  };
+  sabotage: {
+    activeSabotage: SabotageEffect | null;
+    sabotagePhase: SabotagePhase;
+    sabotagesRemaining: number;
+    isOutgoingSabotageActive: boolean;
+  };
+  score: {
+    myName: string;
+    theirName: string;
+    myScore: number;
+    theirScore: number;
+    bossType?: BossType;
+    bossLivesRemaining?: number;
+    bossLivesTotal?: number;
+  };
+  actions: {
+    onPauseCountdown: () => void;
+    onRequestUnpause: () => void;
+    onConfirmUnpause: () => void;
+    onSkipCountdown: () => void;
+    onPlayAudio: () => void;
+    onOptionClick: (answer: string, canEliminateThis: boolean, isEliminated: boolean) => void;
+    onConfirmAnswer: () => void;
+    onRequestHint: () => void;
+    onAcceptHint: () => void;
+    onSendSabotage: (effect: SabotageEffect) => void;
+    onExit: () => void;
+    onBackToHome: () => void;
+  };
+  audio: {
+    isPlaying: boolean;
+  };
 }
 
 export function DuelView({
-  activeSabotage,
-  sabotagePhase,
   status,
   phase,
-  wordsCount,
-  index,
-  word,
-  sourceThemeName,
-  frozenData,
-  difficulty,
-  questionTimer,
-  questionTimerPausedAt,
+  round,
+  timer,
   countdown,
-  countdownPausedBy,
-  countdownUnpauseRequestedBy,
-  countdownSkipRequestedBy,
-  userRole,
-  onPauseCountdown,
-  onRequestUnpause,
-  onConfirmUnpause,
-  onSkipCountdown,
-  isPlayingAudio,
-  onPlayAudio,
-  shuffledAnswers,
-  selectedAnswer,
-  correctAnswer,
-  hasNoneOption,
-  eliminatedOptions,
-  canEliminate,
-  opponentLastAnswer,
-  onOptionClick,
-  isRevealing,
-  typedText,
-  revealComplete,
-  onConfirmAnswer,
-  canRequestHint,
-  iRequestedHint,
-  theyRequestedHint,
-  hintAccepted,
-  canAcceptHint,
-  isHintProvider,
-  hasAnswered,
-  eliminatedOptionsCount,
-  onRequestHint,
-  onAcceptHint,
-  sabotagesRemaining,
-  isOutgoingSabotageActive,
-  opponentHasAnswered,
-  isLocked,
-  onSendSabotage,
-  myName,
-  theirName,
-  myScore,
-  theirScore,
-  bossType,
-  bossLivesRemaining,
-  bossLivesTotal,
-  onExit,
-  duelDuration,
-  onBackToHome,
+  answers,
+  hints,
+  sabotage,
+  score,
+  actions,
+  audio,
 }: DuelViewProps) {
+  const {
+    wordsCount,
+    index,
+    word,
+    sourceThemeName,
+    frozenData,
+    difficulty,
+    duelDuration,
+  } = round;
+  const { questionTimer, questionTimerPausedAt } = timer;
+  const {
+    value: countdownValue,
+    pausedBy: countdownPausedBy,
+    unpauseRequestedBy: countdownUnpauseRequestedBy,
+    skipRequestedBy: countdownSkipRequestedBy,
+    userRole,
+  } = countdown;
+  const {
+    shuffledAnswers,
+    selectedAnswer,
+    correctAnswer,
+    hasNoneOption,
+    eliminatedOptions,
+    opponentLastAnswer,
+    isRevealing,
+    typedText,
+    revealComplete,
+    hasAnswered,
+    opponentHasAnswered,
+    isLocked,
+  } = answers;
+  const {
+    canRequestHint,
+    iRequestedHint,
+    theyRequestedHint,
+    hintAccepted,
+    canAcceptHint,
+    isHintProvider,
+    canEliminate,
+    eliminatedOptionsCount,
+  } = hints;
+  const {
+    activeSabotage,
+    sabotagePhase,
+    sabotagesRemaining,
+    isOutgoingSabotageActive,
+  } = sabotage;
+  const {
+    myName,
+    theirName,
+    myScore,
+    theirScore,
+    bossType,
+    bossLivesRemaining,
+    bossLivesTotal,
+  } = score;
+  const {
+    onPauseCountdown,
+    onRequestUnpause,
+    onConfirmUnpause,
+    onSkipCountdown,
+    onPlayAudio,
+    onOptionClick,
+    onConfirmAnswer,
+    onRequestHint,
+    onAcceptHint,
+    onSendSabotage,
+    onExit,
+    onBackToHome,
+  } = actions;
+  const isPlayingAudio = audio.isPlaying;
   const displayWord = frozenData ? frozenData.word : word;
   const displayIndex = frozenData ? frozenData.wordIndex : index;
   const displayAnswers = frozenData ? frozenData.shuffledAnswers : shuffledAnswers;
@@ -387,9 +427,9 @@ export function DuelView({
             )}
 
             {/* Countdown controls during transition */}
-            {countdown !== null && frozenData && (
+            {countdownValue !== null && frozenData && (
               <CountdownControls
-                countdown={countdown}
+                countdown={countdownValue}
                 countdownPausedBy={countdownPausedBy}
                 countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
                 userRole={userRole}

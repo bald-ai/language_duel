@@ -416,6 +416,12 @@ export const declineChallengeFromNotification = mutation({
     if (!challenge) {
       throw new Error("Challenge not found");
     }
+    if (challenge.status !== "pending") {
+      throw new Error("Challenge is no longer pending");
+    }
+    if (challenge.opponentId !== user._id) {
+      throw new Error("Not authorized");
+    }
 
     await ctx.db.patch(challenge._id, {
       status: "declined",

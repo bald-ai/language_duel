@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, type RefObject } from "react";
 import { colors } from "@/lib/theme";
 import { PANEL_TABS, type PanelTab } from "../constants";
 import { FriendsTab } from "./FriendsTab";
@@ -11,6 +11,7 @@ interface NotificationPanelProps {
     activeTab: PanelTab;
     onTabChange: (tab: PanelTab) => void;
     onClose: () => void;
+    triggerRef: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -26,7 +27,8 @@ export function NotificationPanel({
     isOpen,
     activeTab,
     onTabChange,
-    onClose
+    onClose,
+    triggerRef,
 }: NotificationPanelProps) {
     const panelRef = useRef<HTMLDivElement>(null);
 
@@ -38,9 +40,8 @@ export function NotificationPanel({
                 return;
             }
             if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-                // Check if click is on the bell icon (which has its own handler)
-                const bellButton = document.querySelector('[aria-label*="Notifications"]');
-                if (bellButton && bellButton.contains(event.target as Node)) {
+                // Keep panel open when the click is on the trigger button.
+                if (triggerRef.current?.contains(event.target as Node)) {
                     return;
                 }
                 onClose();
@@ -57,7 +58,7 @@ export function NotificationPanel({
                 document.removeEventListener("mousedown", handleClickOutside);
             };
         }
-    }, [isOpen, onClose]);
+    }, [isOpen, onClose, triggerRef]);
 
     if (!isOpen) return null;
 

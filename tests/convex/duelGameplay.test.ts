@@ -367,15 +367,43 @@ describe("duel gameplay", () => {
       ) => Promise<void>;
     })._handler;
 
-    await expect(
-      handler(createCtx(db, "clerk_1"), {
-        duelId: "duel_1" as Id<"duels">,
-        questionIndex: 0,
-      })
-    ).rejects.toThrow("Stale timeout: question has changed");
+    const staleTimeoutError = await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      questionIndex: 0,
+    }).catch((error: unknown) => error);
+
+    expect(staleTimeoutError).toMatchObject({
+      data: { code: "STALE_TIMEOUT" },
+    });
 
     expect(db.duels[0].challengerAnswered).toBe(false);
     expect(db.duels[0].challengerLastAnswer).toBeUndefined();
     expect(db.duels[0].currentWordIndex).toBe(1);
+  });
+
+  it("returns DUEL_NOT_ACTIVE for answer submissions after duel completion", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.duels.push(duelDoc({ status: "completed" }));
+
+    const handler = (answerDuel as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
+      ) => Promise<void>;
+    })._handler;
+
+    const duelNotActiveError = await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      selectedAnswer: "gato",
+      questionIndex: 0,
+    }).catch((error: unknown) => error);
+
+    expect(duelNotActiveError).toMatchObject({
+      data: { code: "DUEL_NOT_ACTIVE" },
+    });
   });
 });

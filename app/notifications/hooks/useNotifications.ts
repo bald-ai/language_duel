@@ -19,9 +19,9 @@ export function useNotifications() {
     const rejectFriendRequestMutation = useMutation(api.friends.rejectFriendRequestNotification);
     const acceptChallengeMutation = useMutation(api.lobby.acceptChallengeFromNotification);
     const declineChallengeMutation = useMutation(api.lobby.declineChallengeFromNotification);
-    const dismissWeeklyPlanMutation = useMutation(api.weeklyGoals.dismissWeeklyPlanInvitation);
+    const dismissWeeklyGoalMutation = useMutation(api.weeklyGoals.dismissWeeklyGoalInvitation);
     const archiveCompletedGoalThemesMutation = useMutation(api.weeklyGoals.archiveCompletedGoalThemesFromNotification);
-    const declineWeeklyPlanMutation = useMutation(api.weeklyGoals.declineWeeklyPlanInvitation);
+    const declineWeeklyGoalMutation = useMutation(api.weeklyGoals.declineWeeklyGoalInvitation);
 
     const dismissNotification = useCallback(async (notificationId: Id<"notifications">) => {
         try {
@@ -81,25 +81,25 @@ export function useNotifications() {
         }
     }, [declineChallengeMutation]);
 
-    const dismissWeeklyPlanInvitation = useCallback(async (notificationId: Id<"notifications">) => {
+    const dismissWeeklyGoalInvitation = useCallback(async (notificationId: Id<"notifications">) => {
         try {
-            await dismissWeeklyPlanMutation({ notificationId });
+            await dismissWeeklyGoalMutation({ notificationId });
             return { success: true };
         } catch (error) {
-            console.error("Failed to dismiss weekly plan invitation:", error);
+            console.error("Failed to dismiss weekly goal invitation:", error);
             throw error;
         }
-    }, [dismissWeeklyPlanMutation]);
+    }, [dismissWeeklyGoalMutation]);
 
-    const declineWeeklyPlanInvitation = useCallback(async (notificationId: Id<"notifications">) => {
+    const declineWeeklyGoalInvitation = useCallback(async (notificationId: Id<"notifications">) => {
         try {
-            await declineWeeklyPlanMutation({ notificationId });
+            await declineWeeklyGoalMutation({ notificationId });
             return { success: true };
         } catch (error) {
-            console.error("Failed to decline weekly plan invitation:", error);
+            console.error("Failed to decline weekly goal invitation:", error);
             throw error;
         }
-    }, [declineWeeklyPlanMutation]);
+    }, [declineWeeklyGoalMutation]);
 
     const archiveCompletedGoalThemes = useCallback(async (notificationId: Id<"notifications">) => {
         try {
@@ -124,8 +124,8 @@ export function useNotifications() {
             rejectFriendRequest,
             acceptChallenge,
             declineChallenge,
-            dismissWeeklyPlanInvitation,
-            declineWeeklyPlanInvitation,
+            dismissWeeklyGoalInvitation,
+            declineWeeklyGoalInvitation,
             archiveCompletedGoalThemes,
         },
     };

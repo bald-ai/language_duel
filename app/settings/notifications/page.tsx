@@ -70,82 +70,82 @@ export default function NotificationSettingsPage() {
         >
           <CategoryToggle
             label="Challenge Invites"
-            enabled={prefs.challengeInvitesEnabled}
-            onChange={(v) => updatePrefs({ challengeInvitesEnabled: v })}
+            enabled={prefs.challengeInviteEmailsEnabled}
+            onChange={(v) => updatePrefs({ challengeInviteEmailsEnabled: v })}
             data-testid="category-challenge-invites"
           >
             <NotificationToggle
               label="Challenge invite email"
               enabled={prefs.challengeInviteEmailEnabled}
-              disabled={!prefs.challengeInvitesEnabled}
+              disabled={!prefs.challengeInviteEmailsEnabled}
               onChange={(v) => updatePrefs({ challengeInviteEmailEnabled: v })}
             />
           </CategoryToggle>
 
           <CategoryToggle
             label="Weekly Goals"
-            enabled={prefs.weeklyGoalsEnabled}
-            onChange={(v) => updatePrefs({ weeklyGoalsEnabled: v })}
+            enabled={prefs.weeklyGoalEmailsEnabled}
+            onChange={(v) => updatePrefs({ weeklyGoalEmailsEnabled: v })}
             data-testid="category-weekly-goals"
           >
             <NotificationToggle
               label="Goal invite received"
-              enabled={prefs.weeklyGoalInviteEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalInviteEnabled: v })}
+              enabled={prefs.weeklyGoalInviteEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalInviteEmailEnabled: v })}
             />
             <NotificationToggle
               label="Goal invite accepted"
-              enabled={prefs.weeklyGoalAcceptedEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalAcceptedEnabled: v })}
+              enabled={prefs.weeklyGoalAcceptedEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalAcceptedEmailEnabled: v })}
             />
             <NotificationToggle
               label="Partner locked goal"
-              enabled={prefs.weeklyGoalLockedEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalLockedEnabled: v })}
+              enabled={prefs.weeklyGoalLockedEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalLockedEmailEnabled: v })}
             />
             <NotificationToggle
               label="Daily goal countdown email"
-              enabled={prefs.weeklyGoalDailyReminderEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalDailyReminderEnabled: v })}
+              enabled={prefs.weeklyGoalDailyReminderEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalDailyReminderEmailEnabled: v })}
             />
             <NotificationToggle
               label="Grace period warning"
-              enabled={prefs.weeklyGoalGracePeriodReminderEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalGracePeriodReminderEnabled: v })}
+              enabled={prefs.weeklyGoalGracePeriodReminderEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalGracePeriodReminderEmailEnabled: v })}
             />
             <NotificationToggle
               label="Draft expiry warning"
-              enabled={prefs.weeklyGoalDraftExpiringEnabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalDraftExpiringEnabled: v })}
+              enabled={prefs.weeklyGoalDraftExpiringEmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalDraftExpiringEmailEnabled: v })}
             />
             <NotificationToggle
               label="Goal reminder 1"
-              enabled={prefs.weeklyGoalReminder1Enabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder1Enabled: v })}
+              enabled={prefs.weeklyGoalReminder1EmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalReminder1EmailEnabled: v })}
             />
             <ReminderOffsetInput
               label="First reminder before expiry"
               valueMinutes={prefs.weeklyGoalReminder1OffsetMinutes}
-              disabled={!prefs.weeklyGoalsEnabled || !prefs.weeklyGoalReminder1Enabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled || !prefs.weeklyGoalReminder1EmailEnabled}
               onChange={(v) => updatePrefs({ weeklyGoalReminder1OffsetMinutes: v })}
             />
             <NotificationToggle
               label="Goal reminder 2"
-              enabled={prefs.weeklyGoalReminder2Enabled}
-              disabled={!prefs.weeklyGoalsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder2Enabled: v })}
+              enabled={prefs.weeklyGoalReminder2EmailEnabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled}
+              onChange={(v) => updatePrefs({ weeklyGoalReminder2EmailEnabled: v })}
             />
             <ReminderOffsetInput
               label="Second reminder before expiry"
               valueMinutes={prefs.weeklyGoalReminder2OffsetMinutes}
-              disabled={!prefs.weeklyGoalsEnabled || !prefs.weeklyGoalReminder2Enabled}
+              disabled={!prefs.weeklyGoalEmailsEnabled || !prefs.weeklyGoalReminder2EmailEnabled}
               onChange={(v) => updatePrefs({ weeklyGoalReminder2OffsetMinutes: v })}
             />
           </CategoryToggle>

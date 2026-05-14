@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { sendDailyWeeklyGoalReminderEmails } from "@/convex/emails/reminderCrons";
+import {
+  sendDailyWeeklyGoalReminderEmails,
+  sendDraftExpiryReminders,
+} from "@/convex/emails/reminderCrons";
 import { getDraftGoalsExpiringSoon } from "@/convex/weeklyGoals";
 import { WEEKLY_GOAL_DRAFT_TTL_MS } from "@/convex/constants";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPreferences";
@@ -31,6 +34,9 @@ class InMemoryDb {
 }
 
 const sendDailyWeeklyGoalReminderEmailsHandler = (sendDailyWeeklyGoalReminderEmails as unknown as {
+  _handler: (ctx: unknown, args: Record<string, never>) => Promise<void>;
+})._handler;
+const sendDraftExpiryRemindersHandler = (sendDraftExpiryReminders as unknown as {
   _handler: (ctx: unknown, args: Record<string, never>) => Promise<void>;
 })._handler;
 
@@ -116,5 +122,115 @@ describe("reminder crons", () => {
       "goal_inside_older",
       "goal_inside_newer",
     ]);
+  });
+
+  it("creates in-app draft-expiry notification but no email log when email is disabled", async () => {
+    const goal = buildGoal({
+      _id: "goal_draft_1" as Id<"weeklyGoals">,
+      status: "draft",
+      creatorId: "user_1" as Id<"users">,
+    });
+    const mutationCalls: string[] = [];
+    const actionCalls: string[] = [];
+
+    await sendDraftExpiryRemindersHandler(
+      {
+        runQuery: async (_fn: unknown, args: { userId?: Id<"users">; trigger?: string }) => {
+          if (args.userId) {
+            return {
+              ...DEFAULT_NOTIFICATION_PREFS,
+              weeklyGoalDraftExpiringEmailEnabled: false,
+            };
+          }
+          if (args.trigger === "weekly_goal_draft_expiring") return false;
+          return [goal];
+        },
+        runMutation: async (fn: { name?: string }) => {
+          mutationCalls.push(fn.name ?? "unknownMutation");
+          return { created: true };
+        },
+        runAction: async (fn: { name?: string }) => {
+          actionCalls.push(fn.name ?? "unknownAction");
+          return { sent: false, reason: "disabled_by_user" };
+        },
+      } as never,
+      {}
+    );
+
+    expect(mutationCalls).toHaveLength(1);
+    expect(actionCalls).toHaveLength(0);
+  });
+
+  it("does not write email log when recipient has no email", async () => {
+    const goal = buildGoal({
+      _id: "goal_draft_2" as Id<"weeklyGoals">,
+      status: "draft",
+      creatorId: "user_1" as Id<"users">,
+    });
+    const mutationCalls: string[] = [];
+    const actionCalls: string[] = [];
+
+    await sendDraftExpiryRemindersHandler(
+      {
+        runQuery: async (_fn: unknown, args: { userId?: Id<"users">; trigger?: string }) => {
+          if (args.userId) return DEFAULT_NOTIFICATION_PREFS;
+          if (args.trigger === "weekly_goal_draft_expiring") return false;
+          return [goal];
+        },
+        runMutation: async (fn: { name?: string }) => {
+          mutationCalls.push(fn.name ?? "unknownMutation");
+          return { created: true };
+        },
+        runAction: async (fn: { name?: string }) => {
+          actionCalls.push(fn.name ?? "unknownAction");
+          return { sent: false, reason: "no_email" };
+        },
+      } as never,
+      {}
+    );
+
+    expect(mutationCalls).toHaveLength(1);
+    expect(actionCalls).toHaveLength(1);
+  });
+
+  it("allows one email send after re-enabling draft-expiry emails", async () => {
+    const goal = buildGoal({
+      _id: "goal_draft_3" as Id<"weeklyGoals">,
+      status: "draft",
+      creatorId: "user_1" as Id<"users">,
+    });
+    let alreadySent = false;
+    let emailSendCount = 0;
+
+    const runOnce = async (prefs: typeof DEFAULT_NOTIFICATION_PREFS) => {
+      await sendDraftExpiryRemindersHandler(
+        {
+          runQuery: async (_fn: unknown, args: { userId?: Id<"users">; trigger?: string }) => {
+            if (args.userId) return prefs;
+            if (args.trigger === "weekly_goal_draft_expiring") return alreadySent;
+            return [goal];
+          },
+          runMutation: async () => ({ created: true }),
+          runAction: async () => {
+            emailSendCount++;
+            alreadySent = true;
+            return { sent: true };
+          },
+        } as never,
+        {}
+      );
+    };
+
+    await runOnce({
+      ...DEFAULT_NOTIFICATION_PREFS,
+      weeklyGoalDraftExpiringEmailEnabled: false,
+    });
+    expect(emailSendCount).toBe(0);
+
+    await runOnce(DEFAULT_NOTIFICATION_PREFS);
+    expect(emailSendCount).toBe(1);
+
+    await runOnce(DEFAULT_NOTIFICATION_PREFS);
+    expect(emailSendCount).toBe(1);
   });
 });

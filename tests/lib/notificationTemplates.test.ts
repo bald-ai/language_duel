@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderNotificationEmail, getSubjectForTrigger } from "@/lib/notificationTemplates";
+import { NOTIFICATION_EMAIL_TRIGGERS } from "@/lib/notificationPreferences";
 
 describe("renderNotificationEmail", () => {
   const originalAppUrl = process.env.APP_URL;
@@ -126,7 +127,7 @@ describe("renderNotificationEmail", () => {
         completedCount: 3,
         totalCount: 5,
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_expired_delete_reminder", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_grace_period_reminder", data);
 
       expect(subject).toContain("24");
       expect(subject).toContain("save this goal");
@@ -137,19 +138,7 @@ describe("renderNotificationEmail", () => {
   });
 
   describe("all triggers render without error", () => {
-    const triggers = [
-      "immediate_challenge_invite",
-      "weekly_goal_invite",
-      "weekly_goal_locked",
-      "weekly_goal_accepted",
-      "weekly_goal_daily_reminder",
-      "weekly_goal_draft_expiring",
-      "weekly_goal_expired_delete_reminder",
-      "weekly_goal_reminder_1",
-      "weekly_goal_reminder_2",
-    ] as const;
-
-    it.each(triggers)("%s renders without throwing", (trigger) => {
+    it.each(NOTIFICATION_EMAIL_TRIGGERS)("%s renders without throwing", (trigger) => {
       const data = {
         recipientName: "Test",
         senderName: "Sender",

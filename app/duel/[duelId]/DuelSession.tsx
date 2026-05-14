@@ -16,14 +16,14 @@ import { getSabotageExpiryAt, isSabotageActive } from "@/lib/sabotage/active";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { forRole } from "@/lib/duelRole";
 import {
-  QUESTION_TIMER_SECONDS,
-  TRANSITION_COUNTDOWN_SECONDS,
   TYPE_REVEAL_DELAY_MS,
   TYPE_REVEAL_INTERVAL_MS,
-  TIMER_UPDATE_INTERVAL_MS,
 } from "@/lib/duelConstants";
 import { useSabotageEffect } from "./hooks/useSabotageEffect";
 import { useDuelAudio } from "./hooks/useDuelAudio";
+import { useDuelCountdown } from "./hooks/useDuelCountdown";
+import { useDuelQuestionTimer } from "./hooks/useDuelQuestionTimer";
+import { getErrorMessage, isExpectedDuelRaceError } from "./hooks/useDuelRaceErrors";
 import { DuelView, type FrozenData } from "./components/DuelView";
 import { colors } from "@/lib/theme";
 import { toast } from "sonner";
@@ -35,16 +35,6 @@ interface DuelSessionProps {
   opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
   viewerRole: "challenger" | "opponent";
 }
-
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
-
-const isExpectedDuelRaceError = (error: unknown) =>
-  error instanceof Error && (
-    error.message.includes("Stale answer: question has changed") ||
-    error.message.includes("Stale timeout: question has changed") ||
-    error.message.includes("Duel is not active")
-  );
 
 export default function DuelSession({
   duel,
@@ -71,7 +61,6 @@ export default function DuelSession({
     isLockedIndexRef.current = val ? activeQuestionIndexRef.current : null;
     setIsLockedRaw(val);
   }, []);
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [frozenData, setFrozenData] = useState<FrozenData | null>(null);
   const [sabotageNow, setSabotageNow] = useState(() => Date.now());
 
@@ -93,9 +82,6 @@ export default function DuelSession({
   const confirmUnpauseCountdown = useMutation(api.gameplay.confirmUnpauseCountdown);
   const skipCountdown = useMutation(api.gameplay.skipCountdown);
 
-  // Question timer state
-  const [questionTimer, setQuestionTimer] = useState<number | null>(null);
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasTimedOutRef = useRef(false);
 
   // Duel start time tracking for total duration
@@ -217,54 +203,25 @@ export default function DuelSession({
     () => duel.countdownSkipRequestedBy || [],
     [duel.countdownSkipRequestedBy]
   );
-  const prevCountdownPausedByRef = useRef<string | undefined>(countdownPausedBy);
+  const handleTransitionCountdownComplete = useCallback(() => {
+    setPhase("answering");
+    setFrozenData(null);
+    setSelectedAnswer(null);
+    setIsLocked(false);
+    lockedAnswerRef.current = null;
+    hasTimedOutRef.current = false;
+    setIsRevealing(false);
+    setTypedText("");
+    setRevealComplete(false);
+  }, [setIsLocked, setSelectedAnswer]);
 
-  // Detect when unpause is confirmed (countdownPausedBy goes from truthy to undefined)
-  // Reset countdown to 1 second when this happens
-  useEffect(() => {
-    const wasPaused = prevCountdownPausedByRef.current;
-    const isNowUnpaused = !countdownPausedBy;
-
-    if (wasPaused && isNowUnpaused && countdown !== null && phase === "transition") {
-      // Unpause confirmed - reset countdown to 1 second
-      setCountdown(1);
-    }
-
-    prevCountdownPausedByRef.current = countdownPausedBy;
-  }, [countdownPausedBy, countdown, phase]);
-
-  useEffect(() => {
-    if (countdown === null || phase !== "transition") return;
-    if (countdownPausedBy) return;
-
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      if (duel.status !== "completed") {
-        setPhase("answering");
-        setFrozenData(null);
-        setSelectedAnswer(null);
-        setIsLocked(false);
-        lockedAnswerRef.current = null;
-        hasTimedOutRef.current = false;
-        setIsRevealing(false);
-        setTypedText("");
-        setRevealComplete(false);
-      }
-      setCountdown(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [countdown, duel.status, countdownPausedBy, phase]);
-
-  // Detect when both players have skipped - immediately proceed to next question
-  useEffect(() => {
-    if (countdown === null || phase !== "transition") return;
-    if (countdownSkipRequestedBy.includes("challenger") && countdownSkipRequestedBy.includes("opponent")) {
-      // Both players skipped - immediately go to 0
-      setCountdown(0);
-    }
-  }, [countdownSkipRequestedBy, countdown, phase]);
+  const { countdown, setCountdown } = useDuelCountdown({
+    phase,
+    duelStatus: duel.status,
+    countdownPausedBy,
+    countdownSkipRequestedBy,
+    onCountdownComplete: handleTransitionCountdownComplete,
+  });
 
   // Type reveal effect
   useEffect(() => {
@@ -338,63 +295,28 @@ export default function DuelSession({
     }
   }, [duel.status]);
 
-  // Timer countdown effect (uses server start time; freezes when paused)
-  useEffect(() => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-    const status = duel.status;
-    const questionStartTime = duel.questionStartTime;
-
-    if (phase !== "answering" || status !== "active" || !questionStartTime) {
-      setQuestionTimer(null);
-      return;
-    }
-
-    const updateTimer = () => {
-      const isFirstQuestion = (duel.currentWordIndex ?? 0) === 0;
-      const transitionOffset = isFirstQuestion ? 0 : TRANSITION_COUNTDOWN_SECONDS * 1000;
-      const effectiveStartTime = questionStartTime + transitionOffset;
-      const now = duel.questionTimerPausedAt ?? Date.now();
-      const elapsed = (now - effectiveStartTime) / 1000;
-      const remaining = Math.max(0, QUESTION_TIMER_SECONDS - elapsed);
-      setQuestionTimer(remaining);
-
-      if (remaining <= 0 && !hasTimedOutRef.current) {
-        hasTimedOutRef.current = true;
-
-        if (!myAnswered && duel._id) {
-          timeoutAnswer({ duelId: duel._id, questionIndex: index }).catch((error) => {
-            if (!isExpectedDuelRaceError(error)) {
-              console.error("Failed to submit timeout answer:", error);
-            }
-          });
-        }
+  const handleTimeoutAnswer = useCallback(async (questionIndex: number) => {
+    try {
+      await timeoutAnswer({ duelId: duel._id, questionIndex });
+    } catch (error) {
+      if (!isExpectedDuelRaceError(error)) {
+        console.error("Failed to submit timeout answer:", error);
       }
-    };
+    }
+  }, [duel._id, timeoutAnswer]);
 
-    updateTimer();
-    timerIntervalRef.current = setInterval(updateTimer, TIMER_UPDATE_INTERVAL_MS);
-
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-    };
-  }, [
+  const questionTimer = useDuelQuestionTimer({
     phase,
-    duel.status,
-    duel._id,
-    duel.questionStartTime,
-    duel.questionTimerPausedAt,
-    duel.currentWordIndex,
-    index,
+    duelStatus: duel.status,
+    duelId: duel._id,
+    questionStartTime: duel.questionStartTime,
+    questionTimerPausedAt: duel.questionTimerPausedAt,
+    currentWordIndex: duel.currentWordIndex,
+    questionIndex: index,
     myAnswered,
-    timeoutAnswer,
-  ]);
+    hasTimedOutRef,
+    onTimeout: handleTimeoutAnswer,
+  });
 
   const difficulty = useMemo(
     () => ({
@@ -591,78 +513,94 @@ export default function DuelSession({
 
   return (
     <DuelView
-      activeSabotage={activeSabotage}
-      sabotagePhase={sabotagePhase}
       status={status}
       phase={phase}
-      wordsCount={words.length}
-      index={index}
-      word={word}
-      sourceThemeName={sourceThemeName}
-      frozenData={frozenData}
-      difficulty={difficultyForView}
-      questionTimer={questionTimer}
-      questionTimerPausedAt={duel.questionTimerPausedAt}
-      countdown={countdown}
-      countdownPausedBy={countdownPausedBy}
-      countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
-      countdownSkipRequestedBy={countdownSkipRequestedBy}
-      userRole={userRole}
-      onPauseCountdown={() => pauseCountdown({ duelId: duel._id }).catch((error) => {
-        console.error("Failed to pause countdown:", error);
-        toast.error(getErrorMessage(error, "Failed to pause countdown"));
-      })}
-      onRequestUnpause={() => requestUnpauseCountdown({ duelId: duel._id }).catch((error) => {
-        console.error("Failed to request countdown resume:", error);
-        toast.error(getErrorMessage(error, "Failed to request countdown resume"));
-      })}
-      onConfirmUnpause={() => confirmUnpauseCountdown({ duelId: duel._id }).catch((error) => {
-        console.error("Failed to resume countdown:", error);
-        toast.error(getErrorMessage(error, "Failed to resume countdown"));
-      })}
-      onSkipCountdown={() => skipCountdown({ duelId: duel._id }).catch((error) => {
-        console.error("Failed to skip countdown:", error);
-        toast.error(getErrorMessage(error, "Failed to skip countdown"));
-      })}
-      isPlayingAudio={isPlayingAudio}
-      onPlayAudio={handlePlayAudio}
-      shuffledAnswers={shuffledAnswers}
-      selectedAnswer={selectedAnswer}
-      correctAnswer={currentWord.answer}
-      hasNoneOption={hasNoneOption}
-      eliminatedOptions={eliminatedOptions}
-      canEliminate={canEliminate}
-      opponentLastAnswer={opponentLastAnswer || null}
-      onOptionClick={handleOptionClick}
-      isRevealing={isRevealing}
-      typedText={typedText}
-      revealComplete={revealComplete}
-      onConfirmAnswer={handleConfirmAnswer}
-      canRequestHint={canRequestHint}
-      iRequestedHint={iRequestedHint}
-      theyRequestedHint={theyRequestedHint}
-      hintAccepted={!!hintAccepted}
-      canAcceptHint={canAcceptHint}
-      isHintProvider={isHintProvider}
-      hasAnswered={hasAnswered}
-      eliminatedOptionsCount={eliminatedOptions.length}
-      onRequestHint={handleRequestHint}
-      onAcceptHint={handleAcceptHint}
-      sabotagesRemaining={sabotagesRemaining}
-      isOutgoingSabotageActive={isOutgoingSabotageActive}
-      opponentHasAnswered={opponentHasAnswered}
-      isLocked={isLocked}
-      onSendSabotage={handleSendSabotage}
-      myName={myName}
-      theirName={theirName}
-      myScore={myScore}
-      theirScore={theirScore}
-      bossType={duel.bossType}
-      bossLivesRemaining={duel.bossLivesRemaining}
-      bossLivesTotal={duel.bossLivesTotal}
-      onExit={handleStopDuel}
-      duelDuration={duelDuration}
-      onBackToHome={() => router.push("/")}
+      round={{
+        wordsCount: words.length,
+        index,
+        word,
+        sourceThemeName,
+        frozenData,
+        difficulty: difficultyForView,
+        duelDuration,
+      }}
+      timer={{
+        questionTimer,
+        questionTimerPausedAt: duel.questionTimerPausedAt,
+      }}
+      countdown={{
+        value: countdown,
+        pausedBy: countdownPausedBy,
+        unpauseRequestedBy: countdownUnpauseRequestedBy,
+        skipRequestedBy: countdownSkipRequestedBy,
+        userRole,
+      }}
+      answers={{
+        shuffledAnswers,
+        selectedAnswer,
+        correctAnswer: currentWord.answer,
+        hasNoneOption,
+        eliminatedOptions,
+        opponentLastAnswer: opponentLastAnswer || null,
+        isRevealing,
+        typedText,
+        revealComplete,
+        hasAnswered,
+        opponentHasAnswered,
+        isLocked,
+      }}
+      hints={{
+        canRequestHint,
+        iRequestedHint,
+        theyRequestedHint,
+        hintAccepted: !!hintAccepted,
+        canAcceptHint,
+        isHintProvider,
+        canEliminate,
+        eliminatedOptionsCount: eliminatedOptions.length,
+      }}
+      sabotage={{
+        activeSabotage,
+        sabotagePhase,
+        sabotagesRemaining,
+        isOutgoingSabotageActive,
+      }}
+      score={{
+        myName,
+        theirName,
+        myScore,
+        theirScore,
+        bossType: duel.bossType,
+        bossLivesRemaining: duel.bossLivesRemaining,
+        bossLivesTotal: duel.bossLivesTotal,
+      }}
+      actions={{
+        onPauseCountdown: () => pauseCountdown({ duelId: duel._id }).catch((error) => {
+          console.error("Failed to pause countdown:", error);
+          toast.error(getErrorMessage(error, "Failed to pause countdown"));
+        }),
+        onRequestUnpause: () => requestUnpauseCountdown({ duelId: duel._id }).catch((error) => {
+          console.error("Failed to request countdown resume:", error);
+          toast.error(getErrorMessage(error, "Failed to request countdown resume"));
+        }),
+        onConfirmUnpause: () => confirmUnpauseCountdown({ duelId: duel._id }).catch((error) => {
+          console.error("Failed to resume countdown:", error);
+          toast.error(getErrorMessage(error, "Failed to resume countdown"));
+        }),
+        onSkipCountdown: () => skipCountdown({ duelId: duel._id }).catch((error) => {
+          console.error("Failed to skip countdown:", error);
+          toast.error(getErrorMessage(error, "Failed to skip countdown"));
+        }),
+        onPlayAudio: handlePlayAudio,
+        onOptionClick: handleOptionClick,
+        onConfirmAnswer: handleConfirmAnswer,
+        onRequestHint: handleRequestHint,
+        onAcceptHint: handleAcceptHint,
+        onSendSabotage: handleSendSabotage,
+        onExit: handleStopDuel,
+        onBackToHome: () => router.push("/"),
+      }}
+      audio={{ isPlaying: isPlayingAudio }}
     />
   );
 }

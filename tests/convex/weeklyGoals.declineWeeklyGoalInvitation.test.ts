@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { declineWeeklyPlanInvitation } from "@/convex/weeklyGoals";
+import { declineWeeklyGoalInvitation } from "@/convex/weeklyGoals";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -181,7 +181,7 @@ function buildNotification(overrides: Partial<NotificationDoc> = {}): Notificati
   return {
     _id: "notification_1" as Id<"notifications">,
     _creationTime: 1,
-    type: "weekly_plan_invitation",
+    type: "weekly_goal_invitation",
     fromUserId: "user_creator" as Id<"users">,
     toUserId: "user_partner" as Id<"users">,
     status: "pending",
@@ -195,14 +195,14 @@ function buildNotification(overrides: Partial<NotificationDoc> = {}): Notificati
   };
 }
 
-const declineWeeklyPlanInvitationHandler = (declineWeeklyPlanInvitation as unknown as {
+const declineWeeklyGoalInvitationHandler = (declineWeeklyGoalInvitation as unknown as {
   _handler: (
     ctx: unknown,
     args: { notificationId: Id<"notifications"> }
   ) => Promise<{ success: true }>;
 })._handler;
 
-describe("weeklyGoals declineWeeklyPlanInvitation", () => {
+describe("weeklyGoals declineWeeklyGoalInvitation", () => {
   it("lets the invitee decline a draft goal, keeps the in-app notification, and deletes the goal", async () => {
     const db = new InMemoryDb(
       [
@@ -213,7 +213,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
       [buildNotification()]
     );
 
-    await declineWeeklyPlanInvitationHandler(
+    await declineWeeklyGoalInvitationHandler(
       createAuthCtx(db, "partner") as never,
       { notificationId: "notification_1" as Id<"notifications"> }
     );
@@ -224,7 +224,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
       db.notifications.some(
         (n) =>
           n.toUserId === ("user_creator" as Id<"users">) &&
-          n.type === "weekly_plan_invitation" &&
+          n.type === "weekly_goal_invitation" &&
           n.status === "pending" &&
           (n.payload as { event?: string }).event === "declined"
       )
@@ -242,7 +242,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
     );
 
     await expect(
-      declineWeeklyPlanInvitationHandler(
+      declineWeeklyGoalInvitationHandler(
         createAuthCtx(db, "creator", {
           scheduler: { runAfter: async () => {} },
         }) as never,
@@ -262,7 +262,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
     );
 
     await expect(
-      declineWeeklyPlanInvitationHandler(
+      declineWeeklyGoalInvitationHandler(
         createAuthCtx(db, "partner", {
           scheduler: { runAfter: async () => {} },
         }) as never,
@@ -282,7 +282,7 @@ describe("weeklyGoals declineWeeklyPlanInvitation", () => {
     );
 
     await expect(
-      declineWeeklyPlanInvitationHandler(
+      declineWeeklyGoalInvitationHandler(
         createAuthCtx(db, "partner") as never,
         { notificationId: "notification_1" as Id<"notifications"> }
       )

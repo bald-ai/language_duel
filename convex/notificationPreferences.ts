@@ -3,51 +3,10 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthenticatedUser } from "./helpers/auth";
 import {
   DEFAULT_NOTIFICATION_PREFS,
-  type NotificationPreferences,
+  WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES,
+  normalizeNotificationPreferences,
 } from "../lib/notificationPreferences";
-
-function normalizeNotificationPreferences(
-  prefs: Partial<NotificationPreferences> | null | undefined
-): NotificationPreferences {
-  return {
-    challengeInvitesEnabled:
-      prefs?.challengeInvitesEnabled ?? DEFAULT_NOTIFICATION_PREFS.challengeInvitesEnabled,
-    challengeInviteEmailEnabled:
-      prefs?.challengeInviteEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailEnabled,
-    weeklyGoalsEnabled:
-      prefs?.weeklyGoalsEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalsEnabled,
-    weeklyGoalInviteEnabled:
-      prefs?.weeklyGoalInviteEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalInviteEnabled,
-    weeklyGoalAcceptedEnabled:
-      prefs?.weeklyGoalAcceptedEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEnabled,
-    weeklyGoalLockedEnabled:
-      prefs?.weeklyGoalLockedEnabled ?? DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEnabled,
-    weeklyGoalDailyReminderEnabled:
-      prefs?.weeklyGoalDailyReminderEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEnabled,
-    weeklyGoalGracePeriodReminderEnabled:
-      prefs?.weeklyGoalGracePeriodReminderEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalGracePeriodReminderEnabled,
-    weeklyGoalDraftExpiringEnabled:
-      prefs?.weeklyGoalDraftExpiringEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalDraftExpiringEnabled,
-    weeklyGoalReminder1Enabled:
-      prefs?.weeklyGoalReminder1Enabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1Enabled,
-    weeklyGoalReminder1OffsetMinutes:
-      prefs?.weeklyGoalReminder1OffsetMinutes ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes,
-    weeklyGoalReminder2Enabled:
-      prefs?.weeklyGoalReminder2Enabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2Enabled,
-    weeklyGoalReminder2OffsetMinutes:
-      prefs?.weeklyGoalReminder2OffsetMinutes ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes,
-  };
-}
-
 export const getMyNotificationPreferences = query({
   args: {},
   handler: async (ctx) => {
@@ -85,38 +44,35 @@ export const getByUserId = internalQuery({
   },
 });
 
-const MIN_OFFSET = 1;
-const MAX_OFFSET = 7 * 24 * 60;
-
 export const updateNotificationPreferences = mutation({
   args: {
-    challengeInvitesEnabled: v.boolean(),
+    challengeInviteEmailsEnabled: v.boolean(),
     challengeInviteEmailEnabled: v.boolean(),
 
-    weeklyGoalsEnabled: v.boolean(),
-    weeklyGoalInviteEnabled: v.boolean(),
-    weeklyGoalAcceptedEnabled: v.boolean(),
-    weeklyGoalLockedEnabled: v.boolean(),
-    weeklyGoalDailyReminderEnabled: v.boolean(),
-    weeklyGoalGracePeriodReminderEnabled: v.boolean(),
-    weeklyGoalDraftExpiringEnabled: v.boolean(),
-    weeklyGoalReminder1Enabled: v.boolean(),
+    weeklyGoalEmailsEnabled: v.boolean(),
+    weeklyGoalInviteEmailEnabled: v.boolean(),
+    weeklyGoalAcceptedEmailEnabled: v.boolean(),
+    weeklyGoalLockedEmailEnabled: v.boolean(),
+    weeklyGoalDailyReminderEmailEnabled: v.boolean(),
+    weeklyGoalGracePeriodReminderEmailEnabled: v.boolean(),
+    weeklyGoalDraftExpiringEmailEnabled: v.boolean(),
+    weeklyGoalReminder1EmailEnabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
-    weeklyGoalReminder2Enabled: v.boolean(),
+    weeklyGoalReminder2EmailEnabled: v.boolean(),
     weeklyGoalReminder2OffsetMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
     if (
-      args.weeklyGoalReminder1OffsetMinutes < MIN_OFFSET ||
-      args.weeklyGoalReminder1OffsetMinutes > MAX_OFFSET
+      args.weeklyGoalReminder1OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
+      args.weeklyGoalReminder1OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
     ) {
       throw new Error("Invalid weekly goal reminder 1 offset");
     }
     if (
-      args.weeklyGoalReminder2OffsetMinutes < MIN_OFFSET ||
-      args.weeklyGoalReminder2OffsetMinutes > MAX_OFFSET
+      args.weeklyGoalReminder2OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
+      args.weeklyGoalReminder2OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
     ) {
       throw new Error("Invalid weekly goal reminder 2 offset");
     }

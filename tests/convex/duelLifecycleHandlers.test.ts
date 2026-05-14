@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
+  createChallenge,
   acceptChallenge,
   acceptChallengeFromNotification,
   declineChallenge,
+  declineChallengeFromNotification,
   stopDuel,
 } from "@/convex/lobby";
 import {
@@ -88,6 +90,7 @@ class InMemoryDb {
   public notifications: NotificationDoc[] = [];
 
   private counters = {
+    challenges: 10,
     duels: 10,
     notifications: 10,
   };
@@ -109,9 +112,20 @@ class InMemoryDb {
   }
 
   async insert(
-    table: "duels" | "notifications",
+    table: "challenges" | "duels" | "notifications",
     value: Record<string, unknown>
-  ): Promise<Id<"duels"> | Id<"notifications">> {
+  ): Promise<Id<"challenges"> | Id<"duels"> | Id<"notifications">> {
+    if (table === "challenges") {
+      const inserted = insertRow<ChallengeDoc>(
+        this.challenges,
+        "challenge",
+        this.counters.challenges,
+        value
+      );
+      this.counters.challenges = inserted.nextCounter;
+      return inserted.id as Id<"challenges">;
+    }
+
     if (table === "duels") {
       const inserted = insertRow<DuelDoc>(this.duels, "duel", this.counters.duels, value);
       this.counters.duels = inserted.nextCounter;
@@ -154,7 +168,13 @@ class InMemoryDb {
 }
 
 function createCtx(db: InMemoryDb, identitySubject: string | null) {
-  return createAuthCtx(db, identitySubject);
+  return createAuthCtx(db, identitySubject, {
+    runQuery: async (_query: unknown, args: { themeId: Id<"themes"> }) =>
+      db.themes.find((theme) => theme._id === args.themeId) ?? null,
+    scheduler: {
+      runAfter: async () => undefined,
+    },
+  });
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
@@ -245,6 +265,32 @@ afterEach(() => {
 });
 
 describe("duel lifecycle handlers", () => {
+  it("createChallenge rejects self-challenges", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.themes.push(themeDoc());
+
+    const handler = (createChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          opponentId: Id<"users">;
+          themeIds: Id<"themes">[];
+          duelDifficultyPreset?: "easy" | "medium" | "hard";
+        }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        opponentId: "user_1" as Id<"users">,
+        themeIds: ["theme_1" as Id<"themes">],
+      })
+    ).rejects.toThrow("Cannot challenge yourself");
+
+    expect(db.challenges).toHaveLength(0);
+  });
+
   it("acceptChallenge creates a duel and resolves the challenge invite", async () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
 
@@ -306,6 +352,43 @@ describe("duel lifecycle handlers", () => {
     expect(db.duels).toHaveLength(0);
   });
 
+  it("acceptChallenge blocks challenger from accepting as opponent", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.themes.push(themeDoc());
+    db.challenges.push(challengeDoc());
+
+    const handler = (acceptChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<{ duelId: Id<"duels"> }>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_1"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    })).rejects.toThrow("Only opponent can accept challenge");
+  });
+
+  it("acceptChallenge blocks unrelated third-party users", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }),
+      userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3" })
+    );
+    db.themes.push(themeDoc());
+    db.challenges.push(challengeDoc());
+
+    const handler = (acceptChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<{ duelId: Id<"duels"> }>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_3"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    })).rejects.toThrow("User not part of this challenge");
+  });
+
   it("acceptChallengeFromNotification creates a duel and dismisses the notification", async () => {
     vi.spyOn(Date, "now").mockReturnValue(7_000);
 
@@ -359,6 +442,88 @@ describe("duel lifecycle handlers", () => {
       resolvedAt: 8_000,
     });
     expect(db.duels).toHaveLength(0);
+  });
+
+  it("declineChallenge blocks challenger from declining as opponent", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.challenges.push(challengeDoc());
+
+    const handler = (declineChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<void>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_1"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    })).rejects.toThrow("Only opponent can decline challenge");
+  });
+
+  it("declineChallenge blocks unrelated third-party users", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }),
+      userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3" })
+    );
+    db.challenges.push(challengeDoc());
+
+    const handler = (declineChallenge as unknown as {
+      _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<void>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_3"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    })).rejects.toThrow("User not part of this challenge");
+  });
+
+  it("declineChallengeFromNotification rejects non-pending challenges", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.challenges.push(challengeDoc({ status: "accepted" }));
+    db.notifications.push(notificationDoc());
+
+    const handler = (declineChallengeFromNotification as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { notificationId: Id<"notifications"> }
+      ) => Promise<{ success: true }>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_2"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    })).rejects.toThrow("Challenge is no longer pending");
+  });
+
+  it("declineChallengeFromNotification rejects wrong users", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }),
+      userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3" })
+    );
+    db.challenges.push(challengeDoc());
+    db.notifications.push(notificationDoc());
+
+    const handler = (declineChallengeFromNotification as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { notificationId: Id<"notifications"> }
+      ) => Promise<{ success: true }>;
+    })._handler;
+
+    await expect(handler(createCtx(db, "clerk_1"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    })).rejects.toThrow("Not authorized");
+
+    await expect(handler(createCtx(db, "clerk_3"), {
+      notificationId: "notification_1" as Id<"notifications">,
+    })).rejects.toThrow("Not authorized");
   });
 
   it("stopDuel only patches active duels", async () => {

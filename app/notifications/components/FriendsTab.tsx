@@ -24,7 +24,7 @@ interface FriendsTabProps {
  */
 export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
     const friends = useQuery(api.friends.getFriends);
-    const allPlans = useQuery(api.weeklyGoals.getVisibleGoals);
+    const allGoals = useQuery(api.weeklyGoals.getVisibleGoals);
     const sentRequests = useQuery(api.friends.getSentRequests);
     const removeFriendMutation = useMutation(api.friends.removeFriend);
 
@@ -33,7 +33,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
             const result = await removeFriendMutation({ friendId });
             toast.success(
                 result.closedGoalCount > 0
-                    ? "Friend removed and shared plan closed"
+                    ? "Friend removed and shared goal closed"
                     : "Friend removed"
             );
         } catch (error) {
@@ -43,12 +43,12 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
     };
 
     const hasExistingGoalWithFriend = (friendId: Id<"users">) =>
-        (allPlans ?? []).some(
+        (allGoals ?? []).some(
             (plan) =>
                 (plan.creator?._id === friendId || plan.partner?._id === friendId)
         );
 
-    const isLoading = friends === undefined || allPlans === undefined;
+    const isLoading = friends === undefined || allGoals === undefined;
 
     return (
         <FriendDuelLauncher>

@@ -52,7 +52,7 @@ crons.interval(
 crons.interval(
     "cleanup-email-notification-log",
     { hours: 24 },
-    internal.emails.notificationEmails.cleanupEmailNotificationLog
+    internal.emails.emailNotificationLog.cleanupEmailNotificationLog
 );
 
 crons.interval(

@@ -1,72 +1,24 @@
 import {
   DEFAULT_NOTIFICATION_PREFS,
+  WEEKLY_GOAL_REMINDER_1_DEFAULT_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_2_DEFAULT_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_WINDOW_MS,
+  normalizeNotificationPreferences,
   type NotificationPreferences,
 } from "./notificationPreferencesDefaults";
-
-const _NOTIFICATION_TRIGGERS = [
-  "immediate_challenge_invite",
-  "weekly_goal_invite",
-  "weekly_goal_locked",
-  "weekly_goal_accepted",
-  "weekly_goal_daily_reminder",
-  "weekly_goal_draft_expiring",
-  "weekly_goal_expired_delete_reminder",
-  "weekly_goal_reminder_1",
-  "weekly_goal_reminder_2",
-] as const;
-
-export type NotificationTrigger = (typeof _NOTIFICATION_TRIGGERS)[number];
+import {
+  NOTIFICATION_EMAIL_TRIGGERS,
+  NOTIFICATION_EMAIL_TRIGGER_CONTRACT,
+  type NotificationTrigger,
+} from "./notificationEmailTriggerContract";
 
 export function isNotificationEnabled(
   trigger: NotificationTrigger,
   prefs: NotificationPreferences
 ): boolean {
-  const mapping: Record<
-    NotificationTrigger,
-    {
-      category: keyof NotificationPreferences;
-      trigger: keyof NotificationPreferences;
-    }
-  > = {
-    immediate_challenge_invite: {
-      category: "challengeInvitesEnabled",
-      trigger: "challengeInviteEmailEnabled",
-    },
-    weekly_goal_invite: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalInviteEnabled",
-    },
-    weekly_goal_locked: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalLockedEnabled",
-    },
-    weekly_goal_accepted: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalAcceptedEnabled",
-    },
-    weekly_goal_daily_reminder: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalDailyReminderEnabled",
-    },
-    weekly_goal_draft_expiring: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalDraftExpiringEnabled",
-    },
-    weekly_goal_expired_delete_reminder: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalGracePeriodReminderEnabled",
-    },
-    weekly_goal_reminder_1: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalReminder1Enabled",
-    },
-    weekly_goal_reminder_2: {
-      category: "weeklyGoalsEnabled",
-      trigger: "weeklyGoalReminder2Enabled",
-    },
-  };
-
-  const config = mapping[trigger];
+  const config = NOTIFICATION_EMAIL_TRIGGER_CONTRACT[trigger];
   if (!config) return false;
 
   return prefs[config.category] === true && prefs[config.trigger] === true;
@@ -76,7 +28,7 @@ export function shouldSendWeeklyGoalReminder(
   goal: { endDate?: number; status: string; bossStatus?: string },
   now: number,
   reminderOffsetMinutes: number,
-  windowMs = 2 * 60 * 60 * 1000
+  windowMs = WEEKLY_GOAL_REMINDER_WINDOW_MS
 ): boolean {
   if (goal.status !== "locked") return false;
   if (goal.bossStatus === "defeated") return false;
@@ -175,3 +127,16 @@ export function getDaysUntilInTimeZone(
 }
 
 export { DEFAULT_NOTIFICATION_PREFS, type NotificationPreferences };
+export { normalizeNotificationPreferences };
+export {
+  WEEKLY_GOAL_REMINDER_1_DEFAULT_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_2_DEFAULT_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES,
+  WEEKLY_GOAL_REMINDER_WINDOW_MS,
+};
+export {
+  NOTIFICATION_EMAIL_TRIGGERS,
+  NOTIFICATION_EMAIL_TRIGGER_CONTRACT,
+  type NotificationTrigger,
+};

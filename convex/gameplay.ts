@@ -4,129 +4,23 @@
 
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
 import {
-  HINT_PROVIDER_BONUS,
   TIMEOUT_ANSWER,
 } from "./constants";
 import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
 import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
 import { forRole } from "../lib/duelRole";
-
-// ===========================================
-// Helper: Clear hint state on question advance
-// ===========================================
-
-function getHintClearFields(): Partial<Doc<"duels">> {
-  return {
-    hintRequestedBy: undefined,
-    hintAccepted: undefined,
-    eliminatedOptions: undefined,
-    questionTimerPausedAt: undefined,
-    questionTimerPausedBy: undefined,
-    countdownPausedBy: undefined,
-    countdownUnpauseRequestedBy: undefined,
-    countdownPausedAt: undefined,
-    countdownSkipRequestedBy: undefined,
-  };
-}
-
-function getBossAttemptEndFields(): Partial<Doc<"duels">> {
-  return {
-    status: "completed",
-    questionStartTime: undefined,
-    questionTimerPausedAt: undefined,
-    questionTimerPausedBy: undefined,
-    ...getHintClearFields(),
-  };
-}
-
-function isBossAttempt(duel: Doc<"duels">): boolean {
-  return Boolean(duel.weeklyGoalId && duel.bossType);
-}
-
-function isLivesAttempt(duel: Doc<"duels">): boolean {
-  return isBossAttempt(duel) || duel.sourceType === "spaced_repetition";
-}
-
-function hasBossLivesLeft(duel: Doc<"duels">): boolean {
-  if (typeof duel.bossLivesRemaining === "number") {
-    return duel.bossLivesRemaining > 0;
-  }
-
-  return duel.challengerPerfectRun === true && duel.opponentPerfectRun === true;
-}
-
-function getBossMissPatch(
-  duel: Doc<"duels">,
-  playerRole: "challenger" | "opponent"
-): Partial<Doc<"duels">> {
-  if (!isLivesAttempt(duel)) {
-    return {};
-  }
-
-  const nextLives = typeof duel.bossLivesRemaining === "number"
-    ? Math.max(0, duel.bossLivesRemaining - 1)
-    : undefined;
-
-  const patch: Partial<Doc<"duels">> = playerRole === "challenger"
-    ? { challengerPerfectRun: false }
-    : { opponentPerfectRun: false };
-
-  if (nextLives === undefined) {
-    return patch;
-  }
-
-  return {
-    ...patch,
-    bossLivesRemaining: nextLives,
-    ...(nextLives === 0 ? getBossAttemptEndFields() : {}),
-  };
-}
-
-function getDuelQuestionOrThrow(
-  duel: Doc<"duels">,
-  questionIndex = duel.currentWordIndex
-) {
-  const question = duel.duelQuestions?.[questionIndex];
-  if (!question) {
-    throw new Error("Duel question data is missing");
-  }
-  return question;
-}
-
-function getHintProviderBonusPatch(
-  duel: Doc<"duels">
-): Partial<Doc<"duels">> {
-  if (
-    duel.hintAccepted !== true ||
-    !duel.hintRequestedBy ||
-    (duel.eliminatedOptions?.length || 0) === 0
-  ) {
-    return {};
-  }
-
-  const currentQuestion = getDuelQuestionOrThrow(duel);
-  const requesterLastAnswer = duel.hintRequestedBy === "challenger"
-    ? duel.challengerLastAnswer
-    : duel.opponentLastAnswer;
-
-  if (requesterLastAnswer !== currentQuestion.correctOption) {
-    return {};
-  }
-
-  if (duel.hintRequestedBy === "challenger") {
-    return {
-      opponentScore: (duel.opponentScore || 0) + HINT_PROVIDER_BONUS,
-    };
-  }
-
-  return {
-    challengerScore: (duel.challengerScore || 0) + HINT_PROVIDER_BONUS,
-  };
-}
+import {
+  getBossMissPatch,
+  getDuelQuestionOrThrow,
+  getHintClearFields,
+  getHintProviderBonusPatch,
+  hasBossLivesLeft,
+  isBossAttempt,
+} from "./rules/duelScoringRules";
 
 async function advanceDuelIfBothAnswered(
   ctx: MutationCtx,
@@ -191,12 +85,18 @@ export const answerDuel = mutation({
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (duel.status !== "active") {
-      throw new Error("Duel is not active");
+      throw new ConvexError({
+        code: "DUEL_NOT_ACTIVE",
+        message: "Duel is not active",
+      });
     }
 
     // Stale answer guard: validate questionIndex matches server state
     if (duel.currentWordIndex !== questionIndex) {
-      throw new Error("Stale answer: question has changed");
+      throw new ConvexError({
+        code: "STALE_ANSWER",
+        message: "Stale answer: question has changed",
+      });
     }
 
     const sessionWords = getSessionWords(duel);
@@ -245,11 +145,17 @@ export const timeoutAnswer = mutation({
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (duel.status !== "active") {
-      throw new Error("Duel is not active");
+      throw new ConvexError({
+        code: "DUEL_NOT_ACTIVE",
+        message: "Duel is not active",
+      });
     }
 
     if (duel.currentWordIndex !== questionIndex) {
-      throw new Error("Stale timeout: question has changed");
+      throw new ConvexError({
+        code: "STALE_TIMEOUT",
+        message: "Stale timeout: question has changed",
+      });
     }
 
     const roleView = forRole(duel, playerRole);

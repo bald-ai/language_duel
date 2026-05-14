@@ -5,7 +5,7 @@ export type FriendRequestPayload = Extract<
   NotificationPayload,
   { friendRequestId: Id<"friendRequests"> }
 >;
-export type WeeklyPlanPayload = Extract<
+export type WeeklyGoalPayload = Extract<
   NotificationPayload,
   { goalId: Id<"weeklyGoals"> }
 >;
@@ -18,9 +18,9 @@ export const isFriendRequestPayload = (
   payload?: NotificationPayload
 ): payload is FriendRequestPayload => !!payload && "friendRequestId" in payload;
 
-export const isWeeklyPlanPayload = (
+export const isWeeklyGoalPayload = (
   payload?: NotificationPayload
-): payload is WeeklyPlanPayload => !!payload && "goalId" in payload;
+): payload is WeeklyGoalPayload => !!payload && "goalId" in payload;
 
 export const isChallengeInvitePayload = (
   payload?: NotificationPayload

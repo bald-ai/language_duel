@@ -42,7 +42,7 @@ describe("FriendListItem", () => {
     expect(onRemoveFriend).toHaveBeenCalledTimes(1);
   });
 
-  it("warns that the weekly plan will be closed", async () => {
+  it("warns that the weekly goal will be closed", async () => {
     const user = userEvent.setup();
 
     render(
@@ -59,7 +59,7 @@ describe("FriendListItem", () => {
 
     expect(
       await screen.findByText(
-        "You also have a weekly plan together. Removing this friend will close it."
+        "You also have a weekly goal together. Removing this friend will close it."
       )
     ).toBeInTheDocument();
   });

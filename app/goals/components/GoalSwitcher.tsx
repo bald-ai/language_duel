@@ -4,42 +4,42 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { GoalWithUsers } from "@/convex/weeklyGoals";
 import { colors } from "@/lib/theme";
 
-interface PlanSwitcherProps {
-    plans: GoalWithUsers[];
+interface GoalSwitcherProps {
+    goals: GoalWithUsers[];
     selectedId: Id<"weeklyGoals"> | null;
     onSelect: (id: Id<"weeklyGoals">) => void;
     onCreateNew: () => void;
 }
 
 /**
- * Horizontal plan switcher for navigating between multiple weekly plans.
+ * Horizontal goal switcher for navigating between multiple weekly goals.
  * Shows partner names and status indicators.
  */
-export function PlanSwitcher({
-    plans,
+export function GoalSwitcher({
+    goals,
     selectedId,
     onSelect,
     onCreateNew,
-}: PlanSwitcherProps) {
-    if (plans.length === 0) return null;
+}: GoalSwitcherProps) {
+    if (goals.length === 0) return null;
 
     return (
         <div
             className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-            {plans.map((plan) => {
-                const isSelected = plan.goal._id === selectedId;
-                const partnerName = plan.viewerRole === "creator"
-                    ? plan.partner?.nickname || plan.partner?.email?.split("@")[0] || "Partner"
-                    : plan.creator?.nickname || plan.creator?.email?.split("@")[0] || "Creator";
-                const isLocked = plan.effectiveStatus === "locked";
-                const isGracePeriod = plan.effectiveStatus === "grace_period";
+            {goals.map((goalWithUsers) => {
+                const isSelected = goalWithUsers.goal._id === selectedId;
+                const partnerName = goalWithUsers.viewerRole === "creator"
+                    ? goalWithUsers.partner?.nickname || goalWithUsers.partner?.email?.split("@")[0] || "Partner"
+                    : goalWithUsers.creator?.nickname || goalWithUsers.creator?.email?.split("@")[0] || "Creator";
+                const isLocked = goalWithUsers.effectiveStatus === "locked";
+                const isGracePeriod = goalWithUsers.effectiveStatus === "grace_period";
 
                 return (
                     <button
-                        key={plan.goal._id}
-                        onClick={() => onSelect(plan.goal._id)}
+                        key={goalWithUsers.goal._id}
+                        onClick={() => onSelect(goalWithUsers.goal._id)}
                         className="flex items-center gap-2 px-3 py-2 rounded-full border-2 whitespace-nowrap transition-all shrink-0"
                         style={{
                             backgroundColor: isSelected
@@ -55,7 +55,7 @@ export function PlanSwitcher({
                                 ? `0 0 8px ${colors.primary.glow}`
                                 : "none",
                         }}
-                        data-testid={`goals-plan-${plan.goal._id}`}
+                        data-testid={`goals-goal-${goalWithUsers.goal._id}`}
                     >
                         {/* Partner initial */}
                         <span
@@ -93,7 +93,7 @@ export function PlanSwitcher({
                 );
             })}
 
-            {/* Create new plan button */}
+            {/* Create new goal button */}
             <button
                 onClick={onCreateNew}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full border-2 border-dashed transition-all shrink-0 hover:opacity-80 whitespace-nowrap"
@@ -103,7 +103,7 @@ export function PlanSwitcher({
                     backgroundColor: `${colors.background.elevated}80`,
                 }}
                 title="Create new goal with a different partner"
-                data-testid="goals-plan-new"
+                data-testid="goals-goal-new"
             >
                 <svg
                     className="w-4 h-4"

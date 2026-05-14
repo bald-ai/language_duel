@@ -14,7 +14,7 @@ import { PartnerSelector } from "./components/PartnerSelector";
 import { GoalThemeList } from "./components/GoalThemeList";
 import { LockButton } from "./components/LockButton";
 import { DeleteGoalButton } from "./components/DeleteGoalButton";
-import { PlanSwitcher } from "./components/PlanSwitcher";
+import { GoalSwitcher } from "./components/GoalSwitcher";
 import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "./constants";
 import { canToggleGoalThemeCompletion } from "./helpers";
 import {
@@ -32,8 +32,8 @@ import {
 import { useCountdown } from "@/app/notifications/hooks/useCountdown";
 import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
 
-// Local storage key for remembering last viewed plan
-const LAST_PLAN_KEY = "language_duel_last_weekly_plan";
+// Local storage key for remembering last viewed goal
+const LAST_GOAL_KEY = "language_duel_last_weekly_goal";
 
 const GoalThemeSelector = dynamic(
   () => import("./components/GoalThemeSelector").then((mod) => mod.GoalThemeSelector),
@@ -106,20 +106,20 @@ export default function GoalsPage() {
   const [endDateInput, setEndDateInput] = useState("");
   const [isSavingEndDate, setIsSavingEndDate] = useState(false);
 
-  // All plans state
-  const [selectedPlanId, setSelectedPlanId] = useState<Id<"weeklyGoals"> | null>(null);
+  // All goals state
+  const [selectedGoalId, setSelectedGoalId] = useState<Id<"weeklyGoals"> | null>(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Queries - reactive and cached
   const friends = useQuery(api.friends.getFriends);
-  const allPlans = useQuery(api.weeklyGoals.getVisibleGoals);
-  const selectedPlan = useQuery(
+  const allGoals = useQuery(api.weeklyGoals.getVisibleGoals);
+  const selectedGoal = useQuery(
     api.weeklyGoals.getGoalById,
-    selectedPlanId ? { goalId: selectedPlanId } : "skip"
+    selectedGoalId ? { goalId: selectedGoalId } : "skip"
   );
   const weeklyGoalPracticeThemes = useQuery(
     api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    showPracticeModal && selectedPlanId ? { weeklyGoalId: selectedPlanId } : "skip"
+    showPracticeModal && selectedGoalId ? { weeklyGoalId: selectedGoalId } : "skip"
   );
 
   // Mutations
@@ -134,59 +134,59 @@ export default function GoalsPage() {
 
   // Initial selection and periodic expiry cleanup
   useEffect(() => {
-    if (!allPlans || initialLoadDone) return;
+    if (!allGoals || initialLoadDone) return;
 
-    // Restore last viewed plan or select first
-    if (allPlans.length > 0) {
-      const lastPlanId = localStorage.getItem(LAST_PLAN_KEY);
-      const planExists = allPlans.some((p) => p.goal._id === lastPlanId);
-      const targetId = planExists ? (lastPlanId as Id<"weeklyGoals">) : allPlans[0].goal._id;
-      setSelectedPlanId(targetId);
-      localStorage.setItem(LAST_PLAN_KEY, targetId);
+    // Restore last viewed goal or select first
+    if (allGoals.length > 0) {
+      const lastGoalId = localStorage.getItem(LAST_GOAL_KEY);
+      const goalExists = allGoals.some((p) => p.goal._id === lastGoalId);
+      const targetId = goalExists ? (lastGoalId as Id<"weeklyGoals">) : allGoals[0].goal._id;
+      setSelectedGoalId(targetId);
+      localStorage.setItem(LAST_GOAL_KEY, targetId);
     }
     setInitialLoadDone(true);
 
     // Move overdue goals into grace period and delete goals past retention.
     void syncGracePeriodGoals();
-  }, [allPlans, initialLoadDone, syncGracePeriodGoals]);
+  }, [allGoals, initialLoadDone, syncGracePeriodGoals]);
 
   // Update localStorage when selection changes
   useEffect(() => {
-    if (selectedPlanId) {
-      localStorage.setItem(LAST_PLAN_KEY, selectedPlanId);
+    if (selectedGoalId) {
+      localStorage.setItem(LAST_GOAL_KEY, selectedGoalId);
     }
-  }, [selectedPlanId]);
+  }, [selectedGoalId]);
 
   useEffect(() => {
-    setEndDateInput(formatDateInputValue(selectedPlan?.goal?.endDate));
-  }, [selectedPlan?.goal?.endDate, selectedPlan?.goal?._id]);
+    setEndDateInput(formatDateInputValue(selectedGoal?.goal?.endDate));
+  }, [selectedGoal?.goal?.endDate, selectedGoal?.goal?._id]);
 
-  // Ensure a valid plan is always selected when plans exist
+  // Ensure a valid goal is always selected when goals exist
   useEffect(() => {
-    if (!allPlans || allPlans.length === 0) return;
+    if (!allGoals || allGoals.length === 0) return;
     if (!initialLoadDone) return; // Don't interfere with initial load
 
-    // Check if selectedPlan is null and selectedPlanId is either null or not found in allPlans
-    const planExists = selectedPlanId && allPlans.some((p) => p.goal._id === selectedPlanId);
+    // Check if selectedGoal is null and selectedGoalId is either null or not found in allGoals
+    const goalExists = selectedGoalId && allGoals.some((p) => p.goal._id === selectedGoalId);
 
-    if (selectedPlan === null && !planExists) {
-      // Select the first available plan
-      const firstPlanId = allPlans[0].goal._id;
-      setSelectedPlanId(firstPlanId);
-      localStorage.setItem(LAST_PLAN_KEY, firstPlanId);
+    if (selectedGoal === null && !goalExists) {
+      // Select the first available goal
+      const firstGoalId = allGoals[0].goal._id;
+      setSelectedGoalId(firstGoalId);
+      localStorage.setItem(LAST_GOAL_KEY, firstGoalId);
     }
-  }, [allPlans, selectedPlan, selectedPlanId, initialLoadDone]);
+  }, [allGoals, selectedGoal, selectedGoalId, initialLoadDone]);
 
-  const deleteAt = getGoalDeleteAt(selectedPlan?.goal?.endDate);
+  const deleteAt = getGoalDeleteAt(selectedGoal?.goal?.endDate);
   const graceCountdown = useCountdown(deleteAt ?? 0);
   const formattedGraceCountdown = formatGoalGraceCountdown(graceCountdown.timeRemaining);
-  const draftExpiresAt = getGoalDraftExpiresAt(selectedPlan?.goal?.createdAt);
+  const draftExpiresAt = getGoalDraftExpiresAt(selectedGoal?.goal?.createdAt);
   const draftCountdown = useCountdown(draftExpiresAt ?? 0);
   const formattedDraftCountdown = formatGoalGraceCountdown(draftCountdown.timeRemaining);
 
-  // Handle plan selection from switcher
-  const handleSelectPlan = (planId: Id<"weeklyGoals">) => {
-    setSelectedPlanId(planId);
+  // Handle goal selection from switcher
+  const handleSelectGoal = (goalId: Id<"weeklyGoals">) => {
+    setSelectedGoalId(goalId);
     setShowCreationFlow(false);
   };
 
@@ -200,7 +200,7 @@ export default function GoalsPage() {
       setSelectedPartnerId(null);
       setShowCreationFlow(false);
       // Select the newly created goal - query will auto-refresh
-      setSelectedPlanId(newGoalId);
+      setSelectedGoalId(newGoalId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create goal");
     } finally {
@@ -209,11 +209,11 @@ export default function GoalsPage() {
   };
 
   const handleAddThemes = async (themeIds: Id<"themes">[]) => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
     try {
-      const remainingSlots = Math.max(0, MAX_THEMES_PER_GOAL - selectedPlan.goal.themes.length);
+      const remainingSlots = Math.max(0, MAX_THEMES_PER_GOAL - selectedGoal.goal.themes.length);
       const existingThemeIds = new Set(
-        selectedPlan.goal.themes.map((theme) => theme.themeId)
+        selectedGoal.goal.themes.map((theme) => theme.themeId)
       );
       const addedThemeIds = new Set<Id<"themes">>();
       const addPromises: Promise<unknown>[] = [];
@@ -222,7 +222,7 @@ export default function GoalsPage() {
         if (addPromises.length >= remainingSlots) break;
         if (existingThemeIds.has(themeId) || addedThemeIds.has(themeId)) continue;
 
-        addPromises.push(addTheme({ goalId: selectedPlan.goal._id, themeId }));
+        addPromises.push(addTheme({ goalId: selectedGoal.goal._id, themeId }));
         addedThemeIds.add(themeId);
       }
       let fulfilledCount = 0;
@@ -243,9 +243,9 @@ export default function GoalsPage() {
   };
 
   const handleRemoveTheme = async (themeId: Id<"themes">) => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
 
-    const { goal, viewerRole, creator, partner } = selectedPlan;
+    const { goal, viewerRole, creator, partner } = selectedGoal;
     const lockedRole = goal.creatorLocked
       ? "creator"
       : goal.partnerLocked
@@ -269,9 +269,9 @@ export default function GoalsPage() {
   };
 
   const handleToggleCompletion = async (themeId: Id<"themes">) => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
     try {
-      await toggleCompletion({ goalId: selectedPlan.goal._id, themeId });
+      await toggleCompletion({ goalId: selectedGoal.goal._id, themeId });
       // Query will auto-refresh
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update");
@@ -279,19 +279,19 @@ export default function GoalsPage() {
   };
 
   const handleLock = async () => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
 
-    if (selectedPlan.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) {
+    if (selectedGoal.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) {
       toast.error(`Add at least ${MIN_THEMES_TO_LOCK_GOAL} themes before locking.`);
       return;
     }
-    if (typeof selectedPlan.goal.endDate !== "number") {
+    if (typeof selectedGoal.goal.endDate !== "number") {
       toast.error("Pick an end date before locking.");
       return;
     }
 
     try {
-      await lockGoal({ goalId: selectedPlan.goal._id });
+      await lockGoal({ goalId: selectedGoal.goal._id });
       toast.success("Goal locked!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to lock goal");
@@ -299,7 +299,7 @@ export default function GoalsPage() {
   };
 
   const handlePracticeGoalThemes = () => {
-    if (!selectedPlan?.goal || selectedPlan.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) return;
+    if (!selectedGoal?.goal || selectedGoal.goal.themes.length < MIN_THEMES_TO_LOCK_GOAL) return;
     setShowPracticeModal(true);
   };
 
@@ -308,11 +308,11 @@ export default function GoalsPage() {
     mode: SoloMode,
     durationSeconds?: number
   ) => {
-    if (!selectedPlan?.goal || themeIds.length === 0) return;
+    if (!selectedGoal?.goal || themeIds.length === 0) return;
 
     router.push(
       buildSoloUrl(crypto.randomUUID(), mode, {
-        weeklyGoalId: selectedPlan.goal._id,
+        weeklyGoalId: selectedGoal.goal._id,
         themeIds,
         durationSeconds,
         returnTo: "/goals",
@@ -323,10 +323,10 @@ export default function GoalsPage() {
   };
 
   const handleDelete = async () => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
     try {
-      await deleteGoal({ goalId: selectedPlan.goal._id });
-      setSelectedPlanId(null);
+      await deleteGoal({ goalId: selectedGoal.goal._id });
+      setSelectedGoalId(null);
       // Query will auto-refresh
       toast.success("Goal deleted");
     } catch (error) {
@@ -335,7 +335,7 @@ export default function GoalsPage() {
   };
 
   const handleSaveEndDate = async (dateValue: string) => {
-    if (!selectedPlan?.goal) return;
+    if (!selectedGoal?.goal) return;
 
     const timestamp = toLocalEndOfDayTimestamp(dateValue);
     if (timestamp == null) return;
@@ -343,7 +343,7 @@ export default function GoalsPage() {
     setIsSavingEndDate(true);
     try {
       await setGoalEndDate({
-        goalId: selectedPlan.goal._id,
+        goalId: selectedGoal.goal._id,
         endDate: timestamp,
       });
     } catch (error) {
@@ -354,7 +354,7 @@ export default function GoalsPage() {
   };
 
   // Loading state
-  if (allPlans === undefined || friends === undefined) {
+  if (allGoals === undefined || friends === undefined) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -368,11 +368,11 @@ export default function GoalsPage() {
   }
 
   // Filter out friends who already have a visible goal with the user.
-  // Since max 1 goal per pair is enforced, we exclude anyone already in allPlans
+  // Since max 1 goal per pair is enforced, we exclude anyone already in allGoals
   const existingPartnerIds = new Set(
-    allPlans?.flatMap(plan => [
-      plan.partner?._id,
-      plan.creator?._id,
+    allGoals?.flatMap((goalWithUsers) => [
+      goalWithUsers.partner?._id,
+      goalWithUsers.creator?._id,
     ].filter(Boolean)) ?? []
   );
   const availableFriends = friends?.filter(
@@ -380,49 +380,49 @@ export default function GoalsPage() {
   ) ?? [];
 
   // Determine current state
-  const hasPlans = allPlans.length > 0;
-  const hasPlanSelected = selectedPlan != null; // handles both null and undefined
-  const effectiveStatus = selectedPlan?.effectiveStatus;
+  const hasGoals = allGoals.length > 0;
+  const hasGoalSelected = selectedGoal != null; // handles both null and undefined
+  const effectiveStatus = selectedGoal?.effectiveStatus;
   const isDraft = effectiveStatus === "draft";
   const isGracePeriod = effectiveStatus === "grace_period";
   const canAddThemes =
     isDraft &&
-    hasPlanSelected &&
-    selectedPlan.goal.themes.length < MAX_THEMES_PER_GOAL;
+    hasGoalSelected &&
+    selectedGoal.goal.themes.length < MAX_THEMES_PER_GOAL;
   const viewerLocked =
-    hasPlanSelected &&
-    ((selectedPlan.viewerRole === "creator" && selectedPlan.goal.creatorLocked) ||
-      (selectedPlan.viewerRole === "partner" && selectedPlan.goal.partnerLocked));
+    hasGoalSelected &&
+    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.creatorLocked) ||
+      (selectedGoal.viewerRole === "partner" && selectedGoal.goal.partnerLocked));
   const partnerLocked =
-    hasPlanSelected &&
-    ((selectedPlan.viewerRole === "creator" && selectedPlan.goal.partnerLocked) ||
-      (selectedPlan.viewerRole === "partner" && selectedPlan.goal.creatorLocked));
+    hasGoalSelected &&
+    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.partnerLocked) ||
+      (selectedGoal.viewerRole === "partner" && selectedGoal.goal.creatorLocked));
   const canToggleThemeCompletion = canToggleGoalThemeCompletion({
     effectiveStatus,
   });
   const hasEnoughThemesToLock =
-    hasPlanSelected && selectedPlan.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
+    hasGoalSelected && selectedGoal.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
   const canPracticeGoalThemes = Boolean(hasEnoughThemesToLock);
-  const hasEndDate = hasPlanSelected && typeof selectedPlan.goal.endDate === "number";
-  const canEditEndDate = Boolean(selectedPlan?.canEditEndDate);
+  const hasEndDate = hasGoalSelected && typeof selectedGoal.goal.endDate === "number";
+  const canEditEndDate = Boolean(selectedGoal?.canEditEndDate);
   const allSelectedThemesCompleted = Boolean(
-    selectedPlan &&
-    selectedPlan.goal.themes.length > 0 &&
-    selectedPlan.completedThemeCount === selectedPlan.goal.themes.length
+    selectedGoal &&
+    selectedGoal.goal.themes.length > 0 &&
+    selectedGoal.completedThemeCount === selectedGoal.goal.themes.length
   );
   const miniBossDisplayStatus = allSelectedThemesCompleted
     ? "unavailable"
-    : selectedPlan?.miniBossStatus ?? "unavailable";
+    : selectedGoal?.miniBossStatus ?? "unavailable";
   const miniBossLabel = allSelectedThemesCompleted
     ? "All themes completed - Do big boss!"
-    : selectedPlan
-      ? formatBossStatus(selectedPlan.miniBossStatus)
+    : selectedGoal
+      ? formatBossStatus(selectedGoal.miniBossStatus)
       : "";
-  const startDate = selectedPlan?.goal?.lockedAt
-    ? formatDate(selectedPlan.goal.lockedAt)
+  const startDate = selectedGoal?.goal?.lockedAt
+    ? formatDate(selectedGoal.goal.lockedAt)
     : null;
-  const endDate = selectedPlan?.goal?.endDate
-    ? formatDate(selectedPlan.goal.endDate)
+  const endDate = selectedGoal?.goal?.endDate
+    ? formatDate(selectedGoal.goal.endDate)
     : null;
 
   return (
@@ -461,18 +461,18 @@ export default function GoalsPage() {
           </h1>
         </header>
 
-        {/* Plan Switcher - show when user has plans */}
-        {hasPlans && (
-          <PlanSwitcher
-            plans={allPlans}
-            selectedId={selectedPlanId}
-            onSelect={handleSelectPlan}
+        {/* Goal Switcher - show when user has goals */}
+        {hasGoals && (
+          <GoalSwitcher
+            goals={allGoals}
+            selectedId={selectedGoalId}
+            onSelect={handleSelectGoal}
             onCreateNew={() => setShowCreationFlow(true)}
           />
         )}
 
-        {/* Creation Flow - show when no plans OR user clicked + */}
-        {(!hasPlans || showCreationFlow) && (
+        {/* Creation Flow - show when no goals OR user clicked + */}
+        {(!hasGoals || showCreationFlow) && (
           <section
             className="rounded-2xl border-2 p-6 space-y-6"
             style={{
@@ -488,7 +488,7 @@ export default function GoalsPage() {
                 Create a Weekly Goal
               </h2>
               <p style={{ color: colors.text.muted }} className="text-sm">
-                Pick a partner, choose themes, and set a finish date for your shared plan
+                Pick a partner, choose themes, and set a finish date for your shared goal
               </p>
             </div>
 
@@ -530,8 +530,8 @@ export default function GoalsPage() {
           </section>
         )}
 
-        {/* Selected Plan Display */}
-        {selectedPlan && !showCreationFlow && (
+        {/* Selected Goal Display */}
+        {selectedGoal && !showCreationFlow && (
           <>
             {/* Partner Display Header */}
             <section
@@ -552,17 +552,17 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {selectedPlan.creator?.nickname?.charAt(0).toUpperCase() ||
-                        selectedPlan.creator?.email?.charAt(0).toUpperCase() ||
+                      {selectedGoal.creator?.nickname?.charAt(0).toUpperCase() ||
+                        selectedGoal.creator?.email?.charAt(0).toUpperCase() ||
                         "?"}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {selectedPlan.creator?.nickname || selectedPlan.creator?.email?.split("@")[0]}
+                      {selectedGoal.creator?.nickname || selectedGoal.creator?.email?.split("@")[0]}
                     </p>
-                    {selectedPlan.goal.creatorLocked && (
+                    {selectedGoal.goal.creatorLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
                     )}
                   </div>
@@ -581,7 +581,7 @@ export default function GoalsPage() {
                         : "Draft phase"}
                   </p>
                   <p className="text-xs" style={{ color: colors.text.muted }}>
-                    {formatGoalStatus(selectedPlan.effectiveStatus)}
+                    {formatGoalStatus(selectedGoal.effectiveStatus)}
                   </p>
                 </div>
 
@@ -595,17 +595,17 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {selectedPlan.partner?.nickname?.charAt(0).toUpperCase() ||
-                        selectedPlan.partner?.email?.charAt(0).toUpperCase() ||
+                      {selectedGoal.partner?.nickname?.charAt(0).toUpperCase() ||
+                        selectedGoal.partner?.email?.charAt(0).toUpperCase() ||
                         "?"}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {selectedPlan.partner?.nickname || selectedPlan.partner?.email?.split("@")[0]}
+                      {selectedGoal.partner?.nickname || selectedGoal.partner?.email?.split("@")[0]}
                     </p>
-                    {selectedPlan.goal.partnerLocked && (
+                    {selectedGoal.goal.partnerLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
                     )}
                   </div>
@@ -698,14 +698,14 @@ export default function GoalsPage() {
                         borderColor: colors.neutral.light,
                         color: colors.text.muted,
                       }}
-                      data-testid="goals-planning-expiry"
+                      data-testid="goals-draft-expiry"
                     >
                       <p className="text-sm">
                         Draft expires in{" "}
                         <span
                           className="font-semibold tabular-nums"
                           style={{ color: colors.text.DEFAULT }}
-                          data-testid="goals-planning-countdown"
+                          data-testid="goals-draft-countdown"
                         >
                           {formattedDraftCountdown}
                         </span>
@@ -721,7 +721,7 @@ export default function GoalsPage() {
                       onChange={(event) => {
                         const value = event.target.value;
                         setEndDateInput(value);
-                        if (value && value !== formatDateInputValue(selectedPlan.goal.endDate)) {
+                        if (value && value !== formatDateInputValue(selectedGoal.goal.endDate)) {
                           void handleSaveEndDate(value);
                         }
                       }}
@@ -761,7 +761,7 @@ export default function GoalsPage() {
                 </p>
                 <div className="flex items-center gap-2">
                   <p className="text-sm" style={{ color: colors.text.muted }}>
-                    Shared themes: {selectedPlan.completedThemeCount}/{selectedPlan.goal.themes.length}
+                    Shared themes: {selectedGoal.completedThemeCount}/{selectedGoal.goal.themes.length}
                   </p>
                   <details className="relative">
                     <summary
@@ -802,11 +802,11 @@ export default function GoalsPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    if (!allSelectedThemesCompleted && selectedPlan.miniBossStatus === "ready") {
-                      router.push(`/boss/${selectedPlan.goal._id}/mini`);
+                    if (!allSelectedThemesCompleted && selectedGoal.miniBossStatus === "ready") {
+                      router.push(`/boss/${selectedGoal.goal._id}/mini`);
                     }
                   }}
-                  disabled={allSelectedThemesCompleted || isBossButtonDisabled(selectedPlan.miniBossStatus)}
+                  disabled={allSelectedThemesCompleted || isBossButtonDisabled(selectedGoal.miniBossStatus)}
                   className="flex-1 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:opacity-60"
                   style={getBossButtonStyle(miniBossDisplayStatus)}
                   data-testid="goals-mini-boss-trigger"
@@ -820,20 +820,20 @@ export default function GoalsPage() {
                 </button>
                 <button
                   onClick={() => {
-                    if (selectedPlan.bossStatus === "ready") {
-                      router.push(`/boss/${selectedPlan.goal._id}/big`);
+                    if (selectedGoal.bossStatus === "ready") {
+                      router.push(`/boss/${selectedGoal.goal._id}/big`);
                     }
                   }}
-                  disabled={isBossButtonDisabled(selectedPlan.bossStatus)}
+                  disabled={isBossButtonDisabled(selectedGoal.bossStatus)}
                   className="flex-1 rounded-xl border-2 px-3 py-2 text-left transition-all disabled:opacity-60"
-                  style={getBossButtonStyle(selectedPlan.bossStatus)}
+                  style={getBossButtonStyle(selectedGoal.bossStatus)}
                   data-testid="goals-big-boss-trigger"
                 >
                   <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
                     Big Boss
                   </p>
                   <p className="font-semibold" style={{ color: colors.text.DEFAULT }}>
-                    {formatBossStatus(selectedPlan.bossStatus)}
+                    {formatBossStatus(selectedGoal.bossStatus)}
                   </p>
                 </button>
               </div>
@@ -842,14 +842,14 @@ export default function GoalsPage() {
                   All themes completed - Do big boss!
                 </p>
               )}
-              {!isDraft && !allSelectedThemesCompleted && selectedPlan.miniBossStatus === "unavailable" && (
+              {!isDraft && !allSelectedThemesCompleted && selectedGoal.miniBossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
-                  Mini boss unlocks when {getMiniBossUnlockThreshold(selectedPlan.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedPlan.goal.themes.length) === 1 ? " is" : "s are"} done.
+                  Mini boss unlocks when {getMiniBossUnlockThreshold(selectedGoal.goal.themes.length)} theme{getMiniBossUnlockThreshold(selectedGoal.goal.themes.length) === 1 ? " is" : "s are"} done.
                 </p>
               )}
-              {!isDraft && !allSelectedThemesCompleted && selectedPlan.miniBossStatus !== "unavailable" && selectedPlan.bossStatus === "unavailable" && (
+              {!isDraft && !allSelectedThemesCompleted && selectedGoal.miniBossStatus !== "unavailable" && selectedGoal.bossStatus === "unavailable" && (
                 <p className="text-xs" style={{ color: colors.text.muted }}>
-                  {selectedPlan.miniBossStatus === "ready"
+                  {selectedGoal.miniBossStatus === "ready"
                     ? "Tap Mini Boss to start, or complete all themes to unlock the big boss."
                     : "Complete all themes to unlock the big boss."}
                 </p>
@@ -888,8 +888,8 @@ export default function GoalsPage() {
 
             {/* Theme List */}
             <GoalThemeList
-              themes={selectedPlan.goal.themes}
-              viewerRole={selectedPlan.viewerRole}
+              themes={selectedGoal.goal.themes}
+              viewerRole={selectedGoal.viewerRole}
               isEditing={isDraft}
               canToggle={canToggleThemeCompletion}
               onToggle={handleToggleCompletion}
@@ -908,12 +908,12 @@ export default function GoalsPage() {
                 }}
                 data-testid="goals-add-theme"
               >
-                + Add Theme ({selectedPlan.goal.themes.length}/{MAX_THEMES_PER_GOAL})
+                + Add Theme ({selectedGoal.goal.themes.length}/{MAX_THEMES_PER_GOAL})
               </button>
             )}
 
             {/* Theme count at max */}
-            {isDraft && selectedPlan.goal.themes.length >= MAX_THEMES_PER_GOAL && (
+            {isDraft && selectedGoal.goal.themes.length >= MAX_THEMES_PER_GOAL && (
               <p
                 className="text-center text-sm"
                 style={{ color: colors.text.muted }}
@@ -940,7 +940,7 @@ export default function GoalsPage() {
             )}
 
             {/* Delete Button */}
-            {selectedPlan && (
+            {selectedGoal && (
               <DeleteGoalButton onDelete={handleDelete} />
             )}
 
@@ -979,19 +979,19 @@ export default function GoalsPage() {
         )}
 
         {/* Theme Selector Modal */}
-        {showThemeSelector && selectedPlan?.goal && (
+        {showThemeSelector && selectedGoal?.goal && (
           <GoalThemeSelector
-            goalId={selectedPlan.goal._id}
-            currentThemeCount={selectedPlan.goal.themes.length}
+            goalId={selectedGoal.goal._id}
+            currentThemeCount={selectedGoal.goal.themes.length}
             onSelect={handleAddThemes}
             onClose={() => setShowThemeSelector(false)}
           />
         )}
 
-        {showPracticeModal && selectedPlan?.goal && (
+        {showPracticeModal && selectedGoal?.goal && (
           weeklyGoalPracticeThemes && weeklyGoalPracticeThemes.ok ? (
             <SoloPracticeModal
-              key={`${selectedPlan.goal._id}:${weeklyGoalPracticeThemes.source}`}
+              key={`${selectedGoal.goal._id}:${weeklyGoalPracticeThemes.source}`}
               themes={weeklyGoalPracticeThemes.themes}
               onContinue={handleContinuePractice}
               onClose={() => setShowPracticeModal(false)}

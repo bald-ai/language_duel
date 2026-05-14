@@ -3,13 +3,17 @@ import { internal } from "../_generated/api";
 import {
   getTimeZoneDateKey,
   getTimeZoneDateParts,
-  isNotificationEnabled,
-  shouldSendWeeklyGoalReminder,
 } from "../../lib/notificationPreferences";
 import {
   WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR,
   WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE,
 } from "../constants";
+import {
+  planDailyReminderEmail,
+  planDraftExpiryDecision,
+  planFixedReminderEmails,
+  planGracePeriodReminderEmail,
+} from "./reminderPlanners";
 
 async function runEmailSend(send: () => Promise<unknown>, context: string) {
   try {
@@ -37,43 +41,23 @@ export const sendWeeklyGoalReminders = internalAction({
           userId,
         });
 
-        if (
-          isNotificationEnabled("weekly_goal_reminder_1", prefs) &&
-          shouldSendWeeklyGoalReminder(
-            goal,
-            now,
-            prefs.weeklyGoalReminder1OffsetMinutes
-          )
-        ) {
-          await runEmailSend(
-            () =>
-              ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
-                trigger: "weekly_goal_reminder_1",
-                toUserId: userId,
-                weeklyGoalId: goal._id,
-                reminderOffsetMinutes: prefs.weeklyGoalReminder1OffsetMinutes,
-              }),
-            `weekly goal reminder 1 ${goal._id} for user ${userId}`
-          );
-        }
+        const plannedSends = planFixedReminderEmails({
+          goal,
+          toUserId: userId,
+          now,
+          prefs,
+        });
 
-        if (
-          isNotificationEnabled("weekly_goal_reminder_2", prefs) &&
-          shouldSendWeeklyGoalReminder(
-            goal,
-            now,
-            prefs.weeklyGoalReminder2OffsetMinutes
-          )
-        ) {
+        for (const plannedSend of plannedSends) {
           await runEmailSend(
             () =>
               ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
-                trigger: "weekly_goal_reminder_2",
-                toUserId: userId,
-                weeklyGoalId: goal._id,
-                reminderOffsetMinutes: prefs.weeklyGoalReminder2OffsetMinutes,
+                trigger: plannedSend.trigger,
+                toUserId: plannedSend.toUserId,
+                weeklyGoalId: plannedSend.weeklyGoalId,
+                reminderOffsetMinutes: plannedSend.reminderOffsetMinutes,
               }),
-            `weekly goal reminder 2 ${goal._id} for user ${userId}`
+            `${plannedSend.trigger} ${goal._id} for user ${userId}`
           );
         }
       }
@@ -109,17 +93,23 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
           userId,
         });
 
-        if (!isNotificationEnabled("weekly_goal_daily_reminder", prefs)) {
+        const plannedSend = planDailyReminderEmail({
+          goal,
+          toUserId: userId,
+          dedupeKey: dailyKey,
+          prefs,
+        });
+        if (!plannedSend) {
           continue;
         }
 
         await runEmailSend(
           () =>
             ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
-              trigger: "weekly_goal_daily_reminder",
-              toUserId: userId,
-              weeklyGoalId: goal._id,
-              dedupeKey: dailyKey,
+              trigger: plannedSend.trigger,
+              toUserId: plannedSend.toUserId,
+              weeklyGoalId: plannedSend.weeklyGoalId,
+              dedupeKey: plannedSend.dedupeKey,
             }),
           `daily weekly goal ${goal._id} for user ${userId}`
         );
@@ -134,17 +124,23 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
           userId,
         });
 
-        if (!isNotificationEnabled("weekly_goal_expired_delete_reminder", prefs)) {
+        const plannedSend = planGracePeriodReminderEmail({
+          goal,
+          toUserId: userId,
+          dedupeKey: dailyKey,
+          prefs,
+        });
+        if (!plannedSend) {
           continue;
         }
 
         await runEmailSend(
           () =>
             ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
-              trigger: "weekly_goal_expired_delete_reminder",
-              toUserId: userId,
-              weeklyGoalId: goal._id,
-              dedupeKey: dailyKey,
+              trigger: plannedSend.trigger,
+              toUserId: plannedSend.toUserId,
+              weeklyGoalId: plannedSend.weeklyGoalId,
+              dedupeKey: plannedSend.dedupeKey,
             }),
           `grace weekly goal ${goal._id} for user ${userId}`
         );
@@ -164,7 +160,7 @@ export const sendDraftExpiryReminders = internalAction({
 
     for (const goal of expiringDrafts) {
       const alreadySent = await ctx.runQuery(
-        internal.emails.notificationEmails.checkNotificationSent,
+        internal.emails.emailNotificationLog.checkNotificationSent,
         {
           toUserId: goal.creatorId,
           trigger: "weekly_goal_draft_expiring",
@@ -172,7 +168,15 @@ export const sendDraftExpiryReminders = internalAction({
         }
       );
 
-      if (alreadySent) {
+      const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
+        userId: goal.creatorId,
+      });
+
+      const draftDecision = planDraftExpiryDecision({
+        alreadySent,
+        prefs,
+      });
+      if (!draftDecision.shouldCreateInAppNotification) {
         continue;
       }
 
@@ -181,43 +185,19 @@ export const sendDraftExpiryReminders = internalAction({
         now,
       });
 
-      const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
-        userId: goal.creatorId,
-      });
-
-      if (!isNotificationEnabled("weekly_goal_draft_expiring", prefs)) {
-        await ctx.runMutation(
-          internal.emails.notificationEmails.logNotificationSent,
-          {
-            toUserId: goal.creatorId,
-            trigger: "weekly_goal_draft_expiring",
-            weeklyGoalId: goal._id,
-          }
-        );
+      if (!draftDecision.shouldSendEmail) {
         continue;
       }
 
-      await runEmailSend(async () => {
-        const result = await ctx.runAction(
-          internal.emails.notificationEmails.sendNotificationEmail,
-          {
+      await runEmailSend(
+        () =>
+          ctx.runAction(internal.emails.notificationEmails.sendNotificationEmail, {
             trigger: "weekly_goal_draft_expiring",
             toUserId: goal.creatorId,
             weeklyGoalId: goal._id,
-          }
-        );
-
-        if (!result.sent && result.reason !== "already_sent") {
-          await ctx.runMutation(
-            internal.emails.notificationEmails.logNotificationSent,
-            {
-              toUserId: goal.creatorId,
-              trigger: "weekly_goal_draft_expiring",
-              weeklyGoalId: goal._id,
-            }
-          );
-        }
-      }, `draft expiry weekly goal ${goal._id} for user ${goal.creatorId}`);
+          }),
+        `draft expiry weekly goal ${goal._id} for user ${goal.creatorId}`
+      );
     }
   },
 });

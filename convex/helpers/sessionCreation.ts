@@ -78,6 +78,10 @@ export function buildChallengeInvite(args: {
   duelDifficultyPreset?: DuelDifficultyPreset;
   createdAt: number;
 }): ChallengeInviteFields {
+  if (args.challengerId === args.opponentId) {
+    throw new Error("Cannot challenge yourself");
+  }
+
   const themeIds = Array.from(new Set(args.themeIds));
   if (themeIds.length === 0) {
     throw new Error("Challenge requires at least one theme");

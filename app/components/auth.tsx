@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   SignInButton,
@@ -82,6 +82,7 @@ export function LeftNavButtons() {
   // Notification system
   const { notificationCount } = useNotifications();
   const panel = useNotificationPanel();
+  const notificationTriggerRef = useRef<HTMLButtonElement>(null);
 
   if (!isSignedIn) return null;
 
@@ -90,6 +91,7 @@ export function LeftNavButtons() {
       {/* Notification bell */}
       <div className="relative">
         <button
+          ref={notificationTriggerRef}
           onClick={() => {
             if (panel.isOpen) {
               panel.close();
@@ -159,6 +161,7 @@ export function LeftNavButtons() {
         activeTab={panel.activeTab}
         onTabChange={panel.switchTab}
         onClose={panel.close}
+        triggerRef={notificationTriggerRef}
       />
     </div>
   );

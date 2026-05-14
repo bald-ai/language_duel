@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
-  claimNotificationSend,
-  releaseNotificationSendClaim,
   sendNotificationEmail,
 } from "@/convex/emails/notificationEmails";
+import {
+  claimNotificationSend,
+  releaseNotificationSendClaim,
+} from "@/convex/emails/emailNotificationLog";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPreferences";
 import { createIndexedQuery, deleteRow, insertRow } from "./testUtils/inMemoryDb";
 

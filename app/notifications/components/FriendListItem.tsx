@@ -179,7 +179,7 @@ export function FriendListItem({
                         className="text-sm mb-4"
                         style={{ color: colors.status.warning.dark }}
                     >
-                        You also have a weekly plan together. Removing this friend will close it.
+                        You also have a weekly goal together. Removing this friend will close it.
                     </p>
                 )}
                 <div className="flex gap-2">

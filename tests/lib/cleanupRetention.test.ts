@@ -12,7 +12,7 @@ describe("cleanupRetention", () => {
     expect(DISMISSABLE_NOTIFICATION_TYPES).toEqual(
       expect.arrayContaining([
         "friend_request",
-        "weekly_plan_invitation",
+        "weekly_goal_invitation",
         "weekly_goal_draft_expiring",
         "challenge_invite",
       ])

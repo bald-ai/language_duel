@@ -77,7 +77,7 @@ export function getSubjectForTrigger(
       return data.hoursLeft === 0
         ? "Weekly goal ends today"
         : `${data.hoursLeft ?? 0}h left on your weekly goal`;
-    case "weekly_goal_expired_delete_reminder":
+    case "weekly_goal_grace_period_reminder":
       return `Still time left -- ${data.graceHoursLeft ?? 0}h to save this goal`;
     case "weekly_goal_draft_expiring":
       return "Your weekly goal draft expires in 24 hours";
@@ -130,7 +130,7 @@ export function getBodyForTrigger(
         body: `Your weekly goal with ${partner} ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
         cta: "Open Language Duel",
       };
-    case "weekly_goal_expired_delete_reminder":
+    case "weekly_goal_grace_period_reminder":
       return {
         heading: "Grace period, but still winnable",
         body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,

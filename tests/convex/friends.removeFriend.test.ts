@@ -184,7 +184,7 @@ function buildNotification(overrides: Partial<NotificationDoc> = {}): Notificati
   return {
     _id: "notification_1" as Id<"notifications">,
     _creationTime: Date.now(),
-    type: "weekly_plan_invitation",
+    type: "weekly_goal_invitation",
     fromUserId: "user_1" as Id<"users">,
     toUserId: "user_2" as Id<"users">,
     status: "pending",

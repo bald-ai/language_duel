@@ -1,6 +1,6 @@
 export const DISMISSABLE_NOTIFICATION_TYPES = [
   "friend_request",
-  "weekly_plan_invitation",
+  "weekly_goal_invitation",
   "weekly_goal_draft_expiring",
   "challenge_invite",
 ] as const;

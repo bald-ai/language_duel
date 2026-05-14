@@ -17,7 +17,7 @@ import {
   listWeeklyGoalThemeSnapshots,
   loadWeeklyGoalSessionThemesByThemeIds,
 } from "./helpers/weeklyGoalSnapshots";
-import { isWeeklyPlanPayload } from "./notificationPayloads";
+import { isWeeklyGoalPayload } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
 import { GRACE_PERIOD_MS, MIN_GOAL_DURATION_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
 import {
@@ -44,7 +44,7 @@ const MAX_THEMES_PER_GOAL = 10;
 type BossType = "mini" | "big";
 type WeeklyGoalPracticeSource = "live" | "snapshot";
 const WEEKLY_GOAL_NOTIFICATION_TYPES = [
-  "weekly_plan_invitation",
+  "weekly_goal_invitation",
   "weekly_goal_draft_expiring",
 ] as const;
 
@@ -221,7 +221,7 @@ async function dismissGoalNotifications(
 
     for (const notification of notifications) {
       if (
-        isWeeklyPlanPayload(notification.payload) &&
+        isWeeklyGoalPayload(notification.payload) &&
         notification.payload.goalId === goalId
       ) {
         await ctx.db.patch(notification._id, { status: "dismissed" });
@@ -258,14 +258,14 @@ async function dismissGoalNotificationsForParticipants(
       )
     ).flat();
     for (const notification of notifications) {
-      if (!isWeeklyPlanPayload(notification.payload)) continue;
+      if (!isWeeklyGoalPayload(notification.payload)) continue;
       if (!goalIdSet.has(String(notification.payload.goalId))) continue;
       await ctx.db.patch(notification._id, { status: "dismissed" });
     }
   }
 }
 
-async function upsertWeeklyPlanNotificationForGoal(
+async function upsertWeeklyGoalNotificationForGoal(
   ctx: MutationCtx,
   args: {
     toUserId: Id<"users">;
@@ -285,12 +285,12 @@ async function upsertWeeklyPlanNotificationForGoal(
   const existing = await ctx.db
     .query("notifications")
     .withIndex("by_type", (q) =>
-      q.eq("type", "weekly_plan_invitation").eq("toUserId", args.toUserId)
+      q.eq("type", "weekly_goal_invitation").eq("toUserId", args.toUserId)
     )
     .collect();
 
   const matching = existing.find(
-    (n) => isWeeklyPlanPayload(n.payload) && n.payload.goalId === args.goalId
+    (n) => isWeeklyGoalPayload(n.payload) && n.payload.goalId === args.goalId
   );
 
   const payload: NotificationPayload = {
@@ -310,7 +310,7 @@ async function upsertWeeklyPlanNotificationForGoal(
   }
 
   await ctx.db.insert("notifications", {
-    type: "weekly_plan_invitation",
+    type: "weekly_goal_invitation",
     fromUserId: args.fromUserId,
     toUserId: args.toUserId,
     status: "pending",
@@ -461,7 +461,7 @@ export async function completeWeeklyGoalBoss(
   await ensureRepetitionRecordsForCompletedGoal(ctx, goal, now);
 
   const participants = getGoalParticipantIds(goal);
-  await upsertWeeklyPlanNotificationForGoal(ctx, {
+  await upsertWeeklyGoalNotificationForGoal(ctx, {
     toUserId: goal.creatorId,
     fromUserId: goal.partnerId,
     goalId: goal._id,
@@ -469,7 +469,7 @@ export async function completeWeeklyGoalBoss(
     event: "goal_completed",
     createdAt: now,
   });
-  await upsertWeeklyPlanNotificationForGoal(ctx, {
+  await upsertWeeklyGoalNotificationForGoal(ctx, {
     toUserId: goal.partnerId,
     fromUserId: goal.creatorId,
     goalId: goal._id,
@@ -982,7 +982,7 @@ export const createGoal = mutation({
 
     // Notify the partner about the new goal invitation
     await ctx.db.insert("notifications", {
-      type: "weekly_plan_invitation",
+      type: "weekly_goal_invitation",
       fromUserId: user._id,
       toUserId: partnerId,
       status: "pending",
@@ -1113,7 +1113,7 @@ export const removeTheme = mutation({
       lockedParticipantId === goal.creatorId ? goal.partnerId : goal.creatorId;
 
     if (lockedParticipantId !== user._id) {
-      await upsertWeeklyPlanNotificationForGoal(ctx, {
+      await upsertWeeklyGoalNotificationForGoal(ctx, {
         toUserId: lockedParticipantId,
         fromUserId: user._id,
         goalId,
@@ -1390,7 +1390,7 @@ export const lockGoal = mutation({
       updates.lockedAt = now;
 
       // Notify the other user (the one who locked first) in the UI.
-      await upsertWeeklyPlanNotificationForGoal(ctx, {
+      await upsertWeeklyGoalNotificationForGoal(ctx, {
         toUserId: isCreator ? goal.partnerId : goal.creatorId,
         fromUserId: user._id,
         goalId,
@@ -1409,7 +1409,7 @@ export const lockGoal = mutation({
       // First lock - update the existing notification with current theme count
       const otherUserId = isCreator ? goal.partnerId : goal.creatorId;
 
-      await upsertWeeklyPlanNotificationForGoal(ctx, {
+      await upsertWeeklyGoalNotificationForGoal(ctx, {
         toUserId: otherUserId,
         fromUserId: user._id,
         goalId,
@@ -1541,7 +1541,7 @@ export const createDraftExpiryNotification = internalMutation({
 
     const matching = existing.find(
       (notification) =>
-        isWeeklyPlanPayload(notification.payload) &&
+        isWeeklyGoalPayload(notification.payload) &&
         notification.payload.goalId === goal._id &&
         notification.status !== "dismissed"
     );
@@ -1649,7 +1649,7 @@ export const cleanupWeeklyGoalRetention = internalMutation({
   },
 });
 
-export const dismissWeeklyPlanInvitation = mutation({
+export const dismissWeeklyGoalInvitation = mutation({
   args: {
     notificationId: v.id("notifications"),
   },
@@ -1665,7 +1665,7 @@ export const dismissWeeklyPlanInvitation = mutation({
       throw new Error("Not authorized");
     }
 
-    if (notification.type !== "weekly_plan_invitation") {
+    if (notification.type !== "weekly_goal_invitation") {
       throw new Error("Invalid notification type");
     }
 
@@ -1693,11 +1693,11 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
       throw new Error("Not authorized");
     }
 
-    if (notification.type !== "weekly_plan_invitation") {
+    if (notification.type !== "weekly_goal_invitation") {
       throw new Error("Invalid notification type");
     }
 
-    if (!isWeeklyPlanPayload(notification.payload) || notification.payload.event !== "goal_completed") {
+    if (!isWeeklyGoalPayload(notification.payload) || notification.payload.event !== "goal_completed") {
       throw new Error("Invalid completed goal notification");
     }
 
@@ -1743,7 +1743,7 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
   },
 });
 
-export const declineWeeklyPlanInvitation = mutation({
+export const declineWeeklyGoalInvitation = mutation({
   args: {
     notificationId: v.id("notifications"),
   },
@@ -1759,12 +1759,12 @@ export const declineWeeklyPlanInvitation = mutation({
       throw new Error("Not authorized");
     }
 
-    if (notification.type !== "weekly_plan_invitation") {
+    if (notification.type !== "weekly_goal_invitation") {
       throw new Error("Invalid notification type");
     }
 
-    if (!isWeeklyPlanPayload(notification.payload)) {
-      throw new Error("Weekly plan data is missing");
+    if (!isWeeklyGoalPayload(notification.payload)) {
+      throw new Error("Weekly goal data is missing");
     }
 
     const goal = await ctx.db.get(notification.payload.goalId);
@@ -1790,7 +1790,7 @@ export const declineWeeklyPlanInvitation = mutation({
 
     await dismissGoalNotifications(ctx, goal._id);
 
-    await upsertWeeklyPlanNotificationForGoal(ctx, {
+    await upsertWeeklyGoalNotificationForGoal(ctx, {
       toUserId: goal.creatorId,
       fromUserId: user._id,
       goalId: goal._id,

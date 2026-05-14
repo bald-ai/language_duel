@@ -113,8 +113,8 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
   };
 }
 
-function createCtx(db: InMemoryDb) {
-  return createAuthCtx(db, "clerk_1");
+function createCtx(db: InMemoryDb, clerkId = "clerk_1") {
+  return createAuthCtx(db, clerkId);
 }
 
 const acceptNotificationHandler = (acceptFriendRequestNotification as unknown as {
@@ -171,5 +171,26 @@ describe("friend request notification resolution", () => {
 
     expect(db.friendRequests[0].status).toBe("accepted");
     expect(db.notifications[0].status).toBe("pending");
+  });
+
+  it("accept and reject notification handlers reject wrong users", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }));
+    db.users.push(userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3" }));
+    db.friendRequests.push(friendRequestDoc());
+    db.notifications.push(notificationDoc());
+
+    await expect(
+      acceptNotificationHandler(createCtx(db, "clerk_2"), {
+        notificationId: "notification_1" as Id<"notifications">,
+      })
+    ).rejects.toThrow("Not authorized");
+
+    await expect(
+      rejectNotificationHandler(createCtx(db, "clerk_3"), {
+        notificationId: "notification_1" as Id<"notifications">,
+      })
+    ).rejects.toThrow("Not authorized");
   });
 });

@@ -108,7 +108,7 @@ const sabotageValidator = v.object({
 // Notification type validator
 export const notificationTypeValidator = v.union(
   v.literal("friend_request"),
-  v.literal("weekly_plan_invitation"),
+  v.literal("weekly_goal_invitation"),
   v.literal("weekly_goal_draft_expiring"),
   v.literal("challenge_invite")
 );
@@ -168,7 +168,7 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_accepted"),
   v.literal("weekly_goal_daily_reminder"),
   v.literal("weekly_goal_draft_expiring"),
-  v.literal("weekly_goal_expired_delete_reminder"),
+  v.literal("weekly_goal_grace_period_reminder"),
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );
@@ -445,20 +445,20 @@ export default defineSchema({
     userId: v.id("users"),
 
     // Challenge Invites
-    challengeInvitesEnabled: v.boolean(),
+    challengeInviteEmailsEnabled: v.boolean(),
     challengeInviteEmailEnabled: v.boolean(),
 
     // Weekly Goals
-    weeklyGoalsEnabled: v.boolean(),
-    weeklyGoalInviteEnabled: v.boolean(),
-    weeklyGoalAcceptedEnabled: v.boolean(),
-    weeklyGoalLockedEnabled: v.boolean(),
-    weeklyGoalDailyReminderEnabled: v.boolean(),
-    weeklyGoalGracePeriodReminderEnabled: v.boolean(),
-    weeklyGoalDraftExpiringEnabled: v.boolean(),
-    weeklyGoalReminder1Enabled: v.boolean(),
+    weeklyGoalEmailsEnabled: v.boolean(),
+    weeklyGoalInviteEmailEnabled: v.boolean(),
+    weeklyGoalAcceptedEmailEnabled: v.boolean(),
+    weeklyGoalLockedEmailEnabled: v.boolean(),
+    weeklyGoalDailyReminderEmailEnabled: v.boolean(),
+    weeklyGoalGracePeriodReminderEmailEnabled: v.boolean(),
+    weeklyGoalDraftExpiringEmailEnabled: v.boolean(),
+    weeklyGoalReminder1EmailEnabled: v.boolean(),
     weeklyGoalReminder1OffsetMinutes: v.number(),
-    weeklyGoalReminder2Enabled: v.boolean(),
+    weeklyGoalReminder2EmailEnabled: v.boolean(),
     weeklyGoalReminder2OffsetMinutes: v.number(),
 
     updatedAt: v.number(),

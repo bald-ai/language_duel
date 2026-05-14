@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { colors } from "@/lib/theme";
+import { getErrorMessage } from "@/lib/errors";
 import { useNotifications } from "../hooks/useNotifications";
 import { NotificationItem } from "./NotificationItem";
 import { toast } from "sonner";
@@ -18,15 +19,12 @@ const hasGoalId = (
 ): payload is { goalId: Id<"weeklyGoals"> } =>
     isRecord(payload) && "goalId" in payload;
 
-const getErrorMessage = (error: unknown, fallback: string) =>
-    error instanceof Error ? error.message : fallback;
-
 /**
  * NotificationsTab - Display all notification types with actions
  * 
  * Features:
  * - Friend requests with accept/reject actions
- * - Weekly plan invitations with view/decline actions
+ * - Weekly goal invitations with view/decline actions
  * - Challenge invites with accept/decline actions
  */
 export function NotificationsTab({ onClose }: NotificationsTabProps) {
@@ -73,14 +71,14 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleViewWeeklyPlan = (_goalId?: Id<"weeklyGoals">) => {
+    const handleViewWeeklyGoal = (_goalId?: Id<"weeklyGoals">) => {
         onClose();
         router.push("/goals");
     };
 
-    const handleDismissWeeklyPlan = async (notificationId: Id<"notifications">) => {
+    const handleDismissWeeklyGoal = async (notificationId: Id<"notifications">) => {
         try {
-            await actions.dismissWeeklyPlanInvitation(notificationId);
+            await actions.dismissWeeklyGoalInvitation(notificationId);
         } catch (error) {
             toast.error(getErrorMessage(error, "Failed to dismiss notification"));
         }
@@ -101,9 +99,9 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleDeclineWeeklyPlanInvitation = async (notificationId: Id<"notifications">) => {
+    const handleDeclineWeeklyGoalInvitation = async (notificationId: Id<"notifications">) => {
         try {
-            await actions.declineWeeklyPlanInvitation(notificationId);
+            await actions.declineWeeklyGoalInvitation(notificationId);
             toast.success("Weekly goal invitation declined");
         } catch (error) {
             toast.error(getErrorMessage(error, "Failed to decline weekly goal invitation"));
@@ -157,10 +155,10 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
                         onRejectFriendRequest={() => handleRejectFriendRequest(notification._id)}
                         onAcceptChallenge={() => handleAcceptChallenge(notification._id)}
                         onDeclineChallenge={() => handleDeclineChallenge(notification._id)}
-                        onViewWeeklyPlan={() => handleViewWeeklyPlan(goalId)}
-                        onDismissWeeklyPlan={() => handleDismissWeeklyPlan(notification._id)}
+                        onViewWeeklyGoal={() => handleViewWeeklyGoal(goalId)}
+                        onDismissWeeklyGoal={() => handleDismissWeeklyGoal(notification._id)}
                         onArchiveCompletedGoalThemes={() => handleArchiveCompletedGoalThemes(notification._id)}
-                        onDeclineWeeklyPlan={() => handleDeclineWeeklyPlanInvitation(notification._id)}
+                        onDeclineWeeklyGoal={() => handleDeclineWeeklyGoalInvitation(notification._id)}
                         onDismiss={() => handleDismissNotification(notification._id)}
                     />
                 );

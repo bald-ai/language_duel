@@ -30,8 +30,8 @@ const makeActions = (overrides: Record<string, unknown> = {}) => ({
   rejectFriendRequest: vi.fn(),
   acceptChallenge: vi.fn(),
   declineChallenge: vi.fn(),
-  dismissWeeklyPlanInvitation: vi.fn(),
-  declineWeeklyPlanInvitation: vi.fn(),
+  dismissWeeklyGoalInvitation: vi.fn(),
+  declineWeeklyGoalInvitation: vi.fn(),
   archiveCompletedGoalThemes: vi.fn(),
   ...overrides,
 });
@@ -88,12 +88,12 @@ describe("NotificationsTab theme actions", () => {
     expect(screen.getByTestId("notifications-empty-state")).toBeInTheDocument();
   });
 
-  it("renders goal unlocked weekly-plan notifications with review actions", () => {
+  it("renders goal unlocked weekly-goal notifications with review actions", () => {
     useNotificationsMock.mockReturnValue({
       notifications: [
         {
           _id: "notif_goal_unlock",
-          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION,
           fromUser: { nickname: "Alex" },
           payload: {
             goalId: "goal_1",
@@ -111,8 +111,8 @@ describe("NotificationsTab theme actions", () => {
 
     render(<NotificationsTab onClose={vi.fn()} />);
 
-    expect(screen.getByTestId("notification-notif_goal_unlock-view-weekly-plan")).toBeInTheDocument();
-    expect(screen.getByTestId("notification-notif_goal_unlock-dismiss-weekly-plan")).toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_unlock-view-weekly-goal")).toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_unlock-dismiss-weekly-goal")).toBeInTheDocument();
   });
 
   it("archives completed weekly-goal themes from the notification", async () => {
@@ -121,7 +121,7 @@ describe("NotificationsTab theme actions", () => {
       notifications: [
         {
           _id: "notif_goal_completed",
-          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION,
           fromUser: { nickname: "Alex" },
           payload: {
             goalId: "goal_1",
@@ -153,7 +153,7 @@ describe("NotificationsTab theme actions", () => {
       notifications: [
         {
           _id: "notif_goal_completed",
-          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION,
           fromUser: { nickname: "Alex" },
           payload: {
             goalId: "goal_1",
@@ -205,7 +205,7 @@ describe("NotificationsTab theme actions", () => {
       notifications: [
         {
           _id: "notif_goal_invite",
-          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION,
           fromUser: { nickname: "Alex" },
           payload: {
             goalId: "goal_1",
@@ -216,7 +216,7 @@ describe("NotificationsTab theme actions", () => {
         },
         {
           _id: "notif_goal_declined",
-          type: NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION,
+          type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION,
           fromUser: { nickname: "Alex" },
           payload: {
             goalId: "goal_2",
@@ -233,8 +233,8 @@ describe("NotificationsTab theme actions", () => {
 
     render(<NotificationsTab onClose={vi.fn()} />);
 
-    expect(screen.getByTestId("notification-notif_goal_invite-decline-weekly-plan")).toBeInTheDocument();
-    expect(screen.queryByTestId("notification-notif_goal_declined-view-weekly-plan")).not.toBeInTheDocument();
-    expect(screen.getByTestId("notification-notif_goal_declined-dismiss-weekly-plan")).toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_invite-decline-weekly-goal")).toBeInTheDocument();
+    expect(screen.queryByTestId("notification-notif_goal_declined-view-weekly-goal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("notification-notif_goal_declined-dismiss-weekly-goal")).toBeInTheDocument();
   });
 });

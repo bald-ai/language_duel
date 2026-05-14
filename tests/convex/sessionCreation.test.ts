@@ -117,6 +117,15 @@ describe("session creation helpers", () => {
     expect(() =>
       buildChallengeInvite({
         challengerId: "user_1" as Id<"users">,
+        opponentId: "user_1" as Id<"users">,
+        themeIds: ["theme_1" as Id<"themes">],
+        createdAt: 1,
+      })
+    ).toThrow("Cannot challenge yourself");
+
+    expect(() =>
+      buildChallengeInvite({
+        challengerId: "user_1" as Id<"users">,
         opponentId: "user_2" as Id<"users">,
         themeIds: [],
         createdAt: 1,

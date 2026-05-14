@@ -230,12 +230,12 @@ describe("DuelSession", () => {
     await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
 
     act(() => {
-      getDuelViewProps().onOptionClick("gato", false, false);
+      getDuelViewProps().actions.onOptionClick("gato", false, false);
     });
-    await waitFor(() => expect(getDuelViewProps().selectedAnswer).toBe("gato"));
+    await waitFor(() => expect(getDuelViewProps().answers.selectedAnswer).toBe("gato"));
 
     await act(async () => {
-      await getDuelViewProps().onConfirmAnswer();
+      await getDuelViewProps().actions.onConfirmAnswer();
     });
 
     rerender(
@@ -254,7 +254,7 @@ describe("DuelSession", () => {
     );
 
     await waitFor(() => expect(getDuelViewProps().phase).toBe("transition"));
-    expect(getDuelViewProps().frozenData).toMatchObject({
+    expect(getDuelViewProps().round.frozenData).toMatchObject({
       word: "cat",
       correctAnswer: "gato",
       shuffledAnswers: ["gato", "perro", "mesa", "casa"],
@@ -268,7 +268,10 @@ describe("DuelSession", () => {
   it("auto-submits timeout without showing toasts for expected race failures", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
-    mutationMocks.timeoutAnswer.mockRejectedValue(new Error("Duel is not active"));
+    mutationMocks.timeoutAnswer.mockRejectedValue({
+      message: "Unexpected timeout race",
+      data: { code: "DUEL_NOT_ACTIVE" },
+    });
 
     render(
       <DuelSession
@@ -295,7 +298,10 @@ describe("DuelSession", () => {
   it("auto-submits timeout without showing toasts for stale timeout races", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
-    mutationMocks.timeoutAnswer.mockRejectedValue(new Error("Stale timeout: question has changed"));
+    mutationMocks.timeoutAnswer.mockRejectedValue({
+      message: "Unexpected timeout race",
+      data: { code: "STALE_TIMEOUT" },
+    });
 
     render(
       <DuelSession
@@ -320,7 +326,10 @@ describe("DuelSession", () => {
   });
 
   it("does not toast stale answer races", async () => {
-    mutationMocks.answer.mockRejectedValue(new Error("Stale answer: question has changed"));
+    mutationMocks.answer.mockRejectedValue({
+      message: "Unexpected answer race",
+      data: { code: "STALE_ANSWER" },
+    });
 
     render(
       <DuelSession
@@ -334,12 +343,12 @@ describe("DuelSession", () => {
     await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
 
     act(() => {
-      getDuelViewProps().onOptionClick("gato", false, false);
+      getDuelViewProps().actions.onOptionClick("gato", false, false);
     });
 
-    await waitFor(() => expect(getDuelViewProps().selectedAnswer).toBe("gato"));
+    await waitFor(() => expect(getDuelViewProps().answers.selectedAnswer).toBe("gato"));
     await act(async () => {
-      await getDuelViewProps().onConfirmAnswer();
+      await getDuelViewProps().actions.onConfirmAnswer();
     });
 
     expect(toastMocks.error).not.toHaveBeenCalled();
@@ -367,12 +376,12 @@ describe("DuelSession", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(getDuelViewProps().isOutgoingSabotageActive).toBe(true);
+    expect(getDuelViewProps().sabotage.isOutgoingSabotageActive).toBe(true);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_100);
     });
 
-    expect(getDuelViewProps().isOutgoingSabotageActive).toBe(false);
+    expect(getDuelViewProps().sabotage.isOutgoingSabotageActive).toBe(false);
   });
 });

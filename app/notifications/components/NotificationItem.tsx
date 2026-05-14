@@ -38,9 +38,9 @@ interface NotificationItemProps {
     onRejectFriendRequest: () => void;
     onAcceptChallenge: () => void;
     onDeclineChallenge: () => void;
-    onViewWeeklyPlan: () => void;
-    onDeclineWeeklyPlan: () => void;
-    onDismissWeeklyPlan: () => void;
+    onViewWeeklyGoal: () => void;
+    onDeclineWeeklyGoal: () => void;
+    onDismissWeeklyGoal: () => void;
     onArchiveCompletedGoalThemes: () => void;
     onDismiss: () => void;
 }
@@ -60,9 +60,9 @@ export function NotificationItem({
     onRejectFriendRequest,
     onAcceptChallenge,
     onDeclineChallenge,
-    onViewWeeklyPlan,
-    onDeclineWeeklyPlan,
-    onDismissWeeklyPlan,
+    onViewWeeklyGoal,
+    onDeclineWeeklyGoal,
+    onDismissWeeklyGoal,
     onArchiveCompletedGoalThemes,
     onDismiss,
 }: NotificationItemProps) {
@@ -97,7 +97,7 @@ export function NotificationItem({
                     ),
                 };
 
-            case NOTIFICATION_TYPES.WEEKLY_PLAN_INVITATION:
+            case NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION:
                 if (payload?.event === "partner_locked") {
                     return {
                         icon: <CalendarIcon />,
@@ -105,16 +105,16 @@ export function NotificationItem({
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
-                                    onClick={onViewWeeklyPlan}
+                                    onClick={onViewWeeklyGoal}
                                     variant="accept"
-                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-view-weekly-goal`}
                                 >
                                     View
                                 </ActionButton>
                                 <ActionButton
-                                    onClick={onDismissWeeklyPlan}
+                                    onClick={onDismissWeeklyGoal}
                                     variant="dismiss"
-                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
                                 >
                                     Dismiss
                                 </ActionButton>
@@ -129,16 +129,16 @@ export function NotificationItem({
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
-                                    onClick={onViewWeeklyPlan}
+                                    onClick={onViewWeeklyGoal}
                                     variant="accept"
-                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-view-weekly-goal`}
                                 >
                                     View
                                 </ActionButton>
                                 <ActionButton
-                                    onClick={onDismissWeeklyPlan}
+                                    onClick={onDismissWeeklyGoal}
                                     variant="dismiss"
-                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
                                 >
                                     Dismiss
                                 </ActionButton>
@@ -153,16 +153,16 @@ export function NotificationItem({
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
-                                    onClick={onViewWeeklyPlan}
+                                    onClick={onViewWeeklyGoal}
                                     variant="accept"
-                                    dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-view-weekly-goal`}
                                 >
                                     View
                                 </ActionButton>
                                 <ActionButton
-                                    onClick={onDismissWeeklyPlan}
+                                    onClick={onDismissWeeklyGoal}
                                     variant="dismiss"
-                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
                                 >
                                     Dismiss
                                 </ActionButton>
@@ -182,9 +182,9 @@ export function NotificationItem({
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
-                                    onClick={onDismissWeeklyPlan}
+                                    onClick={onDismissWeeklyGoal}
                                     variant="accept"
-                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
                                 >
                                     Nice
                                 </ActionButton>
@@ -206,9 +206,9 @@ export function NotificationItem({
                         actions: (
                             <div className="flex gap-2 mt-3">
                                 <ActionButton
-                                    onClick={onDismissWeeklyPlan}
+                                    onClick={onDismissWeeklyGoal}
                                     variant="dismiss"
-                                    dataTestId={`notification-${notification._id}-dismiss-weekly-plan`}
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
                                 >
                                     OK
                                 </ActionButton>
@@ -218,20 +218,20 @@ export function NotificationItem({
                 }
                 return {
                     icon: <CalendarIcon />,
-                    message: `${userName} invited you to a weekly plan`,
+                    message: `${userName} invited you to a weekly goal`,
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton
-                                onClick={onViewWeeklyPlan}
+                                onClick={onViewWeeklyGoal}
                                 variant="accept"
-                                dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                dataTestId={`notification-${notification._id}-view-weekly-goal`}
                             >
                                 View
                             </ActionButton>
                             <ActionButton
-                                onClick={onDeclineWeeklyPlan}
+                                onClick={onDeclineWeeklyGoal}
                                 variant="reject"
-                                dataTestId={`notification-${notification._id}-decline-weekly-plan`}
+                                dataTestId={`notification-${notification._id}-decline-weekly-goal`}
                             >
                                 Decline
                             </ActionButton>
@@ -246,9 +246,9 @@ export function NotificationItem({
                     actions: (
                         <div className="flex gap-2 mt-3">
                             <ActionButton
-                                onClick={onViewWeeklyPlan}
+                                onClick={onViewWeeklyGoal}
                                 variant="accept"
-                                dataTestId={`notification-${notification._id}-view-weekly-plan`}
+                                dataTestId={`notification-${notification._id}-view-weekly-goal`}
                             >
                                 View
                             </ActionButton>

@@ -9,6 +9,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Feature-first organization: keep code with the feature unless it is truly shared.
 - Consistent naming: use stable, descriptive names; avoid old/new/temp/v2/fixed; keep naming patterns uniform within a feature.
 - Naming across the entire stack is non-negotiable. Product terms, route names, table names, API names, variables, tests, docs, and UI copy must describe the same concept the same way. Do not leave mismatched legacy names behind as "internal only" cleanup unless the user explicitly approves a temporary transition step.
+- No fallback code. Do not add compatibility fallbacks, legacy fallbacks, message/string matching fallbacks, silent default fallbacks, dual-path old/new behavior, or "just in case" fallback branches. When behavior depends on a contract, enforce the contract directly with clear validation or errors. If existing fallback code is found in the touched area, remove it unless the user explicitly asks to keep a temporary transition path.
 - Separation by layer: pages wire, components render UI, hooks orchestrate state, lib holds pure logic. Keep core rules testable without React.
 - Name non-obvious or repeated numbers in `constants.ts`; trivial UI math can stay inline.
 - Explicit input validation and clear errors at boundaries (APIs, external data, user input).
@@ -27,6 +28,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 ## Handoff
 - Update docs when behavior changes (short note in existing docs).
 - Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, plus any existing tests before handing off only when code or tests changed.
+- For handoff validation, prefer `npm run test:run -- <test files>` or `npm run test:run` so Vitest runs once and exits. Do not use `npm test` for handoff validation unless the user explicitly wants watch mode.
 - Do not run eslint, typecheck, or tests for documentation-only, prompt-only, content-only, or other non-code changes. In those cases, handoff should just state that validation was skipped because no code changed.
 - Do not suggest manual testing in handoff unless the user explicitly asks for it.
 - Do not assume the user wants tickets, branches, or pull requests. Default to the user's direct-to-main workflow unless they say otherwise.

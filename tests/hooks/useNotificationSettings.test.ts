@@ -47,4 +47,22 @@ describe("useNotificationSettings", () => {
     expect(toastErrorMock).toHaveBeenCalledWith("Invalid reminder offset");
     expect(result.current.error).toBe("Invalid reminder offset");
   });
+
+  it("fills missing preference fields from defaults", () => {
+    useQueryMock.mockReturnValue({
+      weeklyGoalEmailsEnabled: false,
+      weeklyGoalReminder1OffsetMinutes: 777,
+    });
+
+    const { result } = renderHook(() => useNotificationSettings());
+
+    expect(result.current.prefs.weeklyGoalEmailsEnabled).toBe(false);
+    expect(result.current.prefs.weeklyGoalReminder1OffsetMinutes).toBe(777);
+    expect(result.current.prefs.challengeInviteEmailsEnabled).toBe(
+      DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailsEnabled
+    );
+    expect(result.current.prefs.weeklyGoalReminder2OffsetMinutes).toBe(
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes
+    );
+  });
 });
