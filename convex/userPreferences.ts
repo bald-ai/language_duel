@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isValidBackground } from "../lib/preferences/backgrounds";
 import { isThemeName } from "../lib/theme";
@@ -35,7 +35,7 @@ export const updateColorSet = mutation({
 
     // Validate color set name
     if (!isThemeName(args.colorSet)) {
-      throw new Error(`Invalid color set: ${args.colorSet}`);
+      throw new ConvexError({ code: "INVALID_INPUT", message: `Invalid color set: ${args.colorSet}` });
     }
 
     await ctx.db.patch(user._id, {
@@ -58,7 +58,7 @@ export const updateBackground = mutation({
 
     // Validate background filename
     if (!isValidBackground(args.background)) {
-      throw new Error(`Invalid background: ${args.background}`);
+      throw new ConvexError({ code: "INVALID_INPUT", message: `Invalid background: ${args.background}` });
     }
 
     await ctx.db.patch(user._id, {

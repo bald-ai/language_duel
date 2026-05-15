@@ -32,6 +32,7 @@ import {
 import { useCountdown } from "@/app/notifications/hooks/useCountdown";
 import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
+import { getErrorMessage } from "@/lib/errors";
 
 // Local storage key for remembering last viewed goal
 const LAST_GOAL_KEY = "language_duel_last_weekly_goal";
@@ -203,7 +204,7 @@ export default function GoalsPage() {
       // Select the newly created goal - query will auto-refresh
       setSelectedGoalId(newGoalId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create goal");
+      toast.error(getErrorMessage(error, "Failed to create goal"));
     } finally {
       setIsCreating(false);
     }
@@ -239,7 +240,7 @@ export default function GoalsPage() {
         toast.error("Failed to add themes");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to add themes");
+      toast.error(getErrorMessage(error, "Failed to add themes"));
     }
   };
 
@@ -265,7 +266,7 @@ export default function GoalsPage() {
         toast.success(`You removed a theme, so ${partnerName}'s lock was cleared.`);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove theme");
+      toast.error(getErrorMessage(error, "Failed to remove theme"));
     }
   };
 
@@ -275,7 +276,7 @@ export default function GoalsPage() {
       await toggleCompletion({ goalId: selectedGoal.goal._id, themeId });
       // Query will auto-refresh
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update");
+      toast.error(getErrorMessage(error, "Failed to update"));
     }
   };
 
@@ -295,7 +296,7 @@ export default function GoalsPage() {
       await lockGoal({ goalId: selectedGoal.goal._id });
       toast.success("Goal locked!");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to lock goal");
+      toast.error(getErrorMessage(error, "Failed to lock goal"));
     }
   };
 
@@ -331,7 +332,7 @@ export default function GoalsPage() {
       // Query will auto-refresh
       toast.success("Goal deleted");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete goal");
+      toast.error(getErrorMessage(error, "Failed to delete goal"));
     }
   };
 
@@ -348,7 +349,7 @@ export default function GoalsPage() {
         endDate: timestamp,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save end date");
+      toast.error(getErrorMessage(error, "Failed to save end date"));
     } finally {
       setIsSavingEndDate(false);
     }

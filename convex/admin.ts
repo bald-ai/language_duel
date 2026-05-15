@@ -1,5 +1,5 @@
 import { internalMutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 /**
  * ADMIN: Fully delete a user and all associated data.
@@ -22,7 +22,7 @@ export const deleteUserFully = internalMutation({
 
     const user = await ctx.db.get(userId);
     if (!user) {
-      throw new Error(`User ${userId} not found`);
+      throw new ConvexError({ code: "NOT_FOUND", message: `User ${userId} not found` });
     }
 
     const deletionReport = {

@@ -1,5 +1,6 @@
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 import {
   getUniqueThemeIds,
   summarizeThemeNames,
@@ -51,7 +52,7 @@ export function getSessionWords(
   session: Pick<Doc<"duels"> | Doc<"soloPracticeSessions">, "sessionWords">
 ): SessionWordEntry[] {
   if (!session.sessionWords || session.sessionWords.length === 0) {
-    throw new Error("Session is missing words");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Session is missing words" });
   }
   return session.sessionWords;
 }

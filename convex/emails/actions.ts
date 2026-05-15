@@ -1,13 +1,13 @@
 "use node";
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { Resend } from "resend";
 
 function getResendClient(): Resend {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-        throw new Error("RESEND_API_KEY environment variable not set");
+        throw new ConvexError({ code: "CONFIG_ERROR", message: "RESEND_API_KEY environment variable not set" });
     }
     return new Resend(apiKey);
 }
@@ -32,7 +32,7 @@ export const internalSendEmail = internalAction({
 
         if (error) {
             console.error("Failed to send email:", error);
-            throw new Error(`Email send failed: ${error.message}`);
+            throw new ConvexError({ code: "INTERNAL_ERROR", message: `Email send failed: ${error.message}` });
         }
 
         console.log("Email sent successfully:", data?.id);

@@ -1,6 +1,7 @@
 import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
 import {
   isChallengeInvitePayload,
   isFriendRequestPayload,
@@ -147,19 +148,19 @@ export async function requireCallerOwnedNotificationPayload<P extends Notificati
 ): Promise<{ notification: Doc<"notifications">; payload: P }> {
   const notification = await ctx.db.get(args.notificationId);
   if (!notification) {
-    throw new Error("Notification not found");
+    throw new ConvexError({ code: "NOT_FOUND", message: "Notification not found" });
   }
 
   if (notification.toUserId !== args.userId) {
-    throw new Error("Not authorized");
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
   }
 
   if (notification.type !== args.type) {
-    throw new Error("Invalid notification type");
+    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid notification type" });
   }
 
   if (!args.payloadGuard(notification.payload)) {
-    throw new Error(args.missingPayloadMessage);
+    throw new ConvexError({ code: "NOT_FOUND", message: args.missingPayloadMessage });
   }
 
   return { notification, payload: notification.payload };

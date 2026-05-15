@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
@@ -113,11 +113,11 @@ export const dismissNotification = mutation({
 
         const notification = await ctx.db.get(args.notificationId);
         if (!notification) {
-            throw new Error("Notification not found");
+            throw new ConvexError({ code: "NOT_FOUND", message: "Notification not found" });
         }
 
         if (notification.toUserId !== user._id) {
-            throw new Error("Not authorized to dismiss this notification");
+            throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized to dismiss this notification" });
         }
 
         await ctx.db.patch(args.notificationId, {
@@ -138,11 +138,11 @@ export const markNotificationRead = mutation({
 
         const notification = await ctx.db.get(args.notificationId);
         if (!notification) {
-            throw new Error("Notification not found");
+            throw new ConvexError({ code: "NOT_FOUND", message: "Notification not found" });
         }
 
         if (notification.toUserId !== user._id) {
-            throw new Error("Not authorized to modify this notification");
+            throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized to modify this notification" });
         }
 
         await ctx.db.patch(args.notificationId, {

@@ -3,7 +3,7 @@
  */
 
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   getDuelParticipant,
   getOtherRole,
@@ -25,16 +25,16 @@ export const requestHint = mutation({
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
-      throw new Error("Duel is not active");
+      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
     }
 
     const hasAnswered = hasPlayerAnswered(duel, playerRole);
     const opponentHasAnswered = hasPlayerAnswered(duel, otherRole);
 
     // Can only request hint if: you haven't answered, opponent has answered, no hint already requested
-    if (hasAnswered) throw new Error("You already answered");
-    if (!opponentHasAnswered) throw new Error("Opponent hasn't answered yet");
-    if (duel.hintRequestedBy) throw new Error("Hint already requested");
+    if (hasAnswered) throw new ConvexError({ code: "INVALID_STATE", message: "You already answered" });
+    if (!opponentHasAnswered) throw new ConvexError({ code: "OPPONENT_NOT_ANSWERED", message: "Opponent hasn't answered yet" });
+    if (duel.hintRequestedBy) throw new ConvexError({ code: "HINT_ALREADY_REQUESTED", message: "Hint already requested" });
 
     await ctx.db.patch(duelId, { hintRequestedBy: playerRole });
   },
@@ -47,16 +47,16 @@ export const acceptHint = mutation({
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
-      throw new Error("Duel is not active");
+      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
     }
 
     // Can only accept hint if: you have answered and the OTHER player requested a hint
     const hasAnswered = hasPlayerAnswered(duel, playerRole);
-    if (!hasAnswered) throw new Error("You haven't answered yet");
+    if (!hasAnswered) throw new ConvexError({ code: "INVALID_STATE", message: "You haven't answered yet" });
 
     // Check that the other player requested a hint
-    if (duel.hintRequestedBy !== otherRole) throw new Error("No hint request from opponent");
-    if (duel.hintAccepted) throw new Error("Hint already accepted");
+    if (duel.hintRequestedBy !== otherRole) throw new ConvexError({ code: "INVALID_STATE", message: "No hint request from opponent" });
+    if (duel.hintAccepted) throw new ConvexError({ code: "INVALID_STATE", message: "Hint already accepted" });
 
     const now = Date.now();
     const currentStart =
@@ -86,32 +86,32 @@ export const eliminateOption = mutation({
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
-      throw new Error("Duel is not active");
+      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
     }
 
     // Hint provider is the one who DIDN'T request the hint
-    if (duel.hintRequestedBy !== otherRole) throw new Error("You are not the hint provider");
-    if (!duel.hintAccepted) throw new Error("Hint not accepted yet");
+    if (duel.hintRequestedBy !== otherRole) throw new ConvexError({ code: "INVALID_STATE", message: "You are not the hint provider" });
+    if (!duel.hintAccepted) throw new ConvexError({ code: "HINT_NOT_ACCEPTED", message: "Hint not accepted yet" });
 
     const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
     if (!currentQuestion) {
-      throw new Error("Duel question data is missing");
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }
 
     if (!currentQuestion.options.includes(option)) {
-      throw new Error("Invalid option");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid option" });
     }
 
     if (option === currentQuestion.correctOption) {
-      throw new Error("Cannot eliminate the correct answer");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Cannot eliminate the correct answer" });
     }
 
     const currentEliminated = duel.eliminatedOptions || [];
     if (currentEliminated.includes(option)) {
-      throw new Error("Option already eliminated");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Option already eliminated" });
     }
     if (currentEliminated.length >= MAX_ELIMINATED_OPTIONS_DUEL) {
-      throw new Error(`Maximum ${MAX_ELIMINATED_OPTIONS_DUEL} options can be eliminated`);
+      throw new ConvexError({ code: "LIMIT_REACHED", message: `Maximum ${MAX_ELIMINATED_OPTIONS_DUEL} options can be eliminated` });
     }
 
     const nextEliminated = [...currentEliminated, option];

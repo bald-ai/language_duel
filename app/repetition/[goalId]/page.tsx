@@ -16,6 +16,7 @@ import {
   SPACED_REPETITION_TOTAL_STEPS,
 } from "@/lib/spacedRepetition";
 import { RepetitionProgress } from "../components/RepetitionProgress";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function RepetitionLaunchPage() {
   const params = useParams();
@@ -36,7 +37,7 @@ export default function RepetitionLaunchPage() {
       toast.success("Spaced repetition duel invite sent.");
       router.push("/repetition");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start duel");
+      toast.error(getErrorMessage(error, "Could not start duel"));
     } finally {
       setIsStarting(null);
     }
@@ -54,7 +55,7 @@ export default function RepetitionLaunchPage() {
         })
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start solo");
+      toast.error(getErrorMessage(error, "Could not start solo"));
     } finally {
       setIsStarting(null);
     }

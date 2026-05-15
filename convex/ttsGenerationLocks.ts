@@ -1,5 +1,5 @@
 import { internalMutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 const TTS_GENERATION_LOCK_MAX_MS = 10 * 60 * 1000;
 
@@ -12,7 +12,7 @@ export const acquireTtsGenerationLock = internalMutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
-      throw new Error("User not found");
+      throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
     }
 
     const now = Date.now();
@@ -20,7 +20,7 @@ export const acquireTtsGenerationLock = internalMutation({
     const currentExpiresAt = user.ttsGenerationLockExpiresAt ?? 0;
 
     if (currentToken && currentExpiresAt > now && currentToken !== args.token) {
-      throw new Error("TTS generation is already running for this user");
+      throw new ConvexError({ code: "INVALID_STATE", message: "TTS generation is already running for this user" });
     }
 
     const requestedLockMs = Math.floor(args.lockMs ?? 0);

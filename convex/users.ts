@@ -131,7 +131,7 @@ async function generateDiscriminator(
     }
   }
 
-  throw new Error("No available discriminators for this nickname");
+  throw new ConvexError({ code: "LIMIT_REACHED", message: "No available discriminators for this nickname" });
 }
 
 /**
@@ -146,7 +146,7 @@ export const updateNickname = mutation({
     const nextNickname = args.nickname.trim();
 
     if (!nextNickname) {
-      throw new Error(NICKNAME_ERRORS.TOO_SHORT);
+      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_SHORT });
     }
 
     if (nextNickname === user.nickname) {
@@ -158,13 +158,13 @@ export const updateNickname = mutation({
 
     // Validate nickname format (alphanumeric + underscore, shared length bounds)
     if (!NICKNAME_REGEX.test(nextNickname)) {
-      throw new Error(NICKNAME_ERRORS.INVALID_CHARS);
+      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.INVALID_CHARS });
     }
     if (nextNickname.length < NICKNAME_MIN_LENGTH) {
-      throw new Error(NICKNAME_ERRORS.TOO_SHORT);
+      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_SHORT });
     }
     if (nextNickname.length > NICKNAME_MAX_LENGTH) {
-      throw new Error(NICKNAME_ERRORS.TOO_LONG);
+      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_LONG });
     }
 
     // Generate new discriminator for the new nickname
@@ -251,7 +251,7 @@ export const syncUser = mutation({
 
     // Ensure caller can only sync their own user record
     if (identity.subject !== args.clerkId) {
-      throw new Error("Cannot sync user for another identity");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Cannot sync user for another identity" });
     }
 
     const existingUser = await ctx.db

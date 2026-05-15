@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import type { WordType } from "@/lib/themes/wordTypes";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ThemeActionsState {
   isCreating: boolean;
@@ -56,7 +57,7 @@ export function useThemeActions() {
         setState((prev) => ({ ...prev, isCreating: false }));
         return { ok: true, themeId };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to create theme";
+        const msg = getErrorMessage(e, "Failed to create theme");
         setState((prev) => ({ ...prev, isCreating: false, error: msg }));
         return { ok: false, error: msg };
       } finally {
@@ -80,7 +81,7 @@ export function useThemeActions() {
         setState((prev) => ({ ...prev, isUpdating: false }));
         return { ok: true };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to save theme";
+        const msg = getErrorMessage(e, "Failed to save theme");
         setState((prev) => ({ ...prev, isUpdating: false, error: msg }));
         return { ok: false, error: msg };
       } finally {
@@ -101,7 +102,7 @@ export function useThemeActions() {
         setState((prev) => ({ ...prev, isDeleting: false }));
         return { ok: true };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to delete theme";
+        const msg = getErrorMessage(e, "Failed to delete theme");
         setState((prev) => ({ ...prev, isDeleting: false, error: msg }));
         return { ok: false, error: msg };
       } finally {
@@ -122,7 +123,7 @@ export function useThemeActions() {
         setState((prev) => ({ ...prev, isDuplicating: false }));
         return { ok: true };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to duplicate theme";
+        const msg = getErrorMessage(e, "Failed to duplicate theme");
         setState((prev) => ({ ...prev, isDuplicating: false, error: msg }));
         return { ok: false, error: msg };
       } finally {

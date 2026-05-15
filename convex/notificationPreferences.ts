@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
 import { getAuthenticatedUser } from "./helpers/auth";
 import {
@@ -83,13 +83,13 @@ export const updateNotificationPreferences = mutation({
       args.weeklyGoalReminder1OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
       args.weeklyGoalReminder1OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
     ) {
-      throw new Error("Invalid weekly goal reminder 1 offset");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid weekly goal reminder 1 offset" });
     }
     if (
       args.weeklyGoalReminder2OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
       args.weeklyGoalReminder2OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
     ) {
-      throw new Error("Invalid weekly goal reminder 2 offset");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid weekly goal reminder 2 offset" });
     }
 
     const existing = await ctx.db

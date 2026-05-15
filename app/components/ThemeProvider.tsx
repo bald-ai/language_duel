@@ -12,6 +12,7 @@ import {
   type ThemeName,
 } from "@/lib/theme";
 import { usePersistedPreference } from "./usePersistedPreference";
+import { getErrorMessage } from "@/lib/errors";
 
 const COLOR_SET_STORAGE_KEY = "language-duel-color-set";
 
@@ -36,8 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyValue: applyTheme,
     saveValue: userPreferences ? updateColorSet : undefined,
     onSaveError: (error) => {
-      const message = error instanceof Error ? error.message : "Failed to save color set";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Failed to save color set"));
     },
   });
 

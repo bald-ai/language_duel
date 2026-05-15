@@ -5,7 +5,7 @@
 
 import { query, mutation, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   getAuthenticatedUser,
   getAuthenticatedUserOrNull,
@@ -55,7 +55,7 @@ async function buildDuelWordsForChallenge(
 
   const sessionWords = buildSessionWords(themes);
   if (sessionWords.length === 0) {
-    throw new Error("Challenge has no playable words");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Challenge has no playable words" });
   }
   return sessionWords;
 }
@@ -152,15 +152,15 @@ export const createChallenge = mutation({
     const { user: challenger } = await getAuthenticatedUser(ctx);
 
     if (opponentId === challenger._id) {
-      throw new Error("Cannot challenge yourself");
+      throw new ConvexError({ code: "CANNOT_SELF_TARGET", message: "Cannot challenge yourself" });
     }
 
     const opponent = await ctx.db.get(opponentId);
-    if (!opponent) throw new Error("Opponent not found");
+    if (!opponent) throw new ConvexError({ code: "NOT_FOUND", message: "Opponent not found" });
 
     const orderedThemeIds = Array.from(new Set(themeIds));
     if (orderedThemeIds.length === 0) {
-      throw new Error("Select at least one theme");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Select at least one theme" });
     }
     const themes: Array<Doc<"themes"> | null> = await Promise.all(
       orderedThemeIds.map((selectedThemeId) =>
@@ -168,7 +168,7 @@ export const createChallenge = mutation({
       )
     );
     if (themes.some((theme) => !theme)) {
-      throw new Error("One or more themes were not found or are not accessible");
+      throw new ConvexError({ code: "NOT_FOUND", message: "One or more themes were not found or are not accessible" });
     }
     const resolvedThemes: Doc<"themes">[] = themes.filter(
       (theme): theme is Doc<"themes"> => theme !== null
@@ -246,10 +246,10 @@ export const acceptChallenge = mutation({
     const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
 
     if (!isOpponent) {
-      throw new Error("Only opponent can accept challenge");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only opponent can accept challenge" });
     }
     if (challenge.status !== "pending") {
-      throw new Error("Challenge is not pending");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is not pending" });
     }
 
     const now = Date.now();
@@ -264,10 +264,10 @@ export const declineChallenge = mutation({
     const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
 
     if (!isOpponent) {
-      throw new Error("Only opponent can decline challenge");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only opponent can decline challenge" });
     }
     if (challenge.status !== "pending") {
-      throw new Error("Challenge is not pending");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is not pending" });
     }
 
     await declineChallengeCore(ctx, challenge, Date.now());
@@ -280,10 +280,10 @@ export const cancelChallenge = mutation({
     const { challenge, isChallenger } = await getChallengeParticipant(ctx, challengeId);
 
     if (!isChallenger) {
-      throw new Error("Only challenger can cancel a pending challenge");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only challenger can cancel a pending challenge" });
     }
     if (challenge.status !== "pending") {
-      throw new Error("Can only cancel pending challenges");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Can only cancel pending challenges" });
     }
 
     await ctx.db.patch(challengeId, { status: "cancelled", resolvedAt: Date.now() });
@@ -308,13 +308,13 @@ export const acceptChallengeFromNotification = mutation({
 
     const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
-      throw new Error("Challenge not found");
+      throw new ConvexError({ code: "NOT_FOUND", message: "Challenge not found" });
     }
     if (challenge.status !== "pending") {
-      throw new Error("Challenge is no longer pending");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is no longer pending" });
     }
     if (challenge.opponentId !== user._id) {
-      throw new Error("Not authorized");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
     }
 
     const now = Date.now();
@@ -341,13 +341,13 @@ export const declineChallengeFromNotification = mutation({
 
     const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
-      throw new Error("Challenge not found");
+      throw new ConvexError({ code: "NOT_FOUND", message: "Challenge not found" });
     }
     if (challenge.status !== "pending") {
-      throw new Error("Challenge is no longer pending");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is no longer pending" });
     }
     if (challenge.opponentId !== user._id) {
-      throw new Error("Not authorized");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
     }
 
     await declineChallengeCore(ctx, challenge, Date.now());

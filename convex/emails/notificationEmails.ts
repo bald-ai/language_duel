@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { emailNotificationTriggerValidator } from "../schema";
@@ -12,7 +12,7 @@ import { buildEmailData } from "./notificationEmailData";
 function getNotificationAppUrl(): string {
   const appUrl = process.env.APP_URL;
   if (!appUrl) {
-    throw new Error("APP_URL must be set before sending notification emails");
+    throw new ConvexError({ code: "CONFIG_ERROR", message: "APP_URL must be set before sending notification emails" });
   }
   return appUrl;
 }
@@ -72,7 +72,7 @@ export const sendNotificationEmail = internalAction({
     });
     if (!claim.claimed) return { sent: false, reason: "already_sent" as const };
     if (!claim.claimId) {
-      throw new Error("Email send claim was created without a claim id");
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Email send claim was created without a claim id" });
     }
 
     try {

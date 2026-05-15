@@ -48,7 +48,7 @@ export async function getAuthenticatedUser(
     .first();
 
   if (!user) {
-    throw new Error("User not found");
+    throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
   }
 
   return { user, clerkId: identity.subject };
@@ -90,14 +90,14 @@ export async function getDuelParticipant(
 
   const duel = await ctx.db.get(duelId);
   if (!duel) {
-    throw new Error("Duel not found");
+    throw new ConvexError({ code: "NOT_FOUND", message: "Duel not found" });
   }
 
   const isChallenger = duel.challengerId === user._id;
   const isOpponent = duel.opponentId === user._id;
 
   if (!isChallenger && !isOpponent) {
-    throw new Error("User not part of this duel");
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "User not part of this duel" });
   }
 
   const playerRole: PlayerRole = isChallenger ? "challenger" : "opponent";
@@ -113,14 +113,14 @@ export async function getChallengeParticipant(
 
   const challenge = await ctx.db.get(challengeId);
   if (!challenge) {
-    throw new Error("Challenge not found");
+    throw new ConvexError({ code: "NOT_FOUND", message: "Challenge not found" });
   }
 
   const isChallenger = challenge.challengerId === user._id;
   const isOpponent = challenge.opponentId === user._id;
 
   if (!isChallenger && !isOpponent) {
-    throw new Error("User not part of this challenge");
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "User not part of this challenge" });
   }
 
   const playerRole: PlayerRole = isChallenger ? "challenger" : "opponent";

@@ -1,4 +1,5 @@
 import type { Id } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 import { SEED_XOR_MASK } from "../constants";
 import { createShuffledWordOrder, type DuelDifficultyPreset } from "./gameLogic";
 import { buildDuelQuestionSet, type DuelQuestionSnapshot } from "../../lib/answerShuffle";
@@ -79,12 +80,12 @@ export function buildChallengeInvite(args: {
   createdAt: number;
 }): ChallengeInviteFields {
   if (args.challengerId === args.opponentId) {
-    throw new Error("Cannot challenge yourself");
+    throw new ConvexError({ code: "CANNOT_SELF_TARGET", message: "Cannot challenge yourself" });
   }
 
   const themeIds = Array.from(new Set(args.themeIds));
   if (themeIds.length === 0) {
-    throw new Error("Challenge requires at least one theme");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge requires at least one theme" });
   }
 
   return {
@@ -117,7 +118,7 @@ export function buildDuelSession(args: {
 }): DuelSessionFields {
   const sessionWords = [...args.sessionWords];
   if (sessionWords.length === 0) {
-    throw new Error("Duel requires at least one session word");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
@@ -164,7 +165,7 @@ export function buildSoloPracticeSession(args: {
 }): SoloPracticeSessionFields {
   const sessionWords = [...args.sessionWords];
   if (sessionWords.length === 0) {
-    throw new Error("Solo practice requires at least one session word");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });
   }
 
   return {

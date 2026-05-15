@@ -102,7 +102,7 @@ export function LeftNavButtons() {
             );
             panel.open();
           }}
-          className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
+          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
           title="Notifications & Friends"
           aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ""}`}
           style={{ color: "var(--color-text)" }}
@@ -132,7 +132,7 @@ export function LeftNavButtons() {
       <div className="relative">
         <button
           onClick={() => router.push("/repetition")}
-          className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
+          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
           title="Spaced Repetition"
           aria-label="Spaced Repetition"
           style={{ color: "var(--color-text)" }}
@@ -146,7 +146,7 @@ export function LeftNavButtons() {
       <div className="relative">
         <button
           onClick={() => router.push("/goals")}
-          className="w-10 h-10 flex items-center justify-center transition-all hover:scale-105"
+          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
           title="Weekly Goals"
           style={{ color: "var(--color-text)" }}
           data-testid="nav-goals"
@@ -190,7 +190,13 @@ export function RightNavButtons() {
           title="Settings"
           data-testid="nav-settings"
         >
-          <Image src="/settings.png" alt="Settings" width={28} height={28} />
+          <Image
+            src="/settings.png"
+            alt="Settings"
+            width={28}
+            height={28}
+            className="-translate-y-[1px]"
+          />
         </button>
       </div>
 

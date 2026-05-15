@@ -1,5 +1,5 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessionCreation";
@@ -139,7 +139,7 @@ async function loadSpacedRepetitionSnapshotContent(
   const sessionThemes = goal.themes.map((theme) => {
     const snapshot = snapshotsByOriginalThemeId.get(String(theme.themeId));
     if (!snapshot) {
-      throw new Error("Missing validated weekly goal snapshot");
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
     }
     return {
       _id: snapshot.originalThemeId,
@@ -173,18 +173,18 @@ async function loadReadyRepetitionContext(args: {
 }): Promise<ReadyRepetitionContext> {
   const goal = await args.ctx.db.get(args.weeklyGoalId);
   if (!goal || goal.status !== "completed") {
-    throw new Error("Spaced repetition is only available for completed goals.");
+    throw new ConvexError({ code: "INVALID_STATE", message: "Spaced repetition is only available for completed goals." });
   }
   if (typeof goal.completedAt !== "number") {
-    throw new Error("Spaced repetition is not available for this completed goal.");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Spaced repetition is not available for this completed goal." });
   }
   if (!isGoalParticipant(goal, args.userId)) {
-    throw new Error("Not authorized");
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
   }
 
   const record = await getRepetitionRecord(args.ctx, args.weeklyGoalId, args.userId);
   if (!record) {
-    throw new Error("Spaced repetition is not ready yet. Refresh the board and try again.");
+    throw new ConvexError({ code: "INVALID_STATE", message: "Spaced repetition is not ready yet. Refresh the board and try again." });
   }
   const bucket = getSpacedRepetitionBucket(
     {
@@ -194,17 +194,17 @@ async function loadReadyRepetitionContext(args: {
     args.now
   );
   if (bucket !== "ready") {
-    throw new Error("This repetition is not ready yet.");
+    throw new ConvexError({ code: "INVALID_STATE", message: "This repetition is not ready yet." });
   }
 
   const content = await loadSpacedRepetitionSnapshotContent(args.ctx, goal);
   if (!content.ok) {
-    throw new Error(content.message);
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: content.message });
   }
 
   const step = getSpacedRepetitionCurrentStep(record.completedSteps);
   if (step === null) {
-    throw new Error("This repetition is already complete.");
+    throw new ConvexError({ code: "INVALID_STATE", message: "This repetition is already complete." });
   }
 
   return { goal, record, bucket, content, step };
@@ -219,7 +219,7 @@ function buildBoardItem(args: {
 }) {
   const completedAt = args.goal.completedAt;
   if (typeof completedAt !== "number") {
-    throw new Error("Completed goal is missing completion time.");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Completed goal is missing completion time." });
   }
   const dueAt = getSpacedRepetitionDueAt({
     completedSteps: args.record.completedSteps,
@@ -550,13 +550,13 @@ export const createRepetitionChallenge = mutation({
         duel.status === "active"
     );
     if (duplicateAttempt) {
-      throw new Error("A spaced repetition duel is already in progress.");
+      throw new ConvexError({ code: "INVALID_STATE", message: "A spaced repetition duel is already in progress." });
     }
 
     const opponentId = getGoalPartnerId(goal, user._id);
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) {
-      throw new Error("This partner is no longer available. You can still practice solo.");
+      throw new ConvexError({ code: "NOT_FOUND", message: "This partner is no longer available. You can still practice solo." });
     }
     const challengeInvite = buildChallengeInvite({
       challengerId: user._id,

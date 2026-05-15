@@ -3,7 +3,7 @@
  */
 
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getDuelParticipant, isDuelActive } from "./helpers/auth";
 import { forRole } from "../lib/duelRole";
 import { isSabotageActive } from "../lib/sabotage/active";
@@ -23,21 +23,21 @@ export const sendSabotage = mutation({
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     if (!isDuelActive(duel)) {
-      throw new Error("Duel is not active");
+      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
     }
 
     const roleView = forRole(duel, playerRole);
     const sabotagesUsed = roleView.mySabotagesUsed;
 
     if (sabotagesUsed >= MAX_SABOTAGES) {
-      throw new Error("No sabotages remaining");
+      throw new ConvexError({ code: "NO_SABOTAGES_LEFT", message: "No sabotages remaining" });
     }
 
     // Check if target already has an active sabotage
     const now = Date.now();
 
     if (roleView.theirAnswered) {
-      throw new Error("Opponent has already answered this question");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Opponent has already answered this question" });
     }
 
     if (
@@ -50,7 +50,7 @@ export const sendSabotage = mutation({
             : undefined,
       })
     ) {
-      throw new Error("A sabotage is already active");
+      throw new ConvexError({ code: "SABOTAGE_ACTIVE", message: "A sabotage is already active" });
     }
 
     // Send sabotage to the OTHER player

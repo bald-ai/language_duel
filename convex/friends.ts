@@ -1,5 +1,5 @@
 import { mutation, query, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isUserOnline, loadUsersById } from "./helpers/users";
@@ -89,15 +89,18 @@ async function resolvePendingFriendRequestForReceiver(
 ) {
   const request = await ctx.db.get(requestId);
   if (!request) {
-    throw new Error("Friend request not found");
+    throw new ConvexError({ code: "NOT_FOUND", message: "Friend request not found" });
   }
 
   if (request.receiverId !== receiverId) {
-    throw new Error(`Cannot ${action === "accepted" ? "accept" : "reject"} this friend request`);
+    throw new ConvexError({
+      code: "NOT_AUTHORIZED",
+      message: `Cannot ${action === "accepted" ? "accept" : "reject"} this friend request`,
+    });
   }
 
   if (request.status !== "pending") {
-    throw new Error("Friend request is no longer pending");
+    throw new ConvexError({ code: "INVALID_STATE", message: "Friend request is no longer pending" });
   }
 
   await ctx.db.patch(requestId, { status: action });
@@ -228,13 +231,13 @@ export const sendFriendRequest = mutation({
 
     // Can't send request to self
     if (args.receiverId === user._id) {
-      throw new Error("Cannot send friend request to yourself");
+      throw new ConvexError({ code: "CANNOT_SELF_TARGET", message: "Cannot send friend request to yourself" });
     }
 
     // Check receiver exists
     const receiver = await ctx.db.get(args.receiverId);
     if (!receiver) {
-      throw new Error("User not found");
+      throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
     }
 
     // Check if already friends
@@ -245,7 +248,7 @@ export const sendFriendRequest = mutation({
       .first();
 
     if (existingFriendship) {
-      throw new Error("Already friends with this user");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Already friends with this user" });
     }
 
     // Check for existing pending request (either direction)
@@ -259,7 +262,7 @@ export const sendFriendRequest = mutation({
       .first();
 
     if (existingSentRequest) {
-      throw new Error("Friend request already sent");
+      throw new ConvexError({ code: "CONFLICT", message: "Friend request already sent" });
     }
 
     const existingReceivedRequest = await ctx.db
@@ -269,7 +272,10 @@ export const sendFriendRequest = mutation({
       .first();
 
     if (existingReceivedRequest) {
-      throw new Error("This user has already sent you a friend request");
+      throw new ConvexError({
+        code: "CONFLICT",
+        message: "This user has already sent you a friend request",
+      });
     }
 
     // Create the friend request
@@ -350,7 +356,7 @@ export const removeFriend = mutation({
       friendshipsToUser.find((friendship) => friendship.friendId === user._id) ?? null;
 
     if (!outgoingFriendship && !incomingFriendship) {
-      throw new Error("Friendship not found");
+      throw new ConvexError({ code: "NOT_FOUND", message: "Friendship not found" });
     }
 
     const closedGoalCount = await closeVisibleGoalsBetweenParticipants(

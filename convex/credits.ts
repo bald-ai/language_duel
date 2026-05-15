@@ -42,15 +42,15 @@ export const consumeCredits = mutation({
 
     const cost = Math.floor(args.cost);
     if (!Number.isFinite(cost) || cost <= 0) {
-      throw new Error("Invalid credit cost");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid credit cost" });
     }
 
     if (args.creditType === "tts" && cost !== TTS_GENERATION_COST) {
-      throw new Error("Invalid TTS credit cost");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid TTS credit cost" });
     }
 
     if (args.creditType === "llm" && (cost < LLM_SMALL_ACTION_CREDITS || cost > LLM_THEME_CREDITS)) {
-      throw new Error("Invalid LLM credit cost");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid LLM credit cost" });
     }
 
     const normalized = normalizeCreditState(user);

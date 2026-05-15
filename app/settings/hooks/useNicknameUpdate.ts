@@ -11,6 +11,7 @@ import {
   NICKNAME_REGEX,
   NICKNAME_ERRORS,
 } from "../constants";
+import { getErrorMessage } from "@/lib/errors";
 
 export function useNicknameUpdate() {
   const updateNicknameMutation = useMutation(api.users.updateNickname);
@@ -46,7 +47,7 @@ export function useNicknameUpdate() {
         toast.success(`Nickname updated to ${formatVisibleUser(result)}`);
         return true;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update nickname";
+        const message = getErrorMessage(err, "Failed to update nickname");
         setError(message);
         return false;
       } finally {

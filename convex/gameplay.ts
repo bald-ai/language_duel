@@ -4,7 +4,7 @@
 
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
 import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
@@ -133,7 +133,7 @@ export const pauseCountdown = mutation({
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
 
     if (duel.countdownPausedBy) {
-      throw new Error("Countdown already paused");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Countdown already paused" });
     }
 
     await ctx.db.patch(duelId, {
@@ -150,7 +150,7 @@ export const requestUnpauseCountdown = mutation({
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
 
     if (!duel.countdownPausedBy) {
-      throw new Error("Countdown is not paused");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Countdown is not paused" });
     }
 
     await ctx.db.patch(duelId, {
@@ -170,7 +170,7 @@ export const confirmUnpauseCountdown = mutation({
     }
 
     if (duel.countdownUnpauseRequestedBy === playerRole) {
-      throw new Error("Cannot confirm your own unpause request");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Cannot confirm your own unpause request" });
     }
 
     // Calculate pause duration and adjust questionStartTime
@@ -194,7 +194,7 @@ export const skipCountdown = mutation({
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
 
     if (duel.countdownPausedBy) {
-      throw new Error("Cannot skip while countdown is paused");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Cannot skip while countdown is paused" });
     }
 
     const currentSkips = duel.countdownSkipRequestedBy || [];

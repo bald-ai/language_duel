@@ -32,6 +32,7 @@ import { useThemeActions } from "./useThemeActions";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { createSaveRequestId } from "../lib/saveRequestId";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 interface DeleteConfirmState {
   type: "theme" | "word";
@@ -204,8 +205,7 @@ export function useThemesController() {
         });
         toast.success(`Theme is now ${visibility}`);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update visibility";
-        toast.error(message);
+        toast.error(getErrorMessage(err, "Failed to update visibility"));
       } finally {
         setIsUpdatingVisibility(false);
       }
@@ -236,8 +236,7 @@ export function useThemesController() {
         });
         toast.success(friendsCanEdit ? "Friends can now edit this theme" : "Theme is now view-only for friends");
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update edit permissions";
-        toast.error(message);
+        toast.error(getErrorMessage(err, "Failed to update edit permissions"));
       } finally {
         setIsUpdatingFriendsCanEdit(false);
       }
@@ -286,8 +285,7 @@ export function useThemesController() {
 
       toast.success(`Generated TTS for ${result.applied} words`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to generate TTS";
-      toast.error(message);
+      toast.error(getErrorMessage(err, "Failed to generate TTS"));
     } finally {
       setIsGeneratingTTS(false);
     }

@@ -1,4 +1,5 @@
 import type { Doc } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 import { HINT_PROVIDER_BONUS } from "../constants";
 
 export function getHintClearFields(): Partial<Doc<"duels">> {
@@ -73,7 +74,7 @@ export function getDuelQuestionOrThrow(
 ) {
   const question = duel.duelQuestions?.[questionIndex];
   if (!question) {
-    throw new Error("Duel question data is missing");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
   }
   return question;
 }

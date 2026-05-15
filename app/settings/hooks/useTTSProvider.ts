@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
+import { getErrorMessage } from "@/lib/errors";
 
 export type TtsProvider = "resemble" | "elevenlabs";
 
@@ -23,8 +24,7 @@ export function useTTSProvider() {
         const label = newProvider === "resemble" ? "Resemble AI" : "ElevenLabs";
         toast.success(`TTS provider changed to ${label}`);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update TTS provider";
-        toast.error(message);
+        toast.error(getErrorMessage(err, "Failed to update TTS provider"));
       } finally {
         setIsUpdating(false);
       }

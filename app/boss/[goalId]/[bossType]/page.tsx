@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { colors } from "@/lib/theme";
 import { buildSoloUrl } from "@/lib/soloNavigation";
+import { getErrorMessage } from "@/lib/errors";
 
 type BossType = "mini" | "big";
 
@@ -50,7 +51,7 @@ export default function BossLaunchPage() {
       toast.success("Boss challenge sent.");
       router.push("/goals");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to start boss duel");
+      toast.error(getErrorMessage(error, "Failed to start boss duel"));
     } finally {
       setIsStartingDuel(false);
     }
@@ -70,7 +71,7 @@ export default function BossLaunchPage() {
         })
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to start practice");
+      toast.error(getErrorMessage(error, "Failed to start practice"));
     } finally {
       setIsStartingPractice(false);
     }

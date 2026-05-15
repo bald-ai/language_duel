@@ -351,7 +351,16 @@ describe("weeklyGoals lockGoal", () => {
         }) as never,
         { goalId: "goal_1" as Id<"weeklyGoals"> }
       )
-    ).rejects.toThrow('"Theme 2" is no longer available');
+    ).rejects.toThrow();
+    const error = await lockGoalHandler(
+        createAuthCtx(db, "partner", {
+          scheduler: {
+            runAfter: async () => undefined,
+          },
+        }) as never,
+        { goalId: "goal_1" as Id<"weeklyGoals"> }
+    ).catch((e) => e);
+    expect(error.data?.code).toBe("NOT_FOUND");
 
     expect(db.weeklyGoals[0]?.status).toBe("draft");
     expect(db.weeklyGoalThemeSnapshots).toHaveLength(0);

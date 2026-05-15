@@ -3,7 +3,7 @@
  */
 
 import { mutation, query, type MutationCtx, type QueryCtx, internalQuery, internalMutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessionCreation";
@@ -71,7 +71,7 @@ function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds
   const fullSessionWords = buildSessionWords(themes);
 
   if (fullSessionWords.length === 0) {
-    throw new Error("No boss words are available for this goal");
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "No boss words are available for this goal" });
   }
 
   return shuffleArray(fullSessionWords);
@@ -174,7 +174,7 @@ async function loadSnapshotWeeklyGoalPracticeThemes(
     themes: themeIds.map((themeId) => {
       const snapshot = snapshotsByThemeId.get(String(themeId));
       if (!snapshot) {
-        throw new Error("Missing validated weekly goal snapshot");
+        throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
       }
       return {
         _id: snapshot.originalThemeId,
@@ -436,13 +436,13 @@ function buildGoalWithUsers(
 
 function validateEndDateTimestamp(endDate: number): void {
   if (!Number.isFinite(endDate)) {
-    throw new Error("Invalid end date");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid end date" });
   }
 }
 
 export function validateGoalEndDateAtLeast24hAhead(endDate: number, now: number): void {
   if (endDate - now < MIN_GOAL_DURATION_MS) {
-    throw new Error("End date must be at least 24 hours from now");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "End date must be at least 24 hours from now" });
   }
 }
 
@@ -792,7 +792,7 @@ export const createGoal = mutation({
 
     // Verify partner exists
     const partner = await ctx.db.get(partnerId);
-    if (!partner) throw new Error("Partner not found");
+    if (!partner) throw new ConvexError({ code: "NOT_FOUND", message: "Partner not found" });
 
     // Verify they are friends
     const friendship = await ctx.db
@@ -801,7 +801,7 @@ export const createGoal = mutation({
       .filter((q) => q.eq(q.field("friendId"), partnerId))
       .first();
 
-    if (!friendship) throw new Error("You can only create goals with friends");
+    if (!friendship) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You can only create goals with friends" });
 
     // Check if there's already a visible goal between this SPECIFIC duo.
     // Case 1: Current user is creator, partner is partner
@@ -824,7 +824,7 @@ export const createGoal = mutation({
     );
 
     if (visibleUserAsCreator.length > 0) {
-      throw new Error("You already have a goal with this partner");
+      throw new ConvexError({ code: "CONFLICT", message: "You already have a goal with this partner" });
     }
 
     // Case 2: Partner is creator, current user is partner
@@ -847,7 +847,7 @@ export const createGoal = mutation({
     );
 
     if (visibleUserAsPartner.length > 0) {
-      throw new Error("You already have a goal with this partner");
+      throw new ConvexError({ code: "CONFLICT", message: "You already have a goal with this partner" });
     }
 
     // Create the goal
@@ -899,34 +899,34 @@ export const addTheme = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     // Verify user is part of this goal
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     // Can only add themes while the goal is still a draft.
-    if (goal.status !== "draft") throw new Error("Goal is locked");
+    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal is locked" });
 
     // Cannot add themes if either participant has locked
     if (goal.creatorLocked || goal.partnerLocked)
-      throw new Error("Cannot add themes after a participant has locked");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Cannot add themes after a participant has locked" });
 
     // Check max themes
     if (goal.themes.length >= MAX_THEMES_PER_GOAL)
-      throw new Error("Maximum themes reached");
+      throw new ConvexError({ code: "LIMIT_REACHED", message: "Maximum themes reached" });
 
     // Verify theme exists and is eligible
     const theme = await ctx.db.get(themeId);
-    if (!theme) throw new Error("Theme not found");
+    if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
 
     // Theme must be owned by one of the participants
     // Access is granted to the partner via the weekly goal relationship (see hasAccessViaWeeklyGoal)
     const isOwnedByCreator = theme.ownerId === goal.creatorId;
     const isOwnedByPartner = theme.ownerId === goal.partnerId;
     if (!isOwnedByCreator && !isOwnedByPartner)
-      throw new Error("Theme must be owned by a participant");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Theme must be owned by a participant" });
 
     // Skip if theme is already in goal (idempotent behavior)
     if (goal.themes.some((t) => t.themeId === themeId)) {
@@ -960,15 +960,15 @@ export const removeTheme = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     // Verify user is part of this goal
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     // Can only remove themes while the goal is still a draft.
-    if (goal.status !== "draft") throw new Error("Goal is locked");
+    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal is locked" });
 
     const lockedParticipantId = goal.creatorLocked
       ? goal.creatorId
@@ -1021,11 +1021,11 @@ export const setGoalEndDate = mutation({
     const { user } = await getAuthenticatedUser(ctx);
     const goal = await ctx.db.get(goalId);
 
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     validateEndDateTimestamp(endDate);
 
@@ -1033,11 +1033,11 @@ export const setGoalEndDate = mutation({
     validateGoalEndDateAtLeast24hAhead(endDate, now);
 
     if (!canEditGoalEndDate(goal, now)) {
-      throw new Error("End date can no longer be changed");
+      throw new ConvexError({ code: "INVALID_STATE", message: "End date can no longer be changed" });
     }
 
     if (goal.lockedAt && endDate <= goal.lockedAt) {
-      throw new Error("End date must be after the start date");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "End date must be after the start date" });
     }
 
     await ctx.db.patch(goalId, { endDate });
@@ -1052,15 +1052,15 @@ async function validateAndPrepareBoss(
   const { user } = await getAuthenticatedUser(ctx);
   const goal = await ctx.db.get(goalId);
 
-  if (!goal) throw new Error("Goal not found");
+  if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
   const isCreator = goal.creatorId === user._id;
   const isPartner = goal.partnerId === user._id;
-  if (!isCreator && !isPartner) throw new Error("Not authorized");
+  if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
   const now = Date.now();
   if (!isGoalPlayable(goal, now)) {
-    throw new Error("This goal is not playable");
+    throw new ConvexError({ code: "INVALID_STATE", message: "This goal is not playable" });
   }
 
   const effectiveStatus = bossType === "mini"
@@ -1068,7 +1068,7 @@ async function validateAndPrepareBoss(
     : getEffectiveBossStatus(goal, now);
 
   if (effectiveStatus !== "ready") {
-    throw new Error("This boss is not ready yet");
+    throw new ConvexError({ code: "INVALID_STATE", message: "This boss is not ready yet" });
   }
 
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
@@ -1104,13 +1104,13 @@ export const createBossChallenge = mutation({
         duel.status === "active"
     );
     if (duplicateAttempt) {
-      throw new Error("A boss attempt is already in progress");
+      throw new ConvexError({ code: "INVALID_STATE", message: "A boss attempt is already in progress" });
     }
 
     const opponentId = isCreator ? goal.partnerId : goal.creatorId;
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) {
-      throw new Error("This partner is no longer available. You can still practice solo.");
+      throw new ConvexError({ code: "NOT_FOUND", message: "This partner is no longer available. You can still practice solo." });
     }
     const challengeInvite = buildChallengeInvite({
       challengerId: user._id,
@@ -1173,16 +1173,16 @@ export const toggleCompletion = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     // Verify user is part of this goal
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     // Find the theme
     const themeIndex = goal.themes.findIndex((t) => t.themeId === themeId);
-    if (themeIndex === -1) throw new Error("Theme not in goal");
+    if (themeIndex === -1) throw new ConvexError({ code: "INVALID_INPUT", message: "Theme not in goal" });
 
     // Toggle the appropriate completion flag
     const updatedThemes = [...goal.themes];
@@ -1213,30 +1213,30 @@ export const lockGoal = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     // Verify user is part of this goal
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     // Must still be a draft.
-    if (goal.status !== "draft") throw new Error("Goal already locked");
+    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal already locked" });
 
     // Check if already locked
     if (isCreator && goal.creatorLocked)
-      throw new Error("You already locked this goal");
+      throw new ConvexError({ code: "INVALID_STATE", message: "You already locked this goal" });
     if (isPartner && goal.partnerLocked)
-      throw new Error("You already locked this goal");
+      throw new ConvexError({ code: "INVALID_STATE", message: "You already locked this goal" });
 
     if (goal.themes.length < MIN_THEMES_PER_GOAL) {
       const minThemesRequired: number = MIN_THEMES_PER_GOAL;
       const themeLabel = minThemesRequired === 1 ? "theme" : "themes";
-      throw new Error(`Add at least ${minThemesRequired} ${themeLabel} before locking`);
+      throw new ConvexError({ code: "INVALID_INPUT", message: `Add at least ${minThemesRequired} ${themeLabel} before locking` });
     }
 
     if (typeof goal.endDate !== "number") {
-      throw new Error("Choose an end date before locking");
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Choose an end date before locking" });
     }
 
     // Update lock status
@@ -1313,12 +1313,12 @@ export const deleteGoal = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const goal = await ctx.db.get(goalId);
-    if (!goal) throw new Error("Goal not found");
+    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
     // Verify user is part of this goal
     const isCreator = goal.creatorId === user._id;
     const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new Error("Not authorized");
+    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
 
     await dismissGoalNotifications(ctx, goalId);
     await deleteGoalAndRelatedData(ctx, goal);
@@ -1554,7 +1554,7 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
       missingPayloadMessage: "Weekly goal data is missing",
     });
     if (payload.event !== "goal_completed") {
-      throw new Error("Invalid completed goal notification");
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Invalid completed goal notification" });
     }
 
     const goal = await ctx.db.get(payload.goalId);
@@ -1564,7 +1564,7 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
     }
 
     if (goal.status !== "completed") {
-      throw new Error("Weekly goal is not completed");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Weekly goal is not completed" });
     }
 
     const currentArchived = user.archivedThemeIds || [];
@@ -1617,16 +1617,16 @@ export const declineWeeklyGoalInvitation = mutation({
     }
 
     if (goal.partnerId !== user._id) {
-      throw new Error("Only the invited user can decline this goal");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only the invited user can decline this goal" });
     }
 
     const now = Date.now();
     if (getEffectiveGoalStatus(goal, now) !== "draft") {
-      throw new Error("This invitation can no longer be declined");
+      throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
     }
 
     if (goal.creatorLocked || goal.partnerLocked) {
-      throw new Error("This invitation can no longer be declined");
+      throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
     }
 
     await dismissGoalNotifications(ctx, goal._id);

@@ -8,6 +8,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * AddFriendSection - Search and add friends
@@ -33,8 +34,7 @@ export function AddFriendSection() {
             toast.success("Friend request sent!");
             setSearchTerm("");
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to send friend request";
-            toast.error(message);
+            toast.error(getErrorMessage(error, "Failed to send friend request"));
         }
     };
 

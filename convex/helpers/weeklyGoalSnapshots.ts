@@ -1,5 +1,6 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 import type { SessionThemeInput } from "../../lib/sessionWords";
 import { loadThemesByIds } from "./sessionWords";
 import {
@@ -76,9 +77,10 @@ export async function createWeeklyGoalThemeSnapshots(
 
   const missingGoalTheme = goal.themes.find((goalTheme, index) => !liveThemes[index]);
   if (missingGoalTheme) {
-    throw new Error(
-      `"${missingGoalTheme.themeName}" is no longer available. Remove it or add another theme before locking.`
-    );
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: `"${missingGoalTheme.themeName}" is no longer available. Remove it or add another theme before locking.`,
+    });
   }
 
   for (const [index, liveTheme] of liveThemes.entries()) {

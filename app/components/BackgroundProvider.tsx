@@ -5,6 +5,7 @@ import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
 import { toast } from "sonner";
 import { DEFAULT_BACKGROUND, isValidBackground, type BackgroundFilename } from "@/lib/preferences/backgrounds";
 import { usePersistedPreference } from "./usePersistedPreference";
+import { getErrorMessage } from "@/lib/errors";
 
 const BACKGROUND_STORAGE_KEY = "language-duel-background";
 
@@ -26,8 +27,7 @@ export function BackgroundProvider({ children }: { children: React.ReactNode }) 
     isValid: isValidBackground,
     saveValue: userPreferences ? updateBackground : undefined,
     onSaveError: (error) => {
-      const message = error instanceof Error ? error.message : "Failed to save background";
-      toast.error(message);
+      toast.error(getErrorMessage(error, "Failed to save background"));
     },
   });
 

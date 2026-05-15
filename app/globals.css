@@ -216,6 +216,22 @@ body {
   animation: fade-in 0.15s ease-out forwards;
 }
 
+/* Clean nav icon buttons - subtle background on hover, no motion */
+.nav-icon-btn {
+  position: relative;
+  border-radius: 9999px;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.nav-icon-btn:hover {
+  background-color: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.nav-icon-btn:active {
+  background-color: color-mix(in srgb, var(--color-text) 16%, transparent);
+}
+
 @media (max-width: 768px) {
   .animate-slide-up {
     animation-duration: 0.3s;

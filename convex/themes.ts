@@ -79,7 +79,7 @@ function buildDuplicateThemeName(originalName: string): string {
 
 function validateThemeHasWords(words: ThemeWordWithTts[]): void {
   if (words.length < MIN_THEME_WORDS) {
-    throw new Error("Theme must have at least one word");
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Theme must have at least one word" });
   }
 }
 
@@ -436,7 +436,7 @@ export const deleteTheme = mutation({
       goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId)
     );
     if (draftGoal) {
-      throw new Error("Cannot delete a theme that is part of a draft goal");
+      throw new ConvexError({ code: "INVALID_STATE", message: "Cannot delete a theme that is part of a draft goal" });
     }
 
     const themeStorageIds = collectTtsStorageIds(theme.words as ThemeWordWithTts[]);
@@ -456,7 +456,7 @@ export const duplicateTheme = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new Error("Theme not found");
+    if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
 
     const newName = buildDuplicateThemeName(theme.name);
     const duplicatedWords = (theme.words as ThemeWordWithTts[]).map((word) => ({
@@ -556,9 +556,10 @@ export const generateThemeTTS = action({
   }> => {
     const resembleApiKey = getResembleApiKey();
     if (!resembleApiKey) {
-      throw new Error(
-        "Resemble API key missing in Convex environment. Run: npx convex env set RESEMBLE_API_KEY <YOUR_KEY>"
-      );
+      throw new ConvexError({
+        code: "CONFIG_ERROR",
+        message: "Resemble API key missing in Convex environment. Run: npx convex env set RESEMBLE_API_KEY <YOUR_KEY>",
+      });
     }
 
     const currentUser = await ctx.runQuery(api.users.getCurrentUser, {});
@@ -571,7 +572,7 @@ export const generateThemeTTS = action({
       viewerId: currentUser._id,
     });
     if (!theme) {
-      throw new Error("Theme not found or access denied");
+      throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found or access denied" });
     }
 
     if (!canGenerateStoredThemeTts(currentUser._id, {
@@ -580,7 +581,7 @@ export const generateThemeTTS = action({
       visibility: theme.visibility,
       friendsCanEdit: theme.friendsCanEdit,
     })) {
-      throw new Error("You don't have permission to edit this theme");
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
     }
 
     const words = theme.words as ThemeWordWithTts[];
@@ -629,7 +630,7 @@ export const generateThemeTTS = action({
         targets.map(async (target): Promise<GeneratedWordTtsResult> => {
           const cleanText = stripIrr(target.answer).trim();
           if (!cleanText) {
-            throw new Error("Answer text is empty");
+            throw new ConvexError({ code: "INVALID_INPUT", message: "Answer text is empty" });
           }
 
           const controller = new AbortController();
@@ -642,7 +643,7 @@ export const generateThemeTTS = action({
           }
 
           if (!audioBuffer) {
-            throw new Error("Resemble TTS generation failed");
+            throw new ConvexError({ code: "INTERNAL_ERROR", message: "Resemble TTS generation failed" });
           }
 
           const storageId = await ctx.storage.store(new Blob([audioBuffer], { type: "audio/wav" }));

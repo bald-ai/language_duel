@@ -8,6 +8,7 @@ import {
   type NotificationPreferences,
 } from "@/lib/notificationPreferences";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export function useNotificationSettings() {
   const prefs = useQuery(api.notificationPreferences.getMyNotificationPreferences);
@@ -31,7 +32,7 @@ export function useNotificationSettings() {
 
         await setPrefs(merged);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update preferences";
+        const message = getErrorMessage(err, "Failed to update preferences");
         setError(message);
         toast.error(message);
       } finally {
