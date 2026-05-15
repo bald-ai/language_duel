@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
-import { acquireTtsGenerationLock, releaseTtsGenerationLock } from "@/convex/users";
+import { acquireTtsGenerationLock, releaseTtsGenerationLock } from "@/convex/ttsGenerationLocks";
 import { patchRow } from "./testUtils/inMemoryDb";
 
 type UserDoc = {

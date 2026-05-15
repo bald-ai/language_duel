@@ -10,11 +10,11 @@ import {
   type NotificationTrigger,
 } from "../../lib/notificationPreferences";
 import { type EmailData } from "../../lib/notificationTemplates";
+import { formatVisibleUser } from "../../lib/userDisplay";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames } from "../../lib/sessionWords";
 import { getGoalDeleteAt } from "../../lib/weeklyGoals";
-
-const DEFAULT_TIMEZONE = "Europe/Prague";
+import { WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE } from "../../lib/weeklyGoalTiming";
 
 export const getUserById = internalQuery({
   args: { id: v.id("users") },
@@ -61,14 +61,14 @@ export async function buildEmailData(
   args: BuildEmailArgs
 ): Promise<EmailData> {
   const data: EmailData = {
-    recipientName: args.toUser.nickname ?? args.toUser.name ?? "Player",
+    recipientName: formatVisibleUser(args.toUser, "Player"),
   };
 
   if (args.fromUserId) {
     const fromUser = await ctx.runQuery(internal.emails.notificationEmailData.getUserById, {
       id: args.fromUserId,
     });
-    data.senderName = fromUser?.nickname ?? fromUser?.name ?? "Player";
+    data.senderName = formatVisibleUser(fromUser, "Player");
     data.partnerName = data.senderName;
 
     const paletteName = fromUser?.selectedColorSet ?? DEFAULT_THEME_NAME;
@@ -106,9 +106,9 @@ export async function buildEmailData(
       const partner = await ctx.runQuery(internal.emails.notificationEmailData.getUserById, {
         id: partnerId,
       });
-      data.partnerName = partner?.nickname ?? partner?.name ?? data.partnerName;
+      data.partnerName = partner ? formatVisibleUser(partner, data.partnerName) : data.partnerName;
       if (goal.endDate) {
-        data.scheduledTime = formatScheduledTimeForEmail(goal.endDate, DEFAULT_TIMEZONE);
+        data.scheduledTime = formatScheduledTimeForEmail(goal.endDate, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
       }
       data.completedCount = goal.themes.filter(
         (theme: { creatorCompleted: boolean; partnerCompleted: boolean }) =>
@@ -125,7 +125,7 @@ export async function buildEmailData(
       if (args.trigger === "weekly_goal_grace_period_reminder" && goal.endDate) {
         const deleteAt = getGoalDeleteAt(goal.endDate);
         if (deleteAt) {
-          data.deleteAt = formatScheduledTimeForEmail(deleteAt, DEFAULT_TIMEZONE);
+          data.deleteAt = formatScheduledTimeForEmail(deleteAt, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
           data.graceHoursLeft = Math.max(
             0,
             Math.ceil((deleteAt - Date.now()) / (60 * 60 * 1000))

@@ -302,7 +302,7 @@ async function getUserAndCredits(): Promise<{
 }
 
 async function consumeTtsCredit(client: ConvexHttpClient) {
-  await client.mutation(api.users.consumeCredits, {
+  await client.mutation(api.credits.consumeCredits, {
     creditType: "tts",
     cost: TTS_GENERATION_COST,
   });

@@ -5,6 +5,7 @@
 
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 
 export type PlayerRole = "challenger" | "opponent";
 
@@ -38,7 +39,7 @@ export async function getAuthenticatedUser(
 ): Promise<AuthenticatedUser> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new Error("Unauthorized");
+    throw new ConvexError({ code: "AUTH_FAILED", message: "Unauthorized" });
   }
 
   const user = await ctx.db

@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { BackButton } from "@/app/components/BackButton";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import { buildSoloUrl } from "@/lib/soloNavigation";
 import {
   getSpacedRepetitionIntervalDaysForStep,
@@ -126,7 +127,7 @@ export default function RepetitionLaunchPage() {
               {title}
             </h1>
             <p className="mt-1 text-sm" style={{ color: colors.text.muted }}>
-              {preview.partner?.nickname || preview.partner?.email?.split("@")[0] || "Deleted participant"} · {intervalDays}-day mark
+              {formatVisibleUser(preview.partner, "Deleted participant")} · {intervalDays}-day mark
             </p>
           </div>
 

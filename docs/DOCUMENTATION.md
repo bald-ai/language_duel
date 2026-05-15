@@ -74,6 +74,7 @@ Weekly goal lifecycle:
 ## Domain Terms
 
 - Theme: the core content unit, made of words and answers plus metadata like description, word type, sharing, and editability.
+- Padded handle: the canonical concrete user label, formatted like `Alex#0123`. Generic status copy can still use product words like "Someone" when no user label is available.
 - Adjective themes use Spanish masculine singular/base-form adjectives, without articles or irregular markers.
 - Adverb themes use Spanish adverbs in canonical form, preferring the -mente form when derivable; pure adverbs (bien, siempre, aquí, muy) stay as-is. Wrong answers may include at most one bare-adjective distractor (for example, "rápido" as a distractor for "rápidamente").
 - Duel: a structured two-person practice session. The name sounds more competitive than the broader product intent.

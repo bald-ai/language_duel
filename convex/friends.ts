@@ -1,9 +1,14 @@
 import { mutation, query, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isUserOnline, loadUsersById } from "./helpers/users";
-import { isFriendRequestPayload } from "./notificationPayloads";
+import {
+  createFriendRequestNotification,
+  dismissFriendRequestNotifications,
+  isFriendRequestPayload,
+  requireCallerOwnedNotificationPayload,
+} from "./notificationHelpers";
 import { closeVisibleGoalsBetweenParticipants } from "./weeklyGoals";
 import {
   FRIEND_REQUEST_TTL_MS,
@@ -74,45 +79,6 @@ export async function getRelationshipMapForUser(
     friendIds,
     pendingFriendRequestUserIds: new Set([...pendingSentIds, ...pendingReceivedIds]),
   };
-}
-
-function requireFriendRequestId(payload: Doc<"notifications">["payload"]): Id<"friendRequests"> {
-  if (!isFriendRequestPayload(payload)) {
-    throw new Error("Friend request ID not found in notification");
-  }
-
-  return payload.friendRequestId;
-}
-
-async function dismissFriendRequestNotifications(
-  ctx: MutationCtx,
-  receiverId: Id<"users">,
-  friendRequestId: Id<"friendRequests">
-) {
-  const pendingNotifications = await ctx.db
-    .query("notifications")
-    .withIndex("by_type_status", (q) =>
-      q.eq("type", "friend_request").eq("toUserId", receiverId).eq("status", "pending")
-    )
-    .collect();
-
-  const readNotifications = await ctx.db
-    .query("notifications")
-    .withIndex("by_type_status", (q) =>
-      q.eq("type", "friend_request").eq("toUserId", receiverId).eq("status", "read")
-    )
-    .collect();
-
-  const notifications = [...pendingNotifications, ...readNotifications];
-
-  for (const notification of notifications) {
-    if (
-      isFriendRequestPayload(notification.payload) &&
-      notification.payload.friendRequestId === friendRequestId
-    ) {
-      await ctx.db.patch(notification._id, { status: "dismissed" });
-    }
-  }
 }
 
 async function resolvePendingFriendRequestForReceiver(
@@ -315,15 +281,10 @@ export const sendFriendRequest = mutation({
       createdAt: now,
     });
 
-    // Create notification for the receiver
-    await ctx.db.insert("notifications", {
-      type: "friend_request",
-      fromUserId: user._id,
-      toUserId: args.receiverId,
-      status: "pending",
-      payload: {
-        friendRequestId: requestId,
-      },
+    await createFriendRequestNotification(ctx, {
+      senderId: user._id,
+      receiverId: args.receiverId,
+      friendRequestId: requestId,
       createdAt: now,
     });
 
@@ -496,21 +457,14 @@ export const acceptFriendRequestNotification = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (notification.type !== "friend_request") {
-      throw new Error("Invalid notification type");
-    }
-
-    const friendRequestId = requireFriendRequestId(notification.payload);
-    await acceptFriendRequestCore(ctx, friendRequestId, user._id);
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "friend_request",
+      payloadGuard: isFriendRequestPayload,
+      missingPayloadMessage: "Friend request ID not found in notification",
+    });
+    await acceptFriendRequestCore(ctx, payload.friendRequestId, user._id);
 
     return { success: true };
   },
@@ -523,21 +477,14 @@ export const rejectFriendRequestNotification = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (notification.type !== "friend_request") {
-      throw new Error("Invalid notification type");
-    }
-
-    const friendRequestId = requireFriendRequestId(notification.payload);
-    await rejectFriendRequestCore(ctx, friendRequestId, user._id);
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "friend_request",
+      payloadGuard: isFriendRequestPayload,
+      missingPayloadMessage: "Friend request ID not found in notification",
+    });
+    await rejectFriendRequestCore(ctx, payload.friendRequestId, user._id);
 
     return { success: true };
   },

@@ -4,14 +4,12 @@
  */
 
 import { query, mutation, internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getAuthenticatedUser,
   getAuthenticatedUserOrNull,
   getChallengeParticipant,
-  getDuelParticipant,
 } from "./helpers/auth";
 import {
   buildChallengeInvite,
@@ -19,16 +17,33 @@ import {
 } from "./helpers/sessionCreation";
 import {
   loadThemesByIds,
-  summarizeSessionWords,
 } from "./helpers/sessionWords";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnapshots";
-import { isChallengeInvitePayload } from "./notificationPayloads";
+import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
+import {
+  createChallengeInviteNotificationAndEmail,
+  dismissChallengeInviteNotificationsByChallengeId,
+  isChallengeInvitePayload,
+  requireCallerOwnedNotificationPayload,
+} from "./notificationHelpers";
 import { CHALLENGE_INVITE_TTL_MS } from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
 import { calculateBossStartingLives } from "../lib/bossLives";
 
 type CtxWithDb = QueryCtx | MutationCtx;
+type UserSummary = Pick<Doc<"users">, "_id" | "name" | "nickname" | "discriminator" | "imageUrl">;
+
+function toUserSummary(user: Doc<"users"> | null): UserSummary | null {
+  if (!user) return null;
+  return {
+    _id: user._id,
+    name: user.name,
+    nickname: user.nickname,
+    discriminator: user.discriminator,
+    imageUrl: user.imageUrl,
+  };
+}
 
 async function buildDuelWordsForChallenge(
   ctx: CtxWithDb,
@@ -73,6 +88,31 @@ async function insertDuelSessionForChallenge(
   }));
 }
 
+async function acceptChallengeCore(
+  ctx: MutationCtx,
+  challenge: Doc<"challenges">,
+  now: number
+) {
+  const duelId = await insertDuelSessionForChallenge(ctx, challenge, now);
+  await ctx.db.patch(challenge._id, {
+    status: "accepted",
+    acceptedAt: now,
+    resolvedAt: now,
+    duelId,
+  });
+  await dismissChallengeInviteNotificationsByChallengeId(ctx, challenge._id, [challenge.opponentId]);
+  return { duelId };
+}
+
+async function declineChallengeCore(
+  ctx: MutationCtx,
+  challenge: Doc<"challenges">,
+  now: number
+) {
+  await ctx.db.patch(challenge._id, { status: "declined", resolvedAt: now });
+  await dismissChallengeInviteNotificationsByChallengeId(ctx, challenge._id, [challenge.opponentId]);
+}
+
 async function resolveBossLives(
   ctx: CtxWithDb,
   challenge: Doc<"challenges">
@@ -111,6 +151,10 @@ export const createChallenge = mutation({
   handler: async (ctx, { opponentId, themeIds, duelDifficultyPreset }) => {
     const { user: challenger } = await getAuthenticatedUser(ctx);
 
+    if (opponentId === challenger._id) {
+      throw new Error("Cannot challenge yourself");
+    }
+
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) throw new Error("Opponent not found");
 
@@ -120,7 +164,7 @@ export const createChallenge = mutation({
     }
     const themes: Array<Doc<"themes"> | null> = await Promise.all(
       orderedThemeIds.map((selectedThemeId) =>
-        ctx.runQuery(api.themes.getTheme, { themeId: selectedThemeId })
+        loadThemeWithViewerAccess(ctx, challenger._id, selectedThemeId)
       )
     );
     if (themes.some((theme) => !theme)) {
@@ -142,78 +186,16 @@ export const createChallenge = mutation({
 
     const themeSummary = summarizeThemes(resolvedThemes);
 
-    await ctx.db.insert("notifications", {
-      type: "challenge_invite",
-      fromUserId: challenger._id,
-      toUserId: opponentId,
-      status: "pending",
-      payload: {
-        challengeId,
-        themeName: themeSummary,
-        duelDifficultyPreset,
-      },
+    await createChallengeInviteNotificationAndEmail(ctx, {
+      challengerId: challenger._id,
+      opponentId,
+      challengeId,
+      themeName: themeSummary,
+      duelDifficultyPreset,
       createdAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_challenge_invite",
-      toUserId: opponentId,
-      fromUserId: challenger._id,
-      challengeId,
-    });
-
     return challengeId;
-  },
-});
-
-export const getDuel = query({
-  args: { duelId: v.id("duels") },
-  handler: async (ctx, { duelId }) => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return null;
-
-    const duel = await ctx.db.get(duelId);
-    if (!duel) return null;
-
-    const isChallenger = auth.user._id === duel.challengerId;
-    const isOpponent = auth.user._id === duel.opponentId;
-    if (!isChallenger && !isOpponent) return null;
-
-    const [challenger, opponent] = await Promise.all([
-      ctx.db.get(duel.challengerId),
-      ctx.db.get(duel.opponentId),
-    ]);
-    const viewerRole = isChallenger ? "challenger" : "opponent";
-
-    const themes = await loadThemesByIds(ctx, duel.themeIds);
-    const theme = themes.length === 1 ? themes[0] : null;
-
-    return {
-      duel,
-      theme,
-      themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
-      themeSummary: summarizeSessionWords(duel.sessionWords),
-      viewerRole,
-      viewer: {
-        _id: auth.user._id,
-        name: auth.user.name,
-        imageUrl: auth.user.imageUrl,
-      },
-      challenger: challenger
-        ? {
-          _id: challenger._id,
-          name: challenger.name,
-          imageUrl: challenger.imageUrl,
-        }
-        : null,
-      opponent: opponent
-        ? {
-          _id: opponent._id,
-          name: opponent.name,
-          imageUrl: opponent.imageUrl,
-        }
-        : null,
-    };
   },
 });
 
@@ -253,7 +235,7 @@ export const getPendingChallenges = query({
 
     return pendingChallenges.map((challenge) => ({
       challenge,
-      challenger: challengersById.get(challenge.challengerId) ?? null,
+      challenger: toUserSummary(challengersById.get(challenge.challengerId) ?? null),
     }));
   },
 });
@@ -271,13 +253,7 @@ export const acceptChallenge = mutation({
     }
 
     const now = Date.now();
-    const duelId = await insertDuelSessionForChallenge(ctx, challenge, now);
-    await ctx.db.patch(challengeId, {
-      status: "accepted",
-      acceptedAt: now,
-      resolvedAt: now,
-      duelId,
-    });
+    const { duelId } = await acceptChallengeCore(ctx, challenge, now);
     return { duelId };
   },
 });
@@ -294,16 +270,7 @@ export const declineChallenge = mutation({
       throw new Error("Challenge is not pending");
     }
 
-    await ctx.db.patch(challengeId, { status: "declined", resolvedAt: Date.now() });
-  },
-});
-
-export const stopDuel = mutation({
-  args: { duelId: v.id("duels") },
-  handler: async (ctx, { duelId }) => {
-    const { duel } = await getDuelParticipant(ctx, duelId);
-    if (duel.status !== "active") return;
-    await ctx.db.patch(duelId, { status: "stopped" });
+    await declineChallengeCore(ctx, challenge, Date.now());
   },
 });
 
@@ -320,23 +287,7 @@ export const cancelChallenge = mutation({
     }
 
     await ctx.db.patch(challengeId, { status: "cancelled", resolvedAt: Date.now() });
-
-    const notifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type", (q) =>
-        q.eq("type", "challenge_invite").eq("toUserId", challenge.opponentId)
-      )
-      .collect();
-
-    for (const notification of notifications) {
-      if (
-        (notification.status === "pending" || notification.status === "read") &&
-        isChallengeInvitePayload(notification.payload) &&
-        notification.payload.challengeId === challengeId
-      ) {
-        await ctx.db.patch(notification._id, { status: "dismissed" });
-      }
-    }
+    await dismissChallengeInviteNotificationsByChallengeId(ctx, challengeId, [challenge.opponentId]);
   },
 });
 
@@ -347,20 +298,13 @@ export const acceptChallengeFromNotification = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-    if (notification.type !== "challenge_invite") {
-      throw new Error("Invalid notification type");
-    }
-    const payload = notification.payload;
-    if (!isChallengeInvitePayload(payload)) {
-      throw new Error("Challenge ID not found in notification");
-    }
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "challenge_invite",
+      payloadGuard: isChallengeInvitePayload,
+      missingPayloadMessage: "Challenge ID not found in notification",
+    });
 
     const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
@@ -374,17 +318,7 @@ export const acceptChallengeFromNotification = mutation({
     }
 
     const now = Date.now();
-    const duelId = await insertDuelSessionForChallenge(ctx, challenge, now);
-    await ctx.db.patch(challenge._id, {
-      status: "accepted",
-      acceptedAt: now,
-      resolvedAt: now,
-      duelId,
-    });
-
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
-    });
+    const { duelId } = await acceptChallengeCore(ctx, challenge, now);
 
     return { success: true, duelId };
   },
@@ -397,20 +331,13 @@ export const declineChallengeFromNotification = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-    if (notification.type !== "challenge_invite") {
-      throw new Error("Invalid notification type");
-    }
-    const payload = notification.payload;
-    if (!isChallengeInvitePayload(payload)) {
-      throw new Error("Challenge ID not found in notification");
-    }
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "challenge_invite",
+      payloadGuard: isChallengeInvitePayload,
+      missingPayloadMessage: "Challenge ID not found in notification",
+    });
 
     const challenge = await ctx.db.get(payload.challengeId);
     if (!challenge) {
@@ -423,14 +350,7 @@ export const declineChallengeFromNotification = mutation({
       throw new Error("Not authorized");
     }
 
-    await ctx.db.patch(challenge._id, {
-      status: "declined",
-      resolvedAt: Date.now(),
-    });
-
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
-    });
+    await declineChallengeCore(ctx, challenge, Date.now());
 
     return { success: true };
   },

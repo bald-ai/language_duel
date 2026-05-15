@@ -25,7 +25,7 @@ export default function DuelPage() {
   const { user } = useUser();
   const duelId = typeof params.duelId === "string" ? params.duelId : "";
 
-  const duelData = useQuery(api.lobby.getDuel, duelId ? { duelId: duelId as Id<"duels"> } : "skip");
+  const duelData = useQuery(api.duels.getDuel, duelId ? { duelId: duelId as Id<"duels"> } : "skip");
 
   const { 
     duel, 

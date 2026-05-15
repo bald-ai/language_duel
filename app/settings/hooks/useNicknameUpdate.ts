@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import {
   NICKNAME_MIN_LENGTH,
   NICKNAME_MAX_LENGTH,
@@ -42,7 +43,7 @@ export function useNicknameUpdate() {
 
       try {
         const result = await updateNicknameMutation({ nickname });
-        toast.success(`Nickname updated to ${result.nickname}#${result.discriminator}`);
+        toast.success(`Nickname updated to ${formatVisibleUser(result)}`);
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update nickname";

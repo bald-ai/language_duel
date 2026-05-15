@@ -17,6 +17,7 @@ import { ThemeCardMenu } from "./ThemeCardMenu";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
 import { getThemeActionButtonStyle } from "./themeStyles";
 import { getWordTypeLabel } from "../constants";
+import { formatVisibleUser } from "@/lib/userDisplay";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -257,7 +258,7 @@ export function ThemeList({
     : myThemesOnly
       ? "My Themes"
       : selectedFriend
-        ? `${selectedFriend.nickname || selectedFriend.email}${selectedFriend.discriminator ? `#${selectedFriend.discriminator}` : ""}`
+        ? formatVisibleUser(selectedFriend)
         : null;
 
   const isFiltering = showArchived || myThemesOnly || !!selectedFriend;

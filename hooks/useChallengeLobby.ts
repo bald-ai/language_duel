@@ -21,7 +21,7 @@ export interface CreateChallengeOptions {
 export function useChallengeData(shouldLoad: boolean) {
   const users = useQuery(api.users.getUsers, shouldLoad ? {} : "skip");
   const themes = useQuery(api.themes.getThemes, shouldLoad ? {} : "skip");
-  const pendingChallenges = useQuery(api.lobby.getPendingChallenges, shouldLoad ? {} : "skip");
+  const pendingChallenges = useQuery(api.challenges.getPendingChallenges, shouldLoad ? {} : "skip");
 
   return {
     users,
@@ -33,17 +33,25 @@ export function useChallengeData(shouldLoad: boolean) {
 
 export function useChallengeModals() {
   const [modalState, setModalState] = useState<ModalState>("none");
+  const [initialChallengeOpponentId, setInitialChallengeOpponentId] = useState<Id<"users"> | null>(null);
 
   const openSoloPracticeModal = useCallback(() => setModalState("soloPractice"), []);
-  const openChallengeModal = useCallback(() => setModalState("challenge"), []);
+  const openChallengeModal = useCallback((initialOpponentId?: Id<"users">) => {
+    setInitialChallengeOpponentId(initialOpponentId ?? null);
+    setModalState("challenge");
+  }, []);
   const openWaitingModal = useCallback(() => setModalState("waiting"), []);
-  const closeModal = useCallback(() => setModalState("none"), []);
+  const closeModal = useCallback(() => {
+    setInitialChallengeOpponentId(null);
+    setModalState("none");
+  }, []);
 
   return {
     modalState,
     showSoloPracticeModal: modalState === "soloPractice",
     showChallengeModal: modalState === "challenge",
     showWaitingModal: modalState === "waiting",
+    initialChallengeOpponentId,
     openSoloPracticeModal,
     openChallengeModal,
     openWaitingModal,
@@ -60,10 +68,10 @@ export function useChallengeActions({
   onChallengeCreated,
   onWaitingCancelled,
 }: UseChallengeActionsOptions) {
-  const createChallengeMutation = useMutation(api.lobby.createChallenge);
-  const acceptChallengeMutation = useMutation(api.lobby.acceptChallenge);
-  const declineChallengeMutation = useMutation(api.lobby.declineChallenge);
-  const cancelChallengeMutation = useMutation(api.lobby.cancelChallenge);
+  const createChallengeMutation = useMutation(api.challenges.createChallenge);
+  const acceptChallengeMutation = useMutation(api.challenges.acceptChallenge);
+  const declineChallengeMutation = useMutation(api.challenges.declineChallenge);
+  const cancelChallengeMutation = useMutation(api.challenges.cancelChallenge);
 
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const [isCancellingChallenge, setIsCancellingChallenge] = useState(false);
@@ -153,7 +161,7 @@ export function useChallengeStatusWatcher({
 }: UseChallengeStatusWatcherOptions) {
   const router = useRouter();
   const waitingChallenge = useQuery(
-    api.lobby.getChallenge,
+    api.challenges.getChallenge,
     waitingChallengeId ? { challengeId: waitingChallengeId } : "skip"
   );
 
@@ -223,9 +231,9 @@ export function useChallengeLobby() {
     modals.openSoloPracticeModal();
   }, [modals]);
 
-  const openChallengeModal = useCallback(() => {
+  const openChallengeModal = useCallback((initialOpponentId?: Id<"users">) => {
     setHasRequestedChallengeData(true);
-    modals.openChallengeModal();
+    modals.openChallengeModal(initialOpponentId);
   }, [modals]);
 
   return {
@@ -237,6 +245,7 @@ export function useChallengeLobby() {
     showSoloPracticeModal: modals.showSoloPracticeModal,
     showChallengeModal: modals.showChallengeModal,
     showWaitingModal: modals.showWaitingModal,
+    initialChallengeOpponentId: modals.initialChallengeOpponentId,
     isJoiningDuel,
 
     isCreatingChallenge: actions.isCreatingChallenge,

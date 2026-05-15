@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import { toast } from "sonner";
 import { FriendListItem } from "./FriendListItem";
 import { AddFriendSection } from "./AddFriendSection";
@@ -117,7 +118,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                                             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
                                             style={{ backgroundColor: colors.neutral.DEFAULT }}
                                         >
-                                            {(request.nickname?.[0] || request.email[0]).toUpperCase()}
+                                            {getVisibleUserInitials(request)}
                                         </div>
 
                                         <div className="flex-1 min-w-0">
@@ -125,12 +126,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                                                 className="text-sm font-medium truncate"
                                                 style={{ color: colors.text.DEFAULT }}
                                             >
-                                                {request.nickname || request.name || request.email}
-                                                {request.discriminator && (
-                                                    <span style={{ color: colors.text.muted }}>
-                                                        #{request.discriminator.toString().padStart(4, "0")}
-                                                    </span>
-                                                )}
+                                                {formatVisibleUser(request)}
                                             </p>
                                             <p
                                                 className="text-xs"

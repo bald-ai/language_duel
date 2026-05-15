@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { hasThemeAccess, type ThemeAccessParams } from "../../lib/themeAccess";
+import {
+    canGenerateStoredThemeTts,
+    hasThemeAccess,
+    type ThemeAccessParams,
+} from "../../lib/themeAccess";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const userId = (id: string) => id as Id<"users">;
@@ -246,5 +250,39 @@ describe("hasThemeAccess", () => {
             const params = makeParams();
             expect(hasThemeAccess(params)).toBe(false);
         });
+    });
+});
+
+describe("canGenerateStoredThemeTts", () => {
+    it("allows owners to generate stored theme TTS", () => {
+        expect(
+            canGenerateStoredThemeTts(userId("owner1"), {
+                themeId: themeId("theme1"),
+                ownerId: userId("owner1"),
+                visibility: "private",
+            })
+        ).toBe(true);
+    });
+
+    it("allows shared editable themes after view access has been checked separately", () => {
+        expect(
+            canGenerateStoredThemeTts(userId("user1"), {
+                themeId: themeId("theme1"),
+                ownerId: userId("owner1"),
+                visibility: "shared",
+                friendsCanEdit: true,
+            })
+        ).toBe(true);
+    });
+
+    it("rejects view-only shared themes", () => {
+        expect(
+            canGenerateStoredThemeTts(userId("user1"), {
+                themeId: themeId("theme1"),
+                ownerId: userId("owner1"),
+                visibility: "shared",
+                friendsCanEdit: false,
+            })
+        ).toBe(false);
     });
 });

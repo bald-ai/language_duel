@@ -3,7 +3,6 @@
  */
 
 import { mutation, query, type MutationCtx, type QueryCtx, internalQuery, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
@@ -17,8 +16,17 @@ import {
   listWeeklyGoalThemeSnapshots,
   loadWeeklyGoalSessionThemesByThemeIds,
 } from "./helpers/weeklyGoalSnapshots";
-import { isWeeklyGoalPayload } from "./notificationPayloads";
-import type { NotificationPayload } from "./schema";
+import {
+  createNotification,
+  createChallengeInviteNotificationAndEmail,
+  dismissChallengeInviteNotificationsByChallengeId,
+  dismissNotificationById,
+  dismissWeeklyGoalNotificationsForParticipants,
+  isWeeklyGoalPayload,
+  requireCallerOwnedNotificationPayload,
+  scheduleNotificationEmail,
+  upsertWeeklyGoalNotificationForGoal,
+} from "./notificationHelpers";
 import { GRACE_PERIOD_MS, MIN_GOAL_DURATION_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
 import {
   isCreatedAtExpired,
@@ -43,11 +51,6 @@ import { ensureRepetitionRecordsForCompletedGoal } from "./weeklyGoalRepetitions
 const MAX_THEMES_PER_GOAL = 10;
 type BossType = "mini" | "big";
 type WeeklyGoalPracticeSource = "live" | "snapshot";
-const WEEKLY_GOAL_NOTIFICATION_TYPES = [
-  "weekly_goal_invitation",
-  "weekly_goal_draft_expiring",
-] as const;
-
 function getGoalParticipantIds(goal: Doc<"weeklyGoals">): Id<"users">[] {
   return [goal.creatorId, goal.partnerId];
 }
@@ -198,125 +201,11 @@ async function dismissGoalNotifications(
   const goal = await ctx.db.get(goalId);
   if (!goal) return;
 
-  const participantIds = [goal.creatorId, goal.partnerId];
-
-  for (const userId of participantIds) {
-    const notifications = (
-      await Promise.all(
-        WEEKLY_GOAL_NOTIFICATION_TYPES.flatMap((type) =>
-          (["pending", "read"] as const).map((status) =>
-            ctx.db
-              .query("notifications")
-              .withIndex("by_type_status", (q) =>
-                q
-                  .eq("type", type)
-                  .eq("toUserId", userId)
-                  .eq("status", status)
-              )
-              .collect()
-          )
-        )
-      )
-    ).flat();
-
-    for (const notification of notifications) {
-      if (
-        isWeeklyGoalPayload(notification.payload) &&
-        notification.payload.goalId === goalId
-      ) {
-        await ctx.db.patch(notification._id, { status: "dismissed" });
-      }
-    }
-  }
-}
-
-async function dismissGoalNotificationsForParticipants(
-  ctx: MutationCtx,
-  participantIds: Id<"users">[],
-  goalIds: Id<"weeklyGoals">[]
-) {
-  if (participantIds.length === 0 || goalIds.length === 0) return;
-
-  const goalIdSet = new Set(goalIds.map((id) => String(id)));
-
-  for (const userId of participantIds) {
-    const notifications = (
-      await Promise.all(
-        WEEKLY_GOAL_NOTIFICATION_TYPES.flatMap((type) =>
-          (["pending", "read"] as const).map((status) =>
-            ctx.db
-              .query("notifications")
-              .withIndex("by_type_status", (q) =>
-                q
-                  .eq("type", type)
-                  .eq("toUserId", userId)
-                  .eq("status", status)
-              )
-              .collect()
-          )
-        )
-      )
-    ).flat();
-    for (const notification of notifications) {
-      if (!isWeeklyGoalPayload(notification.payload)) continue;
-      if (!goalIdSet.has(String(notification.payload.goalId))) continue;
-      await ctx.db.patch(notification._id, { status: "dismissed" });
-    }
-  }
-}
-
-async function upsertWeeklyGoalNotificationForGoal(
-  ctx: MutationCtx,
-  args: {
-    toUserId: Id<"users">;
-    fromUserId: Id<"users">;
-    goalId: Id<"weeklyGoals">;
-    themeCount: number;
-    event:
-      | "invite"
-      | "declined"
-      | "partner_locked"
-      | "goal_unlocked"
-      | "goal_activated"
-      | "goal_completed";
-    createdAt: number;
-  }
-) {
-  const existing = await ctx.db
-    .query("notifications")
-    .withIndex("by_type", (q) =>
-      q.eq("type", "weekly_goal_invitation").eq("toUserId", args.toUserId)
-    )
-    .collect();
-
-  const matching = existing.find(
-    (n) => isWeeklyGoalPayload(n.payload) && n.payload.goalId === args.goalId
+  await dismissWeeklyGoalNotificationsForParticipants(
+    ctx,
+    [goal.creatorId, goal.partnerId],
+    [goalId]
   );
-
-  const payload: NotificationPayload = {
-    goalId: args.goalId,
-    themeCount: args.themeCount,
-    event: args.event,
-  };
-
-  if (matching) {
-    await ctx.db.patch(matching._id, {
-      fromUserId: args.fromUserId,
-      payload,
-      status: "pending",
-      createdAt: args.createdAt,
-    });
-    return;
-  }
-
-  await ctx.db.insert("notifications", {
-    type: "weekly_goal_invitation",
-    fromUserId: args.fromUserId,
-    toUserId: args.toUserId,
-    status: "pending",
-    payload,
-    createdAt: args.createdAt,
-  });
 }
 
 async function dismissChallengeNotifications(
@@ -326,24 +215,8 @@ async function dismissChallengeNotifications(
 ) {
   if (challengeIds.length === 0) return;
 
-  const challengeIdSet = new Set(challengeIds.map((challengeId) => String(challengeId)));
-
-  for (const userId of participantIds) {
-    const notifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type", (q) => q.eq("type", "challenge_invite").eq("toUserId", userId))
-      .collect();
-
-    for (const notification of notifications) {
-      if (
-        (notification.status === "pending" || notification.status === "read") &&
-        notification.payload &&
-        "challengeId" in notification.payload &&
-        challengeIdSet.has(String(notification.payload.challengeId))
-      ) {
-        await ctx.db.patch(notification._id, { status: "dismissed" });
-      }
-    }
+  for (const challengeId of challengeIds) {
+    await dismissChallengeInviteNotificationsByChallengeId(ctx, challengeId, participantIds);
   }
 }
 
@@ -495,8 +368,8 @@ export type GoalRole = "creator" | "partner";
 
 export interface GoalWithUsers {
   goal: Doc<"weeklyGoals">;
-  creator: { _id: Id<"users">; nickname?: string; email: string } | null;
-  partner: { _id: Id<"users">; nickname?: string; email: string } | null;
+  creator: UserSummary | null;
+  partner: UserSummary | null;
   viewerRole: GoalRole;
   effectiveStatus: WeeklyGoalLifecycleStatus;
   miniBossStatus: WeeklyGoalBossStatus;
@@ -505,11 +378,21 @@ export interface GoalWithUsers {
   canEditEndDate: boolean;
 }
 
-type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
+type UserSummary = {
+  _id: Id<"users">;
+  nickname?: string;
+  discriminator?: number;
+  name?: string;
+};
 
 const toUserSummary = (user: Doc<"users"> | null): UserSummary | null => {
   if (!user) return null;
-  return { _id: user._id, nickname: user.nickname, email: user.email };
+  return {
+    _id: user._id,
+    nickname: user.nickname,
+    discriminator: user.discriminator,
+    name: user.name,
+  };
 };
 
 function shouldIncludeGoal(
@@ -981,11 +864,10 @@ export const createGoal = mutation({
     });
 
     // Notify the partner about the new goal invitation
-    await ctx.db.insert("notifications", {
+    await createNotification(ctx, {
       type: "weekly_goal_invitation",
       fromUserId: user._id,
       toUserId: partnerId,
-      status: "pending",
       payload: {
         goalId,
         themeCount: 0,
@@ -994,7 +876,7 @@ export const createGoal = mutation({
       createdAt: now,
     });
 
-    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+    await scheduleNotificationEmail(ctx, {
       trigger: "weekly_goal_invite",
       toUserId: partnerId,
       fromUserId: user._id,
@@ -1123,7 +1005,7 @@ export const removeTheme = mutation({
       });
     }
 
-    await dismissGoalNotificationsForParticipants(ctx, [otherParticipantId], [goalId]);
+    await dismissWeeklyGoalNotificationsForParticipants(ctx, [otherParticipantId], [goalId]);
   },
 });
 
@@ -1245,24 +1127,13 @@ export const createBossChallenge = mutation({
     });
 
     const bossLabel = bossType === "mini" ? "Mini Boss" : "Big Boss";
-    await ctx.db.insert("notifications", {
-      type: "challenge_invite",
-      fromUserId: user._id,
-      toUserId: opponentId,
-      status: "pending",
-      payload: {
-        challengeId,
-        themeName: `${bossLabel}: ${summarizeSessionWords(sessionWords)}`,
-        duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
-      },
-      createdAt: now,
-    });
-
-    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_challenge_invite",
-      toUserId: opponentId,
-      fromUserId: user._id,
+    await createChallengeInviteNotificationAndEmail(ctx, {
+      challengerId: user._id,
+      opponentId,
       challengeId,
+      themeName: `${bossLabel}: ${summarizeSessionWords(sessionWords)}`,
+      duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
+      createdAt: now,
     });
 
     return challengeId;
@@ -1399,7 +1270,7 @@ export const lockGoal = mutation({
         createdAt: now,
       });
 
-      await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+      await scheduleNotificationEmail(ctx, {
         trigger: "weekly_goal_accepted",
         toUserId: isCreator ? goal.partnerId : goal.creatorId,
         fromUserId: user._id,
@@ -1418,7 +1289,7 @@ export const lockGoal = mutation({
         createdAt: now,
       });
 
-      await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
+      await scheduleNotificationEmail(ctx, {
         trigger: "weekly_goal_locked",
         toUserId: otherUserId,
         fromUserId: user._id,
@@ -1550,11 +1421,10 @@ export const createDraftExpiryNotification = internalMutation({
       return { created: false };
     }
 
-    await ctx.db.insert("notifications", {
+    await createNotification(ctx, {
       type: "weekly_goal_draft_expiring",
       fromUserId: goal.creatorId,
       toUserId: goal.creatorId,
-      status: "pending",
       payload: {
         goalId: goal._id,
         themeCount: goal.themes.length,
@@ -1637,7 +1507,7 @@ export const cleanupWeeklyGoalRetention = internalMutation({
       participantIdSet.add(goal.partnerId);
     }
 
-    await dismissGoalNotificationsForParticipants(
+    await dismissWeeklyGoalNotificationsForParticipants(
       ctx,
       Array.from(participantIdSet),
       goalIds
@@ -1656,22 +1526,14 @@ export const dismissWeeklyGoalInvitation = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (notification.type !== "weekly_goal_invitation") {
-      throw new Error("Invalid notification type");
-    }
-
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
+    await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "weekly_goal_invitation",
+      payloadGuard: isWeeklyGoalPayload,
+      missingPayloadMessage: "Weekly goal data is missing",
     });
+    await dismissNotificationById(ctx, args.notificationId);
 
     return { success: true };
   },
@@ -1684,28 +1546,20 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (notification.type !== "weekly_goal_invitation") {
-      throw new Error("Invalid notification type");
-    }
-
-    if (!isWeeklyGoalPayload(notification.payload) || notification.payload.event !== "goal_completed") {
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "weekly_goal_invitation",
+      payloadGuard: isWeeklyGoalPayload,
+      missingPayloadMessage: "Weekly goal data is missing",
+    });
+    if (payload.event !== "goal_completed") {
       throw new Error("Invalid completed goal notification");
     }
 
-    const goal = await ctx.db.get(notification.payload.goalId);
+    const goal = await ctx.db.get(payload.goalId);
     if (!goal) {
-      await ctx.db.patch(args.notificationId, {
-        status: "dismissed",
-      });
+      await dismissNotificationById(ctx, args.notificationId);
       return { archivedCount: 0 };
     }
 
@@ -1735,9 +1589,7 @@ export const archiveCompletedGoalThemesFromNotification = mutation({
       });
     }
 
-    await ctx.db.patch(args.notificationId, {
-      status: "dismissed",
-    });
+    await dismissNotificationById(ctx, args.notificationId);
 
     return { archivedCount: newlyArchivedThemeIds.length };
   },
@@ -1750,28 +1602,17 @@ export const declineWeeklyGoalInvitation = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const notification = await ctx.db.get(args.notificationId);
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
+    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
+      notificationId: args.notificationId,
+      userId: user._id,
+      type: "weekly_goal_invitation",
+      payloadGuard: isWeeklyGoalPayload,
+      missingPayloadMessage: "Weekly goal data is missing",
+    });
 
-    if (notification.toUserId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (notification.type !== "weekly_goal_invitation") {
-      throw new Error("Invalid notification type");
-    }
-
-    if (!isWeeklyGoalPayload(notification.payload)) {
-      throw new Error("Weekly goal data is missing");
-    }
-
-    const goal = await ctx.db.get(notification.payload.goalId);
+    const goal = await ctx.db.get(payload.goalId);
     if (!goal) {
-      await ctx.db.patch(args.notificationId, {
-        status: "dismissed",
-      });
+      await dismissNotificationById(ctx, args.notificationId);
       return { success: true };
     }
 

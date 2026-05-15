@@ -4,6 +4,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
 import { colors } from "@/lib/theme";
 import { Avatar } from "@/app/components/Avatar";
+import { formatVisibleUser } from "@/lib/userDisplay";
 
 interface FriendFilterModalProps {
   isOpen: boolean;
@@ -113,9 +114,7 @@ export function FriendFilterModal({
                 Friends&apos; themes:
               </p>
               {friends.map((friend) => {
-                const displayName = friend.nickname && friend.discriminator
-                  ? `${friend.nickname}#${friend.discriminator}`
-                  : friend.email;
+                const displayName = formatVisibleUser(friend);
 
                 return (
                   <button
@@ -130,7 +129,7 @@ export function FriendFilterModal({
                   >
                     <Avatar
                       src={friend.imageUrl}
-                      name={friend.nickname || friend.email}
+                      name={displayName}
                       size={40}
                       borderColor={colors.primary.dark}
                     />

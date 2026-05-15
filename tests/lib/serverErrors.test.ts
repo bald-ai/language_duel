@@ -21,31 +21,29 @@ describe("resolveApiError", () => {
     });
   });
 
-  it("maps known auth wording variants", () => {
-    expect(resolveApiError(new Error("Unauthorized"), fallback)).toEqual({
+  it("maps structured backend codes", () => {
+    const authError = new Error("Unauthorized") as Error & { data: { code: string } };
+    authError.data = { code: "AUTH_FAILED" };
+    expect(resolveApiError(authError, fallback)).toEqual({
       code: "AUTH_FAILED",
       message: "Unauthorized",
       status: 401,
     });
 
-    expect(resolveApiError(new Error("Not authenticated"), fallback)).toEqual({
-      code: "AUTH_FAILED",
-      message: "Not authenticated",
-      status: 401,
-    });
-  });
-
-  it("maps known config and credit messages", () => {
-    expect(resolveApiError(new Error("Convex URL not configured"), fallback)).toEqual({
-      code: "CONFIG_ERROR",
-      message: "Convex URL not configured",
-      status: 500,
-    });
-
-    expect(resolveApiError(new Error("LLM credits exhausted"), fallback)).toEqual({
+    const creditError = new Error("LLM credits exhausted") as Error & { data: { code: string } };
+    creditError.data = { code: "CREDITS_EXHAUSTED" };
+    expect(resolveApiError(creditError, fallback)).toEqual({
       code: "CREDITS_EXHAUSTED",
       message: "LLM credits exhausted",
       status: 402,
+    });
+  });
+
+  it("does not classify message-only errors", () => {
+    expect(resolveApiError(new Error("LLM credits exhausted"), fallback)).toEqual({
+      code: "UNKNOWN_ERROR",
+      message: "LLM credits exhausted",
+      status: 500,
     });
   });
 

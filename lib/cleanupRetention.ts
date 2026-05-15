@@ -1,9 +1,4 @@
-export const DISMISSABLE_NOTIFICATION_TYPES = [
-  "friend_request",
-  "weekly_goal_invitation",
-  "weekly_goal_draft_expiring",
-  "challenge_invite",
-] as const;
+export { DISMISSABLE_NOTIFICATION_TYPES } from "./notifications/definitions";
 
 const RESOLVED_FRIEND_REQUEST_STATUSES = ["accepted", "rejected"] as const;
 

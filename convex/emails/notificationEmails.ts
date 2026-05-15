@@ -9,6 +9,14 @@ import {
 import { renderNotificationEmail } from "../../lib/notificationTemplates";
 import { buildEmailData } from "./notificationEmailData";
 
+function getNotificationAppUrl(): string {
+  const appUrl = process.env.APP_URL;
+  if (!appUrl) {
+    throw new Error("APP_URL must be set before sending notification emails");
+  }
+  return appUrl;
+}
+
 export const sendNotificationEmail = internalAction({
   args: {
     trigger: emailNotificationTriggerValidator,
@@ -48,7 +56,9 @@ export const sendNotificationEmail = internalAction({
       dedupeKey: args.dedupeKey,
     });
 
-    const { subject, html } = renderNotificationEmail(trigger, emailData);
+    const { subject, html } = renderNotificationEmail(trigger, emailData, {
+      appUrl: getNotificationAppUrl(),
+    });
 
     const claim = await ctx.runMutation(internal.emails.emailNotificationLog.claimNotificationSend, {
       toUserId: args.toUserId,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   applyTheme,
-  colors,
   DEFAULT_THEME_NAME,
   getActiveThemeName,
   isThemeName,

@@ -4,23 +4,21 @@
 
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
-import {
-  TIMEOUT_ANSWER,
-} from "./constants";
 import { getSessionWords } from "./helpers/sessionWords";
 import { completeWeeklyGoalBoss } from "./weeklyGoals";
 import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
-import { forRole } from "../lib/duelRole";
 import {
-  getBossMissPatch,
-  getDuelQuestionOrThrow,
-  getHintClearFields,
-  getHintProviderBonusPatch,
-  hasBossLivesLeft,
-  isBossAttempt,
-} from "./rules/duelScoringRules";
+  buildAnswerPatch,
+  buildFinalCompletionPatch,
+  buildNextRoundPatch,
+  buildTimeoutPatch,
+  haveBothPlayersAnswered,
+  shouldCompleteSpacedRepetitionDuel,
+  shouldCompleteWeeklyGoalBoss,
+  validateActiveQuestion,
+} from "./rules/duelGameplayRules";
 
 async function advanceDuelIfBothAnswered(
   ctx: MutationCtx,
@@ -28,25 +26,16 @@ async function advanceDuelIfBothAnswered(
   duel: Doc<"duels">,
   wordCount: number
 ): Promise<void> {
-  if (!duel.challengerAnswered || !duel.opponentAnswered) {
+  if (!haveBothPlayersAnswered(duel)) {
     return;
   }
 
   const nextWordIndex = duel.currentWordIndex + 1;
-  const hintProviderBonusPatch = getHintProviderBonusPatch(duel);
 
   if (nextWordIndex >= wordCount) {
-    const bossWasDefeated = isBossAttempt(duel) && hasBossLivesLeft(duel);
+    const bossWasDefeated = shouldCompleteWeeklyGoalBoss(duel);
 
-    await ctx.db.patch(duelId, {
-      ...hintProviderBonusPatch,
-      status: "completed",
-      currentWordIndex: nextWordIndex,
-      challengerAnswered: false,
-      opponentAnswered: false,
-      questionStartTime: undefined,
-      ...getHintClearFields(),
-    });
+    await ctx.db.patch(duelId, buildFinalCompletionPatch(duel, nextWordIndex));
 
     if (duel.weeklyGoalId && duel.bossType && bossWasDefeated) {
       const goal = await ctx.db.get(duel.weeklyGoalId);
@@ -55,20 +44,13 @@ async function advanceDuelIfBothAnswered(
         await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
       }
     }
-    if (duel.sourceType === "spaced_repetition") {
+    if (shouldCompleteSpacedRepetitionDuel(duel)) {
       await completeRepetitionDuel(ctx, duel, Date.now());
     }
     return;
   }
 
-  await ctx.db.patch(duelId, {
-    ...hintProviderBonusPatch,
-    currentWordIndex: nextWordIndex,
-    challengerAnswered: false,
-    opponentAnswered: false,
-    questionStartTime: Date.now(),
-    ...getHintClearFields(),
-  });
+  await ctx.db.patch(duelId, buildNextRoundPatch(duel, nextWordIndex, Date.now()));
 }
 
 // ===========================================
@@ -84,48 +66,24 @@ export const answerDuel = mutation({
   handler: async (ctx, { duelId, selectedAnswer, questionIndex }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
-    if (duel.status !== "active") {
-      throw new ConvexError({
-        code: "DUEL_NOT_ACTIVE",
-        message: "Duel is not active",
-      });
-    }
-
-    // Stale answer guard: validate questionIndex matches server state
-    if (duel.currentWordIndex !== questionIndex) {
-      throw new ConvexError({
-        code: "STALE_ANSWER",
-        message: "Stale answer: question has changed",
-      });
-    }
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_ANSWER",
+      "Stale answer: question has changed"
+    );
 
     const sessionWords = getSessionWords(duel);
     const wordCount = sessionWords.length;
-    const currentQuestion = getDuelQuestionOrThrow(duel, questionIndex);
-    const isCorrect = selectedAnswer === currentQuestion.correctOption;
-    const roleView = forRole(duel, playerRole);
-
-    // Mark as answered and update scores
-    if (!roleView.myAnswered) {
-      const newMyScore = isCorrect
-        ? roleView.myScore + currentQuestion.points
-        : roleView.myScore;
-
-      if (isChallenger) {
-        await ctx.db.patch(duelId, {
-          challengerAnswered: true,
-          challengerScore: newMyScore,
-          challengerLastAnswer: selectedAnswer,
-          ...(!isCorrect ? getBossMissPatch(duel, "challenger") : {}),
-        });
-      } else {
-        await ctx.db.patch(duelId, {
-          opponentAnswered: true,
-          opponentScore: newMyScore,
-          opponentLastAnswer: selectedAnswer,
-          ...(!isCorrect ? getBossMissPatch(duel, "opponent") : {}),
-        });
-      }
+    const answerPatch = buildAnswerPatch({
+      duel,
+      playerRole,
+      isChallenger,
+      selectedAnswer,
+      questionIndex,
+    });
+    if (Object.keys(answerPatch).length > 0) {
+      await ctx.db.patch(duelId, answerPatch);
     }
 
     // Check if both answered, then advance
@@ -144,37 +102,16 @@ export const timeoutAnswer = mutation({
   handler: async (ctx, { duelId, questionIndex }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
-    if (duel.status !== "active") {
-      throw new ConvexError({
-        code: "DUEL_NOT_ACTIVE",
-        message: "Duel is not active",
-      });
-    }
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_TIMEOUT",
+      "Stale timeout: question has changed"
+    );
 
-    if (duel.currentWordIndex !== questionIndex) {
-      throw new ConvexError({
-        code: "STALE_TIMEOUT",
-        message: "Stale timeout: question has changed",
-      });
-    }
-
-    const roleView = forRole(duel, playerRole);
-
-    // Mark as answered with 0 points (timeout)
-    if (!roleView.myAnswered) {
-      if (isChallenger) {
-        await ctx.db.patch(duelId, {
-          challengerAnswered: true,
-          challengerLastAnswer: TIMEOUT_ANSWER,
-          ...getBossMissPatch(duel, "challenger"),
-        });
-      } else {
-        await ctx.db.patch(duelId, {
-          opponentAnswered: true,
-          opponentLastAnswer: TIMEOUT_ANSWER,
-          ...getBossMissPatch(duel, "opponent"),
-        });
-      }
+    const timeoutPatch = buildTimeoutPatch({ duel, playerRole, isChallenger });
+    if (Object.keys(timeoutPatch).length > 0) {
+      await ctx.db.patch(duelId, timeoutPatch);
     }
 
     // Check if both answered, then advance

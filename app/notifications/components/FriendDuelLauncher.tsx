@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ChallengeModal } from "@/app/components/modals/ChallengeModal";
@@ -14,18 +13,14 @@ interface FriendDuelLauncherProps {
 
 export function FriendDuelLauncher({ children }: FriendDuelLauncherProps) {
     const lobby = useChallengeLobby();
-    const [quickDuelFriendId, setQuickDuelFriendId] = useState<Id<"users"> | null>(null);
-
-    const closeQuickDuelModal = () => {
-        setQuickDuelFriendId(null);
-    };
 
     return (
         <>
-            {children(setQuickDuelFriendId)}
+            {children(lobby.openChallengeModal)}
 
-            {quickDuelFriendId && (
+            {lobby.showChallengeModal && (
                 <ChallengeModal
+                    key={lobby.initialChallengeOpponentId ?? "challenge-modal"}
                     users={lobby.users}
                     themes={lobby.themes}
                     pendingChallenges={lobby.pendingChallenges}
@@ -34,9 +29,9 @@ export function FriendDuelLauncher({ children }: FriendDuelLauncherProps) {
                     onAcceptChallenge={lobby.handleAcceptChallenge}
                     onDeclineChallenge={lobby.handleDeclineChallenge}
                     onCreateChallenge={lobby.handleCreateChallenge}
-                    onClose={closeQuickDuelModal}
+                    onClose={lobby.closeChallengeModal}
                     onNavigateToThemes={lobby.navigateToThemes}
-                    initialOpponentId={quickDuelFriendId}
+                    initialOpponentId={lobby.initialChallengeOpponentId}
                 />
             )}
 

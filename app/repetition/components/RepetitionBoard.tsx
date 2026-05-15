@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import {
   getSpacedRepetitionIntervalDaysForStep,
   type SpacedRepetitionStep,
@@ -18,7 +19,7 @@ type TabKey = "all" | "ready" | "comingUp" | "done";
 type BoardItem = {
   weeklyGoalId: string;
   themeNames: string[];
-  partner: { nickname?: string; email: string } | null;
+  partner: { nickname?: string; discriminator?: number; name?: string; email?: string } | null;
   duelAvailable: boolean;
   themeCount: number;
   dueAt: number | null;
@@ -46,7 +47,7 @@ function formatShortDate(timestamp: number | null): string {
 
 function partnerLabel(item: BoardItem): string {
   if (!item.partner) return "Deleted participant";
-  const partnerName = item.partner.nickname || item.partner.email.split("@")[0] || "partner";
+  const partnerName = formatVisibleUser(item.partner, "partner");
   return `You and ${partnerName}`;
 }
 

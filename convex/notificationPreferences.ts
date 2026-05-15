@@ -7,6 +7,21 @@ import {
   WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES,
   normalizeNotificationPreferences,
 } from "../lib/notificationPreferences";
+
+export const NOTIFICATION_PREFERENCE_BOOLEAN_FIELDS = [
+  "challengeInviteEmailsEnabled",
+  "challengeInviteEmailEnabled",
+  "weeklyGoalEmailsEnabled",
+  "weeklyGoalInviteEmailEnabled",
+  "weeklyGoalAcceptedEmailEnabled",
+  "weeklyGoalLockedEmailEnabled",
+  "weeklyGoalDailyReminderEmailEnabled",
+  "weeklyGoalGracePeriodReminderEmailEnabled",
+  "weeklyGoalDraftExpiringEmailEnabled",
+  "weeklyGoalReminder1EmailEnabled",
+  "weeklyGoalReminder2EmailEnabled",
+] as const;
+
 export const getMyNotificationPreferences = query({
   args: {},
   handler: async (ctx) => {

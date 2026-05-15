@@ -4,6 +4,7 @@ export type ThemeAccessData = {
     themeId: Id<"themes">;
     ownerId: Id<"users"> | undefined;
     visibility: "private" | "shared" | undefined;
+    friendsCanEdit?: boolean;
 };
 
 export type ChallengeAccessData = {
@@ -101,6 +102,14 @@ function hasAccessViaSoloPractice(
 
 function isOwner(userId: Id<"users">, theme: ThemeAccessData): boolean {
     return theme.ownerId === userId;
+}
+
+export function canGenerateStoredThemeTts(userId: Id<"users">, theme: ThemeAccessData): boolean {
+    if (isOwner(userId, theme)) {
+        return true;
+    }
+
+    return theme.visibility === "shared" && theme.friendsCanEdit === true;
 }
 
 function hasAccessViaChallenge(

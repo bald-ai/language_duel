@@ -6,6 +6,20 @@ import { useNotificationSettings } from "./hooks/useNotificationSettings";
 import { CategoryToggle } from "./components/CategoryToggle";
 import { NotificationToggle } from "./components/NotificationToggle";
 import { ReminderOffsetInput } from "./components/ReminderOffsetInput";
+import {
+  NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS,
+  NOTIFICATION_EMAIL_TRIGGERS,
+  type NotificationEmailTriggerConfig,
+  type NotificationEmailTrigger,
+} from "@/lib/notifications/definitions";
+import type { NotificationPreferences } from "@/lib/notificationPreferences";
+
+const CHALLENGE_EMAIL_TRIGGERS = NOTIFICATION_EMAIL_TRIGGERS.filter(
+  (trigger) => NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS[trigger].category === "challengeInviteEmailsEnabled"
+);
+const WEEKLY_GOAL_EMAIL_TRIGGERS = NOTIFICATION_EMAIL_TRIGGERS.filter(
+  (trigger) => NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS[trigger].category === "weeklyGoalEmailsEnabled"
+);
 
 export default function NotificationSettingsPage() {
   const router = useRouter();
@@ -74,11 +88,10 @@ export default function NotificationSettingsPage() {
             onChange={(v) => updatePrefs({ challengeInviteEmailsEnabled: v })}
             data-testid="category-challenge-invites"
           >
-            <NotificationToggle
-              label="Challenge invite email"
-              enabled={prefs.challengeInviteEmailEnabled}
-              disabled={!prefs.challengeInviteEmailsEnabled}
-              onChange={(v) => updatePrefs({ challengeInviteEmailEnabled: v })}
+            <EmailTriggerToggles
+              triggers={CHALLENGE_EMAIL_TRIGGERS}
+              prefs={prefs}
+              updatePrefs={updatePrefs}
             />
           </CategoryToggle>
 
@@ -88,69 +101,49 @@ export default function NotificationSettingsPage() {
             onChange={(v) => updatePrefs({ weeklyGoalEmailsEnabled: v })}
             data-testid="category-weekly-goals"
           >
-            <NotificationToggle
-              label="Goal invite received"
-              enabled={prefs.weeklyGoalInviteEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalInviteEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Goal invite accepted"
-              enabled={prefs.weeklyGoalAcceptedEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalAcceptedEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Partner locked goal"
-              enabled={prefs.weeklyGoalLockedEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalLockedEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Daily goal countdown email"
-              enabled={prefs.weeklyGoalDailyReminderEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalDailyReminderEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Grace period warning"
-              enabled={prefs.weeklyGoalGracePeriodReminderEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalGracePeriodReminderEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Draft expiry warning"
-              enabled={prefs.weeklyGoalDraftExpiringEmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalDraftExpiringEmailEnabled: v })}
-            />
-            <NotificationToggle
-              label="Goal reminder 1"
-              enabled={prefs.weeklyGoalReminder1EmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder1EmailEnabled: v })}
-            />
-            <ReminderOffsetInput
-              label="First reminder before expiry"
-              valueMinutes={prefs.weeklyGoalReminder1OffsetMinutes}
-              disabled={!prefs.weeklyGoalEmailsEnabled || !prefs.weeklyGoalReminder1EmailEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder1OffsetMinutes: v })}
-            />
-            <NotificationToggle
-              label="Goal reminder 2"
-              enabled={prefs.weeklyGoalReminder2EmailEnabled}
-              disabled={!prefs.weeklyGoalEmailsEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder2EmailEnabled: v })}
-            />
-            <ReminderOffsetInput
-              label="Second reminder before expiry"
-              valueMinutes={prefs.weeklyGoalReminder2OffsetMinutes}
-              disabled={!prefs.weeklyGoalEmailsEnabled || !prefs.weeklyGoalReminder2EmailEnabled}
-              onChange={(v) => updatePrefs({ weeklyGoalReminder2OffsetMinutes: v })}
+            <EmailTriggerToggles
+              triggers={WEEKLY_GOAL_EMAIL_TRIGGERS}
+              prefs={prefs}
+              updatePrefs={updatePrefs}
             />
           </CategoryToggle>
         </div>
       </div>
     </div>
   );
+}
+
+type UpdatePrefs = (updates: Partial<NotificationPreferences>) => void;
+
+function EmailTriggerToggles({
+  triggers,
+  prefs,
+  updatePrefs,
+}: {
+  triggers: NotificationEmailTrigger[];
+  prefs: NotificationPreferences;
+  updatePrefs: UpdatePrefs;
+}) {
+  return triggers.map((trigger) => {
+    const metadata: NotificationEmailTriggerConfig = NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS[trigger];
+    const reminderOffset = metadata.reminderOffset;
+    return (
+      <div key={trigger}>
+        <NotificationToggle
+          label={metadata.label}
+          enabled={prefs[metadata.trigger]}
+          disabled={!prefs[metadata.category]}
+          onChange={(value) => updatePrefs({ [metadata.trigger]: value })}
+        />
+        {reminderOffset ? (
+          <ReminderOffsetInput
+            label={reminderOffset.label}
+            valueMinutes={prefs[reminderOffset.field]}
+            disabled={!prefs[metadata.category] || !prefs[metadata.trigger]}
+            onChange={(value) => updatePrefs({ [reminderOffset.field]: value })}
+          />
+        ) : null}
+      </div>
+    );
+  });
 }

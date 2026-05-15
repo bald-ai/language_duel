@@ -1,20 +1,16 @@
 // Notification Panel Constants
 
+export {
+    NOTIFICATION_TYPES,
+    type NotificationType,
+} from "@/lib/notifications/definitions";
+
 export const PANEL_TABS = {
     FRIENDS: "friends",
     NOTIFICATIONS: "notifications",
 } as const;
 
 export type PanelTab = typeof PANEL_TABS[keyof typeof PANEL_TABS];
-
-export const NOTIFICATION_TYPES = {
-    FRIEND_REQUEST: "friend_request",
-    WEEKLY_GOAL_INVITATION: "weekly_goal_invitation",
-    WEEKLY_GOAL_DRAFT_EXPIRING: "weekly_goal_draft_expiring",
-    CHALLENGE_INVITE: "challenge_invite",
-} as const;
-
-export type NotificationType = typeof NOTIFICATION_TYPES[keyof typeof NOTIFICATION_TYPES];
 
 // Friend context menu actions
 export const FRIEND_ACTIONS = {

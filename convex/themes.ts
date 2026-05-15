@@ -1,6 +1,6 @@
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import {
@@ -12,7 +12,7 @@ import {
 import { getResembleApiKey, generateResembleTTS, RESEMBLE_TIMEOUT_MS } from "./helpers/resembleTts";
 import { loadUsersById } from "./helpers/users";
 import { requireThemeOwner, requireThemeEditor } from "./helpers/permissions";
-import { hasThemeAccess } from "../lib/themeAccess";
+import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
 import { reconcileThemeWordTts } from "../lib/themes/tts";
@@ -25,6 +25,7 @@ import {
 import { THEME_NAME_MAX_LENGTH } from "../lib/themes/constants";
 import { optionalWordTypeValidator } from "./schema";
 import { MIN_THEME_WORDS } from "./constants";
+import { canGenerateStoredThemeTts } from "../lib/themeAccess";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
 // Word structure for validation
@@ -243,110 +244,17 @@ export const getTheme = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) return null;
+    return await loadThemeWithViewerAccess(ctx, auth.user._id, args.themeId);
+  },
+});
 
-    const currentUserId = auth.user._id;
-
-    const [
-      challengesAsChallenger,
-      challengesAsOpponent,
-      duelsAsChallenger,
-      duelsAsOpponent,
-      soloPracticeSessions,
-      goalsAsCreator,
-      goalsAsPartner,
-      friendshipsFromUser,
-      friendshipsToUser,
-    ] = await Promise.all([
-      ctx.db
-        .query("challenges")
-        .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("challenges")
-        .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("duels")
-        .withIndex("by_challenger", (q) => q.eq("challengerId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("duels")
-        .withIndex("by_opponent", (q) => q.eq("opponentId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("soloPracticeSessions")
-        .withIndex("by_user", (q) => q.eq("userId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("weeklyGoals")
-        .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
-        .collect(),
-      ctx.db
-        .query("weeklyGoals")
-        .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
-        .collect(),
-      theme.ownerId
-        ? ctx.db
-            .query("friends")
-            .withIndex("by_user", (q) => q.eq("userId", currentUserId))
-            .filter((q) => q.eq(q.field("friendId"), theme.ownerId!))
-            .collect()
-        : Promise.resolve([]),
-      theme.ownerId
-        ? ctx.db
-            .query("friends")
-            .withIndex("by_user", (q) => q.eq("userId", theme.ownerId!))
-            .filter((q) => q.eq(q.field("friendId"), currentUserId))
-            .collect()
-        : Promise.resolve([]),
-    ]);
-
-    const challenges = [...challengesAsChallenger, ...challengesAsOpponent].map((c) => ({
-      challengerId: c.challengerId,
-      opponentId: c.opponentId,
-      themeIds: c.themeIds,
-    }));
-
-    const duels = [...duelsAsChallenger, ...duelsAsOpponent].map((duel) => ({
-      challengerId: duel.challengerId,
-      opponentId: duel.opponentId,
-      themeIds: duel.themeIds,
-    }));
-
-    const soloPracticeAccess = soloPracticeSessions.map((session) => ({
-      userId: session.userId,
-      themeIds: session.themeIds,
-    }));
-
-    const weeklyGoals = [...goalsAsCreator, ...goalsAsPartner].map((g) => ({
-      creatorId: g.creatorId,
-      partnerId: g.partnerId,
-      status: g.status,
-      themeIds: g.themes.map((t) => t.themeId),
-    }));
-
-    const friendships = [...friendshipsFromUser, ...friendshipsToUser].map((f) => ({
-      userId: f.userId,
-      friendId: f.friendId,
-    }));
-
-    const hasAccess = hasThemeAccess({
-      userId: currentUserId,
-      theme: {
-        themeId: args.themeId,
-        ownerId: theme.ownerId,
-        visibility: theme.visibility,
-      },
-      challenges,
-      duels,
-      soloPracticeSessions: soloPracticeAccess,
-      weeklyGoals,
-      friendships,
-    });
-
-    return hasAccess ? theme : null;
+export const getThemeForViewer = internalQuery({
+  args: {
+    themeId: v.id("themes"),
+    viewerId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
+    return await loadThemeWithViewerAccess(ctx, args.viewerId, args.themeId);
   },
 });
 
@@ -655,17 +563,23 @@ export const generateThemeTTS = action({
 
     const currentUser = await ctx.runQuery(api.users.getCurrentUser, {});
     if (!currentUser) {
-      throw new Error("Unauthorized");
+      throw new ConvexError({ code: "AUTH_FAILED", message: "Unauthorized" });
     }
 
-    const theme = await ctx.runQuery(api.themes.getTheme, { themeId: args.themeId });
+    const theme = await ctx.runQuery(internal.themes.getThemeForViewer, {
+      themeId: args.themeId,
+      viewerId: currentUser._id,
+    });
     if (!theme) {
       throw new Error("Theme not found or access denied");
     }
 
-    const isOwner = theme.ownerId === currentUser._id;
-    const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
-    if (!isOwner && !canEditAsNonOwner) {
+    if (!canGenerateStoredThemeTts(currentUser._id, {
+      themeId: theme._id,
+      ownerId: theme.ownerId,
+      visibility: theme.visibility,
+      friendsCanEdit: theme.friendsCanEdit,
+    })) {
       throw new Error("You don't have permission to edit this theme");
     }
 
@@ -704,7 +618,7 @@ export const generateThemeTTS = action({
     const targets = missingWords.slice(0, maxGenerations);
     const skippedForCredits = Math.max(0, missingWords.length - targets.length);
     const lockToken = createTtsGenerationLockToken();
-    await ctx.runMutation(internal.users.acquireTtsGenerationLock, {
+    await ctx.runMutation(internal.ttsGenerationLocks.acquireTtsGenerationLock, {
       userId: currentUser._id,
       token: lockToken,
       lockMs: TTS_GENERATION_LOCK_MS,
@@ -734,7 +648,7 @@ export const generateThemeTTS = action({
           const storageId = await ctx.storage.store(new Blob([audioBuffer], { type: "audio/wav" }));
 
           try {
-            await ctx.runMutation(api.users.consumeCredits, {
+            await ctx.runMutation(api.credits.consumeCredits, {
               creditType: "tts",
               cost: TTS_GENERATION_COST,
             });
@@ -807,7 +721,7 @@ export const generateThemeTTS = action({
       };
     } finally {
       try {
-        await ctx.runMutation(internal.users.releaseTtsGenerationLock, {
+        await ctx.runMutation(internal.ttsGenerationLocks.releaseTtsGenerationLock, {
           userId: currentUser._id,
           token: lockToken,
         });

@@ -87,7 +87,7 @@ vi.mock("@/convex/_generated/api", () => ({
       confirmUnpauseCountdown: "confirmUnpauseCountdown",
       skipCountdown: "skipCountdown",
     },
-    lobby: {
+    duels: {
       stopDuel: "stopDuel",
     },
     hints: {

@@ -1,3 +1,5 @@
+import { readBackendErrorCode } from "../backendErrorCodes";
+
 export type ApiErrorCode =
   | "AUTH_FAILED"
   | "CONFIG_ERROR"
@@ -22,20 +24,18 @@ type ResolvedApiError = {
   status: number;
 };
 
-function mapKnownMessage(message: string): ResolvedApiError | null {
-  if (message === "Unauthorized" || message === "Not authenticated") {
-    return { code: "AUTH_FAILED", message, status: 401 };
-  }
+const STRUCTURED_ERROR_STATUS: Record<ApiErrorCode, number> = {
+  AUTH_FAILED: 401,
+  CONFIG_ERROR: 500,
+  CREDITS_EXHAUSTED: 402,
+  UNKNOWN_ERROR: 500,
+};
 
-  if (message === "Convex URL not configured") {
-    return { code: "CONFIG_ERROR", message, status: 500 };
-  }
-
-  if (message === "LLM credits exhausted" || message === "TTS credits exhausted") {
-    return { code: "CREDITS_EXHAUSTED", message, status: 402 };
-  }
-
-  return null;
+function isApiErrorCode(code: string | undefined): code is ApiErrorCode {
+  return code === "AUTH_FAILED" ||
+    code === "CONFIG_ERROR" ||
+    code === "CREDITS_EXHAUSTED" ||
+    code === "UNKNOWN_ERROR";
 }
 
 export function resolveApiError(
@@ -50,9 +50,16 @@ export function resolveApiError(
     return { code: error.code, message: error.message, status: error.status };
   }
 
+  const backendCode = readBackendErrorCode(error);
+  if (isApiErrorCode(backendCode)) {
+    return {
+      code: backendCode,
+      message: error instanceof Error && error.message ? error.message : options.defaultMessage,
+      status: STRUCTURED_ERROR_STATUS[backendCode],
+    };
+  }
+
   if (error instanceof Error) {
-    const mapped = mapKnownMessage(error.message);
-    if (mapped) return mapped;
     return {
       code: options.defaultCode,
       message: error.message || options.defaultMessage,

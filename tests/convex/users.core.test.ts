@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { consumeCredits } from "@/convex/credits";
 import {
-  consumeCredits,
   getCurrentUser,
   getUsers,
   isUserOnline,

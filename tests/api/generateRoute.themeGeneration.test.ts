@@ -41,7 +41,9 @@ vi.mock("@/convex/_generated/api", () => ({
   api: {
     users: {
       getCurrentUser: "users.getCurrentUser",
-      consumeCredits: "users.consumeCredits",
+    },
+    credits: {
+      consumeCredits: "credits.consumeCredits",
     },
   },
 }));

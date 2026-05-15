@@ -31,6 +31,7 @@ import {
 } from "./bossUi";
 import { useCountdown } from "@/app/notifications/hooks/useCountdown";
 import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 
 // Local storage key for remembering last viewed goal
 const LAST_GOAL_KEY = "language_duel_last_weekly_goal";
@@ -253,8 +254,8 @@ export default function GoalsPage() {
         : null;
     const partnerName =
       viewerRole === "creator"
-        ? (partner?.nickname || partner?.email?.split("@")[0] || "Your partner")
-        : (creator?.nickname || creator?.email?.split("@")[0] || "Your partner");
+        ? formatVisibleUser(partner, "Your partner")
+        : formatVisibleUser(creator, "Your partner");
 
     try {
       await removeTheme({ goalId: goal._id, themeId });
@@ -552,15 +553,13 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {selectedGoal.creator?.nickname?.charAt(0).toUpperCase() ||
-                        selectedGoal.creator?.email?.charAt(0).toUpperCase() ||
-                        "?"}
+                      {getVisibleUserInitials(selectedGoal.creator)}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {selectedGoal.creator?.nickname || selectedGoal.creator?.email?.split("@")[0]}
+                      {formatVisibleUser(selectedGoal.creator)}
                     </p>
                     {selectedGoal.goal.creatorLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
@@ -595,15 +594,13 @@ export default function GoalsPage() {
                         color: colors.text.DEFAULT,
                       }}
                     >
-                      {selectedGoal.partner?.nickname?.charAt(0).toUpperCase() ||
-                        selectedGoal.partner?.email?.charAt(0).toUpperCase() ||
-                        "?"}
+                      {getVisibleUserInitials(selectedGoal.partner)}
                     </div>
                     <p
                       className="text-xs mt-1 max-w-[60px] truncate"
                       style={{ color: colors.text.muted }}
                     >
-                      {selectedGoal.partner?.nickname || selectedGoal.partner?.email?.split("@")[0]}
+                      {formatVisibleUser(selectedGoal.partner)}
                     </p>
                     {selectedGoal.goal.partnerLocked && (
                       <span style={{ color: colors.status.success.DEFAULT }}>✓</span>

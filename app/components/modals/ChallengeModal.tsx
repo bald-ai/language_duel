@@ -8,6 +8,7 @@ import { ModalShell } from "./ModalShell";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import {
   actionButtonClassName,
   ctaActionStyle,
@@ -18,6 +19,7 @@ import {
 interface User {
   _id: Id<"users">;
   name?: string;
+  email?: string;
   nickname?: string;
   discriminator?: number;
 }
@@ -54,17 +56,6 @@ interface ChallengeModalProps {
 }
 
 const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semibold";
-
-function formatUserLabel(user: { name?: string; nickname?: string; discriminator?: number } | null): string {
-  if (!user) return "Unknown";
-  if (user.nickname) {
-    const discriminator = user.discriminator !== undefined
-      ? `#${user.discriminator.toString().padStart(4, "0")}`
-      : "";
-    return `${user.nickname}${discriminator}`;
-  }
-  return user.name || "Unknown";
-}
 
 export function ChallengeModal({
   users,
@@ -105,129 +96,31 @@ export function ChallengeModal({
           borderColor: colors.primary.dark,
         }}
       >
-        {/* Pending Challenges Section */}
-        {pendingChallenges === undefined ? (
-          <div
-            className="p-4 border-2 rounded-2xl text-center"
-            style={{
-              backgroundColor: colors.background.DEFAULT,
-              borderColor: colors.primary.dark,
-            }}
-          >
-            <p className="text-sm" style={{ color: colors.text.muted }}>
-              Checking for pending invites...
-            </p>
-          </div>
-        ) : pendingChallenges.length > 0 ? (
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-widest font-emphasis" style={{ color: colors.text.muted }}>
-              Incoming Challenges
-            </p>
-            {pendingChallenges.map(({ challenge, challenger }) => (
-              <div
-                key={challenge._id}
-                className="p-3 border-2 rounded-xl"
-                style={{
-                  backgroundColor: colors.background.DEFAULT,
-                  borderColor: colors.primary.dark,
-                }}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-emphasis shrink-0"
-                      style={{
-                        backgroundColor: `${colors.cta.DEFAULT}20`,
-                        color: colors.cta.DEFAULT,
-                      }}
-                    >
-                      ⚔️
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-emphasis truncate" style={{ color: colors.text.DEFAULT }}>
-                        {formatUserLabel(challenger)}
-                      </p>
-                      <p className="text-xs" style={{ color: colors.text.muted }}>
-                        Challenge invite
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => onAcceptChallenge(challenge._id)}
-                      disabled={isJoiningDuel}
-                      className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
-                      style={{
-                        backgroundColor: colors.status.success.DEFAULT,
-                        color: colors.background.DEFAULT,
-                      }}
-                      data-testid={`challenge-modal-accept-${challenge._id}`}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => onDeclineChallenge(challenge._id)}
-                      disabled={isJoiningDuel}
-                      className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
-                      style={{
-                        backgroundColor: `${colors.status.danger.DEFAULT}20`,
-                        color: colors.status.danger.DEFAULT,
-                      }}
-                      data-testid={`challenge-modal-decline-${challenge._id}`}
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {/* Section 1: Opponent Selector */}
-        <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-            Opponent
-          </p>
-          <OpponentSelector
-            users={users}
-            selectedOpponentId={selectedOpponentId}
-            selectedOpponent={selectedOpponent}
-            onSelect={setSelectedOpponentId}
-          />
-        </div>
-
-        {/* Section 2: Theme Selector */}
-        <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-            Theme
-          </p>
-          <CompactThemeSelector
-            themes={themes}
-            selectedThemeIds={selectedThemeIds}
-            selectedThemes={selectedThemes}
-            onToggleTheme={(themeId) =>
-              setSelectedThemeIds((current) =>
-                current.includes(themeId)
-                  ? current.filter((currentThemeId) => currentThemeId !== themeId)
-                  : [...current, themeId]
-              )
-            }
-            onCreateTheme={onNavigateToThemes}
-          />
-        </div>
-
-        {/* Section 3: Difficulty Selector */}
-        <div>
-          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-            Difficulty
-          </p>
-          <DifficultySelector
-            selectedDifficulty={selectedDifficulty}
-            onSelect={setSelectedDifficulty}
-          />
-        </div>
-
+        <ChallengeRespondSurface
+          pendingChallenges={pendingChallenges}
+          isJoiningDuel={isJoiningDuel}
+          onAcceptChallenge={onAcceptChallenge}
+          onDeclineChallenge={onDeclineChallenge}
+        />
+        <ChallengeCreateSurface
+          users={users}
+          themes={themes}
+          selectedOpponentId={selectedOpponentId}
+          selectedOpponent={selectedOpponent}
+          selectedThemeIds={selectedThemeIds}
+          selectedThemes={selectedThemes}
+          selectedDifficulty={selectedDifficulty}
+          onSelectOpponent={setSelectedOpponentId}
+          onToggleTheme={(themeId) =>
+            setSelectedThemeIds((current) =>
+              current.includes(themeId)
+                ? current.filter((currentThemeId) => currentThemeId !== themeId)
+                : [...current, themeId]
+            )
+          }
+          onSelectDifficulty={setSelectedDifficulty}
+          onNavigateToThemes={onNavigateToThemes}
+        />
       </div>
 
       {/* Footer with action buttons */}
@@ -256,6 +149,173 @@ export function ChallengeModal({
 }
 
 // --- Sub-components ---
+
+interface ChallengeRespondSurfaceProps {
+  pendingChallenges: PendingChallenge[] | undefined;
+  isJoiningDuel: boolean;
+  onAcceptChallenge: (challengeId: Id<"challenges">) => void;
+  onDeclineChallenge: (challengeId: Id<"challenges">) => void;
+}
+
+function ChallengeRespondSurface({
+  pendingChallenges,
+  isJoiningDuel,
+  onAcceptChallenge,
+  onDeclineChallenge,
+}: ChallengeRespondSurfaceProps) {
+  if (pendingChallenges === undefined) {
+    return (
+      <div
+        className="p-4 border-2 rounded-2xl text-center"
+        style={{
+          backgroundColor: colors.background.DEFAULT,
+          borderColor: colors.primary.dark,
+        }}
+      >
+        <p className="text-sm" style={{ color: colors.text.muted }}>
+          Checking for pending invites...
+        </p>
+      </div>
+    );
+  }
+
+  if (pendingChallenges.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs uppercase tracking-widest font-emphasis" style={{ color: colors.text.muted }}>
+        Incoming Challenges
+      </p>
+      {pendingChallenges.map(({ challenge, challenger }) => (
+        <div
+          key={challenge._id}
+          className="p-3 border-2 rounded-xl"
+          style={{
+            backgroundColor: colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-emphasis shrink-0"
+                style={{
+                  backgroundColor: `${colors.cta.DEFAULT}20`,
+                  color: colors.cta.DEFAULT,
+                }}
+              >
+                ⚔️
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-emphasis truncate" style={{ color: colors.text.DEFAULT }}>
+                  {formatVisibleUser(challenger, "Unknown")}
+                </p>
+                <p className="text-xs" style={{ color: colors.text.muted }}>
+                  Challenge invite
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => onAcceptChallenge(challenge._id)}
+                disabled={isJoiningDuel}
+                className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
+                style={{
+                  backgroundColor: colors.status.success.DEFAULT,
+                  color: colors.background.DEFAULT,
+                }}
+                data-testid={`challenge-modal-accept-${challenge._id}`}
+              >
+                Accept
+              </button>
+              <button
+                onClick={() => onDeclineChallenge(challenge._id)}
+                disabled={isJoiningDuel}
+                className="px-3 py-1.5 rounded-lg text-sm font-emphasis transition-opacity disabled:opacity-50"
+                style={{
+                  backgroundColor: `${colors.status.danger.DEFAULT}20`,
+                  color: colors.status.danger.DEFAULT,
+                }}
+                data-testid={`challenge-modal-decline-${challenge._id}`}
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface ChallengeCreateSurfaceProps {
+  users: User[] | undefined;
+  themes: Theme[] | undefined;
+  selectedOpponentId: Id<"users"> | null;
+  selectedOpponent: User | null;
+  selectedThemeIds: Id<"themes">[];
+  selectedThemes: Theme[];
+  selectedDifficulty: DuelDifficultyPreset;
+  onSelectOpponent: (id: Id<"users">) => void;
+  onToggleTheme: (themeId: Id<"themes">) => void;
+  onSelectDifficulty: (preset: DuelDifficultyPreset) => void;
+  onNavigateToThemes: () => void;
+}
+
+function ChallengeCreateSurface({
+  users,
+  themes,
+  selectedOpponentId,
+  selectedOpponent,
+  selectedThemeIds,
+  selectedThemes,
+  selectedDifficulty,
+  onSelectOpponent,
+  onToggleTheme,
+  onSelectDifficulty,
+  onNavigateToThemes,
+}: ChallengeCreateSurfaceProps) {
+  return (
+    <>
+      <div>
+        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+          Opponent
+        </p>
+        <OpponentSelector
+          users={users}
+          selectedOpponentId={selectedOpponentId}
+          selectedOpponent={selectedOpponent}
+          onSelect={onSelectOpponent}
+        />
+      </div>
+
+      <div>
+        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+          Theme
+        </p>
+        <CompactThemeSelector
+          themes={themes}
+          selectedThemeIds={selectedThemeIds}
+          selectedThemes={selectedThemes}
+          onToggleTheme={onToggleTheme}
+          onCreateTheme={onNavigateToThemes}
+        />
+      </div>
+
+      <div>
+        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+          Difficulty
+        </p>
+        <DifficultySelector
+          selectedDifficulty={selectedDifficulty}
+          onSelect={onSelectDifficulty}
+        />
+      </div>
+    </>
+  );
+}
 
 interface OpponentSelectorProps {
   users: User[] | undefined;
@@ -322,9 +382,9 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
                 <div
                   className="font-semibold text-sm truncate"
                   style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
-                  title={formatUserLabel(user)}
+                  title={formatVisibleUser(user, "Unknown")}
                 >
-                  {formatUserLabel(user)}
+                  {formatVisibleUser(user, "Unknown")}
                 </div>
               {isSelected && (
                 <div
@@ -353,7 +413,7 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
             color: colors.text.muted,
           }}
         >
-          Selected: <span style={{ color: colors.cta.light }}>{formatUserLabel(selectedOpponent)}</span>
+          Selected: <span style={{ color: colors.cta.light }}>{formatVisibleUser(selectedOpponent, "Unknown")}</span>
         </div>
       )}
     </div>

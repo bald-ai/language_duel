@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import type { FriendWithDetails } from "@/convex/friends";
 
 interface FriendListItemProps {
@@ -172,7 +173,7 @@ export function FriendListItem({
                 </h3>
                 <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
                     Are you sure you want to remove{" "}
-                    <strong>{friend.nickname || friend.name}</strong> from your friends?
+                    <strong>{formatVisibleUser(friend)}</strong> from your friends?
                 </p>
                 {hasExistingGoal && (
                     <p
@@ -238,7 +239,7 @@ export function FriendListItem({
                                 className="w-full h-full rounded-full object-cover"
                             />
                         ) : (
-                            (friend.nickname?.[0] || friend.email[0]).toUpperCase()
+                            getVisibleUserInitials(friend)
                         )}
                     </div>
 
@@ -261,12 +262,7 @@ export function FriendListItem({
                         className="text-sm font-medium truncate"
                         style={{ color: colors.text.DEFAULT }}
                     >
-                        {friend.nickname || friend.name || friend.email}
-                        {friend.discriminator && (
-                            <span style={{ color: colors.text.muted }}>
-                                #{friend.discriminator.toString().padStart(4, "0")}
-                            </span>
-                        )}
+                        {formatVisibleUser(friend)}
                     </p>
                     <p
                         className="text-xs"

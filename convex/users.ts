@@ -1,9 +1,10 @@
-import { internalMutation, mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
 import { getRelationshipMapForUser } from "./friends";
 import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX } from "./constants";
+import { getCurrentMonthKey, normalizeCreditState } from "./credits";
 import {
   DEFAULT_NICKNAME,
   NICKNAME_MAX_LENGTH,
@@ -14,9 +15,6 @@ import {
 import {
   LLM_MONTHLY_CREDITS,
   TTS_MONTHLY_GENERATIONS,
-  LLM_THEME_CREDITS,
-  LLM_SMALL_ACTION_CREDITS,
-  TTS_GENERATION_COST,
 } from "../lib/credits/constants";
 
 export { isUserOnline } from "./helpers/users";
@@ -46,28 +44,6 @@ export type CurrentUser = {
   creditsMonth: string;
   ttsProvider: "resemble" | "elevenlabs";
 };
-
-function getCurrentMonthKey(now = Date.now()): string {
-  const date = new Date(now);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
-function normalizeCreditState(user: Doc<"users">, now = Date.now()) {
-  const creditsMonth = getCurrentMonthKey(now);
-  const shouldReset =
-    user.creditsMonth !== creditsMonth ||
-    user.llmCreditsRemaining === undefined ||
-    user.ttsGenerationsRemaining === undefined;
-
-  return {
-    creditsMonth,
-    llmCreditsRemaining: shouldReset ? LLM_MONTHLY_CREDITS : user.llmCreditsRemaining!,
-    ttsGenerationsRemaining: shouldReset ? TTS_MONTHLY_GENERATIONS : user.ttsGenerationsRemaining!,
-    shouldReset,
-  };
-}
 
 export const getUsers = query({
   args: {},
@@ -269,7 +245,9 @@ export const syncUser = mutation({
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    if (!identity) {
+      throw new ConvexError({ code: "AUTH_FAILED", message: "Unauthorized" });
+    }
 
     // Ensure caller can only sync their own user record
     if (identity.subject !== args.clerkId) {
@@ -314,118 +292,6 @@ export const syncUser = mutation({
       ttsGenerationsRemaining: TTS_MONTHLY_GENERATIONS,
       creditsMonth,
     });
-  },
-});
-
-export const consumeCredits = mutation({
-  args: {
-    creditType: v.union(v.literal("llm"), v.literal("tts")),
-    cost: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const cost = Math.floor(args.cost);
-    if (!Number.isFinite(cost) || cost <= 0) {
-      throw new Error("Invalid credit cost");
-    }
-
-    if (args.creditType === "tts" && cost !== TTS_GENERATION_COST) {
-      throw new Error("Invalid TTS credit cost");
-    }
-
-    if (args.creditType === "llm" && (cost < LLM_SMALL_ACTION_CREDITS || cost > LLM_THEME_CREDITS)) {
-      throw new Error("Invalid LLM credit cost");
-    }
-
-    const normalized = normalizeCreditState(user);
-    let nextLlmCredits = normalized.llmCreditsRemaining;
-    let nextTtsGenerations = normalized.ttsGenerationsRemaining;
-
-    if (args.creditType === "llm") {
-      if (nextLlmCredits < cost) {
-        throw new Error("LLM credits exhausted");
-      }
-      nextLlmCredits -= cost;
-    } else {
-      if (nextTtsGenerations < cost) {
-        throw new Error("TTS credits exhausted");
-      }
-      nextTtsGenerations -= cost;
-    }
-
-    await ctx.db.patch(user._id, {
-      llmCreditsRemaining: nextLlmCredits,
-      ttsGenerationsRemaining: nextTtsGenerations,
-      creditsMonth: normalized.creditsMonth,
-    });
-
-    return {
-      llmCreditsRemaining: nextLlmCredits,
-      ttsGenerationsRemaining: nextTtsGenerations,
-      creditsMonth: normalized.creditsMonth,
-    };
-  },
-});
-
-const TTS_GENERATION_LOCK_MAX_MS = 10 * 60 * 1000; // 10 minutes
-
-export const acquireTtsGenerationLock = internalMutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-    lockMs: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    const now = Date.now();
-    const currentToken = user.ttsGenerationLockToken;
-    const currentExpiresAt = user.ttsGenerationLockExpiresAt ?? 0;
-
-    if (currentToken && currentExpiresAt > now && currentToken !== args.token) {
-      throw new Error("TTS generation is already running for this user");
-    }
-
-    const requestedLockMs = Math.floor(args.lockMs ?? 0);
-    const lockMs = requestedLockMs > 0
-      ? Math.min(requestedLockMs, TTS_GENERATION_LOCK_MAX_MS)
-      : TTS_GENERATION_LOCK_MAX_MS;
-    const expiresAt = now + lockMs;
-
-    await ctx.db.patch(args.userId, {
-      ttsGenerationLockToken: args.token,
-      ttsGenerationLockExpiresAt: expiresAt,
-    });
-
-    return { expiresAt };
-  },
-});
-
-export const releaseTtsGenerationLock = internalMutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      return { released: false };
-    }
-
-    if (user.ttsGenerationLockToken !== args.token) {
-      return { released: false };
-    }
-
-    await ctx.db.patch(args.userId, {
-      ttsGenerationLockToken: undefined,
-      ttsGenerationLockExpiresAt: undefined,
-    });
-
-    return { released: true };
   },
 });
 

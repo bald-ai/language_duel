@@ -385,6 +385,7 @@ export default function Home() {
 
       {lobby.showChallengeModal && (
         <ChallengeModal
+          key={lobby.initialChallengeOpponentId ?? "challenge-modal"}
           users={lobby.users}
           themes={lobby.themes}
           pendingChallenges={lobby.pendingChallenges}
@@ -395,6 +396,7 @@ export default function Home() {
           onCreateChallenge={lobby.handleCreateChallenge}
           onClose={lobby.closeChallengeModal}
           onNavigateToThemes={lobby.navigateToThemes}
+          initialOpponentId={lobby.initialChallengeOpponentId}
         />
       )}
 

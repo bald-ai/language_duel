@@ -110,7 +110,7 @@ async function ensureLlmCreditsAvailable(cost: number) {
 }
 
 async function consumeLlmCredits(client: ConvexHttpClient, cost: number) {
-  await client.mutation(api.users.consumeCredits, {
+  await client.mutation(api.credits.consumeCredits, {
     creditType: "llm",
     cost,
   });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   sendNotificationEmail,
@@ -106,6 +106,20 @@ const sendNotificationEmailHandler = (sendNotificationEmail as unknown as {
 })._handler;
 
 describe("notification email claim-before-send", () => {
+  const originalAppUrl = process.env.APP_URL;
+
+  beforeEach(() => {
+    process.env.APP_URL = "https://app.example.com";
+  });
+
+  afterEach(() => {
+    if (originalAppUrl === undefined) {
+      delete process.env.APP_URL;
+    } else {
+      process.env.APP_URL = originalAppUrl;
+    }
+  });
+
   it("skips when an existing claim already matches", async () => {
     const db = new InMemoryDb([], [
       {
@@ -274,5 +288,35 @@ describe("notification email claim-before-send", () => {
     ).rejects.toThrow("Resend failed");
 
     expect(db.emailNotificationLog).toHaveLength(0);
+  });
+
+  it("fails loudly at the email boundary when APP_URL is missing", async () => {
+    delete process.env.APP_URL;
+    const db = new InMemoryDb([buildUser()]);
+
+    await expect(
+      sendNotificationEmailHandler(
+        {
+          runQuery: async (_fn: unknown, args: { id?: Id<"users">; userId?: Id<"users"> }) => {
+            if (args.id) return db.users.find((user) => user._id === args.id) ?? null;
+            if (args.userId) return { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+            return null;
+          },
+          runMutation: async (_fn: unknown, args: { claimId?: Id<"emailNotificationLog"> }) => {
+            if (args.claimId) {
+              return releaseNotificationSendClaimHandler({ db } as never, {
+                claimId: args.claimId,
+              });
+            }
+            return claimNotificationSendHandler({ db } as never, args as never);
+          },
+          runAction: async () => ({ success: true }),
+        } as never,
+        {
+          toUserId: "user_1" as Id<"users">,
+          trigger: "weekly_goal_draft_expiring",
+        }
+      )
+    ).rejects.toThrow("APP_URL must be set before sending notification emails");
   });
 });

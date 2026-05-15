@@ -1,23 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderNotificationEmail, getSubjectForTrigger } from "@/lib/notificationTemplates";
 import { NOTIFICATION_EMAIL_TRIGGERS } from "@/lib/notificationPreferences";
 
 describe("renderNotificationEmail", () => {
-  const originalAppUrl = process.env.APP_URL;
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    if (originalAppUrl === undefined) {
-      delete process.env.APP_URL;
-    } else {
-      process.env.APP_URL = originalAppUrl;
-    }
-  });
+  const renderOptions = { appUrl: "https://app.example.com" };
 
   describe("immediate challenge invite", () => {
     it("renders correct subject and body", () => {
       const data = { recipientName: "Player", senderName: "Challenger", themeName: "Spanish Verbs" };
-      const { subject, html } = renderNotificationEmail("immediate_challenge_invite", data);
+      const { subject, html } = renderNotificationEmail("immediate_challenge_invite", data, renderOptions);
 
       expect(subject).toContain("Challenger");
       expect(subject).toContain("gauntlet");
@@ -29,7 +20,7 @@ describe("renderNotificationEmail", () => {
   describe("weekly goal invite", () => {
     it("renders correct subject and body", () => {
       const data = { recipientName: "Partner", senderName: "Inviter" };
-      const { subject, html } = renderNotificationEmail("weekly_goal_invite", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_invite", data, renderOptions);
 
       expect(subject).toContain("Inviter");
       expect(subject).toContain("weekly goal");
@@ -46,7 +37,7 @@ describe("renderNotificationEmail", () => {
         completedCount: 1,
         totalCount: 5,
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_locked", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_locked", data, renderOptions);
 
       expect(subject).toContain("Inviter");
       expect(subject).toContain("locked");
@@ -65,7 +56,7 @@ describe("renderNotificationEmail", () => {
         hoursLeft: 72,
         scheduledTime: "Apr 30, 2026 at 23:59",
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_daily_reminder", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_daily_reminder", data, renderOptions);
 
       expect(subject).toContain("72");
       expect(subject).toContain("h left");
@@ -79,7 +70,7 @@ describe("renderNotificationEmail", () => {
       const data = {
         recipientName: "Player",
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_draft_expiring", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_draft_expiring", data, renderOptions);
 
       expect(subject).toContain("draft");
       expect(subject).toContain("24 hours");
@@ -95,7 +86,7 @@ describe("renderNotificationEmail", () => {
         completedCount: 2,
         totalCount: 5,
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_1", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_1", data, renderOptions);
 
       expect(subject).toContain("72");
       expect(subject).toContain("Tick tock");
@@ -111,7 +102,7 @@ describe("renderNotificationEmail", () => {
         completedCount: 3,
         totalCount: 5,
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_2", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_reminder_2", data, renderOptions);
 
       expect(subject).toContain("Last chance");
       expect(subject).toContain("almost up");
@@ -127,7 +118,7 @@ describe("renderNotificationEmail", () => {
         completedCount: 3,
         totalCount: 5,
       };
-      const { subject, html } = renderNotificationEmail("weekly_goal_grace_period_reminder", data);
+      const { subject, html } = renderNotificationEmail("weekly_goal_grace_period_reminder", data, renderOptions);
 
       expect(subject).toContain("24");
       expect(subject).toContain("save this goal");
@@ -150,7 +141,7 @@ describe("renderNotificationEmail", () => {
         partnerName: "Partner",
         minutesBefore: 15,
       };
-      expect(() => renderNotificationEmail(trigger, data)).not.toThrow();
+      expect(() => renderNotificationEmail(trigger, data, renderOptions)).not.toThrow();
     });
   });
 
@@ -160,7 +151,7 @@ describe("renderNotificationEmail", () => {
         recipientName: "<img src=x onerror=alert(1)>",
         senderName: "<b>Partner</b>",
         themeName: "<script>alert(1)</script>",
-      });
+      }, renderOptions);
 
       expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
       expect(html).toContain("&lt;b&gt;Partner&lt;/b&gt;");
@@ -169,27 +160,13 @@ describe("renderNotificationEmail", () => {
       expect(html).not.toContain("<script>alert(1)</script>");
     });
 
-    it("throws in production when APP_URL is missing", () => {
-      delete process.env.APP_URL;
-      vi.stubEnv("NODE_ENV", "production");
-
-      expect(() =>
-        renderNotificationEmail("weekly_goal_draft_expiring", {
-          recipientName: "Player",
-        })
-      ).toThrow("APP_URL must be set in production");
-    });
-
-    it("keeps the localhost fallback outside production", () => {
-      delete process.env.APP_URL;
-      vi.stubEnv("NODE_ENV", "development");
-
+    it("uses the injected app URL for links", () => {
       const { html } = renderNotificationEmail("weekly_goal_draft_expiring", {
         recipientName: "Player",
-      });
+      }, renderOptions);
 
-      expect(html).toContain("http://localhost:3000");
-      expect(html).not.toContain("app.example.com");
+      expect(html).toContain("https://app.example.com");
+      expect(html).not.toContain("http://localhost:3000");
     });
   });
 });

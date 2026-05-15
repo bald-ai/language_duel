@@ -4,6 +4,7 @@ import type { CurrentUser } from "@/convex/users";
 import { useThemeColors } from "@/app/components/ThemeProvider";
 import { Avatar } from "@/app/components/Avatar";
 import { CreditsPanel } from "./CreditsPanel";
+import { formatVisibleUser } from "@/lib/userDisplay";
 
 interface ProfileCardProps {
   user: CurrentUser;
@@ -11,9 +12,7 @@ interface ProfileCardProps {
 
 export function ProfileCard({ user }: ProfileCardProps) {
   const colors = useThemeColors();
-  const displayName = user.nickname && user.discriminator
-    ? `${user.nickname}#${user.discriminator}`
-    : user.email;
+  const displayName = formatVisibleUser(user);
 
   return (
     <div 
@@ -26,7 +25,7 @@ export function ProfileCard({ user }: ProfileCardProps) {
       <div className="flex items-center gap-4">
         <Avatar
           src={user.imageUrl}
-          name={user.nickname || user.email}
+          name={displayName}
           size={64}
           borderColor={colors.neutral.DEFAULT}
         />

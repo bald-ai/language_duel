@@ -10,7 +10,7 @@ const crons = cronJobs();
 crons.interval(
     "cleanup-challenge-invites",
     { minutes: 5 },
-    internal.lobby.cleanupExpiredChallengeInvites
+    internal.challenges.cleanupExpiredChallengeInvites
 );
 
 crons.interval(

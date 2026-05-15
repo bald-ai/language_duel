@@ -9,8 +9,11 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as challenges from "../challenges.js";
 import type * as constants from "../constants.js";
+import type * as credits from "../credits.js";
 import type * as crons from "../crons.js";
+import type * as duels from "../duels.js";
 import type * as emails_actions from "../emails/actions.js";
 import type * as emails_emailNotificationLog from "../emails/emailNotificationLog.js";
 import type * as emails_notificationEmailData from "../emails/notificationEmailData.js";
@@ -27,17 +30,20 @@ import type * as helpers_permissions from "../helpers/permissions.js";
 import type * as helpers_resembleTts from "../helpers/resembleTts.js";
 import type * as helpers_sessionCreation from "../helpers/sessionCreation.js";
 import type * as helpers_sessionWords from "../helpers/sessionWords.js";
+import type * as helpers_themeAccess from "../helpers/themeAccess.js";
 import type * as helpers_themeTtsStorage from "../helpers/themeTtsStorage.js";
 import type * as helpers_users from "../helpers/users.js";
 import type * as helpers_weeklyGoalSnapshots from "../helpers/weeklyGoalSnapshots.js";
 import type * as hints from "../hints.js";
-import type * as lobby from "../lobby.js";
+import type * as notificationHelpers from "../notificationHelpers.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
 import type * as notifications from "../notifications.js";
+import type * as rules_duelGameplayRules from "../rules/duelGameplayRules.js";
 import type * as rules_duelScoringRules from "../rules/duelScoringRules.js";
 import type * as sabotage from "../sabotage.js";
 import type * as themes from "../themes.js";
+import type * as ttsGenerationLocks from "../ttsGenerationLocks.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as users from "../users.js";
 import type * as weeklyGoalRepetitions from "../weeklyGoalRepetitions.js";
@@ -51,8 +57,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  challenges: typeof challenges;
   constants: typeof constants;
+  credits: typeof credits;
   crons: typeof crons;
+  duels: typeof duels;
   "emails/actions": typeof emails_actions;
   "emails/emailNotificationLog": typeof emails_emailNotificationLog;
   "emails/notificationEmailData": typeof emails_notificationEmailData;
@@ -69,17 +78,20 @@ declare const fullApi: ApiFromModules<{
   "helpers/resembleTts": typeof helpers_resembleTts;
   "helpers/sessionCreation": typeof helpers_sessionCreation;
   "helpers/sessionWords": typeof helpers_sessionWords;
+  "helpers/themeAccess": typeof helpers_themeAccess;
   "helpers/themeTtsStorage": typeof helpers_themeTtsStorage;
   "helpers/users": typeof helpers_users;
   "helpers/weeklyGoalSnapshots": typeof helpers_weeklyGoalSnapshots;
   hints: typeof hints;
-  lobby: typeof lobby;
+  notificationHelpers: typeof notificationHelpers;
   notificationPayloads: typeof notificationPayloads;
   notificationPreferences: typeof notificationPreferences;
   notifications: typeof notifications;
+  "rules/duelGameplayRules": typeof rules_duelGameplayRules;
   "rules/duelScoringRules": typeof rules_duelScoringRules;
   sabotage: typeof sabotage;
   themes: typeof themes;
+  ttsGenerationLocks: typeof ttsGenerationLocks;
   userPreferences: typeof userPreferences;
   users: typeof users;
   weeklyGoalRepetitions: typeof weeklyGoalRepetitions;

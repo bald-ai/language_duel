@@ -18,6 +18,7 @@ type UserDoc = Doc<"users">;
 const buildUserSummary = (user: UserDoc | null) => {
     if (!user) return null;
     return {
+        name: user.name,
         nickname: user.nickname,
         discriminator: user.discriminator,
         imageUrl: user.imageUrl,

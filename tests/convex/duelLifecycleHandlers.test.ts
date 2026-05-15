@@ -6,8 +6,8 @@ import {
   acceptChallengeFromNotification,
   declineChallenge,
   declineChallengeFromNotification,
-  stopDuel,
-} from "@/convex/lobby";
+} from "@/convex/challenges";
+import { stopDuel } from "@/convex/duels";
 import {
   createAuthCtx,
   createIndexedQuery,

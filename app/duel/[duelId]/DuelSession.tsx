@@ -26,13 +26,16 @@ import { useDuelQuestionTimer } from "./hooks/useDuelQuestionTimer";
 import { getErrorMessage, isExpectedDuelRaceError } from "./hooks/useDuelRaceErrors";
 import { DuelView, type FrozenData } from "./components/DuelView";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import { toast } from "sonner";
 
 // Props interface
+type DuelPlayerSummary = Pick<Doc<"users">, "_id" | "name" | "nickname" | "discriminator" | "imageUrl">;
+
 interface DuelSessionProps {
   duel: Doc<"duels">;
-  challenger: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
-  opponent: Pick<Doc<"users">, "_id" | "name" | "imageUrl"> | null;
+  challenger: DuelPlayerSummary | null;
+  opponent: DuelPlayerSummary | null;
   viewerRole: "challenger" | "opponent";
 }
 
@@ -71,7 +74,7 @@ export default function DuelSession({
 
   // Mutations
   const answer = useMutation(api.gameplay.answerDuel);
-  const stopDuel = useMutation(api.lobby.stopDuel);
+  const stopDuel = useMutation(api.duels.stopDuel);
   const requestHint = useMutation(api.hints.requestHint);
   const acceptHint = useMutation(api.hints.acceptHint);
   const eliminateOption = useMutation(api.hints.eliminateOption);
@@ -494,8 +497,8 @@ export default function DuelSession({
   const canEliminate = isHintProvider && eliminatedOptions.length < 2;
 
   // Scores
-  const myName = (isChallenger ? challenger?.name : opponent?.name) || "You";
-  const theirName = (isChallenger ? opponent?.name : challenger?.name) || "Opponent";
+  const myName = formatVisibleUser(isChallenger ? challenger : opponent, "You");
+  const theirName = formatVisibleUser(isChallenger ? opponent : challenger, "Opponent");
 
   const sabotagesRemaining = MAX_SABOTAGES - mySabotagesUsed;
   const opponentLastAnswer = theirLastAnswer;

@@ -33,17 +33,6 @@ function escapeEmailData(data: EmailData): EmailData {
   };
 }
 
-function getAppUrl(): string {
-  const appUrl = process.env.APP_URL;
-  if (appUrl) return appUrl;
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("APP_URL must be set in production before rendering email links");
-  }
-
-  return "http://localhost:3000";
-}
-
 export type EmailData = {
   recipientName: string;
   senderName?: string;
@@ -165,13 +154,14 @@ export function getBodyForTrigger(
 
 export function renderNotificationEmail(
   trigger: NotificationTrigger,
-  data: EmailData
+  data: EmailData,
+  options: { appUrl: string }
 ): { subject: string; html: string } {
   const subject = getSubjectForTrigger(trigger, data);
   const safeData = escapeEmailData(data);
   const { heading, body, cta } = getBodyForTrigger(trigger, safeData);
   const p = data.senderPalette ?? DEFAULT_PALETTE;
-  const appUrl = escapeHtml(getAppUrl());
+  const appUrl = escapeHtml(options.appUrl);
   const safeSubject = escapeHtml(subject);
 
   const html = `<!DOCTYPE html>

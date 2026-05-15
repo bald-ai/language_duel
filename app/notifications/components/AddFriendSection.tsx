@@ -6,6 +6,7 @@ import Image from "next/image";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import { toast } from "sonner";
 
 /**
@@ -104,7 +105,7 @@ export function AddFriendSection() {
                                                 className="w-full h-full rounded-full object-cover"
                                             />
                                         ) : (
-                                            (user.nickname?.[0] || user.name?.[0] || "?").toUpperCase()
+                                            getVisibleUserInitials(user)
                                         )}
                                     </div>
 
@@ -114,12 +115,7 @@ export function AddFriendSection() {
                                             className="text-sm font-medium truncate"
                                             style={{ color: colors.text.DEFAULT }}
                                         >
-                                            {user.nickname || user.name || "Unknown user"}
-                                            {user.nickname && user.discriminator && (
-                                                <span style={{ color: colors.text.muted }}>
-                                                    #{user.discriminator.toString().padStart(4, "0")}
-                                                </span>
-                                            )}
+                                            {formatVisibleUser(user, "Unknown user")}
                                         </p>
                                     </div>
 

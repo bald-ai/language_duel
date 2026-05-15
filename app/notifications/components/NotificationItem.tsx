@@ -2,6 +2,7 @@
 
 import { colors } from "@/lib/theme";
 import { getRelativeTime } from "@/lib/timeUtils";
+import { formatVisibleUser } from "@/lib/userDisplay";
 import { NOTIFICATION_TYPES } from "../constants";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -9,6 +10,7 @@ interface NotificationData {
     _id: Id<"notifications">;
     type: string;
     fromUser: {
+        name?: string;
         nickname?: string;
         discriminator?: number;
         imageUrl?: string;
@@ -69,7 +71,7 @@ export function NotificationItem({
     const { type, fromUser, payload, createdAt } = notification;
 
     const getNotificationContent = () => {
-        const userName = fromUser?.nickname || "Someone";
+        const userName = formatVisibleUser(fromUser);
         const themeName = payload?.themeName || "Theme";
 
         switch (type) {

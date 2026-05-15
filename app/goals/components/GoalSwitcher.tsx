@@ -3,6 +3,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import type { GoalWithUsers } from "@/convex/weeklyGoals";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 
 interface GoalSwitcherProps {
     goals: GoalWithUsers[];
@@ -30,9 +31,10 @@ export function GoalSwitcher({
         >
             {goals.map((goalWithUsers) => {
                 const isSelected = goalWithUsers.goal._id === selectedId;
-                const partnerName = goalWithUsers.viewerRole === "creator"
-                    ? goalWithUsers.partner?.nickname || goalWithUsers.partner?.email?.split("@")[0] || "Partner"
-                    : goalWithUsers.creator?.nickname || goalWithUsers.creator?.email?.split("@")[0] || "Creator";
+                const partnerUser = goalWithUsers.viewerRole === "creator"
+                    ? goalWithUsers.partner
+                    : goalWithUsers.creator;
+                const partnerName = formatVisibleUser(partnerUser, "Partner");
                 const isLocked = goalWithUsers.effectiveStatus === "locked";
                 const isGracePeriod = goalWithUsers.effectiveStatus === "grace_period";
 
@@ -69,7 +71,7 @@ export function GoalSwitcher({
                                     : colors.text.DEFAULT,
                             }}
                         >
-                            {partnerName.charAt(0).toUpperCase()}
+                            {getVisibleUserInitials(partnerUser)}
                         </span>
 
                         {/* Partner name */}

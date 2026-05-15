@@ -2,11 +2,14 @@
 
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors } from "@/lib/theme";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 
 interface Friend {
   friendId: Id<"users">;
   nickname?: string;
-  email: string;
+  discriminator?: number;
+  name?: string;
+  email?: string;
   imageUrl?: string;
 }
 
@@ -78,8 +81,7 @@ export function PartnerSelector({
                     color: colors.text.DEFAULT,
                   }}
                 >
-                  {friend.nickname?.charAt(0).toUpperCase() ||
-                    friend.email.charAt(0).toUpperCase()}
+                  {getVisibleUserInitials(friend)}
                 </div>
                 <div>
                   <div
@@ -88,7 +90,7 @@ export function PartnerSelector({
                       color: isSelected ? colors.cta.light : colors.text.DEFAULT,
                     }}
                   >
-                    {friend.nickname || friend.email.split("@")[0]}
+                    {formatVisibleUser(friend)}
                   </div>
                   {friend.nickname && (
                     <div className="text-xs" style={{ color: colors.text.muted }}>

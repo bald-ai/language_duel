@@ -1,5 +1,4 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
@@ -7,6 +6,7 @@ import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessio
 import { summarizeSessionWords } from "./helpers/sessionWords";
 import { loadUsersById } from "./helpers/users";
 import { listWeeklyGoalThemeSnapshots } from "./helpers/weeklyGoalSnapshots";
+import { createChallengeInviteNotificationAndEmail } from "./notificationHelpers";
 import { buildSessionWords } from "../lib/sessionWords";
 import {
   getSpacedRepetitionBucket,
@@ -19,7 +19,12 @@ import {
 } from "../lib/spacedRepetition";
 
 type CtxWithDb = QueryCtx | MutationCtx;
-type UserSummary = { _id: Id<"users">; nickname?: string; email: string };
+type UserSummary = {
+  _id: Id<"users">;
+  nickname?: string;
+  discriminator?: number;
+  name?: string;
+};
 type SpacedRepetitionCompletion = "solo_practice" | "duel";
 type ReadyRepetitionContext = {
   goal: Doc<"weeklyGoals">;
@@ -54,7 +59,12 @@ function buildDeferredSnapshotContent(goal: Doc<"weeklyGoals">): LoadedSnapshotC
 
 function toUserSummary(user: Doc<"users"> | null): UserSummary | null {
   if (!user) return null;
-  return { _id: user._id, nickname: user.nickname, email: user.email };
+  return {
+    _id: user._id,
+    nickname: user.nickname,
+    discriminator: user.discriminator,
+    name: user.name,
+  };
 }
 
 function getGoalPartnerId(goal: Doc<"weeklyGoals">, userId: Id<"users">): Id<"users"> {
@@ -561,24 +571,13 @@ export const createRepetitionChallenge = mutation({
       ...challengeInvite,
     });
 
-    await ctx.db.insert("notifications", {
-      type: "challenge_invite",
-      fromUserId: user._id,
-      toUserId: opponentId,
-      status: "pending",
-      payload: {
-        challengeId,
-        themeName: `Spaced Repetition ${step}/${SPACED_REPETITION_TOTAL_STEPS}: ${content.themeSummary}`,
-        duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
-      },
-      createdAt: now,
-    });
-
-    await ctx.scheduler.runAfter(0, internal.emails.notificationEmails.sendNotificationEmail, {
-      trigger: "immediate_challenge_invite",
-      toUserId: opponentId,
-      fromUserId: user._id,
+    await createChallengeInviteNotificationAndEmail(ctx, {
+      challengerId: user._id,
+      opponentId,
       challengeId,
+      themeName: `Spaced Repetition ${step}/${SPACED_REPETITION_TOTAL_STEPS}: ${content.themeSummary}`,
+      duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
+      createdAt: now,
     });
 
     return challengeId;
