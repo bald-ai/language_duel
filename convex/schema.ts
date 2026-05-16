@@ -343,6 +343,8 @@ export default defineSchema({
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),
     finalStats: v.optional(playerStatsValidator),
+    masteredWordIndices: v.optional(v.array(v.number())),
+    progressUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
@@ -387,8 +389,6 @@ export default defineSchema({
     userId: v.id("users"),
     completedSteps: v.array(
       v.object({
-        step: v.number(),
-        intervalDays: v.number(),
         completedAt: v.number(),
         completedVia: v.union(v.literal("duel"), v.literal("solo_practice")),
         duelId: v.optional(v.id("duels")),
@@ -470,13 +470,16 @@ export default defineSchema({
   emailNotificationLog: defineTable({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("failed")),
     challengeId: v.optional(v.id("challenges")),
     duelId: v.optional(v.id("duels")),
     soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
-    sentAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    failedAt: v.optional(v.number()),
   })
     .index("by_user_trigger_weeklyGoal", ["toUserId", "trigger", "weeklyGoalId"])
     .index("by_user_trigger_weeklyGoal_dedupeKey", [
@@ -493,5 +496,6 @@ export default defineSchema({
       "soloPracticeSessionId",
     ])
     .index("by_user_trigger", ["toUserId", "trigger"])
+    .index("by_status", ["status"])
     .index("by_sentAt", ["sentAt"]),
 });

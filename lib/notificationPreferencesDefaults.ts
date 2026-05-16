@@ -38,6 +38,22 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   weeklyGoalReminder2OffsetMinutes: WEEKLY_GOAL_REMINDER_2_DEFAULT_OFFSET_MINUTES,
 };
 
+function normalizeReminderOffset(
+  value: number | undefined,
+  defaultValue: number
+): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
+    value > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
+  ) {
+    return defaultValue;
+  }
+
+  return value;
+}
+
 export function normalizeNotificationPreferences(
   prefs: Partial<NotificationPreferences> | null | undefined
 ): NotificationPreferences {
@@ -72,14 +88,16 @@ export function normalizeNotificationPreferences(
     weeklyGoalReminder1EmailEnabled:
       prefs?.weeklyGoalReminder1EmailEnabled ??
       DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1EmailEnabled,
-    weeklyGoalReminder1OffsetMinutes:
-      prefs?.weeklyGoalReminder1OffsetMinutes ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes,
+    weeklyGoalReminder1OffsetMinutes: normalizeReminderOffset(
+      prefs?.weeklyGoalReminder1OffsetMinutes,
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes
+    ),
     weeklyGoalReminder2EmailEnabled:
       prefs?.weeklyGoalReminder2EmailEnabled ??
       DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2EmailEnabled,
-    weeklyGoalReminder2OffsetMinutes:
-      prefs?.weeklyGoalReminder2OffsetMinutes ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes,
+    weeklyGoalReminder2OffsetMinutes: normalizeReminderOffset(
+      prefs?.weeklyGoalReminder2OffsetMinutes,
+      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes
+    ),
   };
 }

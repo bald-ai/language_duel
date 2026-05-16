@@ -68,6 +68,60 @@ function resolveDuelDifficultyPreset(preset?: DuelDifficultyPreset): DuelDifficu
   return preset ?? "easy";
 }
 
+function validateDuelSourceFields(args: {
+  sourceType: DuelSourceType;
+  weeklyGoalId?: Id<"weeklyGoals">;
+  bossType?: "mini" | "big";
+  spacedRepetitionStep?: number;
+}) {
+  if (args.sourceType === "normal") {
+    if (args.weeklyGoalId || args.bossType || args.spacedRepetitionStep !== undefined) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Normal duel sessions cannot include weekly-goal source fields" });
+    }
+    return;
+  }
+
+  if (!args.weeklyGoalId) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly-goal duel sessions require weeklyGoalId" });
+  }
+
+  if (args.sourceType === "boss") {
+    if (!args.bossType || args.spacedRepetitionStep !== undefined) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss duel sessions require bossType and cannot include spacedRepetitionStep" });
+    }
+    return;
+  }
+
+  if (args.bossType || typeof args.spacedRepetitionStep !== "number") {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition duel sessions require spacedRepetitionStep and cannot include bossType" });
+  }
+}
+
+function validateSoloPracticeSourceFields(args: {
+  sourceType: SoloPracticeSourceType;
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType?: "mini" | "big";
+  spacedRepetitionStep?: number;
+}) {
+  if (args.sourceType === "weekly_goal") {
+    if (args.bossType || args.spacedRepetitionStep !== undefined) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly-goal solo practice cannot include boss or repetition fields" });
+    }
+    return;
+  }
+
+  if (args.sourceType === "boss") {
+    if (!args.bossType || args.spacedRepetitionStep !== undefined) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss solo practice requires bossType and cannot include spacedRepetitionStep" });
+    }
+    return;
+  }
+
+  if (args.bossType || typeof args.spacedRepetitionStep !== "number") {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition solo practice requires spacedRepetitionStep and cannot include bossType" });
+  }
+}
+
 export function buildChallengeInvite(args: {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
@@ -87,12 +141,19 @@ export function buildChallengeInvite(args: {
   if (themeIds.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge requires at least one theme" });
   }
+  const sourceType = args.sourceType ?? "normal";
+  validateDuelSourceFields({
+    sourceType,
+    weeklyGoalId: args.weeklyGoalId,
+    bossType: args.bossType,
+    spacedRepetitionStep: args.spacedRepetitionStep,
+  });
 
   return {
     challengerId: args.challengerId,
     opponentId: args.opponentId,
     themeIds,
-    sourceType: args.sourceType ?? "normal",
+    sourceType,
     weeklyGoalId: args.weeklyGoalId,
     bossType: args.bossType,
     spacedRepetitionStep: args.spacedRepetitionStep,
@@ -120,6 +181,7 @@ export function buildDuelSession(args: {
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
+  validateDuelSourceFields(args);
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
   const wordOrder = createShuffledWordOrder(sessionWords.length);
@@ -167,6 +229,7 @@ export function buildSoloPracticeSession(args: {
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });
   }
+  validateSoloPracticeSourceFields(args);
 
   return {
     userId: args.userId,

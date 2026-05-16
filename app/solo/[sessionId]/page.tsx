@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatDuration } from "@/app/utils/displayFormat";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
@@ -71,7 +71,9 @@ export default function SoloPracticePage() {
   const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
   const returnLabel = searchParams.get("returnLabel") || "Back to Home";
   const completeSpacedRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.completeRepetitionSoloPractice);
+  const recordRepetitionSoloMastery = useMutation(api.weeklyGoalRepetitions.recordRepetitionSoloMastery);
   const spacedRepetitionReportStatusRef = useRef<"idle" | "pending" | "done">("idle");
+  const reportedMasteryIndicesRef = useRef<Set<number>>(new Set());
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
       return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
@@ -169,6 +171,48 @@ export default function SoloPracticePage() {
     router.push(returnTo);
   }, [router, returnTo]);
 
+  const pendingMasteryWritesRef = useRef(0);
+  const [masteryWritesPending, setMasteryWritesPending] = useState(0);
+
+  const handleCorrectWithProgress = useCallback(() => {
+    const completedWordIndex =
+      session.questionLevel === 3 ? session.currentWordIndex : null;
+
+    handleCorrect();
+
+    if (
+      soloPracticeSessionId &&
+      spacedRepetitionStep !== null &&
+      completedWordIndex !== null &&
+      !reportedMasteryIndicesRef.current.has(completedWordIndex)
+    ) {
+      reportedMasteryIndicesRef.current.add(completedWordIndex);
+      pendingMasteryWritesRef.current += 1;
+      setMasteryWritesPending(pendingMasteryWritesRef.current);
+      void recordRepetitionSoloMastery({
+        soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
+        wordIndex: completedWordIndex,
+      })
+        .catch(() => {
+          reportedMasteryIndicesRef.current.delete(completedWordIndex);
+        })
+        .finally(() => {
+          pendingMasteryWritesRef.current = Math.max(
+            0,
+            pendingMasteryWritesRef.current - 1
+          );
+          setMasteryWritesPending(pendingMasteryWritesRef.current);
+        });
+    }
+  }, [
+    handleCorrect,
+    recordRepetitionSoloMastery,
+    session.currentWordIndex,
+    session.questionLevel,
+    soloPracticeSessionId,
+    spacedRepetitionStep,
+  ]);
+
   const baseCardStyle = {
     backgroundColor: colors.background.elevated,
     borderColor: colors.primary.dark,
@@ -180,7 +224,8 @@ export default function SoloPracticePage() {
       !soloPracticeSessionId ||
       spacedRepetitionStep === null ||
       !session.completed ||
-      spacedRepetitionReportStatusRef.current !== "idle"
+      spacedRepetitionReportStatusRef.current !== "idle" ||
+      masteryWritesPending > 0
     ) {
       return;
     }
@@ -190,8 +235,8 @@ export default function SoloPracticePage() {
       soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
       completedStep: spacedRepetitionStep,
     })
-      .then(() => {
-        spacedRepetitionReportStatusRef.current = "done";
+      .then((result) => {
+        spacedRepetitionReportStatusRef.current = result.advanced ? "done" : "idle";
       })
       .catch(() => {
         spacedRepetitionReportStatusRef.current = "idle";
@@ -201,6 +246,7 @@ export default function SoloPracticePage() {
     completeSpacedRepetitionSoloPractice,
     session.completed,
     spacedRepetitionStep,
+    masteryWritesPending,
   ]);
 
   // Loading states
@@ -570,7 +616,7 @@ export default function SoloPracticePage() {
               <Level1Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 answer={expectedAnswer}
-                onCorrect={handleCorrect}
+                onCorrect={handleCorrectWithProgress}
                 onSkip={handleIncorrect}
                 mode="solo"
                 dataTestIdBase="solo-practice-level1"
@@ -581,7 +627,7 @@ export default function SoloPracticePage() {
               <Level2TypingInput
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 answer={expectedAnswer}
-                onCorrect={handleCorrect}
+                onCorrect={handleCorrectWithProgress}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
@@ -593,7 +639,7 @@ export default function SoloPracticePage() {
               <Level2TypingInput
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 answer={expectedAnswer}
-                onCorrect={handleCorrect}
+                onCorrect={handleCorrectWithProgress}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
@@ -606,7 +652,7 @@ export default function SoloPracticePage() {
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 answer={expectedAnswer}
                 wrongAnswers={currentWord.wrongAnswers}
-                onCorrect={handleCorrect}
+                onCorrect={handleCorrectWithProgress}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"
@@ -618,7 +664,7 @@ export default function SoloPracticePage() {
               <Level3Input
                 key={`${session.currentWordIndex}-${session.questionsAnswered}`}
                 answer={expectedAnswer}
-                onCorrect={handleCorrect}
+                onCorrect={handleCorrectWithProgress}
                 onWrong={handleIncorrect}
                 onSkip={handleIncorrect}
                 mode="solo"

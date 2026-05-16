@@ -245,6 +245,21 @@ describe("DuelSession", () => {
           challengerAnswered: false,
           opponentAnswered: false,
           opponentLastAnswer: "perro",
+          duelQuestions: [
+            {
+              options: ["gato", "perro", "mesa", "casa"],
+              correctOption: "gato",
+              difficulty: "easy",
+              points: 1,
+              answerRevealedToViewer: true,
+            },
+            {
+              options: ["perro", "gato", "mesa", "casa"],
+              difficulty: "medium",
+              points: 1.5,
+              answerRevealedToViewer: false,
+            },
+          ] as unknown as Doc<"duels">["duelQuestions"],
           questionStartTime: Date.now() + 1_000,
         })}
         challenger={challenger}
@@ -263,6 +278,73 @@ describe("DuelSession", () => {
       wordIndex: 0,
       difficulty: { level: "easy", points: 1 },
     });
+  });
+
+  it("treats hidden safe DTO answers as unrevealed before the viewer answers", async () => {
+    render(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [
+            {
+              word: "cat",
+              answer: "",
+              wrongAnswers: ["perro", "mesa", "casa"],
+              themeId: "theme_1" as Id<"themes">,
+              themeName: "Animals",
+            },
+          ],
+          duelQuestions: [
+            {
+              options: ["gato", "perro", "mesa", "casa"],
+              difficulty: "easy",
+              points: 1,
+              answerRevealedToViewer: false,
+            },
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
+    expect(getDuelViewProps().answers.correctAnswer).toBeNull();
+    expect(getDuelViewProps().answers.hasNoneOption).toBeNull();
+  });
+
+  it("passes revealed answer data after the viewer has answered", async () => {
+    render(
+      <DuelSession
+        duel={createDuel({
+          challengerAnswered: true,
+          duelQuestions: [
+            {
+              options: ["gato", "perro", "mesa", "casa"],
+              correctOption: "gato",
+              difficulty: "easy",
+              points: 1,
+              answerRevealedToViewer: true,
+            },
+            {
+              options: ["perro", "gato", "mesa", "casa"],
+              correctOption: "perro",
+              difficulty: "medium",
+              points: 1.5,
+              answerRevealedToViewer: false,
+            },
+          ] as unknown as Doc<"duels">["duelQuestions"],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
+    expect(getDuelViewProps().answers.correctAnswer).toBe("gato");
+    expect(getDuelViewProps().answers.hasNoneOption).toBe(false);
   });
 
   it("auto-submits timeout without showing toasts for expected race failures", async () => {

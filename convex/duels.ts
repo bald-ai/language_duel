@@ -3,7 +3,7 @@
  */
 
 import { query, mutation } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   getAuthenticatedUserOrNull,
@@ -13,6 +13,70 @@ import {
   loadThemesByIds,
   summarizeSessionWords,
 } from "./helpers/sessionWords";
+
+type DuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
+type SessionWord = Doc<"duels">["sessionWords"][number];
+
+function canRevealQuestionAnswer(args: {
+  duel: Doc<"duels">;
+  questionIndex: number;
+  viewerRole: "challenger" | "opponent";
+}): boolean {
+  if (args.duel.status === "completed" || args.duel.status === "stopped") {
+    return true;
+  }
+
+  if (args.questionIndex < args.duel.currentWordIndex) {
+    return true;
+  }
+
+  if (args.questionIndex !== args.duel.currentWordIndex) {
+    return false;
+  }
+
+  return args.viewerRole === "challenger"
+    ? args.duel.challengerAnswered
+    : args.duel.opponentAnswered;
+}
+
+function hideQuestionAnswer(question: DuelQuestion): Omit<DuelQuestion, "correctOption"> & {
+  answerRevealedToViewer: false;
+} {
+  const { correctOption: _correctOption, ...safeQuestion } = question;
+  return { ...safeQuestion, answerRevealedToViewer: false };
+}
+
+function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opponent") {
+  const wordIndexBySessionIndex = new Map<number, number>();
+  (duel.wordOrder ?? []).forEach((sessionWordIndex, questionIndex) => {
+    wordIndexBySessionIndex.set(sessionWordIndex, questionIndex);
+  });
+
+  const safeQuestions = duel.duelQuestions?.map((question, questionIndex) => {
+    const canReveal = canRevealQuestionAnswer({ duel, questionIndex, viewerRole });
+    return canReveal
+      ? { ...question, answerRevealedToViewer: true }
+      : hideQuestionAnswer(question);
+  });
+  const safeSessionWords = duel.sessionWords.map((word, sessionWordIndex): SessionWord => {
+    const questionIndex = wordIndexBySessionIndex.get(sessionWordIndex) ?? sessionWordIndex;
+    if (canRevealQuestionAnswer({ duel, questionIndex, viewerRole })) {
+      return word;
+    }
+
+    return {
+      ...word,
+      answer: "",
+      ttsStorageId: undefined,
+    };
+  });
+
+  return {
+    ...duel,
+    sessionWords: safeSessionWords,
+    duelQuestions: safeQuestions,
+  };
+}
 
 export const getDuel = query({
   args: { duelId: v.id("duels") },
@@ -34,11 +98,8 @@ export const getDuel = query({
     const viewerRole = isChallenger ? "challenger" : "opponent";
 
     const themes = await loadThemesByIds(ctx, duel.themeIds);
-    const theme = themes.length === 1 ? themes[0] : null;
-
     return {
-      duel,
-      theme,
+      duel: buildViewerSafeDuel(duel, viewerRole),
       themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
       themeSummary: summarizeSessionWords(duel.sessionWords),
       viewerRole,

@@ -180,7 +180,7 @@ export const updateNickname = mutation({
 });
 
 /**
- * Search users by email or nickname#discriminator format
+ * Search users by exact padded handle (nickname#1234) or strict nickname prefix.
  */
 export const searchUsers = query({
   args: {
@@ -193,8 +193,14 @@ export const searchUsers = query({
     const searchTerm = args.searchTerm.trim();
     if (!searchTerm) return [];
 
-    // Check if search is in "Name#1234" format
-    const nicknameMatch = searchTerm.match(/^(.+)#(\d{4})$/);
+    const nicknameMatch = searchTerm.match(/^([A-Za-z0-9_]+)#(\d{4})$/);
+    const nicknamePrefix = searchTerm.match(/^[A-Za-z0-9_]{3,}$/)
+      ? searchTerm.toLowerCase()
+      : null;
+
+    if (!nicknameMatch && !nicknamePrefix) {
+      return [];
+    }
 
     const users = await ctx.db.query("users").take(MAX_USERS_QUERY);
 
@@ -205,18 +211,14 @@ export const searchUsers = query({
         // Exclude current user
         if (u._id === auth.user._id) return false;
 
-        // Match by email or nickname#discriminator
         if (nicknameMatch) {
           const [, nickname, discriminator] = nicknameMatch;
           return u.nickname === nickname && u.discriminator === parseInt(discriminator, 10);
-        } else {
-          // Search by email (partial match) or nickname (partial match)
-          const lowerSearch = searchTerm.toLowerCase();
-          return (
-            u.email.toLowerCase().includes(lowerSearch) ||
-            (u.nickname && u.nickname.toLowerCase().includes(lowerSearch))
-          );
         }
+
+        return Boolean(
+          nicknamePrefix && u.nickname?.toLowerCase().startsWith(nicknamePrefix)
+        );
       })
       .slice(0, 20)
       .map((u) => ({

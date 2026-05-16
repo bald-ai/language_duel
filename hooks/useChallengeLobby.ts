@@ -19,12 +19,19 @@ export interface CreateChallengeOptions {
 }
 
 export function useChallengeData(shouldLoad: boolean) {
-  const users = useQuery(api.users.getUsers, shouldLoad ? {} : "skip");
+  const friends = useQuery(api.friends.getFriends, shouldLoad ? {} : "skip");
   const themes = useQuery(api.themes.getThemes, shouldLoad ? {} : "skip");
   const pendingChallenges = useQuery(api.challenges.getPendingChallenges, shouldLoad ? {} : "skip");
 
   return {
-    users,
+    users: friends?.map((friend) => ({
+      _id: friend.friendId,
+      name: friend.name,
+      email: friend.email,
+      imageUrl: friend.imageUrl,
+      nickname: friend.nickname,
+      discriminator: friend.discriminator,
+    })),
     themes,
     pendingChallenges,
     pendingCount: pendingChallenges?.length || 0,

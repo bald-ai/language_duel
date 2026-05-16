@@ -20,6 +20,7 @@ import {
 } from "./helpers/sessionWords";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnapshots";
 import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
+import { areUsersFriendsInDb } from "./helpers/relationshipPolicy";
 import {
   createChallengeInviteNotificationAndEmail,
   dismissChallengeInviteNotificationsByChallengeId,
@@ -157,6 +158,11 @@ export const createChallenge = mutation({
 
     const opponent = await ctx.db.get(opponentId);
     if (!opponent) throw new ConvexError({ code: "NOT_FOUND", message: "Opponent not found" });
+
+    const areFriends = await areUsersFriendsInDb(ctx, challenger._id, opponentId);
+    if (!areFriends) {
+      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You can only challenge friends" });
+    }
 
     const orderedThemeIds = Array.from(new Set(themeIds));
     if (orderedThemeIds.length === 0) {
@@ -363,41 +369,17 @@ export const cleanupExpiredChallengeInvites = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const cutoff = now - CHALLENGE_INVITE_TTL_MS;
 
-    const expiredPendingNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status_createdAt", (q) =>
-        q.eq("type", "challenge_invite").eq("status", "pending").lt("createdAt", cutoff)
-      )
+    const expiredChallenges = await ctx.db
+      .query("challenges")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
       .collect();
 
-    const expiredReadNotifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_type_status_createdAt", (q) =>
-        q.eq("type", "challenge_invite").eq("status", "read").lt("createdAt", cutoff)
-      )
-      .collect();
+    for (const challenge of expiredChallenges) {
+      if (!isCreatedAtExpired(challenge.createdAt, now, CHALLENGE_INVITE_TTL_MS)) continue;
 
-    const notifications = [...expiredPendingNotifications, ...expiredReadNotifications];
-    const resolvedChallengeIds = new Set<string>();
-
-    for (const notification of notifications) {
-      if (!isCreatedAtExpired(notification.createdAt, now, CHALLENGE_INVITE_TTL_MS)) continue;
-      if (!isChallengeInvitePayload(notification.payload)) continue;
-
-      const challengeId = notification.payload.challengeId;
-      const challengeKey = String(challengeId);
-
-      if (!resolvedChallengeIds.has(challengeKey)) {
-        const challenge = await ctx.db.get(challengeId);
-        if (challenge?.status === "pending") {
-          await ctx.db.patch(challengeId, { status: "cancelled", resolvedAt: now });
-        }
-        resolvedChallengeIds.add(challengeKey);
-      }
-
-      await ctx.db.patch(notification._id, { status: "dismissed" });
+      await ctx.db.patch(challenge._id, { status: "cancelled", resolvedAt: now });
+      await dismissChallengeInviteNotificationsByChallengeId(ctx, challenge._id, [challenge.opponentId]);
     }
   },
 });

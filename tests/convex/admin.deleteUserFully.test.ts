@@ -121,7 +121,13 @@ describe("admin deleteUserFully", () => {
       { _id: "notification_2", fromUserId: "user_2", toUserId: "user_1" }
     );
     db.tables.notificationPreferences.push({ _id: "preferences_1", userId: "user_1" });
-    db.tables.emailNotificationLog.push({ _id: "email_log_1", toUserId: "user_1" });
+    db.tables.emailNotificationLog.push({
+      _id: "email_log_1",
+      toUserId: "user_1",
+      trigger: "weekly_goal_draft_expiring",
+      status: "sent",
+      sentAt: 1,
+    });
 
     const handler = (deleteUserFully as unknown as {
       _handler: (
@@ -215,17 +221,26 @@ describe("admin deleteUserFully", () => {
       {
         _id: "email_log_deleted_challenge",
         toUserId: "user_2",
+        trigger: "immediate_challenge_invite",
+        status: "sent",
         challengeId: "challenge_1",
+        sentAt: 1,
       },
       {
         _id: "email_log_deleted_duel",
         toUserId: "user_2",
+        trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         duelId: "duel_1",
+        sentAt: 1,
       },
       {
         _id: "email_log_keep",
         toUserId: "user_2",
+        trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         weeklyGoalId: "goal_completed",
+        sentAt: 1,
       }
     );
 

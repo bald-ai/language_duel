@@ -7,8 +7,6 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export type SpacedRepetitionBucket = "ready" | "coming_up" | "done";
 
 export interface SpacedRepetitionStep {
-  step: number;
-  intervalDays: number;
   completedAt: number;
   completedVia?: "duel" | "solo_practice";
   duelId?: string;

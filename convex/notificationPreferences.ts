@@ -61,33 +61,35 @@ export const getByUserId = internalQuery({
 
 export const updateNotificationPreferences = mutation({
   args: {
-    challengeInviteEmailsEnabled: v.boolean(),
-    challengeInviteEmailEnabled: v.boolean(),
+    challengeInviteEmailsEnabled: v.optional(v.boolean()),
+    challengeInviteEmailEnabled: v.optional(v.boolean()),
 
-    weeklyGoalEmailsEnabled: v.boolean(),
-    weeklyGoalInviteEmailEnabled: v.boolean(),
-    weeklyGoalAcceptedEmailEnabled: v.boolean(),
-    weeklyGoalLockedEmailEnabled: v.boolean(),
-    weeklyGoalDailyReminderEmailEnabled: v.boolean(),
-    weeklyGoalGracePeriodReminderEmailEnabled: v.boolean(),
-    weeklyGoalDraftExpiringEmailEnabled: v.boolean(),
-    weeklyGoalReminder1EmailEnabled: v.boolean(),
-    weeklyGoalReminder1OffsetMinutes: v.number(),
-    weeklyGoalReminder2EmailEnabled: v.boolean(),
-    weeklyGoalReminder2OffsetMinutes: v.number(),
+    weeklyGoalEmailsEnabled: v.optional(v.boolean()),
+    weeklyGoalInviteEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalAcceptedEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalLockedEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalDailyReminderEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalGracePeriodReminderEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalDraftExpiringEmailEnabled: v.optional(v.boolean()),
+    weeklyGoalReminder1EmailEnabled: v.optional(v.boolean()),
+    weeklyGoalReminder1OffsetMinutes: v.optional(v.number()),
+    weeklyGoalReminder2EmailEnabled: v.optional(v.boolean()),
+    weeklyGoalReminder2OffsetMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
     if (
-      args.weeklyGoalReminder1OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
-      args.weeklyGoalReminder1OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
+      args.weeklyGoalReminder1OffsetMinutes !== undefined &&
+      (args.weeklyGoalReminder1OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
+        args.weeklyGoalReminder1OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES)
     ) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid weekly goal reminder 1 offset" });
     }
     if (
-      args.weeklyGoalReminder2OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
-      args.weeklyGoalReminder2OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES
+      args.weeklyGoalReminder2OffsetMinutes !== undefined &&
+      (args.weeklyGoalReminder2OffsetMinutes < WEEKLY_GOAL_REMINDER_MIN_OFFSET_MINUTES ||
+        args.weeklyGoalReminder2OffsetMinutes > WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES)
     ) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid weekly goal reminder 2 offset" });
     }
@@ -102,7 +104,7 @@ export const updateNotificationPreferences = mutation({
     } else {
       await ctx.db.insert("notificationPreferences", {
         userId: user._id,
-        ...args,
+        ...normalizeNotificationPreferences(args),
         updatedAt: Date.now(),
       });
     }

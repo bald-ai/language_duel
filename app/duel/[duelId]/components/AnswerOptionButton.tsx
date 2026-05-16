@@ -11,10 +11,10 @@ export interface OptionContext {
   answer: string;
   /** Currently selected answer (if any) */
   selectedAnswer: string | null;
-  /** The correct answer for this question */
-  correctAnswer: string;
-  /** Whether "None of the above" is the correct choice */
-  hasNoneOption: boolean;
+  /** The correct answer for this question, once the backend has revealed it */
+  correctAnswer: string | null;
+  /** Whether "None of the above" is the correct choice, once revealed */
+  hasNoneOption: boolean | null;
   /** Whether feedback is being shown (locked, answered, or frozen) */
   isShowingFeedback: boolean;
   /** List of eliminated options */
@@ -64,11 +64,16 @@ export function computeOptionState(
 
   const isNoneOfAbove = answer === NONE_OF_ABOVE;
   const isEliminated = eliminatedOptions.includes(answer);
-  const isWrongAnswer = isNoneOfAbove ? !hasNoneOption : answer !== correctAnswer;
-  const canEliminateThis = canEliminate && isWrongAnswer && !isEliminated;
-  const isCorrectOption = hasNoneOption
-    ? answer === NONE_OF_ABOVE
-    : answer === correctAnswer;
+  const answerIsRevealed = correctAnswer !== null && hasNoneOption !== null;
+  const isWrongAnswer = answerIsRevealed
+    ? isNoneOfAbove ? !hasNoneOption : answer !== correctAnswer
+    : false;
+  const canEliminateThis = canEliminate && answerIsRevealed && isWrongAnswer && !isEliminated;
+  const isCorrectOption = answerIsRevealed
+    ? hasNoneOption
+      ? answer === NONE_OF_ABOVE
+      : answer === correctAnswer
+    : false;
   const isSelected = selectedAnswer === answer;
 
   const opponentPickedThis = frozenData

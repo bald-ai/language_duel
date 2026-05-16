@@ -31,6 +31,10 @@ import { toast } from "sonner";
 
 // Props interface
 type DuelPlayerSummary = Pick<Doc<"users">, "_id" | "name" | "nickname" | "discriminator" | "imageUrl">;
+type ViewerSafeDuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number] & {
+  correctOption?: string;
+  answerRevealedToViewer?: boolean;
+};
 
 interface DuelSessionProps {
   duel: Doc<"duels">;
@@ -127,7 +131,7 @@ export default function DuelSession({
   });
 
   const actualWordIndex = wordOrder ? wordOrder[index] : index;
-  const currentQuestion = duel.duelQuestions![index];
+  const currentQuestion = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
   // Memoize currentWord to avoid creating new object reference on every render
   const currentWord = useMemo(
     () => words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] },
@@ -165,17 +169,18 @@ export default function DuelSession({
     if (shouldShowTransition) {
       const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
       const prevWord = words[prevActualIndex] || { word: "", answer: "", wrongAnswers: [] };
-      const prevQuestion = duel.duelQuestions![prevIndex];
+      const prevQuestion = duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion;
+      const prevCorrectOption = prevQuestion.correctOption ?? null;
 
       setPhase("transition");
       setFrozenData({
         word: prevWord.word,
-        correctAnswer: prevWord.answer,
+        correctAnswer: prevQuestion.answerRevealedToViewer === true ? prevWord.answer : null,
         shuffledAnswers: prevQuestion.options,
         selectedAnswer: lockedAnswerRef.current,
         opponentAnswer: theirLastAnswer || null,
         wordIndex: prevIndex,
-        hasNoneOption: prevQuestion.correctOption === NONE_OF_ABOVE,
+        hasNoneOption: prevCorrectOption === null ? null : prevCorrectOption === NONE_OF_ABOVE,
         difficulty: {
           level: prevQuestion.difficulty,
           points: prevQuestion.points,
@@ -237,6 +242,7 @@ export default function DuelSession({
     if (!isRevealing || !frozenData) return;
 
     const correctAnswer = frozenData.correctAnswer;
+    if (correctAnswer === null) return;
     setTypedText("");
     setRevealComplete(false);
 
@@ -329,7 +335,11 @@ export default function DuelSession({
     [currentQuestion.difficulty, currentQuestion.points]
   );
   const shuffledAnswers = currentQuestion.options;
-  const hasNoneOption = currentQuestion.correctOption === NONE_OF_ABOVE;
+  const answerRevealedToViewer = currentQuestion.answerRevealedToViewer === true;
+  const currentCorrectAnswer = answerRevealedToViewer ? currentWord.answer : null;
+  const hasNoneOption = answerRevealedToViewer
+    ? currentQuestion.correctOption === NONE_OF_ABOVE
+    : null;
 
   // Check role (needed for useMemo below)
   const isChallenger = viewerIsChallenger;
@@ -541,7 +551,7 @@ export default function DuelSession({
       answers={{
         shuffledAnswers,
         selectedAnswer,
-        correctAnswer: currentWord.answer,
+        correctAnswer: currentCorrectAnswer,
         hasNoneOption,
         eliminatedOptions,
         opponentLastAnswer: opponentLastAnswer || null,

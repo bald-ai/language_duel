@@ -5,6 +5,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 > **Note:** Project documentation lives at `docs/DOCUMENTATION.md` (not at the repo root).
 
 ## General
+- When the user mentions a `.md` file by name (without a path), it is usually located inside the `Dev` folder. Look there first before asking for the path.
 - Future-AI clarity: make intent obvious, keep logic easy to find, and add short comments only when the behavior is not self-evident.
 - Feature-first organization: keep code with the feature unless it is truly shared.
 - Consistent naming: use stable, descriptive names; avoid old/new/temp/v2/fixed; keep naming patterns uniform within a feature.

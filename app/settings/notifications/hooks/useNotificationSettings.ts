@@ -28,9 +28,7 @@ export function useNotificationSettings() {
       setError(null);
 
       try {
-        const merged: NotificationPreferences = { ...currentPrefs, ...updates };
-
-        await setPrefs(merged);
+        await setPrefs(updates);
       } catch (err) {
         const message = getErrorMessage(err, "Failed to update preferences");
         setError(message);
@@ -39,7 +37,7 @@ export function useNotificationSettings() {
         setIsUpdating(false);
       }
     },
-    [currentPrefs, prefs, setPrefs]
+    [prefs, setPrefs]
   );
 
   return {

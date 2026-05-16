@@ -14,7 +14,6 @@ import {
   getSpacedRepetitionDaysRemaining,
   getSpacedRepetitionDueAt,
   isSpacedRepetitionDone,
-  SPACED_REPETITION_INTERVAL_DAYS,
   SPACED_REPETITION_TOTAL_STEPS,
 } from "../lib/spacedRepetition";
 
@@ -450,13 +449,10 @@ async function advanceUserIfReady(args: {
     return false;
   }
 
-  const intervalDays = SPACED_REPETITION_INTERVAL_DAYS[step - 1];
   await args.ctx.db.patch(record._id, {
     completedSteps: [
       ...record.completedSteps,
       {
-        step,
-        intervalDays,
         completedAt: args.now,
         completedVia: args.completedVia,
         duelId: args.duelId,
@@ -636,6 +632,19 @@ export const completeRepetitionSoloPractice = mutation({
     }
 
     const wordCount = session.sessionWords.length;
+    const masteredWordIndices = new Set(session.masteredWordIndices ?? []);
+    const hasServerOwnedCompletion = session.sessionWords.every((_, index) =>
+      masteredWordIndices.has(index)
+    );
+    if (!hasServerOwnedCompletion) {
+      console.warn("Skipping spaced repetition solo completion: server progress is incomplete.", {
+        soloPracticeSessionId,
+        masteredCount: masteredWordIndices.size,
+        wordCount,
+      });
+      return { advanced: false };
+    }
+
     if (
       !Number.isInteger(completedStep) ||
       completedStep !== session.spacedRepetitionStep
@@ -670,12 +679,49 @@ export const completeRepetitionSoloPractice = mutation({
     await ctx.db.patch(soloPracticeSessionId, {
       status: "completed",
       completedAt: now,
-      finalStats: {
-        questionsAnswered: wordCount,
-        correctAnswers: wordCount,
-      },
     });
 
     return { advanced };
+  },
+});
+
+export const recordRepetitionSoloMastery = mutation({
+  args: {
+    soloPracticeSessionId: v.id("soloPracticeSessions"),
+    wordIndex: v.number(),
+  },
+  handler: async (ctx, { soloPracticeSessionId, wordIndex }) => {
+    const { user } = await getAuthenticatedUser(ctx);
+    const session = await ctx.db.get(soloPracticeSessionId);
+    if (
+      !session ||
+      session.sourceType !== "spaced_repetition" ||
+      session.userId !== user._id ||
+      session.status === "completed"
+    ) {
+      throw new ConvexError({ code: "INVALID_STATE", message: "Spaced repetition solo practice is not active." });
+    }
+
+    if (
+      !Number.isInteger(wordIndex) ||
+      wordIndex < 0 ||
+      wordIndex >= session.sessionWords.length
+    ) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid solo practice word index." });
+    }
+
+    const masteredWordIndices = Array.from(
+      new Set([...(session.masteredWordIndices ?? []), wordIndex])
+    ).sort((a, b) => a - b);
+
+    await ctx.db.patch(soloPracticeSessionId, {
+      masteredWordIndices,
+      progressUpdatedAt: Date.now(),
+    });
+
+    return {
+      masteredCount: masteredWordIndices.length,
+      totalCount: session.sessionWords.length,
+    };
   },
 });

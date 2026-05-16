@@ -5,7 +5,8 @@ import {
 } from "@/convex/emails/notificationEmails";
 import {
   claimNotificationSend,
-  releaseNotificationSendClaim,
+  markNotificationSendFailed,
+  markNotificationSendSent,
 } from "@/convex/emails/emailNotificationLog";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPreferences";
 import { createIndexedQuery, deleteRow, insertRow } from "./testUtils/inMemoryDb";
@@ -27,7 +28,10 @@ type EmailLogDoc = Pick<
   | "weeklyGoalId"
   | "reminderOffsetMinutes"
   | "dedupeKey"
+  | "status"
+  | "claimedAt"
   | "sentAt"
+  | "failedAt"
 >;
 
 class InMemoryDb {
@@ -59,6 +63,12 @@ class InMemoryDb {
   async delete(id: Id<"emailNotificationLog">) {
     deleteRow(this.emailNotificationLog, id);
   }
+
+  async patch(id: Id<"emailNotificationLog">, value: Record<string, unknown>) {
+    const row = this.emailNotificationLog.find((log) => log._id === id);
+    if (!row) return;
+    Object.assign(row, value);
+  }
 }
 
 function buildUser(overrides: Partial<UserDoc> = {}): UserDoc {
@@ -88,7 +98,14 @@ const claimNotificationSendHandler = (claimNotificationSend as unknown as {
   ) => Promise<{ claimed: boolean; claimId?: Id<"emailNotificationLog"> }>;
 })._handler;
 
-const releaseNotificationSendClaimHandler = (releaseNotificationSendClaim as unknown as {
+const markNotificationSendSentHandler = (markNotificationSendSent as unknown as {
+  _handler: (
+    ctx: unknown,
+    args: { claimId: Id<"emailNotificationLog"> }
+  ) => Promise<void>;
+})._handler;
+
+const markNotificationSendFailedHandler = (markNotificationSendFailed as unknown as {
   _handler: (
     ctx: unknown,
     args: { claimId: Id<"emailNotificationLog"> }
@@ -101,6 +118,7 @@ const sendNotificationEmailHandler = (sendNotificationEmail as unknown as {
     args: {
       toUserId: Id<"users">;
       trigger: "weekly_goal_draft_expiring";
+      weeklyGoalId?: Id<"weeklyGoals">;
     }
   ) => Promise<{ sent: boolean; reason?: string }>;
 })._handler;
@@ -127,6 +145,7 @@ describe("notification email claim-before-send", () => {
         _creationTime: 1,
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         sentAt: 123,
       },
@@ -152,6 +171,7 @@ describe("notification email claim-before-send", () => {
         _creationTime: 1,
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         duelId: "duel_1" as Id<"duels">,
         sentAt: 123,
       },
@@ -177,6 +197,7 @@ describe("notification email claim-before-send", () => {
         _creationTime: 1,
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         duelId: "duel_1" as Id<"duels">,
         sentAt: 123,
       },
@@ -204,6 +225,7 @@ describe("notification email claim-before-send", () => {
         _creationTime: 1,
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
+        status: "sent",
         soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
         sentAt: 123,
       },
@@ -235,7 +257,7 @@ describe("notification email claim-before-send", () => {
         },
         runMutation: async (_fn: unknown, args: { claimId?: Id<"emailNotificationLog"> }) => {
           if (args.claimId) {
-            return releaseNotificationSendClaimHandler({ db } as never, {
+            return markNotificationSendSentHandler({ db } as never, {
               claimId: args.claimId,
             });
           }
@@ -249,15 +271,18 @@ describe("notification email claim-before-send", () => {
       {
         toUserId: "user_1" as Id<"users">,
         trigger: "weekly_goal_draft_expiring",
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       }
     );
 
     expect(result).toEqual({ sent: true });
     expect(sentCount).toBe(1);
     expect(db.emailNotificationLog).toHaveLength(1);
+    expect(db.emailNotificationLog[0].status).toBe("sent");
+    expect(db.emailNotificationLog[0].sentAt).toEqual(expect.any(Number));
   });
 
-  it("deletes the claim and rethrows when the email send fails", async () => {
+  it("marks the claim failed and rethrows when the email send fails", async () => {
     const db = new InMemoryDb([buildUser()]);
 
     await expect(
@@ -270,7 +295,7 @@ describe("notification email claim-before-send", () => {
           },
           runMutation: async (_fn: unknown, args: { claimId?: Id<"emailNotificationLog"> }) => {
             if (args.claimId) {
-              return releaseNotificationSendClaimHandler({ db } as never, {
+              return markNotificationSendFailedHandler({ db } as never, {
                 claimId: args.claimId,
               });
             }
@@ -283,11 +308,14 @@ describe("notification email claim-before-send", () => {
         {
           toUserId: "user_1" as Id<"users">,
           trigger: "weekly_goal_draft_expiring",
+          weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         }
       )
     ).rejects.toThrow("Resend failed");
 
-    expect(db.emailNotificationLog).toHaveLength(0);
+    expect(db.emailNotificationLog).toHaveLength(1);
+    expect(db.emailNotificationLog[0].status).toBe("failed");
+    expect(db.emailNotificationLog[0].failedAt).toEqual(expect.any(Number));
   });
 
   it("fails loudly at the email boundary when APP_URL is missing", async () => {
@@ -304,7 +332,7 @@ describe("notification email claim-before-send", () => {
           },
           runMutation: async (_fn: unknown, args: { claimId?: Id<"emailNotificationLog"> }) => {
             if (args.claimId) {
-              return releaseNotificationSendClaimHandler({ db } as never, {
+              return markNotificationSendFailedHandler({ db } as never, {
                 claimId: args.claimId,
               });
             }
@@ -315,6 +343,7 @@ describe("notification email claim-before-send", () => {
         {
           toUserId: "user_1" as Id<"users">,
           trigger: "weekly_goal_draft_expiring",
+          weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         }
       )
     ).rejects.toThrow("APP_URL must be set before sending notification emails");

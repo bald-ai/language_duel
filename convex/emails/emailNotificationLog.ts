@@ -10,6 +10,8 @@ import { type NotificationTrigger } from "../../lib/notificationPreferences";
 import { EMAIL_LOG_TTL_MS } from "../constants";
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
 
+const EMAIL_SEND_CLAIM_STALE_MS = 10 * 60 * 1000;
+
 type EmailNotificationLogLookupArgs = {
   toUserId: Id<"users">;
   trigger: NotificationTrigger;
@@ -35,7 +37,7 @@ async function checkEmailNotificationSent(
           .eq("dedupeKey", args.dedupeKey)
       )
       .first();
-    return Boolean(log);
+    return log?.status === "sent";
   }
 
   if (args.challengeId) {
@@ -48,7 +50,7 @@ async function checkEmailNotificationSent(
           .eq("challengeId", args.challengeId)
       )
       .first();
-    return Boolean(log);
+    return log?.status === "sent";
   }
 
   if (args.duelId) {
@@ -61,7 +63,7 @@ async function checkEmailNotificationSent(
           .eq("duelId", args.duelId)
       )
       .first();
-    return Boolean(log);
+    return log?.status === "sent";
   }
 
   if (args.soloPracticeSessionId) {
@@ -74,7 +76,7 @@ async function checkEmailNotificationSent(
           .eq("soloPracticeSessionId", args.soloPracticeSessionId)
       )
       .first();
-    return Boolean(log);
+    return log?.status === "sent";
   }
 
   if (args.weeklyGoalId) {
@@ -87,7 +89,7 @@ async function checkEmailNotificationSent(
           .eq("weeklyGoalId", args.weeklyGoalId)
       )
       .first();
-    return Boolean(log);
+    return log?.status === "sent";
   }
 
   const log = await ctx.db
@@ -96,7 +98,69 @@ async function checkEmailNotificationSent(
       q.eq("toUserId", args.toUserId).eq("trigger", args.trigger)
     )
     .first();
-  return Boolean(log);
+  return log?.status === "sent";
+}
+
+async function findEmailNotificationLog(
+  ctx: Pick<QueryCtx, "db">,
+  args: EmailNotificationLogLookupArgs
+) {
+  if (args.weeklyGoalId && args.dedupeKey) {
+    return await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("weeklyGoalId", args.weeklyGoalId)
+          .eq("dedupeKey", args.dedupeKey)
+      )
+      .first();
+  }
+
+  if (args.challengeId) {
+    return await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_challenge", (q) =>
+        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("challengeId", args.challengeId)
+      )
+      .first();
+  }
+
+  if (args.duelId) {
+    return await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_duel", (q) =>
+        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("duelId", args.duelId)
+      )
+      .first();
+  }
+
+  if (args.soloPracticeSessionId) {
+    return await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_soloPracticeSession", (q) =>
+        q
+          .eq("toUserId", args.toUserId)
+          .eq("trigger", args.trigger)
+          .eq("soloPracticeSessionId", args.soloPracticeSessionId)
+      )
+      .first();
+  }
+
+  if (args.weeklyGoalId) {
+    return await ctx.db
+      .query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal", (q) =>
+        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("weeklyGoalId", args.weeklyGoalId)
+      )
+      .first();
+  }
+
+  return await ctx.db
+    .query("emailNotificationLog")
+    .withIndex("by_user_trigger", (q) => q.eq("toUserId", args.toUserId).eq("trigger", args.trigger))
+    .first();
 }
 
 export const checkNotificationSent = internalQuery({
@@ -135,6 +199,7 @@ export const logNotificationSent = internalMutation({
     const logId = await ctx.db.insert("emailNotificationLog", {
       toUserId: args.toUserId,
       trigger: args.trigger,
+      status: "sent",
       challengeId: args.challengeId,
       duelId: args.duelId,
       soloPracticeSessionId: args.soloPracticeSessionId,
@@ -159,33 +224,66 @@ export const claimNotificationSend = internalMutation({
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const alreadySent = await checkEmailNotificationSent(ctx, args);
-    if (alreadySent) {
+    const existing = await findEmailNotificationLog(ctx, args);
+    const now = Date.now();
+    if (existing?.status === "sent") {
       return { claimed: false };
+    }
+    if (
+      existing?.status === "pending" &&
+      typeof existing.claimedAt === "number" &&
+      existing.claimedAt > now - EMAIL_SEND_CLAIM_STALE_MS
+    ) {
+      return { claimed: false };
+    }
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "pending",
+        claimedAt: now,
+        failedAt: undefined,
+      });
+      return { claimed: true, claimId: existing._id };
     }
 
     const claimId = await ctx.db.insert("emailNotificationLog", {
       toUserId: args.toUserId,
       trigger: args.trigger,
+      status: "pending",
       challengeId: args.challengeId,
       duelId: args.duelId,
       soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
-      sentAt: Date.now(),
+      claimedAt: now,
     });
 
     return { claimed: true, claimId };
   },
 });
 
-export const releaseNotificationSendClaim = internalMutation({
+export const markNotificationSendSent = internalMutation({
   args: {
     claimId: v.id("emailNotificationLog"),
   },
   handler: async (ctx, args) => {
-    await ctx.db.delete(args.claimId);
+    await ctx.db.patch(args.claimId, {
+      status: "sent",
+      sentAt: Date.now(),
+      failedAt: undefined,
+    });
+  },
+});
+
+export const markNotificationSendFailed = internalMutation({
+  args: {
+    claimId: v.id("emailNotificationLog"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.claimId, {
+      status: "failed",
+      failedAt: Date.now(),
+    });
   },
 });
 
@@ -201,8 +299,24 @@ export const cleanupEmailNotificationLog = internalMutation({
     let deletedCount = 0;
 
     for (const log of logs) {
-      if (!isEmailLogPastRetention(log, now, EMAIL_LOG_TTL_MS)) continue;
+      if (log.status !== "sent" || typeof log.sentAt !== "number") continue;
+      if (!isEmailLogPastRetention({ sentAt: log.sentAt }, now, EMAIL_LOG_TTL_MS)) continue;
 
+      await ctx.db.delete(log._id);
+      deletedCount++;
+    }
+
+    return { deletedCount };
+  },
+});
+
+export const resetEmailNotificationLogForStatusCutover = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const logs = await ctx.db.query("emailNotificationLog").collect();
+    let deletedCount = 0;
+
+    for (const log of logs) {
       await ctx.db.delete(log._id);
       deletedCount++;
     }

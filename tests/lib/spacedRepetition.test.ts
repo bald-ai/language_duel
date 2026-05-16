@@ -26,21 +26,17 @@ describe("spacedRepetition helpers", () => {
       goalCompletedAt,
       completedSteps: [
         {
-          step: 1,
-          intervalDays: 3,
           completedAt: previousCompletedAt,
         },
       ],
     });
 
-    expect(getSpacedRepetitionCurrentStep([{ step: 1, intervalDays: 3, completedAt: previousCompletedAt }])).toBe(2);
+    expect(getSpacedRepetitionCurrentStep([{ completedAt: previousCompletedAt }])).toBe(2);
     expect(dueAt).toBe(previousCompletedAt + SPACED_REPETITION_INTERVAL_DAYS[1] * DAY_MS);
   });
 
   it("returns no current step after the schedule is complete", () => {
-    const completedSteps = SPACED_REPETITION_INTERVAL_DAYS.map((intervalDays, index) => ({
-      step: index + 1,
-      intervalDays,
+    const completedSteps = SPACED_REPETITION_INTERVAL_DAYS.map((_, index) => ({
       completedAt: (index + 1) * DAY_MS,
     }));
 
@@ -69,9 +65,7 @@ describe("spacedRepetition helpers", () => {
       getSpacedRepetitionBucket(
         {
           goalCompletedAt: now - 500 * DAY_MS,
-          completedSteps: SPACED_REPETITION_INTERVAL_DAYS.map((intervalDays, index) => ({
-            step: index + 1,
-            intervalDays,
+          completedSteps: SPACED_REPETITION_INTERVAL_DAYS.map((_, index) => ({
             completedAt: now - (6 - index) * DAY_MS,
           })),
         },

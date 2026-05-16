@@ -13,6 +13,7 @@ import { getResembleApiKey, generateResembleTTS, RESEMBLE_TIMEOUT_MS } from "./h
 import { loadUsersById } from "./helpers/users";
 import { requireThemeOwner, requireThemeEditor } from "./helpers/permissions";
 import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
+import { loadFriendshipsBetweenUsers } from "./helpers/relationshipPolicy";
 import { TTS_GENERATION_COST } from "../lib/credits/constants";
 import { stripIrr } from "../lib/stringUtils";
 import { reconcileThemeWordTts } from "../lib/themes/tts";
@@ -208,6 +209,19 @@ export const getThemes = query({
     const ownersById = await loadUsersById(ctx, ownerIds);
 
     // Enrich with owner details and edit permissions
+    const friendshipPairsByOwnerId = new Map<string, { userId: Id<"users">; friendId: Id<"users"> }[]>();
+    const uniqueOwnerIds = Array.from(new Set(ownerIds));
+    await Promise.all(
+      uniqueOwnerIds.map(async (ownerId) => {
+        if (ownerId === currentUserId) {
+          friendshipPairsByOwnerId.set(String(ownerId), []);
+          return;
+        }
+        const friendships = await loadFriendshipsBetweenUsers(ctx, currentUserId, ownerId);
+        friendshipPairsByOwnerId.set(String(ownerId), friendships);
+      })
+    );
+
     const themesWithOwner: ThemeWithOwner[] = [];
     for (const theme of themes) {
       let ownerNickname: string | undefined;
@@ -222,8 +236,16 @@ export const getThemes = query({
       }
 
       const isOwner = theme.ownerId === currentUserId;
-      // canEdit: owner can always edit, friends can edit if theme is shared AND friendsCanEdit is true
-      const canEdit = isOwner || (theme.visibility === "shared" && theme.friendsCanEdit === true);
+      const canEdit = canGenerateStoredThemeTts(
+        currentUserId,
+        {
+          themeId: theme._id,
+          ownerId: theme.ownerId,
+          visibility: theme.visibility,
+          friendsCanEdit: theme.friendsCanEdit,
+        },
+        theme.ownerId ? (friendshipPairsByOwnerId.get(String(theme.ownerId)) ?? []) : []
+      );
 
       themesWithOwner.push({
         ...theme,
@@ -255,6 +277,38 @@ export const getThemeForViewer = internalQuery({
   },
   handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
     return await loadThemeWithViewerAccess(ctx, args.viewerId, args.themeId);
+  },
+});
+
+export const getThemeForStoredTtsEditor = internalQuery({
+  args: {
+    themeId: v.id("themes"),
+    viewerId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
+    const theme = await ctx.db.get(args.themeId);
+    if (!theme) return null;
+
+    const friendships = theme.ownerId
+      ? await loadFriendshipsBetweenUsers(ctx, args.viewerId, theme.ownerId)
+      : [];
+
+    if (
+      !canGenerateStoredThemeTts(
+        args.viewerId,
+        {
+          themeId: theme._id,
+          ownerId: theme.ownerId,
+          visibility: theme.visibility,
+          friendsCanEdit: theme.friendsCanEdit,
+        },
+        friendships
+      )
+    ) {
+      return null;
+    }
+
+    return theme;
   },
 });
 
@@ -567,20 +621,11 @@ export const generateThemeTTS = action({
       throw new ConvexError({ code: "AUTH_FAILED", message: "Unauthorized" });
     }
 
-    const theme = await ctx.runQuery(internal.themes.getThemeForViewer, {
+    const theme = await ctx.runQuery(internal.themes.getThemeForStoredTtsEditor, {
       themeId: args.themeId,
       viewerId: currentUser._id,
     });
     if (!theme) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found or access denied" });
-    }
-
-    if (!canGenerateStoredThemeTts(currentUser._id, {
-      themeId: theme._id,
-      ownerId: theme.ownerId,
-      visibility: theme.visibility,
-      friendsCanEdit: theme.friendsCanEdit,
-    })) {
       throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
     }
 

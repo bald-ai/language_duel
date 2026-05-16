@@ -217,15 +217,15 @@ describe("users core handlers", () => {
   it("searchUsers marks friend and pending states", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", email: "me@example.com" }));
-    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com" }));
-    db.users.push(userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3", email: "sent@example.com" }));
-    db.users.push(userDoc({ _id: "user_4" as Id<"users">, clerkId: "clerk_4", email: "received@example.com" }));
+    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com", nickname: "AlexFriend" }));
+    db.users.push(userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3", email: "sent@example.com", nickname: "AlexSent" }));
+    db.users.push(userDoc({ _id: "user_4" as Id<"users">, clerkId: "clerk_4", email: "received@example.com", nickname: "AlexReceived" }));
 
     db.friends.push(friendDoc({ userId: "user_1" as Id<"users">, friendId: "user_2" as Id<"users"> }));
     db.friendRequests.push(requestDoc({ senderId: "user_1" as Id<"users">, receiverId: "user_3" as Id<"users">, status: "pending" }));
     db.friendRequests.push(requestDoc({ _id: "request_2" as Id<"friendRequests">, senderId: "user_4" as Id<"users">, receiverId: "user_1" as Id<"users">, status: "pending" }));
 
-    const result = await callConvex(searchUsers, createCtx(db, "clerk_1"), { searchTerm: "@example.com" });
+    const result = await callConvex(searchUsers, createCtx(db, "clerk_1"), { searchTerm: "Alex" });
     const byId = new Map<Id<"users">, { _id: Id<"users">; isFriend?: boolean; isPending?: boolean }>(
       result.map((user: { _id: Id<"users">; isFriend?: boolean; isPending?: boolean }) => [user._id, user])
     );

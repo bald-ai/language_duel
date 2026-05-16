@@ -264,7 +264,22 @@ describe("canGenerateStoredThemeTts", () => {
         ).toBe(true);
     });
 
-    it("allows shared editable themes after view access has been checked separately", () => {
+    it("allows shared editable themes for friends of the owner", () => {
+        expect(
+            canGenerateStoredThemeTts(
+                userId("user1"),
+                {
+                    themeId: themeId("theme1"),
+                    ownerId: userId("owner1"),
+                    visibility: "shared",
+                    friendsCanEdit: true,
+                },
+                [{ userId: userId("user1"), friendId: userId("owner1") }]
+            )
+        ).toBe(true);
+    });
+
+    it("rejects challenge-only access even when a shared theme is editable for friends", () => {
         expect(
             canGenerateStoredThemeTts(userId("user1"), {
                 themeId: themeId("theme1"),
@@ -272,7 +287,7 @@ describe("canGenerateStoredThemeTts", () => {
                 visibility: "shared",
                 friendsCanEdit: true,
             })
-        ).toBe(true);
+        ).toBe(false);
     });
 
     it("rejects view-only shared themes", () => {

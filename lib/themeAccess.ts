@@ -48,6 +48,22 @@ export type ThemeAccessParams = {
 
 const WEEKLY_GOAL_ACCESS_STATUSES = ["draft"] as const;
 
+export function hasFriendshipWithOwner(
+    userId: Id<"users">,
+    ownerId: Id<"users"> | undefined,
+    friendships: FriendshipData[]
+): boolean {
+    if (!ownerId) {
+        return false;
+    }
+
+    return friendships.some(
+        (f) =>
+            (f.userId === userId && f.friendId === ownerId) ||
+            (f.userId === ownerId && f.friendId === userId)
+    );
+}
+
 export function hasThemeAccess(params: ThemeAccessParams): boolean {
     const { userId, theme, challenges, duels, soloPracticeSessions, weeklyGoals, friendships } = params;
 
@@ -104,12 +120,20 @@ function isOwner(userId: Id<"users">, theme: ThemeAccessData): boolean {
     return theme.ownerId === userId;
 }
 
-export function canGenerateStoredThemeTts(userId: Id<"users">, theme: ThemeAccessData): boolean {
+export function canGenerateStoredThemeTts(
+    userId: Id<"users">,
+    theme: ThemeAccessData,
+    friendships: FriendshipData[] = []
+): boolean {
     if (isOwner(userId, theme)) {
         return true;
     }
 
-    return theme.visibility === "shared" && theme.friendsCanEdit === true;
+    return (
+        theme.visibility === "shared" &&
+        theme.friendsCanEdit === true &&
+        hasFriendshipWithOwner(userId, theme.ownerId, friendships)
+    );
 }
 
 function hasAccessViaChallenge(
@@ -146,9 +170,5 @@ function hasAccessViaSharedTheme(
         return false;
     }
 
-    return friendships.some(
-        (f) =>
-            (f.userId === userId && f.friendId === theme.ownerId) ||
-            (f.userId === theme.ownerId && f.friendId === userId)
-    );
+    return hasFriendshipWithOwner(userId, theme.ownerId, friendships);
 }

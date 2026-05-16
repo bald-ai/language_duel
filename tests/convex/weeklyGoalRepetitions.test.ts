@@ -4,6 +4,7 @@ import {
   completeRepetitionDuel,
   completeRepetitionSoloPractice,
   createRepetitionChallenge,
+  recordRepetitionSoloMastery,
   startRepetitionSoloPractice,
 } from "@/convex/weeklyGoalRepetitions";
 import {
@@ -562,7 +563,7 @@ describe("weekly goal spaced repetition", () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
     seedCompletedGoal(db);
-    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+    db.soloPracticeSessions.push(soloPracticeSessionDoc({ masteredWordIndices: [0] }));
 
     const handler = (completeRepetitionSoloPractice as unknown as {
       _handler: (
@@ -579,8 +580,6 @@ describe("weekly goal spaced repetition", () => {
     expect(result).toEqual({ advanced: true });
     expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([
       {
-        step: 1,
-        intervalDays: 3,
         completedAt: READY_NOW,
         completedVia: "solo_practice",
         duelId: undefined,
@@ -590,11 +589,57 @@ describe("weekly goal spaced repetition", () => {
     expect(db.soloPracticeSessions[0]).toMatchObject({
       status: "completed",
       completedAt: READY_NOW,
-      finalStats: {
-        questionsAnswered: 1,
-        correctAnswers: 1,
-      },
     });
+  });
+
+  it("completeRepetitionSoloPractice refuses incomplete server-owned progress", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+
+    const handler = (completeRepetitionSoloPractice as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; completedStep: number }
+      ) => Promise<{ advanced: boolean }>;
+    })._handler;
+
+    const result = await handler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      completedStep: 1,
+    });
+
+    expect(result).toEqual({ advanced: false });
+    expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([]);
+    expect(db.soloPracticeSessions[0].status).toBe("practicing");
+  });
+
+  it("recordRepetitionSoloMastery stores unique mastered word indices", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+
+    const handler = (recordRepetitionSoloMastery as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; wordIndex: number }
+      ) => Promise<{ masteredCount: number; totalCount: number }>;
+    })._handler;
+
+    await handler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      wordIndex: 0,
+    });
+    const result = await handler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      wordIndex: 0,
+    });
+
+    expect(result).toEqual({ masteredCount: 1, totalCount: 1 });
+    expect(db.soloPracticeSessions[0].masteredWordIndices).toEqual([0]);
+    expect(db.soloPracticeSessions[0].progressUpdatedAt).toBe(READY_NOW);
   });
 
   it("completeRepetitionDuel advances both participants with duel completion metadata", async () => {
@@ -609,8 +654,6 @@ describe("weekly goal spaced repetition", () => {
     await completeRepetitionDuel({ db } as never, duel as Doc<"duels">, READY_NOW);
 
     expect(db.weeklyGoalRepetitions[0].completedSteps[0]).toMatchObject({
-      step: 1,
-      intervalDays: 3,
       completedAt: READY_NOW,
       completedVia: "duel",
       duelId: "duel_1",

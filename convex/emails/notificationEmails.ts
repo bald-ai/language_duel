@@ -17,6 +17,38 @@ function getNotificationAppUrl(): string {
   return appUrl;
 }
 
+function assertRequiredEmailContext(args: {
+  trigger: NotificationTrigger;
+  challengeId?: unknown;
+  weeklyGoalId?: unknown;
+  dedupeKey?: unknown;
+  reminderOffsetMinutes?: unknown;
+}) {
+  if (args.trigger === "immediate_challenge_invite" && !args.challengeId) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge email requires challengeId" });
+  }
+
+  if (args.trigger.startsWith("weekly_goal_") && !args.weeklyGoalId) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly-goal email requires weeklyGoalId" });
+  }
+
+  if (
+    (args.trigger === "weekly_goal_daily_reminder" ||
+      args.trigger === "weekly_goal_grace_period_reminder") &&
+    !args.dedupeKey
+  ) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Daily reminder email requires dedupeKey" });
+  }
+
+  if (
+    (args.trigger === "weekly_goal_reminder_1" ||
+      args.trigger === "weekly_goal_reminder_2") &&
+    typeof args.reminderOffsetMinutes !== "number"
+  ) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Fixed reminder email requires reminderOffsetMinutes" });
+  }
+}
+
 export const sendNotificationEmail = internalAction({
   args: {
     trigger: emailNotificationTriggerValidator,
@@ -31,6 +63,13 @@ export const sendNotificationEmail = internalAction({
   },
   handler: async (ctx, args) => {
     const trigger = args.trigger as NotificationTrigger;
+    assertRequiredEmailContext({
+      trigger,
+      challengeId: args.challengeId,
+      weeklyGoalId: args.weeklyGoalId,
+      dedupeKey: args.dedupeKey,
+      reminderOffsetMinutes: args.reminderOffsetMinutes,
+    });
     const toUser = await ctx.runQuery(internal.emails.notificationEmailData.getUserById, {
       id: args.toUserId,
     });
@@ -81,8 +120,11 @@ export const sendNotificationEmail = internalAction({
         subject,
         html,
       });
+      await ctx.runMutation(internal.emails.emailNotificationLog.markNotificationSendSent, {
+        claimId: claim.claimId,
+      });
     } catch (error) {
-      await ctx.runMutation(internal.emails.emailNotificationLog.releaseNotificationSendClaim, {
+      await ctx.runMutation(internal.emails.emailNotificationLog.markNotificationSendFailed, {
         claimId: claim.claimId,
       });
       throw error;

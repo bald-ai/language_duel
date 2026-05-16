@@ -38,12 +38,12 @@ export interface DifficultyPillData {
 
 export interface FrozenData {
   word: string;
-  correctAnswer: string;
+  correctAnswer: string | null;
   shuffledAnswers: string[];
   selectedAnswer: string | null;
   opponentAnswer: string | null;
   wordIndex: number;
-  hasNoneOption: boolean;
+  hasNoneOption: boolean | null;
   difficulty: DifficultyPillData;
 }
 
@@ -73,8 +73,8 @@ export interface DuelViewProps {
   answers: {
     shuffledAnswers: string[];
     selectedAnswer: string | null;
-    correctAnswer: string;
-    hasNoneOption: boolean;
+    correctAnswer: string | null;
+    hasNoneOption: boolean | null;
     eliminatedOptions: string[];
     opponentLastAnswer: string | null;
     isRevealing: boolean;
@@ -218,7 +218,9 @@ export function DuelView({
   const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
   const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : correctAnswer;
   const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
-  const isShowingFeedback = hasAnswered || isLocked || !!frozenData || status === "completed";
+  const canShowAnswerFeedback = displayCorrectAnswer !== null && displayHasNone !== null;
+  const isShowingFeedback =
+    canShowAnswerFeedback && (hasAnswered || isLocked || !!frozenData || status === "completed");
 
   const displayAnswersForReverse = displayAnswers;
   const { reverseAnimatedAnswers } = useReverseAnswers({
@@ -258,7 +260,8 @@ export function DuelView({
       : colors.text.DEFAULT;
 
   const inTransition = phase === "transition" && !!frozenData;
-  const showListenButton = (hasAnswered || isLocked || inTransition) && displayWord !== "done";
+  const showListenButton =
+    canShowAnswerFeedback && (hasAnswered || isLocked || inTransition) && displayWord !== "done";
   const confirmDisabled = !selectedAnswer || isLocked;
 
   const gameContainerStyle = {
@@ -484,7 +487,7 @@ export function DuelView({
                       showTypeReveal={isRevealing && !!frozenData}
                       typedText={typedText}
                       revealComplete={revealComplete}
-                      hasNoneOption={displayHasNone}
+                      hasNoneOption={displayHasNone === true}
                       isShowingFeedback={isShowingFeedback}
                       dataTestId={`duel-answer-${i}`}
                     />
@@ -509,7 +512,7 @@ export function DuelView({
                         displayText={cleanAns}
                         state={state}
                         onClick={() => onOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                        hasNoneOption={displayHasNone}
+                        hasNoneOption={displayHasNone === true}
                         isShowingFeedback={isShowingFeedback}
                         isFlying
                         dataTestId={`duel-answer-${i}-fly`}
@@ -546,7 +549,7 @@ export function DuelView({
                         displayText={cleanAns}
                         state={state}
                         onClick={() => onOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                        hasNoneOption={displayHasNone}
+                        hasNoneOption={displayHasNone === true}
                         isShowingFeedback={isShowingFeedback}
                         isFlying
                         dataTestId={`duel-answer-${i}-fly`}

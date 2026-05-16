@@ -27,6 +27,7 @@ import type * as helpers_duelInitialization from "../helpers/duelInitialization.
 import type * as helpers_gameLogic from "../helpers/gameLogic.js";
 import type * as helpers_index from "../helpers/index.js";
 import type * as helpers_permissions from "../helpers/permissions.js";
+import type * as helpers_relationshipPolicy from "../helpers/relationshipPolicy.js";
 import type * as helpers_resembleTts from "../helpers/resembleTts.js";
 import type * as helpers_sessionCreation from "../helpers/sessionCreation.js";
 import type * as helpers_sessionWords from "../helpers/sessionWords.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "helpers/gameLogic": typeof helpers_gameLogic;
   "helpers/index": typeof helpers_index;
   "helpers/permissions": typeof helpers_permissions;
+  "helpers/relationshipPolicy": typeof helpers_relationshipPolicy;
   "helpers/resembleTts": typeof helpers_resembleTts;
   "helpers/sessionCreation": typeof helpers_sessionCreation;
   "helpers/sessionWords": typeof helpers_sessionWords;

@@ -1,4 +1,4 @@
-import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "../convex/constants";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./weeklyGoalTiming";
 
 export const MIN_THEMES_PER_GOAL = 2;
 
