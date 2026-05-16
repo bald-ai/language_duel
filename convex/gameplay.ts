@@ -2,7 +2,8 @@
  * Gameplay mutations for answering questions, timer management, and countdown controls.
  */
 
-import { mutation, type MutationCtx } from "./_generated/server";
+import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
@@ -20,14 +21,44 @@ import {
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
 
+type DuelLifecycleIntent = {
+  completed: boolean;
+  completeWeeklyGoalBoss: boolean;
+  completeSpacedRepetition: boolean;
+};
+
+const noLifecycleIntent: DuelLifecycleIntent = {
+  completed: false,
+  completeWeeklyGoalBoss: false,
+  completeSpacedRepetition: false,
+};
+
+async function scheduleLifecycleCompletions(
+  ctx: MutationCtx,
+  duelId: Id<"duels">,
+  intent: DuelLifecycleIntent
+): Promise<void> {
+  if (!intent.completed) return;
+  if (intent.completeWeeklyGoalBoss) {
+    await ctx.scheduler.runAfter(0, internal.gameplay.completeWeeklyGoalBossDuelInternal, {
+      duelId,
+    });
+  }
+  if (intent.completeSpacedRepetition) {
+    await ctx.scheduler.runAfter(0, internal.gameplay.completeSpacedRepetitionDuelInternal, {
+      duelId,
+    });
+  }
+}
+
 async function advanceDuelIfBothAnswered(
   ctx: MutationCtx,
   duelId: Id<"duels">,
   duel: Doc<"duels">,
   wordCount: number
-): Promise<void> {
+): Promise<DuelLifecycleIntent> {
   if (!haveBothPlayersAnswered(duel)) {
-    return;
+    return noLifecycleIntent;
   }
 
   const nextWordIndex = duel.currentWordIndex + 1;
@@ -37,20 +68,17 @@ async function advanceDuelIfBothAnswered(
 
     await ctx.db.patch(duelId, buildFinalCompletionPatch(duel, nextWordIndex));
 
-    if (duel.weeklyGoalId && duel.bossType && bossWasDefeated) {
-      const goal = await ctx.db.get(duel.weeklyGoalId);
-
-      if (goal) {
-        await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
-      }
-    }
-    if (shouldCompleteSpacedRepetitionDuel(duel)) {
-      await completeRepetitionDuel(ctx, duel, Date.now());
-    }
-    return;
+    const intent: DuelLifecycleIntent = {
+      completed: true,
+      completeWeeklyGoalBoss: Boolean(duel.weeklyGoalId && duel.bossType && bossWasDefeated),
+      completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(duel),
+    };
+    await scheduleLifecycleCompletions(ctx, duelId, intent);
+    return intent;
   }
 
   await ctx.db.patch(duelId, buildNextRoundPatch(duel, nextWordIndex, Date.now()));
+  return noLifecycleIntent;
 }
 
 // ===========================================
@@ -89,8 +117,16 @@ export const answerDuel = mutation({
     // Check if both answered, then advance
     const updatedDuel = await ctx.db.get(duelId);
     if (updatedDuel && updatedDuel.status === "active") {
-      await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
+      return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
     }
+    if (updatedDuel && updatedDuel.status === "completed") {
+      return {
+        completed: true,
+        completeWeeklyGoalBoss: shouldCompleteWeeklyGoalBoss(updatedDuel),
+        completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
+      };
+    }
+    return noLifecycleIntent;
   },
 });
 
@@ -118,8 +154,87 @@ export const timeoutAnswer = mutation({
     const updatedDuel = await ctx.db.get(duelId);
     if (updatedDuel && updatedDuel.status === "active") {
       const sessionWords = getSessionWords(updatedDuel);
-      await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
+      return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
     }
+    if (updatedDuel && updatedDuel.status === "completed") {
+      return {
+        completed: true,
+        completeWeeklyGoalBoss: shouldCompleteWeeklyGoalBoss(updatedDuel),
+        completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
+      };
+    }
+    return noLifecycleIntent;
+  },
+});
+
+async function runWeeklyGoalBossCompletion(
+  ctx: MutationCtx,
+  duel: Doc<"duels">
+): Promise<{ completed: boolean }> {
+  if (
+    duel.status !== "completed" ||
+    !duel.weeklyGoalId ||
+    !duel.bossType ||
+    !shouldCompleteWeeklyGoalBoss(duel)
+  ) {
+    return { completed: false };
+  }
+
+  const goal = await ctx.db.get(duel.weeklyGoalId);
+  if (!goal) return { completed: false };
+
+  await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
+  return { completed: true };
+}
+
+async function runSpacedRepetitionCompletion(
+  ctx: MutationCtx,
+  duel: Doc<"duels">
+): Promise<{ completed: boolean }> {
+  if (duel.status !== "completed" || !shouldCompleteSpacedRepetitionDuel(duel)) {
+    return { completed: false };
+  }
+
+  await completeRepetitionDuel(ctx, duel, Date.now());
+  return { completed: true };
+}
+
+// Public named lifecycle commands (kept for explicit retry/manual recovery).
+// Default code path triggers them via the scheduler from the answer flow so
+// completion does not depend on the client staying connected.
+export const completeWeeklyGoalBossDuel = mutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const { duel } = await getDuelParticipant(ctx, duelId);
+    return runWeeklyGoalBossCompletion(ctx, duel);
+  },
+});
+
+export const completeSpacedRepetitionDuel = mutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const { duel } = await getDuelParticipant(ctx, duelId);
+    return runSpacedRepetitionCompletion(ctx, duel);
+  },
+});
+
+// Internal lifecycle commands invoked by the scheduler so completion is
+// guaranteed even if the answering client closes the tab mid-finalization.
+export const completeWeeklyGoalBossDuelInternal = internalMutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const duel = await ctx.db.get(duelId);
+    if (!duel) return { completed: false };
+    return runWeeklyGoalBossCompletion(ctx, duel);
+  },
+});
+
+export const completeSpacedRepetitionDuelInternal = internalMutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const duel = await ctx.db.get(duelId);
+    if (!duel) return { completed: false };
+    return runSpacedRepetitionCompletion(ctx, duel);
   },
 });
 

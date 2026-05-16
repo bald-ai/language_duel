@@ -94,6 +94,20 @@ describe("useSoloSession", () => {
     expect(result.current.session.correctAnswers).toBe(0);
   });
 
+  it("clears pending auto-advance timers on unmount", async () => {
+    const { result, unmount } = await initializeSession(1);
+    vi.useFakeTimers();
+
+    act(() => {
+      result.current.handleCorrect();
+    });
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("Level 1 with forward direction", async () => {
     // All Math.random calls return 0.6:
     //   pickQuestionLevel(1): 0.6 < 0.66 → true → level 1

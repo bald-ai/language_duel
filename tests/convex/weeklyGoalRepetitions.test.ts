@@ -619,7 +619,24 @@ describe("weekly goal spaced repetition", () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
     seedCompletedGoal(db);
-    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+    db.soloPracticeSessions.push(soloPracticeSessionDoc({
+      sessionWords: [
+        {
+          word: "cat",
+          answer: "gato",
+          wrongAnswers: ["perro", "pez", "pajaro"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Animals",
+        },
+        {
+          word: "dog",
+          answer: "perro",
+          wrongAnswers: ["gato", "pez", "pajaro"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Animals",
+        },
+      ],
+    }));
 
     const handler = (recordRepetitionSoloMastery as unknown as {
       _handler: (
@@ -637,9 +654,53 @@ describe("weekly goal spaced repetition", () => {
       wordIndex: 0,
     });
 
-    expect(result).toEqual({ masteredCount: 1, totalCount: 1 });
+    expect(result).toEqual({ masteredCount: 1, totalCount: 2 });
     expect(db.soloPracticeSessions[0].masteredWordIndices).toEqual([0]);
     expect(db.soloPracticeSessions[0].progressUpdatedAt).toBe(READY_NOW);
+  });
+
+  it("final mastery write advances repetition even if completion was called too early", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    db.soloPracticeSessions.push(soloPracticeSessionDoc());
+
+    const completeHandler = (completeRepetitionSoloPractice as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; completedStep: number }
+      ) => Promise<{ advanced: boolean }>;
+    })._handler;
+    const recordHandler = (recordRepetitionSoloMastery as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; wordIndex: number }
+      ) => Promise<{ masteredCount: number; totalCount: number }>;
+    })._handler;
+
+    const earlyCompletion = await completeHandler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      completedStep: 1,
+    });
+    expect(earlyCompletion).toEqual({ advanced: false });
+
+    await recordHandler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      wordIndex: 0,
+    });
+
+    expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([
+      {
+        completedAt: READY_NOW,
+        completedVia: "solo_practice",
+        duelId: undefined,
+        soloPracticeSessionId: "solo_practice_1",
+      },
+    ]);
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      status: "completed",
+      completedAt: READY_NOW,
+    });
   });
 
   it("completeRepetitionDuel advances both participants with duel completion metadata", async () => {

@@ -10,6 +10,59 @@ import {
 
 export type DuelSourceType = "normal" | "boss" | "spaced_repetition";
 export type SoloPracticeSourceType = "weekly_goal" | "boss" | "spaced_repetition";
+export type BossType = "mini" | "big";
+
+export type NormalDuelSourceFields = {
+  sourceType: "normal";
+  weeklyGoalId?: never;
+  bossType?: never;
+  spacedRepetitionStep?: never;
+};
+
+export type BossDuelSourceFields = {
+  sourceType: "boss";
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType: BossType;
+  spacedRepetitionStep?: never;
+};
+
+export type SpacedRepetitionDuelSourceFields = {
+  sourceType: "spaced_repetition";
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType?: never;
+  spacedRepetitionStep: number;
+};
+
+export type DuelSourceFields =
+  | NormalDuelSourceFields
+  | BossDuelSourceFields
+  | SpacedRepetitionDuelSourceFields;
+
+export type WeeklyGoalSoloSourceFields = {
+  sourceType: "weekly_goal";
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType?: never;
+  spacedRepetitionStep?: never;
+};
+
+export type BossSoloSourceFields = {
+  sourceType: "boss";
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType: BossType;
+  spacedRepetitionStep?: never;
+};
+
+export type SpacedRepetitionSoloSourceFields = {
+  sourceType: "spaced_repetition";
+  weeklyGoalId: Id<"weeklyGoals">;
+  bossType?: never;
+  spacedRepetitionStep: number;
+};
+
+export type SoloPracticeSourceFields =
+  | WeeklyGoalSoloSourceFields
+  | BossSoloSourceFields
+  | SpacedRepetitionSoloSourceFields;
 
 export interface ChallengeInviteFields {
   challengerId: Id<"users">;
@@ -17,7 +70,7 @@ export interface ChallengeInviteFields {
   themeIds: Id<"themes">[];
   sourceType: DuelSourceType;
   weeklyGoalId?: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
+  bossType?: BossType;
   spacedRepetitionStep?: number;
   status: "pending";
   duelDifficultyPreset?: DuelDifficultyPreset;
@@ -32,7 +85,7 @@ export interface DuelSessionFields {
   sessionWords: SessionWordEntry[];
   sourceType: DuelSourceType;
   weeklyGoalId?: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
+  bossType?: BossType;
   spacedRepetitionStep?: number;
   bossLivesTotal?: number;
   bossLivesRemaining?: number;
@@ -58,7 +111,7 @@ export interface SoloPracticeSessionFields {
   sessionWords: SessionWordEntry[];
   sourceType: SoloPracticeSourceType;
   weeklyGoalId: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
+  bossType?: BossType;
   spacedRepetitionStep?: number;
   status: "learning" | "practicing";
   createdAt: number;
@@ -68,12 +121,7 @@ function resolveDuelDifficultyPreset(preset?: DuelDifficultyPreset): DuelDifficu
   return preset ?? "easy";
 }
 
-function validateDuelSourceFields(args: {
-  sourceType: DuelSourceType;
-  weeklyGoalId?: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
-  spacedRepetitionStep?: number;
-}) {
+function validateDuelSourceFields(args: DuelSourceFields) {
   if (args.sourceType === "normal") {
     if (args.weeklyGoalId || args.bossType || args.spacedRepetitionStep !== undefined) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Normal duel sessions cannot include weekly-goal source fields" });
@@ -97,12 +145,7 @@ function validateDuelSourceFields(args: {
   }
 }
 
-function validateSoloPracticeSourceFields(args: {
-  sourceType: SoloPracticeSourceType;
-  weeklyGoalId: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
-  spacedRepetitionStep?: number;
-}) {
+function validateSoloPracticeSourceFields(args: SoloPracticeSourceFields) {
   if (args.sourceType === "weekly_goal") {
     if (args.bossType || args.spacedRepetitionStep !== undefined) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly-goal solo practice cannot include boss or repetition fields" });
@@ -126,13 +169,9 @@ export function buildChallengeInvite(args: {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
   themeIds: Id<"themes">[];
-  sourceType?: DuelSourceType;
-  weeklyGoalId?: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
-  spacedRepetitionStep?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
   createdAt: number;
-}): ChallengeInviteFields {
+} & DuelSourceFields): ChallengeInviteFields {
   if (args.challengerId === args.opponentId) {
     throw new ConvexError({ code: "CANNOT_SELF_TARGET", message: "Cannot challenge yourself" });
   }
@@ -141,19 +180,13 @@ export function buildChallengeInvite(args: {
   if (themeIds.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge requires at least one theme" });
   }
-  const sourceType = args.sourceType ?? "normal";
-  validateDuelSourceFields({
-    sourceType,
-    weeklyGoalId: args.weeklyGoalId,
-    bossType: args.bossType,
-    spacedRepetitionStep: args.spacedRepetitionStep,
-  });
+  validateDuelSourceFields(args);
 
   return {
     challengerId: args.challengerId,
     opponentId: args.opponentId,
     themeIds,
-    sourceType,
+    sourceType: args.sourceType,
     weeklyGoalId: args.weeklyGoalId,
     bossType: args.bossType,
     spacedRepetitionStep: args.spacedRepetitionStep,
@@ -168,15 +201,11 @@ export function buildDuelSession(args: {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
   sessionWords: SessionWordEntry[];
-  sourceType: DuelSourceType;
-  weeklyGoalId?: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
-  spacedRepetitionStep?: number;
   bossLivesTotal?: number;
   bossLivesRemaining?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
   createdAt: number;
-}): DuelSessionFields {
+} & DuelSourceFields): DuelSessionFields {
   const sessionWords = [...args.sessionWords];
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
@@ -218,13 +247,9 @@ export function buildDuelSession(args: {
 export function buildSoloPracticeSession(args: {
   userId: Id<"users">;
   sessionWords: SessionWordEntry[];
-  sourceType: SoloPracticeSourceType;
-  weeklyGoalId: Id<"weeklyGoals">;
-  bossType?: "mini" | "big";
-  spacedRepetitionStep?: number;
   startsInLearning: boolean;
   createdAt: number;
-}): SoloPracticeSessionFields {
+} & SoloPracticeSourceFields): SoloPracticeSessionFields {
   const sessionWords = [...args.sessionWords];
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });

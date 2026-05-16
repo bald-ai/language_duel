@@ -233,7 +233,7 @@ describe("themes core handlers", () => {
         description: "No words",
         words: [],
       })
-    ).rejects.toThrow("Theme must have at least one word");
+    ).rejects.toThrow("Theme must contain 1-200 words");
 
     expect(db.themes).toHaveLength(0);
   });
@@ -252,7 +252,7 @@ describe("themes core handlers", () => {
         themeId: "theme_1" as Id<"themes">,
         words: [],
       })
-    ).rejects.toThrow("Theme must have at least one word");
+    ).rejects.toThrow("Theme must contain 1-200 words");
 
     expect(db.themes[0]?.words).toHaveLength(1);
   });

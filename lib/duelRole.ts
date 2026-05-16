@@ -1,8 +1,24 @@
-import type { Doc } from "../convex/_generated/dataModel";
+import type { SabotageEffect } from "./sabotage/types";
 
 export type DuelRole = "challenger" | "opponent";
 
-type DuelDoc = Doc<"duels">;
+type DuelSabotage = {
+  effect: SabotageEffect;
+  timestamp: number;
+};
+
+type DuelDoc = {
+  challengerScore: number;
+  opponentScore: number;
+  challengerAnswered: boolean;
+  opponentAnswered: boolean;
+  challengerLastAnswer?: string;
+  opponentLastAnswer?: string;
+  challengerSabotage?: DuelSabotage;
+  opponentSabotage?: DuelSabotage;
+  challengerSabotagesUsed?: number;
+  opponentSabotagesUsed?: number;
+};
 
 export type DuelRoleView = {
   myScore: number;
@@ -11,8 +27,8 @@ export type DuelRoleView = {
   theirAnswered: boolean;
   myLastAnswer?: string;
   theirLastAnswer?: string;
-  mySabotage?: DuelDoc["challengerSabotage"];
-  theirSabotage?: DuelDoc["challengerSabotage"];
+  mySabotage?: DuelSabotage;
+  theirSabotage?: DuelSabotage;
   mySabotagesUsed: number;
   theirSabotagesUsed: number;
   theirRole: DuelRole;

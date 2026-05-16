@@ -73,19 +73,44 @@ async function insertDuelSessionForChallenge(
       ? await resolveSpacedRepetitionLives(ctx, challenge)
       : undefined;
 
-  return await ctx.db.insert("duels", buildDuelSession({
+  const baseSession = {
     challengeId: challenge._id,
     challengerId: challenge.challengerId,
     opponentId: challenge.opponentId,
     sessionWords,
-    sourceType: challenge.sourceType,
-    weeklyGoalId: challenge.weeklyGoalId,
-    bossType: challenge.bossType,
-    spacedRepetitionStep: challenge.spacedRepetitionStep,
     bossLivesTotal: livesTotal,
     bossLivesRemaining: livesTotal,
     duelDifficultyPreset: challenge.duelDifficultyPreset,
     createdAt: now,
+  };
+
+  if (challenge.sourceType === "boss") {
+    if (!challenge.weeklyGoalId || !challenge.bossType) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss challenge is missing source fields" });
+    }
+    return await ctx.db.insert("duels", buildDuelSession({
+      ...baseSession,
+      sourceType: "boss",
+      weeklyGoalId: challenge.weeklyGoalId,
+      bossType: challenge.bossType,
+    }));
+  }
+
+  if (challenge.sourceType === "spaced_repetition") {
+    if (!challenge.weeklyGoalId || typeof challenge.spacedRepetitionStep !== "number") {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition challenge is missing source fields" });
+    }
+    return await ctx.db.insert("duels", buildDuelSession({
+      ...baseSession,
+      sourceType: "spaced_repetition",
+      weeklyGoalId: challenge.weeklyGoalId,
+      spacedRepetitionStep: challenge.spacedRepetitionStep,
+    }));
+  }
+
+  return await ctx.db.insert("duels", buildDuelSession({
+    ...baseSession,
+    sourceType: "normal",
   }));
 }
 

@@ -40,6 +40,7 @@ import {
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   isGoalPlayable,
+  MAX_THEMES_PER_GOAL,
   MIN_THEMES_PER_GOAL,
   type WeeklyGoalBossStatus,
   type WeeklyGoalLifecycleStatus,
@@ -47,8 +48,6 @@ import {
 import { calculateBossStartingLives } from "../lib/bossLives";
 import { ensureRepetitionRecordsForCompletedGoal } from "./weeklyGoalRepetitions";
 
-// Constants
-const MAX_THEMES_PER_GOAL = 10;
 type BossType = "mini" | "big";
 type WeeklyGoalPracticeSource = "live" | "snapshot";
 function getGoalParticipantIds(goal: Doc<"weeklyGoals">): Id<"users">[] {

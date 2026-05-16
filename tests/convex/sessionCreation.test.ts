@@ -37,6 +37,7 @@ describe("session creation helpers", () => {
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
       themeIds: ["theme_1" as Id<"themes">, "theme_1" as Id<"themes">],
+      sourceType: "normal",
       createdAt: 123,
     });
 
@@ -119,6 +120,7 @@ describe("session creation helpers", () => {
         challengerId: "user_1" as Id<"users">,
         opponentId: "user_1" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        sourceType: "normal",
         createdAt: 1,
       })
     ).toThrow("Cannot challenge yourself");
@@ -128,6 +130,7 @@ describe("session creation helpers", () => {
         challengerId: "user_1" as Id<"users">,
         opponentId: "user_2" as Id<"users">,
         themeIds: [],
+        sourceType: "normal",
         createdAt: 1,
       })
     ).toThrow("Challenge requires at least one theme");

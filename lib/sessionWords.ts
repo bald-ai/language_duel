@@ -1,4 +1,4 @@
-import type { Id } from "../convex/_generated/dataModel";
+import type { Id } from "./types";
 
 export interface SessionWordEntry {
   word: string;

@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { answerDuel, timeoutAnswer } from "@/convex/gameplay";
+import {
+  answerDuel,
+  completeSpacedRepetitionDuel,
+  completeSpacedRepetitionDuelInternal,
+  completeWeeklyGoalBossDuel,
+  completeWeeklyGoalBossDuelInternal,
+  timeoutAnswer,
+} from "@/convex/gameplay";
 import { eliminateOption } from "@/convex/hints";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import {
@@ -56,8 +63,16 @@ class InMemoryDb {
   }
 }
 
-function createCtx(db: InMemoryDb, identitySubject: string | null) {
-  return createAuthCtx(db, identitySubject);
+function createCtx(
+  db: InMemoryDb,
+  identitySubject: string | null,
+  schedulerRunAfter: ReturnType<typeof vi.fn> = vi.fn()
+) {
+  return createAuthCtx(db, identitySubject, {
+    scheduler: {
+      runAfter: schedulerRunAfter,
+    },
+  });
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
@@ -133,7 +148,7 @@ describe("duel gameplay", () => {
       _handler: (
         ctx: unknown,
         args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
-      ) => Promise<void>;
+      ) => Promise<{ completed: boolean; completeWeeklyGoalBoss: boolean; completeSpacedRepetition: boolean }>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
@@ -272,15 +287,27 @@ describe("duel gameplay", () => {
     expect(db.duels[0].status).toBe("active");
     expect(db.duels[0].challengerPerfectRun).toBe(false);
 
-    await handler(createCtx(db, "clerk_2"), {
+    const schedulerRunAfter = vi.fn();
+    const result = await handler(createCtx(db, "clerk_2", schedulerRunAfter), {
       duelId: "duel_1" as Id<"duels">,
       selectedAnswer: "mesa",
       questionIndex: 0,
     });
 
+    expect(result).toEqual({
+      completed: true,
+      completeWeeklyGoalBoss: true,
+      completeSpacedRepetition: false,
+    });
     expect(db.duels[0].bossLivesRemaining).toBe(1);
     expect(db.duels[0].status).toBe("completed");
     expect(db.duels[0].opponentPerfectRun).toBe(false);
+    // Boss completion must be scheduled server-side so it does not depend on the
+    // answering client staying connected.
+    expect(schedulerRunAfter).toHaveBeenCalledTimes(1);
+    expect(schedulerRunAfter.mock.calls[0][2]).toEqual({
+      duelId: "duel_1",
+    });
   });
 
   it("ends a boss attempt on the result state when a timeout removes the last life", async () => {
@@ -305,14 +332,19 @@ describe("duel gameplay", () => {
       _handler: (
         ctx: unknown,
         args: { duelId: Id<"duels">; questionIndex: number }
-      ) => Promise<void>;
+      ) => Promise<{ completed: boolean; completeWeeklyGoalBoss: boolean; completeSpacedRepetition: boolean }>;
     })._handler;
 
-    await handler(createCtx(db, "clerk_1"), {
+    const result = await handler(createCtx(db, "clerk_1"), {
       duelId: "duel_1" as Id<"duels">,
       questionIndex: 0,
     });
 
+    expect(result).toEqual({
+      completed: true,
+      completeWeeklyGoalBoss: false,
+      completeSpacedRepetition: false,
+    });
     expect(db.duels[0].bossLivesRemaining).toBe(0);
     expect(db.duels[0].status).toBe("completed");
     expect(db.duels[0].challengerLastAnswer).toBe("__TIMEOUT__");
@@ -405,5 +437,142 @@ describe("duel gameplay", () => {
     expect(duelNotActiveError).toMatchObject({
       data: { code: "DUEL_NOT_ACTIVE" },
     });
+  });
+});
+
+describe("duel lifecycle completion commands", () => {
+  function setupCtx(duel: DuelDoc) {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc(),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "p@example.com" })
+    );
+    db.duels.push(duel);
+    return db;
+  }
+
+  const internalBossHandler = (completeWeeklyGoalBossDuelInternal as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels"> }
+    ) => Promise<{ completed: boolean }>;
+  })._handler;
+
+  const internalSrHandler = (completeSpacedRepetitionDuelInternal as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels"> }
+    ) => Promise<{ completed: boolean }>;
+  })._handler;
+
+  const publicBossHandler = (completeWeeklyGoalBossDuel as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels"> }
+    ) => Promise<{ completed: boolean }>;
+  })._handler;
+
+  const publicSrHandler = (completeSpacedRepetitionDuel as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels"> }
+    ) => Promise<{ completed: boolean }>;
+  })._handler;
+
+  it("completeWeeklyGoalBossDuelInternal returns completed:false when the duel is missing", async () => {
+    const db = setupCtx(duelDoc());
+    const result = await internalBossHandler(createCtx(db, null), {
+      duelId: "duel_missing" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("completeWeeklyGoalBossDuelInternal refuses an active (not completed) duel", async () => {
+    const db = setupCtx(
+      duelDoc({
+        status: "active",
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        sourceType: "boss",
+        bossType: "mini",
+        bossLivesTotal: 1,
+        bossLivesRemaining: 1,
+      })
+    );
+    const result = await internalBossHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("completeWeeklyGoalBossDuelInternal refuses a non-boss completed duel", async () => {
+    const db = setupCtx(duelDoc({ status: "completed" }));
+    const result = await internalBossHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("completeWeeklyGoalBossDuelInternal refuses a boss attempt with no remaining lives", async () => {
+    const db = setupCtx(
+      duelDoc({
+        status: "completed",
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        sourceType: "boss",
+        bossType: "big",
+        bossLivesTotal: 3,
+        bossLivesRemaining: 0,
+      })
+    );
+    const result = await internalBossHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    // Idempotency-style guard: defeated boss without remaining lives is a loss,
+    // not a defeat — calling the lifecycle command must not advance anything.
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("completeSpacedRepetitionDuelInternal returns completed:false for non-SR duels", async () => {
+    const db = setupCtx(duelDoc({ status: "completed", sourceType: "normal" }));
+    const result = await internalSrHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("completeSpacedRepetitionDuelInternal returns completed:false when the duel is missing", async () => {
+    const db = setupCtx(duelDoc());
+    const result = await internalSrHandler(createCtx(db, null), {
+      duelId: "duel_missing" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+  });
+
+  it("public completeWeeklyGoalBossDuel requires an authenticated participant", async () => {
+    const db = setupCtx(duelDoc({ status: "completed" }));
+    const error = await publicBossHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    }).catch((err: unknown) => err);
+    expect(error).toBeDefined();
+  });
+
+  it("public completeSpacedRepetitionDuel requires an authenticated participant", async () => {
+    const db = setupCtx(duelDoc({ status: "completed", sourceType: "spaced_repetition" }));
+    const error = await publicSrHandler(createCtx(db, null), {
+      duelId: "duel_1" as Id<"duels">,
+    }).catch((err: unknown) => err);
+    expect(error).toBeDefined();
+  });
+
+  it("public completeWeeklyGoalBossDuel is a safe no-op when the duel is not a defeated boss", async () => {
+    const db = setupCtx(duelDoc({ status: "completed", sourceType: "normal" }));
+    const result = await publicBossHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    expect(result).toEqual({ completed: false });
+    // Calling a second time stays a safe no-op.
+    const result2 = await publicBossHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+    expect(result2).toEqual({ completed: false });
   });
 });

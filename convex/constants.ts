@@ -128,11 +128,6 @@ export const EMAIL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const RESOLVED_FRIEND_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ===========================================
-// Theme Validation
-// ===========================================
-export const MIN_THEME_WORDS = 1;
-
-// ===========================================
 // Weekly Goals
 // ===========================================
 export {

@@ -713,11 +713,31 @@ export const recordRepetitionSoloMastery = mutation({
     const masteredWordIndices = Array.from(
       new Set([...(session.masteredWordIndices ?? []), wordIndex])
     ).sort((a, b) => a - b);
+    const now = Date.now();
 
     await ctx.db.patch(soloPracticeSessionId, {
       masteredWordIndices,
-      progressUpdatedAt: Date.now(),
+      progressUpdatedAt: now,
     });
+
+    if (masteredWordIndices.length === session.sessionWords.length) {
+      const goal = await ctx.db.get(session.weeklyGoalId);
+      if (goal?.status === "completed" && typeof session.spacedRepetitionStep === "number") {
+        await advanceUserIfReady({
+          ctx,
+          goal,
+          userId: user._id,
+          completedVia: "solo_practice",
+          soloPracticeSessionId,
+          expectedStep: session.spacedRepetitionStep,
+          now,
+        });
+        await ctx.db.patch(soloPracticeSessionId, {
+          status: "completed",
+          completedAt: now,
+        });
+      }
+    }
 
     return {
       masteredCount: masteredWordIndices.length,

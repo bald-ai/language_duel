@@ -1,7 +1,10 @@
 /**
  * Shared types for the Language Duel application.
  */
-import type { Id } from "../convex/_generated/dataModel";
+
+export type Id<TableName extends string> = string & {
+  __tableName: TableName;
+};
 
 /**
  * Represents a vocabulary word with its correct answer and wrong options for quizzes.

@@ -1,4 +1,4 @@
-import type { Id } from "../convex/_generated/dataModel";
+import type { Id } from "./types";
 
 export type FriendshipPair = {
   userId: Id<"users">;

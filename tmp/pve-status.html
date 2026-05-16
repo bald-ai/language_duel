@@ -166,6 +166,208 @@
     border-top: 1px solid var(--gray-300);
     font-family: var(--mono); font-size: 12px; color: var(--gray-500);
   }
+
+  /* ------------------------------------------------------------------
+     Visual mockups
+     Phone-frame replicas of the actual app screens (ChallengeModal +
+     DuelView) so reviewers can see exactly where the PvE edits land.
+     Colors mirror the default "Playful Duo" palette in lib/theme.ts.
+     ------------------------------------------------------------------ */
+  .mockup-panel {
+    background: var(--white); border: var(--border);
+    border-radius: var(--radius-panel); padding: 24px;
+  }
+  .mockup-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px; margin-top: 18px;
+  }
+  @media (max-width: 720px) {
+    .mockup-row { grid-template-columns: 1fr; }
+  }
+  .mockup-caption {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--gray-500); margin-bottom: 8px; font-weight: 600;
+  }
+  .mockup-caption .pill {
+    display: inline-block; margin-left: 6px;
+    font-family: var(--mono); font-size: 10px;
+    background: var(--gray-100); color: var(--gray-700);
+    border-radius: 4px; padding: 2px 6px; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 600;
+  }
+  .mockup-caption .pill.new { background: #F4E4DA; color: var(--clay); }
+
+  /* Phone frame — uses live app palette */
+  .phone {
+    --app-bg: #FFF8F1;
+    --app-elevated: #FFFFFF;
+    --app-primary: #FB7185;
+    --app-primary-dark: #DA445D;
+    --app-cta: #22C55E;
+    --app-cta-dark: #16A34A;
+    --app-text: #1F2937;
+    --app-muted: #6B7280;
+
+    width: 100%; max-width: 320px; margin: 0 auto;
+    background: var(--app-bg); color: var(--app-text);
+    border: 8px solid #1F2937; border-radius: 28px;
+    padding: 14px 12px; font-family: var(--sans);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .phone-title {
+    font-size: 14px; font-weight: 700; text-align: center;
+    margin: 2px 0 12px; color: var(--app-text);
+  }
+  .phone-section-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--app-muted); font-weight: 700; margin: 12px 0 6px;
+  }
+
+  /* Card row used inside ChallengeModal mockup */
+  .opt {
+    border: 2px solid var(--app-primary-dark); border-radius: 10px;
+    padding: 8px 10px; background: var(--app-elevated);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; margin-bottom: 6px;
+  }
+  .opt .opt-label { font-weight: 700; }
+  .opt .opt-desc { font-size: 10px; color: var(--app-muted); }
+  .opt.selected {
+    background: rgba(34, 197, 94, 0.10);
+    border-color: var(--app-cta);
+  }
+  .opt.selected .opt-label { color: var(--app-cta-dark); }
+  .opt .check {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--app-cta); color: white; font-size: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* CTA buttons inside phone */
+  .phone-cta {
+    display: block; width: 100%; padding: 10px;
+    background: var(--app-cta); color: white;
+    border: 2px solid var(--app-cta-dark); border-radius: 10px;
+    font-weight: 700; font-size: 13px; text-align: center;
+    margin-top: 8px;
+  }
+  .phone-outline {
+    display: block; width: 100%; padding: 8px;
+    background: transparent; color: var(--app-text);
+    border: 2px solid var(--app-primary-dark); border-radius: 10px;
+    font-weight: 600; font-size: 12px; text-align: center;
+    margin-top: 6px;
+  }
+
+  /* Mode toggle (NEW) */
+  .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mode-btn {
+    border: 2px solid var(--app-primary-dark); border-radius: 10px;
+    padding: 8px 6px; text-align: center; background: var(--app-elevated);
+    font-size: 11px; font-weight: 700; color: var(--app-text);
+  }
+  .mode-btn .mode-sub { display: block; font-size: 9px; font-weight: 500; color: var(--app-muted); margin-top: 2px; }
+  .mode-btn.selected {
+    background: rgba(34,197,94,0.10);
+    border-color: var(--app-cta);
+    color: var(--app-cta-dark);
+  }
+
+  /* In-duel mockup: scoreboard, question, answer grid, footer */
+  .scoreboard {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; padding: 0 2px 8px;
+    border-bottom: 1px solid #F0EEE6; margin-bottom: 10px;
+  }
+  .scoreboard .timer {
+    font-family: var(--mono); font-weight: 700; font-size: 14px;
+    color: var(--app-primary-dark);
+  }
+  .question-word {
+    text-align: center; font-size: 22px; font-weight: 700;
+    margin: 4px 0 10px; color: var(--app-text);
+  }
+  .answer-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px; margin-bottom: 10px;
+  }
+  .answer {
+    border: 2px solid var(--app-primary-dark); border-radius: 10px;
+    background: var(--app-elevated); padding: 10px 6px;
+    text-align: center; font-size: 12px; font-weight: 600;
+    color: var(--app-text);
+  }
+
+  /* Sabotage panel (PvP, today) */
+  .sab-label {
+    text-align: center; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--app-text); opacity: 0.75;
+    margin-bottom: 4px; font-weight: 600;
+  }
+  .sab-panel, .hint-panel {
+    display: flex; justify-content: center; gap: 6px;
+    background: rgba(255,248,241,0.8);
+    border: 1.5px solid var(--app-primary-dark);
+    border-radius: 14px; padding: 6px;
+  }
+  .sab-btn, .hint-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 2px solid var(--app-primary-dark);
+    background: var(--app-elevated);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  /* Hints match sabotage sizing exactly — emoji only, label on hover */
+  .hint-btn.used {
+    opacity: 0.4; background: #F0EEE6; border-color: #D1CFC5;
+  }
+
+  .help-btn {
+    display: block; width: 100%; margin: 8px 0;
+    padding: 8px; border: 2px dashed var(--app-primary-dark);
+    border-radius: 10px; background: transparent;
+    font-size: 11px; text-align: center; color: var(--app-primary-dark);
+    font-weight: 700;
+  }
+
+  /* "Edited" annotation wrapper */
+  .edited {
+    position: relative;
+    outline: 2px dashed var(--clay);
+    outline-offset: 6px;
+    border-radius: 12px;
+  }
+  .edit-tag {
+    position: absolute; top: -10px; right: -6px;
+    background: var(--clay); color: white;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.05em;
+    text-transform: uppercase; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+  }
+  .removed {
+    position: relative;
+    outline: 2px dashed var(--rust); outline-offset: 6px;
+    border-radius: 10px; opacity: 0.55;
+  }
+  .removed::after {
+    content: "REMOVE"; position: absolute; top: -10px; right: -6px;
+    background: var(--rust); color: white;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.05em;
+    font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    font-size: 12px; color: var(--gray-700); margin-top: 14px;
+  }
+  .legend-swatch {
+    display: inline-block; width: 18px; height: 10px;
+    border-radius: 2px; margin-right: 6px; vertical-align: middle;
+  }
+  .legend-swatch.new    { background: var(--clay); }
+  .legend-swatch.remove { background: var(--rust); }
+  .legend-swatch.same   { background: var(--gray-300); }
 </style>
 </head>
 <body>
@@ -365,6 +567,243 @@
             Remove the old <strong>"I need help"</strong> request-hint button &mdash; <strong>PvE only</strong>.
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Visual mockups -->
+    <section>
+      <h2>Visual mockups</h2>
+      <hr class="rule">
+      <div class="mockup-panel">
+        <p style="margin: 0 0 6px; color: var(--gray-700); font-size: 14px;">
+          Phone-frame replicas of the live screens. Colors and copy mirror the
+          actual app (default <em>Playful Duo</em> palette). The
+          <span style="color: var(--clay); font-weight: 600;">clay dashed outline</span>
+          marks where the PvE changes land; the
+          <span style="color: var(--rust); font-weight: 600;">rust dashed outline</span>
+          marks elements that get removed.
+        </p>
+        <div class="legend">
+          <span><span class="legend-swatch new"></span>New / edited UI</span>
+          <span><span class="legend-swatch remove"></span>Removed in PvE</span>
+          <span><span class="legend-swatch same"></span>Unchanged from today</span>
+        </div>
+
+        <!-- Mockup 1: Duel creator (ChallengeModal) -->
+        <h3 style="font-family: var(--serif); font-weight: 500; font-size: 18px; margin: 28px 0 4px;">
+          1. Duel creator &mdash; <code class="inline">ChallengeModal</code>
+        </h3>
+        <p style="margin: 0 0 14px; color: var(--gray-700); font-size: 13px;">
+          Add a <strong>PvP / PvE mode toggle</strong> as a new section directly
+          under <em>Difficulty</em>. Two equally-weighted buttons; default
+          selection is PvP (today's behavior). Same visual pattern as the
+          existing difficulty/theme rows so it feels native.
+        </p>
+
+        <div class="mockup-row">
+          <!-- Today -->
+          <div>
+            <div class="mockup-caption">Today <span class="pill">current</span></div>
+            <div class="phone">
+              <div class="phone-title">Create Challenge</div>
+
+              <div class="phone-section-label">Select Themes</div>
+              <div class="opt selected">
+                <div>
+                  <div class="opt-label">Animals A1</div>
+                  <div class="opt-desc">42 words</div>
+                </div>
+                <span class="check">✓</span>
+              </div>
+              <div class="opt">
+                <div>
+                  <div class="opt-label">Travel basics</div>
+                  <div class="opt-desc">28 words</div>
+                </div>
+              </div>
+
+              <div class="phone-section-label">Difficulty</div>
+              <div class="opt selected">
+                <div>
+                  <div class="opt-label">Easy</div>
+                  <div class="opt-desc">All difficulty levels</div>
+                </div>
+                <span class="check">✓</span>
+              </div>
+              <div class="opt">
+                <div>
+                  <div class="opt-label">Medium</div>
+                  <div class="opt-desc">Medium and hard questions only</div>
+                </div>
+              </div>
+              <div class="opt">
+                <div>
+                  <div class="opt-label">Hard</div>
+                  <div class="opt-desc">Hard questions only</div>
+                </div>
+              </div>
+
+              <button class="phone-cta">Create Challenge</button>
+              <button class="phone-outline">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Proposed -->
+          <div>
+            <div class="mockup-caption">Proposed <span class="pill new">PvE update</span></div>
+            <div class="phone">
+              <div class="phone-title">Create Challenge</div>
+
+              <div class="phone-section-label">Select Themes</div>
+              <div class="opt selected">
+                <div>
+                  <div class="opt-label">Animals A1</div>
+                  <div class="opt-desc">42 words</div>
+                </div>
+                <span class="check">✓</span>
+              </div>
+              <div class="opt">
+                <div>
+                  <div class="opt-label">Travel basics</div>
+                  <div class="opt-desc">28 words</div>
+                </div>
+              </div>
+
+              <div class="phone-section-label">Difficulty</div>
+              <div class="opt selected">
+                <div>
+                  <div class="opt-label">Easy</div>
+                  <div class="opt-desc">1 + 3 = 4 options</div>
+                </div>
+                <span class="check">✓</span>
+              </div>
+              <div class="opt edited">
+                <span class="edit-tag">Updated</span>
+                <div>
+                  <div class="opt-label">Medium</div>
+                  <div class="opt-desc">1 correct + <strong>5 wrong</strong> = 6 options</div>
+                </div>
+              </div>
+              <div class="opt">
+                <div>
+                  <div class="opt-label">Hard</div>
+                  <div class="opt-desc">1 + 4 options &middot; None-of-the-above</div>
+                </div>
+              </div>
+
+              <div class="phone-section-label edited" style="display:inline-block; padding-right:8px;">
+                <span class="edit-tag">New</span>
+                Mode
+              </div>
+              <div class="mode-row edited" style="margin-top: 6px;">
+                <span class="edit-tag">New</span>
+                <div class="mode-btn selected">
+                  PvP
+                  <span class="mode-sub">Sabotages &middot; compete</span>
+                </div>
+                <div class="mode-btn">
+                  PvE
+                  <span class="mode-sub">Hints &middot; cooperate</span>
+                </div>
+              </div>
+
+              <button class="phone-cta" style="margin-top: 14px;">Create Challenge</button>
+              <button class="phone-outline">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mockup 2: In-duel screen -->
+        <h3 style="font-family: var(--serif); font-weight: 500; font-size: 18px; margin: 36px 0 4px;">
+          2. In-duel screen &mdash; <code class="inline">DuelView</code>
+        </h3>
+        <p style="margin: 0 0 14px; color: var(--gray-700); font-size: 13px;">
+          Same screen layout in both modes. In PvE the sabotage row is replaced
+          1-for-1 by the <strong>shared hint panel</strong>, and the old
+          <em>"I need help"</em> request-hint button is removed.
+        </p>
+
+        <div class="mockup-row">
+          <!-- PvP today -->
+          <div>
+            <div class="mockup-caption">PvP (today) <span class="pill">unchanged</span></div>
+            <div class="phone">
+              <div class="scoreboard">
+                <span>You <strong>3</strong> &middot; <strong>2</strong> Opp</span>
+                <span class="timer">0:14</span>
+              </div>
+              <div style="font-size:10px; text-align:center; color:#6B7280; text-transform:uppercase; letter-spacing:0.1em; font-weight:600;">
+                Question 4 of 10
+              </div>
+              <div class="question-word">perro</div>
+              <div class="answer-grid">
+                <div class="answer">dog</div>
+                <div class="answer">cat</div>
+                <div class="answer">bird</div>
+                <div class="answer">fish</div>
+              </div>
+              <button class="phone-cta" style="margin-bottom: 8px;">Confirm Answer</button>
+
+              <!-- "I need help" lives in PvP too — kept here -->
+              <button class="help-btn">💡 Begging for help!</button>
+
+              <div class="sab-label">Sabotage <span style="font-family:var(--mono)">3/3</span></div>
+              <div class="sab-panel">
+                <div class="sab-btn" title="Sticky">📝</div>
+                <div class="sab-btn" title="Ping Pong">🏓</div>
+                <div class="sab-btn" title="Trampoline">🤸</div>
+                <div class="sab-btn" title="Reverse">🔄</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PvE proposed -->
+          <div>
+            <div class="mockup-caption">PvE (new) <span class="pill new">PvE update</span></div>
+            <div class="phone">
+              <div class="scoreboard">
+                <span>You <strong>3</strong> &middot; <strong>2</strong> Partner</span>
+                <span class="timer">0:14</span>
+              </div>
+              <div style="font-size:10px; text-align:center; color:#6B7280; text-transform:uppercase; letter-spacing:0.1em; font-weight:600;">
+                Question 4 of 10
+              </div>
+              <div class="question-word">perro</div>
+              <div class="answer-grid">
+                <div class="answer">dog</div>
+                <div class="answer">cat</div>
+                <div class="answer">bird</div>
+                <div class="answer">fish</div>
+              </div>
+              <button class="phone-cta" style="margin-bottom: 12px;">Confirm Answer</button>
+
+              <!-- "I need help" removed in PvE -->
+              <div class="removed help-btn" style="margin-top: 14px;">💡 Begging for help!</div>
+
+              <!-- Hint pool in the slot the sabotage panel uses today -->
+              <div style="margin-top: 18px;" class="edited">
+                <span class="edit-tag">Replaces sabotage</span>
+                <div class="sab-label">Hint pool <span style="font-family:var(--mono)">3/4</span></div>
+                <div class="hint-panel">
+                  <div class="hint-btn" title="50/50">✂️</div>
+                  <div class="hint-btn" title="+10 Seconds">⏰</div>
+                  <div class="hint-btn" title="Anagram">🔀</div>
+                  <div class="hint-btn used" title="Letter Count (used)">🔢</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style="margin: 22px 0 0; font-size: 12px; color: var(--gray-500);">
+          Mockups are CSS approximations of the actual screens
+          (<code class="inline">ChallengeModal.tsx</code>,
+          <code class="inline">DuelView.tsx</code>,
+          <code class="inline">SabotageSystemUI.tsx</code>,
+          <code class="inline">HintSystemUI.tsx</code>). They reuse the live
+          Playful Duo palette but are not pixel-exact &mdash; spacing and
+          typography in the real app are taller.
+        </p>
       </div>
     </section>
 
