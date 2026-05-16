@@ -457,7 +457,7 @@ export default function DuelSession({
       : currentWord;
     const correctAnswer = activeWord?.answer;
     if (!correctAnswer || correctAnswer === "done") return;
-    playAudio(`duel-answer-${correctAnswer}`, correctAnswer, activeWord.ttsStorageId);
+    playAudio(`duel-answer-${correctAnswer}`, correctAnswer, activeWord.ttsStorageId, String(activeWord.themeId));
   }, [currentWord, frozenData, playAudio, wordOrder, words]);
 
   // Early returns AFTER all hooks are defined

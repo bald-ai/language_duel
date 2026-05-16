@@ -55,14 +55,23 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
   | "createdAt"
 >;
 
+type FriendDoc = {
+  _id: string;
+  _creationTime: number;
+  userId: Id<"users">;
+  friendId: Id<"users">;
+  createdAt: number;
+};
+
 class InMemoryDb {
   private themeCounter = 10;
   public users: UserDoc[] = [];
   public themes: ThemeDoc[] = [];
   public weeklyGoals: WeeklyGoalDoc[] = [];
   public weeklyGoalThemeSnapshots: WeeklyGoalThemeSnapshotDoc[] = [];
+  public friends: FriendDoc[] = [];
 
-  query(table: "users" | "themes" | "weeklyGoals" | "weeklyGoalThemeSnapshots") {
+  query(table: "users" | "themes" | "weeklyGoals" | "weeklyGoalThemeSnapshots" | "friends") {
     switch (table) {
       case "users":
         return createIndexedQuery(this.users);
@@ -72,6 +81,8 @@ class InMemoryDb {
         return createIndexedQuery(this.weeklyGoals);
       case "weeklyGoalThemeSnapshots":
         return createIndexedQuery(this.weeklyGoalThemeSnapshots);
+      case "friends":
+        return createIndexedQuery(this.friends);
     }
   }
 
@@ -287,10 +298,17 @@ describe("themes core handlers", () => {
     ).rejects.toThrow("You don't have permission to edit this theme");
   });
 
-  it("updateTheme allows non-owner edit when shared and friendsCanEdit=true", async () => {
+  it("updateTheme allows non-owner edit when shared, friendsCanEdit=true, and users are friends", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_non_owner" }));
     db.themes.push(themeDoc({ ownerId: "user_1" as Id<"users">, visibility: "shared", friendsCanEdit: true }));
+    db.friends.push({
+      _id: "friend_1",
+      _creationTime: Date.now(),
+      userId: "user_1" as Id<"users">,
+      friendId: "user_2" as Id<"users">,
+      createdAt: Date.now(),
+    });
 
     const handler = (updateTheme as unknown as {
       _handler: (ctx: unknown, args: { themeId: Id<"themes">; name?: string; words?: ThemeWord[] }) => Promise<ThemeDoc | null>;
@@ -302,6 +320,23 @@ describe("themes core handlers", () => {
     });
 
     expect(result?.name).toBe("UPDATED");
+  });
+
+  it("updateTheme rejects non-owner when shared and friendsCanEdit=true but users are NOT friends", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_non_owner" }));
+    db.themes.push(themeDoc({ ownerId: "user_1" as Id<"users">, visibility: "shared", friendsCanEdit: true }));
+
+    const handler = (updateTheme as unknown as {
+      _handler: (ctx: unknown, args: { themeId: Id<"themes">; name?: string; words?: ThemeWord[] }) => Promise<ThemeDoc | null>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_non_owner"), {
+        themeId: "theme_1" as Id<"themes">,
+        name: "UPDATED",
+      })
+    ).rejects.toThrow("You don't have permission to edit this theme");
   });
 
   it("updateTheme normalizes theme name", async () => {

@@ -39,8 +39,19 @@ class InMemoryDb {
   public themes: ThemeDoc[] = [];
   private nextThemeId = 1;
 
-  query(_table: "users") {
-    return createIndexedQuery(this.users);
+  query(
+    table:
+      | "users"
+      | "challenges"
+      | "duels"
+      | "soloPracticeSessions"
+      | "weeklyGoals"
+      | "friends"
+  ) {
+    if (table === "users") {
+      return createIndexedQuery(this.users);
+    }
+    return createIndexedQuery<{ _id: string }>([]);
   }
 
   async get(id: Id<"themes"> | Id<"users">): Promise<ThemeDoc | UserDoc | null> {
@@ -118,5 +129,53 @@ describe("themes.duplicateTheme TTS behavior", () => {
     // Ensure wrong answers are copied, not shared by reference.
     originalWords[0]!.wrongAnswers[0] = "MUTATED";
     expect(words[0]?.wrongAnswers[0]).toBe("el padrino");
+  });
+
+  it("rejects duplication when caller has no access to the source theme", async () => {
+    const db = new InMemoryDb();
+    const ownerId = "user_1" as Id<"users">;
+    const otherUserId = "user_2" as Id<"users">;
+
+    db.users.push({
+      _id: ownerId,
+      _creationTime: Date.now(),
+      clerkId: "clerk_owner",
+      email: "owner@example.com",
+    });
+    db.users.push({
+      _id: otherUserId,
+      _creationTime: Date.now(),
+      clerkId: "clerk_test_user",
+      email: "other@example.com",
+    });
+
+    const originalThemeId = "theme_private" as Id<"themes">;
+    db.themes.push({
+      _id: originalThemeId,
+      _creationTime: Date.now(),
+      name: "PRIVATE",
+      description: "Only owner can see",
+      words: [
+        {
+          word: "secret",
+          answer: "tajemstvi",
+          wrongAnswers: ["a", "b", "c"],
+        },
+      ],
+      wordType: "nouns",
+      createdAt: Date.now(),
+      ownerId,
+      visibility: "private",
+    });
+
+    const handler = (
+      duplicateTheme as unknown as {
+        _handler: (ctx: unknown, args: unknown) => Promise<Id<"themes">>;
+      }
+    )._handler;
+
+    await expect(
+      handler(createCtx(db), { themeId: originalThemeId })
+    ).rejects.toThrow("You don't have access to this theme");
   });
 });

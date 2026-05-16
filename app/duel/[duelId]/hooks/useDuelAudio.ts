@@ -7,8 +7,8 @@ export function useDuelAudio() {
   const { isPlaying, playTTS } = useTTS();
 
   const playAudio = useCallback(
-    (wordKey: string, text: string, storageId?: string) => {
-      void playTTS(wordKey, text, { storageId });
+    (wordKey: string, text: string, storageId?: string, themeId?: string) => {
+      void playTTS(wordKey, text, { storageId, themeId });
     },
     [playTTS]
   );

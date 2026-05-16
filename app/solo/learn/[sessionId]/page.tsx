@@ -296,8 +296,8 @@ export default function LearnPhasePage() {
 
   // --- TTS ---
   const playWordTTS = useCallback(
-    (wordIndex: number, spanishWord: string, storageId?: string) => {
-      void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId });
+    (wordIndex: number, spanishWord: string, storageId?: string, themeId?: string) => {
+      void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId, themeId });
     },
     [playTTS]
   );

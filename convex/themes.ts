@@ -308,10 +308,26 @@ export const getThemeForStoredTtsEditor = internalQuery({
 export const getTtsStorageUrl = query({
   args: {
     storageId: v.id("_storage"),
+    themeId: v.id("themes"),
   },
   handler: async (ctx, args): Promise<string | null> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
+
+    const theme = await loadThemeWithViewerAccess(ctx, auth.user._id, args.themeId);
+    if (!theme) return null;
+
+    const liveStorageIds = collectTtsStorageIds(theme.words as ThemeWordWithTts[]);
+    if (!liveStorageIds.has(args.storageId)) {
+      const snapshotStorageIds = await getSnapshotReferencedStorageIdsForTheme(
+        ctx,
+        args.themeId
+      );
+      if (!snapshotStorageIds.has(args.storageId)) {
+        return null;
+      }
+    }
+
     return ctx.storage.getUrl(args.storageId);
   },
 });
@@ -498,8 +514,13 @@ export const duplicateTheme = mutation({
   handler: async (ctx, args): Promise<Id<"themes">> => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const theme = await ctx.db.get(args.themeId);
-    if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
+    const theme = await loadThemeWithViewerAccess(ctx, user._id, args.themeId);
+    if (!theme) {
+      throw new ConvexError({
+        code: "NOT_AUTHORIZED",
+        message: "You don't have access to this theme",
+      });
+    }
 
     const newName = buildDuplicateThemeName(theme.name);
     const duplicatedWords = (theme.words as ThemeWordWithTts[]).map((word) => ({

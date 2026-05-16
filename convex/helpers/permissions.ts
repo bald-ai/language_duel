@@ -25,10 +25,39 @@ export async function requireThemeEditor(
   if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
 
   const isOwner = theme.ownerId === userId;
-  const canEditAsNonOwner = theme.visibility === "shared" && theme.friendsCanEdit === true;
-  if (!isOwner && !canEditAsNonOwner) {
-    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
+  if (isOwner) {
+    return theme;
   }
 
-  return theme;
+  const sharedWithFriendEdit =
+    theme.visibility === "shared" && theme.friendsCanEdit === true && !!theme.ownerId;
+  if (sharedWithFriendEdit) {
+    const isFriend = await isFriendOfOwner(db, userId, theme.ownerId!);
+    if (isFriend) {
+      return theme;
+    }
+  }
+
+  throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
+}
+
+async function isFriendOfOwner(
+  db: DatabaseReader,
+  userId: Id<"users">,
+  ownerId: Id<"users">
+): Promise<boolean> {
+  const [forward, reverse] = await Promise.all([
+    db
+      .query("friends")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+    db
+      .query("friends")
+      .withIndex("by_user", (q) => q.eq("userId", ownerId))
+      .collect(),
+  ]);
+  return (
+    forward.some((row) => row.friendId === ownerId) ||
+    reverse.some((row) => row.friendId === userId)
+  );
 }

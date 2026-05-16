@@ -294,9 +294,14 @@ export function useThemesController() {
   const handlePlayThemeWordTTS = useCallback(
     (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => {
       if (!answer) return;
-      void playTTS(`theme-word-tts-${wordIndex}`, answer, { storageId });
+      const savedThemeId =
+        selectedThemeState?.kind === "saved" ? selectedThemeState.theme._id : undefined;
+      void playTTS(`theme-word-tts-${wordIndex}`, answer, {
+        storageId,
+        themeId: savedThemeId,
+      });
     },
-    [playTTS]
+    [playTTS, selectedThemeState]
   );
 
   // Friend filter handlers

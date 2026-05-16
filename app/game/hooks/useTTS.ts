@@ -59,7 +59,7 @@ export function useTTS() {
   const playTTS = useCallback(async (
     wordKey: string,
     text: string,
-    options?: { storageId?: Id<"_storage"> | string }
+    options?: { storageId?: Id<"_storage"> | string; themeId?: Id<"themes"> | string }
   ) => {
     if (!text || playingWordKey === wordKey) return;
 
@@ -73,10 +73,11 @@ export function useTTS() {
     try {
       let cacheEntry = cacheRef.current.get(cacheKey);
 
-      if (!cacheEntry && options?.storageId) {
+      if (!cacheEntry && options?.storageId && options?.themeId) {
         try {
           const storageUrl = await convex.query(api.themes.getTtsStorageUrl, {
             storageId: options.storageId as Id<"_storage">,
+            themeId: options.themeId as Id<"themes">,
           });
           if (storageUrl) {
             cacheEntry = { url: storageUrl, revokeOnCleanup: false };

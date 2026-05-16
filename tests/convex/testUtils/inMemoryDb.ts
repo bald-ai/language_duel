@@ -17,12 +17,44 @@ type IndexFilter = {
   value: unknown;
 };
 
+type FilterPredicate<T> = (row: T) => boolean;
+
+type FilterBuilder = {
+  field: (name: string) => { __field: string };
+  eq: (left: unknown, right: unknown) => FilterPredicate<Record<string, unknown>>;
+};
+
+function isFieldRef(value: unknown): value is { __field: string } {
+  return typeof value === "object" && value !== null && "__field" in (value as object);
+}
+
+function buildFilterPredicate<T extends Record<string, unknown>>(
+  builder: (q: FilterBuilder) => FilterPredicate<T>
+): FilterPredicate<T> {
+  const q: FilterBuilder = {
+    field: (name: string) => ({ __field: name }),
+    eq: (left: unknown, right: unknown) => (row: Record<string, unknown>) => {
+      const leftValue = isFieldRef(left) ? row[left.__field] : left;
+      const rightValue = isFieldRef(right) ? row[right.__field] : right;
+      return leftValue === rightValue;
+    },
+  };
+  return builder(q);
+}
+
 export function createIndexedQuery<T extends TestRow>(rows: T[]) {
   const createResult = (resultRows: T[]) => ({
     take: async (count: number) => resultRows.slice(0, count),
     collect: async () => resultRows,
     first: async () => resultRows[0] ?? null,
     unique: async () => resultRows[0] ?? null,
+    filter: (builder: (q: FilterBuilder) => FilterPredicate<T>) => {
+      const predicate = buildFilterPredicate<T & Record<string, unknown>>(
+        builder as (q: FilterBuilder) => FilterPredicate<T & Record<string, unknown>>
+      );
+      const filtered = resultRows.filter((row) => predicate(row as T & Record<string, unknown>));
+      return createResult(filtered);
+    },
   });
 
   return {
@@ -64,6 +96,8 @@ export function createIndexedQuery<T extends TestRow>(rows: T[]) {
     },
   };
 }
+
+export type { FilterBuilder };
 
 export function findRowById<T extends TestRow>(tables: Array<ReadonlyArray<T>>, id: string): T | null {
   for (const table of tables) {

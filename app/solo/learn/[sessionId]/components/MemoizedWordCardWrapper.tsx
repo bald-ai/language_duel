@@ -14,7 +14,7 @@ export interface HintState {
 
 interface MemoizedWordCardWrapperProps {
   originalIndex: number;
-  word: { word: string; answer: string; ttsStorageId?: string };
+  word: { word: string; answer: string; ttsStorageId?: string; themeId?: string };
   themeId: string | null;
   hintState: HintState;
   confidence: ConfidenceLevel;
@@ -23,7 +23,7 @@ interface MemoizedWordCardWrapperProps {
   revealLetter: (wordKey: string, position: number) => void;
   revealFullWord: (wordKey: string, answer: string) => void;
   resetWord: (wordKey: string) => void;
-  playTTS: (wordIndex: number, spanishWord: string, storageId?: string) => void;
+  playTTS: (wordIndex: number, spanishWord: string, storageId?: string, themeId?: string) => void;
   dataTestIdBase?: string;
 }
 
@@ -69,8 +69,8 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   );
 
   const handlePlayTTS = useCallback(
-    () => playTTS(originalIndex, word.answer, word.ttsStorageId),
-    [playTTS, originalIndex, word.answer, word.ttsStorageId]
+    () => playTTS(originalIndex, word.answer, word.ttsStorageId, word.themeId),
+    [playTTS, originalIndex, word.answer, word.ttsStorageId, word.themeId]
   );
 
   return (
