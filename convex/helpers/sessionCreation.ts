@@ -9,6 +9,8 @@ import {
 } from "../../lib/sessionWords";
 import type { BossType } from "../../lib/limitedLives";
 import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
+import type { DuelMode } from "../../lib/duelMode";
+import type { HintType } from "../../lib/hintPool/types";
 
 export type DuelSourceType = "normal" | "boss" | "spaced_repetition";
 export type SoloPracticeSourceType = "weekly_goal" | "boss" | "spaced_repetition";
@@ -75,6 +77,7 @@ export interface ChallengeInviteFields {
   spacedRepetitionStep?: number;
   status: "pending";
   duelDifficultyPreset?: DuelDifficultyPreset;
+  duelMode: DuelMode;
   createdAt: number;
 }
 
@@ -102,7 +105,10 @@ export interface DuelSessionFields {
   challengerPerfectRun?: boolean;
   opponentPerfectRun?: boolean;
   duelDifficultyPreset: DuelDifficultyPreset;
+  duelMode: DuelMode;
   questionStartTime: number;
+  hintPoolUsed: HintType[];
+  currentQuestionHintFired: boolean;
   seed: number;
 }
 
@@ -120,6 +126,12 @@ export interface SoloPracticeSessionFields {
 
 function resolveDuelDifficultyPreset(preset?: DuelDifficultyPreset): DuelDifficultyPreset {
   return preset ?? "easy";
+}
+
+function validateDuelMode(mode: DuelMode) {
+  if (mode !== "pvp" && mode !== "pve") {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid duel mode" });
+  }
 }
 
 function validateDuelSourceFields(args: DuelSourceFields) {
@@ -171,6 +183,7 @@ export function buildChallengeInvite(args: {
   opponentId: Id<"users">;
   themeIds: Id<"themes">[];
   duelDifficultyPreset?: DuelDifficultyPreset;
+  duelMode: DuelMode;
   createdAt: number;
 } & DuelSourceFields): ChallengeInviteFields {
   if (args.challengerId === args.opponentId) {
@@ -182,6 +195,7 @@ export function buildChallengeInvite(args: {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge requires at least one theme" });
   }
   validateDuelSourceFields(args);
+  validateDuelMode(args.duelMode);
 
   return {
     challengerId: args.challengerId,
@@ -193,6 +207,7 @@ export function buildChallengeInvite(args: {
     spacedRepetitionStep: args.spacedRepetitionStep,
     status: "pending",
     duelDifficultyPreset: resolveDuelDifficultyPreset(args.duelDifficultyPreset),
+    duelMode: args.duelMode,
     createdAt: args.createdAt,
   };
 }
@@ -205,6 +220,7 @@ export function buildDuelSession(args: {
   livesTotal?: number;
   livesRemaining?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
+  duelMode: DuelMode;
   createdAt: number;
 } & DuelSourceFields): DuelSessionFields {
   const sessionWords = [...args.sessionWords];
@@ -212,6 +228,7 @@ export function buildDuelSession(args: {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
   validateDuelSourceFields(args);
+  validateDuelMode(args.duelMode);
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
   const wordOrder = createShuffledWordOrder(sessionWords.length);
@@ -240,7 +257,10 @@ export function buildDuelSession(args: {
     challengerPerfectRun: args.sourceType === "normal" ? undefined : true,
     opponentPerfectRun: args.sourceType === "normal" ? undefined : true,
     duelDifficultyPreset,
+    duelMode: args.duelMode,
     questionStartTime: args.createdAt,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: args.createdAt ^ SEED_XOR_MASK,
   };
 }

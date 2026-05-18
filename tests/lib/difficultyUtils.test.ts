@@ -43,6 +43,21 @@ describe("difficultyUtils", () => {
     expect(getDifficultyForIndex(2, distribution).level).toBe("hard");
   });
 
+  it("returns the configured option counts for each level", () => {
+    const distribution = {
+      easy: 1,
+      medium: 1,
+      hard: 1,
+      easyEnd: 1,
+      mediumEnd: 2,
+      total: 3,
+    };
+
+    expect(getDifficultyForIndex(0, distribution).optionCount).toBe(4);
+    expect(getDifficultyForIndex(1, distribution).optionCount).toBe(6);
+    expect(getDifficultyForIndex(2, distribution).optionCount).toBe(5);
+  });
+
   it("handles empty word count", () => {
     const distribution = calculateDuelDifficultyDistribution(0, "easy");
     expect(distribution.total).toBe(0);

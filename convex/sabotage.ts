@@ -8,6 +8,7 @@ import { getDuelParticipant, isDuelActive } from "./helpers/auth";
 import { forRole } from "../lib/duelRole";
 import { isSabotageActive } from "../lib/sabotage/active";
 import { MAX_SABOTAGES } from "../lib/sabotage/constants";
+import { assertDuelMode } from "./rules/duelModeGuards";
 
 export const sendSabotage = mutation({
   args: {
@@ -21,6 +22,7 @@ export const sendSabotage = mutation({
   },
   handler: async (ctx, { duelId, effect }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
+    assertDuelMode(duel, "pvp", "sendSabotage");
 
     if (!isDuelActive(duel)) {
       throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });

@@ -3,7 +3,9 @@
 import { useState, memo } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
+import type { DuelMode } from "@/lib/duelMode";
 import { DUEL_DIFFICULTY_OPTIONS } from "./challengeOptions";
+import { DuelModePicker } from "./DuelModePicker";
 import { ModalShell } from "./ModalShell";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
@@ -64,6 +66,7 @@ export function ChallengeModal({
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
+  const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
 
   const selectedOpponent = users?.find((user) => user._id === selectedOpponentId) || null;
   const selectedThemes = themes?.filter((theme) => selectedThemeIds.includes(theme._id)) || [];
@@ -76,6 +79,7 @@ export function ChallengeModal({
       opponentId: selectedOpponentId,
       themeIds: selectedThemeIds,
       duelDifficultyPreset: selectedDifficulty,
+      duelMode: selectedMode,
     });
   };
 
@@ -101,6 +105,7 @@ export function ChallengeModal({
           selectedThemeIds={selectedThemeIds}
           selectedThemes={selectedThemes}
           selectedDifficulty={selectedDifficulty}
+          selectedMode={selectedMode}
           onSelectOpponent={setSelectedOpponentId}
           onToggleTheme={(themeId) =>
             setSelectedThemeIds((current) =>
@@ -110,6 +115,7 @@ export function ChallengeModal({
             )
           }
           onSelectDifficulty={setSelectedDifficulty}
+          onSelectMode={setSelectedMode}
           onNavigateToThemes={onNavigateToThemes}
         />
       </div>
@@ -250,9 +256,11 @@ interface ChallengeCreateSurfaceProps {
   selectedThemeIds: Id<"themes">[];
   selectedThemes: ModalTheme[];
   selectedDifficulty: DuelDifficultyPreset;
+  selectedMode: DuelMode;
   onSelectOpponent: (id: Id<"users">) => void;
   onToggleTheme: (themeId: Id<"themes">) => void;
   onSelectDifficulty: (preset: DuelDifficultyPreset) => void;
+  onSelectMode: (mode: DuelMode) => void;
   onNavigateToThemes: () => void;
 }
 
@@ -264,9 +272,11 @@ function ChallengeCreateSurface({
   selectedThemeIds,
   selectedThemes,
   selectedDifficulty,
+  selectedMode,
   onSelectOpponent,
   onToggleTheme,
   onSelectDifficulty,
+  onSelectMode,
   onNavigateToThemes,
 }: ChallengeCreateSurfaceProps) {
   const colors = useAppearanceColors();
@@ -304,6 +314,17 @@ function ChallengeCreateSurface({
         <DifficultySelector
           selectedDifficulty={selectedDifficulty}
           onSelect={onSelectDifficulty}
+        />
+      </div>
+
+      <div>
+        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+          Mode
+        </p>
+        <DuelModePicker
+          selectedMode={selectedMode}
+          onSelectMode={onSelectMode}
+          dataTestIdPrefix="duel-modal-mode"
         />
       </div>
     </>

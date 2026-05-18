@@ -12,6 +12,7 @@ import { useDuelActions } from "./useDuelActions";
 import { useDuelDuration } from "./useDuelDuration";
 import { useDuelPhaseState } from "./useDuelPhaseState";
 import { useDuelQuestionTimer } from "./useDuelQuestionTimer";
+import { useHintPool } from "./useHintPool";
 import { useOutgoingSabotageStatus } from "./useOutgoingSabotageStatus";
 import { useSabotageEffect } from "./useSabotageEffect";
 
@@ -96,6 +97,11 @@ export function useDuelSessionViewModel({
     duelId: duel._id,
     setIsLocked,
     lockedAnswerRef,
+  });
+  const hintPool = useHintPool({
+    duelId: duel._id,
+    usedHints: duel.hintPoolUsed,
+    currentQuestionHintFired: duel.currentQuestionHintFired,
   });
 
   const questionTimer = useDuelQuestionTimer({
@@ -240,6 +246,7 @@ export function useDuelSessionViewModel({
       theirScore,
       mySabotagesUsed,
       hints,
+      hintPool,
       isPlayingAudio: actions.isPlayingAudio,
       callbacks: {
         onPauseCountdown: actions.pauseCountdown,
@@ -251,6 +258,7 @@ export function useDuelSessionViewModel({
         onConfirmAnswer: handleConfirmAnswer,
         onRequestHint: () => void actions.requestHint(),
         onAcceptHint: () => void actions.acceptHint(),
+        onFireHint: (hintType) => void hintPool.fireHint(hintType),
         onSendSabotage: (effect) => void actions.sendSabotage(effect),
         onExit: () => void actions.stopDuelAndGoHome(),
         onBackToHome: actions.goHome,

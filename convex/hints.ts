@@ -11,8 +11,9 @@ import {
 } from "./helpers/auth";
 import {
   HINT_TIME_BONUS_MS,
-  MAX_ELIMINATED_OPTIONS_DUEL,
 } from "./constants";
+import { PVP_HINT_ELIMINATION_PICKS } from "../lib/hints/constants";
+import { assertDuelMode } from "./rules/duelModeGuards";
 
 // ===========================================
 // Duel Hint System
@@ -22,6 +23,7 @@ export const requestHint = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    assertDuelMode(duel, "pvp", "requestHint");
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
@@ -44,6 +46,7 @@ export const acceptHint = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    assertDuelMode(duel, "pvp", "acceptHint");
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
@@ -83,6 +86,7 @@ export const eliminateOption = mutation({
   },
   handler: async (ctx, { duelId, option }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    assertDuelMode(duel, "pvp", "eliminateOption");
     const otherRole = getOtherRole(playerRole);
 
     if (duel.status !== "active") {
@@ -110,8 +114,8 @@ export const eliminateOption = mutation({
     if (currentEliminated.includes(option)) {
       throw new ConvexError({ code: "INVALID_STATE", message: "Option already eliminated" });
     }
-    if (currentEliminated.length >= MAX_ELIMINATED_OPTIONS_DUEL) {
-      throw new ConvexError({ code: "LIMIT_REACHED", message: `Maximum ${MAX_ELIMINATED_OPTIONS_DUEL} options can be eliminated` });
+    if (currentEliminated.length >= PVP_HINT_ELIMINATION_PICKS) {
+      throw new ConvexError({ code: "LIMIT_REACHED", message: `Maximum ${PVP_HINT_ELIMINATION_PICKS} options can be eliminated` });
     }
 
     const nextEliminated = [...currentEliminated, option];
@@ -120,7 +124,7 @@ export const eliminateOption = mutation({
     };
 
     // When both eliminations are provided, resume the question timer
-    if (nextEliminated.length >= MAX_ELIMINATED_OPTIONS_DUEL) {
+    if (nextEliminated.length >= PVP_HINT_ELIMINATION_PICKS) {
       const pausedAt =
         typeof duel.questionTimerPausedAt === "number" ? duel.questionTimerPausedAt : undefined;
       const pauseDuration = pausedAt ? Date.now() - pausedAt : 0;

@@ -28,6 +28,7 @@ import {
   requireCallerOwnedNotificationPayload,
 } from "./notificationHelpers";
 import { CHALLENGE_INVITE_TTL_MS } from "./constants";
+import { duelModeValidator } from "./schema";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
 import { calculateStartingLives } from "../lib/limitedLives";
@@ -85,6 +86,7 @@ async function insertDuelSessionForChallenge(
     livesTotal: livesTotal,
     livesRemaining: livesTotal,
     duelDifficultyPreset: challenge.duelDifficultyPreset,
+    duelMode: challenge.duelMode,
     createdAt: now,
   };
 
@@ -182,8 +184,9 @@ export const createChallenge = mutation({
         v.literal("hard")
       )
     ),
+    duelMode: duelModeValidator,
   },
-  handler: async (ctx, { opponentId, themeIds, duelDifficultyPreset }) => {
+  handler: async (ctx, { opponentId, themeIds, duelDifficultyPreset, duelMode }) => {
     const { user: challenger } = await getAuthenticatedUser(ctx);
 
     if (opponentId === challenger._id) {
@@ -221,6 +224,7 @@ export const createChallenge = mutation({
       themeIds: orderedThemeIds,
       sourceType: "normal",
       duelDifficultyPreset,
+      duelMode,
       createdAt: now,
     }));
 
@@ -232,6 +236,7 @@ export const createChallenge = mutation({
       challengeId,
       themeName: themeSummary,
       duelDifficultyPreset,
+      duelMode,
       createdAt: now,
     });
 

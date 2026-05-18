@@ -403,13 +403,14 @@ describe("weekly boss flow", () => {
     const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big"; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     const challengeId = await handler(createCtx(db, "clerk_1", schedulerRunAfter), {
       goalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pve",
     });
 
     expect(challengeId).toBe("challenge_10");
@@ -420,6 +421,7 @@ describe("weekly boss flow", () => {
       weeklyGoalId: "goal_1",
       bossType: "mini",
       status: "pending",
+      duelMode: "pve",
       themeIds: ["theme_1"],
     });
     expect("sessionWords" in db.challenges[0]).toBe(false);
@@ -432,6 +434,7 @@ describe("weekly boss flow", () => {
       payload: {
         challengeId: "challenge_10",
         themeName: "Mini Boss: Animals",
+        duelMode: "pve",
       },
     });
     expect(schedulerRunAfter).toHaveBeenCalledOnce();
@@ -456,6 +459,7 @@ describe("weekly boss flow", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
       status: "pending",
       createdAt: 1,
     });
@@ -463,13 +467,14 @@ describe("weekly boss flow", () => {
     const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big"; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     await expect(handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
     })).rejects.toThrow("A boss attempt is already in progress");
   });
 
@@ -492,6 +497,7 @@ describe("weekly boss flow", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
       status: "accepted",
       createdAt: 1,
     });
@@ -505,6 +511,7 @@ describe("weekly boss flow", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
       status: "completed",
       currentWordIndex: 0,
       challengerAnswered: false,
@@ -512,19 +519,22 @@ describe("weekly boss flow", () => {
       challengerScore: 0,
       opponentScore: 0,
       createdAt: 1,
+      hintPoolUsed: [],
+      currentQuestionHintFired: false,
       seed: 123,
     });
 
     const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big"; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     const challengeId = await handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
     });
 
     expect(challengeId).toBe("challenge_10");
@@ -543,13 +553,14 @@ describe("weekly boss flow", () => {
     const handler = (createBossChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big"; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     await expect(handler(createCtx(db, "clerk_1"), {
       goalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
+      duelMode: "pvp",
     })).rejects.toThrow("This partner is no longer available. You can still practice solo.");
   });
 

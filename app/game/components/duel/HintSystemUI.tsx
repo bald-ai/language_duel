@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { PVP_HINT_ELIMINATION_PICKS } from "@/lib/hints/constants";
 
 interface HintSystemUIProps {
   canRequestHint: boolean;
@@ -71,7 +72,7 @@ export const HintSystemUI = memo(function HintSystemUI({
       {/* Hint received - show status */}
       {iRequestedHint && hintAccepted && (
         <div className="font-medium" style={{ color: colors.secondary.light }}>
-          💡 Hint received! {eliminatedOptionsCount}/2 options eliminated
+          💡 Hint received! {eliminatedOptionsCount}/{PVP_HINT_ELIMINATION_PICKS} options eliminated
         </div>
       )}
 
@@ -91,7 +92,7 @@ export const HintSystemUI = memo(function HintSystemUI({
       {isHintProvider && (
         <div className="text-center">
           <div className="font-medium mb-1" style={{ color: colors.status.warning.light }}>
-            🎯 Click on {2 - eliminatedOptionsCount} wrong option{2 - eliminatedOptionsCount !== 1 ? "s" : ""} to eliminate
+            🎯 Click on {PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount} wrong option{PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount !== 1 ? "s" : ""} to eliminate
           </div>
           <div className="text-xs" style={{ color: colors.text.muted }}>
             You&apos;ll get +0.5 points if they answer after your hint
@@ -100,7 +101,7 @@ export const HintSystemUI = memo(function HintSystemUI({
       )}
 
       {/* Hint provider done eliminating */}
-      {hasAnswered && theyRequestedHint && hintAccepted && eliminatedOptionsCount >= 2 && (
+      {hasAnswered && theyRequestedHint && hintAccepted && eliminatedOptionsCount >= PVP_HINT_ELIMINATION_PICKS && (
         <div className="font-medium" style={{ color: colors.status.success.light }}>
           ✓ Hint provided! Waiting for opponent...
         </div>

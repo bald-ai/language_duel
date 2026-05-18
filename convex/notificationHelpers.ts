@@ -12,6 +12,7 @@ import {
 } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
 import type { NotificationTrigger } from "../lib/notificationPreferences";
+import type { DuelMode } from "../lib/duelMode";
 
 type NotificationType = Doc<"notifications">["type"];
 type ActiveNotificationStatus = "pending" | "read";
@@ -113,6 +114,7 @@ export async function createChallengeInviteNotificationAndEmail(
     challengeId: Id<"challenges">;
     themeName?: string;
     duelDifficultyPreset?: "easy" | "medium" | "hard";
+    duelMode: DuelMode;
     createdAt: number;
   }
 ) {
@@ -124,6 +126,7 @@ export async function createChallengeInviteNotificationAndEmail(
       challengeId: args.challengeId,
       themeName: args.themeName,
       duelDifficultyPreset: args.duelDifficultyPreset,
+      duelMode: args.duelMode,
     },
     createdAt: args.createdAt,
   });

@@ -218,6 +218,7 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "pending",
     duelDifficultyPreset: "hard",
     createdAt: 1,
@@ -234,6 +235,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     currentWordIndex: 0,
     challengerAnswered: false,
@@ -241,6 +243,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerScore: 0,
     opponentScore: 0,
     createdAt: 1,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   };
@@ -259,6 +263,7 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
       challengeId: "challenge_1" as Id<"challenges">,
       themeName: "Animals",
       duelDifficultyPreset: "hard",
+      duelMode: "pvp",
     },
     ...overrides,
   };
@@ -281,6 +286,7 @@ describe("duel lifecycle handlers", () => {
           opponentId: Id<"users">;
           themeIds: Id<"themes">[];
           duelDifficultyPreset?: "easy" | "medium" | "hard";
+          duelMode: "pvp" | "pve";
         }
       ) => Promise<Id<"challenges">>;
     })._handler;
@@ -289,6 +295,7 @@ describe("duel lifecycle handlers", () => {
       handler(createCtx(db, "clerk_1"), {
         opponentId: "user_1" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "pvp",
       })
     ).rejects.toThrow("Cannot challenge yourself");
 
@@ -310,6 +317,7 @@ describe("duel lifecycle handlers", () => {
           opponentId: Id<"users">;
           themeIds: Id<"themes">[];
           duelDifficultyPreset?: "easy" | "medium" | "hard";
+          duelMode: "pvp" | "pve";
         }
       ) => Promise<Id<"challenges">>;
     })._handler;
@@ -318,6 +326,7 @@ describe("duel lifecycle handlers", () => {
       handler(createCtx(db, "clerk_1"), {
         opponentId: "user_2" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "pvp",
       })
     ).rejects.toThrow("You can only challenge friends");
 
@@ -333,7 +342,7 @@ describe("duel lifecycle handlers", () => {
       userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc());
-    db.challenges.push(challengeDoc());
+    db.challenges.push(challengeDoc({ duelMode: "pve" }));
 
     const handler = (acceptChallenge as unknown as {
       _handler: (ctx: unknown, args: { challengeId: Id<"challenges"> }) => Promise<{ duelId: Id<"duels"> }>;
@@ -356,11 +365,14 @@ describe("duel lifecycle handlers", () => {
       challengerId: "user_1",
       opponentId: "user_2",
       sourceType: "normal",
+      duelMode: "pve",
       status: "active",
       currentWordIndex: 0,
       challengerScore: 0,
       opponentScore: 0,
       questionStartTime: 5_000,
+      hintPoolUsed: [],
+      currentQuestionHintFired: false,
     });
     expect(db.duels[0].sessionWords).toHaveLength(3);
     expect(db.duels[0].duelQuestions).toHaveLength(3);

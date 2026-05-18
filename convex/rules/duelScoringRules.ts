@@ -7,6 +7,8 @@ export function getHintClearFields(): Partial<Doc<"duels">> {
     hintRequestedBy: undefined,
     hintAccepted: undefined,
     eliminatedOptions: undefined,
+    currentQuestionHintFired: false,
+    currentQuestionHintReveal: undefined,
     questionTimerPausedAt: undefined,
     questionTimerPausedBy: undefined,
     countdownPausedBy: undefined,

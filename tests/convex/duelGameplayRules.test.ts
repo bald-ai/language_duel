@@ -21,6 +21,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
@@ -36,6 +37,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentAnswered: false,
     challengerScore: 0,
     opponentScore: 0,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   };

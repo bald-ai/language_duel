@@ -32,6 +32,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "themeIds"
     | "sessionWords"
     | "sourceType"
+    | "duelMode"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -112,6 +113,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
       },
     ],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     currentWordIndex: 0,
     challengerAnswered: false,
@@ -119,6 +121,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerScore: 0,
     opponentScore: 0,
     createdAt: 1,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   };

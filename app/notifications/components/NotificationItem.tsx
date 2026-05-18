@@ -5,6 +5,7 @@ import { getRelativeTime } from "@/lib/timeUtils";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { NOTIFICATION_TYPES } from "../constants";
 import type { Id } from "@/convex/_generated/dataModel";
+import { DUEL_MODE_LABELS, type DuelMode } from "@/lib/duelMode";
 
 interface NotificationData {
     _id: Id<"notifications">;
@@ -20,6 +21,8 @@ interface NotificationData {
         goalId?: Id<"weeklyGoals">;
         friendRequestId?: Id<"friendRequests">;
         themeName?: string;
+        duelDifficultyPreset?: "easy" | "medium" | "hard";
+        duelMode?: DuelMode;
         themeCount?: number;
         event?:
             | "invite"
@@ -272,6 +275,10 @@ export function NotificationItem({
                     message: (
                         <>
                             {userName} challenged you: <span className="font-semibold">{themeName}</span>
+                            <ChallengeInviteChips
+                                difficulty={payload?.duelDifficultyPreset}
+                                duelMode={payload?.duelMode}
+                            />
                         </>
                     ),
                     actions: (
@@ -397,6 +404,45 @@ function ActionButton({ onClick, variant, children, dataTestId }: ActionButtonPr
             {children}
         </button>
     );
+}
+
+function ChallengeInviteChips({
+    difficulty,
+    duelMode,
+}: {
+    difficulty?: "easy" | "medium" | "hard";
+    duelMode?: DuelMode;
+}) {
+  const colors = useAppearanceColors();
+  if (!difficulty && !duelMode) return null;
+
+  return (
+    <span className="mt-2 flex flex-wrap gap-1.5">
+      {difficulty && (
+        <span
+          className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          style={{
+            backgroundColor: `${colors.secondary.DEFAULT}22`,
+            color: colors.secondary.dark,
+          }}
+        >
+          {difficulty}
+        </span>
+      )}
+      {duelMode && (
+        <span
+          className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          style={{
+            backgroundColor: `${colors.cta.DEFAULT}22`,
+            color: colors.cta.dark,
+          }}
+          data-testid="notification-challenge-mode"
+        >
+          {DUEL_MODE_LABELS[duelMode]}
+        </span>
+      )}
+    </span>
+  );
 }
 
 // Icons

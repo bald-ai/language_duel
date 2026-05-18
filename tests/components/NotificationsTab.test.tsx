@@ -200,6 +200,37 @@ describe("NotificationsTab theme actions", () => {
     expect(toastErrorMock).toHaveBeenCalledWith("Challenge is no longer pending");
   });
 
+  it("renders PvE and PvP mode chips on challenge invites", () => {
+    useNotificationsMock.mockReturnValue({
+      notifications: [
+        {
+          ...challengeNotification,
+          _id: "notif_pve",
+          payload: {
+            ...challengeNotification.payload,
+            duelMode: "pve",
+          },
+        },
+        {
+          ...challengeNotification,
+          _id: "notif_pvp",
+          payload: {
+            ...challengeNotification.payload,
+            duelMode: "pvp",
+          },
+        },
+      ],
+      notificationCount: 2,
+      isLoading: false,
+      actions: makeActions(),
+    });
+
+    render(<NotificationsTab onClose={vi.fn()} />);
+
+    expect(screen.getByText("PvE")).toBeInTheDocument();
+    expect(screen.getByText("PvP")).toBeInTheDocument();
+  });
+
   it("shows decline action for weekly goal invites and no view action for declined event", () => {
     useNotificationsMock.mockReturnValue({
       notifications: [

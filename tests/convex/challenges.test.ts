@@ -220,6 +220,7 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "pending",
     createdAt: 1_000,
     ...overrides,
@@ -235,7 +236,7 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
     toUserId: "user_2" as Id<"users">,
     status: "pending",
     createdAt: 1_000,
-    payload: { challengeId: "challenge_1" as Id<"challenges"> },
+    payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "pvp" },
     ...overrides,
   };
 }
@@ -251,7 +252,12 @@ function seedUsersAndTheme(db: InMemoryDb) {
 const createChallengeHandler = (createChallenge as unknown as {
   _handler: (
     ctx: unknown,
-    args: { opponentId: Id<"users">; themeIds: Id<"themes">[]; duelDifficultyPreset?: "easy" | "medium" | "hard" }
+    args: {
+      opponentId: Id<"users">;
+      themeIds: Id<"themes">[];
+      duelDifficultyPreset?: "easy" | "medium" | "hard";
+      duelMode: "pvp" | "pve";
+    }
   ) => Promise<Id<"challenges">>;
 })._handler;
 const acceptChallengeHandler = (acceptChallenge as unknown as {
@@ -279,6 +285,7 @@ describe("challenge backend", () => {
       opponentId: "user_2" as Id<"users">,
       themeIds: ["theme_1" as Id<"themes">, "theme_1" as Id<"themes">],
       duelDifficultyPreset: "medium",
+      duelMode: "pve",
     });
 
     expect(challengeId).toBe("challenge_10");
@@ -288,6 +295,7 @@ describe("challenge backend", () => {
       themeIds: ["theme_1"],
       status: "pending",
       duelDifficultyPreset: "medium",
+      duelMode: "pve",
       createdAt: 10_000,
     });
     expect(db.notifications[0]).toMatchObject({
@@ -295,6 +303,7 @@ describe("challenge backend", () => {
       fromUserId: "user_1",
       toUserId: "user_2",
       status: "pending",
+      payload: expect.objectContaining({ duelMode: "pve" }),
     });
   });
 
@@ -306,6 +315,7 @@ describe("challenge backend", () => {
       createChallengeHandler(createCtx(db, "clerk_1"), {
         opponentId: "user_missing" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "pvp",
       })
     ).rejects.toThrow("Opponent not found");
 
@@ -313,6 +323,7 @@ describe("challenge backend", () => {
       createChallengeHandler(createCtx(db, "clerk_1"), {
         opponentId: "user_2" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "pvp",
       })
     ).rejects.toThrow("You can only challenge friends");
 
@@ -320,6 +331,7 @@ describe("challenge backend", () => {
       createChallengeHandler(createCtx(db, "clerk_1"), {
         opponentId: "user_1" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "pvp",
       })
     ).rejects.toThrow("Cannot challenge yourself");
   });
@@ -328,8 +340,8 @@ describe("challenge backend", () => {
     vi.spyOn(Date, "now").mockReturnValue(20_000);
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
-    db.challenges.push(challengeDoc());
-    db.notifications.push(notificationDoc());
+    db.challenges.push(challengeDoc({ duelMode: "pve" }));
+    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "pve" } }));
 
     const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
       challengeId: "challenge_1" as Id<"challenges">,
@@ -347,6 +359,9 @@ describe("challenge backend", () => {
       opponentId: "user_2",
       status: "active",
       sourceType: "normal",
+      duelMode: "pve",
+      hintPoolUsed: [],
+      currentQuestionHintFired: false,
     });
     expect(db.notifications[0].status).toBe("dismissed");
   });

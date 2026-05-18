@@ -20,6 +20,7 @@ const mutationMocks = vi.hoisted(() => ({
   requestHint: vi.fn(),
   acceptHint: vi.fn(),
   eliminateOption: vi.fn(),
+  fireHint: vi.fn(),
   timeoutAnswer: vi.fn(),
   sendSabotage: vi.fn(),
   pauseCountdown: vi.fn(),
@@ -59,6 +60,8 @@ vi.mock("convex/react", () => ({
         return mutationMocks.acceptHint;
       case "eliminateOption":
         return mutationMocks.eliminateOption;
+      case "fireHint":
+        return mutationMocks.fireHint;
       case "timeoutAnswer":
         return mutationMocks.timeoutAnswer;
       case "sendSabotage":
@@ -94,6 +97,9 @@ vi.mock("@/convex/_generated/api", () => ({
       requestHint: "requestHint",
       acceptHint: "acceptHint",
       eliminateOption: "eliminateOption",
+    },
+    hintPool: {
+      fireHint: "fireHint",
     },
     sabotage: {
       sendSabotage: "sendSabotage",
@@ -168,6 +174,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     ],
     wordOrder: [0, 1],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     currentWordIndex: 0,
     challengerAnswered: false,
@@ -176,6 +183,8 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     opponentScore: 0,
     createdAt: 1,
     questionStartTime: Date.now(),
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   } as Doc<"duels">;
@@ -209,6 +218,7 @@ describe("DuelSession", () => {
     mutationMocks.requestHint.mockResolvedValue(undefined);
     mutationMocks.acceptHint.mockResolvedValue(undefined);
     mutationMocks.eliminateOption.mockResolvedValue(undefined);
+    mutationMocks.fireHint.mockResolvedValue(undefined);
     mutationMocks.timeoutAnswer.mockResolvedValue(undefined);
     mutationMocks.sendSabotage.mockResolvedValue(undefined);
     mutationMocks.pauseCountdown.mockResolvedValue(undefined);

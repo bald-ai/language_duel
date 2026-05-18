@@ -383,6 +383,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
       },
     ],
     sourceType: "spaced_repetition",
+    duelMode: "pvp",
     weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
     spacedRepetitionStep: 1,
     livesRemaining: 1,
@@ -393,6 +394,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerScore: 1,
     opponentScore: 1,
     createdAt: 1,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   };
@@ -422,12 +425,13 @@ describe("weekly goal spaced repetition", () => {
     const handler = (createRepetitionChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { weeklyGoalId: Id<"weeklyGoals"> }
+        args: { weeklyGoalId: Id<"weeklyGoals">; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     const challengeId = await handler(createCtx(db, "clerk_1", schedulerRunAfter), {
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      duelMode: "pve",
     });
 
     expect(challengeId).toBe("challenge_10");
@@ -436,6 +440,7 @@ describe("weekly goal spaced repetition", () => {
       weeklyGoalId: "goal_1",
       spacedRepetitionStep: 1,
       status: "pending",
+      duelMode: "pve",
       challengerId: "user_1",
       opponentId: "user_2",
       themeIds: ["theme_1"],
@@ -447,6 +452,7 @@ describe("weekly goal spaced repetition", () => {
       payload: {
         challengeId: "challenge_10",
         themeName: "Spaced Repetition 1/6: Animals",
+        duelMode: "pve",
       },
     });
     expect(schedulerRunAfter).toHaveBeenCalledOnce();
@@ -463,6 +469,7 @@ describe("weekly goal spaced repetition", () => {
       opponentId: "user_2" as Id<"users">,
       themeIds: ["theme_1" as Id<"themes">],
       sourceType: "spaced_repetition",
+      duelMode: "pvp",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       spacedRepetitionStep: 1,
       status: "accepted",
@@ -473,12 +480,13 @@ describe("weekly goal spaced repetition", () => {
     const handler = (createRepetitionChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { weeklyGoalId: Id<"weeklyGoals"> }
+        args: { weeklyGoalId: Id<"weeklyGoals">; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     const challengeId = await handler(createCtx(db, "clerk_1"), {
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      duelMode: "pvp",
     });
 
     expect(challengeId).toBe("challenge_10");
@@ -493,12 +501,13 @@ describe("weekly goal spaced repetition", () => {
     const handler = (createRepetitionChallenge as unknown as {
       _handler: (
         ctx: unknown,
-        args: { weeklyGoalId: Id<"weeklyGoals"> }
+        args: { weeklyGoalId: Id<"weeklyGoals">; duelMode: "pvp" | "pve" }
       ) => Promise<Id<"challenges">>;
     })._handler;
 
     await expect(handler(createCtx(db, "clerk_1"), {
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      duelMode: "pvp",
     })).rejects.toThrow("This partner is no longer available. You can still practice solo.");
   });
 

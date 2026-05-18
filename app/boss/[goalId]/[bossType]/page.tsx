@@ -11,6 +11,8 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { buildSoloUrl } from "@/lib/soloNavigation";
 import { getErrorMessage } from "@/lib/errors";
 import type { BossType } from "@/lib/limitedLives";
+import type { DuelMode } from "@/lib/duelMode";
+import { DuelModePicker } from "@/app/components/modals/DuelModePicker";
 
 function isBossType(value: string): value is BossType {
   return value === "mini" || value === "big";
@@ -22,6 +24,7 @@ export default function BossLaunchPage() {
   const router = useRouter();
   const [isStartingDuel, setIsStartingDuel] = useState(false);
   const [isStartingPractice, setIsStartingPractice] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
 
   const goalId = typeof params.goalId === "string" ? params.goalId : "";
   const bossTypeParam = typeof params.bossType === "string" ? params.bossType : "";
@@ -47,6 +50,7 @@ export default function BossLaunchPage() {
       await createBossChallenge({
         goalId: goalId as Id<"weeklyGoals">,
         bossType,
+        duelMode: selectedMode,
       });
       toast.success("Boss challenge sent.");
       router.push("/goals");
@@ -189,6 +193,12 @@ export default function BossLaunchPage() {
           </div>
 
           <div className="space-y-3">
+            <DuelModePicker
+              selectedMode={selectedMode}
+              onSelectMode={setSelectedMode}
+              dataTestIdPrefix="boss-mode"
+            />
+
             <button
               onClick={() => void handleChallengePartner()}
               disabled={!canStart || isStartingDuel}

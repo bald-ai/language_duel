@@ -1,0 +1,3 @@
+export const HINT_UNIVERSAL_TIMER_BONUS_SECONDS = 5;
+export const HINT_PLUS_TEN_BONUS_SECONDS = 10;
+export const HINT_POOL_SIZE = 4;

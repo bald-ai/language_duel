@@ -9,6 +9,8 @@ import type {
 } from "../components/DuelView";
 import type { SabotagePhase } from "./useSabotageEffect";
 import type { DuelPlayerSummary } from "./useDuelSessionViewModel";
+import type { HintType } from "@/lib/hintPool/types";
+import { PVP_HINT_ELIMINATION_PICKS } from "@/lib/hints/constants";
 
 type DuelRole = "challenger" | "opponent";
 
@@ -35,7 +37,8 @@ export function deriveHintFlags(args: {
   const theyRequestedHint = args.hintRequestedBy === args.theirRole;
   const canAcceptHint = args.hasAnswered && theyRequestedHint && !args.hintAccepted;
   const isHintProvider = args.hasAnswered && theyRequestedHint && !!args.hintAccepted;
-  const canEliminate = isHintProvider && args.eliminatedOptions.length < 2;
+  const canEliminate =
+    isHintProvider && args.eliminatedOptions.length < PVP_HINT_ELIMINATION_PICKS;
 
   return {
     canRequestHint:
@@ -83,6 +86,13 @@ export type DuelViewPropsInput = {
   theirScore: number;
   mySabotagesUsed: number;
   hints: DuelHintFlags;
+  hintPool: {
+    usedHints: HintType[];
+    usedCount: number;
+    totalCount: number;
+    currentQuestionHintFired: boolean;
+    fireHint: (hintType: HintType) => Promise<void>;
+  };
   isPlayingAudio: boolean;
   callbacks: DuelViewCallbacks;
 };
@@ -97,6 +107,7 @@ export type DuelViewCallbacks = {
   onConfirmAnswer: () => void;
   onRequestHint: () => void;
   onAcceptHint: () => void;
+  onFireHint: (hintType: HintType) => void;
   onSendSabotage: (effect: SabotageEffect) => void;
   onExit: () => void;
   onBackToHome: () => void;
@@ -112,8 +123,22 @@ export function buildDuelViewProps(input: DuelViewPropsInput): DuelViewProps {
     "Opponent"
   );
 
+  const isPve = input.duel.duelMode === "pve";
+  const hints = isPve
+    ? {
+        canRequestHint: false,
+        iRequestedHint: false,
+        theyRequestedHint: false,
+        hintAccepted: false,
+        canAcceptHint: false,
+        isHintProvider: false,
+        canEliminate: false,
+      }
+    : input.hints;
+
   return {
     status: input.duel.status,
+    duelMode: input.duel.duelMode,
     phase: input.phase,
     round: {
       wordsCount: input.duel.sessionWords.length,
@@ -123,6 +148,7 @@ export function buildDuelViewProps(input: DuelViewPropsInput): DuelViewProps {
       frozenData: input.frozenData,
       difficulty: input.difficulty,
       duelDuration: input.duelDuration,
+      hintReveal: input.duel.currentQuestionHintReveal,
     },
     timer: {
       questionTimer: input.questionTimer,
@@ -150,8 +176,14 @@ export function buildDuelViewProps(input: DuelViewPropsInput): DuelViewProps {
       isLocked: input.isLocked,
     },
     hints: {
-      ...input.hints,
+      ...hints,
       eliminatedOptionsCount: input.eliminatedOptions.length,
+      pool: {
+        usedHints: input.hintPool.usedHints,
+        usedCount: input.hintPool.usedCount,
+        totalCount: input.hintPool.totalCount,
+        currentQuestionHintFired: input.hintPool.currentQuestionHintFired,
+      },
     },
     sabotage: {
       activeSabotage: input.activeSabotage,
@@ -178,6 +210,7 @@ export function buildDuelViewProps(input: DuelViewPropsInput): DuelViewProps {
       onConfirmAnswer: input.callbacks.onConfirmAnswer,
       onRequestHint: input.callbacks.onRequestHint,
       onAcceptHint: input.callbacks.onAcceptHint,
+      onFireHint: input.callbacks.onFireHint,
       onSendSabotage: input.callbacks.onSendSabotage,
       onExit: input.callbacks.onExit,
       onBackToHome: input.callbacks.onBackToHome,

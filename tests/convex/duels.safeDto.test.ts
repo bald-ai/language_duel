@@ -74,6 +74,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
       },
     ],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
@@ -92,6 +93,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentScore: 0,
     duelDifficultyPreset: "easy",
     questionStartTime: 1,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 1,
     ...overrides,
   } as DuelDoc;

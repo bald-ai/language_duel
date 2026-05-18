@@ -24,6 +24,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "themeIds"
     | "sessionWords"
     | "sourceType"
+    | "duelMode"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -78,6 +79,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     currentWordIndex: 0,
     challengerAnswered: false,
@@ -86,6 +88,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentScore: 0,
     createdAt: 1,
     questionStartTime: 1_000,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     ...overrides,
   };
 }
@@ -171,5 +175,16 @@ describe("sendSabotage", () => {
     ).rejects.toThrow("No sabotages remaining");
 
     expect(db.duels[0].opponentSabotage).toBeUndefined();
+  });
+
+  it("blocks sabotage in PvE duels", async () => {
+    const db = seedDb({ duelMode: "pve" });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "sticky",
+      })
+    ).rejects.toThrow("sendSabotage is only available in PVP duels");
   });
 });

@@ -17,6 +17,7 @@ import {
   startRepetitionSoloPracticeForCurrentUser,
 } from "./weeklyGoalRepetitions/soloPractice";
 import { ensureRepetitionRecordsForCompletedGoal } from "./weeklyGoalRepetitions/rules";
+import { duelModeValidator } from "./schema";
 
 export { completeRepetitionDuel } from "./weeklyGoalRepetitions/duelCompletion";
 export { ensureRepetitionRecordsForCompletedGoal };
@@ -42,9 +43,9 @@ export const getLaunchPreview = query({
 });
 
 export const createRepetitionChallenge = mutation({
-  args: { weeklyGoalId: v.id("weeklyGoals") },
-  handler: async (ctx, { weeklyGoalId }) => {
-    return await createRepetitionChallengeForCurrentUser(ctx, weeklyGoalId);
+  args: { weeklyGoalId: v.id("weeklyGoals"), duelMode: duelModeValidator },
+  handler: async (ctx, { weeklyGoalId, duelMode }) => {
+    return await createRepetitionChallengeForCurrentUser(ctx, weeklyGoalId, duelMode);
   },
 });
 

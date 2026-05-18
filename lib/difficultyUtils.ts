@@ -22,14 +22,14 @@ export const DIFFICULTY_POINTS = {
 /** Number of wrong answer options per difficulty level */
 export const DIFFICULTY_WRONG_COUNT = {
   easy: 3,
-  medium: 4,
+  medium: 5,
   hard: 4,
 } as const;
 
 /** Total number of answer options (correct + wrong) per difficulty level */
 export const DIFFICULTY_OPTION_COUNT = {
   easy: 4,
-  medium: 5,
+  medium: 6,
   hard: 5,
 } as const;
 

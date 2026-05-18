@@ -21,6 +21,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
+- Duel modes: New challenges choose `PvP` or `PvE`. PvP keeps sabotage and request-hint mechanics. PvE replaces those competitive tools with one shared four-hint pool that both participants spend from during the duel.
 - Weekly goals: Two users create a shared goal, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
 
 ## System Map
@@ -90,6 +91,7 @@ Weekly goal lifecycle:
 - Theme access is not just public versus private. Themes can be private or shared, and shared themes can separately allow or forbid friend editing.
 - "Duel" does not always mean head-to-head competition. Many flows use duel mechanics as structure for collaborative practice.
 - Challenge invites, accepted duels, and solo-practice sessions are separate records with separate state shapes.
+- Mode-specific duel actions are enforced at the Convex mutation boundary through `assertDuelMode`; UI hiding is only for clarity.
 - Weekly goals, boss challenges, notifications, and reminders are connected. Changes in one area can affect behavior in the others.
 - Themes are reused across study, solo practice, duels, and weekly goals, so content changes can have effects in multiple surfaces.
 

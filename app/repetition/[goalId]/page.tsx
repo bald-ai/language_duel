@@ -17,6 +17,8 @@ import {
 } from "@/lib/spacedRepetition";
 import { RepetitionProgress } from "../components/RepetitionProgress";
 import { getErrorMessage } from "@/lib/errors";
+import type { DuelMode } from "@/lib/duelMode";
+import { DuelModePicker } from "@/app/components/modals/DuelModePicker";
 
 export default function RepetitionLaunchPage() {
   const colors = useAppearanceColors();
@@ -30,11 +32,15 @@ export default function RepetitionLaunchPage() {
   const createRepetitionChallenge = useMutation(api.weeklyGoalRepetitions.createRepetitionChallenge);
   const startRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.startRepetitionSoloPractice);
   const [isStarting, setIsStarting] = useState<"duel" | "solo" | null>(null);
+  const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
 
   const handleStartDuel = async () => {
     setIsStarting("duel");
     try {
-      await createRepetitionChallenge({ weeklyGoalId: goalId as Id<"weeklyGoals"> });
+      await createRepetitionChallenge({
+        weeklyGoalId: goalId as Id<"weeklyGoals">,
+        duelMode: selectedMode,
+      });
       toast.success("Spaced repetition duel invite sent.");
       router.push("/repetition");
     } catch (error) {
@@ -168,6 +174,14 @@ export default function RepetitionLaunchPage() {
             <p className="rounded-xl border p-3 text-sm" style={{ borderColor: colors.cta.DEFAULT, color: colors.text.DEFAULT }}>
               This goal is {SPACED_REPETITION_TOTAL_STEPS}/{SPACED_REPETITION_TOTAL_STEPS} complete.
             </p>
+          )}
+
+          {duelAvailable && (
+            <DuelModePicker
+              selectedMode={selectedMode}
+              onSelectMode={setSelectedMode}
+              dataTestIdPrefix="repetition-mode"
+            />
           )}
 
           <div className={`grid gap-2 ${duelAvailable ? "grid-cols-2" : "grid-cols-1"}`}>

@@ -1,4 +1,5 @@
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
+import type { DuelMode } from "@/lib/duelMode";
 
 interface DuelDifficultyOption {
   preset: DuelDifficultyPreset;
@@ -23,5 +24,27 @@ export const DUEL_DIFFICULTY_OPTIONS: DuelDifficultyOption[] = [
     preset: "hard",
     label: "Hard",
     description: "Hard questions only",
+  },
+];
+
+interface DuelModeOption {
+  mode: DuelMode;
+  label: string;
+  description: string;
+  selectedTone: "primary" | "secondary";
+}
+
+export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
+  {
+    mode: "pvp",
+    label: "PvP",
+    description: "Sabotages · compete",
+    selectedTone: "primary",
+  },
+  {
+    mode: "pve",
+    label: "PvE",
+    description: "Hints · cooperate",
+    selectedTone: "secondary",
   },
 ];

@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { buildChallengeInvite, buildSoloPracticeSession } from "../helpers/sessionCreation";
 import { createWeeklyGoalThemeSnapshots } from "../helpers/weeklyGoalSnapshots";
@@ -269,7 +270,8 @@ export async function handleSetGoalEndDate(
 export async function handleCreateBossChallenge(
   ctx: MutationCtx,
   goalId: Id<"weeklyGoals">,
-  bossType: "mini" | "big"
+  bossType: "mini" | "big",
+  duelMode: DuelMode
 ) {
   const { user, goal, isCreator, now, sessionWords } =
     await validateAndPrepareBoss(ctx, goalId, bossType);
@@ -308,6 +310,7 @@ export async function handleCreateBossChallenge(
     sourceType: "boss",
     weeklyGoalId: goalId,
     bossType,
+    duelMode,
     createdAt: now,
   });
 
@@ -321,6 +324,7 @@ export async function handleCreateBossChallenge(
     challengeId,
     themeName: `${getBossLabel(bossType)}: ${summarizeSessionWords(sessionWords)}`,
     duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
+    duelMode: challengeInvite.duelMode,
     createdAt: now,
   });
 

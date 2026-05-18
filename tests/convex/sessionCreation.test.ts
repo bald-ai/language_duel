@@ -38,6 +38,7 @@ describe("session creation helpers", () => {
       opponentId: "user_2" as Id<"users">,
       themeIds: ["theme_1" as Id<"themes">, "theme_1" as Id<"themes">],
       sourceType: "normal",
+      duelMode: "pvp",
       createdAt: 123,
     });
 
@@ -46,6 +47,7 @@ describe("session creation helpers", () => {
       opponentId: "user_2",
       status: "pending",
       sourceType: "normal",
+      duelMode: "pvp",
       duelDifficultyPreset: "easy",
       createdAt: 123,
     });
@@ -66,6 +68,7 @@ describe("session creation helpers", () => {
       livesTotal: 3,
       livesRemaining: 3,
       duelDifficultyPreset: "medium",
+      duelMode: "pve",
       createdAt: 456,
     });
 
@@ -77,6 +80,9 @@ describe("session creation helpers", () => {
     expect(result.duelQuestions).toHaveLength(3);
     expect(result.duelQuestions[0].options).toHaveLength(4);
     expect(result.duelDifficultyPreset).toBe("medium");
+    expect(result.duelMode).toBe("pve");
+    expect(result.hintPoolUsed).toEqual([]);
+    expect(result.currentQuestionHintFired).toBe(false);
     expect(result.challengerScore).toBe(0);
     expect(result.opponentScore).toBe(0);
     expect(result.challengerPerfectRun).toBe(true);
@@ -121,6 +127,7 @@ describe("session creation helpers", () => {
         opponentId: "user_1" as Id<"users">,
         themeIds: ["theme_1" as Id<"themes">],
         sourceType: "normal",
+        duelMode: "pvp",
         createdAt: 1,
       })
     ).toThrow("Cannot challenge yourself");
@@ -131,6 +138,7 @@ describe("session creation helpers", () => {
         opponentId: "user_2" as Id<"users">,
         themeIds: [],
         sourceType: "normal",
+        duelMode: "pvp",
         createdAt: 1,
       })
     ).toThrow("Challenge requires at least one theme");
@@ -141,6 +149,7 @@ describe("session creation helpers", () => {
         opponentId: "user_2" as Id<"users">,
         sessionWords: [],
         sourceType: "normal",
+        duelMode: "pvp",
         createdAt: 1,
       })
     ).toThrow("Duel requires at least one session word");

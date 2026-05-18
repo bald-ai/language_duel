@@ -11,6 +11,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [],
     sourceType: "normal",
+    duelMode: "pvp",
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
@@ -24,6 +25,8 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     opponentSabotage: { effect: "reverse", timestamp: 20 },
     challengerSabotagesUsed: 2,
     opponentSabotagesUsed: 4,
+    hintPoolUsed: [],
+    currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
   };

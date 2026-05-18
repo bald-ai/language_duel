@@ -10,6 +10,7 @@ import {
 } from "./notificationHelpers";
 import { getAuthenticatedUserOrNull } from "./helpers/auth";
 import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
+import { duelModeValidator } from "./schema";
 import type { GoalWithUsers } from "./weeklyGoals/types";
 import {
   getBossLaunchPreviewForViewer,
@@ -150,9 +151,10 @@ export const createBossChallenge = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     bossType: v.union(v.literal("mini"), v.literal("big")),
+    duelMode: duelModeValidator,
   },
-  handler: async (ctx, { goalId, bossType }) => {
-    return await handleCreateBossChallenge(ctx, goalId, bossType);
+  handler: async (ctx, { goalId, bossType, duelMode }) => {
+    return await handleCreateBossChallenge(ctx, goalId, bossType, duelMode);
   },
 });
 

@@ -40,8 +40,8 @@ export const HINT_TIME_BONUS_MS = 3000;
 /** Maximum letter hints that can be provided */
 export const MAX_LETTER_HINTS = 3;
 
-/** Maximum wrong options that can be eliminated in a duel */
-export const MAX_ELIMINATED_OPTIONS_DUEL = 2;
+/** Maximum wrong options that can be eliminated through the PvP hint workflow */
+export { PVP_HINT_ELIMINATION_PICKS } from "../lib/hints/constants";
 
 /** Maximum wrong options that can be eliminated (L2 multiple choice) */
 export const MAX_ELIMINATED_OPTIONS_L2 = 2;

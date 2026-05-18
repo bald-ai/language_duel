@@ -27,9 +27,12 @@ import { FinalResultsPanel } from "@/app/game/components/duel/FinalResultsPanel"
 import { HintSystemUI } from "@/app/game/components/duel/HintSystemUI";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { AnswerOptionButton, computeOptionState, type OptionContext } from "./AnswerOptionButton";
+import { HintPoolUI } from "./HintPoolUI";
 import { SabotageSystemUI } from "./SabotageSystemUI";
 import type { SabotagePhase } from "../hooks/useSabotageEffect";
 import type { BossType } from "@/lib/limitedLives";
+import type { DuelMode } from "@/lib/duelMode";
+import type { HintReveal, HintType } from "@/lib/hintPool/types";
 
 export interface DifficultyPillData {
   level: "easy" | "medium" | "hard";
@@ -49,6 +52,7 @@ export interface FrozenData {
 
 export interface DuelViewProps {
   status: string;
+  duelMode: DuelMode;
   phase: "idle" | "answering" | "transition";
   round: {
     wordsCount: number;
@@ -58,6 +62,7 @@ export interface DuelViewProps {
     frozenData: FrozenData | null;
     difficulty: DifficultyPillData;
     duelDuration: number;
+    hintReveal?: HintReveal;
   };
   timer: {
     questionTimer: number | null;
@@ -93,6 +98,12 @@ export interface DuelViewProps {
     isHintProvider: boolean;
     canEliminate: boolean;
     eliminatedOptionsCount: number;
+    pool: {
+      usedHints: HintType[];
+      usedCount: number;
+      totalCount: number;
+      currentQuestionHintFired: boolean;
+    };
   };
   sabotage: {
     activeSabotage: SabotageEffect | null;
@@ -119,6 +130,7 @@ export interface DuelViewProps {
     onConfirmAnswer: () => void;
     onRequestHint: () => void;
     onAcceptHint: () => void;
+    onFireHint: (hintType: HintType) => void;
     onSendSabotage: (effect: SabotageEffect) => void;
     onExit: () => void;
     onBackToHome: () => void;
@@ -130,6 +142,7 @@ export interface DuelViewProps {
 
 export function DuelView({
   status,
+  duelMode,
   phase,
   round,
   timer,
@@ -150,6 +163,7 @@ export function DuelView({
     frozenData,
     difficulty,
     duelDuration,
+    hintReveal,
   } = round;
   const { questionTimer, questionTimerPausedAt } = timer;
   const {
@@ -182,6 +196,7 @@ export function DuelView({
     isHintProvider,
     canEliminate,
     eliminatedOptionsCount,
+    pool: hintPool,
   } = hints;
   const {
     activeSabotage,
@@ -208,11 +223,13 @@ export function DuelView({
     onConfirmAnswer,
     onRequestHint,
     onAcceptHint,
+    onFireHint,
     onSendSabotage,
     onExit,
     onBackToHome,
   } = actions;
   const isPlayingAudio = audio.isPlaying;
+  const isPve = duelMode === "pve";
   const displayWord = frozenData ? frozenData.word : word;
   const displayIndex = frozenData ? frozenData.wordIndex : index;
   const displayAnswers = frozenData ? frozenData.shuffledAnswers : shuffledAnswers;
@@ -396,6 +413,21 @@ export function DuelView({
             <div className="text-2xl md:text-3xl font-bold">
               {displayWord}
             </div>
+            {hintReveal && phase === "answering" && (
+              <div
+                className="mt-2 rounded-full border px-3 py-1 text-sm font-semibold"
+                style={{
+                  borderColor: colors.secondary.dark,
+                  backgroundColor: `${colors.secondary.DEFAULT}22`,
+                  color: colors.text.DEFAULT,
+                }}
+                data-testid="duel-hint-reveal"
+              >
+                {hintReveal.kind === "anagram"
+                  ? `Anagram: ${hintReveal.value}`
+                  : `Letters: ${hintReveal.value}`}
+              </div>
+            )}
           </div>
 
           {/* Reversed indicator */}
@@ -592,7 +624,7 @@ export function DuelView({
           )}
 
           {/* Hint System UI */}
-          {phase === "answering" && word !== "done" && (
+          {!isPve && phase === "answering" && word !== "done" && (
             <HintSystemUI
               canRequestHint={canRequestHint}
               iRequestedHint={iRequestedHint}
@@ -610,19 +642,30 @@ export function DuelView({
             />
           )}
 
-          {/* Sabotage System UI */}
-          <SabotageSystemUI
-            status={status}
-            phase={phase}
-            word={word}
-            sabotagesRemaining={sabotagesRemaining}
-            isLocked={isLocked}
-            hasAnswered={hasAnswered}
-            isOutgoingSabotageActive={isOutgoingSabotageActive}
-            opponentHasAnswered={opponentHasAnswered}
-            onSendSabotage={onSendSabotage}
-            dataTestIdBase="duel-sabotage"
-          />
+          {isPve ? (
+            phase === "answering" && word !== "done" ? (
+              <HintPoolUI
+                usedHints={hintPool.usedHints}
+                usedCount={hintPool.usedCount}
+                totalCount={hintPool.totalCount}
+                currentQuestionHintFired={hintPool.currentQuestionHintFired}
+                onFireHint={onFireHint}
+              />
+            ) : null
+          ) : (
+            <SabotageSystemUI
+              status={status}
+              phase={phase}
+              word={word}
+              sabotagesRemaining={sabotagesRemaining}
+              isLocked={isLocked}
+              hasAnswered={hasAnswered}
+              isOutgoingSabotageActive={isOutgoingSabotageActive}
+              opponentHasAnswered={opponentHasAnswered}
+              onSendSabotage={onSendSabotage}
+              dataTestIdBase="duel-sabotage"
+            />
+          )}
 
           {/* Waiting message */}
           {hasAnswered && phase === "answering" && word !== "done" && !theyRequestedHint && (

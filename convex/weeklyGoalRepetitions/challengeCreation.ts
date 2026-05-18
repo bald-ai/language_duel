@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { buildChallengeInvite } from "../helpers/sessionCreation";
 import { createChallengeInviteNotificationAndEmail } from "../notificationHelpers";
@@ -10,7 +11,8 @@ import { getGoalPartnerId } from "./rules";
 
 export async function createRepetitionChallengeForCurrentUser(
   ctx: MutationCtx,
-  weeklyGoalId: Id<"weeklyGoals">
+  weeklyGoalId: Id<"weeklyGoals">,
+  duelMode: DuelMode
 ): Promise<Id<"challenges">> {
   const { user } = await getAuthenticatedUser(ctx);
   const now = Date.now();
@@ -40,6 +42,7 @@ export async function createRepetitionChallengeForCurrentUser(
     sourceType: "spaced_repetition",
     weeklyGoalId,
     spacedRepetitionStep: step,
+    duelMode,
     createdAt: now,
   });
   const challengeId = await ctx.db.insert("challenges", { ...challengeInvite });
@@ -50,6 +53,7 @@ export async function createRepetitionChallengeForCurrentUser(
     challengeId,
     themeName: `Spaced Repetition ${step}/${SPACED_REPETITION_TOTAL_STEPS}: ${content.themeSummary}`,
     duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
+    duelMode: challengeInvite.duelMode,
     createdAt: now,
   });
 

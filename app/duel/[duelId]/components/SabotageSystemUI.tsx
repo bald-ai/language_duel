@@ -37,7 +37,7 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   dataTestIdBase,
 }: SabotageSystemUIProps) {
   const colors = useAppearanceColors();
-  if (status !== "accepted" || phase !== "answering" || word === "done") {
+  if (status !== "active" || phase !== "answering" || word === "done") {
     return null;
   }
 

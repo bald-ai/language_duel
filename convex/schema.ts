@@ -1,6 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
 import { TTS_PROVIDER_IDS } from "../lib/tts/providers";
+import { DUEL_MODES } from "../lib/duelMode";
+import { HINT_TYPES } from "../lib/hintPool/types";
 
 // ===========================================
 // Shared Validators
@@ -83,6 +85,31 @@ const duelDifficultyPresetValidator = v.union(
   v.literal("hard")
 );
 
+export const duelModeValidator = v.union(
+  v.literal(DUEL_MODES[0]),
+  v.literal(DUEL_MODES[1])
+);
+
+export type DuelMode = Infer<typeof duelModeValidator>;
+
+export const hintTypeValidator = v.union(
+  v.literal(HINT_TYPES[0]),
+  v.literal(HINT_TYPES[1]),
+  v.literal(HINT_TYPES[2]),
+  v.literal(HINT_TYPES[3])
+);
+
+const hintRevealValidator = v.union(
+  v.object({
+    kind: v.literal("anagram"),
+    value: v.string(),
+  }),
+  v.object({
+    kind: v.literal("letterCount"),
+    value: v.number(),
+  })
+);
+
 const duelQuestionValidator = v.object({
   options: v.array(v.string()),
   correctOption: v.string(),
@@ -161,6 +188,7 @@ export const notificationPayloadValidator = v.union(
     challengeId: v.id("challenges"),
     themeName: v.optional(v.string()),
     duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelMode: duelModeValidator,
   })
 );
 
@@ -266,6 +294,7 @@ export default defineSchema({
     spacedRepetitionStep: v.optional(v.number()),
     status: challengeStatusValidator,
     duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelMode: duelModeValidator,
     duelId: v.optional(v.id("duels")),
     createdAt: v.number(),
     acceptedAt: v.optional(v.number()),
@@ -305,6 +334,7 @@ export default defineSchema({
     challengerPerfectRun: v.optional(v.boolean()),
     opponentPerfectRun: v.optional(v.boolean()),
     duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelMode: duelModeValidator,
 
     questionStartTime: v.optional(v.number()),
     questionTimerPausedAt: v.optional(v.number()),
@@ -316,6 +346,9 @@ export default defineSchema({
     hintRequestedBy: v.optional(playerRoleValidator),
     hintAccepted: v.optional(v.boolean()),
     eliminatedOptions: v.optional(v.array(v.string())),
+    hintPoolUsed: v.array(hintTypeValidator),
+    currentQuestionHintFired: v.boolean(),
+    currentQuestionHintReveal: v.optional(hintRevealValidator),
 
     countdownPausedBy: v.optional(playerRoleValidator),
     countdownUnpauseRequestedBy: v.optional(playerRoleValidator),

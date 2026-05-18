@@ -31,6 +31,7 @@ export function useChallengeActions({
           opponentId: options.opponentId,
           themeIds: options.themeIds,
           duelDifficultyPreset: options.duelDifficultyPreset,
+          duelMode: options.duelMode,
         });
         setWaitingChallengeId(challengeId);
         onChallengeCreated(challengeId);
