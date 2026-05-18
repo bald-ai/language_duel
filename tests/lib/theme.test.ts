@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyTheme,
+  applyThemeCssVariables,
   DEFAULT_THEME_NAME,
-  getActiveThemeName,
+  getButtonStyles,
+  getThemeColors,
   isThemeName,
   colorPalettes,
   themeOptions,
-  semanticColors,
-  buttonStyles,
 } from "@/lib/theme";
 
 describe("theme", () => {
@@ -21,21 +20,20 @@ describe("theme", () => {
     expect(themeOptions[0].name).toBe(colorPalettes[0].name);
   });
 
-  it("applyTheme falls back to default for unknown names", () => {
-    const name = applyTheme("not-a-theme" as never);
-    expect(name).toBe(DEFAULT_THEME_NAME);
-    expect(getActiveThemeName()).toBe(DEFAULT_THEME_NAME);
+  it("getThemeColors fails loudly for unknown names", () => {
+    expect(() => getThemeColors("not-a-theme")).toThrow(/Unknown theme name/);
   });
 
-  it("applyTheme sets the data-theme attribute and updates active theme name", () => {
-    applyTheme(DEFAULT_THEME_NAME);
+  it("applyThemeCssVariables sets the data-theme attribute and css variables", () => {
+    const colors = getThemeColors(DEFAULT_THEME_NAME);
+    applyThemeCssVariables(DEFAULT_THEME_NAME, colors);
 
     const root = document.documentElement;
     expect(root.getAttribute("data-theme")).toBe(DEFAULT_THEME_NAME);
-    expect(getActiveThemeName()).toBe(DEFAULT_THEME_NAME);
+    expect(root.style.getPropertyValue("--color-primary")).toBe(colors.primary.DEFAULT);
   });
 
-  it("applyTheme skips css variables when document is undefined", () => {
+  it("applyThemeCssVariables skips css variables when document is undefined", () => {
     const originalDocument = globalThis.document;
     Object.defineProperty(globalThis, "document", {
       value: undefined,
@@ -43,8 +41,9 @@ describe("theme", () => {
       writable: true,
     });
 
-    const name = applyTheme(DEFAULT_THEME_NAME);
-    expect(name).toBe(DEFAULT_THEME_NAME);
+    expect(() => {
+      applyThemeCssVariables(DEFAULT_THEME_NAME, getThemeColors(DEFAULT_THEME_NAME));
+    }).not.toThrow();
 
     // restore
     Object.defineProperty(globalThis, "document", {
@@ -54,13 +53,9 @@ describe("theme", () => {
     });
   });
 
-  it("semanticColors contains expected role keys", () => {
-    expect(Object.keys(semanticColors)).toEqual(
-      expect.arrayContaining(["badge", "badgeBorder", "buttonPrimary", "buttonCta", "accent", "pageBg", "cardBg"])
-    );
-  });
+  it("getButtonStyles has expected structural shape", () => {
+    const buttonStyles = getButtonStyles(getThemeColors(DEFAULT_THEME_NAME));
 
-  it("buttonStyles has expected structural shape", () => {
     expect(buttonStyles.primary.gradient).toHaveProperty("from");
     expect(buttonStyles.primary.gradient).toHaveProperty("to");
     expect(buttonStyles.primary.gradientHover).toHaveProperty("from");
@@ -69,19 +64,20 @@ describe("theme", () => {
     expect(buttonStyles.cta.gradient).toHaveProperty("to");
   });
 
-  it("semanticColors keys remain populated after switching themes", () => {
+  it("getThemeColors returns separate objects for each call", () => {
+    const colors = getThemeColors(DEFAULT_THEME_NAME);
+    const nextColors = getThemeColors(DEFAULT_THEME_NAME);
+
+    expect(nextColors).toEqual(colors);
+    expect(nextColors).not.toBe(colors);
+    expect(nextColors.primary).not.toBe(colors.primary);
+  });
+
+  it("getThemeColors resolves every configured palette", () => {
     const alternateTheme =
       colorPalettes.find((palette) => palette.name !== DEFAULT_THEME_NAME)?.name ??
       DEFAULT_THEME_NAME;
 
-    applyTheme(alternateTheme);
-
-    expect(semanticColors.badge).toBeTruthy();
-    expect(semanticColors.badgeBorder).toBeTruthy();
-    expect(semanticColors.buttonPrimary).toBeTruthy();
-    expect(semanticColors.buttonCta).toBeTruthy();
-    expect(semanticColors.accent).toBeTruthy();
-    expect(semanticColors.pageBg).toBeTruthy();
-    expect(semanticColors.cardBg).toBeTruthy();
+    expect(getThemeColors(alternateTheme).primary.DEFAULT).toBeTruthy();
   });
 });

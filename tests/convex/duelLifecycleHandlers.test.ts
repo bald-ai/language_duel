@@ -78,8 +78,9 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     | "status"
     | "createdAt"
   >;
+type FriendDoc = Pick<Doc<"friends">, "_id" | "_creationTime" | "userId" | "friendId">;
 
-type Row = UserDoc | ThemeDoc | ChallengeDoc | DuelDoc | NotificationDoc;
+type Row = UserDoc | ThemeDoc | ChallengeDoc | DuelDoc | NotificationDoc | FriendDoc;
 type TableRows = Array<Row>;
 
 class InMemoryDb {
@@ -88,6 +89,7 @@ class InMemoryDb {
   public challenges: ChallengeDoc[] = [];
   public duels: DuelDoc[] = [];
   public notifications: NotificationDoc[] = [];
+  public friends: FriendDoc[] = [];
 
   private counters = {
     challenges: 10,
@@ -95,13 +97,13 @@ class InMemoryDb {
     notifications: 10,
   };
 
-  query(table: "users" | "themes" | "challenges" | "duels" | "notifications") {
+  query(table: "users" | "themes" | "challenges" | "duels" | "notifications" | "friends") {
     return createIndexedQuery([...this.getTable(table)] as TableRows);
   }
 
   async get(id: string): Promise<Row | null> {
     return findRowById<Row>(
-      [this.users, this.themes, this.challenges, this.duels, this.notifications],
+      [this.users, this.themes, this.challenges, this.duels, this.notifications, this.friends],
       id
     );
   }
@@ -142,7 +144,7 @@ class InMemoryDb {
     return inserted.id as Id<"notifications">;
   }
 
-  private getTable(table: "users" | "themes" | "challenges" | "duels" | "notifications") {
+  private getTable(table: "users" | "themes" | "challenges" | "duels" | "notifications" | "friends") {
     switch (table) {
       case "users":
         return this.users;
@@ -154,6 +156,8 @@ class InMemoryDb {
         return this.duels;
       case "notifications":
         return this.notifications;
+      case "friends":
+        return this.friends;
     }
   }
 
@@ -287,6 +291,35 @@ describe("duel lifecycle handlers", () => {
         themeIds: ["theme_1" as Id<"themes">],
       })
     ).rejects.toThrow("Cannot challenge yourself");
+
+    expect(db.challenges).toHaveLength(0);
+  });
+
+  it("createChallenge rejects normal challenges when users are not friends", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.themes.push(themeDoc());
+
+    const handler = (createChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          opponentId: Id<"users">;
+          themeIds: Id<"themes">[];
+          duelDifficultyPreset?: "easy" | "medium" | "hard";
+        }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        opponentId: "user_2" as Id<"users">,
+        themeIds: ["theme_1" as Id<"themes">],
+      })
+    ).rejects.toThrow("You can only challenge friends");
 
     expect(db.challenges).toHaveLength(0);
   });

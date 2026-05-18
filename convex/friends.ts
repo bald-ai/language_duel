@@ -336,6 +336,7 @@ export const rejectFriendRequest = mutation({
 export const removeFriend = mutation({
   args: {
     friendId: v.id("users"),
+    alsoCleanupSharedWeeklyGoals: v.literal(true),
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);

@@ -1,16 +1,17 @@
 import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { SEED_XOR_MASK } from "../constants";
-import { createShuffledWordOrder, type DuelDifficultyPreset } from "./gameLogic";
+import { createShuffledWordOrder } from "./gameLogic";
 import { buildDuelQuestionSet, type DuelQuestionSnapshot } from "../../lib/answerShuffle";
 import {
   getUniqueThemeIds,
   type SessionWordEntry,
 } from "../../lib/sessionWords";
+import type { BossType } from "../../lib/limitedLives";
+import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
 
 export type DuelSourceType = "normal" | "boss" | "spaced_repetition";
 export type SoloPracticeSourceType = "weekly_goal" | "boss" | "spaced_repetition";
-export type BossType = "mini" | "big";
 
 export type NormalDuelSourceFields = {
   sourceType: "normal";
@@ -87,8 +88,8 @@ export interface DuelSessionFields {
   weeklyGoalId?: Id<"weeklyGoals">;
   bossType?: BossType;
   spacedRepetitionStep?: number;
-  bossLivesTotal?: number;
-  bossLivesRemaining?: number;
+  livesTotal?: number;
+  livesRemaining?: number;
   status: "active";
   createdAt: number;
   currentWordIndex: number;
@@ -201,8 +202,8 @@ export function buildDuelSession(args: {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
   sessionWords: SessionWordEntry[];
-  bossLivesTotal?: number;
-  bossLivesRemaining?: number;
+  livesTotal?: number;
+  livesRemaining?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
   createdAt: number;
 } & DuelSourceFields): DuelSessionFields {
@@ -225,8 +226,8 @@ export function buildDuelSession(args: {
     weeklyGoalId: args.weeklyGoalId,
     bossType: args.bossType,
     spacedRepetitionStep: args.spacedRepetitionStep,
-    bossLivesTotal: args.bossLivesTotal,
-    bossLivesRemaining: args.bossLivesRemaining,
+    livesTotal: args.livesTotal,
+    livesRemaining: args.livesRemaining,
     status: "active",
     createdAt: args.createdAt,
     currentWordIndex: 0,

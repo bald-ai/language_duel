@@ -30,28 +30,21 @@ import {
 import { CHALLENGE_INVITE_TTL_MS } from "./constants";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
-import { calculateBossStartingLives } from "../lib/bossLives";
+import { calculateStartingLives } from "../lib/limitedLives";
+import { toUserSummary } from "./helpers/userSummary";
 
 type CtxWithDb = QueryCtx | MutationCtx;
-type UserSummary = Pick<Doc<"users">, "_id" | "name" | "nickname" | "discriminator" | "imageUrl">;
-
-function toUserSummary(user: Doc<"users"> | null): UserSummary | null {
-  if (!user) return null;
-  return {
-    _id: user._id,
-    name: user.name,
-    nickname: user.nickname,
-    discriminator: user.discriminator,
-    imageUrl: user.imageUrl,
-  };
-}
 
 async function buildDuelWordsForChallenge(
   ctx: CtxWithDb,
   challenge: Doc<"challenges">
 ) {
   const themes = challenge.weeklyGoalId
-    ? await loadWeeklyGoalSessionThemesByThemeIds(ctx, { _id: challenge.weeklyGoalId }, challenge.themeIds)
+    ? await loadWeeklyGoalSessionThemesByThemeIds(
+        ctx,
+        await loadWeeklyGoalForSession(ctx, challenge.weeklyGoalId),
+        challenge.themeIds
+      )
     : await loadThemesByIds(ctx, challenge.themeIds);
 
   const sessionWords = buildSessionWords(themes);
@@ -61,6 +54,17 @@ async function buildDuelWordsForChallenge(
   return sessionWords;
 }
 
+async function loadWeeklyGoalForSession(
+  ctx: CtxWithDb,
+  weeklyGoalId: Id<"weeklyGoals">
+): Promise<Doc<"weeklyGoals">> {
+  const goal = await ctx.db.get(weeklyGoalId);
+  if (!goal) {
+    throw new ConvexError({ code: "NOT_FOUND", message: "Weekly goal not found" });
+  }
+  return goal;
+}
+
 async function insertDuelSessionForChallenge(
   ctx: MutationCtx,
   challenge: Doc<"challenges">,
@@ -68,7 +72,7 @@ async function insertDuelSessionForChallenge(
 ): Promise<Id<"duels">> {
   const sessionWords = await buildDuelWordsForChallenge(ctx, challenge);
   const livesTotal = challenge.sourceType === "boss"
-    ? await resolveBossLives(ctx, challenge)
+    ? await resolveBossChallengeLives(ctx, challenge)
     : challenge.sourceType === "spaced_repetition"
       ? await resolveSpacedRepetitionLives(ctx, challenge)
       : undefined;
@@ -78,8 +82,8 @@ async function insertDuelSessionForChallenge(
     challengerId: challenge.challengerId,
     opponentId: challenge.opponentId,
     sessionWords,
-    bossLivesTotal: livesTotal,
-    bossLivesRemaining: livesTotal,
+    livesTotal: livesTotal,
+    livesRemaining: livesTotal,
     duelDifficultyPreset: challenge.duelDifficultyPreset,
     createdAt: now,
   };
@@ -139,14 +143,19 @@ async function declineChallengeCore(
   await dismissChallengeInviteNotificationsByChallengeId(ctx, challenge._id, [challenge.opponentId]);
 }
 
-async function resolveBossLives(
+function rejectExpiredChallenge(challenge: Doc<"challenges">, now: number) {
+  if (!isCreatedAtExpired(challenge.createdAt, now, CHALLENGE_INVITE_TTL_MS)) return;
+  throw new ConvexError({ code: "INVALID_STATE", message: "Challenge has expired" });
+}
+
+async function resolveBossChallengeLives(
   ctx: CtxWithDb,
   challenge: Doc<"challenges">
 ): Promise<number | undefined> {
   if (!challenge.weeklyGoalId || !challenge.bossType) return undefined;
   const goal = await ctx.db.get(challenge.weeklyGoalId);
   if (!goal) return undefined;
-  return calculateBossStartingLives({
+  return calculateStartingLives({
     bossType: challenge.bossType,
     themeCount: challenge.themeIds.length,
     miniBossDefeated: goal.miniBossStatus === "defeated",
@@ -284,6 +293,7 @@ export const acceptChallenge = mutation({
     }
 
     const now = Date.now();
+    rejectExpiredChallenge(challenge, now);
     const { duelId } = await acceptChallengeCore(ctx, challenge, now);
     return { duelId };
   },
@@ -349,6 +359,7 @@ export const acceptChallengeFromNotification = mutation({
     }
 
     const now = Date.now();
+    rejectExpiredChallenge(challenge, now);
     const { duelId } = await acceptChallengeCore(ctx, challenge, now);
 
     return { success: true, duelId };

@@ -565,6 +565,19 @@
           <span class="carry-tag">Cleanup</span>
           <div class="carry-body">
             Remove the old <strong>"I need help"</strong> request-hint button &mdash; <strong>PvE only</strong>.
+            PvP keeps the existing hint mechanism unchanged.
+          </div>
+        </div>
+        <div class="carry-item">
+          <span class="carry-tag">Schema</span>
+          <div class="carry-body">
+            Add <code class="inline">mode: "pvp" | "pve"</code> to both the
+            <code class="inline">challenges</code> and <code class="inline">duels</code> tables.
+            Set on the challenge at creation, copied to the duel on accept &mdash;
+            same pattern as <code class="inline">duelDifficultyPreset</code> today.
+            Default <code class="inline">"pvp"</code> for existing rows (no active duels at rollout).
+            <span class="who">&middot; rationale: "Mode" is already canonical in <code class="inline">CONTEXT.md</code> and ADR 0001;
+            keeping schema names aligned with the glossary is required by AGENTS.md.</span>
           </div>
         </div>
       </div>

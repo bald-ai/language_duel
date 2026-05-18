@@ -2,14 +2,16 @@
 
 import { memo, useMemo, useState } from "react";
 import type { WordEntry } from "@/lib/types";
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 import {
   getDuplicateWordIndices,
   getDuplicateWrongAnswerIndices,
   getWrongIndicesMatchingAnswer,
   getThemeRepairIssueForFlags,
   getThemeRepairIssueForWords,
-} from "@/lib/themes/validators";
-import { colors } from "@/lib/theme";
+} from "@/lib/themes/themeUiValidation";
+import { normalizeThemeName } from "@/lib/themes/serverValidation";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { BackButton } from "@/app/components/BackButton";
 import type { FieldType, WordType } from "../constants";
 import {
@@ -18,7 +20,7 @@ import {
 } from "../constants";
 import { AddWordModal } from "./AddWordModal";
 import { GenerateRandomModal } from "./GenerateRandomModal";
-import { getThemeActionButtonStyle, themeOutlineButtonStyle } from "./themeStyles";
+import { getThemeActionButtonStyle, getThemeOutlineButtonStyle } from "./themeStyles";
 
 export type ThemeDetailTheme = {
   name: string;
@@ -126,6 +128,7 @@ const WordCard = memo(function WordCard({
   onDeleteWord,
   onPlayWordTTS,
 }: WordCardProps) {
+  const colors = useAppearanceColors();
   const ttsKey = `theme-word-tts-${index}`;
   const isPlaying = playingWordKey === ttsKey;
   const hasGeneratedTts = !!word.ttsStorageId;
@@ -372,6 +375,7 @@ export function ThemeDetail({
   playingWordKey = null,
   onPlayWordTTS,
 }: ThemeDetailProps) {
+  const colors = useAppearanceColors();
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
   const [editedThemeName, setEditedThemeName] = useState("");
 
@@ -416,16 +420,22 @@ export function ThemeDetail({
       };
 
   const handleThemeNameBlur = () => {
-    if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== theme.name) {
-      onThemeNameChange(editedThemeName.trim().toUpperCase());
+    if (editedThemeName.trim()) {
+      const normalizedThemeName = normalizeThemeName(editedThemeName);
+      if (normalizedThemeName !== theme.name) {
+        onThemeNameChange(normalizedThemeName);
+      }
     }
     setIsEditingThemeName(false);
   };
 
   const handleThemeNameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      if (editedThemeName.trim() && editedThemeName.trim().toUpperCase() !== theme.name) {
-        onThemeNameChange(editedThemeName.trim().toUpperCase());
+      if (editedThemeName.trim()) {
+        const normalizedThemeName = normalizeThemeName(editedThemeName);
+        if (normalizedThemeName !== theme.name) {
+          onThemeNameChange(normalizedThemeName);
+        }
       }
       setIsEditingThemeName(false);
     } else if (e.key === "Escape") {
@@ -520,7 +530,7 @@ export function ThemeDetail({
                   <button
                     onClick={handleAddWordClick}
                     className={utilityButtonClassName}
-                    style={themeOutlineButtonStyle}
+                    style={getThemeOutlineButtonStyle(colors)}
                     data-testid="theme-add-word"
                   >
                     + Add Word
@@ -689,7 +699,7 @@ export function ThemeDetail({
                   onClick={onSave}
                   disabled={isSaveDisabled}
                   className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={getThemeActionButtonStyle("cta")}
+                  style={getThemeActionButtonStyle("cta", colors)}
                   data-testid="theme-save"
                 >
                   {isSaving ? "Saving..." : "Save"}
@@ -698,7 +708,7 @@ export function ThemeDetail({
                   onClick={onCancel}
                   disabled={isSaving}
                   className={`${outlineButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={themeOutlineButtonStyle}
+                  style={getThemeOutlineButtonStyle(colors)}
                   data-testid="theme-cancel"
                 >
                   Cancel

@@ -53,5 +53,3 @@ export function useCountdown(targetTimestamp: number): CountdownResult {
         formattedTime: formatCountdown(targetTimestamp),
     };
 }
-
-export default useCountdown;

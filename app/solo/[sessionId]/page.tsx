@@ -5,17 +5,18 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
-import { formatDuration } from "@/app/utils/displayFormat";
+import { formatDuration } from "@/lib/displayFormat";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 // Feature-local imports
 import { useSoloSession } from "./hooks/useSoloSession";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { getDirectionalCopy } from "./translationDirection";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 // Shared Level components
 import {
@@ -61,6 +62,7 @@ const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: stri
  * - Level input components
  */
 export default function SoloPracticePage() {
+  const colors = useAppearanceColors();
   const router = useRouter();
   const searchParams = useSearchParams();
   const themeId = searchParams.get("themeId");

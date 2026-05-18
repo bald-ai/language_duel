@@ -9,7 +9,7 @@ import {
   type ListChildComponentProps,
   type VariableSizeList,
 } from "react-window";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { BackButton } from "@/app/components/BackButton";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
@@ -66,6 +66,7 @@ const ThemeCard = memo(function ThemeCard({
   isArchived,
   onToggleArchive,
 }: ThemeCardProps) {
+  const colors = useAppearanceColors();
   const isMutating = isDeleting || isDuplicating;
 
   const categoryLabel = getWordTypeLabel(theme.wordType, {
@@ -245,6 +246,7 @@ export function ThemeList({
   onToggleShowArchived,
   onToggleArchive,
 }: ThemeListProps) {
+  const colors = useAppearanceColors();
   const listRef = useRef<VariableSizeList | null>(null);
   const sizeMapRef = useRef<Map<number, number>>(new Map());
   const listSpaceRef = useRef<HTMLDivElement | null>(null);
@@ -279,7 +281,7 @@ export function ThemeList({
           borderColor: colors.primary.dark,
           color: colors.text.muted,
         },
-    [isFiltering]
+    [colors, isFiltering]
   );
 
   useEffect(() => {
@@ -464,7 +466,7 @@ export function ThemeList({
           <button
             onClick={onGenerateNew}
             className="w-full bg-gradient-to-b border-t-2 border-b-3 border-x-2 rounded-xl py-2.5 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-md"
-            style={getThemeActionButtonStyle("cta")}
+            style={getThemeActionButtonStyle("cta", colors)}
             data-testid="themes-generate-new"
           >
             Generate New

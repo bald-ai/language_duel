@@ -1,0 +1,105 @@
+"use client";
+
+import type { GoalWithUsers } from "@/convex/weeklyGoals";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
+
+function formatGoalStatus(status: "draft" | "locked" | "grace_period" | "completed"): string {
+  switch (status) {
+    case "draft":
+      return "Draft";
+    case "locked":
+      return "Locked";
+    case "grace_period":
+      return "Grace period";
+    case "completed":
+      return "Completed";
+  }
+}
+
+interface GoalParticipantsPanelProps {
+  selectedGoal: GoalWithUsers;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export function GoalParticipantsPanel({
+  selectedGoal,
+  startDate,
+  endDate,
+}: GoalParticipantsPanelProps) {
+  const colors = useAppearanceColors();
+  return (
+    <section
+      className="rounded-2xl border-2 p-4"
+      style={{
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="text-center">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{
+                backgroundColor: colors.primary.DEFAULT,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              {getVisibleUserInitials(selectedGoal.creator)}
+            </div>
+            <p
+              className="text-xs mt-1 max-w-[60px] truncate"
+              style={{ color: colors.text.muted }}
+            >
+              {formatVisibleUser(selectedGoal.creator)}
+            </p>
+            {selectedGoal.goal.creatorLocked && (
+              <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
+            )}
+          </div>
+        </div>
+
+        <div className="text-center">
+          <p
+            className="text-sm font-bold"
+            style={{ color: colors.text.DEFAULT }}
+          >
+            {startDate && endDate
+              ? `${startDate} to ${endDate}`
+              : endDate
+                ? `Ends ${endDate}`
+                : "Draft phase"}
+          </p>
+          <p className="text-xs" style={{ color: colors.text.muted }}>
+            {formatGoalStatus(selectedGoal.effectiveStatus)}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-center">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{
+                backgroundColor: colors.secondary.DEFAULT,
+                color: colors.text.DEFAULT,
+              }}
+            >
+              {getVisibleUserInitials(selectedGoal.partner)}
+            </div>
+            <p
+              className="text-xs mt-1 max-w-[60px] truncate"
+              style={{ color: colors.text.muted }}
+            >
+              {formatVisibleUser(selectedGoal.partner)}
+            </p>
+            {selectedGoal.goal.partnerLocked && (
+              <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

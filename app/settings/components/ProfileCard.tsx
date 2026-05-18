@@ -1,7 +1,7 @@
 "use client";
 
 import type { CurrentUser } from "@/convex/users";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Avatar } from "@/app/components/Avatar";
 import { CreditsPanel } from "./CreditsPanel";
 import { formatVisibleUser } from "@/lib/userDisplay";
@@ -11,7 +11,7 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ user }: ProfileCardProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const displayName = formatVisibleUser(user);
 
   return (

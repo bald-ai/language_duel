@@ -1,8 +1,8 @@
 "use client";
 
-import { formatDuration } from "@/app/utils/displayFormat";
-import { colors } from "@/lib/theme";
-import { formatBossTrophy, getBossTrophy, type BossType } from "@/lib/bossLives";
+import { formatDuration } from "@/lib/displayFormat";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { formatBossTrophy, getBossTrophy, type BossType } from "@/lib/limitedLives";
 
 interface FinalResultsPanelProps {
   myName: string;
@@ -14,8 +14,8 @@ interface FinalResultsPanelProps {
   duelDuration?: number;
   dataTestIdBack?: string;
   bossType?: BossType;
-  bossLivesRemaining?: number;
-  bossLivesTotal?: number;
+  livesRemaining?: number;
+  livesTotal?: number;
 }
 
 /**
@@ -30,15 +30,16 @@ export function FinalResultsPanel({
   duelDuration,
   dataTestIdBack,
   bossType,
-  bossLivesRemaining,
-  bossLivesTotal,
+  livesRemaining,
+  livesTotal,
 }: FinalResultsPanelProps) {
+  const colors = useAppearanceColors();
   const formatScore = (score: number) =>
     Number.isInteger(score) ? score : score.toFixed(1);
-  const isBossResult = !!bossType && typeof bossLivesRemaining === "number";
-  const bossFailed = isBossResult && bossLivesRemaining <= 0;
+  const isBossResult = !!bossType && typeof livesRemaining === "number";
+  const bossFailed = isBossResult && livesRemaining <= 0;
   const bossTrophy = isBossResult && bossType === "big" && !bossFailed
-    ? getBossTrophy(bossLivesRemaining)
+    ? getBossTrophy(livesRemaining)
     : null;
   const showBossDetail = bossFailed || bossType === "big";
 
@@ -111,7 +112,7 @@ export function FinalResultsPanel({
                   </>
                 )}
                 <div className={bossTrophy ? "mt-3 text-sm font-semibold" : "text-sm font-semibold"} style={{ color: colors.status.success.light }}>
-                  Lives Left: {bossLivesRemaining}{typeof bossLivesTotal === "number" ? `/${bossLivesTotal}` : ""}
+                  Lives Left: {livesRemaining}{typeof livesTotal === "number" ? `/${livesTotal}` : ""}
                 </div>
               </>
             )}

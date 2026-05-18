@@ -4,16 +4,11 @@ import { useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
-import { colors } from "@/lib/theme";
-
-interface Theme {
-  _id: Id<"themes">;
-  name: string;
-  words: unknown[];
-}
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import type { ModalTheme } from "./types";
 
 interface ThemeSelectorProps {
-  themes: Theme[] | undefined;
+  themes: ModalTheme[] | undefined;
   selectedThemeIds: Id<"themes">[];
   onConfirmSelection: (themeIds: Id<"themes">[]) => void;
   onCreateTheme: () => void;
@@ -37,6 +32,7 @@ export function ThemeSelector({
   hideConfirmButton = false,
   hideCreateThemeButton = false,
 }: ThemeSelectorProps) {
+  const colors = useAppearanceColors();
   const [internalDraftThemeIds, setInternalDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
   const draftThemeIds = controlledDraftThemeIds ?? internalDraftThemeIds;
   const setDraftThemeIds = onDraftThemeIdsChange ?? setInternalDraftThemeIds;

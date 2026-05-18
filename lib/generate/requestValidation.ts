@@ -21,11 +21,11 @@ import {
   WORD_TYPE_VALUES,
   type WordType,
 } from "@/lib/themes/wordTypes";
+import type { FieldType } from "@/lib/themes/api";
+import { isRecord } from "@/lib/typeGuards";
 
 const MAX_HISTORY_MESSAGES = 50;
 const MAX_WORDS_ARRAY_ITEMS = 500;
-
-type FieldType = "word" | "answer" | "wrong";
 
 type HistoryMessage = {
   role: "user" | "assistant";
@@ -89,10 +89,6 @@ export type GenerateRequest =
 type ParseResult =
   | { ok: true; data: GenerateRequest }
   | { ok: false; error: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function parseTrimmedString(params: {
   value: unknown;

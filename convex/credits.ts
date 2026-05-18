@@ -40,8 +40,8 @@ export const consumeCredits = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    const cost = Math.floor(args.cost);
-    if (!Number.isFinite(cost) || cost <= 0) {
+    const cost = args.cost;
+    if (!Number.isFinite(cost) || cost <= 0 || !Number.isInteger(cost)) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid credit cost" });
     }
 

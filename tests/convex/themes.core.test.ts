@@ -120,7 +120,7 @@ class InMemoryDb {
     }
   }
 
-  async insert(table: "themes", value: Record<string, unknown>): Promise<Id<"themes">> {
+  async insert(_table: "themes", value: Record<string, unknown>): Promise<Id<"themes">> {
     const { id, nextCounter } = insertRow(this.themes, "theme", this.themeCounter, value);
     this.themeCounter = nextCounter;
     return id as Id<"themes">;
@@ -757,6 +757,56 @@ describe("themes core handlers", () => {
     expect(result.skipped).toBe(1);
     expect(result.rejectedStorageIds).toEqual(["storage_stale"]);
     expect(db.themes[0]?.words[0]?.ttsStorageId).toBe("storage_ok");
+  });
+
+  it("applyGeneratedThemeTts rejects a second generated file when the word already has TTS", async () => {
+    const db = new InMemoryDb();
+    db.themes.push(
+      themeDoc({
+        words: [
+          {
+            word: "cat",
+            answer: "kocka",
+            wrongAnswers: ["strom", "auto", "more"],
+            ttsStorageId: "storage_first" as Id<"_storage">,
+          },
+        ],
+      })
+    );
+
+    const handler = (applyGeneratedThemeTts as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          themeId: Id<"themes">;
+          generated: Array<{
+            wordIndex: number;
+            sourceWord: string;
+            sourceAnswer: string;
+            storageId: Id<"_storage">;
+          }>;
+        }
+      ) => Promise<{ applied: number; skipped: number; rejectedStorageIds: Id<"_storage">[] }>;
+    })._handler;
+
+    const result = await handler({ db }, {
+      themeId: "theme_1" as Id<"themes">,
+      generated: [
+        {
+          wordIndex: 0,
+          sourceWord: "cat",
+          sourceAnswer: "kocka",
+          storageId: "storage_second" as Id<"_storage">,
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      applied: 0,
+      skipped: 1,
+      rejectedStorageIds: ["storage_second"],
+    });
+    expect(db.themes[0]?.words[0]?.ttsStorageId).toBe("storage_first");
   });
 
   it("toggleThemeArchive toggles archived state", async () => {

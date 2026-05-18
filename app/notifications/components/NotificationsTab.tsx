@@ -1,18 +1,16 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { getErrorMessage } from "@/lib/errors";
 import { useNotifications } from "../hooks/useNotifications";
 import { NotificationItem } from "./NotificationItem";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
+import { isRecord } from "@/lib/typeGuards";
 
 interface NotificationsTabProps {
     onClose: () => void;
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-    typeof value === "object" && value !== null;
 
 const hasGoalId = (
     payload: unknown
@@ -28,6 +26,7 @@ const hasGoalId = (
  * - Challenge invites with accept/decline actions
  */
 export function NotificationsTab({ onClose }: NotificationsTabProps) {
+  const colors = useAppearanceColors();
     const router = useRouter();
     const { notifications, isLoading, actions } = useNotifications();
 
@@ -168,6 +167,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
 }
 
 function BellOffIcon() {
+  const colors = useAppearanceColors();
     return (
         <svg
             className="w-12 h-12"
@@ -184,5 +184,3 @@ function BellOffIcon() {
         </svg>
     );
 }
-
-export default NotificationsTab;

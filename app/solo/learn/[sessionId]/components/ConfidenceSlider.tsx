@@ -1,8 +1,9 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 export type ConfidenceLevel = 0 | 1 | 2 | 3;
 
 interface ConfidenceSliderProps {
@@ -51,6 +52,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
   readOnly = false,
   dataTestIdPrefix,
 }: ConfidenceSliderProps) {
+  const colors = useAppearanceColors();
   // Track previous value so we can detect direction and animate the swap.
   const prevValueRef = useRef(value);
   const [outgoing, setOutgoing] = useState<OutgoingState>(null);

@@ -15,10 +15,3 @@ export const POOL_EXPANSION_SIZE = 2;
  * Probability that hard mode questions use "None of the above" as the correct answer
  */
 export const HARD_MODE_NONE_CHANCE = 0.5;
-
-/**
- * UI Feedback Durations (in milliseconds)
- */
-export const HINT_BANNER_DURATION_MS = 3000;
-export const FEEDBACK_SHORT_MS = 1500;
-export const FEEDBACK_LONG_MS = 2500;

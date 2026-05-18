@@ -3,15 +3,14 @@ import type { Doc } from "../_generated/dataModel";
 import { TIMEOUT_ANSWER } from "../constants";
 import { forRole } from "../../lib/duelRole";
 import {
-  getBossMissPatch,
+  getLimitedLivesMissPatch,
   getDuelQuestionOrThrow,
   getHintClearFields,
   getHintProviderBonusPatch,
-  hasBossLivesLeft,
+  hasLivesLeft,
   isBossAttempt,
 } from "./duelScoringRules";
-
-type PlayerRole = "challenger" | "opponent";
+import type { PlayerRole } from "../helpers/auth";
 
 export function validateActiveQuestion(
   duel: Doc<"duels">,
@@ -59,13 +58,13 @@ export function buildAnswerPatch(params: {
         challengerAnswered: true,
         challengerScore: nextScore,
         challengerLastAnswer: selectedAnswer,
-        ...(!isCorrect ? getBossMissPatch(duel, "challenger") : {}),
+        ...(!isCorrect ? getLimitedLivesMissPatch(duel, "challenger") : {}),
       }
     : {
         opponentAnswered: true,
         opponentScore: nextScore,
         opponentLastAnswer: selectedAnswer,
-        ...(!isCorrect ? getBossMissPatch(duel, "opponent") : {}),
+        ...(!isCorrect ? getLimitedLivesMissPatch(duel, "opponent") : {}),
       };
 }
 
@@ -85,12 +84,12 @@ export function buildTimeoutPatch(params: {
     ? {
         challengerAnswered: true,
         challengerLastAnswer: TIMEOUT_ANSWER,
-        ...getBossMissPatch(duel, "challenger"),
+        ...getLimitedLivesMissPatch(duel, "challenger"),
       }
     : {
         opponentAnswered: true,
         opponentLastAnswer: TIMEOUT_ANSWER,
-        ...getBossMissPatch(duel, "opponent"),
+        ...getLimitedLivesMissPatch(duel, "opponent"),
       };
 }
 
@@ -129,7 +128,7 @@ export function buildFinalCompletionPatch(
 }
 
 export function shouldCompleteWeeklyGoalBoss(duel: Doc<"duels">): boolean {
-  return Boolean(duel.weeklyGoalId && duel.bossType && isBossAttempt(duel) && hasBossLivesLeft(duel));
+  return Boolean(duel.weeklyGoalId && duel.bossType && isBossAttempt(duel) && hasLivesLeft(duel));
 }
 
 export function shouldCompleteSpacedRepetitionDuel(duel: Doc<"duels">): boolean {

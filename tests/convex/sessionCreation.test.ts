@@ -63,8 +63,8 @@ describe("session creation helpers", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
-      bossLivesTotal: 3,
-      bossLivesRemaining: 3,
+      livesTotal: 3,
+      livesRemaining: 3,
       duelDifficultyPreset: "medium",
       createdAt: 456,
     });

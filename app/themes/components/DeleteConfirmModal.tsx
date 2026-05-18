@@ -1,8 +1,9 @@
 "use client";
 
-import { colors } from "@/lib/theme";
-import { themeActionButtonClassName, themeOutlineButtonClassName, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 interface DeleteConfirmModalProps {
   isOpen: boolean;
   itemName: string;
@@ -30,6 +31,7 @@ export function DeleteConfirmModal({
   onConfirm,
   onCancel,
 }: DeleteConfirmModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
@@ -39,7 +41,7 @@ export function DeleteConfirmModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Delete {itemType === "theme" ? "Theme" : "Word"}?
@@ -71,7 +73,7 @@ export function DeleteConfirmModal({
             onClick={onCancel}
             disabled={isDeleting}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-delete-cancel"
           >
             Cancel

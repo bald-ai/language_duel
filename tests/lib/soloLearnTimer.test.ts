@@ -7,7 +7,7 @@ import {
   shouldShowSoloLearnTimer,
   SOLO_INFINITE_STUDY_SECONDS,
   SOLO_TIMER_OPTIONS,
-} from "@/app/solo/learn/soloLearnTimer";
+} from "@/lib/soloLearnTimer";
 import { SOLO_INFINITE_STUDY_SECONDS as BackendSoloInfinite } from "@/convex/constants";
 
 describe("solo learn timer", () => {

@@ -87,7 +87,7 @@ describe("duel gameplay rules", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "big",
-      bossLivesRemaining: 1,
+      livesRemaining: 1,
     });
     const spacedRepetitionDuel = duelDoc({ sourceType: "spaced_repetition" });
 

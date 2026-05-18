@@ -5,9 +5,11 @@ import {
   getBossButtonStyle,
   isBossButtonDisabled,
 } from "@/app/goals/bossUi";
-import { colors } from "@/lib/theme";
+import { DEFAULT_THEME_NAME, getThemeColors } from "@/lib/theme";
 
 describe("bossUi", () => {
+  const colors = getThemeColors(DEFAULT_THEME_NAME);
+
   it("formats defeated bosses with a checkmark", () => {
     expect(formatBossStatus("defeated")).toBe("✓ Defeated");
     expect(formatBossStatus("ready")).toBe("Ready");
@@ -15,15 +17,15 @@ describe("bossUi", () => {
   });
 
   it("uses distinct styles for unavailable, ready, and defeated states", () => {
-    const unavailable = getBossButtonStyle("unavailable");
+    const unavailable = getBossButtonStyle("unavailable", colors);
     expect(unavailable.borderColor).toBe(colors.primary.dark);
     expect(unavailable.backgroundColor).toBe(colors.background.DEFAULT);
 
-    const ready = getBossButtonStyle("ready");
+    const ready = getBossButtonStyle("ready", colors);
     expect(ready.borderColor).toBe(colors.cta.DEFAULT);
     expect(ready.backgroundColor).toBe(`${colors.cta.DEFAULT}15`);
 
-    const defeated = getBossButtonStyle("defeated");
+    const defeated = getBossButtonStyle("defeated", colors);
     expect(defeated.borderColor).toBe(colors.status.success.DEFAULT);
     expect(defeated.backgroundColor).toBe(`${colors.status.success.DEFAULT}15`);
   });

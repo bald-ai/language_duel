@@ -141,10 +141,10 @@ const validAnswerAndWrongs = {
 const themeValidWords = Array.from({ length: 5 }, (_, index) =>
   validEntry({
     word: `word-${index}`,
-    answer: `answer-${index}`,
+    answer: `el answer-${index}`,
     wrongAnswers: Array.from(
       { length: 6 },
-      (__, wrongIndex) => `wrong-${index}-${wrongIndex}`
+      (__, wrongIndex) => `el wrong-${index}-${wrongIndex}`
     ),
   })
 );
@@ -563,6 +563,7 @@ describe("/api/generate semantic validation", () => {
         expect(response.status).toBe(200);
         expect(payload.success).toBe(true);
         expect(payload.data).toEqual(branch.responseData);
+        expect(payload).not.toHaveProperty("prompt");
         expect(responsesCreateMock).toHaveBeenCalledTimes(1);
         expect(mutationMock).toHaveBeenCalledTimes(1);
       });

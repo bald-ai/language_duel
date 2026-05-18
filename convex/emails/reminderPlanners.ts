@@ -10,7 +10,7 @@ type WeeklyGoalReminderGoal = {
   creatorId: Id<"users">;
   partnerId: Id<"users">;
   status: string;
-  bossStatus?: string;
+  bigBossStatus?: string;
   endDate?: number;
 };
 

@@ -1,12 +1,12 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   getThemeActionButtonStyle,
   themeActionButtonClassName,
-  themeModalPanelStyle,
+  getThemeModalPanelStyle,
   themeOutlineButtonClassName,
-  themeOutlineButtonStyle,
+  getThemeOutlineButtonStyle,
 } from "./themeStyles";
 
 interface DiscardPickAndPruneModalProps {
@@ -20,6 +20,7 @@ export function DiscardPickAndPruneModal({
   onConfirm,
   onCancel,
 }: DiscardPickAndPruneModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
@@ -29,7 +30,7 @@ export function DiscardPickAndPruneModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Discard generated words?
@@ -43,7 +44,7 @@ export function DiscardPickAndPruneModal({
           <button
             onClick={onCancel}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-pick-prune-discard-cancel"
           >
             Keep reviewing
@@ -51,7 +52,7 @@ export function DiscardPickAndPruneModal({
           <button
             onClick={onConfirm}
             className={themeActionButtonClassName}
-            style={getThemeActionButtonStyle("danger")}
+            style={getThemeActionButtonStyle("danger", colors)}
             data-testid="theme-pick-prune-discard-confirm"
           >
             Discard

@@ -2,7 +2,7 @@
 
 import { EDIT_MODES, type EditMode, type FieldType } from "../constants";
 import { RegenerateConfirmModal } from "./RegenerateConfirmModal";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   CUSTOM_INSTRUCTIONS_MAX_LENGTH,
   THEME_ANSWER_INPUT_MAX_LENGTH,
@@ -10,7 +10,7 @@ import {
   THEME_WORD_INPUT_MAX_LENGTH,
   THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
 } from "@/lib/themes/constants";
-import { getThemeActionButtonStyle, themeOutlineButtonStyle } from "./themeStyles";
+import { getThemeActionButtonStyle, getThemeOutlineButtonStyle } from "./themeStyles";
 
 interface WordEditorProps {
   editingField: FieldType;
@@ -75,6 +75,7 @@ export function WordEditor({
   onRegenerateCancel,
   onBack,
 }: WordEditorProps) {
+  const colors = useAppearanceColors();
   const fieldLabel =
     editingField === "word"
       ? "Word"
@@ -190,7 +191,7 @@ export function WordEditor({
                 onClick={onGenerate}
                 disabled={isGenerating}
                 className={rowActionButtonClassName}
-                style={getThemeActionButtonStyle("primary")}
+                style={getThemeActionButtonStyle("primary", colors)}
                 data-testid="word-editor-generate"
               >
                 {isGenerating ? "Generating..." : "Generate"}
@@ -198,7 +199,7 @@ export function WordEditor({
               <button
                 onClick={onGoToManual}
                 className={outlineButtonClassName}
-                style={themeOutlineButtonStyle}
+                style={getThemeOutlineButtonStyle(colors)}
                 data-testid="word-editor-manual"
               >
                 Manually
@@ -206,7 +207,7 @@ export function WordEditor({
               <button
                 onClick={onBack}
                 className={outlineButtonClassName}
-                style={themeOutlineButtonStyle}
+                style={getThemeOutlineButtonStyle(colors)}
                 data-testid="word-editor-cancel"
               >
                 Cancel
@@ -285,7 +286,7 @@ export function WordEditor({
               <button
                 onClick={onAcceptGenerated}
                 className={rowActionButtonClassName}
-                style={getThemeActionButtonStyle("primary")}
+                style={getThemeActionButtonStyle("primary", colors)}
                 data-testid="word-editor-accept"
               >
                 Accept
@@ -294,7 +295,7 @@ export function WordEditor({
                 onClick={onRegenerate}
                 disabled={isGenerating}
                 className={outlineButtonClassName}
-                style={themeOutlineButtonStyle}
+                style={getThemeOutlineButtonStyle(colors)}
                 data-testid="word-editor-regenerate"
               >
                 {isGenerating ? "..." : "Regenerate"}
@@ -302,7 +303,7 @@ export function WordEditor({
               <button
                 onClick={onBack}
                 className={outlineButtonClassName}
-                style={themeOutlineButtonStyle}
+                style={getThemeOutlineButtonStyle(colors)}
                 data-testid="word-editor-cancel"
               >
                 Cancel
@@ -348,7 +349,7 @@ export function WordEditor({
                 onClick={onSaveManual}
                 disabled={!manualValue.trim()}
                 className={rowActionButtonClassName}
-                style={getThemeActionButtonStyle("primary")}
+                style={getThemeActionButtonStyle("primary", colors)}
                 data-testid="word-editor-save-manual"
               >
                 Save
@@ -356,7 +357,7 @@ export function WordEditor({
               <button
                 onClick={onBack}
                 className={outlineButtonClassName}
-                style={themeOutlineButtonStyle}
+                style={getThemeOutlineButtonStyle(colors)}
                 data-testid="word-editor-cancel"
               >
                 Cancel

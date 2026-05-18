@@ -1,7 +1,7 @@
 "use client";
 
 import { themeOptions } from "@/lib/theme";
-import { useColorSet } from "@/app/components/ThemeProvider";
+import { useColorSet } from "@/app/components/AppearanceProvider";
 
 /**
  * ColorSetSelector - Allows users to select from 5 color palettes

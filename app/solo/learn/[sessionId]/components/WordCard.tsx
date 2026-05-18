@@ -4,9 +4,10 @@ import { memo, useMemo } from "react";
 import { ConfidenceSlider, type ConfidenceLevel } from "./ConfidenceSlider";
 import { LetterGroups } from "./LetterGroups";
 import { EyeIcon, EyeSlashIcon, SpeakerIcon } from "@/app/components/icons";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { stripIrr } from "@/lib/stringUtils";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 interface WordCardProps {
   word: {
     word: string;
@@ -78,6 +79,7 @@ export const WordCard = memo(function WordCard({
   onPlayTTS,
   dataTestIdBase,
 }: WordCardProps) {
+  const colors = useAppearanceColors();
   // Memoize computed styles to avoid recreation
   const computedStyle = useMemo(() => ({
     ...cardStyleBase,

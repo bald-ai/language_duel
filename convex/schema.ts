@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
+import { TTS_PROVIDER_IDS } from "../lib/tts/providers";
 
 // ===========================================
 // Shared Validators
@@ -17,6 +18,11 @@ export const wordTypeValidator = v.union(
   v.literal("verbs"),
   v.literal("adjectives"),
   v.literal("adverbs")
+);
+
+export const ttsProviderValidator = v.union(
+  v.literal(TTS_PROVIDER_IDS.RESEMBLE),
+  v.literal(TTS_PROVIDER_IDS.ELEVENLABS)
 );
 
 export const optionalWordTypeValidator = v.optional(wordTypeValidator);
@@ -186,8 +192,8 @@ export default defineSchema({
     discriminator: v.optional(v.number()),
     llmCreditsRemaining: v.optional(v.number()),
     ttsGenerationsRemaining: v.optional(v.number()),
-    // TTS provider preference: 'resemble' (default) or 'elevenlabs'
-    ttsProvider: v.optional(v.union(v.literal("resemble"), v.literal("elevenlabs"))),
+    // TTS provider preference. Default lives in lib/tts/providers.
+    ttsProvider: v.optional(ttsProviderValidator),
     creditsMonth: v.optional(v.string()),
     // User preferences for theme system
     selectedColorSet: v.optional(v.string()),
@@ -284,8 +290,8 @@ export default defineSchema({
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     bossType: v.optional(bossTypeValidator),
     spacedRepetitionStep: v.optional(v.number()),
-    bossLivesTotal: v.optional(v.number()),
-    bossLivesRemaining: v.optional(v.number()),
+    livesTotal: v.optional(v.number()),
+    livesRemaining: v.optional(v.number()),
     status: duelStatusValidator,
     createdAt: v.number(),
 
@@ -370,7 +376,7 @@ export default defineSchema({
     lockedAt: v.optional(v.number()),
     endDate: v.optional(v.number()),
     miniBossStatus: weeklyGoalBossStatusValidator,
-    bossStatus: weeklyGoalBossStatusValidator,
+    bigBossStatus: weeklyGoalBossStatusValidator,
     status: weeklyGoalLifecycleStatusValidator,
     completedAt: v.optional(v.number()),
     createdAt: v.number(),

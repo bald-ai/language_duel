@@ -170,13 +170,6 @@ export const WORD_TYPE_OPTIONS = WORD_TYPE_VALUES.map((value) => ({
   label: WORD_TYPE_CONFIG[value].label,
 }));
 
-export const WORD_TYPES = {
-  NOUNS: "nouns",
-  VERBS: "verbs",
-  ADJECTIVES: "adjectives",
-  ADVERBS: "adverbs",
-} as const satisfies Record<string, WordType>;
-
 export function isWordType(value: unknown): value is WordType {
   return typeof value === "string" && Object.hasOwn(WORD_TYPE_CONFIG, value);
 }

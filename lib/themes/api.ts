@@ -1,6 +1,7 @@
 import type { WordEntry } from "@/lib/types";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import type { WordType } from "@/lib/themes/wordTypes";
+import { isRecord } from "@/lib/typeGuards";
 export type { WordType } from "@/lib/themes/wordTypes";
 
 export type FieldType = "word" | "answer" | "wrong";
@@ -11,10 +12,6 @@ type GenerateApiEnvelope = {
   error?: string;
   prompt?: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");

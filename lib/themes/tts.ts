@@ -1,18 +1,18 @@
-export interface ThemeWordWithTts {
+export interface ThemeWordWithTts<TStorageId extends string = string> {
   word: string;
   answer: string;
   wrongAnswers: string[];
-  ttsStorageId?: string;
+  ttsStorageId?: TStorageId;
 }
 
-export interface GeneratedWordTtsResult {
+export interface GeneratedWordTtsResult<TStorageId extends string = string> {
   wordIndex: number;
   sourceWord: string;
   sourceAnswer: string;
-  storageId: string;
+  storageId: TStorageId;
 }
 
-export interface ApplyGeneratedTtsResult<TWord extends ThemeWordWithTts> {
+export interface ApplyGeneratedTtsResult<TWord extends ThemeWordWithTts<string>> {
   words: TWord[];
   applied: number;
   skipped: number;
@@ -30,7 +30,7 @@ export function hasWordOrAnswerChanged(
  * TTS stays valid only when both word and answer are unchanged.
  * Wrong answer edits keep the existing TTS ID.
  */
-export function reconcileThemeWordTts<TWord extends ThemeWordWithTts>(
+export function reconcileThemeWordTts<TWord extends ThemeWordWithTts<string>>(
   previousWords: readonly TWord[],
   nextWords: readonly TWord[]
 ): TWord[] {
@@ -72,9 +72,9 @@ export function reconcileThemeWordTts<TWord extends ThemeWordWithTts>(
  * Applies generated TTS IDs only if the original source snapshot still matches.
  * This protects against stale action results overwriting words edited during generation.
  */
-export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts>(
+export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts<string>>(
   currentWords: readonly TWord[],
-  generatedResults: readonly GeneratedWordTtsResult[]
+  generatedResults: readonly GeneratedWordTtsResult<NonNullable<TWord["ttsStorageId"]>>[]
 ): ApplyGeneratedTtsResult<TWord> {
   const words = currentWords.map((word) => ({ ...word })) as TWord[];
   let applied = 0;
@@ -106,6 +106,6 @@ export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts>(
   return { words, applied, skipped };
 }
 
-export function hasMissingThemeTts(words: readonly ThemeWordWithTts[]): boolean {
+export function hasMissingThemeTts(words: readonly ThemeWordWithTts<string>[]): boolean {
   return words.some((word) => !word.ttsStorageId);
 }

@@ -4,9 +4,9 @@ import {
   POOL_EXPANSION_THRESHOLD,
 } from "./constants";
 
-export const LEVEL_UP_CHANCE = 0.66;
-export const LEVEL2_TYPING_CHANCE = 0.5;
-export const LEVEL1_REVERSE_CHANCE = 0.5;
+export const LEVEL_UP_PROBABILITY = 0.66;
+export const LEVEL_2_TYPING_PROBABILITY = 0.5;
+export const LEVEL_1_REVERSE_PROBABILITY = 0.5;
 export const SOLO_CORRECT_ADVANCE_DELAY_MS = 750;
 export const SOLO_INCORRECT_ADVANCE_DELAY_MS = 2250;
 
@@ -66,8 +66,8 @@ export function pickSoloQuestionLevel(
   random: RandomSource
 ): SoloQuestionLevel {
   if (mastery === 0) return 0;
-  if (mastery === 1) return random() < LEVEL_UP_CHANCE ? 1 : 2;
-  if (mastery === 2) return random() < LEVEL_UP_CHANCE ? 2 : 3;
+  if (mastery === 1) return random() < LEVEL_UP_PROBABILITY ? 1 : 2;
+  if (mastery === 2) return random() < LEVEL_UP_PROBABILITY ? 2 : 3;
   return 3;
 }
 
@@ -76,11 +76,11 @@ export function pickSoloQuestionDirection(
   random: RandomSource
 ): SoloTranslationDirection {
   if (questionLevel !== 1) return "forward";
-  return random() < LEVEL1_REVERSE_CHANCE ? "reverse" : "forward";
+  return random() < LEVEL_1_REVERSE_PROBABILITY ? "reverse" : "forward";
 }
 
 export function pickSoloLevel2Mode(random: RandomSource): SoloLevel2Mode {
-  return random() < LEVEL2_TYPING_CHANCE ? "typing" : "multiple_choice";
+  return random() < LEVEL_2_TYPING_PROBABILITY ? "typing" : "multiple_choice";
 }
 
 export function initializeSoloSession(params: {
@@ -191,7 +191,7 @@ export function answerSoloQuestionCorrect(
   let answeredLevel2Plus = wordState.answeredLevel2Plus;
 
   if (state.questionLevel === 1) {
-    masteryLevel = random() < LEVEL_UP_CHANCE ? 2 : 3;
+    masteryLevel = random() < LEVEL_UP_PROBABILITY ? 2 : 3;
   } else if (state.questionLevel === 2) {
     masteryLevel = 3;
     answeredLevel2Plus = true;

@@ -7,17 +7,17 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { buildSoloUrl } from "@/lib/soloNavigation";
 import { getErrorMessage } from "@/lib/errors";
-
-type BossType = "mini" | "big";
+import type { BossType } from "@/lib/limitedLives";
 
 function isBossType(value: string): value is BossType {
   return value === "mini" || value === "big";
 }
 
 export default function BossLaunchPage() {
+  const colors = useAppearanceColors();
   const params = useParams();
   const router = useRouter();
   const [isStartingDuel, setIsStartingDuel] = useState(false);
@@ -35,10 +35,10 @@ export default function BossLaunchPage() {
   );
   const createBossChallenge = useMutation(api.weeklyGoals.createBossChallenge);
   const startBossSoloPractice = useMutation(api.weeklyGoals.startBossSoloPractice);
-  const bossStatus = preview?.bossStatus;
+  const selectedBossStatus = preview?.selectedBossStatus;
   const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
   const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
-  const canStart = bossStatus === "ready";
+  const canStart = selectedBossStatus === "ready";
 
   const handleChallengePartner = async () => {
     if (!goalId || !bossType) return;
@@ -183,7 +183,7 @@ export default function BossLaunchPage() {
                 Status
               </p>
               <p className="text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-                {bossStatus === "ready" ? "Ready to start" : bossStatus === "defeated" ? "Already defeated" : "Still unavailable"}
+                {selectedBossStatus === "ready" ? "Ready to start" : selectedBossStatus === "defeated" ? "Already defeated" : "Still unavailable"}
               </p>
             </div>
           </div>

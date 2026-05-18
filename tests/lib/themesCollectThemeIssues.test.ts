@@ -55,4 +55,32 @@ describe("collectThemeIssues", () => {
     expect(issueTypes).not.toContain("duplicate_word");
     expect(issueTypes).not.toContain("duplicate_wrong_answer");
   });
+
+  it("includes exact wrong-answer indices for UI presentation", () => {
+    const words = [
+      {
+        word: "cat",
+        answer: " el café ",
+        wrongAnswers: ["EL cafe", "té", " te ", "agua"],
+      },
+    ];
+
+    const issues = collectThemeIssues(words);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "wrong_answer_matches_correct",
+          wordIndex: 0,
+          wrongIndex: 0,
+        }),
+        expect.objectContaining({
+          type: "duplicate_wrong_answer",
+          wordIndex: 0,
+          firstWrongIndex: 1,
+          secondWrongIndex: 2,
+        }),
+      ])
+    );
+  });
 });

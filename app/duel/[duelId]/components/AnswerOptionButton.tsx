@@ -1,8 +1,9 @@
 "use client";
 
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 /**
  * Context needed to compute option state for an answer button.
  */
@@ -195,6 +196,7 @@ export function AnswerOptionButton({
   isFlying = false,
   dataTestId,
 }: AnswerOptionButtonProps) {
+  const colors = useAppearanceColors();
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
     : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative";

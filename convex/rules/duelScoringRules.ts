@@ -33,15 +33,15 @@ export function isLivesAttempt(duel: Doc<"duels">): boolean {
   return isBossAttempt(duel) || duel.sourceType === "spaced_repetition";
 }
 
-export function hasBossLivesLeft(duel: Doc<"duels">): boolean {
-  if (typeof duel.bossLivesRemaining === "number") {
-    return duel.bossLivesRemaining > 0;
+export function hasLivesLeft(duel: Doc<"duels">): boolean {
+  if (typeof duel.livesRemaining === "number") {
+    return duel.livesRemaining > 0;
   }
 
   return duel.challengerPerfectRun === true && duel.opponentPerfectRun === true;
 }
 
-export function getBossMissPatch(
+export function getLimitedLivesMissPatch(
   duel: Doc<"duels">,
   playerRole: "challenger" | "opponent"
 ): Partial<Doc<"duels">> {
@@ -49,8 +49,8 @@ export function getBossMissPatch(
     return {};
   }
 
-  const nextLives = typeof duel.bossLivesRemaining === "number"
-    ? Math.max(0, duel.bossLivesRemaining - 1)
+  const nextLives = typeof duel.livesRemaining === "number"
+    ? Math.max(0, duel.livesRemaining - 1)
     : undefined;
 
   const patch: Partial<Doc<"duels">> = playerRole === "challenger"
@@ -63,7 +63,7 @@ export function getBossMissPatch(
 
   return {
     ...patch,
-    bossLivesRemaining: nextLives,
+    livesRemaining: nextLives,
     ...(nextLives === 0 ? getBossAttemptEndFields() : {}),
   };
 }

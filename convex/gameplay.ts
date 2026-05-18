@@ -8,7 +8,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
 import { getSessionWords } from "./helpers/sessionWords";
-import { completeWeeklyGoalBoss } from "./weeklyGoals";
+import { completeBigBoss, completeMiniBoss } from "./weeklyGoals/bossWorkflows";
 import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
 import {
   buildAnswerPatch,
@@ -23,13 +23,13 @@ import {
 
 type DuelLifecycleIntent = {
   completed: boolean;
-  completeWeeklyGoalBoss: boolean;
+  completeWeeklyGoalMilestone: boolean;
   completeSpacedRepetition: boolean;
 };
 
 const noLifecycleIntent: DuelLifecycleIntent = {
   completed: false,
-  completeWeeklyGoalBoss: false,
+  completeWeeklyGoalMilestone: false,
   completeSpacedRepetition: false,
 };
 
@@ -39,8 +39,8 @@ async function scheduleLifecycleCompletions(
   intent: DuelLifecycleIntent
 ): Promise<void> {
   if (!intent.completed) return;
-  if (intent.completeWeeklyGoalBoss) {
-    await ctx.scheduler.runAfter(0, internal.gameplay.completeWeeklyGoalBossDuelInternal, {
+  if (intent.completeWeeklyGoalMilestone) {
+    await ctx.scheduler.runAfter(0, internal.gameplay.completeWeeklyGoalMilestoneDuelInternal, {
       duelId,
     });
   }
@@ -70,7 +70,7 @@ async function advanceDuelIfBothAnswered(
 
     const intent: DuelLifecycleIntent = {
       completed: true,
-      completeWeeklyGoalBoss: Boolean(duel.weeklyGoalId && duel.bossType && bossWasDefeated),
+      completeWeeklyGoalMilestone: Boolean(duel.weeklyGoalId && duel.bossType && bossWasDefeated),
       completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(duel),
     };
     await scheduleLifecycleCompletions(ctx, duelId, intent);
@@ -122,7 +122,7 @@ export const answerDuel = mutation({
     if (updatedDuel && updatedDuel.status === "completed") {
       return {
         completed: true,
-        completeWeeklyGoalBoss: shouldCompleteWeeklyGoalBoss(updatedDuel),
+        completeWeeklyGoalMilestone: shouldCompleteWeeklyGoalBoss(updatedDuel),
         completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
       };
     }
@@ -159,7 +159,7 @@ export const timeoutAnswer = mutation({
     if (updatedDuel && updatedDuel.status === "completed") {
       return {
         completed: true,
-        completeWeeklyGoalBoss: shouldCompleteWeeklyGoalBoss(updatedDuel),
+        completeWeeklyGoalMilestone: shouldCompleteWeeklyGoalBoss(updatedDuel),
         completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
       };
     }
@@ -167,7 +167,7 @@ export const timeoutAnswer = mutation({
   },
 });
 
-async function runWeeklyGoalBossCompletion(
+async function runWeeklyGoalMilestoneCompletion(
   ctx: MutationCtx,
   duel: Doc<"duels">
 ): Promise<{ completed: boolean }> {
@@ -183,7 +183,11 @@ async function runWeeklyGoalBossCompletion(
   const goal = await ctx.db.get(duel.weeklyGoalId);
   if (!goal) return { completed: false };
 
-  await completeWeeklyGoalBoss(ctx, goal, duel.bossType);
+  if (duel.bossType === "mini") {
+    await completeMiniBoss(ctx, goal);
+  } else {
+    await completeBigBoss(ctx, goal);
+  }
   return { completed: true };
 }
 
@@ -202,11 +206,11 @@ async function runSpacedRepetitionCompletion(
 // Public named lifecycle commands (kept for explicit retry/manual recovery).
 // Default code path triggers them via the scheduler from the answer flow so
 // completion does not depend on the client staying connected.
-export const completeWeeklyGoalBossDuel = mutation({
+export const completeWeeklyGoalMilestoneDuel = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel } = await getDuelParticipant(ctx, duelId);
-    return runWeeklyGoalBossCompletion(ctx, duel);
+    return runWeeklyGoalMilestoneCompletion(ctx, duel);
   },
 });
 
@@ -220,12 +224,12 @@ export const completeSpacedRepetitionDuel = mutation({
 
 // Internal lifecycle commands invoked by the scheduler so completion is
 // guaranteed even if the answering client closes the tab mid-finalization.
-export const completeWeeklyGoalBossDuelInternal = internalMutation({
+export const completeWeeklyGoalMilestoneDuelInternal = internalMutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const duel = await ctx.db.get(duelId);
     if (!duel) return { completed: false };
-    return runWeeklyGoalBossCompletion(ctx, duel);
+    return runWeeklyGoalMilestoneCompletion(ctx, duel);
   },
 });
 

@@ -8,8 +8,8 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import DuelSession from "./DuelSession";
 import { ThemedPage } from "@/app/components/ThemedPage";
-import { colors } from "@/lib/theme";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 const FullScreenMessage = ({ children }: { children: React.ReactNode }) => (
   <div
     className="min-h-screen flex items-center justify-center"

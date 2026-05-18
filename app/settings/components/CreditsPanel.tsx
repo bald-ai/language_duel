@@ -6,7 +6,7 @@ import {
   LLM_THEME_CREDITS,
   LLM_SMALL_ACTION_CREDITS,
 } from "@/lib/credits/constants";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 type CreditsPanelProps = {
   llmCreditsRemaining?: number;
@@ -17,7 +17,7 @@ export function CreditsPanel({
   llmCreditsRemaining,
   ttsGenerationsRemaining,
 }: CreditsPanelProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const llmRemaining = llmCreditsRemaining ?? LLM_MONTHLY_CREDITS;
   const ttsRemaining = ttsGenerationsRemaining ?? TTS_MONTHLY_GENERATIONS;
 

@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
+import { toUserSummary } from "./helpers/userSummary";
 import { DISMISSED_NOTIFICATION_TTL_MS } from "./constants";
 import {
     DISMISSABLE_NOTIFICATION_TYPES,
@@ -14,16 +15,6 @@ import {
 
 type NotificationDoc = Doc<"notifications">;
 type UserDoc = Doc<"users">;
-
-const buildUserSummary = (user: UserDoc | null) => {
-    if (!user) return null;
-    return {
-        name: user.name,
-        nickname: user.nickname,
-        discriminator: user.discriminator,
-        imageUrl: user.imageUrl,
-    };
-};
 
 async function enrichNotificationsWithSender(
     ctx: { db: { get: (id: Id<"users">) => Promise<UserDoc | null> } },
@@ -40,7 +31,7 @@ async function enrichNotificationsWithSender(
         const fromUser = usersById.get(notification.fromUserId) ?? null;
         return {
             ...notification,
-            fromUser: buildUserSummary(fromUser),
+            fromUser: toUserSummary(fromUser),
         };
     });
 }

@@ -65,7 +65,7 @@ class InMemoryDb {
     patchRow(this.notifications, id, value);
   }
 
-  async insert(table: "friends", value: Omit<FriendDoc, "_id" | "_creationTime">) {
+  async insert(_table: "friends", value: Omit<FriendDoc, "_id" | "_creationTime">) {
     const inserted = insertRow<FriendDoc>(
       this.friends,
       "friendship",

@@ -7,14 +7,16 @@ import { DUEL_DIFFICULTY_OPTIONS } from "./challengeOptions";
 import { ModalShell } from "./ModalShell";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import {
   actionButtonClassName,
-  ctaActionStyle,
+  getCtaActionStyle,
   outlineButtonClassName,
-  outlineButtonStyle,
+  getOutlineButtonStyle,
 } from "./modalButtonStyles";
+import type { ModalTheme } from "./types";
+import type { CreateChallengeOptions } from "@/hooks/challengeLobby/types";
 
 interface User {
   _id: Id<"users">;
@@ -24,26 +26,14 @@ interface User {
   discriminator?: number;
 }
 
-interface Theme {
-  _id: Id<"themes">;
-  name: string;
-  words: unknown[];
-}
-
 interface PendingChallenge {
   challenge: { _id: Id<"challenges"> };
   challenger: { name?: string; nickname?: string; discriminator?: number } | null;
 }
 
-interface CreateChallengeOptions {
-  opponentId: Id<"users">;
-  themeIds: Id<"themes">[];
-  duelDifficultyPreset?: DuelDifficultyPreset;
-}
-
 interface ChallengeModalProps {
   users: User[] | undefined;
-  themes: Theme[] | undefined;
+  themes: ModalTheme[] | undefined;
   pendingChallenges: PendingChallenge[] | undefined;
   isJoiningDuel: boolean;
   isCreatingChallenge: boolean;
@@ -70,6 +60,7 @@ export function ChallengeModal({
   onNavigateToThemes,
   initialOpponentId,
 }: ChallengeModalProps) {
+  const colors = useAppearanceColors();
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
@@ -130,7 +121,7 @@ export function ChallengeModal({
           onClick={handleCreateChallenge}
           disabled={!canCreate || isCreatingChallenge}
           className={actionButtonClassName}
-          style={ctaActionStyle}
+          style={getCtaActionStyle(colors)}
           data-testid="duel-modal-create"
         >
           {isCreatingChallenge ? "Creating..." : "Create Challenge"}
@@ -138,7 +129,7 @@ export function ChallengeModal({
         <button
           onClick={onClose}
           className={outlineButtonClassName}
-          style={outlineButtonStyle}
+          style={getOutlineButtonStyle(colors)}
           data-testid="duel-modal-cancel"
         >
           Cancel
@@ -163,6 +154,7 @@ function ChallengeRespondSurface({
   onAcceptChallenge,
   onDeclineChallenge,
 }: ChallengeRespondSurfaceProps) {
+  const colors = useAppearanceColors();
   if (pendingChallenges === undefined) {
     return (
       <div
@@ -252,11 +244,11 @@ function ChallengeRespondSurface({
 
 interface ChallengeCreateSurfaceProps {
   users: User[] | undefined;
-  themes: Theme[] | undefined;
+  themes: ModalTheme[] | undefined;
   selectedOpponentId: Id<"users"> | null;
   selectedOpponent: User | null;
   selectedThemeIds: Id<"themes">[];
-  selectedThemes: Theme[];
+  selectedThemes: ModalTheme[];
   selectedDifficulty: DuelDifficultyPreset;
   onSelectOpponent: (id: Id<"users">) => void;
   onToggleTheme: (themeId: Id<"themes">) => void;
@@ -277,6 +269,7 @@ function ChallengeCreateSurface({
   onSelectDifficulty,
   onNavigateToThemes,
 }: ChallengeCreateSurfaceProps) {
+  const colors = useAppearanceColors();
   return (
     <>
       <div>
@@ -325,6 +318,7 @@ interface OpponentSelectorProps {
 }
 
 const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
+  const colors = useAppearanceColors();
   if (!users) {
     return (
       <div
@@ -421,9 +415,9 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
 });
 
 interface CompactThemeSelectorProps {
-  themes: Theme[] | undefined;
+  themes: ModalTheme[] | undefined;
   selectedThemeIds: Id<"themes">[];
-  selectedThemes: Theme[];
+  selectedThemes: ModalTheme[];
   onToggleTheme: (themeId: Id<"themes">) => void;
   onCreateTheme: () => void;
 }
@@ -435,6 +429,7 @@ const CompactThemeSelector = memo(function CompactThemeSelector({
   onToggleTheme,
   onCreateTheme,
 }: CompactThemeSelectorProps) {
+  const colors = useAppearanceColors();
   const goalThemeIds = useWeeklyGoalThemeIds();
 
   if (!themes) {
@@ -562,6 +557,7 @@ interface DifficultySelectorProps {
 }
 
 const DifficultySelector = memo(function DifficultySelector({ selectedDifficulty, onSelect }: DifficultySelectorProps) {
+  const colors = useAppearanceColors();
   return (
     <div className="space-y-2">
       {DUEL_DIFFICULTY_OPTIONS.map((opt) => {

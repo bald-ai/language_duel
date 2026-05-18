@@ -205,7 +205,7 @@ export const themeOptions = colorPalettes.map((palette) => ({
 }));
 
 // =============================================================================
-// MUTABLE RUNTIME TOKENS
+// PURE THEME HELPERS
 // =============================================================================
 
 const cloneThemeColors = (source: ThemeColors): ThemeColors => ({
@@ -222,68 +222,23 @@ const cloneThemeColors = (source: ThemeColors): ThemeColors => ({
   },
 });
 
-const assignGroup = <T extends Record<string, string>>(target: T, source: T) => {
-  Object.assign(target, source);
-};
-
-const applyThemeColors = (target: ThemeColors, source: ThemeColors) => {
-  assignGroup(target.primary, source.primary);
-  assignGroup(target.cta, source.cta);
-  assignGroup(target.neutral, source.neutral);
-  assignGroup(target.secondary, source.secondary);
-  assignGroup(target.background, source.background);
-  assignGroup(target.text, source.text);
-  assignGroup(target.status.success, source.status.success);
-  assignGroup(target.status.warning, source.status.warning);
-  assignGroup(target.status.danger, source.status.danger);
-};
-
 export const isThemeName = (value: string): value is ThemeName =>
   Object.prototype.hasOwnProperty.call(themes, value);
 
-let activeThemeName: ThemeName = DEFAULT_THEME_NAME;
+export const getThemeColors = (themeName: ThemeName): ThemeColors => {
+  const theme = themes[themeName];
+  if (!theme) {
+    throw new Error(`Unknown theme name: ${themeName}`);
+  }
 
-export const colors: ThemeColors = cloneThemeColors(themes[activeThemeName].colors);
-
-// =============================================================================
-// SEMANTIC COLOR ROLES
-// =============================================================================
-
-type SemanticColors = {
-  buttonPrimary: ThemeColors["primary"];
-  buttonCta: ThemeColors["cta"];
-  badge: string;
-  badgeBorder: string;
-  accent: ThemeColors["neutral"];
-  pageBg: string;
-  cardBg: string;
-};
-
-export const semanticColors: SemanticColors = {
-  buttonPrimary: colors.primary,
-  buttonCta: colors.cta,
-  badge: colors.cta.DEFAULT,
-  badgeBorder: colors.cta.lighter,
-  accent: colors.neutral,
-  pageBg: colors.background.DEFAULT,
-  cardBg: colors.background.elevated,
-};
-
-const applySemanticColors = (target: SemanticColors, themeColors: ThemeColors) => {
-  target.buttonPrimary = themeColors.primary;
-  target.buttonCta = themeColors.cta;
-  target.badge = themeColors.cta.DEFAULT;
-  target.badgeBorder = themeColors.cta.lighter;
-  target.accent = themeColors.neutral;
-  target.pageBg = themeColors.background.DEFAULT;
-  target.cardBg = themeColors.background.elevated;
+  return cloneThemeColors(theme.colors);
 };
 
 // =============================================================================
 // BUTTON STYLE PRESETS
 // =============================================================================
 
-type ButtonStyles = {
+export type ButtonStyles = {
   primary: {
     gradient: {
       from: string;
@@ -318,7 +273,7 @@ type ButtonStyles = {
   };
 };
 
-const createButtonStyles = (themeColors: ThemeColors): ButtonStyles => ({
+export const getButtonStyles = (themeColors: ThemeColors): ButtonStyles => ({
   primary: {
     gradient: {
       from: themeColors.primary.DEFAULT,
@@ -353,26 +308,11 @@ const createButtonStyles = (themeColors: ThemeColors): ButtonStyles => ({
   },
 });
 
-export const buttonStyles: ButtonStyles = createButtonStyles(colors);
-
-const applyButtonStyles = (target: ButtonStyles, source: ButtonStyles) => {
-  assignGroup(target.primary.gradient, source.primary.gradient);
-  assignGroup(target.primary.gradientHover, source.primary.gradientHover);
-  assignGroup(target.primary.border, source.primary.border);
-  target.primary.glow = source.primary.glow;
-  assignGroup(target.cta.gradient, source.cta.gradient);
-  assignGroup(target.cta.gradientHover, source.cta.gradientHover);
-  assignGroup(target.cta.border, source.cta.border);
-  target.cta.glow = source.cta.glow;
-};
-
 // =============================================================================
-// RUNTIME THEME SWITCHING
+// CSS VARIABLE WRITING
 // =============================================================================
 
-export const getActiveThemeName = () => activeThemeName;
-
-const applyCssVariables = (themeColors: ThemeColors, themeName: ThemeName) => {
+export const applyThemeCssVariables = (themeName: ThemeName, themeColors: ThemeColors) => {
   if (typeof document === "undefined") {
     return;
   }
@@ -413,20 +353,8 @@ const applyCssVariables = (themeColors: ThemeColors, themeName: ThemeName) => {
   root.style.setProperty("--color-danger-dark", themeColors.status.danger.dark);
 };
 
-export const applyTheme = (themeName: ThemeName) => {
-  const theme = themes[themeName] ?? themes[DEFAULT_THEME_NAME];
-  activeThemeName = themes[themeName] ? themeName : DEFAULT_THEME_NAME;
-
-  applyThemeColors(colors, theme.colors);
-  applyButtonStyles(buttonStyles, createButtonStyles(theme.colors));
-  applySemanticColors(semanticColors, theme.colors);
-  applyCssVariables(theme.colors, activeThemeName);
-
-  return activeThemeName;
-};
-
 // =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
-export type ButtonVariant = keyof typeof buttonStyles;
+export type ButtonVariant = keyof ButtonStyles;

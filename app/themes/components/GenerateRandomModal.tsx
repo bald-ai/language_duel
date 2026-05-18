@@ -4,9 +4,9 @@ import {
   GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
   MAX_RANDOM_WORD_COUNT,
 } from "../constants";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { FormError } from "@/app/components/FormError";
-import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
 interface GenerateRandomModalProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ export function GenerateRandomModal({
   onGeneratePickAndPrune,
   onClose,
 }: GenerateRandomModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
@@ -42,7 +43,7 @@ export function GenerateRandomModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Generate Random Words
@@ -95,7 +96,7 @@ export function GenerateRandomModal({
             onClick={onGenerate}
             disabled={isGenerating}
             className={themeActionButtonClassName}
-            style={getThemeActionButtonStyle("primary")}
+            style={getThemeActionButtonStyle("primary", colors)}
             data-testid="theme-generate-random-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
@@ -104,7 +105,7 @@ export function GenerateRandomModal({
             onClick={onClose}
             disabled={isGenerating}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-generate-random-cancel"
           >
             Cancel
@@ -133,7 +134,7 @@ export function GenerateRandomModal({
             onClick={onGeneratePickAndPrune}
             disabled={isGenerating}
             className={`${themeOutlineButtonClassName} mt-3 w-full`}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-generate-random-pick-prune-try"
           >
             Try

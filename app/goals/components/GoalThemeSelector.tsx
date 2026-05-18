@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { MAX_THEMES_PER_GOAL } from "../constants";
 
 interface GoalThemeSelectorProps {
@@ -20,6 +20,7 @@ export function GoalThemeSelector({
   onSelect,
   onClose,
 }: GoalThemeSelectorProps) {
+  const colors = useAppearanceColors();
   const [selectedIds, setSelectedIds] = useState<Set<Id<"themes">>>(new Set());
   const eligibleThemes = useQuery(api.weeklyGoals.getEligibleThemes, { goalId });
 

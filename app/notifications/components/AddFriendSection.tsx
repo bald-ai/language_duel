@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import Image from "next/image";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -19,6 +19,7 @@ import { getErrorMessage } from "@/lib/errors";
  * - Send friend request action
  */
 export function AddFriendSection() {
+  const colors = useAppearanceColors();
     const [searchTerm, setSearchTerm] = useState("");
 
     const searchResults = useQuery(
@@ -167,5 +168,3 @@ function SearchIcon() {
         </svg>
     );
 }
-
-export default AddFriendSection;

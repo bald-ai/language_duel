@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface DeleteGoalButtonProps {
     onDelete: () => Promise<void>;
 }
 
 export function DeleteGoalButton({ onDelete }: DeleteGoalButtonProps) {
+  const colors = useAppearanceColors();
     const [showConfirm, setShowConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 

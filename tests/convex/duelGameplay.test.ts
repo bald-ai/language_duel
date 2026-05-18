@@ -4,8 +4,8 @@ import {
   answerDuel,
   completeSpacedRepetitionDuel,
   completeSpacedRepetitionDuelInternal,
-  completeWeeklyGoalBossDuel,
-  completeWeeklyGoalBossDuelInternal,
+  completeWeeklyGoalMilestoneDuel,
+  completeWeeklyGoalMilestoneDuelInternal,
   timeoutAnswer,
 } from "@/convex/gameplay";
 import { eliminateOption } from "@/convex/hints";
@@ -148,7 +148,7 @@ describe("duel gameplay", () => {
       _handler: (
         ctx: unknown,
         args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
-      ) => Promise<{ completed: boolean; completeWeeklyGoalBoss: boolean; completeSpacedRepetition: boolean }>;
+      ) => Promise<{ completed: boolean; completeWeeklyGoalMilestone: boolean; completeSpacedRepetition: boolean }>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
@@ -244,7 +244,7 @@ describe("duel gameplay", () => {
     ).rejects.toThrow("Cannot eliminate the correct answer");
   });
 
-  it("removes shared boss lives when players miss", async () => {
+  it("removes shared limited lives when players miss", async () => {
     const db = new InMemoryDb();
     db.users.push(
       userDoc(),
@@ -255,8 +255,8 @@ describe("duel gameplay", () => {
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         sourceType: "boss",
         bossType: "big",
-        bossLivesTotal: 3,
-        bossLivesRemaining: 3,
+        livesTotal: 3,
+        livesRemaining: 3,
         challengerPerfectRun: true,
         opponentPerfectRun: true,
         duelQuestions: [
@@ -283,7 +283,7 @@ describe("duel gameplay", () => {
       questionIndex: 0,
     });
 
-    expect(db.duels[0].bossLivesRemaining).toBe(2);
+    expect(db.duels[0].livesRemaining).toBe(2);
     expect(db.duels[0].status).toBe("active");
     expect(db.duels[0].challengerPerfectRun).toBe(false);
 
@@ -296,10 +296,10 @@ describe("duel gameplay", () => {
 
     expect(result).toEqual({
       completed: true,
-      completeWeeklyGoalBoss: true,
+      completeWeeklyGoalMilestone: true,
       completeSpacedRepetition: false,
     });
-    expect(db.duels[0].bossLivesRemaining).toBe(1);
+    expect(db.duels[0].livesRemaining).toBe(1);
     expect(db.duels[0].status).toBe("completed");
     expect(db.duels[0].opponentPerfectRun).toBe(false);
     // Boss completion must be scheduled server-side so it does not depend on the
@@ -321,8 +321,8 @@ describe("duel gameplay", () => {
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         sourceType: "boss",
         bossType: "mini",
-        bossLivesTotal: 1,
-        bossLivesRemaining: 1,
+        livesTotal: 1,
+        livesRemaining: 1,
         challengerPerfectRun: true,
         opponentPerfectRun: true,
       })
@@ -332,7 +332,7 @@ describe("duel gameplay", () => {
       _handler: (
         ctx: unknown,
         args: { duelId: Id<"duels">; questionIndex: number }
-      ) => Promise<{ completed: boolean; completeWeeklyGoalBoss: boolean; completeSpacedRepetition: boolean }>;
+      ) => Promise<{ completed: boolean; completeWeeklyGoalMilestone: boolean; completeSpacedRepetition: boolean }>;
     })._handler;
 
     const result = await handler(createCtx(db, "clerk_1"), {
@@ -342,10 +342,10 @@ describe("duel gameplay", () => {
 
     expect(result).toEqual({
       completed: true,
-      completeWeeklyGoalBoss: false,
+      completeWeeklyGoalMilestone: false,
       completeSpacedRepetition: false,
     });
-    expect(db.duels[0].bossLivesRemaining).toBe(0);
+    expect(db.duels[0].livesRemaining).toBe(0);
     expect(db.duels[0].status).toBe("completed");
     expect(db.duels[0].challengerLastAnswer).toBe("__TIMEOUT__");
   });
@@ -451,7 +451,7 @@ describe("duel lifecycle completion commands", () => {
     return db;
   }
 
-  const internalBossHandler = (completeWeeklyGoalBossDuelInternal as unknown as {
+  const internalBossHandler = (completeWeeklyGoalMilestoneDuelInternal as unknown as {
     _handler: (
       ctx: unknown,
       args: { duelId: Id<"duels"> }
@@ -465,7 +465,7 @@ describe("duel lifecycle completion commands", () => {
     ) => Promise<{ completed: boolean }>;
   })._handler;
 
-  const publicBossHandler = (completeWeeklyGoalBossDuel as unknown as {
+  const publicBossHandler = (completeWeeklyGoalMilestoneDuel as unknown as {
     _handler: (
       ctx: unknown,
       args: { duelId: Id<"duels"> }
@@ -479,7 +479,7 @@ describe("duel lifecycle completion commands", () => {
     ) => Promise<{ completed: boolean }>;
   })._handler;
 
-  it("completeWeeklyGoalBossDuelInternal returns completed:false when the duel is missing", async () => {
+  it("completeWeeklyGoalMilestoneDuelInternal returns completed:false when the duel is missing", async () => {
     const db = setupCtx(duelDoc());
     const result = await internalBossHandler(createCtx(db, null), {
       duelId: "duel_missing" as Id<"duels">,
@@ -487,15 +487,15 @@ describe("duel lifecycle completion commands", () => {
     expect(result).toEqual({ completed: false });
   });
 
-  it("completeWeeklyGoalBossDuelInternal refuses an active (not completed) duel", async () => {
+  it("completeWeeklyGoalMilestoneDuelInternal refuses an active (not completed) duel", async () => {
     const db = setupCtx(
       duelDoc({
         status: "active",
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         sourceType: "boss",
         bossType: "mini",
-        bossLivesTotal: 1,
-        bossLivesRemaining: 1,
+        livesTotal: 1,
+        livesRemaining: 1,
       })
     );
     const result = await internalBossHandler(createCtx(db, null), {
@@ -504,7 +504,7 @@ describe("duel lifecycle completion commands", () => {
     expect(result).toEqual({ completed: false });
   });
 
-  it("completeWeeklyGoalBossDuelInternal refuses a non-boss completed duel", async () => {
+  it("completeWeeklyGoalMilestoneDuelInternal refuses a non-boss completed duel", async () => {
     const db = setupCtx(duelDoc({ status: "completed" }));
     const result = await internalBossHandler(createCtx(db, null), {
       duelId: "duel_1" as Id<"duels">,
@@ -512,15 +512,15 @@ describe("duel lifecycle completion commands", () => {
     expect(result).toEqual({ completed: false });
   });
 
-  it("completeWeeklyGoalBossDuelInternal refuses a boss attempt with no remaining lives", async () => {
+  it("completeWeeklyGoalMilestoneDuelInternal refuses a boss attempt with no remaining lives", async () => {
     const db = setupCtx(
       duelDoc({
         status: "completed",
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         sourceType: "boss",
         bossType: "big",
-        bossLivesTotal: 3,
-        bossLivesRemaining: 0,
+        livesTotal: 3,
+        livesRemaining: 0,
       })
     );
     const result = await internalBossHandler(createCtx(db, null), {
@@ -547,7 +547,7 @@ describe("duel lifecycle completion commands", () => {
     expect(result).toEqual({ completed: false });
   });
 
-  it("public completeWeeklyGoalBossDuel requires an authenticated participant", async () => {
+  it("public completeWeeklyGoalMilestoneDuel requires an authenticated participant", async () => {
     const db = setupCtx(duelDoc({ status: "completed" }));
     const error = await publicBossHandler(createCtx(db, null), {
       duelId: "duel_1" as Id<"duels">,
@@ -563,7 +563,7 @@ describe("duel lifecycle completion commands", () => {
     expect(error).toBeDefined();
   });
 
-  it("public completeWeeklyGoalBossDuel is a safe no-op when the duel is not a defeated boss", async () => {
+  it("public completeWeeklyGoalMilestoneDuel is a safe no-op when the duel is not a defeated boss", async () => {
     const db = setupCtx(duelDoc({ status: "completed", sourceType: "normal" }));
     const result = await publicBossHandler(createCtx(db, "clerk_1"), {
       duelId: "duel_1" as Id<"duels">,

@@ -1,7 +1,7 @@
 "use client";
 
-import { colors } from "@/lib/theme";
-import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
 interface RegenerateConfirmModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export function RegenerateConfirmModal({
   onSkip,
   onCancel,
 }: RegenerateConfirmModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
@@ -29,7 +30,7 @@ export function RegenerateConfirmModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Regenerate Answers?
@@ -71,7 +72,7 @@ export function RegenerateConfirmModal({
             onClick={onConfirm}
             disabled={isRegenerating}
             className={themeActionButtonClassName}
-            style={getThemeActionButtonStyle("primary")}
+            style={getThemeActionButtonStyle("primary", colors)}
             data-testid="theme-regenerate-confirm"
           >
             {isRegenerating ? "..." : "Yes"}
@@ -80,7 +81,7 @@ export function RegenerateConfirmModal({
             onClick={onSkip}
             disabled={isRegenerating}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-regenerate-skip"
           >
             No
@@ -89,7 +90,7 @@ export function RegenerateConfirmModal({
             onClick={onCancel}
             disabled={isRegenerating}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-regenerate-cancel"
           >
             Cancel

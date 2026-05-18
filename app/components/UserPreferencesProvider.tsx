@@ -3,11 +3,12 @@
 import { createContext, useContext } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { TtsProvider } from "@/lib/tts/providers";
 
 type UserPreferences = {
   selectedColorSet: string | null;
   selectedBackground: string | null;
-  ttsProvider: "resemble" | "elevenlabs";
+  ttsProvider: TtsProvider;
 } | null | undefined;
 
 type UserPreferencesContextValue = {
@@ -16,8 +17,8 @@ type UserPreferencesContextValue = {
   updateColorSet: (colorSet: string) => Promise<{ selectedColorSet: string }>;
   updateBackground: (background: string) => Promise<{ selectedBackground: string }>;
   updateTtsProvider: (
-    ttsProvider: "resemble" | "elevenlabs"
-  ) => Promise<{ ttsProvider: "resemble" | "elevenlabs" }>;
+    ttsProvider: TtsProvider
+  ) => Promise<{ ttsProvider: TtsProvider }>;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue | undefined>(undefined);

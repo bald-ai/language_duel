@@ -70,16 +70,6 @@ export function getSpacedRepetitionBucket(
   return dueAt <= now ? "ready" : "coming_up";
 }
 
-export function getSpacedRepetitionProgressDots(
-  completedSteps: SpacedRepetitionStep[]
-): boolean[] {
-  const completedCount = Math.min(completedSteps.length, SPACED_REPETITION_TOTAL_STEPS);
-  return Array.from(
-    { length: SPACED_REPETITION_TOTAL_STEPS },
-    (_, index) => index < completedCount
-  );
-}
-
 export function getSpacedRepetitionDaysRemaining(
   dueAt: number | null,
   now: number

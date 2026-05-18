@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface CountdownControlsProps {
   countdown: number;
@@ -32,6 +32,7 @@ export const CountdownControls = memo(function CountdownControls({
   onSkip,
   dataTestIdBase,
 }: CountdownControlsProps) {
+  const colors = useAppearanceColors();
   const opponentRole = userRole === "challenger" ? "opponent" : "challenger";
   const iHaveSkipped = countdownSkipRequestedBy.includes(userRole);
   const opponentHasSkipped = countdownSkipRequestedBy.includes(opponentRole);

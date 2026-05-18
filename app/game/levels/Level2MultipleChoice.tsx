@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, type CSSProperties } from "react"
 import { hashSeed, seededShuffle } from "@/lib/prng";
 import { DONT_KNOW_REVEAL_MS } from "./constants";
 import { stripIrr } from "@/lib/stringUtils";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
 import type { Level2MultipleChoiceProps } from "./types";
 
 /**
@@ -29,6 +29,8 @@ export function Level2MultipleChoice({
   onRequestHint,
   onCancelHint,
 }: Level2MultipleChoiceProps) {
+  const buttonStyles = useAppearanceButtonStyles();
+  const colors = useAppearanceColors();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

@@ -4,7 +4,7 @@ import type { MouseEvent, KeyboardEvent } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface ThemeCardMenuProps {
   themeId: Id<"themes">;
@@ -34,6 +34,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
   isArchived,
   onToggleArchive,
 }: ThemeCardMenuProps) {
+  const colors = useAppearanceColors();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);

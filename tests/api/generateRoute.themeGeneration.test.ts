@@ -76,8 +76,8 @@ function invalidThemeWords(count: number) {
 function validThemeWords(count: number) {
   return Array.from({ length: count }, (_, i) => ({
     word: `word${i}`,
-    answer: `ans${i}`,
-    wrongAnswers: Array.from({ length: 6 }, (_, j) => `distractor-${i}-${j}`),
+    answer: `el ans${i}`,
+    wrongAnswers: Array.from({ length: 6 }, (_, j) => `el distractor-${i}-${j}`),
   }));
 }
 
@@ -171,6 +171,7 @@ describe("/api/generate theme generation", () => {
     expect(response.status).toBe(200);
     expect(payload.success).toBe(true);
     expect(payload.data).toHaveLength(5);
+    expect(payload).not.toHaveProperty("prompt");
     expect(mutationMock).toHaveBeenCalledTimes(1);
     expect(responsesCreateMock).toHaveBeenCalledTimes(2);
   });

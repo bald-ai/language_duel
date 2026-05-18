@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { JSX } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { AUTO_COMPLETE_DELAY_MS, CURSOR_MOVE_DELAY_MS } from "./constants";
 import type { Level1Props } from "./types";
 
@@ -31,6 +31,7 @@ export function Level1Input({
   onCancelHint,
   onUpdateHintState,
 }: Level1Props) {
+  const colors = useAppearanceColors();
   const [typedLetters, setTypedLetters] = useState<string[]>([]);
   const [revealedPositions, setRevealedPositions] = useState<Set<number>>(new Set());
   const [cursorPosition, setCursorPosition] = useState(0);

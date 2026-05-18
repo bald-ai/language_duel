@@ -1,9 +1,9 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { THEME_WORD_INPUT_MAX_LENGTH } from "@/lib/themes/constants";
 import { FormError } from "@/app/components/FormError";
-import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
 interface AddWordModalProps {
   isOpen: boolean;
@@ -24,6 +24,7 @@ export function AddWordModal({
   onAdd,
   onClose,
 }: AddWordModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
@@ -33,7 +34,7 @@ export function AddWordModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           Add New Word
@@ -92,7 +93,7 @@ export function AddWordModal({
             onClick={onAdd}
             disabled={!newWordInput.trim() || isAdding}
             className={themeActionButtonClassName}
-            style={getThemeActionButtonStyle("primary")}
+            style={getThemeActionButtonStyle("primary", colors)}
             data-testid="theme-add-word-submit"
           >
             {isAdding ? "Adding..." : "Add"}
@@ -101,7 +102,7 @@ export function AddWordModal({
             onClick={onClose}
             disabled={isAdding}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-add-word-cancel"
           >
             Cancel

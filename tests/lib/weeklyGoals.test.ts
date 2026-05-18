@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   canEditGoalEndDate,
+  canToggleGoalThemeCompletion,
   canTriggerGoalBoss,
   countCompletedThemes,
   formatGoalGraceCountdown,
   getGoalDeleteAt,
-  getEffectiveBossStatus,
+  getEffectiveBigBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   getGoalDraftExpiresAt,
   isGoalInGracePeriod,
   isGoalPlayable,
+  planWeeklyGoalLock,
+  WeeklyGoalRuleViolation,
   type WeeklyGoalState,
 } from "@/lib/weeklyGoals";
 
@@ -31,7 +34,7 @@ function buildGoal(
     lockedAt: 1_000,
     endDate: 9_000,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     ...overrides,
   };
 }
@@ -116,11 +119,11 @@ describe("weeklyGoals helpers", () => {
       status: "draft",
       lockedAt: undefined,
       miniBossStatus: "unavailable",
-      bossStatus: "unavailable",
+      bigBossStatus: "unavailable",
     });
 
     expect(getEffectiveMiniBossStatus(goal, 5_000)).toBe("unavailable");
-    expect(getEffectiveBossStatus(goal, 5_000)).toBe("unavailable");
+    expect(getEffectiveBigBossStatus(goal, 5_000)).toBe("unavailable");
     expect(canTriggerGoalBoss(goal, "mini", 5_000)).toBe(false);
     expect(canTriggerGoalBoss(goal, "big", 5_000)).toBe(false);
   });
@@ -133,7 +136,7 @@ describe("weeklyGoals helpers", () => {
       ],
     });
 
-    expect(getEffectiveBossStatus(goal, 4_000)).toBe("ready");
+    expect(getEffectiveBigBossStatus(goal, 4_000)).toBe("ready");
   });
 
   it("keeps the mini boss unavailable once all shared themes are done", () => {
@@ -193,5 +196,79 @@ describe("weeklyGoals helpers", () => {
   it("allows triggering the mini boss during the grace window", () => {
     expect(canTriggerGoalBoss(buildGoal(), "mini", 5_000)).toBe(true);
     expect(canTriggerGoalBoss(buildGoal(), "mini", 9_001)).toBe(true);
+  });
+
+  it("centralizes whether a weekly-goal theme can be toggled", () => {
+    expect(canToggleGoalThemeCompletion({ effectiveStatus: "draft" })).toBe(true);
+    expect(canToggleGoalThemeCompletion({ effectiveStatus: "locked" })).toBe(true);
+    expect(canToggleGoalThemeCompletion({ effectiveStatus: "grace_period" })).toBe(true);
+    expect(canToggleGoalThemeCompletion({ effectiveStatus: "completed" })).toBe(false);
+    expect(canToggleGoalThemeCompletion({ effectiveStatus: undefined })).toBe(false);
+  });
+
+  it("plans the first weekly-goal lock without side effects", () => {
+    const now = 1_000;
+    const plan = planWeeklyGoalLock({
+      goal: {
+        ...buildGoal({
+          status: "draft",
+          lockedAt: undefined,
+          endDate: now + 25 * HOUR,
+        }),
+        creatorLocked: false,
+        partnerLocked: false,
+      },
+      role: "creator",
+      now,
+    });
+
+    expect(plan).toEqual({
+      kind: "first_lock",
+      role: "creator",
+      otherRole: "partner",
+      updates: { creatorLocked: true },
+    });
+  });
+
+  it("plans goal activation when the second participant locks", () => {
+    const now = 1_000;
+    const plan = planWeeklyGoalLock({
+      goal: {
+        ...buildGoal({
+          status: "draft",
+          lockedAt: undefined,
+          endDate: now + 25 * HOUR,
+        }),
+        creatorLocked: true,
+        partnerLocked: false,
+      },
+      role: "partner",
+      now,
+    });
+
+    expect(plan).toEqual({
+      kind: "activate_goal",
+      role: "partner",
+      otherRole: "creator",
+      updates: { partnerLocked: true, status: "locked", lockedAt: now },
+    });
+  });
+
+  it("rejects invalid lock plans before side effects run", () => {
+    expect(() =>
+      planWeeklyGoalLock({
+        goal: {
+          ...buildGoal({
+            status: "draft",
+            lockedAt: undefined,
+            endDate: 1_000,
+          }),
+          creatorLocked: false,
+          partnerLocked: false,
+        },
+        role: "creator",
+        now: 1_000,
+      })
+    ).toThrow(WeeklyGoalRuleViolation);
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 type SoloStatusCardProps = {
   message: string;
   variant: "error" | "loading";
@@ -29,6 +30,7 @@ export function SoloStatusCard({
   onButtonClick,
   dataTestId,
 }: SoloStatusCardProps) {
+  const colors = useAppearanceColors();
   return (
     <div
       className="w-full rounded-3xl border-2 p-6 text-center backdrop-blur-sm animate-slide-up"

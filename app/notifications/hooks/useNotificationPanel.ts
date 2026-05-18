@@ -59,5 +59,3 @@ export function useNotificationPanel() {
         switchTab,
     };
 }
-
-export default useNotificationPanel;

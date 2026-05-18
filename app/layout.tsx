@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Outfit, Bebas_Neue } from "next/font/google";
 import { ConvexClientProvider } from "@/app/components/convex-provider";
-import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { AppearanceProvider } from "@/app/components/AppearanceProvider";
 import { BackgroundProvider } from "@/app/components/BackgroundProvider";
 import { UserPreferencesProvider } from "@/app/components/UserPreferencesProvider";
+import { SignedInPresenceOwner } from "@/app/components/auth";
 import { ClerkProvider } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { themes, DEFAULT_THEME_NAME } from "@/lib/theme";
 import "./globals.css";
@@ -80,12 +82,15 @@ export default function RootLayout({
             className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${bebasNeue.variable} antialiased`}
           >
             <UserPreferencesProvider>
-              <ThemeProvider>
+              <AppearanceProvider>
                 <BackgroundProvider>
+                  <SignedIn>
+                    <SignedInPresenceOwner />
+                  </SignedIn>
                   {children}
                   <Toaster richColors position="top-center" />
                 </BackgroundProvider>
-              </ThemeProvider>
+              </AppearanceProvider>
             </UserPreferencesProvider>
           </body>
         </html>

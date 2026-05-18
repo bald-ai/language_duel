@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { stripIrr } from "@/lib/stringUtils";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   TIMER_DANGER_THRESHOLD,
   TIMER_WARNING_THRESHOLD,
@@ -29,7 +29,7 @@ import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { AnswerOptionButton, computeOptionState, type OptionContext } from "./AnswerOptionButton";
 import { SabotageSystemUI } from "./SabotageSystemUI";
 import type { SabotagePhase } from "../hooks/useSabotageEffect";
-import type { BossType } from "@/lib/bossLives";
+import type { BossType } from "@/lib/limitedLives";
 
 export interface DifficultyPillData {
   level: "easy" | "medium" | "hard";
@@ -106,8 +106,8 @@ export interface DuelViewProps {
     myScore: number;
     theirScore: number;
     bossType?: BossType;
-    bossLivesRemaining?: number;
-    bossLivesTotal?: number;
+    livesRemaining?: number;
+    livesTotal?: number;
   };
   actions: {
     onPauseCountdown: () => void;
@@ -141,6 +141,7 @@ export function DuelView({
   actions,
   audio,
 }: DuelViewProps) {
+  const colors = useAppearanceColors();
   const {
     wordsCount,
     index,
@@ -194,8 +195,8 @@ export function DuelView({
     myScore,
     theirScore,
     bossType,
-    bossLivesRemaining,
-    bossLivesTotal,
+    livesRemaining,
+    livesTotal,
   } = score;
   const {
     onPauseCountdown,
@@ -357,7 +358,7 @@ export function DuelView({
             theirName={theirName}
             myScore={myScore}
             theirScore={theirScore}
-            livesRemaining={bossLivesRemaining}
+            livesRemaining={livesRemaining}
           />
 
           {status !== "completed" && (
@@ -644,8 +645,8 @@ export function DuelView({
               duelDuration={duelDuration}
               dataTestIdBack="duel-back-home"
               bossType={bossType}
-              bossLivesRemaining={bossLivesRemaining}
-              bossLivesTotal={bossLivesTotal}
+              livesRemaining={livesRemaining}
+              livesTotal={livesTotal}
             />
           )}
         </footer>

@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import type { SabotageEffect } from "@/app/game/sabotage";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SabotageEffect } from "@/lib/sabotage/types";
 import {
-  SABOTAGE_DURATION_MS,
-  SABOTAGE_WIND_UP_MS,
-  SABOTAGE_WIND_DOWN_MS,
-} from "@/lib/sabotage/constants";
+  getSabotagePhaseSchedule,
+  shouldClearSabotageForQuestionPhase,
+  shouldClearSabotageOnLock,
+  type DuelQuestionPhase,
+  type SabotagePhase,
+} from "@/lib/sabotage/effectPhases";
 
-export type SabotagePhase = "wind-up" | "full" | "wind-down";
+export type { SabotagePhase } from "@/lib/sabotage/effectPhases";
 
 interface SabotageData {
   effect: string;
@@ -16,11 +18,8 @@ interface SabotageData {
 }
 
 interface UseSabotageEffectParams {
-  /** The sabotage data for the current viewer (their incoming sabotage) */
   mySabotage: SabotageData | undefined;
-  /** Current phase of the duel */
-  phase: "idle" | "answering" | "transition";
-  /** Whether the player has locked in their answer */
+  phase: DuelQuestionPhase;
   isLocked: boolean;
 }
 
@@ -29,10 +28,10 @@ interface UseSabotageEffectResult {
   sabotagePhase: SabotagePhase;
 }
 
-/**
- * Manages sabotage effect state and timing.
- * Handles wind-up, full, and wind-down phases for sabotage effects.
- */
+function toSabotageEffect(effect: string): SabotageEffect {
+  return effect as SabotageEffect;
+}
+
 export function useSabotageEffect({
   mySabotage,
   phase,
@@ -43,76 +42,60 @@ export function useSabotageEffect({
   const lastSabotageTimestampRef = useRef<number | null>(null);
   const sabotageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Sabotage effect listener
+  const clearTimers = useCallback(() => {
+    sabotageTimersRef.current.forEach((timer) => clearTimeout(timer));
+    sabotageTimersRef.current = [];
+  }, []);
+
+  const scheduleTimer = useCallback((callback: () => void, delayMs: number) => {
+    const timer = setTimeout(() => {
+      sabotageTimersRef.current = sabotageTimersRef.current.filter((storedTimer) => storedTimer !== timer);
+      callback();
+    }, delayMs);
+    sabotageTimersRef.current.push(timer);
+  }, []);
+
+  const clearActiveSabotage = useCallback(() => {
+    clearTimers();
+    setActiveSabotage(null);
+    setSabotagePhase("wind-up");
+  }, [clearTimers]);
+
   useEffect(() => {
-    if (mySabotage && mySabotage.timestamp !== lastSabotageTimestampRef.current) {
-      lastSabotageTimestampRef.current = mySabotage.timestamp;
-      
-      // Clear existing timers first
-      sabotageTimersRef.current.forEach((timer) => clearTimeout(timer));
-      sabotageTimersRef.current = [];
-      
-      // Use setTimeout to defer state updates and avoid cascading renders
-      setTimeout(() => {
-        setSabotagePhase("wind-up");
-        setActiveSabotage(mySabotage.effect as SabotageEffect);
+    if (!mySabotage || mySabotage.timestamp === lastSabotageTimestampRef.current) return;
 
-        const sabotageEffect = mySabotage.effect as SabotageEffect;
+    lastSabotageTimestampRef.current = mySabotage.timestamp;
+    clearTimers();
 
-        // Bounce + trampoline + reverse last until question ends, not just 7 seconds
-        if (
-          sabotageEffect === "bounce" ||
-          sabotageEffect === "trampoline" ||
-          sabotageEffect === "reverse"
-        ) {
-          // For bounce/trampoline/reverse, skip phase transitions and duration timer
-          // It will clear when question ends
-          setSabotagePhase("full");
-        } else {
-          // Other effects follow the standard 7-second duration with phases
-          const fullTimer = setTimeout(() => setSabotagePhase("full"), SABOTAGE_WIND_UP_MS);
-          const windDownTimer = setTimeout(() => setSabotagePhase("wind-down"), SABOTAGE_WIND_DOWN_MS);
-          const clearTimer = setTimeout(() => {
+    scheduleTimer(() => {
+      const sabotageEffect = toSabotageEffect(mySabotage.effect);
+      setSabotagePhase("wind-up");
+      setActiveSabotage(sabotageEffect);
+
+      getSabotagePhaseSchedule(sabotageEffect).forEach(({ delayMs, phase: nextPhase }) => {
+        scheduleTimer(() => {
+          if (nextPhase === null) {
             setActiveSabotage(null);
             setSabotagePhase("wind-up");
-          }, SABOTAGE_DURATION_MS);
+            return;
+          }
+          setSabotagePhase(nextPhase);
+        }, delayMs);
+      });
+    }, 0);
+  }, [clearTimers, mySabotage, scheduleTimer]);
 
-          sabotageTimersRef.current = [fullTimer, windDownTimer, clearTimer];
-        }
-      }, 0);
-    }
-  }, [mySabotage]);
-
-  // Clear sabotage when locked (except for persistent effects)
   useEffect(() => {
-    if (
-      isLocked &&
-      activeSabotage !== "bounce" &&
-      activeSabotage !== "trampoline" &&
-      activeSabotage !== "reverse"
-    ) {
-      // Use setTimeout to defer state updates and avoid cascading renders
-      setTimeout(() => {
-        sabotageTimersRef.current.forEach((timer) => clearTimeout(timer));
-        sabotageTimersRef.current = [];
-        setActiveSabotage(null);
-        setSabotagePhase("wind-up");
-      }, 0);
-    }
-  }, [isLocked, activeSabotage]);
+    if (!isLocked || !shouldClearSabotageOnLock(activeSabotage)) return;
+    scheduleTimer(clearActiveSabotage, 0);
+  }, [activeSabotage, clearActiveSabotage, isLocked, scheduleTimer]);
 
-  // Clear sabotage when transitioning to next question
   useEffect(() => {
-    if (phase === "transition") {
-      // Use setTimeout to defer state updates and avoid cascading renders
-      setTimeout(() => {
-        sabotageTimersRef.current.forEach((timer) => clearTimeout(timer));
-        sabotageTimersRef.current = [];
-        setActiveSabotage(null);
-        setSabotagePhase("wind-up");
-      }, 0);
-    }
-  }, [phase]);
+    if (!shouldClearSabotageForQuestionPhase(phase)) return;
+    scheduleTimer(clearActiveSabotage, 0);
+  }, [clearActiveSabotage, phase, scheduleTimer]);
+
+  useEffect(() => clearTimers, [clearTimers]);
 
   return {
     activeSabotage,

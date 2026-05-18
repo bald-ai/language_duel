@@ -1,6 +1,6 @@
 "use client";
 
-import { useThemeColors } from "./ThemeProvider";
+import { useAppearanceColors } from "./AppearanceProvider";
 
 type FormErrorVariant = "danger" | "warning";
 
@@ -17,7 +17,7 @@ export function FormError({
   className = "",
   dataTestId,
 }: FormErrorProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const tone = variant === "warning" ? colors.status.warning : colors.status.danger;
 
   return (

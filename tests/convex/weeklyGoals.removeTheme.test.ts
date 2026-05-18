@@ -25,7 +25,7 @@ type WeeklyGoalDoc = Pick<
   | "status"
   | "createdAt"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
 >;
 
 type NotificationDoc = Pick<
@@ -78,7 +78,7 @@ class InMemoryDb {
     patchRow(this.weeklyGoals, id, value);
   }
 
-  async insert(table: "notifications", value: Record<string, unknown>) {
+  async insert(_table: "notifications", value: Record<string, unknown>) {
     const { id, nextCounter } = insertRow(
       this.notifications,
       "notification",
@@ -126,7 +126,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: false,
     partnerLocked: false,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "draft",
     createdAt: Date.now(),
     ...overrides,

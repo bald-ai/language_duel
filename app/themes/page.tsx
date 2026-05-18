@@ -5,7 +5,7 @@ import { VIEW_MODES } from "./constants";
 import { useThemesController } from "./hooks/useThemesController";
 import { ThemeList } from "./components/ThemeList";
 import { ThemedPage } from "@/app/components/ThemedPage";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 const ThemeDetail = dynamic(
   () => import("./components/ThemeDetail").then((mod) => mod.ThemeDetail),
@@ -37,6 +37,7 @@ const FriendFilterModal = dynamic(
 );
 
 export default function ThemesPage() {
+  const colors = useAppearanceColors();
   const controller = useThemesController();
 
   return (

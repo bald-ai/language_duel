@@ -8,8 +8,7 @@ import {
   type WordType,
   type WordTypeConfig,
 } from "@/lib/themes/wordTypes";
-
-type FieldType = "word" | "answer" | "wrong";
+import type { FieldType } from "@/lib/themes/api";
 
 function formatRules(rules: readonly string[]): string {
   return rules.join("\n");
@@ -108,14 +107,6 @@ ${buildWrongAnswerRequirements(config)}
 - Focus on ${config.commonFocus}
 
 ${buildThemeOutputFormat(wordCount, config)}`;
-}
-
-export function buildVerbThemeSystemPrompt(
-  themeName: string,
-  wordCount: number,
-  themePrompt?: string
-): string {
-  return buildThemeSystemPrompt(themeName, wordCount, themePrompt, "verbs");
 }
 
 // ============================================================================

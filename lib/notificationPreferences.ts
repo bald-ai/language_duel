@@ -25,13 +25,13 @@ export function isNotificationEnabled(
 }
 
 export function shouldSendWeeklyGoalReminder(
-  goal: { endDate?: number; status: string; bossStatus?: string },
+  goal: { endDate?: number; status: string; bigBossStatus?: string },
   now: number,
   reminderOffsetMinutes: number,
   windowMs = WEEKLY_GOAL_REMINDER_WINDOW_MS
 ): boolean {
   if (goal.status !== "locked") return false;
-  if (goal.bossStatus === "defeated") return false;
+  if (goal.bigBossStatus === "defeated") return false;
   if (!goal.endDate) return false;
   if (goal.endDate <= now) return false;
 
@@ -56,7 +56,6 @@ export {
 };
 export {
   formatScheduledTimeForEmail,
-  getDaysUntilInTimeZone,
   getTimeZoneDateKey,
   getTimeZoneDateParts,
 } from "./timeUtils";

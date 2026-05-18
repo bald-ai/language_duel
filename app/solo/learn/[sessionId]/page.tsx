@@ -10,7 +10,7 @@ import {
   getSoloLearnTimerLabel,
   isSoloStudyTimerInfinite,
   shouldShowSoloLearnTimer,
-} from "@/app/solo/learn/soloLearnTimer";
+} from "@/lib/soloLearnTimer";
 import { stripIrr } from "@/lib/stringUtils";
 import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
 import { LearnHeader } from "./components/LearnHeader";
@@ -19,7 +19,8 @@ import { CONFIDENCE_COLORS, type ConfidenceLevel } from "./components/Confidence
 import { DEFAULT_DURATION, TIMER_THRESHOLDS } from "./constants";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
+import type { ButtonStyles, ThemeColors } from "@/lib/theme";
 import { useTTS } from "@/app/game/hooks/useTTS";
 import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
 import { buildSoloSearchParams, sanitizeSoloReturnTo } from "@/lib/soloNavigation";
@@ -32,7 +33,11 @@ const DEFAULT_HINT_STATE = Object.freeze({
 const actionButtonClassName =
   "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
 
-const buildActionStyle = (variant: "primary" | "cta") => {
+const buildActionStyle = (
+  variant: "primary" | "cta",
+  colors: ThemeColors,
+  buttonStyles: ButtonStyles
+) => {
   const styles = buttonStyles[variant];
   return {
     backgroundImage: `linear-gradient(to bottom, ${styles.gradient.from}, ${styles.gradient.to})`,
@@ -45,34 +50,32 @@ const buildActionStyle = (variant: "primary" | "cta") => {
   };
 };
 
-const ctaActionStyle = buildActionStyle("cta");
-
 const toggleButtonClassName =
   "px-4 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
 
-const toggleActiveStyle = {
+const getToggleActiveStyle = (colors: ThemeColors) => ({
   backgroundColor: colors.primary.DEFAULT,
   borderColor: colors.primary.dark,
   color: colors.text.DEFAULT,
-};
+});
 
-const toggleInactiveStyle = {
+const getToggleInactiveStyle = (colors: ThemeColors) => ({
   backgroundColor: colors.background.elevated,
   borderColor: colors.primary.dark,
   color: colors.text.muted,
-};
+});
 
-const cardStyle = {
+const getCardStyle = (colors: ThemeColors) => ({
   backgroundColor: colors.background.elevated,
   borderColor: colors.primary.dark,
   boxShadow: `0 18px 50px ${colors.primary.glow}`,
-};
+});
 
-const listCardStyle = {
+const getListCardStyle = (colors: ThemeColors) => ({
   backgroundColor: colors.background.elevated,
   borderColor: colors.primary.dark,
   boxShadow: `0 20px 55px ${colors.primary.glow}`,
-};
+});
 
 const listItemStyle = {
   contentVisibility: "auto",
@@ -81,6 +84,13 @@ const listItemStyle = {
 
 
 export default function LearnPhasePage() {
+  const colors = useAppearanceColors();
+  const buttonStyles = useAppearanceButtonStyles();
+  const ctaActionStyle = buildActionStyle("cta", colors, buttonStyles);
+  const toggleActiveStyle = getToggleActiveStyle(colors);
+  const toggleInactiveStyle = getToggleInactiveStyle(colors);
+  const cardStyle = getCardStyle(colors);
+  const listCardStyle = getListCardStyle(colors);
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -333,7 +343,7 @@ export default function LearnPhasePage() {
     if (percentage > TIMER_THRESHOLDS.GREEN) return { color: colors.status.success.DEFAULT };
     if (percentage > TIMER_THRESHOLDS.YELLOW) return { color: colors.status.warning.DEFAULT };
     return { color: colors.status.danger.DEFAULT };
-  }, [timeRemaining, duration]);
+  }, [colors, timeRemaining, duration]);
 
   // --- Loading states ---
   if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {

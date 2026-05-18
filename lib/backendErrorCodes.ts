@@ -1,3 +1,5 @@
+import { isRecord } from "./typeGuards";
+
 export type BackendErrorCode =
   | "AUTH_FAILED"
   | "CANNOT_SELF_TARGET"
@@ -43,9 +45,6 @@ const BACKEND_ERROR_CODES: ReadonlySet<BackendErrorCode> = new Set([
 
 const isBackendErrorCode = (value: string): value is BackendErrorCode =>
   (BACKEND_ERROR_CODES as ReadonlySet<string>).has(value);
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
 
 export function readBackendErrorCode(error: unknown): BackendErrorCode | undefined {
   if (!isRecord(error)) return undefined;

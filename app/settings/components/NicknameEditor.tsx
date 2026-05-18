@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { NICKNAME_MAX_LENGTH } from "../constants";
 import { FormError } from "@/app/components/FormError";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface NicknameEditorProps {
   currentNickname?: string;
@@ -22,7 +22,7 @@ export function NicknameEditor({
   onUpdate,
   onClearError,
 }: NicknameEditorProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const [nickname, setNickname] = useState(currentNickname || "");
 
   const handleInputChange = useCallback(

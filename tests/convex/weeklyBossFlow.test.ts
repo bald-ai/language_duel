@@ -43,7 +43,7 @@ type GoalDoc = Pick<
   | "lockedAt"
   | "endDate"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "createdAt"
 >;
@@ -302,6 +302,31 @@ function themeDoc(id: string, name: string): ThemeDoc {
   };
 }
 
+function snapshotDoc(id: string, themeId: string, name: string): SnapshotDoc {
+  return {
+    _id: id as Id<"weeklyGoalThemeSnapshots">,
+    _creationTime: 1,
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    originalThemeId: themeId as Id<"themes">,
+    order: themeId === "theme_1" ? 0 : 1,
+    name,
+    description: `${name} snapshot words`,
+    words: [
+      { word: `${name} 1`, answer: `${name} answer 1`, wrongAnswers: ["a", "b", "c"] },
+      { word: `${name} 2`, answer: `${name} answer 2`, wrongAnswers: ["d", "e", "f"] },
+    ],
+    lockedAt: 1,
+    createdAt: 1,
+  };
+}
+
+function addLockedGoalSnapshots(db: InMemoryDb) {
+  db.weeklyGoalThemeSnapshots.push(
+    snapshotDoc("snapshot_1", "theme_1", "Animals"),
+    snapshotDoc("snapshot_2", "theme_2", "Food")
+  );
+}
+
 function readyMiniBossGoal(overrides: Partial<GoalDoc> = {}): GoalDoc {
   return {
     _id: "goal_1" as Id<"weeklyGoals">,
@@ -327,7 +352,7 @@ function readyMiniBossGoal(overrides: Partial<GoalDoc> = {}): GoalDoc {
     lockedAt: 1,
     endDate: 999_999,
     miniBossStatus: "ready",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "locked",
     createdAt: 1,
     ...overrides,
@@ -373,6 +398,7 @@ describe("weekly boss flow", () => {
     );
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
 
     const handler = (createBossChallenge as unknown as {
       _handler: (
@@ -420,6 +446,7 @@ describe("weekly boss flow", () => {
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
     db.challenges.push({
       _id: "challenge_existing" as Id<"challenges">,
       _creationTime: 1,
@@ -455,6 +482,7 @@ describe("weekly boss flow", () => {
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
     db.challenges.push({
       _id: "challenge_existing" as Id<"challenges">,
       _creationTime: 1,
@@ -510,6 +538,7 @@ describe("weekly boss flow", () => {
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
 
     const handler = (createBossChallenge as unknown as {
       _handler: (
@@ -530,6 +559,7 @@ describe("weekly boss flow", () => {
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
 
     const handler = (startBossSoloPractice as unknown as {
       _handler: (

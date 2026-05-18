@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface GoalTheme {
   themeId: Id<"themes">;
@@ -27,6 +27,7 @@ export function GoalThemeList({
   onToggle,
   onRemove,
 }: GoalThemeListProps) {
+  const colors = useAppearanceColors();
   if (themes.length === 0) {
     return (
       <div

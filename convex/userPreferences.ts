@@ -3,6 +3,8 @@ import { ConvexError, v } from "convex/values";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isValidBackground } from "../lib/preferences/backgrounds";
 import { isThemeName } from "../lib/theme";
+import { DEFAULT_TTS_PROVIDER } from "../lib/tts/providers";
+import { ttsProviderValidator } from "./schema";
 
 /**
  * Get current user's preferences (color set and background)
@@ -18,7 +20,7 @@ export const getUserPreferences = query({
     return {
       selectedColorSet: auth.user.selectedColorSet ?? null,
       selectedBackground: auth.user.selectedBackground ?? null,
-      ttsProvider: auth.user.ttsProvider ?? "resemble",
+      ttsProvider: auth.user.ttsProvider ?? DEFAULT_TTS_PROVIDER,
     };
   },
 });
@@ -74,7 +76,7 @@ export const updateBackground = mutation({
  */
 export const updateTtsProvider = mutation({
   args: {
-    ttsProvider: v.union(v.literal("resemble"), v.literal("elevenlabs")),
+    ttsProvider: ttsProviderValidator,
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);

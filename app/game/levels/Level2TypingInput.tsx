@@ -4,7 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import type { JSX } from "react";
 import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters } from "@/lib/prng";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
 import type { Level2TypingProps } from "./types";
 
 /**
@@ -27,6 +27,8 @@ export function Level2TypingInput({
   onRequestHint,
   onCancelHint,
 }: Level2TypingProps) {
+  const buttonStyles = useAppearanceButtonStyles();
+  const colors = useAppearanceColors();
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [anagramLetters, setAnagramLetters] = useState<string[]>([]);

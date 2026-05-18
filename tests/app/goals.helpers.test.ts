@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canToggleGoalThemeCompletion } from "@/app/goals/helpers";
+import { canToggleGoalThemeCompletion } from "@/lib/weeklyGoals";
 
 describe("goals helpers", () => {
   it("allows theme completion during draft planning", () => {

@@ -4,7 +4,7 @@
  * CSS VARIABLES
  * 
  * These are default values that match the "Playful Duo" palette.
- * The ThemeProvider updates these at runtime via applyCssVariables().
+ * The AppearanceProvider updates these at runtime via applyCssVariables().
  * 
  * CSS variables are useful for:
  * - Pure CSS animations/effects

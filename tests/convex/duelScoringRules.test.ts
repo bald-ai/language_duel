@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
-  getBossMissPatch,
+  getLimitedLivesMissPatch,
   getHintProviderBonusPatch,
-  hasBossLivesLeft,
+  hasLivesLeft,
   isBossAttempt,
 } from "@/convex/rules/duelScoringRules";
 
@@ -51,11 +51,11 @@ describe("duel scoring rules", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
-      bossLivesRemaining: 2,
+      livesRemaining: 2,
     });
 
     expect(isBossAttempt(bossDuel)).toBe(true);
-    expect(hasBossLivesLeft(bossDuel)).toBe(true);
+    expect(hasLivesLeft(bossDuel)).toBe(true);
   });
 
   it("decrements lives and marks perfect-run loss on misses", () => {
@@ -63,28 +63,28 @@ describe("duel scoring rules", () => {
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
-      bossLivesRemaining: 2,
+      livesRemaining: 2,
       challengerPerfectRun: true,
       opponentPerfectRun: true,
     });
 
-    expect(getBossMissPatch(duel, "challenger")).toMatchObject({
+    expect(getLimitedLivesMissPatch(duel, "challenger")).toMatchObject({
       challengerPerfectRun: false,
-      bossLivesRemaining: 1,
+      livesRemaining: 1,
     });
   });
 
   it("ends attempt state when the final life is lost", () => {
     const duel = duelDoc({
       sourceType: "spaced_repetition",
-      bossLivesRemaining: 1,
+      livesRemaining: 1,
       challengerPerfectRun: true,
       opponentPerfectRun: true,
     });
 
-    expect(getBossMissPatch(duel, "opponent")).toMatchObject({
+    expect(getLimitedLivesMissPatch(duel, "opponent")).toMatchObject({
       opponentPerfectRun: false,
-      bossLivesRemaining: 0,
+      livesRemaining: 0,
       status: "completed",
     });
   });

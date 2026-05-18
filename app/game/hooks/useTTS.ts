@@ -7,8 +7,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { stripIrr } from "@/lib/stringUtils";
-
-type TtsProvider = "resemble" | "elevenlabs";
+import { DEFAULT_TTS_PROVIDER, type TtsProvider } from "@/lib/tts/providers";
 
 /**
  * Hook for Text-to-Speech audio playback with caching.
@@ -25,7 +24,7 @@ export function useTTS() {
 
   // Get the current user's TTS provider preference
   const currentUser = useQuery(api.users.getCurrentUser);
-  const provider: TtsProvider = currentUser?.ttsProvider ?? "resemble";
+  const provider: TtsProvider = currentUser?.ttsProvider ?? DEFAULT_TTS_PROVIDER;
 
   // Clear cache when provider changes to avoid stale audio
   useEffect(() => {

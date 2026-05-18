@@ -1,7 +1,7 @@
 "use client";
 
 import { ModalShell } from "./ModalShell";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { outlineButtonClassName } from "./modalButtonStyles";
 
 interface WaitingModalProps {
@@ -10,6 +10,7 @@ interface WaitingModalProps {
 }
 
 export function WaitingModal({ isCancelling, onCancel }: WaitingModalProps) {
+  const colors = useAppearanceColors();
   return (
     <ModalShell title="Waiting for opponent...">
       <p className="mb-4 text-sm text-center" style={{ color: colors.text.muted }}>

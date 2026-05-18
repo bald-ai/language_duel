@@ -11,14 +11,14 @@ import { BackgroundSelector } from "./components/BackgroundSelector";
 import { TTSProviderSelector } from "./components/TTSProviderSelector";
 import { useNicknameUpdate } from "./hooks/useNicknameUpdate";
 import { useBackground } from "@/app/components/BackgroundProvider";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 
 export default function SettingsPage() {
   const router = useRouter();
   const currentUser = useQuery(api.users.getCurrentUser);
   const nicknameUpdate = useNicknameUpdate();
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
 
   // User preferences for background - use the context hook for live updates
   const { background, setBackground, isLoading: isBackgroundLoading } = useBackground();

@@ -11,15 +11,10 @@ export const MAX_USERS_QUERY = 100;
 // ===========================================
 // Timer Options (Learn Phase)
 // ===========================================
-/** Available timer durations in seconds: 1, 2, 3, 4, 5, 7, 10, 15 minutes */
-export const TIMER_OPTIONS = [60, 120, 180, 240, 300, 420, 600, 900] as const;
+export { TIMER_OPTIONS } from "../lib/constants";
 export const DEFAULT_TIMER_DURATION = 300; // 5 minutes
 
-/**
- * Solo learn "no time limit" — same sentinel as `SOLO_INFINITE_STUDY_SECONDS` in
- * `lib/soloLearnTimer.ts` (keep values in sync).
- */
-export const SOLO_INFINITE_STUDY_SECONDS = 999_999_999;
+export { SOLO_INFINITE_STUDY_SECONDS } from "../lib/soloLearnTimer";
 
 // ===========================================
 // Level Probabilities (solo practice) [NOT ACTIVE] — not currently used in app, kept for future revisit.
@@ -50,12 +45,6 @@ export const MAX_ELIMINATED_OPTIONS_DUEL = 2;
 
 /** Maximum wrong options that can be eliminated (L2 multiple choice) */
 export const MAX_ELIMINATED_OPTIONS_L2 = 2;
-
-// ===========================================
-// Sabotage System
-// ===========================================
-export const SABOTAGE_EFFECTS = ["sticky", "bounce", "trampoline", "reverse"] as const;
-export type SabotageEffect = (typeof SABOTAGE_EFFECTS)[number];
 
 // ===========================================
 // Scoring (Duel Mode)

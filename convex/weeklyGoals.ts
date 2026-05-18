@@ -1,566 +1,60 @@
 /**
- * Weekly Goals API - Queries and mutations for collaborative learning goals.
+ * Weekly Goals API - public Convex wiring for collaborative learning goals.
  */
 
-import { mutation, query, type MutationCtx, type QueryCtx, internalQuery, internalMutation } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
-import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { buildChallengeInvite, buildSoloPracticeSession } from "./helpers/sessionCreation";
-import { shuffleArray } from "./helpers/gameLogic";
-import { loadThemesByIds, summarizeSessionWords } from "./helpers/sessionWords";
-import { loadUsersById } from "./helpers/users";
-import {
-  createWeeklyGoalThemeSnapshots,
-  deleteWeeklyGoalThemeSnapshots,
-  listWeeklyGoalThemeSnapshots,
-  loadWeeklyGoalSessionThemesByThemeIds,
-} from "./helpers/weeklyGoalSnapshots";
+import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
+import { v } from "convex/values";
 import {
   createNotification,
-  createChallengeInviteNotificationAndEmail,
-  dismissChallengeInviteNotificationsByChallengeId,
-  dismissNotificationById,
-  dismissWeeklyGoalNotificationsForParticipants,
   isWeeklyGoalPayload,
-  requireCallerOwnedNotificationPayload,
-  scheduleNotificationEmail,
-  upsertWeeklyGoalNotificationForGoal,
 } from "./notificationHelpers";
-import { GRACE_PERIOD_MS, MIN_GOAL_DURATION_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
+import { getAuthenticatedUserOrNull } from "./helpers/auth";
+import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
+import type { GoalWithUsers } from "./weeklyGoals/types";
 import {
-  isCreatedAtExpired,
-  isGoalPastGracePeriod,
-} from "../lib/cleanupExpiry";
-import { buildSessionWords } from "../lib/sessionWords";
+  getBossLaunchPreviewForViewer,
+  getBossPracticeSessionForViewer,
+  getEligibleThemesForViewer,
+  getGoalForViewer,
+  getVisibleGoalsForViewer,
+  getWeeklyGoalPracticeThemesForViewer,
+} from "./weeklyGoals/queries";
+import { closeVisibleGoalsBetweenParticipants, runWeeklyGoalRetentionCleanup } from "./weeklyGoals/cleanup";
 import {
-  canEditGoalEndDate,
-  countCompletedThemes,
-  getEffectiveBossStatus,
-  getEffectiveGoalStatus,
-  getEffectiveMiniBossStatus,
-  isGoalPlayable,
-  MAX_THEMES_PER_GOAL,
-  MIN_THEMES_PER_GOAL,
-  type WeeklyGoalBossStatus,
-  type WeeklyGoalLifecycleStatus,
-} from "../lib/weeklyGoals";
-import { calculateBossStartingLives } from "../lib/bossLives";
-import { ensureRepetitionRecordsForCompletedGoal } from "./weeklyGoalRepetitions";
+  handleAddTheme,
+  handleArchiveCompletedGoalThemesFromNotification,
+  handleCreateBossChallenge,
+  handleCreateGoal,
+  handleDeclineWeeklyGoalInvitation,
+  handleDeleteGoal,
+  handleDismissWeeklyGoalInvitation,
+  handleLockGoal,
+  handleRemoveTheme,
+  handleSetGoalEndDate,
+  handleStartBossSoloPractice,
+  handleToggleCompletion,
+} from "./weeklyGoals/mutations";
 
-type BossType = "mini" | "big";
-type WeeklyGoalPracticeSource = "live" | "snapshot";
-function getGoalParticipantIds(goal: Doc<"weeklyGoals">): Id<"users">[] {
-  return [goal.creatorId, goal.partnerId];
-}
+export { closeVisibleGoalsBetweenParticipants };
+export type { GoalWithUsers } from "./weeklyGoals/types";
 
-function getEligibleThemeIdsForBoss(
-  goal: Doc<"weeklyGoals">,
-  bossType: BossType
-): Id<"themes">[] {
-  if (bossType === "mini") {
-    return goal.themes
-      .filter((t) => t.creatorCompleted && t.partnerCompleted)
-      .map((t) => t.themeId);
-  }
-  return goal.themes.map((t) => t.themeId);
-}
-
-function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds>>) {
-  const fullSessionWords = buildSessionWords(themes);
-
-  if (fullSessionWords.length === 0) {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "No boss words are available for this goal" });
-  }
-
-  return shuffleArray(fullSessionWords);
-}
-
-function getWeeklyGoalPracticeSource(goal: Doc<"weeklyGoals">): WeeklyGoalPracticeSource {
-  return goal.status === "draft" ? "live" : "snapshot";
-}
-
-function resolveWeeklyGoalPracticeThemeIds(
-  goal: Doc<"weeklyGoals">,
-  themeIds?: Id<"themes">[]
-): { ok: true; themeIds: Id<"themes">[] } | { ok: false; message: string } {
-  if (themeIds && themeIds.length === 0) {
-    return { ok: false, message: "Select at least one theme to practice." };
-  }
-
-  const goalThemeIds = goal.themes.map((theme) => theme.themeId);
-  if (!themeIds) {
-    return { ok: true, themeIds: goalThemeIds };
-  }
-
-  const goalThemeIdSet = new Set(goalThemeIds.map(String));
-  const seen = new Set<string>();
-  const selectedThemeIds: Id<"themes">[] = [];
-
-  for (const themeId of themeIds) {
-    const key = String(themeId);
-    if (!goalThemeIdSet.has(key)) {
-      return { ok: false, message: "One selected theme is not part of this weekly goal." };
-    }
-    if (seen.has(key)) continue;
-    seen.add(key);
-    selectedThemeIds.push(themeId);
-  }
-
-  if (selectedThemeIds.length === 0) {
-    return { ok: false, message: "Select at least one theme to practice." };
-  }
-
-  return {
-    ok: true,
-    themeIds: goalThemeIds.filter((themeId) => seen.has(String(themeId))),
-  };
-}
-
-async function loadLiveWeeklyGoalPracticeThemes(
-  ctx: QueryCtx,
-  goal: Doc<"weeklyGoals">,
-  themeIds: Id<"themes">[]
-) {
-  const liveThemes = await Promise.all(themeIds.map((themeId) => ctx.db.get(themeId)));
-  const missingTheme = themeIds.find((_, index) => !liveThemes[index]);
-
-  if (missingTheme) {
-    const goalTheme = goal.themes.find((theme) => theme.themeId === missingTheme);
-    return {
-      ok: false as const,
-      message: `"${goalTheme?.themeName ?? "A theme"}" is no longer available. Remove it or choose another theme before practicing.`,
-    };
-  }
-
-  return {
-    ok: true as const,
-    themes: liveThemes.flatMap((theme) =>
-      theme
-        ? [
-            {
-              _id: theme._id,
-              name: theme.name,
-              words: theme.words,
-            },
-          ]
-        : []
-    ),
-  };
-}
-
-async function loadSnapshotWeeklyGoalPracticeThemes(
-  ctx: QueryCtx,
-  goal: Doc<"weeklyGoals">,
-  themeIds: Id<"themes">[]
-) {
-  const snapshots = await listWeeklyGoalThemeSnapshots(ctx, goal._id);
-  const snapshotsByThemeId = new Map(
-    snapshots.map((snapshot) => [String(snapshot.originalThemeId), snapshot])
-  );
-  const missingThemeId = themeIds.find((themeId) => !snapshotsByThemeId.has(String(themeId)));
-
-  if (missingThemeId) {
-    const goalTheme = goal.themes.find((theme) => theme.themeId === missingThemeId);
-    return {
-      ok: false as const,
-      message: `"${goalTheme?.themeName ?? "A theme"}" snapshot is no longer available. Practice cannot start from the live theme after lock.`,
-    };
-  }
-
-  return {
-    ok: true as const,
-    themes: themeIds.map((themeId) => {
-      const snapshot = snapshotsByThemeId.get(String(themeId));
-      if (!snapshot) {
-        throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
-      }
-      return {
-        _id: snapshot.originalThemeId,
-        name: snapshot.name,
-        words: snapshot.words,
-      };
-    }),
-  };
-}
-
-async function loadGoalThemesForBoss(
-  ctx: MutationCtx,
-  goal: Doc<"weeklyGoals">,
-  bossType: BossType
-) {
-  const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
-  return loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
-}
-
-async function dismissGoalNotifications(
-  ctx: MutationCtx,
-  goalId: Id<"weeklyGoals">
-) {
-  const goal = await ctx.db.get(goalId);
-  if (!goal) return;
-
-  await dismissWeeklyGoalNotificationsForParticipants(
-    ctx,
-    [goal.creatorId, goal.partnerId],
-    [goalId]
-  );
-}
-
-async function dismissChallengeNotifications(
-  ctx: MutationCtx,
-  participantIds: Id<"users">[],
-  challengeIds: Id<"challenges">[]
-) {
-  if (challengeIds.length === 0) return;
-
-  for (const challengeId of challengeIds) {
-    await dismissChallengeInviteNotificationsByChallengeId(ctx, challengeId, participantIds);
-  }
-}
-
-async function deleteGoalPlayRecordsForGoal(
-  ctx: MutationCtx,
-  goal: Doc<"weeklyGoals">
-) {
-  const challenges = await ctx.db
-    .query("challenges")
-    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
-    .collect();
-
-  const challengeIds = challenges.map((challenge) => challenge._id);
-  await dismissChallengeNotifications(ctx, getGoalParticipantIds(goal), challengeIds);
-
-  for (const challenge of challenges) {
-    await ctx.db.delete(challenge._id);
-  }
-
-  const duels = await ctx.db
-    .query("duels")
-    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
-    .collect();
-  for (const duel of duels) {
-    await ctx.db.delete(duel._id);
-  }
-
-  const soloPracticeSessions = await ctx.db
-    .query("soloPracticeSessions")
-    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
-    .collect();
-  for (const session of soloPracticeSessions) {
-    await ctx.db.delete(session._id);
-  }
-}
-
-async function deleteGoalAndRelatedData(
-  ctx: MutationCtx,
-  goal: Doc<"weeklyGoals">
-) {
-  await deleteGoalPlayRecordsForGoal(ctx, goal);
-  await deleteWeeklyGoalThemeSnapshots(ctx, goal._id);
-  await ctx.db.delete(goal._id);
-}
-
-export async function closeVisibleGoalsBetweenParticipants(
-  ctx: MutationCtx,
-  firstUserId: Id<"users">,
-  secondUserId: Id<"users">
-): Promise<number> {
-  const now = Date.now();
-
-  const goalsAsFirstCreator = (
-    await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", firstUserId))
-      .collect()
-  ).filter(
-    (goal) =>
-      goal.partnerId === secondUserId &&
-      shouldIncludeGoal(goal, now)
-  );
-
-  const goalsAsSecondCreator = (
-    await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", secondUserId))
-      .collect()
-  ).filter(
-    (goal) =>
-      goal.partnerId === firstUserId &&
-      shouldIncludeGoal(goal, now)
-  );
-
-  const seenGoalIds = new Set<string>();
-  const visibleGoals = [...goalsAsFirstCreator, ...goalsAsSecondCreator].filter((goal) => {
-    const goalId = String(goal._id);
-    if (seenGoalIds.has(goalId)) {
-      return false;
-    }
-    seenGoalIds.add(goalId);
-    return true;
-  });
-
-  for (const goal of visibleGoals) {
-    await dismissGoalNotifications(ctx, goal._id);
-    await deleteGoalAndRelatedData(ctx, goal);
-  }
-
-  return visibleGoals.length;
-}
-
-export async function completeWeeklyGoalBoss(
-  ctx: MutationCtx,
-  goal: Doc<"weeklyGoals">,
-  bossType: BossType
-) {
-  if (bossType === "mini") {
-    if (getEffectiveMiniBossStatus(goal, Date.now()) === "defeated") return;
-    await ctx.db.patch(goal._id, { miniBossStatus: "defeated" });
-    return;
-  }
-
-  if (getEffectiveBossStatus(goal, Date.now()) === "defeated" && goal.status === "completed") {
-    return;
-  }
-
-  const now = Date.now();
-  await ctx.db.patch(goal._id, {
-    bossStatus: "defeated",
-    status: "completed",
-    completedAt: now,
-  });
-
-  await ensureRepetitionRecordsForCompletedGoal(ctx, goal, now);
-
-  const participants = getGoalParticipantIds(goal);
-  await upsertWeeklyGoalNotificationForGoal(ctx, {
-    toUserId: goal.creatorId,
-    fromUserId: goal.partnerId,
-    goalId: goal._id,
-    themeCount: goal.themes.length,
-    event: "goal_completed",
-    createdAt: now,
-  });
-  await upsertWeeklyGoalNotificationForGoal(ctx, {
-    toUserId: goal.partnerId,
-    fromUserId: goal.creatorId,
-    goalId: goal._id,
-    themeCount: goal.themes.length,
-    event: "goal_completed",
-    createdAt: now,
-  });
-
-  await dismissChallengeNotifications(
-    ctx,
-    participants,
-    (
-      await ctx.db
-        .query("challenges")
-        .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
-        .collect()
-    ).map((challenge) => challenge._id)
-  );
-}
-
-// Types
-export type GoalRole = "creator" | "partner";
-
-export interface GoalWithUsers {
-  goal: Doc<"weeklyGoals">;
-  creator: UserSummary | null;
-  partner: UserSummary | null;
-  viewerRole: GoalRole;
-  effectiveStatus: WeeklyGoalLifecycleStatus;
-  miniBossStatus: WeeklyGoalBossStatus;
-  bossStatus: WeeklyGoalBossStatus;
-  completedThemeCount: number;
-  canEditEndDate: boolean;
-}
-
-type UserSummary = {
-  _id: Id<"users">;
-  nickname?: string;
-  discriminator?: number;
-  name?: string;
-};
-
-const toUserSummary = (user: Doc<"users"> | null): UserSummary | null => {
-  if (!user) return null;
-  return {
-    _id: user._id,
-    nickname: user.nickname,
-    discriminator: user.discriminator,
-    name: user.name,
-  };
-};
-
-function shouldIncludeGoal(
-  goal: Doc<"weeklyGoals">,
-  now: number
-): boolean {
-  const effectiveStatus = getEffectiveGoalStatus(goal, now);
-
-  if (effectiveStatus === "completed") {
-    return false;
-  }
-
-  if (effectiveStatus === "draft") {
-    return true;
-  }
-
-  return !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS);
-}
-
-function buildGoalWithUsers(
-  goal: Doc<"weeklyGoals">,
-  usersById: Map<Id<"users">, Doc<"users"> | null>,
-  viewerRole: GoalRole,
-  now: number
-): GoalWithUsers {
-  const miniBossStatus = getEffectiveMiniBossStatus(goal, now);
-  const bossStatus = getEffectiveBossStatus(goal, now);
-
-  return {
-    goal,
-    creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
-    partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
-    viewerRole,
-    effectiveStatus: getEffectiveGoalStatus(goal, now),
-    miniBossStatus,
-    bossStatus,
-    completedThemeCount: countCompletedThemes(goal.themes),
-    canEditEndDate: canEditGoalEndDate(goal, now),
-  };
-}
-
-function validateEndDateTimestamp(endDate: number): void {
-  if (!Number.isFinite(endDate)) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid end date" });
-  }
-}
-
-export function validateGoalEndDateAtLeast24hAhead(endDate: number, now: number): void {
-  if (endDate - now < MIN_GOAL_DURATION_MS) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "End date must be at least 24 hours from now" });
-  }
-}
-
-/**
- * Sort goals by lockedAt descending, then createdAt descending as a tiebreaker.
- * This ensures consistent ordering across loads.
- */
-function sortGoalsByRecency(goals: GoalWithUsers[]): GoalWithUsers[] {
-  return [...goals].sort((a, b) => {
-    // First sort by lockedAt descending (locked goals first, more recent locks first)
-    const aLockedAt = a.goal.lockedAt ?? 0;
-    const bLockedAt = b.goal.lockedAt ?? 0;
-    if (aLockedAt !== bLockedAt) {
-      return bLockedAt - aLockedAt; // descending
-    }
-    // Tiebreaker: createdAt descending (more recent first)
-    const aCreatedAt = a.goal.createdAt ?? 0;
-    const bCreatedAt = b.goal.createdAt ?? 0;
-    return bCreatedAt - aCreatedAt; // descending
-  });
-}
-
-// =============================================================================
-// QUERIES
-// =============================================================================
-
-/**
- * Get all weekly goals that should still be visible to the current user.
- * Returns an array of goals where the user is either creator or partner.
- */
 export const getVisibleGoals = query({
   args: {},
   handler: async (ctx): Promise<GoalWithUsers[]> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return [];
 
-    const userId = auth.user._id;
-    const now = Date.now();
-    const results: GoalWithUsers[] = [];
-
-    // Get all goals where user is creator
-    const goalsAsCreator = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", userId))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "draft"),
-          q.eq(q.field("status"), "locked"),
-          q.eq(q.field("status"), "grace_period")
-        )
-      )
-      .collect();
-    const visibleGoalsAsCreator = goalsAsCreator.filter((goal) =>
-      shouldIncludeGoal(goal, now)
-    );
-
-    // Get all goals where user is partner
-    const goalsAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", userId))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("status"), "draft"),
-          q.eq(q.field("status"), "locked"),
-          q.eq(q.field("status"), "grace_period")
-        )
-      )
-      .collect();
-    const visibleGoalsAsPartner = goalsAsPartner.filter((goal) =>
-      shouldIncludeGoal(goal, now)
-    );
-
-    const allVisibleGoals = [...visibleGoalsAsCreator, ...visibleGoalsAsPartner];
-    const participantIds = allVisibleGoals.flatMap((goal) => [
-      goal.creatorId,
-      goal.partnerId,
-    ]);
-    const usersById = await loadUsersById(ctx, participantIds);
-
-    for (const goal of visibleGoalsAsCreator) {
-      results.push(buildGoalWithUsers(goal, usersById, "creator", now));
-    }
-
-    for (const goal of visibleGoalsAsPartner) {
-      results.push(buildGoalWithUsers(goal, usersById, "partner", now));
-    }
-
-    // Sort results for consistent ordering: lockedAt desc, then createdAt desc
-    return sortGoalsByRecency(results);
+    return await getVisibleGoalsForViewer(ctx, auth.user._id);
   },
 });
 
-/**
- * Get a specific goal by ID.
- * Returns null if goal not found or user is not a participant.
- */
 export const getGoalById = query({
   args: { goalId: v.id("weeklyGoals") },
   handler: async (ctx, { goalId }): Promise<GoalWithUsers | null> => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const userId = auth.user._id;
-    const now = Date.now();
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) return null;
-
-    // Check if user is a participant
-    const isCreator = goal.creatorId === userId;
-    const isPartner = goal.partnerId === userId;
-    if (!isCreator && !isPartner) return null;
-
-    if (!shouldIncludeGoal(goal, now)) {
-      return null;
-    }
-
-    const usersById = await loadUsersById(ctx, [goal.creatorId, goal.partnerId]);
-    return buildGoalWithUsers(goal, usersById, isCreator ? "creator" : "partner", now);
+    return await getGoalForViewer(ctx, auth.user._id, goalId);
   },
 });
 
@@ -573,36 +67,7 @@ export const getBossLaunchPreview = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const goal = await ctx.db.get(goalId);
-    if (!goal) return null;
-
-    const isCreator = goal.creatorId === auth.user._id;
-    const isPartner = goal.partnerId === auth.user._id;
-    if (!isCreator && !isPartner) return null;
-
-    const now = Date.now();
-    if (!shouldIncludeGoal(goal, now)) {
-      return null;
-    }
-
-    const effectiveStatus = bossType === "mini"
-      ? getEffectiveMiniBossStatus(goal, now)
-      : getEffectiveBossStatus(goal, now);
-    const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
-    const themes = await loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
-    const fullSessionWords = buildSessionWords(themes);
-    const livesTotal = calculateBossStartingLives({
-      bossType,
-      themeCount: themes.length,
-      miniBossDefeated: goal.miniBossStatus === "defeated",
-    });
-
-    return {
-      themeCount: themes.length,
-      wordCount: fullSessionWords.length,
-      livesTotal,
-      bossStatus: effectiveStatus,
-    };
+    return await getBossLaunchPreviewForViewer(ctx, auth.user._id, goalId, bossType);
   },
 });
 
@@ -612,20 +77,7 @@ export const getBossPracticeSession = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const session = await ctx.db.get(soloPracticeSessionId);
-    if (!session || session.userId !== auth.user._id) return null;
-
-    if (session.sourceType !== "boss" && session.sourceType !== "spaced_repetition") {
-      return null;
-    }
-
-    return {
-      soloPracticeSessionId: session._id,
-      sourceType: session.sourceType,
-      spacedRepetitionStep: session.spacedRepetitionStep,
-      sessionWords: session.sessionWords,
-      themeSummary: summarizeSessionWords(session.sessionWords),
-    };
+    return await getBossPracticeSessionForViewer(ctx, auth.user._id, soloPracticeSessionId);
   },
 });
 
@@ -638,442 +90,61 @@ export const getWeeklyGoalPracticeThemes = query({
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return null;
 
-    const goal = await ctx.db.get(weeklyGoalId);
-    if (!goal) return null;
-
-    const isCreator = goal.creatorId === auth.user._id;
-    const isPartner = goal.partnerId === auth.user._id;
-    if (!isCreator && !isPartner) return null;
-
-    const resolvedThemeIds = resolveWeeklyGoalPracticeThemeIds(goal, themeIds);
-    if (!resolvedThemeIds.ok) {
-      return resolvedThemeIds;
-    }
-
-    const source = getWeeklyGoalPracticeSource(goal);
-    const loadedThemes =
-      source === "live"
-        ? await loadLiveWeeklyGoalPracticeThemes(ctx, goal, resolvedThemeIds.themeIds)
-        : await loadSnapshotWeeklyGoalPracticeThemes(ctx, goal, resolvedThemeIds.themeIds);
-
-    if (!loadedThemes.ok) {
-      return loadedThemes;
-    }
-
-    return {
-      ok: true as const,
+    return await getWeeklyGoalPracticeThemesForViewer(
+      ctx,
+      auth.user._id,
       weeklyGoalId,
-      source,
-      themes: loadedThemes.themes,
-    };
+      themeIds
+    );
   },
 });
 
-/**
- * Move overdue goals into grace period and delete goals past retention for the current user.
- */
-export const syncGracePeriodGoalsForUser = mutation({
-  args: {},
-  handler: async (ctx): Promise<{ deletedCount: number; gracePeriodCount: number }> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return { deletedCount: 0, gracePeriodCount: 0 };
-
-    const userId = auth.user._id;
-    const now = Date.now();
-    let deletedCount = 0;
-    let gracePeriodCount = 0;
-
-    // Get all goals where user is creator
-    const goalsAsCreator = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", userId))
-      .collect();
-
-    // Get all goals where user is partner
-    const goalsAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", userId))
-      .collect();
-
-    // Combine and dedupe
-    const allGoals = [...goalsAsCreator, ...goalsAsPartner];
-    const seenIds = new Set<string>();
-    const uniqueGoals = allGoals.filter((g) => {
-      if (seenIds.has(g._id)) return false;
-      seenIds.add(g._id);
-      return true;
-    });
-
-    // Sync grace-period goals and delete anything past the grace window.
-    for (const goal of uniqueGoals) {
-      const effectiveStatus = getEffectiveGoalStatus(goal, now);
-
-      if (effectiveStatus === "completed") {
-        continue;
-      }
-
-      if (effectiveStatus === "grace_period" && goal.status !== "grace_period") {
-        await ctx.db.patch(goal._id, { status: "grace_period" });
-        gracePeriodCount++;
-      }
-
-      if (isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)) {
-        await dismissGoalNotifications(ctx, goal._id);
-        await deleteGoalAndRelatedData(ctx, goal);
-        deletedCount++;
-      }
-    }
-
-    return { deletedCount, gracePeriodCount };
-  },
-});
-
-/**
- * Get themes that can be added to a goal.
- * Returns shared themes owned by either the creator or partner.
- */
 export const getEligibleThemes = query({
   args: { goalId: v.id("weeklyGoals") },
-  handler: async (ctx, { goalId }): Promise<Doc<"themes">[]> => {
+  handler: async (ctx, { goalId }) => {
     const auth = await getAuthenticatedUserOrNull(ctx);
     if (!auth) return [];
 
-    const goal = await ctx.db.get(goalId);
-    if (!goal) return [];
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === auth.user._id;
-    const isPartner = goal.partnerId === auth.user._id;
-    if (!isCreator && !isPartner) return [];
-
-    // Get themes owned by creator
-    const creatorThemes = await ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", goal.creatorId))
-      .collect();
-
-    // Get themes owned by partner
-    const partnerThemes = await ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", goal.partnerId))
-      .collect();
-
-    // Combine and dedupe (shouldn't have dupes but just in case)
-    const allThemes = [...creatorThemes, ...partnerThemes];
-    const themeMap = new Map<string, Doc<"themes">>();
-    for (const theme of allThemes) {
-      themeMap.set(theme._id, theme);
-    }
-
-    // Filter out themes already in the goal
-    const existingThemeIds = new Set(goal.themes.map((t) => t.themeId));
-    return Array.from(themeMap.values()).filter(
-      (theme) => !existingThemeIds.has(theme._id)
-    );
+    return await getEligibleThemesForViewer(ctx, auth.user._id, goalId);
   },
 });
 
-// =============================================================================
-// MUTATIONS
-// =============================================================================
-
-/**
- * Create a new weekly goal with a partner.
- * Validates that there's no existing visible goal between this specific duo.
- */
 export const createGoal = mutation({
-  args: {
-    partnerId: v.id("users"),
-  },
+  args: { partnerId: v.id("users") },
   handler: async (ctx, { partnerId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-    const now = Date.now();
-
-    // Verify partner exists
-    const partner = await ctx.db.get(partnerId);
-    if (!partner) throw new ConvexError({ code: "NOT_FOUND", message: "Partner not found" });
-
-    // Verify they are friends
-    const friendship = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("friendId"), partnerId))
-      .first();
-
-    if (!friendship) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You can only create goals with friends" });
-
-    // Check if there's already a visible goal between this SPECIFIC duo.
-    // Case 1: Current user is creator, partner is partner
-    const existingGoalUserAsCreator = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", user._id))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("partnerId"), partnerId),
-          q.or(
-            q.eq(q.field("status"), "draft"),
-            q.eq(q.field("status"), "locked"),
-            q.eq(q.field("status"), "grace_period")
-          )
-        )
-      )
-      .collect();
-    const visibleUserAsCreator = existingGoalUserAsCreator.filter((goal) =>
-      shouldIncludeGoal(goal, now)
-    );
-
-    if (visibleUserAsCreator.length > 0) {
-      throw new ConvexError({ code: "CONFLICT", message: "You already have a goal with this partner" });
-    }
-
-    // Case 2: Partner is creator, current user is partner
-    const existingGoalUserAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", partnerId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("partnerId"), user._id),
-          q.or(
-            q.eq(q.field("status"), "draft"),
-            q.eq(q.field("status"), "locked"),
-            q.eq(q.field("status"), "grace_period")
-          )
-        )
-      )
-      .collect();
-    const visibleUserAsPartner = existingGoalUserAsPartner.filter((goal) =>
-      shouldIncludeGoal(goal, now)
-    );
-
-    if (visibleUserAsPartner.length > 0) {
-      throw new ConvexError({ code: "CONFLICT", message: "You already have a goal with this partner" });
-    }
-
-    // Create the goal
-    const goalId = await ctx.db.insert("weeklyGoals", {
-      creatorId: user._id,
-      partnerId,
-      themes: [],
-      creatorLocked: false,
-      partnerLocked: false,
-      miniBossStatus: "unavailable",
-      bossStatus: "unavailable",
-      status: "draft",
-      createdAt: now,
-    });
-
-    // Notify the partner about the new goal invitation
-    await createNotification(ctx, {
-      type: "weekly_goal_invitation",
-      fromUserId: user._id,
-      toUserId: partnerId,
-      payload: {
-        goalId,
-        themeCount: 0,
-        event: "invite",
-      },
-      createdAt: now,
-    });
-
-    await scheduleNotificationEmail(ctx, {
-      trigger: "weekly_goal_invite",
-      toUserId: partnerId,
-      fromUserId: user._id,
-      weeklyGoalId: goalId,
-    });
-
-    return goalId;
+    return await handleCreateGoal(ctx, partnerId);
   },
 });
 
-/**
- * Add a theme to a goal.
- */
 export const addTheme = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     themeId: v.id("themes"),
   },
   handler: async (ctx, { goalId, themeId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    // Can only add themes while the goal is still a draft.
-    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal is locked" });
-
-    // Cannot add themes if either participant has locked
-    if (goal.creatorLocked || goal.partnerLocked)
-      throw new ConvexError({ code: "INVALID_STATE", message: "Cannot add themes after a participant has locked" });
-
-    // Check max themes
-    if (goal.themes.length >= MAX_THEMES_PER_GOAL)
-      throw new ConvexError({ code: "LIMIT_REACHED", message: "Maximum themes reached" });
-
-    // Verify theme exists and is eligible
-    const theme = await ctx.db.get(themeId);
-    if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
-
-    // Theme must be owned by one of the participants
-    // Access is granted to the partner via the weekly goal relationship (see hasAccessViaWeeklyGoal)
-    const isOwnedByCreator = theme.ownerId === goal.creatorId;
-    const isOwnedByPartner = theme.ownerId === goal.partnerId;
-    if (!isOwnedByCreator && !isOwnedByPartner)
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Theme must be owned by a participant" });
-
-    // Skip if theme is already in goal (idempotent behavior)
-    if (goal.themes.some((t) => t.themeId === themeId)) {
-      return; // Already added, silently succeed
-    }
-
-    // Add theme
-    await ctx.db.patch(goalId, {
-      themes: [
-        ...goal.themes,
-        {
-          themeId,
-          themeName: theme.name,
-          creatorCompleted: false,
-          partnerCompleted: false,
-        },
-      ],
-    });
+    return await handleAddTheme(ctx, goalId, themeId);
   },
 });
 
-/**
- * Remove a theme from a goal.
- */
 export const removeTheme = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     themeId: v.id("themes"),
   },
   handler: async (ctx, { goalId, themeId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    // Can only remove themes while the goal is still a draft.
-    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal is locked" });
-
-    const lockedParticipantId = goal.creatorLocked
-      ? goal.creatorId
-      : goal.partnerLocked
-        ? goal.partnerId
-        : null;
-    const updatedThemes = goal.themes.filter((t) => t.themeId !== themeId);
-
-    await ctx.db.patch(goalId, {
-      themes: updatedThemes,
-      ...(goal.creatorLocked || goal.partnerLocked
-        ? {
-            creatorLocked: false,
-            partnerLocked: false,
-          }
-        : {}),
-    });
-
-    if (!lockedParticipantId) {
-      return;
-    }
-
-    const otherParticipantId =
-      lockedParticipantId === goal.creatorId ? goal.partnerId : goal.creatorId;
-
-    if (lockedParticipantId !== user._id) {
-      await upsertWeeklyGoalNotificationForGoal(ctx, {
-        toUserId: lockedParticipantId,
-        fromUserId: user._id,
-        goalId,
-        themeCount: updatedThemes.length,
-        event: "goal_unlocked",
-        createdAt: Date.now(),
-      });
-    }
-
-    await dismissWeeklyGoalNotificationsForParticipants(ctx, [otherParticipantId], [goalId]);
+    return await handleRemoveTheme(ctx, goalId, themeId);
   },
 });
 
-/**
- * Set or update the goal end date.
- */
 export const setGoalEndDate = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     endDate: v.number(),
   },
   handler: async (ctx, { goalId, endDate }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-    const goal = await ctx.db.get(goalId);
-
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    validateEndDateTimestamp(endDate);
-
-    const now = Date.now();
-    validateGoalEndDateAtLeast24hAhead(endDate, now);
-
-    if (!canEditGoalEndDate(goal, now)) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "End date can no longer be changed" });
-    }
-
-    if (goal.lockedAt && endDate <= goal.lockedAt) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "End date must be after the start date" });
-    }
-
-    await ctx.db.patch(goalId, { endDate });
+    return await handleSetGoalEndDate(ctx, goalId, endDate);
   },
 });
-
-async function validateAndPrepareBoss(
-  ctx: MutationCtx,
-  goalId: Id<"weeklyGoals">,
-  bossType: BossType
-) {
-  const { user } = await getAuthenticatedUser(ctx);
-  const goal = await ctx.db.get(goalId);
-
-  if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-  const isCreator = goal.creatorId === user._id;
-  const isPartner = goal.partnerId === user._id;
-  if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-  const now = Date.now();
-  if (!isGoalPlayable(goal, now)) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This goal is not playable" });
-  }
-
-  const effectiveStatus = bossType === "mini"
-    ? getEffectiveMiniBossStatus(goal, now)
-    : getEffectiveBossStatus(goal, now);
-
-  if (effectiveStatus !== "ready") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This boss is not ready yet" });
-  }
-
-  const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
-  const sessionWords = buildBossSessionWords(themes);
-  return { user, goal, isCreator, now, sessionWords };
-}
 
 export const createBossChallenge = mutation({
   args: {
@@ -1081,61 +152,7 @@ export const createBossChallenge = mutation({
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, goal, isCreator, now, sessionWords } =
-      await validateAndPrepareBoss(ctx, goalId, bossType);
-
-    const existingGoalChallenges = await ctx.db
-      .query("challenges")
-      .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
-      .collect();
-    const existingGoalDuels = await ctx.db
-      .query("duels")
-      .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
-      .collect();
-
-    const duplicateAttempt = existingGoalChallenges.find(
-      (challenge) =>
-        challenge.bossType === bossType &&
-        challenge.status === "pending"
-    ) || existingGoalDuels.find(
-      (duel) =>
-        duel.bossType === bossType &&
-        duel.status === "active"
-    );
-    if (duplicateAttempt) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "A boss attempt is already in progress" });
-    }
-
-    const opponentId = isCreator ? goal.partnerId : goal.creatorId;
-    const opponent = await ctx.db.get(opponentId);
-    if (!opponent) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "This partner is no longer available. You can still practice solo." });
-    }
-    const challengeInvite = buildChallengeInvite({
-      challengerId: user._id,
-      opponentId,
-      themeIds: getEligibleThemeIdsForBoss(goal, bossType),
-      sourceType: "boss",
-      weeklyGoalId: goalId,
-      bossType,
-      createdAt: now,
-    });
-
-    const challengeId = await ctx.db.insert("challenges", {
-      ...challengeInvite,
-    });
-
-    const bossLabel = bossType === "mini" ? "Mini Boss" : "Big Boss";
-    await createChallengeInviteNotificationAndEmail(ctx, {
-      challengerId: user._id,
-      opponentId,
-      challengeId,
-      themeName: `${bossLabel}: ${summarizeSessionWords(sessionWords)}`,
-      duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
-      createdAt: now,
-    });
-
-    return challengeId;
+    return await handleCreateBossChallenge(ctx, goalId, bossType);
   },
 });
 
@@ -1145,186 +162,34 @@ export const startBossSoloPractice = mutation({
     bossType: v.union(v.literal("mini"), v.literal("big")),
   },
   handler: async (ctx, { goalId, bossType }) => {
-    const { user, now, sessionWords } =
-      await validateAndPrepareBoss(ctx, goalId, bossType);
-
-    return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
-      userId: user._id,
-      sessionWords,
-      sourceType: "boss",
-      weeklyGoalId: goalId,
-      bossType,
-      startsInLearning: true,
-      createdAt: now,
-    }));
+    return await handleStartBossSoloPractice(ctx, goalId, bossType);
   },
 });
 
-/**
- * Toggle completion status for a theme.
- */
 export const toggleCompletion = mutation({
   args: {
     goalId: v.id("weeklyGoals"),
     themeId: v.id("themes"),
   },
   handler: async (ctx, { goalId, themeId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    // Find the theme
-    const themeIndex = goal.themes.findIndex((t) => t.themeId === themeId);
-    if (themeIndex === -1) throw new ConvexError({ code: "INVALID_INPUT", message: "Theme not in goal" });
-
-    // Toggle the appropriate completion flag
-    const updatedThemes = [...goal.themes];
-    if (isCreator) {
-      updatedThemes[themeIndex] = {
-        ...updatedThemes[themeIndex],
-        creatorCompleted: !updatedThemes[themeIndex].creatorCompleted,
-      };
-    } else {
-      updatedThemes[themeIndex] = {
-        ...updatedThemes[themeIndex],
-        partnerCompleted: !updatedThemes[themeIndex].partnerCompleted,
-      };
-    }
-
-    await ctx.db.patch(goalId, { themes: updatedThemes });
+    return await handleToggleCompletion(ctx, goalId, themeId);
   },
 });
 
-/**
- * Lock the goal for the current user.
- */
 export const lockGoal = mutation({
-  args: {
-    goalId: v.id("weeklyGoals"),
-  },
+  args: { goalId: v.id("weeklyGoals") },
   handler: async (ctx, { goalId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    // Must still be a draft.
-    if (goal.status !== "draft") throw new ConvexError({ code: "INVALID_STATE", message: "Goal already locked" });
-
-    // Check if already locked
-    if (isCreator && goal.creatorLocked)
-      throw new ConvexError({ code: "INVALID_STATE", message: "You already locked this goal" });
-    if (isPartner && goal.partnerLocked)
-      throw new ConvexError({ code: "INVALID_STATE", message: "You already locked this goal" });
-
-    if (goal.themes.length < MIN_THEMES_PER_GOAL) {
-      const minThemesRequired: number = MIN_THEMES_PER_GOAL;
-      const themeLabel = minThemesRequired === 1 ? "theme" : "themes";
-      throw new ConvexError({ code: "INVALID_INPUT", message: `Add at least ${minThemesRequired} ${themeLabel} before locking` });
-    }
-
-    if (typeof goal.endDate !== "number") {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Choose an end date before locking" });
-    }
-
-    // Update lock status
-    const updates: Partial<Doc<"weeklyGoals">> = isCreator
-      ? { creatorLocked: true }
-      : { partnerLocked: true };
-
-    // Check if this makes both locked
-    const bothLocked = isCreator
-      ? goal.partnerLocked
-      : goal.creatorLocked;
-
-    const now = Date.now();
-
-    validateGoalEndDateAtLeast24hAhead(goal.endDate, now);
-
-    if (bothLocked) {
-      await createWeeklyGoalThemeSnapshots(ctx, goal, now);
-
-      // Both are now locked - start the goal.
-      updates.status = "locked";
-      updates.lockedAt = now;
-
-      // Notify the other user (the one who locked first) in the UI.
-      await upsertWeeklyGoalNotificationForGoal(ctx, {
-        toUserId: isCreator ? goal.partnerId : goal.creatorId,
-        fromUserId: user._id,
-        goalId,
-        themeCount: goal.themes.length,
-        event: "goal_activated",
-        createdAt: now,
-      });
-
-      await scheduleNotificationEmail(ctx, {
-        trigger: "weekly_goal_accepted",
-        toUserId: isCreator ? goal.partnerId : goal.creatorId,
-        fromUserId: user._id,
-        weeklyGoalId: goalId,
-      });
-    } else {
-      // First lock - update the existing notification with current theme count
-      const otherUserId = isCreator ? goal.partnerId : goal.creatorId;
-
-      await upsertWeeklyGoalNotificationForGoal(ctx, {
-        toUserId: otherUserId,
-        fromUserId: user._id,
-        goalId,
-        themeCount: goal.themes.length,
-        event: "partner_locked",
-        createdAt: now,
-      });
-
-      await scheduleNotificationEmail(ctx, {
-        trigger: "weekly_goal_locked",
-        toUserId: otherUserId,
-        fromUserId: user._id,
-        weeklyGoalId: goalId,
-      });
-    }
-
-    await ctx.db.patch(goalId, updates);
+    return await handleLockGoal(ctx, goalId);
   },
 });
 
-/**
- * Delete a goal in any state.
- * Either creator or partner can remove the goal and its related boss challenges.
- */
 export const deleteGoal = mutation({
-  args: {
-    goalId: v.id("weeklyGoals"),
-  },
+  args: { goalId: v.id("weeklyGoals") },
   handler: async (ctx, { goalId }) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const goal = await ctx.db.get(goalId);
-    if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
-
-    // Verify user is part of this goal
-    const isCreator = goal.creatorId === user._id;
-    const isPartner = goal.partnerId === user._id;
-    if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-
-    await dismissGoalNotifications(ctx, goalId);
-    await deleteGoalAndRelatedData(ctx, goal);
+    return await handleDeleteGoal(ctx, goalId);
   },
 });
 
-// Internal query for reminder crons
 export const getLockedGoalsWithEndDate = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -1347,7 +212,7 @@ export const getGoalsInGraceWindow = internalQuery({
       .withIndex("by_status_endDate", (q) =>
         q.eq("status", "locked").lt("endDate", now)
       )
-      .filter((q) => q.neq(q.field("bossStatus"), "defeated"))
+      .filter((q) => q.neq(q.field("bigBossStatus"), "defeated"))
       .collect();
 
     const gracePeriodGoals = await ctx.db
@@ -1355,7 +220,7 @@ export const getGoalsInGraceWindow = internalQuery({
       .withIndex("by_status_endDate", (q) =>
         q.eq("status", "grace_period").gt("endDate", now - GRACE_PERIOD_MS)
       )
-      .filter((q) => q.neq(q.field("bossStatus"), "defeated"))
+      .filter((q) => q.neq(q.field("bigBossStatus"), "defeated"))
       .collect();
 
     const goals = [...lockedPastEndDate, ...gracePeriodGoals];
@@ -1436,211 +301,30 @@ export const createDraftExpiryNotification = internalMutation({
   },
 });
 
-/**
- * Internal cron cleanup for weekly goals.
- * - Locked goals move to grace_period once endDate passes.
- * - Grace-period goals are deleted after the grace window.
- * - Draft goals expire by createdAt + TTL.
- */
 export const cleanupWeeklyGoalRetention = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const now = Date.now();
-    const draftCutoff = now - WEEKLY_GOAL_DRAFT_TTL_MS;
-
-    const lockedGoalsPastEndDate = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "locked").lt("endDate", now)
-      )
-      .collect();
-
-    const gracePeriodGoalsPastGrace = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_status_endDate", (q) =>
-        q.eq("status", "grace_period").lt("endDate", now - GRACE_PERIOD_MS)
-      )
-      .collect();
-
-    const draftGoals = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_status_createdAt", (q) =>
-        q.eq("status", "draft").lt("createdAt", draftCutoff)
-      )
-      .collect();
-
-    const goalsToDelete = [
-      ...lockedGoalsPastEndDate.filter((goal) =>
-        isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
-      ),
-      ...gracePeriodGoalsPastGrace,
-      ...draftGoals.filter((goal) =>
-        isCreatedAtExpired(goal.createdAt, now, WEEKLY_GOAL_DRAFT_TTL_MS)
-      ),
-    ];
-
-    const goalsToMoveToGracePeriod = lockedGoalsPastEndDate.filter(
-      (goal) => !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS)
-    );
-
-    for (const goal of goalsToMoveToGracePeriod) {
-      await ctx.db.patch(goal._id, { status: "grace_period" });
-    }
-
-    if (goalsToDelete.length === 0) return;
-
-    // Deduplicate — a goal could appear in multiple query results.
-    const seen = new Set<string>();
-    const uniqueGoalsToDelete = goalsToDelete.filter((g) => {
-      const key = String(g._id);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    const participantIdSet = new Set<Id<"users">>();
-    const goalIds: Id<"weeklyGoals">[] = [];
-    for (const goal of uniqueGoalsToDelete) {
-      goalIds.push(goal._id);
-      participantIdSet.add(goal.creatorId);
-      participantIdSet.add(goal.partnerId);
-    }
-
-    await dismissWeeklyGoalNotificationsForParticipants(
-      ctx,
-      Array.from(participantIdSet),
-      goalIds
-    );
-
-    for (const goal of uniqueGoalsToDelete) {
-      await deleteGoalAndRelatedData(ctx, goal);
-    }
+    await runWeeklyGoalRetentionCleanup(ctx);
   },
 });
 
 export const dismissWeeklyGoalInvitation = mutation({
-  args: {
-    notificationId: v.id("notifications"),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    await requireCallerOwnedNotificationPayload(ctx, {
-      notificationId: args.notificationId,
-      userId: user._id,
-      type: "weekly_goal_invitation",
-      payloadGuard: isWeeklyGoalPayload,
-      missingPayloadMessage: "Weekly goal data is missing",
-    });
-    await dismissNotificationById(ctx, args.notificationId);
-
-    return { success: true };
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }) => {
+    return await handleDismissWeeklyGoalInvitation(ctx, notificationId);
   },
 });
 
 export const archiveCompletedGoalThemesFromNotification = mutation({
-  args: {
-    notificationId: v.id("notifications"),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
-      notificationId: args.notificationId,
-      userId: user._id,
-      type: "weekly_goal_invitation",
-      payloadGuard: isWeeklyGoalPayload,
-      missingPayloadMessage: "Weekly goal data is missing",
-    });
-    if (payload.event !== "goal_completed") {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Invalid completed goal notification" });
-    }
-
-    const goal = await ctx.db.get(payload.goalId);
-    if (!goal) {
-      await dismissNotificationById(ctx, args.notificationId);
-      return { archivedCount: 0 };
-    }
-
-    if (goal.status !== "completed") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Weekly goal is not completed" });
-    }
-
-    const currentArchived = user.archivedThemeIds || [];
-    const archivedThemeIdSet = new Set(currentArchived.map((id) => String(id)));
-    const seenGoalThemeIds = new Set<string>();
-    const newlyArchivedThemeIds: Id<"themes">[] = [];
-
-    for (const goalTheme of goal.themes) {
-      const themeIdKey = String(goalTheme.themeId);
-      if (seenGoalThemeIds.has(themeIdKey)) continue;
-      seenGoalThemeIds.add(themeIdKey);
-
-      if (!archivedThemeIdSet.has(themeIdKey)) {
-        newlyArchivedThemeIds.push(goalTheme.themeId);
-        archivedThemeIdSet.add(themeIdKey);
-      }
-    }
-
-    if (newlyArchivedThemeIds.length > 0) {
-      await ctx.db.patch(user._id, {
-        archivedThemeIds: [...currentArchived, ...newlyArchivedThemeIds],
-      });
-    }
-
-    await dismissNotificationById(ctx, args.notificationId);
-
-    return { archivedCount: newlyArchivedThemeIds.length };
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }) => {
+    return await handleArchiveCompletedGoalThemesFromNotification(ctx, notificationId);
   },
 });
 
 export const declineWeeklyGoalInvitation = mutation({
-  args: {
-    notificationId: v.id("notifications"),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
-      notificationId: args.notificationId,
-      userId: user._id,
-      type: "weekly_goal_invitation",
-      payloadGuard: isWeeklyGoalPayload,
-      missingPayloadMessage: "Weekly goal data is missing",
-    });
-
-    const goal = await ctx.db.get(payload.goalId);
-    if (!goal) {
-      await dismissNotificationById(ctx, args.notificationId);
-      return { success: true };
-    }
-
-    if (goal.partnerId !== user._id) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only the invited user can decline this goal" });
-    }
-
-    const now = Date.now();
-    if (getEffectiveGoalStatus(goal, now) !== "draft") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
-    }
-
-    if (goal.creatorLocked || goal.partnerLocked) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
-    }
-
-    await dismissGoalNotifications(ctx, goal._id);
-
-    await upsertWeeklyGoalNotificationForGoal(ctx, {
-      toUserId: goal.creatorId,
-      fromUserId: user._id,
-      goalId: goal._id,
-      themeCount: goal.themes.length,
-      event: "declined",
-      createdAt: now,
-    });
-
-    await deleteGoalAndRelatedData(ctx, goal);
-
-    return { success: true };
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }) => {
+    return await handleDeclineWeeklyGoalInvitation(ctx, notificationId);
   },
 });

@@ -16,15 +16,3 @@ export function areUsersFriends(
       (friendship.userId === targetUserId && friendship.friendId === userId)
   );
 }
-
-export function canCreateNormalChallenge(
-  challengerId: Id<"users">,
-  opponentId: Id<"users">,
-  friendships: FriendshipPair[]
-): boolean {
-  if (challengerId === opponentId) {
-    return false;
-  }
-
-  return areUsersFriends(challengerId, opponentId, friendships);
-}

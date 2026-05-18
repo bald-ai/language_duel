@@ -1,8 +1,9 @@
 "use client";
 
 import { memo } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 type ModeTone = "primary" | "secondary" | "cta";
 
 interface ModeSelectionButtonProps {
@@ -28,6 +29,7 @@ export const ModeSelectionButton = memo(function ModeSelectionButton({
   selectedTone = "primary",
   dataTestId,
 }: ModeSelectionButtonProps) {
+  const colors = useAppearanceColors();
   const tone = toneMap[selectedTone];
   const cardStyle = selected
     ? {

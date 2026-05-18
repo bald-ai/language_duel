@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 interface AvatarProps {
   src?: string;
   name: string;
@@ -23,6 +24,7 @@ export function Avatar({
   className = "",
   borderColor = colors.neutral.DEFAULT,
 }: AvatarProps) {
+  const colors = useAppearanceColors();
   const [error, setError] = useState(false);
 
   // Fallback initials (max 2 characters)

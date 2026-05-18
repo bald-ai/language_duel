@@ -59,7 +59,7 @@ describe("FriendListItem", () => {
 
     expect(
       await screen.findByText(
-        "You also have a weekly goal together. Removing this friend will close it."
+        "You also have a weekly goal together. Removing this friend will also close that shared goal."
       )
     ).toBeInTheDocument();
   });

@@ -2,7 +2,7 @@
 
 import { ReactNode, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 // SSR-safe mounting detection using useSyncExternalStore
 const emptySubscribe = () => () => { };
@@ -24,6 +24,7 @@ export function ModalShell({
   infoTooltip,
   panelClassName,
 }: ModalShellProps) {
+  const colors = useAppearanceColors();
   const [showTooltip, setShowTooltip] = useState(false);
   const isMounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 

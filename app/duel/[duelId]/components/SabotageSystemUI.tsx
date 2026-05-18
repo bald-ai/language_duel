@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { MAX_SABOTAGES, SABOTAGE_OPTIONS, type SabotageEffect } from "@/app/game/sabotage";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface SabotageSystemUIProps {
   status: string;
@@ -36,6 +36,7 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   onSendSabotage,
   dataTestIdBase,
 }: SabotageSystemUIProps) {
+  const colors = useAppearanceColors();
   if (status !== "accepted" || phase !== "answering" || word === "done") {
     return null;
   }

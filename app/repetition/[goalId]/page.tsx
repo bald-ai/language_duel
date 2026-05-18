@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { BackButton } from "@/app/components/BackButton";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { buildSoloUrl } from "@/lib/soloNavigation";
 import {
@@ -19,6 +19,7 @@ import { RepetitionProgress } from "../components/RepetitionProgress";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function RepetitionLaunchPage() {
+  const colors = useAppearanceColors();
   const params = useParams();
   const router = useRouter();
   const goalId = typeof params.goalId === "string" ? params.goalId : "";
@@ -93,7 +94,7 @@ export default function RepetitionLaunchPage() {
 
   const currentStep = preview.step ?? preview.totalSteps;
   const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
-  const canStart = preview.ready && preview.contentAvailable;
+  const canStart = preview.canStart;
   const duelAvailable = preview.duelAvailable;
   const wordCountLabel = canStart ? preview.wordCount : "-";
   const [firstThemeName] = preview.themeNames;

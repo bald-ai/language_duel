@@ -13,7 +13,6 @@ export {
   DEFAULT_WORD_TYPE,
   WORD_TYPE_CONFIG,
   WORD_TYPE_OPTIONS,
-  WORD_TYPES,
   getDefaultWordType,
   getWordTypeConfig,
   getWordTypeLabel,

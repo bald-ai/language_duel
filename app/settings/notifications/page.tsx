@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { useNotificationSettings } from "./hooks/useNotificationSettings";
 import { CategoryToggle } from "./components/CategoryToggle";
 import { NotificationToggle } from "./components/NotificationToggle";
@@ -24,7 +24,7 @@ const WEEKLY_GOAL_EMAIL_TRIGGERS = NOTIFICATION_EMAIL_TRIGGERS.filter(
 export default function NotificationSettingsPage() {
   const router = useRouter();
   const { prefs, isLoading, updatePrefs } = useNotificationSettings();
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
 
   if (isLoading) {
     return (

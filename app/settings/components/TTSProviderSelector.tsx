@@ -1,33 +1,19 @@
 "use client";
 
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { useTTSProvider, type TtsProvider } from "../hooks/useTTSProvider";
+import { TTS_PROVIDER_IDS, TTS_PROVIDER_OPTIONS } from "@/lib/tts/providers";
 
-const TTS_PROVIDERS: Array<{
-  id: TtsProvider;
-  label: string;
-  description: string;
-  icon: string;
-}> = [
-  {
-    id: "resemble",
-    label: "Resemble AI",
-    description: "High quality, slow",
-    icon: "🗣️",
-  },
-  {
-    id: "elevenlabs",
-    label: "ElevenLabs",
-    description: "Fast, normal quality",
-    icon: "🎙️",
-  },
-];
+const TTS_PROVIDER_ICONS: Record<TtsProvider, string> = {
+  [TTS_PROVIDER_IDS.RESEMBLE]: "🗣️",
+  [TTS_PROVIDER_IDS.ELEVENLABS]: "🎙️",
+};
 
 /**
  * TTSProviderSelector - Allows users to select their preferred TTS provider
  */
 export function TTSProviderSelector() {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const { provider, setProvider, isUpdating } = useTTSProvider();
 
     return (
@@ -54,7 +40,7 @@ export function TTSProviderSelector() {
             </div>
 
             <div className="p-4 grid gap-2">
-                {TTS_PROVIDERS.map((option) => {
+                {TTS_PROVIDER_OPTIONS.map((option) => {
                     const isActive = option.id === provider;
 
                     return (
@@ -73,7 +59,7 @@ export function TTSProviderSelector() {
                             data-testid={`settings-tts-${option.id}`}
                         >
                             <div className="flex items-center gap-3">
-                                <span className="text-xl">{option.icon}</span>
+                                <span className="text-xl">{TTS_PROVIDER_ICONS[option.id]}</span>
                                 <div className="text-left">
                                     <span
                                         className="text-sm font-semibold uppercase tracking-wide block"

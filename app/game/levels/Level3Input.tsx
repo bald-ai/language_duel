@@ -5,7 +5,7 @@ import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters, buildAnagramWithSpaces } from "@/lib/prng";
 import { DUEL_CORRECT_DELAY_MS } from "./constants";
 import type { Level3Props, HintProps } from "./types";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface Level3ExtendedProps extends Level3Props, HintProps {
   onRequestHint?: () => void;
@@ -32,6 +32,8 @@ export function Level3Input({
   onRequestHint,
   onCancelHint,
 }: Level3ExtendedProps) {
+  const buttonStyles = useAppearanceButtonStyles();
+  const colors = useAppearanceColors();
   const [inputValue, setInputValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isCorrectAnswer, setIsCorrectAnswer] = useState(false);

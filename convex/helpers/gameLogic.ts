@@ -17,7 +17,6 @@ import {
   POOL_EXPANSION_SIZE,
   POOL_EXPANSION_THRESHOLD,
 } from "../../lib/constants";
-
 // ===========================================
 // Types
 // ===========================================
@@ -30,8 +29,6 @@ export interface DifficultyDistribution {
   mediumEnd: number;
   total: number;
 }
-
-export type DuelDifficultyPreset = "easy" | "medium" | "hard";
 
 export interface WordState {
   wordIndex: number;

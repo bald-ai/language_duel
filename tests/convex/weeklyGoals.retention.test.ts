@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { syncGracePeriodGoalsForUser } from "@/convex/weeklyGoals";
+import { cleanupWeeklyGoalRetention } from "@/convex/weeklyGoals";
 import {
-  createAuthCtx,
   createIndexedQuery,
   deleteRow,
   findRowById,
@@ -20,7 +19,7 @@ type WeeklyGoalDoc = Pick<
   | "creatorLocked"
   | "partnerLocked"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "createdAt"
   | "endDate"
@@ -122,7 +121,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: true,
     partnerLocked: true,
     miniBossStatus: "defeated",
-    bossStatus: "defeated",
+    bigBossStatus: "defeated",
     status: "completed",
     createdAt: Date.now() - 10_000,
     endDate: Date.now() - 3 * 24 * 60 * 60 * 1000,
@@ -132,14 +131,14 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
   };
 }
 
-const syncGracePeriodGoalsForUserHandler = (syncGracePeriodGoalsForUser as unknown as {
+const cleanupWeeklyGoalRetentionHandler = (cleanupWeeklyGoalRetention as unknown as {
   _handler: (
     ctx: unknown,
     args: Record<string, never>
-  ) => Promise<{ deletedCount: number; gracePeriodCount: number }>;
+  ) => Promise<void>;
 })._handler;
 
-describe("weeklyGoals retention sync", () => {
+describe("weeklyGoals retention cleanup", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -150,12 +149,8 @@ describe("weeklyGoals retention sync", () => {
     db.users = [buildUser()];
     db.weeklyGoals = [buildGoal()];
 
-    const result = await syncGracePeriodGoalsForUserHandler(
-      createAuthCtx(db, "clerk_1"),
-      {}
-    );
+    await cleanupWeeklyGoalRetentionHandler({ db }, {});
 
-    expect(result).toEqual({ deletedCount: 0, gracePeriodCount: 0 });
     expect(db.weeklyGoals).toHaveLength(1);
     expect(db.weeklyGoals[0]?.status).toBe("completed");
   });

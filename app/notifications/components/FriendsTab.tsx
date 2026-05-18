@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import { toast } from "sonner";
 import { FriendListItem } from "./FriendListItem";
@@ -24,6 +24,7 @@ interface FriendsTabProps {
  * - Right-click/long-press context menu for actions
  */
 export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
+  const colors = useAppearanceColors();
     const friends = useQuery(api.friends.getFriends);
     const allGoals = useQuery(api.weeklyGoals.getVisibleGoals);
     const sentRequests = useQuery(api.friends.getSentRequests);
@@ -31,7 +32,10 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
 
     const handleRemoveFriend = async (friendId: Id<"users">) => {
         try {
-            const result = await removeFriendMutation({ friendId });
+            const result = await removeFriendMutation({
+                friendId,
+                alsoCleanupSharedWeeklyGoals: true,
+            });
             toast.success(
                 result.closedGoalCount > 0
                     ? "Friend removed and shared goal closed"
@@ -145,5 +149,3 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
         </FriendDuelLauncher>
     );
 }
-
-export default FriendsTab;

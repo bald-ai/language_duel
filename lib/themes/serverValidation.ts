@@ -30,12 +30,15 @@ export type ThemeValidationIssue =
   | {
       type: "wrong_answer_matches_correct";
       wordIndex: number;
+      wrongIndex: number;
       wrongAnswer: string;
       answer: string;
     }
   | {
       type: "duplicate_wrong_answer";
       wordIndex: number;
+      firstWrongIndex: number;
+      secondWrongIndex: number;
       firstWrongAnswer: string;
       secondWrongAnswer: string;
     }
@@ -136,9 +139,9 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
     });
 
     const comparableAnswer = normalizeComparableValue(trimmedAnswer);
-    const seenWrongAnswers = new Map<string, string>();
+    const seenWrongAnswers = new Map<string, { index: number; value: string }>();
 
-    wrongAnswers.forEach((wrongAnswer) => {
+    wrongAnswers.forEach((wrongAnswer, wrongIndex) => {
       const wrongStr = typeof wrongAnswer === "string" ? wrongAnswer : "";
       const trimmedWrong = normalizeValue(wrongStr);
       const comparableWrongAnswer = normalizeComparableValue(wrongStr);
@@ -150,11 +153,13 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
           issues.push({
             type: "duplicate_wrong_answer",
             wordIndex,
-            firstWrongAnswer: existingWrongAnswer,
+            firstWrongIndex: existingWrongAnswer.index,
+            secondWrongIndex: wrongIndex,
+            firstWrongAnswer: existingWrongAnswer.value,
             secondWrongAnswer: wrongStr,
           });
         } else {
-          seenWrongAnswers.set(comparableWrongAnswer, wrongStr);
+          seenWrongAnswers.set(comparableWrongAnswer, { index: wrongIndex, value: wrongStr });
         }
       }
 
@@ -162,6 +167,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
         issues.push({
           type: "wrong_answer_matches_correct",
           wordIndex,
+          wrongIndex,
           wrongAnswer: wrongStr,
           answer: rawAnswer,
         });

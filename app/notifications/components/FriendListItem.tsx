@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import type { FriendWithDetails } from "@/convex/friends";
 
@@ -28,6 +28,7 @@ export function FriendListItem({
     onQuickDuel,
     onRemoveFriend
 }: FriendListItemProps) {
+  const colors = useAppearanceColors();
     const [showMenu, setShowMenu] = useState(false);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [showConfirmRemove, setShowConfirmRemove] = useState(false);
@@ -180,7 +181,7 @@ export function FriendListItem({
                         className="text-sm mb-4"
                         style={{ color: colors.status.warning.dark }}
                     >
-                        You also have a weekly goal together. Removing this friend will close it.
+                        You also have a weekly goal together. Removing this friend will also close that shared goal.
                     </p>
                 )}
                 <div className="flex gap-2">
@@ -341,5 +342,3 @@ function SwordsIcon() {
         </svg>
     );
 }
-
-export default FriendListItem;

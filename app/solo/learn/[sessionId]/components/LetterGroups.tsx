@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo, useCallback } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { stripIrr } from "@/lib/stringUtils";
 
 interface LetterGroupsProps {
@@ -19,6 +19,7 @@ export const LetterGroups = memo(function LetterGroups({
   onRevealLetter,
   dataTestIdPrefix,
 }: LetterGroupsProps) {
+  const colors = useAppearanceColors();
   // Memoize word groups computation to avoid recalculating on every render
   const wordGroups = useMemo(() => {
     const letters = stripIrr(answer).split("");

@@ -1,9 +1,10 @@
 "use client";
 
 import { ModalShell } from "./ModalShell";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 export function JoiningModal() {
+  const colors = useAppearanceColors();
   return (
     <ModalShell title="Joining Duel...">
       <p className="mb-4 text-sm text-center" style={{ color: colors.text.muted }}>

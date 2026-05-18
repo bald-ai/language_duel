@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { CONFIDENCE_COLORS, type ConfidenceLevel } from "./ConfidenceSlider";
 
 interface SetAllDropdownProps {
@@ -12,6 +12,7 @@ interface SetAllDropdownProps {
 const levels = [0, 1, 2, 3] as const;
 
 export function SetAllDropdown({ onSelect, onClose }: SetAllDropdownProps) {
+  const colors = useAppearanceColors();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

@@ -1,13 +1,14 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 import {
   getThemeActionButtonStyle,
   themeActionButtonClassName,
-  themeModalPanelStyle,
+  getThemeModalPanelStyle,
   themeOutlineButtonClassName,
-  themeOutlineButtonStyle,
+  getThemeOutlineButtonStyle,
 } from "./themeStyles";
 import type { PickAndPruneWord } from "../hooks/usePickAndPrune";
 
@@ -32,6 +33,7 @@ export function PickAndPruneReview({
   onContinue,
   onCancel,
 }: PickAndPruneReviewProps) {
+  const colors = useAppearanceColors();
   const activeCount = activeWords.length;
   const removedCount = removedWords.length;
 
@@ -39,7 +41,7 @@ export function PickAndPruneReview({
     <div className="w-full flex-1 min-h-0 flex flex-col" data-testid="theme-pick-prune-review">
       <div
         className="w-full max-w-md mx-auto flex-1 min-h-0 rounded-3xl border-2 p-4 flex flex-col gap-3"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <header className="text-center shrink-0">
           <p
@@ -150,7 +152,7 @@ export function PickAndPruneReview({
             onClick={onContinue}
             disabled={activeCount === 0}
             className={`${themeActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-            style={getThemeActionButtonStyle("cta")}
+            style={getThemeActionButtonStyle("cta", colors)}
             data-testid="theme-pick-prune-review-submit"
           >
             Continue with {activeCount} words
@@ -159,7 +161,7 @@ export function PickAndPruneReview({
             type="button"
             onClick={onCancel}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-pick-prune-cancel"
           >
             Cancel
@@ -214,6 +216,7 @@ function WordRow({
   actionAriaLabel: string;
   onAction: () => void;
 }) {
+  const colors = useAppearanceColors();
   const isActive = variant === "active";
 
   const rowStyle: CSSProperties = isActive

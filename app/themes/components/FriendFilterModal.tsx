@@ -2,7 +2,7 @@
 
 import type { Id } from "@/convex/_generated/dataModel";
 import type { FriendWithDetails } from "@/convex/friends";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Avatar } from "@/app/components/Avatar";
 import { formatVisibleUser } from "@/lib/userDisplay";
 
@@ -23,6 +23,7 @@ export function FriendFilterModal({
   onShowMyThemes,
   onClose,
 }: FriendFilterModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 type NotificationToggleProps = {
   label: string;
@@ -15,7 +15,7 @@ export function NotificationToggle({
   disabled,
   onChange,
 }: NotificationToggleProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   return (
     <label
       className="flex items-center justify-between py-2 cursor-pointer"

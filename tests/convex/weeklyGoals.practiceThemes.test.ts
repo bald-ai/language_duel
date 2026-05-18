@@ -87,7 +87,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: false,
     partnerLocked: false,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "draft",
     createdAt: 1,
     endDate: Date.now() + 100_000,

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import {
   getSpacedRepetitionIntervalDaysForStep,
@@ -26,8 +26,9 @@ type BoardItem = {
   completedSteps: SpacedRepetitionStep[];
   step: number | null;
   totalSteps: number;
-  ready: boolean;
+  isDueNow: boolean;
   contentAvailable: boolean;
+  canStart: boolean;
   unavailableReason?: string;
   daysRemaining: number;
 };
@@ -72,6 +73,7 @@ function sectionTitle(tab: TabKey): string {
 }
 
 function EmptyState({ label }: { label: string }) {
+  const colors = useAppearanceColors();
   return (
     <div
       className="rounded-2xl border-2 p-6 text-center text-sm"
@@ -88,6 +90,7 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function ReadyCard({ item }: { item: BoardItem }) {
+  const colors = useAppearanceColors();
   const router = useRouter();
   const currentStep = item.step ?? item.totalSteps;
   const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
@@ -97,7 +100,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
       className="rounded-2xl border-2 p-4 space-y-4"
       style={{
         backgroundColor: colors.background.elevated,
-        borderColor: item.ready ? colors.cta.DEFAULT : colors.status.warning.DEFAULT,
+        borderColor: item.canStart ? colors.cta.DEFAULT : colors.status.warning.DEFAULT,
         boxShadow: `0 12px 30px ${colors.primary.glow}`,
       }}
       data-testid="sr-ready-card"
@@ -152,7 +155,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
           <button
             type="button"
             onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
-            disabled={!item.ready}
+            disabled={!item.canStart}
             className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             style={{
               backgroundColor: colors.cta.DEFAULT,
@@ -166,7 +169,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
           <button
             type="button"
             onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
-            disabled={!item.ready}
+            disabled={!item.canStart}
             className="rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             style={{
               backgroundColor: colors.background.DEFAULT,
@@ -182,7 +185,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
         <button
           type="button"
           onClick={() => router.push(`/repetition/${item.weeklyGoalId}`)}
-          disabled={!item.ready}
+          disabled={!item.canStart}
           className="w-full rounded-xl border-2 px-3 py-2 text-sm font-bold uppercase tracking-wide transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           style={{
             backgroundColor: colors.background.DEFAULT,
@@ -199,6 +202,7 @@ function ReadyCard({ item }: { item: BoardItem }) {
 }
 
 function CompactRow({ item, kind }: { item: BoardItem; kind: "coming" | "done" }) {
+  const colors = useAppearanceColors();
   return (
     <div
       className="flex items-center gap-3 border-b py-3 last:border-b-0"
@@ -253,6 +257,7 @@ function CompactRow({ item, kind }: { item: BoardItem; kind: "coming" | "done" }
 }
 
 function CompactSection({ title, meta, children }: { title: string; meta: string; children: ReactNode }) {
+  const colors = useAppearanceColors();
   return (
     <section className="space-y-2">
       <div className="flex items-end justify-between gap-3">
@@ -277,6 +282,7 @@ function CompactSection({ title, meta, children }: { title: string; meta: string
 }
 
 function VisibleItems({ tab, board }: { tab: TabKey; board: BoardData }) {
+  const colors = useAppearanceColors();
   const sections = tab === "all"
     ? [
         { key: "ready" as const, items: board.ready, meta: "Oldest first" },
@@ -339,6 +345,7 @@ function VisibleItems({ tab, board }: { tab: TabKey; board: BoardData }) {
 }
 
 export function RepetitionBoard() {
+  const colors = useAppearanceColors();
   const [tab, setTab] = useState<TabKey>("all");
   const board = useQuery(api.weeklyGoalRepetitions.getBoard);
 

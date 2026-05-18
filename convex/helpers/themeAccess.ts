@@ -12,6 +12,14 @@ export async function loadThemeWithViewerAccess(
   const theme = await ctx.db.get(themeId);
   if (!theme) return null;
 
+  return await canViewTheme(ctx, userId, theme) ? theme : null;
+}
+
+export async function canViewTheme(
+  ctx: CtxWithDb,
+  userId: Id<"users">,
+  theme: Doc<"themes">
+): Promise<boolean> {
   const [
     challengesAsChallenger,
     challengesAsOpponent,
@@ -67,10 +75,10 @@ export async function loadThemeWithViewerAccess(
       : Promise.resolve([]),
   ]);
 
-  const canView = hasThemeAccess({
+  return hasThemeAccess({
     userId,
     theme: {
-      themeId,
+      themeId: theme._id,
       ownerId: theme.ownerId,
       visibility: theme.visibility,
     },
@@ -99,6 +107,19 @@ export async function loadThemeWithViewerAccess(
       friendId: friendship.friendId,
     })),
   });
+}
 
-  return canView ? theme : null;
+export async function shouldListTheme(
+  ctx: CtxWithDb,
+  userId: Id<"users">,
+  theme: Doc<"themes">,
+  archivedThemeIds: Set<Id<"themes">>,
+  archivedOnly: boolean | undefined
+): Promise<boolean> {
+  const isArchived = archivedThemeIds.has(theme._id);
+  if (archivedOnly ? !isArchived : isArchived) {
+    return false;
+  }
+
+  return await canViewTheme(ctx, userId, theme);
 }

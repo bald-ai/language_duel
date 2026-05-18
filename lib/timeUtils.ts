@@ -240,15 +240,3 @@ export function getTimeZoneDateKey(timestamp: number, timezone: string): string 
     const { year, month, day } = getTimeZoneDateParts(timestamp, timezone);
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
-
-export function getDaysUntilInTimeZone(
-    targetTimestamp: number,
-    nowTimestamp: number,
-    timezone: string
-): number {
-    const target = getTimeZoneDateParts(targetTimestamp, timezone);
-    const now = getTimeZoneDateParts(nowTimestamp, timezone);
-    const targetDay = Date.UTC(target.year, target.month - 1, target.day);
-    const nowDay = Date.UTC(now.year, now.month - 1, now.day);
-    return Math.max(0, Math.round((targetDay - nowDay) / (24 * 60 * 60 * 1000)));
-}

@@ -1,4 +1,4 @@
-import { colors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/theme";
 import type { WeeklyGoalBossStatus } from "@/lib/weeklyGoals";
 
 export function formatBossStatus(status: WeeklyGoalBossStatus): string {
@@ -12,7 +12,7 @@ export function formatBossStatus(status: WeeklyGoalBossStatus): string {
   }
 }
 
-export function getBossButtonStyle(status: WeeklyGoalBossStatus) {
+export function getBossButtonStyle(status: WeeklyGoalBossStatus, colors: ThemeColors) {
   return {
     borderColor:
       status === "defeated"

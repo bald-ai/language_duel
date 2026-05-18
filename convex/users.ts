@@ -16,6 +16,7 @@ import {
   LLM_MONTHLY_CREDITS,
   TTS_MONTHLY_GENERATIONS,
 } from "../lib/credits/constants";
+import { DEFAULT_TTS_PROVIDER, type TtsProvider } from "../lib/tts/providers";
 
 export { isUserOnline } from "./helpers/users";
 
@@ -42,7 +43,7 @@ export type CurrentUser = {
   llmCreditsRemaining: number;
   ttsGenerationsRemaining: number;
   creditsMonth: string;
-  ttsProvider: "resemble" | "elevenlabs";
+  ttsProvider: TtsProvider;
 };
 
 export const getUsers = query({
@@ -88,7 +89,7 @@ export const getCurrentUser = query({
       llmCreditsRemaining: normalizedCredits.llmCreditsRemaining,
       ttsGenerationsRemaining: normalizedCredits.ttsGenerationsRemaining,
       creditsMonth: normalizedCredits.creditsMonth,
-      ttsProvider: auth.user.ttsProvider ?? "resemble",
+      ttsProvider: auth.user.ttsProvider ?? DEFAULT_TTS_PROVIDER,
     };
   },
 });

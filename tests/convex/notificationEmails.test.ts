@@ -49,7 +49,7 @@ class InMemoryDb {
     return createIndexedQuery(this.emailNotificationLog);
   }
 
-  async insert(table: "emailNotificationLog", value: Record<string, unknown>) {
+  async insert(_table: "emailNotificationLog", value: Record<string, unknown>) {
     const { id, nextCounter } = insertRow(
       this.emailNotificationLog,
       "email_log",

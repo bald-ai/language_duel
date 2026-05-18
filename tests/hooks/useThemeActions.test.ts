@@ -94,7 +94,7 @@ describe("useThemeActions", () => {
   });
 
   describe("update", () => {
-    it("rejects a second update call while first one is in-flight and uppercases name", async () => {
+    it("rejects a second update call while first one is in-flight and sends the provided name", async () => {
       let resolveUpdate: (() => void) | null = null;
       const mocks = standardMutations();
       mocks.updateTheme.mockImplementation(
@@ -125,7 +125,7 @@ describe("useThemeActions", () => {
       expect(mocks.updateTheme).toHaveBeenCalledTimes(1);
       expect(mocks.updateTheme).toHaveBeenCalledWith({
         themeId: "theme_1",
-        name: "ANIMALS",
+        name: "animals",
         words,
       });
 

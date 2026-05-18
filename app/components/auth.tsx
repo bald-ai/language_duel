@@ -76,9 +76,6 @@ export function LeftNavButtons() {
     router.prefetch("/repetition");
   }, [isSignedIn, router]);
 
-  // Track user presence
-  usePresence();
-
   // Notification system
   const { notificationCount } = useNotifications();
   const panel = useNotificationPanel();
@@ -165,6 +162,12 @@ export function LeftNavButtons() {
       />
     </div>
   );
+}
+
+export function SignedInPresenceOwner() {
+  usePresence();
+
+  return null;
 }
 
 // Right navigation buttons (Settings and User) - for signed-in users

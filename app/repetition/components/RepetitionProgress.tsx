@@ -1,6 +1,6 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   SPACED_REPETITION_INTERVAL_DAYS,
   SPACED_REPETITION_TOTAL_STEPS,
@@ -17,6 +17,7 @@ export function RepetitionProgress({
   currentStep,
   showLabels = false,
 }: RepetitionProgressProps) {
+  const colors = useAppearanceColors();
   return (
     <div>
       <div

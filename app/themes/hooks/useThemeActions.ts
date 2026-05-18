@@ -77,7 +77,7 @@ export function useThemeActions() {
       updateInFlightRef.current = true;
       setState((prev) => ({ ...prev, isUpdating: true, error: null }));
       try {
-        await updateTheme({ themeId, name: name.toUpperCase(), words });
+        await updateTheme({ themeId, name, words });
         setState((prev) => ({ ...prev, isUpdating: false }));
         return { ok: true };
       } catch (e) {

@@ -2,7 +2,7 @@
 
 import type { Id } from "@/convex/_generated/dataModel";
 import type { GoalWithUsers } from "@/convex/weeklyGoals";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 
 interface GoalSwitcherProps {
@@ -22,6 +22,7 @@ export function GoalSwitcher({
     onSelect,
     onCreateNew,
 }: GoalSwitcherProps) {
+  const colors = useAppearanceColors();
     if (goals.length === 0) return null;
 
     return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, type RefObject } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { PANEL_TABS, type PanelTab } from "../constants";
 import { FriendsTab } from "./FriendsTab";
 import { NotificationsTab } from "./NotificationsTab";
@@ -30,6 +30,7 @@ export function NotificationPanel({
     onClose,
     triggerRef,
 }: NotificationPanelProps) {
+  const colors = useAppearanceColors();
     const panelRef = useRef<HTMLDivElement>(null);
 
     // Close on click outside
@@ -119,6 +120,7 @@ interface TabButtonProps {
 }
 
 function TabButton({ label, isActive, onClick }: TabButtonProps) {
+  const colors = useAppearanceColors();
     const testId = `notification-panel-tab-${label.toLowerCase().replace(/\s+/g, "-")}`;
     return (
         <button
@@ -141,5 +143,3 @@ function TabButton({ label, isActive, onClick }: TabButtonProps) {
         </button>
     );
 }
-
-export default NotificationPanel;

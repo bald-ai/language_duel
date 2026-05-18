@@ -1,10 +1,11 @@
 "use client";
 
 import { ThemedPage } from "@/app/components/ThemedPage";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { RepetitionBoard } from "./components/RepetitionBoard";
 
 export default function RepetitionPage() {
+  const colors = useAppearanceColors();
   return (
     <ThemedPage className="px-4 py-6">
       <main className="relative z-10 mx-auto w-full max-w-[34rem] space-y-6">

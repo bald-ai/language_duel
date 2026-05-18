@@ -146,43 +146,43 @@ describe("notificationPreferences", () => {
 
     it("returns true when within reminder window", () => {
       const now = Date.now();
-      const goal = { endDate: now + 24 * HOUR, status: "locked", bossStatus: "unavailable" };
+      const goal = { endDate: now + 24 * HOUR, status: "locked", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(true);
     });
 
     it("returns true when a cron is delayed by the 2 hour window", () => {
       const now = Date.now();
-      const goal = { endDate: now + 23 * HOUR, status: "locked", bossStatus: "unavailable" };
+      const goal = { endDate: now + 23 * HOUR, status: "locked", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60, WEEKLY_GOAL_REMINDER_WINDOW_MS)).toBe(true);
     });
 
     it("returns false when too early for reminder", () => {
       const now = Date.now();
-      const goal = { endDate: now + 48 * HOUR, status: "locked", bossStatus: "unavailable" };
+      const goal = { endDate: now + 48 * HOUR, status: "locked", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when goal is not locked", () => {
       const now = Date.now();
-      const goal = { endDate: now + 20 * HOUR, status: "draft", bossStatus: "unavailable" };
+      const goal = { endDate: now + 20 * HOUR, status: "draft", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when goal has no endDate", () => {
       const now = Date.now();
-      const goal = { status: "locked", bossStatus: "unavailable" };
+      const goal = { status: "locked", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when already in grace period", () => {
       const now = Date.now();
-      const goal = { endDate: now - 1 * HOUR, status: "locked", bossStatus: "unavailable" };
+      const goal = { endDate: now - 1 * HOUR, status: "locked", bigBossStatus: "unavailable" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
 
     it("returns false when the big boss is already defeated", () => {
       const now = Date.now();
-      const goal = { endDate: now + 24 * HOUR, status: "locked", bossStatus: "defeated" };
+      const goal = { endDate: now + 24 * HOUR, status: "locked", bigBossStatus: "defeated" };
       expect(shouldSendWeeklyGoalReminder(goal, now, 24 * 60)).toBe(false);
     });
   });

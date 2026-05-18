@@ -28,7 +28,7 @@ type WeeklyGoalDoc = Pick<
   | "creatorLocked"
   | "partnerLocked"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "createdAt"
   | "endDate"
@@ -171,7 +171,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: true,
     partnerLocked: true,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "locked",
     createdAt: Date.now() - 10_000,
     endDate: Date.now() + 86_400_000,
@@ -211,7 +211,7 @@ function buildChallenge(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
 const removeFriendHandler = (removeFriend as unknown as {
   _handler: (
     ctx: unknown,
-    args: { friendId: Id<"users"> }
+    args: { friendId: Id<"users">; alsoCleanupSharedWeeklyGoals: true }
   ) => Promise<{ success: true; closedGoalCount: number }>;
 })._handler;
 
@@ -244,7 +244,7 @@ describe("friends removeFriend", () => {
 
     const result = await removeFriendHandler(
       createAuthCtx(db, "clerk_1") as never,
-      { friendId: "user_2" as Id<"users"> }
+      { friendId: "user_2" as Id<"users">, alsoCleanupSharedWeeklyGoals: true }
     );
 
     expect(result).toEqual({ success: true, closedGoalCount: 1 });
@@ -283,7 +283,7 @@ describe("friends removeFriend", () => {
 
     const result = await removeFriendHandler(
       createAuthCtx(db, "clerk_1") as never,
-      { friendId: "user_2" as Id<"users"> }
+      { friendId: "user_2" as Id<"users">, alsoCleanupSharedWeeklyGoals: true }
     );
 
     expect(result).toEqual({ success: true, closedGoalCount: 1 });
@@ -311,7 +311,7 @@ describe("friends removeFriend", () => {
 
     const result = await removeFriendHandler(
       createAuthCtx(db, "clerk_1") as never,
-      { friendId: "user_2" as Id<"users"> }
+      { friendId: "user_2" as Id<"users">, alsoCleanupSharedWeeklyGoals: true }
     );
 
     expect(result).toEqual({ success: true, closedGoalCount: 0 });

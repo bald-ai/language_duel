@@ -1,340 +1,57 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useAction, useConvex } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import type { WordEntry } from "@/lib/types";
-import type { ThemeWithOwner } from "@/convex/themes";
-import {
-  isWordDuplicate,
-  getThemeSaveErrorMessage,
-} from "@/lib/themes/validators";
-import { buildFieldSummary } from "@/lib/generate/prompts";
-import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
-import { useTTS } from "@/app/game/hooks/useTTS";
-import {
-  getDefaultWordType,
-  VIEW_MODES,
-  FIELD_TYPES,
-  GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-  PICK_AND_PRUNE_WORD_COUNT,
-  type ViewMode,
-  type FieldType,
-  type WordType,
-} from "../constants";
-import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
-import { usePickAndPrune } from "./usePickAndPrune";
-import { useWordEditor } from "./useWordEditor";
+import { VIEW_MODES, type ViewMode } from "../constants";
 import { useThemeActions } from "./useThemeActions";
-import type { ThemeDetailTheme } from "../components/ThemeDetail";
-import { createSaveRequestId } from "../lib/saveRequestId";
+import { useThemeDetailController } from "./useThemeDetailController";
+import { useThemeGenerationController } from "./useThemeGenerationController";
+import { useThemeListController } from "./useThemeListController";
+import { useThemeTtsController } from "./useThemeTtsController";
+import { useThemeWordEditController } from "./useThemeWordEditController";
+import type { DeleteConfirmState } from "./themeControllerTypes";
 import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/errors";
-
-interface DeleteConfirmState {
-  type: "theme" | "word";
-  themeId?: Id<"themes">;
-  themeName?: string;
-  wordIndex?: number;
-  wordName?: string;
-}
-
-type NewThemeDraft = {
-  name: string;
-  description: string;
-  words: WordEntry[];
-  wordType: WordType;
-  visibility: "private" | "shared";
-  friendsCanEdit: boolean;
-  saveRequestId: string;
-};
-
-type SelectedThemeState =
-  | { kind: "saved"; theme: ThemeWithOwner }
-  | { kind: "unsaved"; draft: NewThemeDraft }
-  | null;
-
-function areWordsEqual(left: readonly WordEntry[], right: readonly WordEntry[]): boolean {
-  if (left.length !== right.length) return false;
-
-  for (let i = 0; i < left.length; i += 1) {
-    const leftWord = left[i];
-    const rightWord = right[i];
-
-    if (!leftWord || !rightWord) return false;
-    if (leftWord.word !== rightWord.word) return false;
-    if (leftWord.answer !== rightWord.answer) return false;
-    if ((leftWord.ttsStorageId ?? undefined) !== (rightWord.ttsStorageId ?? undefined)) return false;
-
-    if (leftWord.wrongAnswers.length !== rightWord.wrongAnswers.length) return false;
-    for (let j = 0; j < leftWord.wrongAnswers.length; j += 1) {
-      if (leftWord.wrongAnswers[j] !== rightWord.wrongAnswers[j]) return false;
-    }
-  }
-
-  return true;
-}
-
-function invalidateWordTtsIfNeeded(previousWord: WordEntry, nextWord: WordEntry): WordEntry {
-  const hasWordOrAnswerChange =
-    previousWord.word !== nextWord.word || previousWord.answer !== nextWord.answer;
-
-  if (!hasWordOrAnswerChange || nextWord.ttsStorageId === undefined) {
-    return nextWord;
-  }
-
-  const { ttsStorageId: _dropTtsStorageId, ...withoutTts } = nextWord;
-  return withoutTts;
-}
 
 export function useThemesController() {
   const router = useRouter();
-  const convex = useConvex();
-
-  // Friend filter state
-  const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
-  const [myThemesOnly, setMyThemesOnly] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
-  const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] = useState(false);
-  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
-  const { playTTS, playingWordKey } = useTTS();
-
-  // Convex queries - build query args based on filter state
-  const queryArgs = useMemo(() => {
-    if (showArchived) return { archivedOnly: true };
-    if (myThemesOnly) return { myThemesOnly: true };
-    if (selectedFriendFilter) return { filterByFriendId: selectedFriendFilter };
-    return {};
-  }, [myThemesOnly, selectedFriendFilter, showArchived]);
-
-  const rawThemesQuery = useQuery(api.themes.getThemes, queryArgs);
-  const friends = useQuery(api.friends.getFriends);
-  const currentUser = useQuery(api.users.getCurrentUser);
-
-  // Mutations
-  const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
-  const updateFriendsCanEditMutation = useMutation(api.themes.updateThemeFriendsCanEdit);
-  const toggleArchiveMutation = useMutation(api.themes.toggleThemeArchive);
-  const generateThemeTTSAction = useAction(api.themes.generateThemeTTS);
-
-  // Custom hooks
-  const themeGenerator = useThemeGenerator();
-  const pickAndPrune = usePickAndPrune();
-  const addWordHook = useAddWord();
-  const generateRandomHook = useGenerateRandom();
-  const wordEditor = useWordEditor();
+  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
   const themeActions = useThemeActions();
 
-  // View state
-  const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
-  const [selectedThemeState, setSelectedThemeState] = useState<SelectedThemeState>(null);
-  const selectedTheme = useMemo<ThemeDetailTheme | null>(() => {
-    if (!selectedThemeState) return null;
-    if (selectedThemeState.kind === "saved") return selectedThemeState.theme;
-    const draft = selectedThemeState.draft;
-    return {
-      name: draft.name,
-      description: draft.description,
-      words: draft.words,
-      wordType: draft.wordType,
-      visibility: draft.visibility,
-      friendsCanEdit: draft.friendsCanEdit,
-      isOwner: true,
-      canEdit: true,
-    };
-  }, [selectedThemeState]);
-  const selectedWordType = selectedTheme?.wordType || getDefaultWordType();
-  const [localWords, setLocalWords] = useState<WordEntry[]>([]);
+  const detail = useThemeDetailController({
+    setDeleteConfirm,
+    themeActions,
+    setViewMode,
+  });
 
-  // Modal state
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [showAddWordModal, setShowAddWordModal] = useState(false);
-  const [showGenerateRandomModal, setShowGenerateRandomModal] = useState(false);
-  const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+  const generation = useThemeGenerationController({
+    selectedTheme: detail.selectedTheme,
+    selectedWordType: detail.selectedWordType,
+    localWords: detail.localWords,
+    setLocalWords: detail.setLocalWords,
+    setSelectedThemeState: detail.setSelectedThemeState,
+    setViewMode,
+  });
 
-  const rawThemes = useMemo(() => rawThemesQuery ?? [], [rawThemesQuery]);
+  const wordEdit = useThemeWordEditController({
+    selectedTheme: detail.selectedTheme,
+    selectedWordType: detail.selectedWordType,
+    localWords: detail.localWords,
+    setLocalWords: detail.setLocalWords,
+    setViewMode,
+  });
 
-  const themes = rawThemes;
-  const persistedSelectedTheme = useMemo(() => {
-    if (!selectedThemeState || selectedThemeState.kind === "unsaved") return null;
-    return rawThemes.find((theme) => theme._id === selectedThemeState.theme._id) ?? null;
-  }, [rawThemes, selectedThemeState]);
-  const hasUnsavedThemeChanges = useMemo(() => {
-    if (!selectedThemeState) return false;
-    if (selectedThemeState.kind === "unsaved") return true;
-    if (!persistedSelectedTheme) return false;
-
-    if (selectedThemeState.theme.name !== persistedSelectedTheme.name) {
-      return true;
-    }
-
-    return !areWordsEqual(localWords, persistedSelectedTheme.words as WordEntry[]);
-  }, [localWords, persistedSelectedTheme, selectedThemeState]);
-
-  // Get selected friend details for display
-  const selectedFriend = useMemo(() => {
-    if (!selectedFriendFilter || !friends) return null;
-    return friends.find((f) => f.friendId === selectedFriendFilter) || null;
-  }, [selectedFriendFilter, friends]);
-
-  // Visibility change handler
-  const handleVisibilityChange = useCallback(
-    async (visibility: "private" | "shared") => {
-      if (!selectedTheme || selectedTheme.isOwner === false) return;
-
-      if (selectedThemeState?.kind === "unsaved") {
-        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, visibility } });
-        return;
-      }
-
-      setIsUpdatingVisibility(true);
-      try {
-        if (selectedThemeState?.kind !== "saved") return;
-        await updateVisibilityMutation({
-          themeId: selectedThemeState.theme._id,
-          visibility,
-        });
-        setSelectedThemeState((prev) => {
-          if (!prev || prev.kind !== "saved") return prev;
-          return { kind: "saved", theme: { ...prev.theme, visibility } };
-        });
-        toast.success(`Theme is now ${visibility}`);
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Failed to update visibility"));
-      } finally {
-        setIsUpdatingVisibility(false);
-      }
-    },
-    [selectedTheme, selectedThemeState, updateVisibilityMutation]
-  );
-
-  // Friends can edit change handler
-  const handleFriendsCanEditChange = useCallback(
-    async (friendsCanEdit: boolean) => {
-      if (!selectedTheme || selectedTheme.isOwner === false) return;
-
-      if (selectedThemeState?.kind === "unsaved") {
-        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, friendsCanEdit } });
-        return;
-      }
-
-      setIsUpdatingFriendsCanEdit(true);
-      try {
-        if (selectedThemeState?.kind !== "saved") return;
-        await updateFriendsCanEditMutation({
-          themeId: selectedThemeState.theme._id,
-          friendsCanEdit,
-        });
-        setSelectedThemeState((prev) => {
-          if (!prev || prev.kind !== "saved") return prev;
-          return { kind: "saved", theme: { ...prev.theme, friendsCanEdit } };
-        });
-        toast.success(friendsCanEdit ? "Friends can now edit this theme" : "Theme is now view-only for friends");
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Failed to update edit permissions"));
-      } finally {
-        setIsUpdatingFriendsCanEdit(false);
-      }
-    },
-    [selectedTheme, selectedThemeState, updateFriendsCanEditMutation]
-  );
-
-  const handleGenerateThemeTTS = useCallback(async () => {
-    if (!selectedTheme || selectedTheme.canEdit === false || isGeneratingTTS) return;
-    if (selectedThemeState?.kind === "unsaved") {
-      toast.error("Save the theme first before generating TTS");
-      return;
-    }
-    if (selectedThemeState?.kind !== "saved") return;
-    if (hasUnsavedThemeChanges) {
-      toast.error("Save your theme changes first, then generate TTS");
-      return;
-    }
-
-    setIsGeneratingTTS(true);
-    try {
-      const result = await generateThemeTTSAction({ themeId: selectedThemeState.theme._id });
-
-      const refreshedTheme = await convex.query(api.themes.getTheme, {
-        themeId: selectedThemeState.theme._id,
-      });
-      if (refreshedTheme) {
-        setSelectedThemeState((prev) => {
-          if (!prev || prev.kind !== "saved") return prev;
-          return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
-        });
-        setLocalWords([...refreshedTheme.words]);
-      }
-
-      if (result.alreadyUpToDate) {
-        toast.success("TTS is already up to date");
-        return;
-      }
-
-      if (result.failed > 0 || result.skippedStale > 0 || result.skippedForCredits > 0) {
-        toast.warning(
-          `TTS generated with issues. Applied ${result.applied}/${result.totalMissing}.`
-        );
-        return;
-      }
-
-      toast.success(`Generated TTS for ${result.applied} words`);
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to generate TTS"));
-    } finally {
-      setIsGeneratingTTS(false);
-    }
-  }, [convex, generateThemeTTSAction, hasUnsavedThemeChanges, isGeneratingTTS, selectedTheme, selectedThemeState]);
-
-  const handlePlayThemeWordTTS = useCallback(
-    (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => {
-      if (!answer) return;
-      const savedThemeId =
-        selectedThemeState?.kind === "saved" ? selectedThemeState.theme._id : undefined;
-      void playTTS(`theme-word-tts-${wordIndex}`, answer, {
-        storageId,
-        themeId: savedThemeId,
-      });
-    },
-    [playTTS, selectedThemeState]
-  );
-
-  // Friend filter handlers
-  const handleSetFriendFilter = useCallback((friendId: Id<"users">) => {
-    setSelectedFriendFilter(friendId);
-    setMyThemesOnly(false);
-    setShowFriendFilterModal(false);
-  }, []);
-
-  const handleClearFriendFilter = useCallback(() => {
-    setSelectedFriendFilter(null);
-    setMyThemesOnly(false);
-    setShowArchived(false);
-    setShowFriendFilterModal(false);
-  }, []);
-
-  const handleShowMyThemes = useCallback(() => {
-    setSelectedFriendFilter(null);
-    setMyThemesOnly(true);
-    setShowFriendFilterModal(false);
-  }, []);
-
-  // Navigation
   const goBack = useCallback(() => {
     if (viewMode === VIEW_MODES.EDIT_WORD) {
       setViewMode(VIEW_MODES.DETAIL);
-      wordEditor.reset();
+      wordEdit.wordEditor.reset();
     } else if (viewMode === VIEW_MODES.PICK_AND_PRUNE_REVIEW) {
-      pickAndPrune.requestDiscard();
+      generation.pickAndPrune.requestDiscard();
     } else if (viewMode === VIEW_MODES.DETAIL) {
       setViewMode(VIEW_MODES.LIST);
-      setSelectedThemeState(null);
-      setLocalWords([]);
+      detail.resetSelection();
     } else {
       if (typeof window !== "undefined" && window.history.length > 1) {
         router.back();
@@ -342,30 +59,30 @@ export function useThemesController() {
         router.push("/");
       }
     }
-  }, [viewMode, wordEditor, pickAndPrune, router]);
+  }, [detail, generation.pickAndPrune, router, viewMode, wordEdit.wordEditor]);
 
-  // Archive actions
-  const handleToggleArchive = useCallback(
-    async (themeId: Id<"themes">) => {
-      try {
-        const isArchived = await toggleArchiveMutation({ themeId });
-        toast.success(isArchived ? "Theme archived" : "Theme unarchived");
-      } catch (_err) {
-        toast.error("Failed to update archive status");
+  const list = useThemeListController({
+    deletingThemeId: themeActions.deletingThemeId,
+    duplicatingThemeId: themeActions.duplicatingThemeId,
+    onOpenTheme: detail.openTheme,
+    onDeleteTheme: detail.handleDeleteTheme,
+    onDuplicateTheme: async (themeId: Id<"themes">) => {
+      const result = await themeActions.duplicate(themeId);
+      if (!result.ok) {
+        toast.error(result.error || "Failed to duplicate theme");
       }
     },
-    [toggleArchiveMutation]
-  );
+    onGenerateNew: generation.handleOpenGenerateModal,
+    onBack: goBack,
+  });
 
-  const openTheme = useCallback((theme: ThemeWithOwner) => {
-    setSelectedThemeState({ kind: "saved", theme });
-    setLocalWords([...theme.words]);
-    setViewMode(VIEW_MODES.DETAIL);
-  }, []);
-
-  const handleDeleteTheme = useCallback((themeId: Id<"themes">, themeName: string) => {
-    setDeleteConfirm({ type: "theme", themeId, themeName });
-  }, []);
+  const tts = useThemeTtsController({
+    selectedTheme: detail.selectedTheme,
+    selectedThemeState: detail.selectedThemeState,
+    setSelectedThemeState: detail.setSelectedThemeState,
+    setLocalWords: detail.setLocalWords,
+    hasUnsavedThemeChanges: detail.hasUnsavedThemeChanges,
+  });
 
   const confirmDeleteTheme = useCallback(async () => {
     if (!deleteConfirm?.themeId) return;
@@ -376,730 +93,88 @@ export function useThemesController() {
     setDeleteConfirm(null);
   }, [deleteConfirm, themeActions]);
 
-  const handleDuplicateTheme = useCallback(
-    async (themeId: Id<"themes">) => {
-      const result = await themeActions.duplicate(themeId);
-      if (!result.ok) {
-        toast.error(result.error || "Failed to duplicate theme");
-      }
-    },
-    [themeActions]
-  );
-
-  const handleOpenGenerateModal = useCallback(() => {
-    if (currentUser === undefined) {
-      toast.error("Credits are still loading. Try again.");
-      return;
-    }
-
-    if (!currentUser) {
-      toast.error("Please sign in to generate themes.");
-      return;
-    }
-
-    if (currentUser.llmCreditsRemaining < LLM_THEME_CREDITS) {
-      toast.error("LLM credits exhausted");
-      return;
-    }
-
-    themeGenerator.reset();
-    pickAndPrune.clear();
-    setShowGenerateModal(true);
-  }, [currentUser, pickAndPrune, themeGenerator]);
-
-  const handleGenerateNewTheme = useCallback(async () => {
-    try {
-      const words = await themeGenerator.generate({ mode: "standard" });
-      if (!words) return;
-
-      const draft: NewThemeDraft = {
-        name: themeGenerator.themeName.toUpperCase(),
-        description: `Generated theme for: ${themeGenerator.themeName}`,
-        words,
-        wordType: themeGenerator.wordType,
-        visibility: "private",
-        friendsCanEdit: false,
-        saveRequestId: createSaveRequestId(),
-      };
-
-      setSelectedThemeState({ kind: "unsaved", draft });
-      setLocalWords([...words]);
-      setViewMode(VIEW_MODES.DETAIL);
-      setShowGenerateModal(false);
-      themeGenerator.reset();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Generation failed";
-      toast.error(message);
-    }
-  }, [themeGenerator]);
-
-  const handleGeneratePickAndPruneTheme = useCallback(async () => {
-    const themeName = themeGenerator.themeName;
-    const wordType = themeGenerator.wordType;
-
-    try {
-      const words = await themeGenerator.generate({
-        wordCountOverride: PICK_AND_PRUNE_WORD_COUNT,
-        mode: "pick-and-prune",
-      });
-      if (!words) return;
-
-      pickAndPrune.initialize({
-        name: themeName.toUpperCase(),
-        description: `Generated theme for: ${themeName}`,
-        wordType,
-        visibility: "private",
-        friendsCanEdit: false,
-        words,
-      });
-      setShowGenerateModal(false);
-      themeGenerator.reset();
-      setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Generation failed";
-      toast.error(message);
-    }
-  }, [pickAndPrune, themeGenerator]);
-
-  const handleCloseGenerateModal = useCallback(() => {
-    setShowGenerateModal(false);
-    themeGenerator.reset();
-  }, [themeGenerator]);
-
-  const handleContinuePickAndPrune = useCallback(() => {
-    if (!pickAndPrune.draft) return;
-
-    const keptWords = pickAndPrune.getActiveWordEntries();
-    if (keptWords.length === 0) return;
-
-    if (pickAndPrune.draft.kind === "existing-theme") {
-      setLocalWords((previousWords) => [...previousWords, ...keptWords]);
-      setViewMode(VIEW_MODES.DETAIL);
-      pickAndPrune.clear();
-      return;
-    }
-
-    const draft: NewThemeDraft = {
-      name: pickAndPrune.draft.name,
-      description: pickAndPrune.draft.description,
-      wordType: pickAndPrune.draft.wordType,
-      visibility: pickAndPrune.draft.visibility,
-      friendsCanEdit: pickAndPrune.draft.friendsCanEdit,
-      saveRequestId: pickAndPrune.draft.saveRequestId,
-      words: keptWords,
-    };
-
-    setSelectedThemeState({ kind: "unsaved", draft });
-    setLocalWords(keptWords);
-    setViewMode(VIEW_MODES.DETAIL);
-    pickAndPrune.clear();
-  }, [pickAndPrune]);
-
-  const handleConfirmDiscardPickAndPrune = useCallback(() => {
-    const isExistingThemeReview = pickAndPrune.draft?.kind === "existing-theme";
-    pickAndPrune.clear();
-    if (isExistingThemeReview) {
-      setViewMode(VIEW_MODES.DETAIL);
-      return;
-    }
-
-    setSelectedThemeState(null);
-    setLocalWords([]);
-    setViewMode(VIEW_MODES.LIST);
-  }, [pickAndPrune]);
-
-  // Theme detail actions
-  const handleThemeNameChange = useCallback((name: string) => {
-    setSelectedThemeState((prev) => {
-      if (!prev) return null;
-      if (prev.kind === "unsaved") return { kind: "unsaved", draft: { ...prev.draft, name } };
-      return { kind: "saved", theme: { ...prev.theme, name } };
-    });
-  }, []);
-
-  const handleDeleteWord = useCallback(
-    (index: number) => {
-      if (selectedTheme && selectedTheme.canEdit === false) return;
-
-      const word = localWords[index];
-      setDeleteConfirm({ type: "word", wordIndex: index, wordName: word.word });
-    },
-    [selectedTheme, localWords]
-  );
-
-  const confirmDeleteWord = useCallback(() => {
-    if (deleteConfirm?.wordIndex === undefined) return;
-    setLocalWords((prev) => prev.filter((_, idx) => idx !== deleteConfirm.wordIndex));
-    setDeleteConfirm(null);
-  }, [deleteConfirm]);
-
-  const handleEditWord = useCallback(
-    (wordIndex: number, field: FieldType, wrongIndex?: number) => {
-      // Only allow editing if user has edit permission
-      if (selectedTheme && selectedTheme.canEdit === false) return;
-
-      const word = localWords[wordIndex];
-      let value = "";
-      if (field === FIELD_TYPES.WORD) value = word.word;
-      else if (field === FIELD_TYPES.ANSWER) value = word.answer;
-      else value = word.wrongAnswers[wrongIndex ?? 0];
-
-      wordEditor.startEdit(wordIndex, field, value, wrongIndex);
-      setViewMode(VIEW_MODES.EDIT_WORD);
-    },
-    [localWords, selectedTheme, wordEditor]
-  );
-
-  const handleSaveTheme = useCallback(async () => {
-    if (!selectedTheme || selectedTheme.canEdit === false) return;
-    if (themeActions.isCreating || themeActions.isUpdating) return;
-
-    const saveErrorMessage = getThemeSaveErrorMessage(localWords);
-    if (saveErrorMessage) {
-      toast.error(saveErrorMessage);
-      return;
-    }
-
-    if (selectedThemeState?.kind === "unsaved") {
-      const draft = selectedThemeState.draft;
-      const result = await themeActions.create(
-        selectedTheme.name,
-        draft.description,
-        localWords,
-        draft.wordType,
-        draft.saveRequestId,
-        selectedTheme.visibility,
-        selectedTheme.friendsCanEdit ?? false
-      );
-      if (result.ok) {
-        setSelectedThemeState(null);
-        setViewMode(VIEW_MODES.LIST);
-        setLocalWords([]);
-        toast.success("Theme created successfully");
-      } else {
-        toast.error(result.error || "Failed to create theme");
-      }
-    } else {
-      if (selectedThemeState?.kind !== "saved") return;
-      const result = await themeActions.update(selectedThemeState.theme._id, selectedTheme.name, localWords);
-      if (result.ok) {
-        setSelectedThemeState(null);
-        setViewMode(VIEW_MODES.LIST);
-        setLocalWords([]);
-      } else {
-        toast.error(result.error || "Failed to save theme");
-      }
-    }
-  }, [selectedTheme, selectedThemeState, localWords, themeActions]);
-
-  const handleCancelTheme = useCallback(() => {
-    setSelectedThemeState(null);
-    setViewMode(VIEW_MODES.LIST);
-    setLocalWords([]);
-  }, []);
-
-  // Add word actions
-  const handleAddWord = useCallback(async () => {
-    if (!selectedTheme) return;
-
-    // Check for duplicate
-    if (isWordDuplicate(addWordHook.newWordInput, localWords)) {
-      addWordHook.setError(`"${addWordHook.newWordInput.trim()}" already exists in this theme`);
-      return;
-    }
-
-    const existingWords = localWords.map((w) => w.word);
-    const newWord = await addWordHook.add(
-      selectedTheme.name,
-      selectedWordType,
-      existingWords
-    );
-
-    if (newWord) {
-      setLocalWords((prev) => [...prev, newWord]);
-      addWordHook.reset();
-      setShowAddWordModal(false); // Close modal on success
-    }
-  }, [selectedTheme, selectedWordType, localWords, addWordHook]);
-
-  // Generate random words actions
-  const handleGenerateRandom = useCallback(async () => {
-    if (!selectedTheme) return;
-
-    const existingWords = localWords.map((w) => w.word);
-    const newWords = await generateRandomHook.generate(
-      selectedTheme.name,
-      selectedWordType,
-      existingWords
-    );
-
-    if (newWords) {
-      setLocalWords((prev) => [...prev, ...newWords]);
-      generateRandomHook.reset();
-      setShowGenerateRandomModal(false); // Close modal on success
-    }
-  }, [selectedTheme, selectedWordType, localWords, generateRandomHook]);
-
-  const handleGenerateRandomPickAndPrune = useCallback(async () => {
-    if (!selectedTheme) return;
-
-    const existingWords = localWords.map((w) => w.word);
-    const newWords = await generateRandomHook.generate(
-      selectedTheme.name,
-      selectedWordType,
-      existingWords,
-      {
-        countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-        mode: "pick-and-prune",
-      }
-    );
-
-    if (newWords) {
-      pickAndPrune.initialize({
-        kind: "existing-theme",
-        words: newWords,
-      });
-      generateRandomHook.reset();
-      setShowGenerateRandomModal(false);
-      setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-    }
-  }, [selectedTheme, selectedWordType, localWords, generateRandomHook, pickAndPrune]);
-
-  // Word editor actions
-  const handleGenerate = useCallback(async () => {
-    if (wordEditor.editingWordIndex === null || !selectedTheme) return;
-
-    const word = localWords[wordEditor.editingWordIndex];
-    const existingWords = localWords
-      .filter((_, idx) => idx !== wordEditor.editingWordIndex)
-      .map((w) => w.word);
-
-    try {
-      await wordEditor.generate(
-        selectedTheme.name,
-        selectedWordType,
-        word,
-        existingWords
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Generation failed");
-    }
-  }, [wordEditor, selectedTheme, selectedWordType, localWords]);
-
-  const handleRegenerate = useCallback(async () => {
-    if (wordEditor.editingWordIndex === null || !selectedTheme) return;
-
-    const word = localWords[wordEditor.editingWordIndex];
-    const existingWords = localWords
-      .filter((_, idx) => idx !== wordEditor.editingWordIndex)
-      .map((w) => w.word);
-
-    try {
-      await wordEditor.regenerate(
-        selectedTheme.name,
-        selectedWordType,
-        word,
-        existingWords
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Regeneration failed");
-    }
-  }, [wordEditor, selectedTheme, selectedWordType, localWords]);
-
-  const handleAcceptGenerated = useCallback(() => {
-    if (wordEditor.editingWordIndex === null || !wordEditor.editingField) return;
-
-    setLocalWords((prev) => {
-      const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
-      const word = { ...previousWord };
-
-      if (wordEditor.editingField === FIELD_TYPES.WORD) {
-        if (wordEditor.generatedWordData) {
-          const nextWord = invalidateWordTtsIfNeeded(previousWord, wordEditor.generatedWordData);
-          updatedWords[wordEditor.editingWordIndex!] = nextWord;
-        }
-      } else if (wordEditor.editingField === FIELD_TYPES.ANSWER) {
-        word.answer = wordEditor.generatedValue;
-        updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
-      } else {
-        word.wrongAnswers = [...word.wrongAnswers];
-        word.wrongAnswers[wordEditor.editingWrongIndex] = wordEditor.generatedValue;
-        updatedWords[wordEditor.editingWordIndex!] = word;
-      }
-
-      return updatedWords;
-    });
-
-    setViewMode(VIEW_MODES.DETAIL);
-    wordEditor.reset();
-  }, [wordEditor]);
-
-  const handleSaveManual = useCallback(() => {
-    if (wordEditor.editingWordIndex === null || !wordEditor.editingField) return;
-
-    // If editing word field and value changed, show regeneration prompt
-    if (
-      wordEditor.editingField === FIELD_TYPES.WORD &&
-      wordEditor.manualValue.trim() !== wordEditor.oldValue.trim()
-    ) {
-      wordEditor.showRegenerateConfirm(wordEditor.manualValue);
-      return;
-    }
-
-    // For other fields, save directly
-    setLocalWords((prev) => {
-      const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
-      const word = { ...previousWord };
-
-      if (wordEditor.editingField === FIELD_TYPES.WORD) {
-        word.word = wordEditor.manualValue;
-      } else if (wordEditor.editingField === FIELD_TYPES.ANSWER) {
-        word.answer = wordEditor.manualValue;
-      } else {
-        word.wrongAnswers = [...word.wrongAnswers];
-        word.wrongAnswers[wordEditor.editingWrongIndex] = wordEditor.manualValue;
-      }
-
-      updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
-      return updatedWords;
-    });
-
-    setViewMode(VIEW_MODES.DETAIL);
-    wordEditor.reset();
-  }, [wordEditor]);
-
-  const handleRegenerateSkip = useCallback(() => {
-    if (wordEditor.editingWordIndex === null) return;
-
-    setLocalWords((prev) => {
-      const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
-      const word = { ...previousWord };
-      word.word = wordEditor.pendingManualWord;
-      updatedWords[wordEditor.editingWordIndex!] = invalidateWordTtsIfNeeded(previousWord, word);
-      return updatedWords;
-    });
-
-    wordEditor.hideRegenerateConfirm();
-    setViewMode(VIEW_MODES.DETAIL);
-    wordEditor.reset();
-  }, [wordEditor]);
-
-  const handleRegenerateConfirm = useCallback(async () => {
-    if (wordEditor.editingWordIndex === null || !selectedTheme) return;
-
-    try {
-      const result = await wordEditor.regenerateAnswersForWord(
-        selectedTheme.name,
-        selectedWordType
-      );
-
-      if (result) {
-        setLocalWords((prev) => {
-          const updatedWords = [...prev];
-          const previousWord = updatedWords[wordEditor.editingWordIndex!];
-          const nextWord = invalidateWordTtsIfNeeded(previousWord, {
-            word: wordEditor.pendingManualWord,
-            answer: result.answer,
-            wrongAnswers: result.wrongAnswers,
-          });
-          updatedWords[wordEditor.editingWordIndex!] = nextWord;
-          return updatedWords;
-        });
-
-        wordEditor.hideRegenerateConfirm();
-        setViewMode(VIEW_MODES.DETAIL);
-        wordEditor.reset();
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Regeneration failed");
-    }
-  }, [wordEditor, selectedTheme, selectedWordType]);
-
-  const listProps = useMemo(
-    () => ({
-      themes,
-      deletingThemeId: themeActions.deletingThemeId,
-      duplicatingThemeId: themeActions.duplicatingThemeId,
-      onOpenTheme: openTheme,
-      onDeleteTheme: handleDeleteTheme,
-      onDuplicateTheme: handleDuplicateTheme,
-      onGenerateNew: handleOpenGenerateModal,
-      onBack: goBack,
-      selectedFriend,
-      myThemesOnly,
-      onOpenFriendFilter: () => setShowFriendFilterModal(true),
-      onClearFriendFilter: handleClearFriendFilter,
-      showArchived,
-      onToggleShowArchived: () => setShowArchived((prev) => !prev),
-      onToggleArchive: handleToggleArchive,
-    }),
-    [
-      themes,
-      themeActions.deletingThemeId,
-      themeActions.duplicatingThemeId,
-      openTheme,
-      handleDeleteTheme,
-      handleDuplicateTheme,
-      handleOpenGenerateModal,
-      goBack,
-      selectedFriend,
-      myThemesOnly,
-      handleClearFriendFilter,
-      showArchived,
-      handleToggleArchive,
-    ]
-  );
-
   const detailProps = useMemo(
     () => ({
-      theme: selectedTheme!,
-      localWords,
-      onThemeNameChange: handleThemeNameChange,
-      onDeleteWord: handleDeleteWord,
-      onEditWord: handleEditWord,
-      onSave: handleSaveTheme,
-      onCancel: handleCancelTheme,
+      theme: detail.selectedTheme!,
+      localWords: detail.localWords,
+      onThemeNameChange: detail.handleThemeNameChange,
+      onDeleteWord: detail.handleDeleteWord,
+      onEditWord: wordEdit.handleEditWord,
+      onSave: detail.handleSaveTheme,
+      onCancel: detail.handleCancelTheme,
       isSaving: themeActions.isCreating || themeActions.isUpdating,
-      onToggleArchive: handleToggleArchive,
-      isArchived: showArchived,
-      showAddWordModal,
-      onShowAddWordModal: setShowAddWordModal,
+      onToggleArchive: list.handleToggleArchive,
+      isArchived: list.showArchived,
+      showAddWordModal: generation.showAddWordModal,
+      onShowAddWordModal: generation.setShowAddWordModal,
       addWordState: {
-        newWordInput: addWordHook.newWordInput,
-        isAdding: addWordHook.isAdding,
-        error: addWordHook.error,
+        newWordInput: generation.addWordHook.newWordInput,
+        isAdding: generation.addWordHook.isAdding,
+        error: generation.addWordHook.error,
       },
-      onAddWordInputChange: addWordHook.setNewWordInput,
-      onAddWord: handleAddWord,
-      onAddWordReset: addWordHook.reset,
-      showGenerateRandomModal,
-      onShowGenerateRandomModal: setShowGenerateRandomModal,
+      onAddWordInputChange: generation.addWordHook.setNewWordInput,
+      onAddWord: generation.handleAddWord,
+      onAddWordReset: generation.addWordHook.reset,
+      showGenerateRandomModal: generation.showGenerateRandomModal,
+      onShowGenerateRandomModal: generation.setShowGenerateRandomModal,
       generateRandomState: {
-        count: generateRandomHook.count,
-        isGenerating: generateRandomHook.isGenerating,
-        generationMode: generateRandomHook.generationMode,
-        error: generateRandomHook.error,
+        count: generation.generateRandomHook.count,
+        isGenerating: generation.generateRandomHook.isGenerating,
+        generationMode: generation.generateRandomHook.generationMode,
+        error: generation.generateRandomHook.error,
       },
-      onRandomCountChange: generateRandomHook.setCount,
-      onGenerateRandom: handleGenerateRandom,
-      onGenerateRandomPickAndPrune: handleGenerateRandomPickAndPrune,
-      onGenerateRandomReset: generateRandomHook.reset,
-      visibility: selectedTheme?.visibility || "private",
-      isUpdatingVisibility,
-      onVisibilityChange: handleVisibilityChange,
-      friendsCanEdit: selectedTheme?.friendsCanEdit || false,
-      isUpdatingFriendsCanEdit,
-      onFriendsCanEditChange: handleFriendsCanEditChange,
-      isGeneratingTTS,
-      isTTSUpToDate: !hasMissingThemeTts(localWords),
-      onGenerateTTS: handleGenerateThemeTTS,
-      playingWordKey,
-      onPlayWordTTS: handlePlayThemeWordTTS,
+      onRandomCountChange: generation.generateRandomHook.setCount,
+      onGenerateRandom: generation.handleGenerateRandom,
+      onGenerateRandomPickAndPrune: generation.handleGenerateRandomPickAndPrune,
+      onGenerateRandomReset: generation.generateRandomHook.reset,
+      visibility: detail.selectedTheme?.visibility || "private",
+      isUpdatingVisibility: detail.isUpdatingVisibility,
+      onVisibilityChange: detail.handleVisibilityChange,
+      friendsCanEdit: detail.selectedTheme?.friendsCanEdit || false,
+      isUpdatingFriendsCanEdit: detail.isUpdatingFriendsCanEdit,
+      onFriendsCanEditChange: detail.handleFriendsCanEditChange,
+      isGeneratingTTS: tts.isGeneratingTTS,
+      isTTSUpToDate: !hasMissingThemeTts(detail.localWords),
+      onGenerateTTS: tts.handleGenerateThemeTTS,
+      playingWordKey: tts.playingWordKey,
+      onPlayWordTTS: tts.handlePlayThemeWordTTS,
     }),
-    [
-      selectedTheme,
-      localWords,
-      handleThemeNameChange,
-      handleDeleteWord,
-      handleEditWord,
-      handleSaveTheme,
-      handleCancelTheme,
-      themeActions.isCreating,
-      themeActions.isUpdating,
-      handleToggleArchive,
-      showArchived,
-      showAddWordModal,
-      setShowAddWordModal,
-      addWordHook.newWordInput,
-      addWordHook.isAdding,
-      addWordHook.error,
-      addWordHook.setNewWordInput,
-      handleAddWord,
-      addWordHook.reset,
-      showGenerateRandomModal,
-      setShowGenerateRandomModal,
-      generateRandomHook.count,
-      generateRandomHook.isGenerating,
-      generateRandomHook.generationMode,
-      generateRandomHook.error,
-      generateRandomHook.setCount,
-      handleGenerateRandom,
-      handleGenerateRandomPickAndPrune,
-      generateRandomHook.reset,
-      isUpdatingVisibility,
-      handleVisibilityChange,
-      isUpdatingFriendsCanEdit,
-      handleFriendsCanEditChange,
-      isGeneratingTTS,
-      handleGenerateThemeTTS,
-      playingWordKey,
-      handlePlayThemeWordTTS,
-    ]
-  );
-
-  const wordEditorPromptSummary = useMemo(() => {
-    if (wordEditor.editingField && selectedTheme && wordEditor.editingWordIndex !== null) {
-      return buildFieldSummary(
-        wordEditor.editingField,
-        selectedTheme.name,
-        localWords[wordEditor.editingWordIndex]?.word || "",
-        selectedWordType,
-        wordEditor.editingWrongIndex
-      );
-    }
-
-    return "";
-  }, [
-    wordEditor.editingField,
-    wordEditor.editingWordIndex,
-    wordEditor.editingWrongIndex,
-    selectedTheme,
-    selectedWordType,
-    localWords,
-  ]);
-
-  const wordEditorProps = useMemo(
-    () => ({
-      editingField: wordEditor.editingField!,
-      editingWrongIndex: wordEditor.editingWrongIndex,
-      editMode: wordEditor.editMode,
-      oldValue: wordEditor.oldValue,
-      generatedValue: wordEditor.generatedValue,
-      manualValue: wordEditor.manualValue,
-      currentPrompt: wordEditor.currentPrompt,
-      userFeedback: wordEditor.userFeedback,
-      promptSummary: wordEditorPromptSummary,
-      customInstructions: wordEditor.customInstructions,
-      isGenerating: wordEditor.isGenerating,
-      isRegenerating: wordEditor.isRegenerating,
-      showRegenerateModal: wordEditor.showRegenerateModal,
-      pendingManualWord: wordEditor.pendingManualWord,
-      onGenerate: handleGenerate,
-      onGoToManual: wordEditor.goToManual,
-      onManualValueChange: wordEditor.setManualValue,
-      onUserFeedbackChange: wordEditor.setUserFeedback,
-      onCustomInstructionsChange: wordEditor.setCustomInstructions,
-      onAcceptGenerated: handleAcceptGenerated,
-      onRegenerate: handleRegenerate,
-      onSaveManual: handleSaveManual,
-      onRegenerateConfirm: handleRegenerateConfirm,
-      onRegenerateSkip: handleRegenerateSkip,
-      onRegenerateCancel: wordEditor.hideRegenerateConfirm,
-      onBack: goBack,
-    }),
-    [
-      wordEditor.editingField,
-      wordEditor.editingWrongIndex,
-      wordEditor.editMode,
-      wordEditor.oldValue,
-      wordEditor.generatedValue,
-      wordEditor.manualValue,
-      wordEditor.currentPrompt,
-      wordEditor.userFeedback,
-      wordEditorPromptSummary,
-      wordEditor.customInstructions,
-      wordEditor.isGenerating,
-      wordEditor.isRegenerating,
-      wordEditor.showRegenerateModal,
-      wordEditor.pendingManualWord,
-      handleGenerate,
-      wordEditor.goToManual,
-      wordEditor.setManualValue,
-      wordEditor.setUserFeedback,
-      wordEditor.setCustomInstructions,
-      handleAcceptGenerated,
-      handleRegenerate,
-      handleSaveManual,
-      handleRegenerateConfirm,
-      handleRegenerateSkip,
-      wordEditor.hideRegenerateConfirm,
-      goBack,
-    ]
+    [detail, generation, list, themeActions.isCreating, themeActions.isUpdating, tts, wordEdit.handleEditWord]
   );
 
   return {
-    // View state
     viewMode,
-    selectedTheme,
-    localWords,
-    themes,
-
-    // Modal state
-    showGenerateModal,
-    setShowGenerateModal,
+    selectedTheme: detail.selectedTheme,
+    localWords: detail.localWords,
+    themes: list.themes,
+    showGenerateModal: generation.showGenerateModal,
+    setShowGenerateModal: generation.setShowGenerateModal,
     deleteConfirm,
     setDeleteConfirm,
-
-    // Navigation
     goBack,
-
-    // Theme list props
-    listProps,
-
-    // Friend filter modal props
-    friendFilterModalProps: {
-      isOpen: showFriendFilterModal,
-      friends: friends ?? [],
-      onSelectFriend: handleSetFriendFilter,
-      onShowAll: handleClearFriendFilter,
-      onShowMyThemes: handleShowMyThemes,
-      onClose: () => setShowFriendFilterModal(false),
-    },
-
-    // Generate modal props
+    listProps: list.listProps,
+    friendFilterModalProps: list.friendFilterModalProps,
     generateModalProps: {
-      isOpen: showGenerateModal,
-      themeName: themeGenerator.themeName,
-      themePrompt: themeGenerator.themePrompt,
-      wordType: themeGenerator.wordType,
-      wordCount: themeGenerator.wordCount,
-      generationMode: themeGenerator.generationMode,
-      error: themeGenerator.error,
-      onThemeNameChange: themeGenerator.setThemeName,
-      onThemePromptChange: themeGenerator.setThemePrompt,
-      onWordTypeChange: themeGenerator.setWordType,
-      onWordCountChange: themeGenerator.setWordCount,
-      onGenerate: handleGenerateNewTheme,
-      onGeneratePickAndPrune: handleGeneratePickAndPruneTheme,
-      onClose: handleCloseGenerateModal,
+      ...generation.generateModalProps,
+      onGenerate: generation.generateModalProps.onGenerate,
+      onGeneratePickAndPrune: generation.generateModalProps.onGeneratePickAndPrune,
     },
-
-    pickAndPruneReviewProps: {
-      activeWords: pickAndPrune.activeWords,
-      removedWords: pickAndPrune.removedWords,
-      removedOpen: pickAndPrune.removedOpen,
-      onRemovedOpenChange: pickAndPrune.setRemovedOpen,
-      onRemove: pickAndPrune.removeWord,
-      onRestore: pickAndPrune.restoreWord,
-      onContinue: handleContinuePickAndPrune,
-      onCancel: pickAndPrune.requestDiscard,
-    },
-
-    // Theme detail props
+    pickAndPruneReviewProps: generation.pickAndPruneReviewProps,
     detailProps,
-
-    // Word editor props
-    wordEditorProps,
-
-    // Delete confirm props
+    wordEditorProps: {
+      ...wordEdit.wordEditorProps,
+      onBack: goBack,
+    },
     deleteConfirmProps: {
       isOpen: deleteConfirm !== null,
       itemName: deleteConfirm?.themeName || deleteConfirm?.wordName || "",
       itemType: (deleteConfirm?.type || "word") as "theme" | "word",
-      onConfirm: deleteConfirm?.type === "theme" ? confirmDeleteTheme : confirmDeleteWord,
+      onConfirm: deleteConfirm?.type === "theme"
+        ? confirmDeleteTheme
+        : () => detail.confirmDeleteWord(deleteConfirm),
       onCancel: () => setDeleteConfirm(null),
     },
-
-    discardPickAndPruneProps: {
-      isOpen: pickAndPrune.showDiscardConfirm,
-      onConfirm: handleConfirmDiscardPickAndPrune,
-      onCancel: pickAndPrune.cancelDiscard,
-    },
-
-    // Word editor state for conditional rendering
-    wordEditorState: wordEditor,
+    discardPickAndPruneProps: generation.discardPickAndPruneProps,
+    wordEditorState: wordEdit.wordEditor,
   };
 }

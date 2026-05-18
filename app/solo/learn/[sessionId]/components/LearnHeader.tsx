@@ -1,8 +1,9 @@
 "use client";
 
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 export function LearnHeader() {
+  const colors = useAppearanceColors();
   return (
     <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up shrink-0">
       <div

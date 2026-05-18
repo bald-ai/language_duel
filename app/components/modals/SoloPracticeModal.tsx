@@ -5,30 +5,26 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ModalShell } from "./ModalShell";
 import { ThemeSelector } from "./ThemeSelector";
 import { ModeSelectionButton } from "./ModeSelectionButton";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { cssVarColors as colors } from "@/app/components/themeCssVars";
 import {
   DEFAULT_SOLO_STUDY_DURATION,
   SOLO_TIMER_OPTIONS,
   getSoloLearnTimerLabel,
   getSoloLearnTimerTestIdSuffix,
-} from "@/app/solo/learn/soloLearnTimer";
+} from "@/lib/soloLearnTimer";
 import {
   actionButtonClassName,
-  ctaActionStyle,
+  getCtaActionStyle,
   outlineButtonClassName,
-  outlineButtonStyle,
+  getOutlineButtonStyle,
 } from "./modalButtonStyles";
-
-interface Theme {
-  _id: Id<"themes">;
-  name: string;
-  words: unknown[];
-}
+import type { ModalTheme } from "./types";
 
 type SoloMode = "practice_only" | "learn_practice";
 
 interface SoloPracticeModalProps {
-  themes: Theme[] | undefined;
+  themes: ModalTheme[] | undefined;
   onContinue: (themeIds: Id<"themes">[], mode: SoloMode, durationSeconds?: number) => void;
   onClose: () => void;
   onNavigateToThemes: () => void;
@@ -68,6 +64,7 @@ export function SoloPracticeModal({
   themeSelectorNotice,
   hideCreateThemeButton = false,
 }: SoloPracticeModalProps) {
+  const colors = useAppearanceColors();
   const resolvedInitialThemeIds = useMemo(() => {
     if (!initialThemeIds || initialThemeIds.length === 0 || !themes || themes.length === 0) {
       return [] as Id<"themes">[];
@@ -153,7 +150,7 @@ export function SoloPracticeModal({
               onClick={() => handleConfirmThemeSelection(draftThemeIds)}
               disabled={draftThemeIds.length === 0}
               className={actionButtonClassName}
-              style={ctaActionStyle}
+              style={getCtaActionStyle(colors)}
               data-testid="theme-selector-confirm"
             >
               Continue to Mode
@@ -162,7 +159,7 @@ export function SoloPracticeModal({
               type="button"
               onClick={onClose}
               className={outlineButtonClassName}
-              style={outlineButtonStyle}
+              style={getOutlineButtonStyle(colors)}
               data-testid="solo-modal-cancel"
             >
               Cancel
@@ -255,7 +252,7 @@ export function SoloPracticeModal({
             onClick={handleContinue}
             disabled={!selectedMode}
             className={`${actionButtonClassName} mt-6`}
-            style={ctaActionStyle}
+            style={getCtaActionStyle(colors)}
             data-testid="solo-modal-continue"
           >
             {selectedMode === "practice_only" ? "Start Practice" : "Start Learning"}
@@ -266,7 +263,7 @@ export function SoloPracticeModal({
               type="button"
               onClick={handleBack}
               className={outlineButtonClassName}
-              style={outlineButtonStyle}
+              style={getOutlineButtonStyle(colors)}
               data-testid="solo-modal-back"
             >
               Back
@@ -275,7 +272,7 @@ export function SoloPracticeModal({
               type="button"
               onClick={onClose}
               className={outlineButtonClassName}
-              style={outlineButtonStyle}
+              style={getOutlineButtonStyle(colors)}
               data-testid="solo-modal-cancel"
             >
               Cancel

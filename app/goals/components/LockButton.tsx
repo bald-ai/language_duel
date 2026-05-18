@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface LockButtonProps {
   partnerLocked: boolean;
@@ -9,6 +9,7 @@ interface LockButtonProps {
 }
 
 export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
+  const colors = useAppearanceColors();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
 

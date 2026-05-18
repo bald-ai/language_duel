@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { buttonStyles, colors } from "@/lib/theme";
+import { getButtonStyles, type ThemeColors } from "@/lib/theme";
 
 /**
  * Primary modal CTA button with gradient background.
@@ -12,7 +12,10 @@ export const actionButtonClassName =
 /**
  * CTA gradient colors and borders to match theme.
  */
-export const ctaActionStyle: CSSProperties = {
+export const getCtaActionStyle = (colors: ThemeColors): CSSProperties => {
+  const buttonStyles = getButtonStyles(colors);
+
+  return {
   backgroundImage: `linear-gradient(to bottom, ${buttonStyles.cta.gradient.from}, ${buttonStyles.cta.gradient.to})`,
   borderTopColor: buttonStyles.cta.border.top,
   borderBottomColor: buttonStyles.cta.border.bottom,
@@ -20,6 +23,7 @@ export const ctaActionStyle: CSSProperties = {
   borderRightColor: buttonStyles.cta.border.sides,
   color: colors.text.DEFAULT,
   textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
 };
 
 /**
@@ -31,32 +35,8 @@ export const outlineButtonClassName =
 /**
  * Base outline button colors.
  */
-export const outlineButtonStyle: CSSProperties = {
+export const getOutlineButtonStyle = (colors: ThemeColors): CSSProperties => ({
   backgroundColor: colors.background.elevated,
   borderColor: colors.primary.dark,
   color: colors.text.DEFAULT,
-};
-
-/**
- * Compact action buttons for inline accept/reject controls.
- */
-export const smallActionButtonClassName =
-  "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest border-2 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed";
-
-/**
- * Success state for small inline buttons.
- */
-export const successButtonStyle: CSSProperties = {
-  backgroundColor: `${colors.status.success.DEFAULT}1A`,
-  borderColor: `${colors.status.success.DEFAULT}66`,
-  color: colors.status.success.light,
-};
-
-/**
- * Danger state for small inline buttons.
- */
-export const dangerButtonStyle: CSSProperties = {
-  backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-  borderColor: `${colors.status.danger.DEFAULT}66`,
-  color: colors.status.danger.light,
-};
+});

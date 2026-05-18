@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import type { BackgroundFilename } from "@/lib/preferences/backgrounds";
 
 const BACKGROUND_OPTIONS: ReadonlyArray<{
@@ -23,7 +23,7 @@ export function BackgroundSelector({
   onSelect,
   isUpdating = false,
 }: BackgroundSelectorProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   // Default to first background if none selected
   const activeBackground = selectedBackground || BACKGROUND_OPTIONS[0].filename;
 

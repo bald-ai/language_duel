@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useThemeColors } from "@/app/components/ThemeProvider";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES } from "@/lib/notificationPreferencesDefaults";
 
 type ReminderOffsetInputProps = {
   label: string;
@@ -18,7 +19,7 @@ export function ReminderOffsetInput({
   onChange,
   "data-testid": testId,
 }: ReminderOffsetInputProps) {
-  const colors = useThemeColors();
+  const colors = useAppearanceColors();
   const [unit, setUnit] = useState<"minutes" | "hours">(
     valueMinutes >= 60 && valueMinutes % 60 === 0 ? "hours" : "minutes"
   );
@@ -46,7 +47,7 @@ export function ReminderOffsetInput({
         <input
           type="number"
           min={1}
-          max={unit === "hours" ? 168 : 10080}
+          max={unit === "hours" ? WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES / 60 : WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES}
           value={displayValue}
           disabled={disabled}
           onChange={(e) => handleValueChange(Number(e.target.value) || 1)}

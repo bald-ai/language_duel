@@ -26,7 +26,7 @@ type WeeklyGoalDoc = Pick<
   | "creatorLocked"
   | "partnerLocked"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "createdAt"
   | "endDate"
@@ -188,7 +188,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: true,
     partnerLocked: true,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "locked",
     createdAt: Date.now() - 10_000,
     endDate: Date.now() + 86_400_000,

@@ -1,10 +1,11 @@
 "use client";
 
-import { formatDuration } from "@/app/utils/displayFormat";
+import { formatDuration } from "@/lib/displayFormat";
 import { calculateAccuracy } from "@/lib/scoring";
 import { ACCURACY_THRESHOLDS } from "../constants";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
+import { cssVarColors as colors, cssVarButtonStyles as buttonStyles } from "@/app/components/themeCssVars";
 interface CompletionScreenProps {
   questionsAnswered: number;
   correctAnswers: number;
@@ -38,6 +39,7 @@ export function CompletionScreen({
   onExit,
   exitLabel = "Back to Home",
 }: CompletionScreenProps) {
+  const colors = useAppearanceColors();
   const accuracy = calculateAccuracy(correctAnswers, questionsAnswered);
 
   const getAccuracyStyle = () => {

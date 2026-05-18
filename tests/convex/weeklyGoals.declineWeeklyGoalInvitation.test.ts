@@ -24,7 +24,7 @@ type WeeklyGoalDoc = Pick<
   | "creatorLocked"
   | "partnerLocked"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "createdAt"
   | "endDate"
@@ -126,7 +126,7 @@ class InMemoryDb {
     deleteRow(this.weeklyGoalThemeSnapshots, id);
   }
 
-  async insert(table: "notifications", value: Record<string, unknown>) {
+  async insert(_table: "notifications", value: Record<string, unknown>) {
     const { id, nextCounter } = insertRow(
       this.notifications,
       "notification",
@@ -168,7 +168,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     creatorLocked: false,
     partnerLocked: false,
     miniBossStatus: "unavailable",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     status: "draft",
     createdAt: Date.now(),
     endDate: Date.now() + 5 * 24 * 60 * 60 * 1000,

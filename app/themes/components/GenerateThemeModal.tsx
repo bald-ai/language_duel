@@ -10,8 +10,8 @@ import {
   THEME_PROMPT_MAX_LENGTH,
   WORD_TYPE_OPTIONS,
 } from "../constants";
-import { colors } from "@/lib/theme";
-import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, themeOutlineButtonStyle, themeModalPanelStyle } from "./themeStyles";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
 interface GenerateThemeModalProps {
   isOpen: boolean;
@@ -46,6 +46,7 @@ export function GenerateThemeModal({
   onGeneratePickAndPrune,
   onClose,
 }: GenerateThemeModalProps) {
+  const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   const isGenerating = generationMode !== null;
@@ -65,7 +66,7 @@ export function GenerateThemeModal({
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
-        style={themeModalPanelStyle}
+        style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
           New Theme
@@ -249,7 +250,7 @@ export function GenerateThemeModal({
             onClick={onGenerate}
             disabled={!themeName.trim() || isGenerating}
             className={themeActionButtonClassName}
-            style={getThemeActionButtonStyle("cta")}
+            style={getThemeActionButtonStyle("cta", colors)}
             data-testid="theme-generate-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
@@ -258,7 +259,7 @@ export function GenerateThemeModal({
             onClick={onClose}
             disabled={isGenerating}
             className={themeOutlineButtonClassName}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-generate-cancel"
           >
             Cancel
@@ -287,7 +288,7 @@ export function GenerateThemeModal({
             onClick={onGeneratePickAndPrune}
             disabled={!themeName.trim() || isGenerating}
             className={`${themeOutlineButtonClassName} mt-3 w-full`}
-            style={themeOutlineButtonStyle}
+            style={getThemeOutlineButtonStyle(colors)}
             data-testid="theme-pick-prune-try"
           >
             Try

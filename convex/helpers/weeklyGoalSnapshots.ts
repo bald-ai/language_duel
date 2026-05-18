@@ -75,7 +75,7 @@ export async function createWeeklyGoalThemeSnapshots(
     goal.themes.map((goalTheme) => ctx.db.get(goalTheme.themeId))
   );
 
-  const missingGoalTheme = goal.themes.find((goalTheme, index) => !liveThemes[index]);
+  const missingGoalTheme = goal.themes.find((_, index) => !liveThemes[index]);
   if (missingGoalTheme) {
     throw new ConvexError({
       code: "NOT_FOUND",
@@ -113,25 +113,45 @@ function toSessionThemeInput(
   };
 }
 
-export async function loadWeeklyGoalSessionThemesByThemeIds(
+export async function loadLiveWeeklyGoalSessionThemesByThemeIds(
+  ctx: CtxWithDb,
+  themeIds: Id<"themes">[]
+): Promise<SessionThemeInput[]> {
+  return loadThemesByIds(ctx, themeIds);
+}
+
+export async function loadStrictWeeklyGoalSnapshotSessionThemesByThemeIds(
   ctx: CtxWithDb,
   goal: Pick<Doc<"weeklyGoals">, "_id">,
   themeIds: Id<"themes">[]
 ): Promise<SessionThemeInput[]> {
   const snapshots = await listWeeklyGoalThemeSnapshots(ctx, goal._id);
-
-  if (snapshots.length === 0) {
-    return loadThemesByIds(ctx, themeIds);
-  }
-
   const snapshotByOriginalThemeId = new Map(
     snapshots.map((snapshot) => [String(snapshot.originalThemeId), snapshot])
   );
 
-  return themeIds.flatMap((themeId) => {
+  return themeIds.map((themeId) => {
     const snapshot = snapshotByOriginalThemeId.get(String(themeId));
-    return snapshot ? [toSessionThemeInput(snapshot)] : [];
+    if (!snapshot) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Weekly goal snapshot is missing for a locked goal",
+      });
+    }
+    return toSessionThemeInput(snapshot);
   });
+}
+
+export async function loadWeeklyGoalSessionThemesByThemeIds(
+  ctx: CtxWithDb,
+  goal: Pick<Doc<"weeklyGoals">, "_id" | "status">,
+  themeIds: Id<"themes">[]
+): Promise<SessionThemeInput[]> {
+  if (goal.status === "draft") {
+    return loadLiveWeeklyGoalSessionThemesByThemeIds(ctx, themeIds);
+  }
+
+  return loadStrictWeeklyGoalSnapshotSessionThemesByThemeIds(ctx, goal, themeIds);
 }
 
 export async function listSnapshotsByOriginalThemeId(

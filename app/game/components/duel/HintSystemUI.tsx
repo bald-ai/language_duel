@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface HintSystemUIProps {
   canRequestHint: boolean;
@@ -38,6 +38,7 @@ export const HintSystemUI = memo(function HintSystemUI({
   acceptHintText = "✓ Accept Hint Request",
   dataTestIdBase,
 }: HintSystemUIProps) {
+  const colors = useAppearanceColors();
   const hintButtonClass =
     "rounded-lg px-6 py-2 font-medium transition hover:brightness-110 border-2";
   const hintButtonStyle = {

@@ -33,7 +33,7 @@ type GoalDoc = Pick<
   | "creatorLocked"
   | "partnerLocked"
   | "miniBossStatus"
-  | "bossStatus"
+  | "bigBossStatus"
   | "status"
   | "completedAt"
   | "createdAt"
@@ -71,7 +71,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "sourceType"
     | "weeklyGoalId"
     | "spacedRepetitionStep"
-    | "bossLivesRemaining"
+    | "livesRemaining"
     | "status"
     | "currentWordIndex"
     | "challengerAnswered"
@@ -302,7 +302,7 @@ function completedGoal(overrides: Partial<GoalDoc> = {}): GoalDoc {
     creatorLocked: true,
     partnerLocked: true,
     miniBossStatus: "defeated",
-    bossStatus: "defeated",
+    bigBossStatus: "defeated",
     status: "completed",
     completedAt: 1_000,
     createdAt: 1,
@@ -385,7 +385,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "spaced_repetition",
     weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
     spacedRepetitionStep: 1,
-    bossLivesRemaining: 1,
+    livesRemaining: 1,
     status: "completed",
     currentWordIndex: 1,
     challengerAnswered: false,

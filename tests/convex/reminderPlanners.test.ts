@@ -8,14 +8,14 @@ import {
 } from "@/convex/emails/reminderPlanners";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/notificationPreferences";
 
-function buildGoal(overrides: Partial<{ endDate?: number; status: string; bossStatus?: string }> = {}) {
+function buildGoal(overrides: Partial<{ endDate?: number; status: string; bigBossStatus?: string }> = {}) {
   return {
     _id: "goal_1" as Id<"weeklyGoals">,
     creatorId: "user_1" as Id<"users">,
     partnerId: "user_2" as Id<"users">,
     endDate: Date.now() + 24 * 60 * 60 * 1000,
     status: "locked",
-    bossStatus: "unavailable",
+    bigBossStatus: "unavailable",
     ...overrides,
   };
 }

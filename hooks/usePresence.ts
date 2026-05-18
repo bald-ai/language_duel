@@ -6,16 +6,12 @@ import { api } from "@/convex/_generated/api";
 
 const PRESENCE_UPDATE_INTERVAL_MS = 30000; // 30 seconds
 
-let presenceListenerCount = 0;
-let presenceInterval: ReturnType<typeof setInterval> | null = null;
-let presenceVisibilityHandler: (() => void) | null = null;
-let latestUpdatePresence: (() => void) | null = null;
+let mountedPresenceOwners = 0;
 
 /**
  * Hook to track user online presence
  * 
- * Call this hook in a top-level component (e.g., layout) to automatically
- * update the user's presence status every 30 seconds.
+ * Call once from the app-level signed-in presence owner.
  */
 export function usePresence() {
   const updatePresenceMutation = useMutation(api.users.updatePresence);
@@ -37,49 +33,27 @@ export function usePresence() {
   }, [updatePresenceMutation]);
 
   useEffect(() => {
-    presenceListenerCount += 1;
-    latestUpdatePresence = updatePresence;
-
-    if (presenceListenerCount === 1) {
-      const runUpdatePresence = () => {
-        latestUpdatePresence?.();
-      };
-
-      // Update presence immediately
-      runUpdatePresence();
-
-      // Update every 30 seconds
-      presenceInterval = setInterval(() => {
-        runUpdatePresence();
-      }, PRESENCE_UPDATE_INTERVAL_MS);
-
-      // Update on visibility change (when user returns to tab)
-      presenceVisibilityHandler = () => {
-        if (document.visibilityState === "visible") {
-          runUpdatePresence();
-        }
-      };
-
-      document.addEventListener("visibilitychange", presenceVisibilityHandler);
+    mountedPresenceOwners += 1;
+    if (process.env.NODE_ENV !== "production" && mountedPresenceOwners > 1) {
+      console.warn("usePresence should be mounted once by the app-level signed-in presence owner.");
     }
 
-    return () => {
-      presenceListenerCount = Math.max(0, presenceListenerCount - 1);
-      if (presenceListenerCount === 0) {
-        if (presenceInterval) {
-          clearInterval(presenceInterval);
-          presenceInterval = null;
-        }
-        if (presenceVisibilityHandler) {
-          document.removeEventListener("visibilitychange", presenceVisibilityHandler);
-          presenceVisibilityHandler = null;
-        }
-        latestUpdatePresence = null;
+    updatePresence();
+    const presenceInterval = setInterval(updatePresence, PRESENCE_UPDATE_INTERVAL_MS);
+    const presenceVisibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        updatePresence();
       }
+    };
+
+    document.addEventListener("visibilitychange", presenceVisibilityHandler);
+
+    return () => {
+      mountedPresenceOwners = Math.max(0, mountedPresenceOwners - 1);
+      clearInterval(presenceInterval);
+      document.removeEventListener("visibilitychange", presenceVisibilityHandler);
     };
   }, [updatePresence]);
 
   return { updatePresence };
 }
-
-export default usePresence;

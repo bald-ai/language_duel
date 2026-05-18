@@ -57,11 +57,11 @@ Weekly goal lifecycle:
 - `lock_proposed` is derived, not stored: the goal is still `draft`, at least one participant lock flag is true, and not all required participants have locked.
 - Theme progress can be marked during planning, including `draft` and derived `lock_proposed`; boss access still starts only after both participants lock.
 - Weekly-goal solo practice uses live original themes before full lock. After full lock, it uses the weekly-goal snapshots, so later edits to original themes do not affect snapshot practice.
-- Boss status values are `unavailable`, `ready`, and `defeated`.
+- Mini boss and big boss status values are `unavailable`, `ready`, and `defeated`.
 - Completed goals are retained in the database but hidden from the active weekly-goal list.
 - Completed weekly goals feed Spaced Repetition under `/repetition`. SR progress is personal per user, uses the locked weekly-goal snapshots only, and can be advanced by solo completion or by a successful SR duel when that participant's own repetition step is ready.
 - Declined draft goals are deleted.
-- Goal lifecycle `completed` and boss status `defeated` intentionally use different words so the final goal state and boss outcome are not confused.
+- Goal lifecycle `completed` and big boss status `defeated` intentionally use different words so the final goal state and final boss outcome are not confused.
 
 ## Entry Points For AI Work
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@/convex/_generated/dataModel";
-import { colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 
 interface Friend {
@@ -24,6 +24,7 @@ export function PartnerSelector({
   selectedId,
   onSelect,
 }: PartnerSelectorProps) {
+  const colors = useAppearanceColors();
   if (friends.length === 0) {
     return (
       <div

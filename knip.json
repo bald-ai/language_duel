@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip/schema.json",
+  "entry": [
+    "app/**/page.tsx",
+    "app/**/layout.tsx",
+    "app/**/route.ts",
+    "convex/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "convex/**/*.ts",
+    "hooks/**/*.ts",
+    "lib/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "ignoreDependencies": ["tailwindcss"],
+  "ignoreExportsUsedInFile": true,
+  "vitest": {
+    "config": "vitest.config.ts"
+  }
+}

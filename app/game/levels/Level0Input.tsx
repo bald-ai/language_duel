@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import type { Level0Props } from "./types";
 import { stripIrr } from "@/lib/stringUtils";
-import { buttonStyles, colors } from "@/lib/theme";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { useTwoOptionKeyboard } from "./hooks/useTwoOptionKeyboard";
 
+import { cssVarColors as colors, cssVarButtonStyles as buttonStyles } from "@/app/components/themeCssVars";
 const actionButtonClassName =
   "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-slate-700/70";
 const defaultKeyboardActionClassName = "ring-2 ring-amber-200 ring-offset-2 ring-offset-slate-700/70";
@@ -33,6 +34,7 @@ const secondaryActionStyle = {
  * Used only in solo study mode
  */
 export function Level0Input({ word, answer, onGotIt, onNotYet, dataTestIdBase }: Level0Props) {
+  const colors = useAppearanceColors();
   const gotItButtonRef = useRef<HTMLButtonElement>(null);
   const notYetButtonRef = useRef<HTMLButtonElement>(null);
 
