@@ -106,7 +106,7 @@ const hintRevealValidator = v.union(
   }),
   v.object({
     kind: v.literal("letterCount"),
-    value: v.number(),
+    value: v.array(v.number()),
   })
 );
 

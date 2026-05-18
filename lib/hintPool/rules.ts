@@ -1,3 +1,4 @@
+import { stripIrr } from "../stringUtils";
 import {
   HINT_PLUS_TEN_BONUS_SECONDS,
   HINT_UNIVERSAL_TIMER_BONUS_SECONDS,
@@ -48,9 +49,16 @@ export function resolveEffect(type: HintType, question: HintQuestion): HintEffec
     ...base,
     reveal: {
       kind: "letterCount",
-      value: question.correctOption.length,
+      value: getWordLetterCounts(question.correctOption),
     },
   };
+}
+
+export function getWordLetterCounts(answer: string): number[] {
+  return stripIrr(answer)
+    .split(/\s+/)
+    .map((word) => word.length)
+    .filter((length) => length > 0);
 }
 
 export function getFiftyFiftyEliminations(question: HintQuestion): string[] {

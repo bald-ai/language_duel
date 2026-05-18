@@ -6,8 +6,7 @@
 export const QUESTION_TIMER_SECONDS = 21;
 export const TRANSITION_COUNTDOWN_SECONDS = 5;
 
-// Timer display thresholds (derived from QUESTION_TIMER_SECONDS)
-export const TIMER_DISPLAY_MAX = QUESTION_TIMER_SECONDS - 1; // 20 (hide extra second)
+// Timer display thresholds
 export const TIMER_WARNING_THRESHOLD = 8;  // Yellow zone
 export const TIMER_DANGER_THRESHOLD = 4;   // Red zone + pulse
 

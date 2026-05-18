@@ -6,7 +6,6 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   TIMER_DANGER_THRESHOLD,
   TIMER_WARNING_THRESHOLD,
-  TIMER_DISPLAY_MAX,
 } from "@/lib/duelConstants";
 import type { SabotageEffect } from "@/lib/sabotage/types";
 import {
@@ -423,9 +422,23 @@ export function DuelView({
                 }}
                 data-testid="duel-hint-reveal"
               >
-                {hintReveal.kind === "anagram"
-                  ? `Anagram: ${hintReveal.value}`
-                  : `Letters: ${hintReveal.value}`}
+                {hintReveal.kind === "anagram" ? (
+                  `Anagram: ${hintReveal.value}`
+                ) : (
+                  <span className="inline-flex items-end gap-3 align-middle">
+                    {hintReveal.value.map((wordLength, wordIdx) => (
+                      <span key={wordIdx} className="inline-flex items-end gap-1">
+                        {Array.from({ length: wordLength }).map((_, slotIdx) => (
+                          <span
+                            key={slotIdx}
+                            className="inline-block w-3 border-b-2"
+                            style={{ borderColor: colors.secondary.dark }}
+                          />
+                        ))}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -449,7 +462,7 @@ export function DuelView({
                   className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
                   style={{ color: timerColor }}
                 >
-                  {Math.max(0, Math.min(TIMER_DISPLAY_MAX, Math.ceil(questionTimer - 1)))}
+                  {Math.max(0, Math.ceil(questionTimer - 1))}
                 </span>
                 <span className="text-xs" style={mutedTextStyle}>
                   sec

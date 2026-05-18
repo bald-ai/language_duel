@@ -9,7 +9,7 @@ export type HintType = (typeof HINT_TYPES)[number];
 
 export type HintReveal =
   | { kind: "anagram"; value: string }
-  | { kind: "letterCount"; value: number };
+  | { kind: "letterCount"; value: number[] };
 
 export type HintPoolState = {
   used: HintType[];

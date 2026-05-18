@@ -191,12 +191,16 @@ describe("DuelView PvE mode", () => {
       <DuelView
         {...baseProps({
           round: {
-            hintReveal: { kind: "letterCount", value: 4 },
+            hintReveal: { kind: "letterCount", value: [2, 5] },
           },
         })}
       />
     );
 
-    expect(screen.getByTestId("duel-hint-reveal")).toHaveTextContent("Letters: 4");
+    const reveal = screen.getByTestId("duel-hint-reveal");
+    const wordGroups = reveal.querySelectorAll(":scope > span > span");
+    expect(wordGroups).toHaveLength(2);
+    expect(wordGroups[0].querySelectorAll("span")).toHaveLength(2);
+    expect(wordGroups[1].querySelectorAll("span")).toHaveLength(5);
   });
 });

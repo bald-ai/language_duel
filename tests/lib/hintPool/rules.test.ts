@@ -56,6 +56,22 @@ describe("hint pool rules", () => {
         options: ["gato", "perro"],
         correctOption: "gato",
       }).reveal
-    ).toEqual({ kind: "letterCount", value: 4 });
+    ).toEqual({ kind: "letterCount", value: [4] });
+  });
+
+  it("breaks letter_count into per-word lengths and excludes spaces and irregular markers", () => {
+    expect(
+      resolveEffect("letter_count", {
+        options: ["el padre", "la madre"],
+        correctOption: "el padre",
+      }).reveal
+    ).toEqual({ kind: "letterCount", value: [2, 5] });
+
+    expect(
+      resolveEffect("letter_count", {
+        options: ["ir (irr)", "ser"],
+        correctOption: "ir (irr)",
+      }).reveal
+    ).toEqual({ kind: "letterCount", value: [2] });
   });
 });
