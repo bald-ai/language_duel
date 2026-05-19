@@ -1,9 +1,8 @@
 import { useState, useCallback } from "react";
-import { generateTheme, addWord, generateRandomWords, type WordType } from "@/lib/themes/api";
+import { generateTheme, addWord, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import {
   DEFAULT_GENERATED_WORDS_COUNT,
-  DEFAULT_RANDOM_WORD_COUNT,
   getDefaultWordType,
 } from "../constants";
 
@@ -184,95 +183,6 @@ export function useAddWord() {
     setError,
     reset,
     add,
-  };
-}
-
-interface GenerateRandomState {
-  isGenerating: boolean;
-  generationMode: "standard" | "pick-and-prune" | null;
-  error: string | null;
-  count: number;
-}
-
-export function useGenerateRandom() {
-  const [state, setState] = useState<GenerateRandomState>({
-    isGenerating: false,
-    generationMode: null,
-    error: null,
-    count: DEFAULT_RANDOM_WORD_COUNT,
-  });
-
-  const setCount = useCallback((count: number) => {
-    setState((prev) => ({ ...prev, count }));
-  }, []);
-
-  const setError = useCallback((error: string | null) => {
-    setState((prev) => ({ ...prev, error }));
-  }, []);
-
-  const reset = useCallback(() => {
-    setState({
-      isGenerating: false,
-      generationMode: null,
-      error: null,
-      count: DEFAULT_RANDOM_WORD_COUNT,
-    });
-  }, []);
-
-  const generate = useCallback(
-    async (
-      themeName: string,
-      wordType: WordType,
-      existingWords: string[],
-      options: { countOverride?: number; mode?: "standard" | "pick-and-prune" } = {}
-    ): Promise<WordEntry[] | null> => {
-      setState((prev) => ({
-        ...prev,
-        isGenerating: true,
-        generationMode: options.mode ?? "standard",
-        error: null,
-      }));
-
-      try {
-        const result = await generateRandomWords({
-          themeName,
-          wordType,
-          count: options.countOverride ?? state.count,
-          existingWords,
-        });
-
-        if (!result.success || !result.data) {
-          setState((prev) => ({
-            ...prev,
-            isGenerating: false,
-            generationMode: null,
-            error: result.error || "Failed to generate words",
-          }));
-          return null;
-        }
-
-        setState((prev) => ({ ...prev, isGenerating: false, generationMode: null }));
-        return result.data;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        setState((prev) => ({
-          ...prev,
-          isGenerating: false,
-          generationMode: null,
-          error: errorMsg,
-        }));
-        return null;
-      }
-    },
-    [state.count]
-  );
-
-  return {
-    ...state,
-    setCount,
-    setError,
-    reset,
-    generate,
   };
 }
 

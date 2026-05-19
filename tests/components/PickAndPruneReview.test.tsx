@@ -43,6 +43,7 @@ describe("PickAndPruneReview", () => {
   it("renders active list and counts", () => {
     render(
       <PickAndPruneReview
+        reviewKind="new-theme"
         activeWords={activeWords}
         removedWords={removedWords}
         removedOpen={false}
@@ -61,6 +62,44 @@ describe("PickAndPruneReview", () => {
     expect(screen.queryByTestId("theme-pick-prune-removed-row-0")).toBeNull();
   });
 
+  it("uses 'Continue with N words' label for new-theme review", () => {
+    render(
+      <PickAndPruneReview
+        reviewKind="new-theme"
+        activeWords={activeWords}
+        removedWords={removedWords}
+        removedOpen={false}
+        onRemovedOpenChange={vi.fn()}
+        onRemove={vi.fn()}
+        onRestore={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-pick-prune-review-submit")).toHaveTextContent(
+      "Continue with 2 words"
+    );
+  });
+
+  it("uses 'Add N words' label for existing-theme review", () => {
+    render(
+      <PickAndPruneReview
+        reviewKind="existing-theme"
+        activeWords={activeWords}
+        removedWords={removedWords}
+        removedOpen={false}
+        onRemovedOpenChange={vi.fn()}
+        onRemove={vi.fn()}
+        onRestore={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-pick-prune-review-submit")).toHaveTextContent("Add 2 words");
+  });
+
   it("calls remove and restore handlers", () => {
     const onRemove = vi.fn();
     const onRestore = vi.fn();
@@ -68,6 +107,7 @@ describe("PickAndPruneReview", () => {
 
     const { rerender } = render(
       <PickAndPruneReview
+        reviewKind="new-theme"
         activeWords={activeWords}
         removedWords={removedWords}
         removedOpen={false}
@@ -87,6 +127,7 @@ describe("PickAndPruneReview", () => {
 
     rerender(
       <PickAndPruneReview
+        reviewKind="new-theme"
         activeWords={activeWords}
         removedWords={removedWords}
         removedOpen
@@ -105,6 +146,7 @@ describe("PickAndPruneReview", () => {
   it("disables continue when no active words and shows empty message", () => {
     render(
       <PickAndPruneReview
+        reviewKind="new-theme"
         activeWords={[]}
         removedWords={removedWords}
         removedOpen={false}

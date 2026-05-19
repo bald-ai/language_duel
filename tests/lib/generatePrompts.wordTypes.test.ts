@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFieldSystemPrompt,
-  buildGenerateRandomWordsUserMessage,
+  buildGenerateMoreWordsUserMessage,
   buildGenerateThemeUserMessage,
-  buildGenerateRandomWordsPrompt,
+  buildGenerateMoreWordsPrompt,
   buildRegenerateForWordPrompt,
   buildThemeSystemPrompt,
 } from "@/lib/generate/prompts";
@@ -98,15 +98,15 @@ describe("generate prompt word type rules", () => {
     );
   });
 
-  it("uses the same word-type wording for random word generation", () => {
-    const prompt = buildGenerateRandomWordsPrompt("Movement", 3, ["go"], "verbs");
+  it("uses the same word-type wording for generate-more word generation", () => {
+    const prompt = buildGenerateMoreWordsPrompt("Movement", 3, ["go"], "verbs");
 
     expect(prompt).toContain("NEW English verbs");
     expect(prompt).toContain("Spanish infinitive translations");
   });
 
-  it("uses adjective wording for random word generation", () => {
-    const prompt = buildGenerateRandomWordsPrompt("Personality", 3, ["kind"], "adjectives");
+  it("uses adjective wording for generate-more word generation", () => {
+    const prompt = buildGenerateMoreWordsPrompt("Personality", 3, ["kind"], "adjectives");
 
     expect(prompt).toContain("NEW English adjectives");
     expect(prompt).toContain("Spanish adjective translations in masculine singular/base form");
@@ -118,7 +118,7 @@ describe("generate prompt word type rules", () => {
     expect(buildGenerateThemeUserMessage("Personality", 3, "adjectives")).toBe(
       'Generate 3 English adjectives for the theme "Personality".'
     );
-    expect(buildGenerateRandomWordsUserMessage("Personality", 2, "adjectives")).toBe(
+    expect(buildGenerateMoreWordsUserMessage("Personality", 2, "adjectives")).toBe(
       'Generate 2 new English adjectives for the theme "Personality".'
     );
   });
@@ -127,7 +127,7 @@ describe("generate prompt word type rules", () => {
     expect(buildGenerateThemeUserMessage("Daily Routine", 3, "adverbs")).toBe(
       'Generate 3 English adverbs for the theme "Daily Routine".'
     );
-    expect(buildGenerateRandomWordsUserMessage("Daily Routine", 2, "adverbs")).toBe(
+    expect(buildGenerateMoreWordsUserMessage("Daily Routine", 2, "adverbs")).toBe(
       'Generate 2 new English adverbs for the theme "Daily Routine".'
     );
   });

@@ -5,8 +5,8 @@ import { api } from "@/convex/_generated/api";
 import {
   buildAddWordPrompt,
   buildFieldSystemPrompt,
-  buildGenerateRandomWordsPrompt,
-  buildGenerateRandomWordsUserMessage,
+  buildGenerateMoreWordsPrompt,
+  buildGenerateMoreWordsUserMessage,
   buildGenerateThemeUserMessage,
   buildRegenerateForWordPrompt,
   buildThemeSystemPrompt,
@@ -15,7 +15,7 @@ import {
   answerAndWrongsSchema,
   answerSchema,
   buildThemeSchema,
-  createRandomWordsSchema,
+  createGenerateMoreWordsSchema,
   wordSchema,
   wrongAnswerSchema,
 } from "@/lib/generate/schemas";
@@ -448,16 +448,16 @@ export async function handleGenerateRequest(body: GenerateRequest) {
     );
   }
 
-  if (body.type === "generate-random-words") {
+  if (body.type === "generate-more-words") {
     const { themeName, wordType, count, existingWords } = body;
     const resolvedWordType = wordType || getDefaultWordType();
-    const systemPrompt = buildGenerateRandomWordsPrompt(
+    const systemPrompt = buildGenerateMoreWordsPrompt(
       themeName,
       count,
       existingWords,
       resolvedWordType
     );
-    const userMessage = buildGenerateRandomWordsUserMessage(
+    const userMessage = buildGenerateMoreWordsUserMessage(
       themeName,
       count,
       resolvedWordType
@@ -472,8 +472,8 @@ export async function handleGenerateRequest(body: GenerateRequest) {
       openai,
       {
         messages,
-        schemaName: "random_words",
-        schema: createRandomWordsSchema(count),
+        schemaName: "more_words",
+        schema: createGenerateMoreWordsSchema(count),
       }
     );
     let validationIssues = [
@@ -495,10 +495,10 @@ export async function handleGenerateRequest(body: GenerateRequest) {
             parsed,
             validationIssues,
             retryInstruction:
-              "The previous result is invalid. Regenerate all random words and fix these issues:",
+              "The previous result is invalid. Regenerate all more-words and fix these issues:",
           }),
-          schemaName: "random_words",
-          schema: createRandomWordsSchema(count),
+          schemaName: "more_words",
+          schema: createGenerateMoreWordsSchema(count),
         }
       );
       validationIssues = [

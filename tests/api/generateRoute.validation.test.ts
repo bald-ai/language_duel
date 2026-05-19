@@ -164,10 +164,10 @@ describe("/api/generate request validation", () => {
     expect(payload.error).toContain("wordCount");
   });
 
-  it("returns 400 when random words count is out of bounds", async () => {
+  it("returns 400 when generate-more-words count is out of bounds", async () => {
     const response = await POST(
       createJsonRequest({
-        type: "generate-random-words",
+        type: "generate-more-words",
         themeName: "Animals",
         count: 999,
         existingWords: ["cat"],

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addWord,
   generateField,
-  generateRandomWords,
+  generateMoreWords,
   generateTheme,
   regenerateForWord,
 } from "@/lib/themes/api";
@@ -131,7 +131,7 @@ describe("themes api response validation", () => {
     expect(result.data?.answer).toBe("el gato");
   });
 
-  it("accepts a valid generate-random-words payload", async () => {
+  it("accepts a valid generate-more-words payload", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         success: true,
@@ -145,7 +145,7 @@ describe("themes api response validation", () => {
       })
     );
 
-    const result = await generateRandomWords({
+    const result = await generateMoreWords({
       themeName: "animals",
       wordType: "nouns",
       count: 3,
@@ -190,7 +190,7 @@ describe("themes api response validation", () => {
     expect(body.wordType).toBe("nouns");
   });
 
-  it("uses API error body text for non-OK generate-random-words responses", async () => {
+  it("uses API error body text for non-OK generate-more-words responses", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(
         {
@@ -200,7 +200,7 @@ describe("themes api response validation", () => {
       )
     );
 
-    const result = await generateRandomWords({
+    const result = await generateMoreWords({
       themeName: "animals",
       wordType: "nouns",
       count: 3,
@@ -211,14 +211,14 @@ describe("themes api response validation", () => {
     expect(result.error).toContain("Rate");
   });
 
-  it("rejects invalid envelope format for generate-random-words", async () => {
+  it("rejects invalid envelope format for generate-more-words", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         data: [],
       })
     );
 
-    const result = await generateRandomWords({
+    const result = await generateMoreWords({
       themeName: "animals",
       wordType: "nouns",
       count: 2,
@@ -236,7 +236,7 @@ describe("themes api response validation", () => {
       })
     );
 
-    const result = await generateRandomWords({
+    const result = await generateMoreWords({
       themeName: "animals",
       wordType: "nouns",
       count: 2,

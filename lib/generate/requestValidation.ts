@@ -1,6 +1,6 @@
 import {
   DEFAULT_THEME_WORD_COUNT,
-  MAX_RANDOM_GENERATED_WORD_COUNT,
+  MAX_GENERATE_MORE_WORD_COUNT,
   MAX_THEME_GENERATION_WORD_COUNT,
   MIN_THEME_GENERATION_WORD_COUNT,
 } from "@/lib/generate/constants";
@@ -71,8 +71,8 @@ export interface AddWordRequest {
   existingWords: string[];
 }
 
-export interface GenerateRandomWordsRequest {
-  type: "generate-random-words";
+export interface GenerateMoreWordsRequest {
+  type: "generate-more-words";
   themeName: string;
   wordType?: WordType;
   count: number;
@@ -84,7 +84,7 @@ export type GenerateRequest =
   | RegenerateFieldRequest
   | RegenerateForWordRequest
   | AddWordRequest
-  | GenerateRandomWordsRequest;
+  | GenerateMoreWordsRequest;
 
 type ParseResult =
   | { ok: true; data: GenerateRequest }
@@ -201,8 +201,8 @@ function parseCount(value: unknown): number {
   ) {
     throw new Error("count must be an integer");
   }
-  if (value < 1 || value > MAX_RANDOM_GENERATED_WORD_COUNT) {
-    throw new Error(`count must be between 1 and ${MAX_RANDOM_GENERATED_WORD_COUNT}`);
+  if (value < 1 || value > MAX_GENERATE_MORE_WORD_COUNT) {
+    throw new Error(`count must be between 1 and ${MAX_GENERATE_MORE_WORD_COUNT}`);
   }
   return value;
 }
@@ -371,11 +371,11 @@ function parseAddWordRequest(body: Record<string, unknown>): AddWordRequest {
   };
 }
 
-function parseGenerateRandomWordsRequest(
+function parseGenerateMoreWordsRequest(
   body: Record<string, unknown>
-): GenerateRandomWordsRequest {
+): GenerateMoreWordsRequest {
   return {
-    type: "generate-random-words",
+    type: "generate-more-words",
     themeName: parseThemeName(body.themeName),
     wordType: parseWordType(body.wordType),
     count: parseCount(body.count),
@@ -409,8 +409,8 @@ export function parseGenerateRequest(payload: unknown): ParseResult {
     if (payload.type === "add-word") {
       return { ok: true, data: parseAddWordRequest(payload) };
     }
-    if (payload.type === "generate-random-words") {
-      return { ok: true, data: parseGenerateRandomWordsRequest(payload) };
+    if (payload.type === "generate-more-words") {
+      return { ok: true, data: parseGenerateMoreWordsRequest(payload) };
     }
     return { ok: false, error: "Invalid request type" };
   } catch (error) {

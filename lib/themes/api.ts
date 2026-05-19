@@ -260,23 +260,23 @@ export async function addWord(params: AddWordParams): Promise<AddWordResult> {
   return { success: true, data: result.data };
 }
 
-export interface GenerateRandomWordsParams {
+export interface GenerateMoreWordsParams {
   themeName: string;
   wordType: WordType;
   count: number;
   existingWords: string[];
 }
 
-export interface GenerateRandomWordsResult {
+export interface GenerateMoreWordsResult {
   success: boolean;
   data?: WordEntry[];
   error?: string;
 }
 
-export async function generateRandomWords(params: GenerateRandomWordsParams): Promise<GenerateRandomWordsResult> {
+export async function generateMoreWords(params: GenerateMoreWordsParams): Promise<GenerateMoreWordsResult> {
   const result = await callGenerateApi(
     {
-      type: "generate-random-words",
+      type: "generate-more-words",
       themeName: params.themeName,
       wordType: params.wordType,
       count: params.count,

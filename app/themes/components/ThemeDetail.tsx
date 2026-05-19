@@ -19,7 +19,7 @@ import {
   wordTypeAllowsCorrectAnswerMarker,
 } from "../constants";
 import { AddWordModal } from "./AddWordModal";
-import { GenerateRandomModal } from "./GenerateRandomModal";
+import { GenerateMoreModal } from "./GenerateMoreModal";
 import { getThemeActionButtonStyle, getThemeOutlineButtonStyle } from "./themeStyles";
 
 export type ThemeDetailTheme = {
@@ -55,19 +55,19 @@ interface ThemeDetailProps {
   onAddWordInputChange: (value: string) => void;
   onAddWord: () => void;
   onAddWordReset: () => void;
-  // Generate random modal
-  showGenerateRandomModal: boolean;
-  onShowGenerateRandomModal: (show: boolean) => void;
-  generateRandomState: {
+  // Generate More modal
+  showGenerateMoreModal: boolean;
+  onShowGenerateMoreModal: (show: boolean) => void;
+  generateMoreState: {
     count: number;
     isGenerating: boolean;
-    generationMode: "standard" | "pick-and-prune" | null;
+    pickAndPrune: boolean;
     error: string | null;
   };
-  onRandomCountChange: (count: number) => void;
-  onGenerateRandom: () => void;
-  onGenerateRandomPickAndPrune: () => void;
-  onGenerateRandomReset: () => void;
+  onGenerateMoreCountChange: (count: number) => void;
+  onGenerateMore: () => void;
+  onGenerateMorePickAndPrune: () => void;
+  onGenerateMoreReset: () => void;
   // Visibility
   visibility?: "private" | "shared";
   isUpdatingVisibility?: boolean;
@@ -356,13 +356,13 @@ export function ThemeDetail({
   onAddWordInputChange,
   onAddWord,
   onAddWordReset,
-  showGenerateRandomModal,
-  onShowGenerateRandomModal,
-  generateRandomState,
-  onRandomCountChange,
-  onGenerateRandom,
-  onGenerateRandomPickAndPrune,
-  onGenerateRandomReset,
+  showGenerateMoreModal,
+  onShowGenerateMoreModal,
+  generateMoreState,
+  onGenerateMoreCountChange,
+  onGenerateMore,
+  onGenerateMorePickAndPrune,
+  onGenerateMoreReset,
   visibility,
   isUpdatingVisibility,
   onVisibilityChange,
@@ -453,14 +453,14 @@ export function ThemeDetail({
     onAddWordReset();
   };
 
-  const handleGenerateRandomClick = () => {
-    onGenerateRandomReset();
-    onShowGenerateRandomModal(true);
+  const handleGenerateMoreClick = () => {
+    onGenerateMoreReset();
+    onShowGenerateMoreModal(true);
   };
 
-  const handleGenerateRandomClose = () => {
-    onShowGenerateRandomModal(false);
-    onGenerateRandomReset();
+  const handleGenerateMoreClose = () => {
+    onShowGenerateMoreModal(false);
+    onGenerateMoreReset();
   };
 
   return (
@@ -536,7 +536,7 @@ export function ThemeDetail({
                     + Add Word
                   </button>
                   <button
-                    onClick={handleGenerateRandomClick}
+                    onClick={handleGenerateMoreClick}
                     className={utilityButtonClassName}
                     style={secondaryAccentStyle}
                     data-testid="theme-generate"
@@ -744,18 +744,18 @@ export function ThemeDetail({
         onClose={handleAddWordClose}
       />
 
-      {/* Generate Random Words Modal */}
-      <GenerateRandomModal
-        isOpen={showGenerateRandomModal}
+      {/* Generate More Words Modal */}
+      <GenerateMoreModal
+        isOpen={showGenerateMoreModal}
         themeName={theme.name}
-        count={generateRandomState.count}
-        isGenerating={generateRandomState.isGenerating}
-        generationMode={generateRandomState.generationMode}
-        error={generateRandomState.error}
-        onCountChange={onRandomCountChange}
-        onGenerate={onGenerateRandom}
-        onGeneratePickAndPrune={onGenerateRandomPickAndPrune}
-        onClose={handleGenerateRandomClose}
+        count={generateMoreState.count}
+        isGenerating={generateMoreState.isGenerating}
+        pickAndPrune={generateMoreState.pickAndPrune}
+        error={generateMoreState.error}
+        onCountChange={onGenerateMoreCountChange}
+        onGenerate={onGenerateMore}
+        onGeneratePickAndPrune={onGenerateMorePickAndPrune}
+        onClose={handleGenerateMoreClose}
       />
     </div>
   );

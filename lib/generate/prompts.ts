@@ -72,7 +72,7 @@ export function buildGenerateThemeUserMessage(
   return buildThemeUserMessage(themeName, wordCount, wordType);
 }
 
-export function buildGenerateRandomWordsUserMessage(
+export function buildGenerateMoreWordsUserMessage(
   themeName: string,
   count: number,
   wordType: WordType = DEFAULT_WORD_TYPE
@@ -305,10 +305,10 @@ export function buildFieldSummary(
 }
 
 // ============================================================================
-// Generate Random Words Prompt
+// Generate More Words Prompt
 // ============================================================================
 
-export function buildGenerateRandomWordsPrompt(
+export function buildGenerateMoreWordsPrompt(
   themeName: string,
   count: number,
   existingWords: string[],

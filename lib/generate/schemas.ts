@@ -82,8 +82,7 @@ export const answerAndWrongsSchema = {
   additionalProperties: false,
 };
 
-// Function to create schema for generating N random words
-export function createRandomWordsSchema(count: number) {
+export function createGenerateMoreWordsSchema(count: number) {
   return {
     type: "object" as const,
     properties: {

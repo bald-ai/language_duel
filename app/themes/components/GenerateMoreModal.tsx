@@ -2,18 +2,18 @@
 
 import {
   GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-  MAX_RANDOM_WORD_COUNT,
+  MAX_GENERATE_MORE_WORD_COUNT,
 } from "../constants";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { FormError } from "@/app/components/FormError";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle, getThemeModalPanelStyle } from "./themeStyles";
 
-interface GenerateRandomModalProps {
+interface GenerateMoreModalProps {
   isOpen: boolean;
   themeName: string;
   count: number;
   isGenerating: boolean;
-  generationMode: "standard" | "pick-and-prune" | null;
+  pickAndPrune: boolean;
   error: string | null;
   onCountChange: (count: number) => void;
   onGenerate: () => void;
@@ -21,49 +21,49 @@ interface GenerateRandomModalProps {
   onClose: () => void;
 }
 
-export function GenerateRandomModal({
+export function GenerateMoreModal({
   isOpen,
   themeName,
   count,
   isGenerating,
-  generationMode,
+  pickAndPrune,
   error,
   onCountChange,
   onGenerate,
   onGeneratePickAndPrune,
   onClose,
-}: GenerateRandomModalProps) {
+}: GenerateMoreModalProps) {
   const colors = useAppearanceColors();
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      data-testid="theme-generate-random-modal"
+      data-testid="theme-generate-more-modal"
     >
       <div
         className="rounded-3xl p-6 w-full max-w-md border-2 backdrop-blur-sm"
         style={getThemeModalPanelStyle(colors)}
       >
         <h2 className="title-font text-xl font-bold mb-4 text-center" style={{ color: colors.text.DEFAULT }}>
-          Generate Random Words
+          Generate More Words
         </h2>
 
         <div className="mb-4">
           <label className="block text-sm mb-2" style={{ color: colors.text.muted }}>
-            Number of words to generate (1-{MAX_RANDOM_WORD_COUNT})
+            Number of words to generate (1-{MAX_GENERATE_MORE_WORD_COUNT})
           </label>
           <div className="flex items-center gap-4">
             <input
               type="range"
               min="1"
-              max={MAX_RANDOM_WORD_COUNT}
+              max={MAX_GENERATE_MORE_WORD_COUNT}
               value={count}
               onChange={(e) => onCountChange(parseInt(e.target.value))}
               className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
               style={{ backgroundColor: colors.primary.dark }}
               disabled={isGenerating}
-              data-testid="theme-generate-random-range"
+              data-testid="theme-generate-more-range"
             />
             <span className="w-8 text-center text-xl font-bold" style={{ color: colors.text.DEFAULT }}>
               {count}
@@ -84,7 +84,7 @@ export function GenerateRandomModal({
               style={{ borderColor: colors.cta.light }}
             />
             <p className="text-sm" style={{ color: colors.text.muted }}>
-              {generationMode === "pick-and-prune"
+              {pickAndPrune
                 ? `Generating ${GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
                 : `Generating ${count} words... This may take a moment.`}
             </p>
@@ -97,7 +97,7 @@ export function GenerateRandomModal({
             disabled={isGenerating}
             className={themeActionButtonClassName}
             style={getThemeActionButtonStyle("primary", colors)}
-            data-testid="theme-generate-random-submit"
+            data-testid="theme-generate-more-submit"
           >
             {isGenerating ? "Generating..." : "Generate"}
           </button>
@@ -106,7 +106,7 @@ export function GenerateRandomModal({
             disabled={isGenerating}
             className={themeOutlineButtonClassName}
             style={getThemeOutlineButtonStyle(colors)}
-            data-testid="theme-generate-random-cancel"
+            data-testid="theme-generate-more-cancel"
           >
             Cancel
           </button>
@@ -118,7 +118,7 @@ export function GenerateRandomModal({
             backgroundColor: `${colors.primary.DEFAULT}14`,
             borderColor: `${colors.primary.DEFAULT}55`,
           }}
-          data-testid="theme-generate-random-pick-prune-info"
+          data-testid="theme-generate-more-pick-prune-info"
         >
           <p
             className="text-xs font-bold uppercase tracking-[0.2em]"
@@ -135,7 +135,7 @@ export function GenerateRandomModal({
             disabled={isGenerating}
             className={`${themeOutlineButtonClassName} mt-3 w-full`}
             style={getThemeOutlineButtonStyle(colors)}
-            data-testid="theme-generate-random-pick-prune-try"
+            data-testid="theme-generate-more-pick-prune-try"
           >
             Try
           </button>

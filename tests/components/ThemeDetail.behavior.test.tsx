@@ -43,11 +43,11 @@ function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {
     onAddWordInputChange: vi.fn(),
     onAddWord: vi.fn(),
     onAddWordReset: vi.fn(),
-    onShowGenerateRandomModal: vi.fn(),
-    onRandomCountChange: vi.fn(),
-    onGenerateRandom: vi.fn(),
-    onGenerateRandomPickAndPrune: vi.fn(),
-    onGenerateRandomReset: vi.fn(),
+    onShowGenerateMoreModal: vi.fn(),
+    onGenerateMoreCountChange: vi.fn(),
+    onGenerateMore: vi.fn(),
+    onGenerateMorePickAndPrune: vi.fn(),
+    onGenerateMoreReset: vi.fn(),
     onVisibilityChange: vi.fn(),
     onFriendsCanEditChange: vi.fn(),
     onGenerateTTS: vi.fn(),
@@ -66,8 +66,8 @@ function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {
     isSaving: false,
     showAddWordModal: false,
     addWordState: { newWordInput: "", isAdding: false, error: null },
-    showGenerateRandomModal: false,
-    generateRandomState: { count: 5, isGenerating: false, generationMode: null, error: null },
+    showGenerateMoreModal: false,
+    generateMoreState: { count: 5, isGenerating: false, pickAndPrune: false, error: null },
     visibility: "private",
     isUpdatingVisibility: false,
     friendsCanEdit: false,
@@ -145,8 +145,8 @@ describe("ThemeDetail behavior", () => {
     const {
       onAddWordReset,
       onShowAddWordModal,
-      onGenerateRandomReset,
-      onShowGenerateRandomModal,
+      onGenerateMoreReset,
+      onShowGenerateMoreModal,
     } = makeProps();
 
     fireEvent.click(screen.getByTestId("theme-add-word"));
@@ -154,8 +154,8 @@ describe("ThemeDetail behavior", () => {
 
     expect(onAddWordReset).toHaveBeenCalledTimes(1);
     expect(onShowAddWordModal).toHaveBeenCalledWith(true);
-    expect(onGenerateRandomReset).toHaveBeenCalledTimes(1);
-    expect(onShowGenerateRandomModal).toHaveBeenCalledWith(true);
+    expect(onGenerateMoreReset).toHaveBeenCalledTimes(1);
+    expect(onShowGenerateMoreModal).toHaveBeenCalledWith(true);
   });
 
   it("shows the irregular marker legend only for verb themes", () => {
@@ -186,20 +186,20 @@ describe("ThemeDetail behavior", () => {
     const {
       onAddWordReset,
       onShowAddWordModal,
-      onGenerateRandomReset,
-      onShowGenerateRandomModal,
+      onGenerateMoreReset,
+      onShowGenerateMoreModal,
     } = makeProps({
       showAddWordModal: true,
-      showGenerateRandomModal: true,
+      showGenerateMoreModal: true,
     });
 
     fireEvent.click(screen.getByTestId("theme-add-word-cancel"));
-    fireEvent.click(screen.getByTestId("theme-generate-random-cancel"));
+    fireEvent.click(screen.getByTestId("theme-generate-more-cancel"));
 
     expect(onShowAddWordModal).toHaveBeenCalledWith(false);
     expect(onAddWordReset).toHaveBeenCalled();
-    expect(onShowGenerateRandomModal).toHaveBeenCalledWith(false);
-    expect(onGenerateRandomReset).toHaveBeenCalled();
+    expect(onShowGenerateMoreModal).toHaveBeenCalledWith(false);
+    expect(onGenerateMoreReset).toHaveBeenCalled();
   });
 
   it("routes word card actions to callbacks", () => {

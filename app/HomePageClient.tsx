@@ -12,10 +12,11 @@ import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
 import { MemoryGame } from "@/app/components/prototypes/MemoryGame";
 import { MissingChunkBeta } from "@/app/components/prototypes/MissingChunkBeta";
 import { RebuildSentenceBeta } from "@/app/components/prototypes/RebuildSentenceBeta";
+import { MathGateBeta } from "@/app/components/prototypes/MathGateBeta";
 import { SpeedModeBeta } from "@/app/components/prototypes/SpeedModeBeta";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence" | "speed";
+type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence" | "speed" | "math_gate";
 
 const SoloIcon = () => (
   <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
@@ -69,6 +70,12 @@ const RebuildSentenceIcon = () => (
 const SpeedModeIcon = () => (
   <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z" />
+  </svg>
+);
+
+const MathGateIcon = () => (
+  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7 20h10M9 16V8l3-4 3 4v8M5 8h2M17 8h2" />
   </svg>
 );
 
@@ -235,6 +242,20 @@ export default function Home() {
     );
   }
 
+  if (screen === "math_gate") {
+    return (
+      <ThemedPage>
+        <div className="absolute top-3 left-2 sm:left-4 z-20">
+          <LeftNavButtons />
+        </div>
+        <div className="absolute top-3 right-2 sm:right-4 z-20">
+          <AuthButtons flash={flashAuth} />
+        </div>
+        <MathGateBeta onBack={handleBackToHome} />
+      </ThemedPage>
+    );
+  }
+
   if (screen === "speed") {
     return (
       <ThemedPage>
@@ -336,6 +357,13 @@ export default function Home() {
                 <MenuButton onClick={() => openPrototype("speed")} dataTestId="home-speed-mode">
                   <SpeedModeIcon />
                   Speed Mode
+                </MenuButton>
+              </div>
+
+              <div className="animate-slide-up delay-650">
+                <MenuButton onClick={() => openPrototype("math_gate")} dataTestId="home-math-gate">
+                  <MathGateIcon />
+                  Math Gate (Sabotage)
                 </MenuButton>
               </div>
 

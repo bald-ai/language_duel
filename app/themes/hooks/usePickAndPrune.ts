@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useReducer } from "react";
 import type { WordEntry } from "@/lib/types";
 import type { WordType } from "../constants";
 import { createSaveRequestId } from "../lib/saveRequestId";
@@ -35,6 +35,31 @@ type InitializePickAndPruneParams =
   | InitializeNewThemePickAndPruneParams
   | InitializeExistingThemePickAndPruneParams;
 
+type PickAndPruneState = {
+  draft: PickAndPruneDraft | null;
+  activeWords: PickAndPruneWord[];
+  removedWords: PickAndPruneWord[];
+  removedOpen: boolean;
+  showDiscardConfirm: boolean;
+};
+
+type PickAndPruneAction =
+  | { type: "initialize"; draft: PickAndPruneDraft; words: PickAndPruneWord[] }
+  | { type: "remove-word"; id: string }
+  | { type: "restore-word"; id: string }
+  | { type: "set-removed-open"; open: boolean }
+  | { type: "request-discard" }
+  | { type: "cancel-discard" }
+  | { type: "clear" };
+
+const INITIAL_STATE: PickAndPruneState = {
+  draft: null,
+  activeWords: [],
+  removedWords: [],
+  removedOpen: false,
+  showDiscardConfirm: false,
+};
+
 function createPickAndPruneWordId(originalIndex: number, word: WordEntry): string {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
@@ -47,85 +72,111 @@ function sortByOriginalIndex(words: PickAndPruneWord[]): PickAndPruneWord[] {
   return [...words].sort((left, right) => left.originalIndex - right.originalIndex);
 }
 
+function pickAndPruneReducer(state: PickAndPruneState, action: PickAndPruneAction): PickAndPruneState {
+  switch (action.type) {
+    case "initialize":
+      return {
+        draft: action.draft,
+        activeWords: action.words,
+        removedWords: [],
+        removedOpen: false,
+        showDiscardConfirm: false,
+      };
+    case "remove-word": {
+      const wordToRemove = state.activeWords.find((word) => word.id === action.id);
+      if (!wordToRemove) return state;
+      return {
+        ...state,
+        activeWords: state.activeWords.filter((word) => word.id !== action.id),
+        removedWords: sortByOriginalIndex([...state.removedWords, wordToRemove]),
+      };
+    }
+    case "restore-word": {
+      const wordToRestore = state.removedWords.find((word) => word.id === action.id);
+      if (!wordToRestore) return state;
+      return {
+        ...state,
+        removedWords: state.removedWords.filter((word) => word.id !== action.id),
+        activeWords: sortByOriginalIndex([...state.activeWords, wordToRestore]),
+      };
+    }
+    case "set-removed-open":
+      return { ...state, removedOpen: action.open };
+    case "request-discard":
+      return { ...state, showDiscardConfirm: true };
+    case "cancel-discard":
+      return { ...state, showDiscardConfirm: false };
+    case "clear":
+      return INITIAL_STATE;
+    default:
+      return state;
+  }
+}
+
 export function usePickAndPrune() {
-  const [draft, setDraft] = useState<PickAndPruneDraft | null>(null);
-  const [activeWords, setActiveWords] = useState<PickAndPruneWord[]>([]);
-  const [removedWords, setRemovedWords] = useState<PickAndPruneWord[]>([]);
-  const [removedOpen, setRemovedOpen] = useState(false);
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [state, dispatch] = useReducer(pickAndPruneReducer, INITIAL_STATE);
 
   const initialize = useCallback((params: InitializePickAndPruneParams) => {
-    if (params.kind === "existing-theme") {
-      setDraft({ kind: "existing-theme" });
-    } else {
-      setDraft({
-        kind: "new-theme",
-        name: params.name,
-        description: params.description,
-        wordType: params.wordType,
-        visibility: params.visibility,
-        friendsCanEdit: params.friendsCanEdit,
-        saveRequestId: createSaveRequestId(),
-      });
-    }
-    setActiveWords(
-      params.words.map((word, originalIndex) => ({
-        id: createPickAndPruneWordId(originalIndex, word),
-        originalIndex,
-        word,
-      }))
-    );
-    setRemovedWords([]);
-    setRemovedOpen(false);
-    setShowDiscardConfirm(false);
+    const draft: PickAndPruneDraft =
+      params.kind === "existing-theme"
+        ? { kind: "existing-theme" }
+        : {
+            kind: "new-theme",
+            name: params.name,
+            description: params.description,
+            wordType: params.wordType,
+            visibility: params.visibility,
+            friendsCanEdit: params.friendsCanEdit,
+            saveRequestId: createSaveRequestId(),
+          };
+
+    const words = params.words.map((word, originalIndex) => ({
+      id: createPickAndPruneWordId(originalIndex, word),
+      originalIndex,
+      word,
+    }));
+
+    dispatch({ type: "initialize", draft, words });
   }, []);
 
   const removeWord = useCallback((id: string) => {
-    const wordToRemove = activeWords.find((word) => word.id === id);
-    if (!wordToRemove) return;
-
-    setActiveWords((previousActiveWords) => previousActiveWords.filter((word) => word.id !== id));
-    setRemovedWords((previousRemovedWords) => [...previousRemovedWords, wordToRemove]);
-  }, [activeWords]);
+    dispatch({ type: "remove-word", id });
+  }, []);
 
   const restoreWord = useCallback((id: string) => {
-    const wordToRestore = removedWords.find((word) => word.id === id);
-    if (!wordToRestore) return;
+    dispatch({ type: "restore-word", id });
+  }, []);
 
-    setRemovedWords((previousRemovedWords) => previousRemovedWords.filter((word) => word.id !== id));
-    setActiveWords((previousActiveWords) => sortByOriginalIndex([...previousActiveWords, wordToRestore]));
-  }, [removedWords]);
-
-  const getActiveWordEntries = useCallback((): WordEntry[] => {
-    return sortByOriginalIndex(activeWords).map((pickAndPruneWord) => pickAndPruneWord.word);
-  }, [activeWords]);
+  const setRemovedOpen = useCallback((open: boolean) => {
+    dispatch({ type: "set-removed-open", open });
+  }, []);
 
   const requestDiscard = useCallback(() => {
-    setShowDiscardConfirm(true);
+    dispatch({ type: "request-discard" });
   }, []);
 
   const cancelDiscard = useCallback(() => {
-    setShowDiscardConfirm(false);
+    dispatch({ type: "cancel-discard" });
   }, []);
 
   const clear = useCallback(() => {
-    setDraft(null);
-    setActiveWords([]);
-    setRemovedWords([]);
-    setRemovedOpen(false);
-    setShowDiscardConfirm(false);
+    dispatch({ type: "clear" });
   }, []);
 
-  const sortedActiveWords = useMemo(() => sortByOriginalIndex(activeWords), [activeWords]);
-  const sortedRemovedWords = useMemo(() => sortByOriginalIndex(removedWords), [removedWords]);
+  const getActiveWordEntries = useCallback((): WordEntry[] => {
+    return sortByOriginalIndex(state.activeWords).map((pickAndPruneWord) => pickAndPruneWord.word);
+  }, [state.activeWords]);
+
+  const sortedActiveWords = useMemo(() => sortByOriginalIndex(state.activeWords), [state.activeWords]);
+  const sortedRemovedWords = useMemo(() => sortByOriginalIndex(state.removedWords), [state.removedWords]);
 
   return {
-    draft,
+    draft: state.draft,
     activeWords: sortedActiveWords,
     removedWords: sortedRemovedWords,
-    removedOpen,
+    removedOpen: state.removedOpen,
     setRemovedOpen,
-    showDiscardConfirm,
+    showDiscardConfirm: state.showDiscardConfirm,
     initialize,
     removeWord,
     restoreWord,

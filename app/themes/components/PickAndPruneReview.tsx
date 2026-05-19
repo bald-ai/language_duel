@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
+import type { ThemeColors } from "@/lib/theme";
 import {
   getThemeActionButtonStyle,
   themeActionButtonClassName,
@@ -13,6 +13,7 @@ import {
 import type { PickAndPruneWord } from "../hooks/usePickAndPrune";
 
 interface PickAndPruneReviewProps {
+  reviewKind: "new-theme" | "existing-theme";
   activeWords: PickAndPruneWord[];
   removedWords: PickAndPruneWord[];
   removedOpen: boolean;
@@ -24,6 +25,7 @@ interface PickAndPruneReviewProps {
 }
 
 export function PickAndPruneReview({
+  reviewKind,
   activeWords,
   removedWords,
   removedOpen,
@@ -36,6 +38,10 @@ export function PickAndPruneReview({
   const colors = useAppearanceColors();
   const activeCount = activeWords.length;
   const removedCount = removedWords.length;
+  const continueLabel =
+    reviewKind === "existing-theme"
+      ? `Add ${activeCount} words`
+      : `Continue with ${activeCount} words`;
 
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col" data-testid="theme-pick-prune-review">
@@ -56,14 +62,14 @@ export function PickAndPruneReview({
           <div className="mt-1.5 flex justify-center gap-2 text-[11px]">
             <span
               className="rounded-full border px-2.5 py-0.5 font-semibold"
-              style={countPillStyle}
+              style={getCountPillStyle(colors)}
               data-testid="theme-pick-prune-active-count"
             >
               Active: {activeCount}
             </span>
             <span
               className="rounded-full border px-2.5 py-0.5 font-semibold"
-              style={removedPillStyle}
+              style={getRemovedPillStyle(colors)}
               data-testid="theme-pick-prune-removed-count"
             >
               Removed: {removedCount}
@@ -73,7 +79,7 @@ export function PickAndPruneReview({
 
         <section
           className="flex-1 min-h-0 rounded-2xl border-2 p-2.5 flex flex-col"
-          style={activePanelStyle}
+          style={getActivePanelStyle(colors)}
         >
           <h2
             className="text-[11px] font-bold uppercase tracking-[0.18em] px-1 pb-1.5 shrink-0"
@@ -106,7 +112,7 @@ export function PickAndPruneReview({
 
         <section
           className="rounded-2xl border-2 shrink-0"
-          style={removedPanelStyle}
+          style={getRemovedPanelStyle(colors)}
         >
           <button
             type="button"
@@ -155,7 +161,7 @@ export function PickAndPruneReview({
             style={getThemeActionButtonStyle("cta", colors)}
             data-testid="theme-pick-prune-review-submit"
           >
-            Continue with {activeCount} words
+            {continueLabel}
           </button>
           <button
             type="button"
@@ -172,28 +178,36 @@ export function PickAndPruneReview({
   );
 }
 
-const countPillStyle: CSSProperties = {
-  borderColor: colors.primary.DEFAULT,
-  color: colors.primary.dark,
-  backgroundColor: `${colors.primary.DEFAULT}1A`,
-};
+function getCountPillStyle(colors: ThemeColors): CSSProperties {
+  return {
+    borderColor: colors.primary.DEFAULT,
+    color: colors.primary.dark,
+    backgroundColor: `${colors.primary.DEFAULT}1A`,
+  };
+}
 
-const removedPillStyle: CSSProperties = {
-  borderColor: `${colors.status.danger.DEFAULT}88`,
-  color: colors.status.danger.dark,
-  backgroundColor: `${colors.status.danger.DEFAULT}14`,
-};
+function getRemovedPillStyle(colors: ThemeColors): CSSProperties {
+  return {
+    borderColor: `${colors.status.danger.DEFAULT}88`,
+    color: colors.status.danger.dark,
+    backgroundColor: `${colors.status.danger.DEFAULT}14`,
+  };
+}
 
-const activePanelStyle: CSSProperties = {
-  backgroundColor: `${colors.background.DEFAULT}DD`,
-  borderColor: `${colors.primary.DEFAULT}66`,
-  boxShadow: `inset 0 1px 0 ${colors.background.elevated}`,
-};
+function getActivePanelStyle(colors: ThemeColors): CSSProperties {
+  return {
+    backgroundColor: `${colors.background.DEFAULT}DD`,
+    borderColor: `${colors.primary.DEFAULT}66`,
+    boxShadow: `inset 0 1px 0 ${colors.background.elevated}`,
+  };
+}
 
-const removedPanelStyle: CSSProperties = {
-  backgroundColor: `${colors.status.danger.DEFAULT}0F`,
-  borderColor: `${colors.status.danger.DEFAULT}44`,
-};
+function getRemovedPanelStyle(colors: ThemeColors): CSSProperties {
+  return {
+    backgroundColor: `${colors.status.danger.DEFAULT}0F`,
+    borderColor: `${colors.status.danger.DEFAULT}44`,
+  };
+}
 
 function WordRow({
   dataTestId,

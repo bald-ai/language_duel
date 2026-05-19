@@ -340,9 +340,9 @@ const branchCases: BranchCase[] = [
     ],
   },
   {
-    name: "generate-random-words",
+    name: "generate-more-words",
     request: {
-      type: "generate-random-words",
+      type: "generate-more-words",
       themeName: "Animals",
       count: 2,
       existingWords: ["cat"],

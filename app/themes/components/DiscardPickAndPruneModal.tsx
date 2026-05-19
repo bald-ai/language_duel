@@ -11,17 +11,24 @@ import {
 
 interface DiscardPickAndPruneModalProps {
   isOpen: boolean;
+  reviewKind: "new-theme" | "existing-theme";
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function DiscardPickAndPruneModal({
   isOpen,
+  reviewKind,
   onConfirm,
   onCancel,
 }: DiscardPickAndPruneModalProps) {
   const colors = useAppearanceColors();
   if (!isOpen) return null;
+
+  const message =
+    reviewKind === "existing-theme"
+      ? "These generated words will not be added to the current theme."
+      : "This will drop this Pick & Prune list and no theme will be created.";
 
   return (
     <div
@@ -36,8 +43,12 @@ export function DiscardPickAndPruneModal({
           Discard generated words?
         </h2>
 
-        <p className="text-sm mb-6 text-center" style={{ color: colors.text.muted }}>
-          This will drop this Pick & Prune list and no theme will be created.
+        <p
+          className="text-sm mb-6 text-center"
+          style={{ color: colors.text.muted }}
+          data-testid="theme-pick-prune-discard-message"
+        >
+          {message}
         </p>
 
         <div className="flex gap-3">

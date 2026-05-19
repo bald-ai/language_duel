@@ -95,10 +95,10 @@ export function GoalsPageContent() {
   return (
     <ThemedPage className="px-4 py-6">
       <div className="w-full max-w-[29rem] mx-auto space-y-6 relative z-10">
-        <header className="flex items-center gap-4 mb-8">
+        <header className="relative flex items-center mb-8">
           <button
             onClick={() => router.push("/")}
-            className="p-2 rounded-lg border-2 transition-colors hover:opacity-80"
+            className="absolute left-0 p-2 rounded-lg border-2 transition-colors hover:opacity-80"
             style={{
               backgroundColor: colors.background.elevated,
               borderColor: colors.primary.dark,
@@ -120,7 +120,7 @@ export function GoalsPageContent() {
             </svg>
           </button>
           <h1
-            className="text-2xl font-bold uppercase tracking-wide"
+            className="w-full text-center text-2xl font-bold uppercase tracking-wide"
             style={{ color: colors.text.DEFAULT }}
           >
             Weekly Goals

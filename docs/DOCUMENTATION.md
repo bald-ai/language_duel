@@ -19,9 +19,10 @@ The direction is still evolving. AI should treat this thesis as the current best
 ## Core User Experiences
 
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
+- Generate themes: A user can generate a normal theme directly, or use Pick & Prune to over-generate words first and then keep only the useful entries.
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
-- Duel modes: New challenges choose `PvP` or `PvE`. PvP keeps sabotage and request-hint mechanics. PvE replaces those competitive tools with one shared four-hint pool that both participants spend from during the duel.
+- Duel modes: New challenges choose `PvP` or `PvE`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool.
 - Weekly goals: Two users create a shared goal, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
 
 ## System Map
@@ -52,6 +53,27 @@ Important relationships:
 - Challenges reference users and themes, and accepted challenges create duels. Some challenges and duels are created in the context of a weekly goal.
 - Notifications and reminder systems reflect activity from friend, challenge, duel, and weekly-goal flows instead of being standalone features.
 
+Theme generation lifecycle:
+
+- Standard generation creates an unsaved private theme draft from a theme name, optional custom prompt, word type, and requested word count.
+- Pick & Prune is a review-first generation flow. For a new theme it requests `20` generated words, shows them in a review screen, lets the user remove and restore entries, and only creates the unsaved theme draft from the kept words.
+- Pick & Prune also exists when adding generated words to an existing theme. In that case it over-generates using the existing random-generation maximum, opens the same review screen, and appends only the kept words to the current local theme words.
+- Removed Pick & Prune words are not deleted from a saved theme because the review happens before the new generated words are saved. The removed list is just a temporary review bucket.
+- Continuing Pick & Prune requires at least one kept word. Discarding a new-theme Pick & Prune review drops the generated list and returns to the theme list; discarding an existing-theme review returns to the theme detail without appending anything.
+- Generated content is validated through the shared theme-generation API and semantic validation rules before it reaches the review or draft flow.
+
+Duel mode lifecycle:
+
+- `duelMode` is required on challenge creation and is copied from the pending `challenges` record into the accepted `duels` record.
+- The mode is shown on challenge notifications so the accepting player can see whether the invite is `PvP` or `PvE`.
+- The mode picker appears on normal challenge creation, weekly-goal boss duel creation, and spaced-repetition duel creation.
+- `PvP` keeps the competitive tools: sabotages, request-hint, accept-hint, and option elimination. Those actions are allowed only in `PvP`.
+- `PvE` removes sabotages and request-help UI. Instead, both players see the same hint pool during the answering phase.
+- The PvE hint pool has four one-use hint types: `50/50`, `+15 Seconds`, `Anagram`, and `Letter Count`.
+- A PvE hint is shared team state: either player can fire it, it affects both players, there is no consent step, and only one hint can be fired per question.
+- Every PvE hint gives a universal timer bump; `+15 Seconds` is the bigger timer hint because it includes the universal bump plus its own extra time.
+- PvE is designed around two players sitting together and talking in real life. Do not add request pings, consent prompts, or extra notification noise unless that product assumption changes.
+
 Weekly goal lifecycle:
 
 - Stored lifecycle values are `draft`, `locked`, `grace_period`, and `completed`.
@@ -75,12 +97,15 @@ Weekly goal lifecycle:
 ## Domain Terms
 
 - Theme: the core content unit, made of words and answers plus metadata like description, word type, sharing, and editability.
+- Pick & Prune: a generation review flow where the app intentionally creates more candidate words than needed, then the user removes weak entries before saving or appending the kept words.
 - Padded handle: the canonical concrete user label, formatted like `Alex#0123`. Generic status copy can still use product words like "Someone" when no user label is available.
 - Adjective themes use Spanish masculine singular/base-form adjectives, without articles or irregular markers.
 - Adverb themes use Spanish adverbs in canonical form, preferring the -mente form when derivable; pure adverbs (bien, siempre, aquí, muy) stay as-is. Wrong answers may include at most one bare-adjective distractor (for example, "rápido" as a distractor for "rápidamente").
 - Duel: a structured two-person practice session. The name sounds more competitive than the broader product intent.
 - Challenge: a proposal sent to another person to start a duel.
-- Duel: a structured two-person practice session. The name sounds more competitive than the broader product intent.
+- PvP: competitive duel mode with sabotages and request-hint mechanics.
+- PvE: cooperative duel mode with a shared hint pool and no sabotage/request-help mechanics.
+- Shared hint pool: the PvE team hint budget. It belongs to the duel, not to one player.
 - Solo practice: a single-player learning flow without another player.
 - Weekly goal: a shared study plan between two users, built from selected themes and tracked toward completion.
 - Boss: a milestone challenge generated from weekly-goal progress, used to turn shared progress into a more game-like event.
@@ -92,6 +117,8 @@ Weekly goal lifecycle:
 - "Duel" does not always mean head-to-head competition. Many flows use duel mechanics as structure for collaborative practice.
 - Challenge invites, accepted duels, and solo-practice sessions are separate records with separate state shapes.
 - Mode-specific duel actions are enforced at the Convex mutation boundary through `assertDuelMode`; UI hiding is only for clarity.
+- PvE mode is not just PvP with sabotages hidden. PvE has different interaction rules, a shared hint pool, and a co-located-player product assumption.
+- Pick & Prune review state is temporary client-side state. Saved theme data only receives the words the user keeps.
 - Weekly goals, boss challenges, notifications, and reminders are connected. Changes in one area can affect behavior in the others.
 - Themes are reused across study, solo practice, duels, and weekly goals, so content changes can have effects in multiple surfaces.
 

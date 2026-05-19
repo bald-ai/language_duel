@@ -553,18 +553,20 @@ describe("duel lifecycle completion commands", () => {
 
   it("public completeWeeklyGoalMilestoneDuel requires an authenticated participant", async () => {
     const db = setupCtx(duelDoc({ status: "completed" }));
-    const error = await publicBossHandler(createCtx(db, null), {
-      duelId: "duel_1" as Id<"duels">,
-    }).catch((err: unknown) => err);
-    expect(error).toBeDefined();
+    await expect(
+      publicBossHandler(createCtx(db, null), {
+        duelId: "duel_1" as Id<"duels">,
+      })
+    ).rejects.toThrow("Unauthorized");
   });
 
   it("public completeSpacedRepetitionDuel requires an authenticated participant", async () => {
     const db = setupCtx(duelDoc({ status: "completed", sourceType: "spaced_repetition" }));
-    const error = await publicSrHandler(createCtx(db, null), {
-      duelId: "duel_1" as Id<"duels">,
-    }).catch((err: unknown) => err);
-    expect(error).toBeDefined();
+    await expect(
+      publicSrHandler(createCtx(db, null), {
+        duelId: "duel_1" as Id<"duels">,
+      })
+    ).rejects.toThrow("Unauthorized");
   });
 
   it("public completeWeeklyGoalMilestoneDuel is a safe no-op when the duel is not a defeated boss", async () => {

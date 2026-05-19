@@ -383,7 +383,7 @@ export function RepetitionBoard() {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1" data-testid="sr-tabs">
+      <div className="flex flex-wrap justify-center gap-2 pb-1" data-testid="sr-tabs">
         {tabs.map((item) => {
           const active = item.key === tab;
           return (

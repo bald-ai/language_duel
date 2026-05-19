@@ -15,7 +15,8 @@ import {
 } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { createSaveRequestId } from "../lib/saveRequestId";
-import { useThemeGenerator, useAddWord, useGenerateRandom } from "./useThemeGenerator";
+import { useThemeGenerator, useAddWord } from "./useThemeGenerator";
+import { useGenerateMore } from "./useGenerateMore";
 import { usePickAndPrune } from "./usePickAndPrune";
 import type { NewThemeDraft, SelectedThemeState } from "./themeControllerTypes";
 
@@ -32,12 +33,12 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
   const themeGenerator = useThemeGenerator();
   const pickAndPrune = usePickAndPrune();
   const addWordHook = useAddWord();
-  const generateRandomHook = useGenerateRandom();
+  const generateMoreHook = useGenerateMore();
   const currentUser = useQuery(api.users.getCurrentUser);
 
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showAddWordModal, setShowAddWordModal] = useState(false);
-  const [showGenerateRandomModal, setShowGenerateRandomModal] = useState(false);
+  const [showGenerateMoreModal, setShowGenerateMoreModal] = useState(false);
 
   const handleOpenGenerateModal = useCallback(() => {
     if (currentUser === undefined) {
@@ -183,11 +184,11 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     }
   }, [addWordHook, params]);
 
-  const handleGenerateRandom = useCallback(async () => {
+  const handleGenerateMore = useCallback(async () => {
     if (!params.selectedTheme) return;
 
     const existingWords = params.localWords.map((word) => word.word);
-    const newWords = await generateRandomHook.generate(
+    const newWords = await generateMoreHook.generate(
       params.selectedTheme.name,
       params.selectedWordType,
       existingWords
@@ -195,22 +196,22 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
 
     if (newWords) {
       params.setLocalWords((prev) => [...prev, ...newWords]);
-      generateRandomHook.reset();
-      setShowGenerateRandomModal(false);
+      generateMoreHook.reset();
+      setShowGenerateMoreModal(false);
     }
-  }, [generateRandomHook, params]);
+  }, [generateMoreHook, params]);
 
-  const handleGenerateRandomPickAndPrune = useCallback(async () => {
+  const handleGenerateMorePickAndPrune = useCallback(async () => {
     if (!params.selectedTheme) return;
 
     const existingWords = params.localWords.map((word) => word.word);
-    const newWords = await generateRandomHook.generate(
+    const newWords = await generateMoreHook.generate(
       params.selectedTheme.name,
       params.selectedWordType,
       existingWords,
       {
         countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-        mode: "pick-and-prune",
+        pickAndPrune: true,
       }
     );
 
@@ -219,11 +220,11 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
         kind: "existing-theme",
         words: newWords,
       });
-      generateRandomHook.reset();
-      setShowGenerateRandomModal(false);
+      generateMoreHook.reset();
+      setShowGenerateMoreModal(false);
       params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
     }
-  }, [generateRandomHook, params, pickAndPrune]);
+  }, [generateMoreHook, params, pickAndPrune]);
 
   const generateModalProps = useMemo(
     () => ({
@@ -245,8 +246,12 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     [handleCloseGenerateModal, handleGenerateNewTheme, handleGeneratePickAndPruneTheme, showGenerateModal, themeGenerator]
   );
 
+  const reviewKind: "new-theme" | "existing-theme" =
+    pickAndPrune.draft?.kind === "existing-theme" ? "existing-theme" : "new-theme";
+
   const pickAndPruneReviewProps = useMemo(
     () => ({
+      reviewKind,
       activeWords: pickAndPrune.activeWords,
       removedWords: pickAndPrune.removedWords,
       removedOpen: pickAndPrune.removedOpen,
@@ -256,16 +261,17 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       onContinue: handleContinuePickAndPrune,
       onCancel: pickAndPrune.requestDiscard,
     }),
-    [handleContinuePickAndPrune, pickAndPrune]
+    [handleContinuePickAndPrune, pickAndPrune, reviewKind]
   );
 
   const discardPickAndPruneProps = useMemo(
     () => ({
       isOpen: pickAndPrune.showDiscardConfirm,
+      reviewKind,
       onConfirm: handleConfirmDiscardPickAndPrune,
       onCancel: pickAndPrune.cancelDiscard,
     }),
-    [handleConfirmDiscardPickAndPrune, pickAndPrune]
+    [handleConfirmDiscardPickAndPrune, pickAndPrune, reviewKind]
   );
 
   return {
@@ -273,15 +279,15 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     setShowGenerateModal,
     showAddWordModal,
     setShowAddWordModal,
-    showGenerateRandomModal,
-    setShowGenerateRandomModal,
+    showGenerateMoreModal,
+    setShowGenerateMoreModal,
     addWordHook,
-    generateRandomHook,
+    generateMoreHook,
     pickAndPrune,
     handleOpenGenerateModal,
     handleAddWord,
-    handleGenerateRandom,
-    handleGenerateRandomPickAndPrune,
+    handleGenerateMore,
+    handleGenerateMorePickAndPrune,
     generateModalProps,
     pickAndPruneReviewProps,
     discardPickAndPruneProps,
