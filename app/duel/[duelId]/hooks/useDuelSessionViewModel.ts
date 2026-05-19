@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { forRole } from "@/lib/duelRole";
+import { isSelfDuel } from "@/lib/duel/selfDuel";
 import type { DuelViewProps } from "../components/DuelView";
 import { buildDuelViewProps, deriveHintFlags } from "./buildDuelViewProps";
 import { useDuelActions } from "./useDuelActions";
@@ -250,7 +251,9 @@ export function useDuelSessionViewModel({
       isPlayingAudio: actions.isPlayingAudio,
       callbacks: {
         onPauseCountdown: actions.pauseCountdown,
-        onRequestUnpause: actions.requestUnpauseCountdown,
+        onRequestUnpause: isSelfDuel(duel)
+          ? actions.confirmUnpauseCountdown
+          : actions.requestUnpauseCountdown,
         onConfirmUnpause: actions.confirmUnpauseCountdown,
         onSkipCountdown: actions.skipCountdown,
         onPlayAudio: handlePlayAudio,

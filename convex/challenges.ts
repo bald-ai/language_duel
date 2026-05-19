@@ -19,8 +19,10 @@ import {
   loadThemesByIds,
 } from "./helpers/sessionWords";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnapshots";
-import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
+import { resolveAccessibleThemes } from "./helpers/resolveAccessibleThemes";
 import { areUsersFriendsInDb } from "./helpers/relationshipPolicy";
+import { SELF_DUEL_FORCED_MODE } from "../lib/duel/selfDuel";
+import type { DuelDifficultyPreset } from "../lib/difficultyUtils";
 import {
   createChallengeInviteNotificationAndEmail,
   dismissChallengeInviteNotificationsByChallengeId,
@@ -201,21 +203,8 @@ export const createChallenge = mutation({
       throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You can only challenge friends" });
     }
 
-    const orderedThemeIds = Array.from(new Set(themeIds));
-    if (orderedThemeIds.length === 0) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Select at least one theme" });
-    }
-    const themes: Array<Doc<"themes"> | null> = await Promise.all(
-      orderedThemeIds.map((selectedThemeId) =>
-        loadThemeWithViewerAccess(ctx, challenger._id, selectedThemeId)
-      )
-    );
-    if (themes.some((theme) => !theme)) {
-      throw new ConvexError({ code: "NOT_FOUND", message: "One or more themes were not found or are not accessible" });
-    }
-    const resolvedThemes: Doc<"themes">[] = themes.filter(
-      (theme): theme is Doc<"themes"> => theme !== null
-    );
+    const resolvedThemes = await resolveAccessibleThemes(ctx, challenger._id, themeIds);
+    const orderedThemeIds = resolvedThemes.map((theme) => theme._id);
 
     const now = Date.now();
     const challengeId = await ctx.db.insert("challenges", buildChallengeInvite({
@@ -241,6 +230,50 @@ export const createChallenge = mutation({
     });
 
     return challengeId;
+  },
+});
+
+export const createSelfDuel = mutation({
+  args: {
+    themeIds: v.array(v.id("themes")),
+    duelDifficultyPreset: v.optional(
+      v.union(
+        v.literal("easy"),
+        v.literal("medium"),
+        v.literal("hard")
+      )
+    ),
+  },
+  handler: async (ctx, { themeIds, duelDifficultyPreset }) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    // Access and words come from the same load: pass resolveAccessibleThemes' result
+    // straight to buildSessionWords so theme-access checks and word sourcing stay in sync.
+    const themes = await resolveAccessibleThemes(ctx, user._id, themeIds);
+    const sessionWords = buildSessionWords(themes);
+    if (sessionWords.length === 0) {
+      throw new ConvexError({
+        code: "INTERNAL_ERROR",
+        message: "Self-duel has no playable words",
+      });
+    }
+
+    const now = Date.now();
+    const duelId = await ctx.db.insert(
+      "duels",
+      buildDuelSession({
+        sourceType: "normal",
+        challengeId: undefined,
+        challengerId: user._id,
+        opponentId: user._id,
+        sessionWords,
+        duelMode: SELF_DUEL_FORCED_MODE,
+        duelDifficultyPreset: duelDifficultyPreset as DuelDifficultyPreset | undefined,
+        createdAt: now,
+      })
+    );
+
+    return { duelId };
   },
 });
 

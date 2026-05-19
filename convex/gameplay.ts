@@ -20,6 +20,11 @@ import {
   shouldCompleteWeeklyGoalBoss,
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
+import { mirrorPatchForSelfDuel } from "./rules/selfDuelMirror";
+import {
+  planConfirmUnpauseCountdown,
+  planSkipCountdown,
+} from "./rules/countdownPlanners";
 
 type DuelLifecycleIntent = {
   completed: boolean;
@@ -103,13 +108,16 @@ export const answerDuel = mutation({
 
     const sessionWords = getSessionWords(duel);
     const wordCount = sessionWords.length;
-    const answerPatch = buildAnswerPatch({
-      duel,
-      playerRole,
-      isChallenger,
-      selectedAnswer,
-      questionIndex,
-    });
+    const answerPatch = mirrorPatchForSelfDuel(
+      buildAnswerPatch({
+        duel,
+        playerRole,
+        isChallenger,
+        selectedAnswer,
+        questionIndex,
+      }),
+      duel
+    );
     if (Object.keys(answerPatch).length > 0) {
       await ctx.db.patch(duelId, answerPatch);
     }
@@ -145,7 +153,10 @@ export const timeoutAnswer = mutation({
       "Stale timeout: question has changed"
     );
 
-    const timeoutPatch = buildTimeoutPatch({ duel, playerRole, isChallenger });
+    const timeoutPatch = mirrorPatchForSelfDuel(
+      buildTimeoutPatch({ duel, playerRole, isChallenger }),
+      duel
+    );
     if (Object.keys(timeoutPatch).length > 0) {
       await ctx.db.patch(duelId, timeoutPatch);
     }
@@ -283,16 +294,28 @@ export const confirmUnpauseCountdown = mutation({
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
 
-    // Idempotency: if the request was already confirmed (or cleared), just no-op.
-    if (!duel.countdownUnpauseRequestedBy) {
+    const plan = planConfirmUnpauseCountdown(duel, Date.now());
+
+    if (plan.kind === "noop") return;
+
+    if (plan.kind === "clearImmediately") {
+      await ctx.db.patch(duelId, {
+        countdownPausedBy: undefined,
+        countdownUnpauseRequestedBy: undefined,
+        countdownPausedAt: undefined,
+        questionStartTime: plan.questionStartTime,
+      });
       return;
     }
 
+    // Two-player branch: require a peer to have requested the unpause.
+    if (!duel.countdownUnpauseRequestedBy) {
+      return;
+    }
     if (duel.countdownUnpauseRequestedBy === playerRole) {
       throw new ConvexError({ code: "INVALID_STATE", message: "Cannot confirm your own unpause request" });
     }
 
-    // Calculate pause duration and adjust questionStartTime
     const pauseDuration = duel.countdownPausedAt ? Date.now() - duel.countdownPausedAt : 0;
     const newQuestionStartTime = duel.questionStartTime
       ? duel.questionStartTime + pauseDuration
@@ -316,19 +339,15 @@ export const skipCountdown = mutation({
       throw new ConvexError({ code: "INVALID_STATE", message: "Cannot skip while countdown is paused" });
     }
 
-    const currentSkips = duel.countdownSkipRequestedBy || [];
-
-    if (currentSkips.includes(playerRole)) {
+    const plan = planSkipCountdown(duel, playerRole);
+    if (plan.alreadyRequested) {
       return { bothSkipped: false };
     }
 
-    const newSkips = [...currentSkips, playerRole] as ("challenger" | "opponent")[];
-    const bothSkipped = newSkips.includes("challenger") && newSkips.includes("opponent");
-
     await ctx.db.patch(duelId, {
-      countdownSkipRequestedBy: newSkips,
+      countdownSkipRequestedBy: plan.skipRequestedBy,
     });
 
-    return { bothSkipped };
+    return { bothSkipped: plan.bothSkipped };
   },
 });

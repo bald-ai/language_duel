@@ -415,6 +415,7 @@ export default function Home() {
         <ChallengeModal
           key={lobby.initialChallengeOpponentId ?? "challenge-modal"}
           users={lobby.users}
+          viewer={lobby.viewer}
           themes={lobby.themes}
           pendingChallenges={lobby.pendingChallenges}
           isJoiningDuel={lobby.isJoiningDuel}

@@ -6,6 +6,8 @@ import {
   completeSpacedRepetitionDuelInternal,
   completeWeeklyGoalMilestoneDuel,
   completeWeeklyGoalMilestoneDuelInternal,
+  confirmUnpauseCountdown,
+  skipCountdown,
   timeoutAnswer,
 } from "@/convex/gameplay";
 import { eliminateOption } from "@/convex/hints";
@@ -580,5 +582,156 @@ describe("duel lifecycle completion commands", () => {
       duelId: "duel_1" as Id<"duels">,
     });
     expect(result2).toEqual({ completed: false });
+  });
+});
+
+describe("self-duel gameplay", () => {
+  function selfDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+    return duelDoc({
+      opponentId: "user_1" as Id<"users">,
+      duelMode: "pve",
+      ...overrides,
+    });
+  }
+
+  const answerHandler = (answerDuel as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels">; selectedAnswer: string; questionIndex: number }
+    ) => Promise<{ completed: boolean; completeWeeklyGoalMilestone: boolean; completeSpacedRepetition: boolean }>;
+  })._handler;
+
+  const timeoutHandler = (timeoutAnswer as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels">; questionIndex: number }
+    ) => Promise<{ completed: boolean; completeWeeklyGoalMilestone: boolean; completeSpacedRepetition: boolean }>;
+  })._handler;
+
+  const confirmUnpauseHandler = (confirmUnpauseCountdown as unknown as {
+    _handler: (ctx: unknown, args: { duelId: Id<"duels"> }) => Promise<void>;
+  })._handler;
+
+  const skipCountdownHandler = (skipCountdown as unknown as {
+    _handler: (
+      ctx: unknown,
+      args: { duelId: Id<"duels"> }
+    ) => Promise<{ bothSkipped: boolean }>;
+  })._handler;
+
+  it("mirrors a correct answer onto the opponent half and completes the round on one input", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(
+      selfDuelDoc({
+        sessionWords: [
+          {
+            word: "cat",
+            answer: "gato",
+            wrongAnswers: ["perro", "mesa", "casa"],
+            themeId: "theme_1" as Id<"themes">,
+            themeName: "Animals",
+          },
+        ],
+        duelQuestions: [
+          {
+            options: ["gato", "perro", "mesa", "casa"],
+            correctOption: "gato",
+            difficulty: "easy",
+            points: 1,
+          },
+        ],
+      })
+    );
+
+    const result = await answerHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      selectedAnswer: "gato",
+      questionIndex: 0,
+    });
+
+    expect(result).toMatchObject({ completed: true });
+    expect(db.duels[0].challengerAnswered).toBe(false);
+    expect(db.duels[0].opponentAnswered).toBe(false);
+    expect(db.duels[0].challengerScore).toBe(1);
+    expect(db.duels[0].opponentScore).toBe(1);
+    expect(db.duels[0].status).toBe("completed");
+  });
+
+  it("mirrors a timeout onto the opponent half without touching scores", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(selfDuelDoc());
+
+    const result = await timeoutHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      questionIndex: 0,
+    });
+
+    expect(result.completed).toBe(true);
+    expect(db.duels[0].challengerScore).toBe(0);
+    expect(db.duels[0].opponentScore).toBe(0);
+    expect(db.duels[0].challengerLastAnswer).toBe("__TIMEOUT__");
+    expect(db.duels[0].opponentLastAnswer).toBe("__TIMEOUT__");
+    expect(db.duels[0].status).toBe("completed");
+  });
+
+  it("confirmUnpauseCountdown clears pause fields immediately on self-duel with no prior request", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(2_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(
+      selfDuelDoc({
+        countdownPausedBy: "challenger",
+        countdownPausedAt: 1_500,
+        questionStartTime: 1_000,
+      })
+    );
+
+    await confirmUnpauseHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    expect(db.duels[0]).toMatchObject({
+      countdownPausedBy: undefined,
+      countdownPausedAt: undefined,
+      countdownUnpauseRequestedBy: undefined,
+      questionStartTime: 1_000 + 500,
+    });
+  });
+
+  it("confirmUnpauseCountdown succeeds after the same user's own request on self-duel", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(2_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(
+      selfDuelDoc({
+        countdownPausedBy: "challenger",
+        countdownUnpauseRequestedBy: "challenger",
+        countdownPausedAt: 1_500,
+        questionStartTime: 1_000,
+      })
+    );
+
+    await expect(
+      confirmUnpauseHandler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(db.duels[0].countdownPausedBy).toBeUndefined();
+  });
+
+  it("skipCountdown returns bothSkipped:true and writes both roles for self-duel", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(selfDuelDoc());
+
+    const result = await skipCountdownHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    expect(result).toEqual({ bothSkipped: true });
+    expect(db.duels[0].countdownSkipRequestedBy).toEqual(["challenger", "opponent"]);
   });
 });

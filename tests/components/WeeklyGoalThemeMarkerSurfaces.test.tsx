@@ -74,6 +74,7 @@ describe("weekly goal theme markers", () => {
     render(
       <ChallengeModal
         users={[{ _id: "user_1" as Id<"users">, nickname: "Misha" }]}
+        viewer={null}
         themes={[
           pickerTheme("theme_1", "Animals"),
           pickerTheme("theme_2", "Travel"),

@@ -4,6 +4,7 @@ import {
   acceptChallenge,
   cleanupExpiredChallengeInvites,
   createChallenge,
+  createSelfDuel,
   declineChallenge,
 } from "@/convex/challenges";
 import { CHALLENGE_INVITE_TTL_MS } from "@/convex/constants";
@@ -269,6 +270,15 @@ const declineChallengeHandler = (declineChallenge as unknown as {
 const cleanupExpiredChallengeInvitesHandler = (cleanupExpiredChallengeInvites as unknown as {
   _handler: (ctx: unknown, args: Record<string, never>) => Promise<void>;
 })._handler;
+const createSelfDuelHandler = (createSelfDuel as unknown as {
+  _handler: (
+    ctx: unknown,
+    args: {
+      themeIds: Id<"themes">[];
+      duelDifficultyPreset?: "easy" | "medium" | "hard";
+    }
+  ) => Promise<{ duelId: Id<"duels"> }>;
+})._handler;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -439,5 +449,51 @@ describe("challenge backend", () => {
     expect(db.challenges[0]).toMatchObject({ status: "cancelled", resolvedAt: 1_000 + CHALLENGE_INVITE_TTL_MS + 1 });
     expect(db.challenges[1].status).toBe("pending");
     expect(db.notifications[0].status).toBe("dismissed");
+  });
+});
+
+describe("createSelfDuel", () => {
+  it("creates a self-duel as a normal pve duel without challenges or notifications", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(40_000);
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+
+    const result = await createSelfDuelHandler(createCtx(db, "clerk_1"), {
+      themeIds: ["theme_1" as Id<"themes">, "theme_1" as Id<"themes">],
+      duelDifficultyPreset: "medium",
+    });
+
+    expect(result.duelId).toBe("duel_20");
+    expect(db.challenges).toHaveLength(0);
+    expect(db.notifications).toHaveLength(0);
+    expect(db.duels[0]).toMatchObject({
+      challengerId: "user_1",
+      opponentId: "user_1",
+      status: "active",
+      sourceType: "normal",
+      duelMode: "pve",
+      duelDifficultyPreset: "medium",
+      createdAt: 40_000,
+    });
+  });
+
+  it("rejects empty themeIds with INVALID_INPUT", async () => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+
+    await expect(
+      createSelfDuelHandler(createCtx(db, "clerk_1"), { themeIds: [] })
+    ).rejects.toMatchObject({ data: { code: "INVALID_INPUT" } });
+  });
+
+  it("rejects inaccessible themes with NOT_FOUND", async () => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+
+    await expect(
+      createSelfDuelHandler(createCtx(db, "clerk_1"), {
+        themeIds: ["theme_missing" as Id<"themes">],
+      })
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
   });
 });

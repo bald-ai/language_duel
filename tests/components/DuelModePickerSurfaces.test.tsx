@@ -102,6 +102,7 @@ describe("duel mode picker surfaces", () => {
     render(
       <ChallengeModal
         users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
+        viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
         themes={[
           {
             _id: "theme_1" as Id<"themes">,

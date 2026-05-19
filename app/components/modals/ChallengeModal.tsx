@@ -11,6 +11,7 @@ import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
 import { useWeeklyGoalThemeIds } from "@/hooks/useWeeklyGoalThemeIds";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser } from "@/lib/userDisplay";
+import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 import {
   actionButtonClassName,
   getCtaActionStyle,
@@ -28,6 +29,13 @@ interface User {
   discriminator?: number;
 }
 
+interface Viewer {
+  _id: Id<"users">;
+  name?: string;
+  nickname?: string;
+  discriminator?: number;
+}
+
 interface PendingChallenge {
   challenge: { _id: Id<"challenges"> };
   challenger: { name?: string; nickname?: string; discriminator?: number } | null;
@@ -35,6 +43,7 @@ interface PendingChallenge {
 
 interface ChallengeModalProps {
   users: User[] | undefined;
+  viewer: Viewer | null | undefined;
   themes: ModalTheme[] | undefined;
   pendingChallenges: PendingChallenge[] | undefined;
   isJoiningDuel: boolean;
@@ -51,6 +60,7 @@ const sectionLabelClassName = "text-sm uppercase tracking-widest mb-2 font-semib
 
 export function ChallengeModal({
   users,
+  viewer,
   themes,
   pendingChallenges,
   isJoiningDuel,
@@ -66,9 +76,13 @@ export function ChallengeModal({
   const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(initialOpponentId ?? null);
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
+  // Intentionally unread when isSelfSelected; backend forces SELF_DUEL_FORCED_MODE.
   const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
 
-  const selectedOpponent = users?.find((user) => user._id === selectedOpponentId) || null;
+  const isSelfSelected = isSelfDuelSelection(viewer, selectedOpponentId);
+  const selectedOpponent = isSelfSelected
+    ? viewer ?? null
+    : (users?.find((user) => user._id === selectedOpponentId) ?? null);
   const selectedThemes = themes?.filter((theme) => selectedThemeIds.includes(theme._id)) || [];
 
   const canCreate = selectedOpponentId && selectedThemeIds.length > 0;
@@ -99,6 +113,8 @@ export function ChallengeModal({
         />
         <ChallengeCreateSurface
           users={users}
+          viewer={viewer}
+          isSelfSelected={isSelfSelected}
           themes={themes}
           selectedOpponentId={selectedOpponentId}
           selectedOpponent={selectedOpponent}
@@ -125,7 +141,7 @@ export function ChallengeModal({
         <button
           type="button"
           onClick={handleCreateChallenge}
-          disabled={!canCreate || isCreatingChallenge}
+          disabled={!canCreate || isCreatingChallenge || isJoiningDuel}
           className={actionButtonClassName}
           style={getCtaActionStyle(colors)}
           data-testid="duel-modal-create"
@@ -134,6 +150,7 @@ export function ChallengeModal({
         </button>
         <button
           onClick={onClose}
+          disabled={isJoiningDuel || isCreatingChallenge}
           className={outlineButtonClassName}
           style={getOutlineButtonStyle(colors)}
           data-testid="duel-modal-cancel"
@@ -250,9 +267,11 @@ function ChallengeRespondSurface({
 
 interface ChallengeCreateSurfaceProps {
   users: User[] | undefined;
+  viewer: Viewer | null | undefined;
+  isSelfSelected: boolean;
   themes: ModalTheme[] | undefined;
   selectedOpponentId: Id<"users"> | null;
-  selectedOpponent: User | null;
+  selectedOpponent: User | Viewer | null;
   selectedThemeIds: Id<"themes">[];
   selectedThemes: ModalTheme[];
   selectedDifficulty: DuelDifficultyPreset;
@@ -266,6 +285,8 @@ interface ChallengeCreateSurfaceProps {
 
 function ChallengeCreateSurface({
   users,
+  viewer,
+  isSelfSelected,
   themes,
   selectedOpponentId,
   selectedOpponent,
@@ -288,6 +309,7 @@ function ChallengeCreateSurface({
         </p>
         <OpponentSelector
           users={users}
+          viewer={viewer}
           selectedOpponentId={selectedOpponentId}
           selectedOpponent={selectedOpponent}
           onSelect={onSelectOpponent}
@@ -317,60 +339,150 @@ function ChallengeCreateSurface({
         />
       </div>
 
-      <div>
-        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-          Mode
-        </p>
-        <DuelModePicker
-          selectedMode={selectedMode}
-          onSelectMode={onSelectMode}
-          dataTestIdPrefix="duel-modal-mode"
-        />
-      </div>
+      {!isSelfSelected && (
+        <div>
+          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+            Mode
+          </p>
+          <DuelModePicker
+            selectedMode={selectedMode}
+            onSelectMode={onSelectMode}
+            dataTestIdPrefix="duel-modal-mode"
+          />
+        </div>
+      )}
     </>
   );
 }
 
 interface OpponentSelectorProps {
   users: User[] | undefined;
+  viewer: Viewer | null | undefined;
   selectedOpponentId: Id<"users"> | null;
-  selectedOpponent: User | null;
+  selectedOpponent: User | Viewer | null;
   onSelect: (id: Id<"users">) => void;
 }
 
-const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponentId, selectedOpponent, onSelect }: OpponentSelectorProps) {
+const OpponentSelector = memo(function OpponentSelector({
+  users,
+  viewer,
+  selectedOpponentId,
+  selectedOpponent,
+  onSelect,
+}: OpponentSelectorProps) {
   const colors = useAppearanceColors();
-  if (!users) {
-    return (
-      <div
-        className="text-center p-4 border-2 rounded-2xl"
-        style={{
-          backgroundColor: colors.background.DEFAULT,
-          borderColor: colors.primary.dark,
-        }}
-      >
-        <p className="text-sm" style={{ color: colors.text.muted }}>
-          Loading opponents...
-        </p>
-      </div>
-    );
-  }
 
-  if (users.length === 0) {
-    return (
+  const meRowVisible = viewer != null;
+  const isMeSelected = meRowVisible && selectedOpponentId === viewer._id;
+
+  const meRow = meRowVisible ? (
+    <button
+      key="self"
+      onClick={() => onSelect(viewer._id)}
+      className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
+      style={{
+        backgroundColor: isMeSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
+        borderBottom: `1px solid ${colors.primary.dark}`,
+      }}
+      data-testid="duel-modal-opponent-me"
+    >
       <div
-        className="text-center p-4 border-2 rounded-2xl"
-        style={{
-          backgroundColor: colors.background.DEFAULT,
-          borderColor: colors.primary.dark,
-        }}
+        className="font-semibold text-sm truncate"
+        style={{ color: isMeSelected ? colors.cta.light : colors.text.DEFAULT }}
+        title="Me"
       >
-        <p className="text-sm" style={{ color: colors.text.muted }}>
-          No other users available to duel.
-        </p>
+        Me
       </div>
-    );
-  }
+      {isMeSelected && (
+        <div
+          className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+          style={{ backgroundColor: colors.cta.DEFAULT }}
+        >
+          <svg className="w-2.5 h-2.5" fill="white" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+      )}
+    </button>
+  ) : null;
+
+  const friendsBody = (() => {
+    if (!users) {
+      return (
+        <div
+          className="text-center p-4"
+          style={{
+            backgroundColor: colors.background.DEFAULT,
+            color: colors.text.muted,
+          }}
+        >
+          <p className="text-sm">Loading opponents...</p>
+        </div>
+      );
+    }
+
+    if (users.length === 0) {
+      return (
+        <div
+          className="text-center p-4"
+          style={{
+            backgroundColor: colors.background.DEFAULT,
+            color: colors.text.muted,
+          }}
+        >
+          <p className="text-sm">No other users available to duel.</p>
+        </div>
+      );
+    }
+
+    return users.map((user, index) => {
+      const isSelected = selectedOpponentId === user._id;
+      return (
+        <button
+          key={user._id}
+          onClick={() => onSelect(user._id)}
+          className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
+          style={{
+            backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
+            borderBottom: index < users.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
+          }}
+          data-testid={`duel-modal-opponent-${user._id}`}
+        >
+          <div
+            className="font-semibold text-sm truncate"
+            style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
+            title={formatVisibleUser(user, "Unknown")}
+          >
+            {formatVisibleUser(user, "Unknown")}
+          </div>
+          {isSelected && (
+            <div
+              className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+              style={{ backgroundColor: colors.cta.DEFAULT }}
+            >
+              <svg className="w-2.5 h-2.5" fill="white" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+          )}
+        </button>
+      );
+    });
+  })();
+
+  const selectedLabel = selectedOpponent
+    ? isMeSelected
+      ? "Me"
+      : formatVisibleUser(selectedOpponent, "Unknown")
+    : null;
 
   return (
     <div
@@ -381,45 +493,10 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
       }}
     >
       <div className="max-h-40 overflow-y-auto">
-        {users.map((user, index) => {
-          const isSelected = selectedOpponentId === user._id;
-          return (
-            <button
-              key={user._id}
-              onClick={() => onSelect(user._id)}
-              className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
-              style={{
-                backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
-                borderBottom: index < users.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
-              }}
-              data-testid={`duel-modal-opponent-${user._id}`}
-            >
-                <div
-                  className="font-semibold text-sm truncate"
-                  style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
-                  title={formatVisibleUser(user, "Unknown")}
-                >
-                  {formatVisibleUser(user, "Unknown")}
-                </div>
-              {isSelected && (
-                <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
-                  style={{ backgroundColor: colors.cta.DEFAULT }}
-                >
-                  <svg className="w-2.5 h-2.5" fill="white" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-              )}
-            </button>
-          );
-        })}
+        {meRow}
+        {friendsBody}
       </div>
-      {selectedOpponent && (
+      {selectedLabel && (
         <div
           className="px-4 py-2 text-center text-xs"
           style={{
@@ -428,7 +505,7 @@ const OpponentSelector = memo(function OpponentSelector({ users, selectedOpponen
             color: colors.text.muted,
           }}
         >
-          Selected: <span style={{ color: colors.cta.light }}>{formatVisibleUser(selectedOpponent, "Unknown")}</span>
+          Selected: <span style={{ color: colors.cta.light }}>{selectedLabel}</span>
         </div>
       )}
     </div>

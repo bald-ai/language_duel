@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { SoloMode } from "@/lib/soloNavigation";
 import { toast } from "sonner";
+import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 import { useSoloPracticeLauncher } from "./useSoloPracticeLauncher";
 import { useChallengeActions } from "./challengeLobby/useChallengeActions";
 import { useChallengeData } from "./challengeLobby/useChallengeData";
 import { useChallengeModals } from "./challengeLobby/useChallengeModals";
 import { useChallengeStatusWatcher } from "./challengeLobby/useChallengeStatusWatcher";
+import type { CreateChallengeOptions } from "./challengeLobby/types";
 
 export type { CreateChallengeOptions, ModalState } from "./challengeLobby/types";
 export { useChallengeActions } from "./challengeLobby/useChallengeActions";
@@ -55,6 +57,32 @@ export function useChallengeLobby() {
     [actions, router]
   );
 
+  const viewer = data.viewer;
+  const handleCreateChallengeOrSelfDuel = useCallback(
+    async (options: CreateChallengeOptions) => {
+      if (isSelfDuelSelection(viewer, options.opponentId)) {
+        modals.closeModal();
+        setIsJoiningDuel(true);
+        try {
+          const { duelId } = await actions.handleCreateSelfDuel({
+            themeIds: options.themeIds,
+            duelDifficultyPreset: options.duelDifficultyPreset,
+          });
+          router.push(`/duel/${duelId}`);
+        } catch (error) {
+          console.error("Failed to start self-duel:", error);
+          toast.error("Failed to start duel. Please try again.");
+        } finally {
+          setIsJoiningDuel(false);
+        }
+        return;
+      }
+
+      await actions.handleCreateChallenge(options);
+    },
+    [actions, modals, router, viewer]
+  );
+
   const handleContinueSoloPractice = useSoloPracticeLauncher(modals.closeModal);
 
   const navigateToThemes = useCallback(() => {
@@ -77,6 +105,7 @@ export function useChallengeLobby() {
     themes: data.themes,
     pendingChallenges: data.pendingChallenges,
     pendingCount: data.pendingCount,
+    viewer,
 
     showSoloPracticeModal: modals.showSoloPracticeModal,
     showChallengeModal: modals.showChallengeModal,
@@ -92,7 +121,7 @@ export function useChallengeLobby() {
     openChallengeModal,
     closeChallengeModal: modals.closeModal,
 
-    handleCreateChallenge: actions.handleCreateChallenge,
+    handleCreateChallenge: handleCreateChallengeOrSelfDuel,
     handleAcceptChallenge: handleAcceptChallengeWithRouting,
     handleDeclineChallenge: actions.handleDeclineChallenge,
     handleCancelWaiting: actions.handleCancelWaiting,

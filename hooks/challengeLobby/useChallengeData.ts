@@ -5,6 +5,19 @@ export function useChallengeData(shouldLoad: boolean) {
   const friends = useQuery(api.friends.getFriends, shouldLoad ? {} : "skip");
   const themes = useQuery(api.themes.getThemes, shouldLoad ? {} : "skip");
   const pendingChallenges = useQuery(api.challenges.getPendingChallenges, shouldLoad ? {} : "skip");
+  const currentUser = useQuery(api.users.getCurrentUser, shouldLoad ? {} : "skip");
+
+  const viewer =
+    currentUser === undefined
+      ? undefined
+      : currentUser === null
+        ? null
+        : {
+            _id: currentUser._id,
+            name: currentUser.name,
+            nickname: currentUser.nickname,
+            discriminator: currentUser.discriminator,
+          };
 
   return {
     users: friends?.map((friend) => ({
@@ -18,5 +31,6 @@ export function useChallengeData(shouldLoad: boolean) {
     themes,
     pendingChallenges,
     pendingCount: pendingChallenges?.length || 0,
+    viewer,
   };
 }

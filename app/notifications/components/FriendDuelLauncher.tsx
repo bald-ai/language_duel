@@ -22,6 +22,7 @@ export function FriendDuelLauncher({ children }: FriendDuelLauncherProps) {
                 <ChallengeModal
                     key={lobby.initialChallengeOpponentId ?? "challenge-modal"}
                     users={lobby.users}
+                    viewer={lobby.viewer}
                     themes={lobby.themes}
                     pendingChallenges={lobby.pendingChallenges}
                     isJoiningDuel={lobby.isJoiningDuel}

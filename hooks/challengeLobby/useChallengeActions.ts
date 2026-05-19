@@ -2,8 +2,14 @@ import { useCallback, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
 import { toast } from "sonner";
 import type { CreateChallengeOptions } from "./types";
+
+export interface CreateSelfDuelOptions {
+  themeIds: Id<"themes">[];
+  duelDifficultyPreset?: DuelDifficultyPreset;
+}
 
 interface UseChallengeActionsOptions {
   onChallengeCreated: (challengeId: Id<"challenges">) => void;
@@ -15,6 +21,7 @@ export function useChallengeActions({
   onWaitingCancelled,
 }: UseChallengeActionsOptions) {
   const createChallengeMutation = useMutation(api.challenges.createChallenge);
+  const createSelfDuelMutation = useMutation(api.challenges.createSelfDuel);
   const acceptChallengeMutation = useMutation(api.challenges.acceptChallenge);
   const declineChallengeMutation = useMutation(api.challenges.declineChallenge);
   const cancelChallengeMutation = useMutation(api.challenges.cancelChallenge);
@@ -44,6 +51,16 @@ export function useChallengeActions({
       }
     },
     [createChallengeMutation, onChallengeCreated]
+  );
+
+  const handleCreateSelfDuel = useCallback(
+    async (options: CreateSelfDuelOptions) => {
+      return await createSelfDuelMutation({
+        themeIds: options.themeIds,
+        duelDifficultyPreset: options.duelDifficultyPreset,
+      });
+    },
+    [createSelfDuelMutation]
   );
 
   const handleAcceptChallenge = useCallback(
@@ -89,6 +106,7 @@ export function useChallengeActions({
     isCreatingChallenge,
     isCancellingChallenge,
     handleCreateChallenge,
+    handleCreateSelfDuel,
     handleAcceptChallenge,
     handleDeclineChallenge,
     handleCancelWaiting,
