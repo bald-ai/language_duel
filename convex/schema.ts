@@ -165,6 +165,11 @@ const weeklyGoalBossStatusValidator = v.union(
   v.literal("defeated")
 );
 
+const weeklyGoalModeValidator = v.union(
+  v.literal("solo"),
+  v.literal("shared")
+);
+
 export const notificationPayloadValidator = v.union(
   v.object({
     friendRequestId: v.id("friendRequests"),
@@ -180,6 +185,7 @@ export const notificationPayloadValidator = v.union(
         v.literal("goal_unlocked"),
         v.literal("goal_activated"),
         v.literal("goal_completed"),
+        v.literal("goal_completed_solo"),
         v.literal("draft_expiring")
       )
     ),
@@ -395,17 +401,18 @@ export default defineSchema({
   // -------------------------------------------
   weeklyGoals: defineTable({
     creatorId: v.id("users"),
-    partnerId: v.id("users"),
+    mode: v.optional(weeklyGoalModeValidator),
+    partnerId: v.optional(v.id("users")),
     themes: v.array(
       v.object({
         themeId: v.id("themes"),
         themeName: v.string(),
         creatorCompleted: v.boolean(),
-        partnerCompleted: v.boolean(),
+        partnerCompleted: v.optional(v.boolean()),
       })
     ),
     creatorLocked: v.boolean(),
-    partnerLocked: v.boolean(),
+    partnerLocked: v.optional(v.boolean()),
     lockedAt: v.optional(v.number()),
     endDate: v.optional(v.number()),
     miniBossStatus: weeklyGoalBossStatusValidator,

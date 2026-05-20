@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface LockButtonProps {
+  mode: "solo" | "shared";
   partnerLocked: boolean;
   onLock: () => Promise<void>;
 }
 
-export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
+export function LockButton({ mode, partnerLocked, onLock }: LockButtonProps) {
   const colors = useAppearanceColors();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
@@ -102,7 +103,7 @@ export function LockButton({ partnerLocked, onLock }: LockButtonProps) {
       }}
       data-testid="goals-lock"
     >
-      {isLocking ? "Locking..." : "Lock Goal"}
+      {isLocking ? "Locking..." : mode === "solo" ? "Start Goal" : "Lock Goal"}
     </button>
   );
 }

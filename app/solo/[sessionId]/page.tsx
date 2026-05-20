@@ -74,7 +74,9 @@ export default function SoloPracticePage() {
   const returnLabel = searchParams.get("returnLabel") || "Back to Home";
   const completeSpacedRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.completeRepetitionSoloPractice);
   const recordRepetitionSoloMastery = useMutation(api.weeklyGoalRepetitions.recordRepetitionSoloMastery);
+  const completeBossSoloPractice = useMutation(api.weeklyGoals.completeBossSoloPractice);
   const spacedRepetitionReportStatusRef = useRef<"idle" | "pending" | "done">("idle");
+  const bossCompletionStatusRef = useRef<"idle" | "pending" | "done">("idle");
   const reportedMasteryIndicesRef = useRef<Set<number>>(new Set());
   const requestedThemeIds = useMemo(() => {
     if (themeIdsParam) {
@@ -249,6 +251,35 @@ export default function SoloPracticePage() {
     session.completed,
     spacedRepetitionStep,
     masteryWritesPending,
+  ]);
+
+  const isBossPractice = practiceSession?.sourceType === "boss";
+
+  useEffect(() => {
+    if (
+      !soloPracticeSessionId ||
+      !isBossPractice ||
+      !session.completed ||
+      bossCompletionStatusRef.current !== "idle"
+    ) {
+      return;
+    }
+
+    bossCompletionStatusRef.current = "pending";
+    void completeBossSoloPractice({
+      soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
+    })
+      .then(() => {
+        bossCompletionStatusRef.current = "done";
+      })
+      .catch(() => {
+        bossCompletionStatusRef.current = "idle";
+      });
+  }, [
+    soloPracticeSessionId,
+    isBossPractice,
+    session.completed,
+    completeBossSoloPractice,
   ]);
 
   // Loading states

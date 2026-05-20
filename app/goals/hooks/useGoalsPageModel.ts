@@ -50,6 +50,7 @@ export function useGoalsPageModel() {
   const router = useRouter();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [creationMode, setCreationMode] = useState<"solo" | "shared">("solo");
   const [selectedPartnerId, setSelectedPartnerId] = useState<Id<"users"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [endDateInput, setEndDateInput] = useState("");
@@ -76,7 +77,8 @@ export function useGoalsPageModel() {
     showPracticeModal && selectedGoalId ? { weeklyGoalId: selectedGoalId } : "skip"
   );
 
-  const createGoal = useMutation(api.weeklyGoals.createGoal);
+  const createSoloGoal = useMutation(api.weeklyGoals.createSoloGoal);
+  const createSharedGoal = useMutation(api.weeklyGoals.createSharedGoal);
   const addTheme = useMutation(api.weeklyGoals.addTheme);
   const removeTheme = useMutation(api.weeklyGoals.removeTheme);
   const toggleCompletion = useMutation(api.weeklyGoals.toggleCompletion);
@@ -105,12 +107,15 @@ export function useGoalsPageModel() {
   const formattedDraftCountdown = formatGoalGraceCountdown(draftCountdown.timeRemaining);
 
   const handleCreateGoal = async () => {
-    if (!selectedPartnerId) return;
+    if (creationMode === "shared" && !selectedPartnerId) return;
     setIsCreating(true);
     try {
-      const newGoalId = await createGoal({ partnerId: selectedPartnerId });
+      const newGoalId = creationMode === "solo"
+        ? await createSoloGoal({})
+        : await createSharedGoal({ partnerId: selectedPartnerId! });
       toast.success("Goal created! Add themes to get started.");
       setSelectedPartnerId(null);
+      setCreationMode("solo");
       selectCreatedGoal(newGoalId);
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to create goal"));
@@ -160,7 +165,11 @@ export function useGoalsPageModel() {
 
     try {
       await removeTheme({ goalId: goal._id, themeId });
-      if (lockedRole === viewerRole) {
+      if (goal.mode === "solo") {
+        if (lockedRole) {
+          toast.success("You removed a theme, so your lock was cleared.");
+        }
+      } else if (lockedRole === viewerRole) {
         toast.success("You removed a theme, so your lock was cleared.");
       } else if (lockedRole) {
         toast.success(`You removed a theme, so ${partnerName}'s lock was cleared.`);
@@ -258,10 +267,12 @@ export function useGoalsPageModel() {
   }
 
   const existingPartnerIds = new Set(
-    allGoals.flatMap((goalWithUsers) => [
-      goalWithUsers.partner?._id,
-      goalWithUsers.creator?._id,
-    ].filter(Boolean))
+    allGoals
+      .filter((goalWithUsers) => goalWithUsers.mode === "shared")
+      .flatMap((goalWithUsers) => [
+        goalWithUsers.partner?._id,
+        goalWithUsers.creator?._id,
+      ].filter(Boolean))
   );
   const availableFriends = friends.filter((friend) => !existingPartnerIds.has(friend.friendId));
 
@@ -276,11 +287,14 @@ export function useGoalsPageModel() {
     selectedGoal.goal.themes.length < MAX_THEMES_PER_GOAL;
   const viewerLocked =
     hasGoalSelected &&
-    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.creatorLocked) ||
+    (selectedGoal.mode === "solo"
+      ? selectedGoal.goal.creatorLocked
+      : (selectedGoal.viewerRole === "creator" && selectedGoal.goal.creatorLocked) ||
       (selectedGoal.viewerRole === "partner" && selectedGoal.goal.partnerLocked));
   const partnerLocked =
     hasGoalSelected &&
-    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.partnerLocked) ||
+    selectedGoal.mode === "shared" &&
+    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.partnerLocked === true) ||
       (selectedGoal.viewerRole === "partner" && selectedGoal.goal.creatorLocked));
   const canToggleThemeCompletion = canToggleGoalThemeCompletion({ effectiveStatus });
   const hasEnoughThemesToLock =
@@ -313,6 +327,7 @@ export function useGoalsPageModel() {
     canEditEndDate,
     canPracticeGoalThemes,
     canToggleThemeCompletion,
+    creationMode,
     deleteAt,
     draftExpiresAt,
     endDate,
@@ -343,6 +358,12 @@ export function useGoalsPageModel() {
     selectedGoalId,
     selectedPartnerId,
     selectGoal,
+    setCreationMode: (mode: "solo" | "shared") => {
+      setCreationMode(mode);
+      if (mode === "solo") {
+        setSelectedPartnerId(null);
+      }
+    },
     setEndDateInput,
     setSelectedPartnerId,
     setShowPracticeModal,

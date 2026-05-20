@@ -9,7 +9,7 @@ import {
 import { buildBoardItem } from "./readModel";
 import { toUserSummary } from "../helpers/userSummary";
 import {
-  getGoalPartnerId,
+  getGoalPartnerIdForViewer,
   getRepetitionRecord,
   isGoalParticipant,
 } from "./rules";
@@ -68,7 +68,10 @@ export async function loadRepetitionBoardForUser(
   const recordByGoalId = new Map(
     records.map((record) => [String(record.weeklyGoalId), record])
   );
-  const partnerIds = goals.map((goal) => getGoalPartnerId(goal, userId));
+  const partnerIds = goals.flatMap((goal) => {
+    const partnerId = getGoalPartnerIdForViewer(goal, userId);
+    return partnerId === undefined ? [] : [partnerId];
+  });
   const usersById = await loadUsersById(ctx, partnerIds);
 
   const items: BoardItem[] = [];
@@ -89,12 +92,13 @@ export async function loadRepetitionBoardForUser(
       bucket === "ready"
         ? await loadSpacedRepetitionSnapshotContent(ctx, goal)
         : buildDeferredSnapshotContent(goal);
+    const partnerId = getGoalPartnerIdForViewer(goal, userId);
     items.push(
       buildBoardItem({
         goal,
         record,
         partner: toUserSummary(
-          usersById.get(getGoalPartnerId(goal, userId)) ?? null
+          partnerId === undefined ? null : usersById.get(partnerId) ?? null
         ),
         content,
         now,
@@ -156,7 +160,8 @@ export async function loadLaunchPreviewForUser(
     bucket === "ready"
       ? await loadSpacedRepetitionSnapshotContent(ctx, goal)
       : buildDeferredSnapshotContent(goal);
-  const partner = await ctx.db.get(getGoalPartnerId(goal, userId));
+  const partnerId = getGoalPartnerIdForViewer(goal, userId);
+  const partner = partnerId === undefined ? null : await ctx.db.get(partnerId);
   const item = buildBoardItem({
     goal,
     record,
@@ -169,7 +174,7 @@ export async function loadLaunchPreviewForUser(
     ...item,
     themeSummary: content.ok ? content.themeSummary : "",
     livesTotal: goal.themes.length + 1,
-    duelAvailable: partner !== null,
+    duelAvailable: goal.mode === "shared" && partner !== null,
   };
 }
 

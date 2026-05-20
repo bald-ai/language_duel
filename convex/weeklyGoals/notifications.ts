@@ -4,13 +4,9 @@ import {
   dismissChallengeInviteNotificationsByChallengeId,
   dismissWeeklyGoalNotificationsForParticipants,
 } from "../notificationHelpers";
+import { getGoalParticipantIds } from "./participants";
 
-export function getGoalParticipantIds(goal: {
-  creatorId: Id<"users">;
-  partnerId: Id<"users">;
-}): Id<"users">[] {
-  return [goal.creatorId, goal.partnerId];
-}
+export { getGoalParticipantIds } from "./participants";
 
 export async function dismissGoalNotifications(
   ctx: MutationCtx,
@@ -21,7 +17,7 @@ export async function dismissGoalNotifications(
 
   await dismissWeeklyGoalNotificationsForParticipants(
     ctx,
-    [goal.creatorId, goal.partnerId],
+    getGoalParticipantIds(goal),
     [goalId]
   );
 }
@@ -37,4 +33,3 @@ export async function dismissChallengeNotifications(
     await dismissChallengeInviteNotificationsByChallengeId(ctx, challengeId, participantIds);
   }
 }
-

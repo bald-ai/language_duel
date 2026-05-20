@@ -18,6 +18,7 @@ type WeeklyGoalDoc = Pick<
   | "_id"
   | "_creationTime"
   | "creatorId"
+  | "mode"
   | "partnerId"
   | "themes"
   | "creatorLocked"
@@ -153,6 +154,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     _id: "goal_1" as Id<"weeklyGoals">,
     _creationTime: 1,
     creatorId: "user_creator" as Id<"users">,
+    mode: "shared",
     partnerId: "user_partner" as Id<"users">,
     themes: [
       {
@@ -364,5 +366,56 @@ describe("weeklyGoals lockGoal", () => {
 
     expect(db.weeklyGoals[0]?.status).toBe("draft");
     expect(db.weeklyGoalThemeSnapshots).toHaveLength(0);
+  });
+
+  it("activates a solo goal when the creator locks it", async () => {
+    const scheduledCalls: Array<{ trigger: string; toUserId: Id<"users"> }> = [];
+    const db = new InMemoryDb(
+      [
+        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator", nickname: "Creator" }),
+      ],
+      [
+        buildGoal({
+          mode: "solo",
+          partnerId: undefined,
+          partnerLocked: undefined,
+          themes: [
+            {
+              themeId: "theme_1" as Id<"themes">,
+              themeName: "Theme 1",
+              creatorCompleted: false,
+            },
+            {
+              themeId: "theme_2" as Id<"themes">,
+              themeName: "Theme 2",
+              creatorCompleted: false,
+            },
+          ],
+        }),
+      ],
+      [buildTheme(), buildTheme({ _id: "theme_2" as Id<"themes">, name: "Theme 2" })]
+    );
+
+    await lockGoalHandler(
+      createAuthCtx(db, "creator", {
+        scheduler: {
+          runAfter: async (
+            _delay: number,
+            _fn: unknown,
+            payload: { trigger: string; toUserId: Id<"users"> }
+          ) => {
+            scheduledCalls.push(payload);
+          },
+        },
+      }) as never,
+      { goalId: "goal_1" as Id<"weeklyGoals"> }
+    );
+
+    expect(db.weeklyGoals[0]?.status).toBe("locked");
+    expect(db.weeklyGoals[0]?.creatorLocked).toBe(true);
+    expect(typeof db.weeklyGoals[0]?.lockedAt).toBe("number");
+    expect(db.weeklyGoalThemeSnapshots).toHaveLength(2);
+    expect(scheduledCalls).toHaveLength(0);
+    expect(db.notifications).toHaveLength(0);
   });
 });

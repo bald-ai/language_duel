@@ -39,6 +39,7 @@ export default function BossLaunchPage() {
   const createBossChallenge = useMutation(api.weeklyGoals.createBossChallenge);
   const startBossSoloPractice = useMutation(api.weeklyGoals.startBossSoloPractice);
   const selectedBossStatus = preview?.selectedBossStatus;
+  const isSoloGoal = preview?.mode === "solo";
   const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
   const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
   const canStart = selectedBossStatus === "ready";
@@ -153,7 +154,9 @@ export default function BossLaunchPage() {
               {bossTitle}
             </h1>
             <p className="text-sm" style={{ color: colors.text.muted }}>
-              Launch a shared multi-theme boss duel, or warm up with solo practice first.
+              {isSoloGoal
+                ? "Launch a solo boss run."
+                : "Launch a shared multi-theme boss duel, or warm up with solo practice first."}
             </p>
           </div>
 
@@ -193,25 +196,29 @@ export default function BossLaunchPage() {
           </div>
 
           <div className="space-y-3">
-            <DuelModePicker
-              selectedMode={selectedMode}
-              onSelectMode={setSelectedMode}
-              dataTestIdPrefix="boss-mode"
-            />
+            {!isSoloGoal && (
+              <>
+                <DuelModePicker
+                  selectedMode={selectedMode}
+                  onSelectMode={setSelectedMode}
+                  dataTestIdPrefix="boss-mode"
+                />
 
-            <button
-              onClick={() => void handleChallengePartner()}
-              disabled={!canStart || isStartingDuel}
-              className="w-full rounded-2xl py-3 px-4 text-sm font-bold uppercase tracking-wide disabled:opacity-60"
-              style={{
-                backgroundColor: colors.cta.DEFAULT,
-                color: colors.text.DEFAULT,
-                boxShadow: `0 16px 35px ${colors.cta.glow}`,
-              }}
-              data-testid="boss-challenge-partner"
-            >
-              {isStartingDuel ? "Sending Invite..." : "Challenge Partner"}
-            </button>
+                <button
+                  onClick={() => void handleChallengePartner()}
+                  disabled={!canStart || isStartingDuel}
+                  className="w-full rounded-2xl py-3 px-4 text-sm font-bold uppercase tracking-wide disabled:opacity-60"
+                  style={{
+                    backgroundColor: colors.cta.DEFAULT,
+                    color: colors.text.DEFAULT,
+                    boxShadow: `0 16px 35px ${colors.cta.glow}`,
+                  }}
+                  data-testid="boss-challenge-partner"
+                >
+                  {isStartingDuel ? "Sending Invite..." : "Challenge Partner"}
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => void handlePracticeSolo()}

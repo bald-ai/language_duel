@@ -7,7 +7,6 @@ import { loadThemesByIds, summarizeSessionWords } from "../helpers/sessionWords"
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
 import {
   dismissChallengeNotifications,
-  getGoalParticipantIds,
 } from "./notifications";
 import {
   upsertWeeklyGoalNotificationForGoal,
@@ -20,6 +19,10 @@ import {
 } from "../../lib/weeklyGoals";
 import { ensureRepetitionRecordsForCompletedGoal } from "../weeklyGoalRepetitions";
 import type { BossType } from "./types";
+import {
+  getGoalParticipantIds,
+  isGoalParticipant,
+} from "./participants";
 
 export function getEligibleThemeIdsForBoss(
   goal: Doc<"weeklyGoals">,
@@ -27,7 +30,11 @@ export function getEligibleThemeIdsForBoss(
 ): Id<"themes">[] {
   if (bossType === "mini") {
     return goal.themes
-      .filter((t) => t.creatorCompleted && t.partnerCompleted)
+      .filter((t) =>
+        goal.mode === "solo"
+          ? t.creatorCompleted
+          : t.creatorCompleted && t.partnerCompleted
+      )
       .map((t) => t.themeId);
   }
   return goal.themes.map((t) => t.themeId);
@@ -63,8 +70,9 @@ export async function validateAndPrepareBoss(
   if (!goal) throw new ConvexError({ code: "NOT_FOUND", message: "Goal not found" });
 
   const isCreator = goal.creatorId === user._id;
-  const isPartner = goal.partnerId === user._id;
-  if (!isCreator && !isPartner) throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
+  if (!isGoalParticipant(goal, user._id)) {
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
+  }
 
   const now = Date.now();
   if (!isGoalPlayable(goal, now)) {
@@ -110,6 +118,22 @@ export async function completeBigBoss(
   await ensureRepetitionRecordsForCompletedGoal(ctx, goal, now);
 
   const participants = getGoalParticipantIds(goal);
+  if (goal.mode === "solo") {
+    await upsertWeeklyGoalNotificationForGoal(ctx, {
+      toUserId: goal.creatorId,
+      fromUserId: goal.creatorId,
+      goalId: goal._id,
+      themeCount: goal.themes.length,
+      event: "goal_completed_solo",
+      createdAt: now,
+    });
+    return;
+  }
+
+  if (goal.partnerId === undefined) {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Shared weekly goal is missing partner data" });
+  }
+
   await upsertWeeklyGoalNotificationForGoal(ctx, {
     toUserId: goal.creatorId,
     fromUserId: goal.partnerId,
@@ -141,6 +165,56 @@ export async function completeBigBoss(
 
 export function getBossLabel(bossType: BossType): string {
   return bossType === "mini" ? "Mini Boss" : "Big Boss";
+}
+
+export async function handleCompleteBossSoloPractice(
+  ctx: MutationCtx,
+  soloPracticeSessionId: Id<"soloPracticeSessions">
+): Promise<{ completed: boolean }> {
+  const { user } = await getAuthenticatedUser(ctx);
+
+  const session = await ctx.db.get(soloPracticeSessionId);
+  if (!session) {
+    throw new ConvexError({ code: "NOT_FOUND", message: "Solo practice session not found" });
+  }
+  if (session.userId !== user._id) {
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
+  }
+  if (session.sourceType !== "boss" || !session.bossType) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Session is not a boss practice session" });
+  }
+  if (session.status === "completed") {
+    return { completed: false };
+  }
+
+  const goal = await ctx.db.get(session.weeklyGoalId);
+  if (!goal) {
+    throw new ConvexError({ code: "NOT_FOUND", message: "Weekly goal not found" });
+  }
+
+  const now = Date.now();
+  if (!isGoalPlayable(goal, now)) {
+    throw new ConvexError({ code: "INVALID_STATE", message: "This goal is not playable" });
+  }
+
+  await ctx.db.patch(soloPracticeSessionId, {
+    status: "completed",
+    completedAt: now,
+  });
+
+  // Solo practice on a shared goal is only a warmup; it must not advance the goal,
+  // but the session itself is still marked completed above.
+  if (goal.mode !== "solo") {
+    return { completed: false };
+  }
+
+  if (session.bossType === "mini") {
+    await completeMiniBoss(ctx, goal);
+  } else {
+    await completeBigBoss(ctx, goal);
+  }
+
+  return { completed: true };
 }
 
 export { summarizeSessionWords };

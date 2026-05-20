@@ -9,14 +9,16 @@ export type WeeklyGoalLifecycleStatus =
   | "grace_period"
   | "completed";
 export type WeeklyGoalBossStatus = "unavailable" | "ready" | "defeated";
+export type WeeklyGoalMode = "solo" | "shared";
 export type WeeklyGoalParticipantRole = "creator" | "partner";
 
 export interface WeeklyGoalThemeProgress {
   creatorCompleted: boolean;
-  partnerCompleted: boolean;
+  partnerCompleted?: boolean;
 }
 
 export interface WeeklyGoalState {
+  mode?: WeeklyGoalMode;
   themes: WeeklyGoalThemeProgress[];
   status: WeeklyGoalLifecycleStatus;
   lockedAt?: number;
@@ -26,9 +28,38 @@ export interface WeeklyGoalState {
 }
 
 export interface WeeklyGoalLockableState extends WeeklyGoalState {
+  partnerId?: unknown;
   creatorLocked: boolean;
-  partnerLocked: boolean;
+  partnerLocked?: boolean;
 }
+
+export interface SoloThemeProgress extends WeeklyGoalThemeProgress {
+  creatorCompleted: boolean;
+  partnerCompleted?: undefined;
+}
+
+export interface SharedThemeProgress extends WeeklyGoalThemeProgress {
+  creatorCompleted: boolean;
+  partnerCompleted: boolean;
+}
+
+export type SoloGoal<T extends WeeklyGoalState = WeeklyGoalState> = T & {
+  mode: "solo";
+  partnerId?: undefined;
+  partnerLocked?: undefined;
+  themes: SoloThemeProgress[];
+};
+
+export type SharedGoal<T extends WeeklyGoalState = WeeklyGoalState> = T & {
+  mode: "shared";
+  partnerId: unknown;
+  partnerLocked: boolean;
+  themes: SharedThemeProgress[];
+};
+
+export type NormalizedWeeklyGoal<T extends WeeklyGoalState = WeeklyGoalState> =
+  | SoloGoal<T>
+  | SharedGoal<T>;
 
 export type WeeklyGoalRuleCode =
   | "INVALID_STATE"
@@ -48,29 +79,80 @@ export type WeeklyGoalLockPlan =
   | {
       kind: "first_lock";
       role: WeeklyGoalParticipantRole;
-      otherRole: WeeklyGoalParticipantRole;
+      otherRole?: WeeklyGoalParticipantRole;
       updates: { creatorLocked: true } | { partnerLocked: true };
     }
   | {
       kind: "activate_goal";
       role: WeeklyGoalParticipantRole;
-      otherRole: WeeklyGoalParticipantRole;
+      otherRole?: WeeklyGoalParticipantRole;
       updates:
         | { creatorLocked: true; status: "locked"; lockedAt: number }
         | { partnerLocked: true; status: "locked"; lockedAt: number };
     };
 
+export function normalizeWeeklyGoal<T extends WeeklyGoalState>(
+  goal: T
+): NormalizedWeeklyGoal<T> {
+  const effectiveMode: WeeklyGoalMode = goal.mode ?? "shared";
+  if (effectiveMode === "shared") {
+    const partnerId = (goal as T & { partnerId?: unknown }).partnerId;
+    const partnerLocked = (goal as T & { partnerLocked?: boolean }).partnerLocked;
+    if (partnerId === undefined || partnerLocked === undefined) {
+      throw new WeeklyGoalRuleViolation(
+        "INVALID_STATE",
+        "Shared weekly goal is missing partner data"
+      );
+    }
+    if (goal.themes.some((theme) => theme.partnerCompleted === undefined)) {
+      throw new WeeklyGoalRuleViolation(
+        "INVALID_STATE",
+        "Shared weekly goal is missing partner theme progress"
+      );
+    }
+    return goal as SharedGoal<T>;
+  }
+
+  if (effectiveMode === "solo") {
+    const partnerId = (goal as T & { partnerId?: unknown }).partnerId;
+    const partnerLocked = (goal as T & { partnerLocked?: boolean }).partnerLocked;
+    if (partnerId !== undefined || partnerLocked !== undefined) {
+      throw new WeeklyGoalRuleViolation(
+        "INVALID_STATE",
+        "Solo weekly goal cannot have partner data"
+      );
+    }
+    if (goal.themes.some((theme) => theme.partnerCompleted !== undefined)) {
+      throw new WeeklyGoalRuleViolation(
+        "INVALID_STATE",
+        "Solo weekly goal cannot have partner theme progress"
+      );
+    }
+    return goal as SoloGoal<T>;
+  }
+
+  throw new WeeklyGoalRuleViolation(
+    "INVALID_STATE",
+    "Weekly goal mode is missing"
+  );
+}
+
 export function countCompletedThemes(
-  themes: WeeklyGoalThemeProgress[]
+  themes: WeeklyGoalThemeProgress[],
+  mode: WeeklyGoalMode | undefined
 ): number {
-  return themes.filter((theme) => theme.creatorCompleted && theme.partnerCompleted)
-    .length;
+  return themes.filter((theme) =>
+    mode === "solo"
+      ? theme.creatorCompleted
+      : theme.creatorCompleted && theme.partnerCompleted === true
+  ).length;
 }
 
 export function areAllThemesCompleted(
-  themes: WeeklyGoalThemeProgress[]
+  themes: WeeklyGoalThemeProgress[],
+  mode: WeeklyGoalMode | undefined
 ): boolean {
-  return themes.length > 0 && countCompletedThemes(themes) === themes.length;
+  return themes.length > 0 && countCompletedThemes(themes, mode) === themes.length;
 }
 
 export function getMiniBossUnlockThreshold(themeCount: number): number {
@@ -167,10 +249,10 @@ export function getEffectiveMiniBossStatus(
     return "unavailable";
   }
 
-  const completedThemeCount = countCompletedThemes(goal.themes);
+  const completedThemeCount = countCompletedThemes(goal.themes, goal.mode);
   const unlockThreshold = getMiniBossUnlockThreshold(goal.themes.length);
 
-  if (areAllThemesCompleted(goal.themes)) {
+  if (areAllThemesCompleted(goal.themes, goal.mode)) {
     return "unavailable";
   }
 
@@ -200,7 +282,7 @@ export function getEffectiveBigBossStatus(
     return "unavailable";
   }
 
-  const allThemesCompleted = areAllThemesCompleted(goal.themes);
+  const allThemesCompleted = areAllThemesCompleted(goal.themes, goal.mode);
 
   if (allThemesCompleted) {
     return "ready";
@@ -233,6 +315,27 @@ export function planWeeklyGoalLock({
   role: WeeklyGoalParticipantRole;
   now: number;
 }): WeeklyGoalLockPlan {
+  if (goal.mode === "solo") {
+    if (role !== "creator") {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo goals can only be started by the creator");
+    }
+    if (goal.partnerId !== undefined || goal.partnerLocked !== undefined) {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo weekly goal cannot have partner data");
+    }
+    if (goal.status !== "draft") {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Goal already locked");
+    }
+    if (goal.creatorLocked) {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
+    }
+    validateLockRequirements(goal, now);
+    return {
+      kind: "activate_goal",
+      role,
+      updates: { creatorLocked: true, status: "locked", lockedAt: now },
+    };
+  }
+
   if (goal.status !== "draft") {
     throw new WeeklyGoalRuleViolation("INVALID_STATE", "Goal already locked");
   }
@@ -245,25 +348,7 @@ export function planWeeklyGoalLock({
     throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
   }
 
-  if (goal.themes.length < MIN_THEMES_PER_GOAL) {
-    const minThemesRequired: number = MIN_THEMES_PER_GOAL;
-    const themeLabel = minThemesRequired === 1 ? "theme" : "themes";
-    throw new WeeklyGoalRuleViolation(
-      "INVALID_INPUT",
-      `Add at least ${minThemesRequired} ${themeLabel} before locking`
-    );
-  }
-
-  if (typeof goal.endDate !== "number") {
-    throw new WeeklyGoalRuleViolation("INVALID_INPUT", "Choose an end date before locking");
-  }
-
-  if (goal.endDate - now < MIN_GOAL_DURATION_MS) {
-    throw new WeeklyGoalRuleViolation(
-      "INVALID_INPUT",
-      "End date must be at least 24 hours from now"
-    );
-  }
+  validateLockRequirements(goal, now);
 
   const bothLocked = role === "creator"
     ? goal.partnerLocked
@@ -299,6 +384,28 @@ export function planWeeklyGoalLock({
         otherRole,
         updates: { partnerLocked: true },
       };
+}
+
+function validateLockRequirements(goal: WeeklyGoalLockableState, now: number): void {
+  if (goal.themes.length < MIN_THEMES_PER_GOAL) {
+    const minThemesRequired: number = MIN_THEMES_PER_GOAL;
+    const themeLabel = minThemesRequired === 1 ? "theme" : "themes";
+    throw new WeeklyGoalRuleViolation(
+      "INVALID_INPUT",
+      `Add at least ${minThemesRequired} ${themeLabel} before locking`
+    );
+  }
+
+  if (typeof goal.endDate !== "number") {
+    throw new WeeklyGoalRuleViolation("INVALID_INPUT", "Choose an end date before locking");
+  }
+
+  if (goal.endDate - now < MIN_GOAL_DURATION_MS) {
+    throw new WeeklyGoalRuleViolation(
+      "INVALID_INPUT",
+      "End date must be at least 24 hours from now"
+    );
+  }
 }
 
 export function canTriggerGoalBoss(

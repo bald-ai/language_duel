@@ -34,8 +34,10 @@ export function buildBoardItem(args: {
   );
   const step = getSpacedRepetitionCurrentStep(args.record.completedSteps);
 
+  const mode = args.goal.mode ?? "shared";
   return {
     weeklyGoalId: args.goal._id,
+    mode,
     themeNames: getThemeNames(args.goal),
     partner: args.partner,
     themeCount: args.goal.themes.length,
@@ -52,7 +54,6 @@ export function buildBoardItem(args: {
     unavailableReason: args.content.ok ? undefined : args.content.message,
     completedAt,
     updatedAt: args.record.updatedAt,
-    duelAvailable: args.partner !== null,
+    duelAvailable: mode === "shared" && args.partner !== null,
   };
 }
-

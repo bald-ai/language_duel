@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+    canAttachThemeToGoal,
     canGenerateStoredThemeTts,
     hasThemeAccess,
     type ThemeAccessParams,
@@ -24,6 +25,31 @@ const makeParams = (
     weeklyGoals: [],
     friendships: [],
     ...overrides,
+});
+
+describe("canAttachThemeToGoal", () => {
+    it("allows only creator-owned themes for solo goals", () => {
+        const goal = {
+            mode: "solo" as const,
+            creatorId: userId("creator"),
+        };
+
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("creator") } })).toBe(true);
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("partner") } })).toBe(false);
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: undefined } })).toBe(false);
+    });
+
+    it("allows creator or partner themes for shared goals", () => {
+        const goal = {
+            mode: "shared" as const,
+            creatorId: userId("creator"),
+            partnerId: userId("partner"),
+        };
+
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("creator") } })).toBe(true);
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("partner") } })).toBe(true);
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("third") } })).toBe(false);
+    });
 });
 
 describe("hasThemeAccess", () => {

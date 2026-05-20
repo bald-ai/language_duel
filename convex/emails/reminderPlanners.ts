@@ -7,8 +7,9 @@ import {
 
 type WeeklyGoalReminderGoal = {
   _id: Id<"weeklyGoals">;
+  mode?: "solo" | "shared";
   creatorId: Id<"users">;
-  partnerId: Id<"users">;
+  partnerId?: Id<"users">;
   status: string;
   bigBossStatus?: string;
   endDate?: number;

@@ -19,6 +19,7 @@ type WeeklyGoalDoc = Pick<
   | "_id"
   | "_creationTime"
   | "creatorId"
+  | "mode"
   | "partnerId"
   | "themes"
   | "creatorLocked"
@@ -156,6 +157,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     _id: "goal_1" as Id<"weeklyGoals">,
     _creationTime: 1,
     creatorId: "user_creator" as Id<"users">,
+    mode: "shared",
     partnerId: "user_partner" as Id<"users">,
     themes: [
       {
@@ -269,6 +271,39 @@ describe("weeklyGoals declineWeeklyGoalInvitation", () => {
         { notificationId: "notification_1" as Id<"notifications"> }
       )
     ).rejects.toThrow("This invitation can no longer be declined");
+  });
+
+  it("rejects decline for solo goals", async () => {
+    const db = new InMemoryDb(
+      [buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" })],
+      [
+        buildGoal({
+          mode: "solo",
+          partnerId: undefined,
+          partnerLocked: undefined,
+          themes: [
+            {
+              themeId: "theme_1" as Id<"themes">,
+              themeName: "Theme 1",
+              creatorCompleted: false,
+            },
+          ],
+        }),
+      ],
+      [
+        buildNotification({
+          fromUserId: "user_creator" as Id<"users">,
+          toUserId: "user_creator" as Id<"users">,
+        }),
+      ]
+    );
+
+    await expect(
+      declineWeeklyGoalInvitationHandler(
+        createAuthCtx(db, "creator") as never,
+        { notificationId: "notification_1" as Id<"notifications"> }
+      )
+    ).rejects.toThrow("Solo goals do not have invitations");
   });
 
   it("dismisses the invite quietly when the goal was already deleted", async () => {

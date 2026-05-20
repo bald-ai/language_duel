@@ -25,10 +25,17 @@ export type SoloPracticeAccessData = {
 };
 
 export type WeeklyGoalAccessData = {
+    mode?: "solo" | "shared";
     creatorId: Id<"users">;
-    partnerId: Id<"users">;
+    partnerId?: Id<"users">;
     status: "draft" | "locked" | "grace_period" | "completed";
     themeIds: Id<"themes">[];
+};
+
+export type GoalThemeAttachmentData = {
+    mode?: "solo" | "shared";
+    creatorId: Id<"users">;
+    partnerId?: Id<"users">;
 };
 
 export type FriendshipData = {
@@ -159,6 +166,20 @@ function hasAccessViaWeeklyGoal(
             (goal.creatorId === userId || goal.partnerId === userId) &&
             goal.themeIds.includes(themeId)
     );
+}
+
+export function canAttachThemeToGoal({
+    goal,
+    theme,
+}: {
+    goal: GoalThemeAttachmentData;
+    theme: { ownerId?: Id<"users"> | undefined };
+}): boolean {
+    if (goal.mode === "solo") {
+        return theme.ownerId === goal.creatorId;
+    }
+
+    return theme.ownerId === goal.creatorId || theme.ownerId === goal.partnerId;
 }
 
 function hasAccessViaSharedTheme(

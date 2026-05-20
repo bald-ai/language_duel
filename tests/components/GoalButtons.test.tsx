@@ -9,7 +9,7 @@ describe("Goal buttons", () => {
   it("LockButton triggers onLock when not partnerLocked", async () => {
     const onLock = vi.fn().mockResolvedValue(undefined);
 
-    render(<LockButton partnerLocked={false} onLock={onLock} />);
+    render(<LockButton mode="shared" partnerLocked={false} onLock={onLock} />);
 
     fireEvent.click(screen.getByTestId("goals-lock"));
 
@@ -21,7 +21,7 @@ describe("Goal buttons", () => {
   it("LockButton shows confirm flow when partnerLocked", () => {
     const onLock = vi.fn().mockResolvedValue(undefined);
 
-    render(<LockButton partnerLocked onLock={onLock} />);
+    render(<LockButton mode="shared" partnerLocked onLock={onLock} />);
 
     fireEvent.click(screen.getByTestId("goals-lock"));
 
@@ -50,6 +50,7 @@ describe("Goal buttons", () => {
 
     render(
       <GoalThemeList
+        mode="shared"
         themes={[
           {
             themeId: "theme_1" as Id<"themes">,
@@ -76,6 +77,7 @@ describe("Goal buttons", () => {
 
     render(
       <GoalThemeList
+        mode="shared"
         themes={[
           {
             themeId: "theme_1" as Id<"themes">,

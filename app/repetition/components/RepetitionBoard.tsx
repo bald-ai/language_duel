@@ -18,6 +18,7 @@ type TabKey = "all" | "ready" | "comingUp" | "done";
 
 type BoardItem = {
   weeklyGoalId: string;
+  mode: "solo" | "shared";
   themeNames: string[];
   partner: { nickname?: string; discriminator?: number; name?: string; email?: string } | null;
   duelAvailable: boolean;
@@ -47,6 +48,7 @@ function formatShortDate(timestamp: number | null): string {
 }
 
 function partnerLabel(item: BoardItem): string {
+  if (item.mode === "solo") return "Solo goal";
   if (!item.partner) return "Deleted participant";
   const partnerName = formatVisibleUser(item.partner, "partner");
   return `You and ${partnerName}`;

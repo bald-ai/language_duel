@@ -253,7 +253,8 @@ export async function upsertWeeklyGoalNotificationForGoal(
       | "partner_locked"
       | "goal_unlocked"
       | "goal_activated"
-      | "goal_completed";
+      | "goal_completed"
+      | "goal_completed_solo";
     createdAt: number;
   }
 ) {

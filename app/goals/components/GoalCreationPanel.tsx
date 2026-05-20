@@ -7,9 +7,11 @@ import { PartnerSelector } from "./PartnerSelector";
 
 interface GoalCreationPanelProps {
   availableFriends: FriendWithDetails[];
+  creationMode: "solo" | "shared";
   selectedPartnerId: Id<"users"> | null;
   isCreating: boolean;
   showCancel: boolean;
+  onCreationModeChange: (mode: "solo" | "shared") => void;
   onPartnerSelect: (partnerId: Id<"users"> | null) => void;
   onCancel: () => void;
   onCreate: () => void;
@@ -17,9 +19,11 @@ interface GoalCreationPanelProps {
 
 export function GoalCreationPanel({
   availableFriends,
+  creationMode,
   selectedPartnerId,
   isCreating,
   showCancel,
+  onCreationModeChange,
   onPartnerSelect,
   onCancel,
   onCreate,
@@ -41,15 +45,38 @@ export function GoalCreationPanel({
           Create a Weekly Goal
         </h2>
         <p style={{ color: colors.text.muted }} className="text-sm">
-          Pick a partner, choose themes, and set a finish date for your shared goal
+          Choose themes, set a finish date, and work toward a weekly goal
         </p>
       </div>
 
-      <PartnerSelector
-        friends={availableFriends}
-        selectedId={selectedPartnerId}
-        onSelect={onPartnerSelect}
-      />
+      <div className="grid grid-cols-2 gap-2 rounded-xl border-2 p-1" style={{ borderColor: colors.primary.dark }}>
+        {(["solo", "shared"] as const).map((mode) => {
+          const active = creationMode === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onCreationModeChange(mode)}
+              className="rounded-lg px-3 py-2 text-sm font-bold uppercase tracking-wide transition"
+              style={{
+                backgroundColor: active ? colors.primary.DEFAULT : "transparent",
+                color: active ? colors.text.inverse : colors.text.DEFAULT,
+              }}
+              data-testid={`goals-create-mode-${mode}`}
+            >
+              {mode === "solo" ? "Solo" : "With a friend"}
+            </button>
+          );
+        })}
+      </div>
+
+      {creationMode === "shared" && (
+        <PartnerSelector
+          friends={availableFriends}
+          selectedId={selectedPartnerId}
+          onSelect={onPartnerSelect}
+        />
+      )}
 
       <div className="flex gap-2">
         {showCancel && (
@@ -68,7 +95,7 @@ export function GoalCreationPanel({
         )}
         <button
           onClick={onCreate}
-          disabled={!selectedPartnerId || isCreating}
+          disabled={(creationMode === "shared" && !selectedPartnerId) || isCreating}
           className="flex-1 py-3 rounded-xl font-bold uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             backgroundColor: colors.primary.DEFAULT,
@@ -77,7 +104,7 @@ export function GoalCreationPanel({
           }}
           data-testid="goals-create-submit"
         >
-          {isCreating ? "Creating..." : "Create Goal"}
+          {isCreating ? "Creating..." : creationMode === "solo" ? "Create Solo Goal" : "Create Goal"}
         </button>
       </div>
     </section>

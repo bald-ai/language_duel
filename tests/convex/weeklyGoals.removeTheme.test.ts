@@ -18,6 +18,7 @@ type WeeklyGoalDoc = Pick<
   | "_id"
   | "_creationTime"
   | "creatorId"
+  | "mode"
   | "partnerId"
   | "themes"
   | "creatorLocked"
@@ -108,6 +109,7 @@ function buildGoal(overrides: Partial<WeeklyGoalDoc> = {}): WeeklyGoalDoc {
     _id: "goal_1" as Id<"weeklyGoals">,
     _creationTime: 1,
     creatorId: "user_creator" as Id<"users">,
+    mode: "shared",
     partnerId: "user_partner" as Id<"users">,
     themes: [
       {

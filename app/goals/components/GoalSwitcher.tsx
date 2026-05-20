@@ -32,10 +32,14 @@ export function GoalSwitcher({
         >
             {goals.map((goalWithUsers) => {
                 const isSelected = goalWithUsers.goal._id === selectedId;
-                const partnerUser = goalWithUsers.viewerRole === "creator"
+                const partnerUser = goalWithUsers.mode === "solo"
+                    ? goalWithUsers.creator
+                    : goalWithUsers.viewerRole === "creator"
                     ? goalWithUsers.partner
                     : goalWithUsers.creator;
-                const partnerName = formatVisibleUser(partnerUser, "Partner");
+                const partnerName = goalWithUsers.mode === "solo"
+                    ? formatVisibleUser(partnerUser, "You")
+                    : formatVisibleUser(partnerUser, "Partner");
                 const isLocked = goalWithUsers.effectiveStatus === "locked";
                 const isGracePeriod = goalWithUsers.effectiveStatus === "grace_period";
 
@@ -79,6 +83,17 @@ export function GoalSwitcher({
                         <span className="text-sm font-medium max-w-[80px] truncate">
                             {partnerName}
                         </span>
+                        {goalWithUsers.mode === "solo" && (
+                            <span
+                                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                style={{
+                                    backgroundColor: isSelected ? "rgba(255,255,255,.22)" : colors.background.DEFAULT,
+                                    color: isSelected ? colors.text.inverse : colors.text.muted,
+                                }}
+                            >
+                                Solo
+                            </span>
+                        )}
 
                         {/* Status indicator */}
                         <span

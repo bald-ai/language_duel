@@ -8,6 +8,7 @@ import {
   getEffectiveBigBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
+  normalizeWeeklyGoal,
 } from "../../lib/weeklyGoals";
 import type { GoalRole, GoalWithUsers } from "./types";
 import { toUserSummary } from "../helpers/userSummary";
@@ -35,19 +36,24 @@ export function buildGoalWithUsers(
   viewerRole: GoalRole,
   now: number
 ): GoalWithUsers {
-  const miniBossStatus = getEffectiveMiniBossStatus(goal, now);
-  const bigBossStatus = getEffectiveBigBossStatus(goal, now);
+  const normalizedGoal = normalizeWeeklyGoal(goal);
+  const miniBossStatus = getEffectiveMiniBossStatus(normalizedGoal, now);
+  const bigBossStatus = getEffectiveBigBossStatus(normalizedGoal, now);
+  const effectiveViewerRole = normalizedGoal.mode === "solo" ? "creator" : viewerRole;
 
   return {
-    goal,
+    goal: normalizedGoal,
+    mode: normalizedGoal.mode,
     creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
-    partner: toUserSummary(usersById.get(goal.partnerId) ?? null),
-    viewerRole,
-    effectiveStatus: getEffectiveGoalStatus(goal, now),
+    partner: normalizedGoal.mode === "solo"
+      ? null
+      : toUserSummary(usersById.get(goal.partnerId!) ?? null),
+    viewerRole: effectiveViewerRole,
+    effectiveStatus: getEffectiveGoalStatus(normalizedGoal, now),
     miniBossStatus,
     bigBossStatus,
-    completedThemeCount: countCompletedThemes(goal.themes),
-    canEditEndDate: canEditGoalEndDate(goal, now),
+    completedThemeCount: countCompletedThemes(normalizedGoal.themes, normalizedGoal.mode),
+    canEditEndDate: canEditGoalEndDate(normalizedGoal, now),
   };
 }
 

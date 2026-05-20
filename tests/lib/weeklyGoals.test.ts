@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  areAllThemesCompleted,
   canEditGoalEndDate,
   canToggleGoalThemeCompletion,
   canTriggerGoalBoss,
@@ -26,6 +27,7 @@ function buildGoal(
   overrides: Partial<WeeklyGoalState> = {}
 ): WeeklyGoalState {
   return {
+    mode: "shared",
     themes: [
       { creatorCompleted: true, partnerCompleted: true },
       { creatorCompleted: false, partnerCompleted: false },
@@ -53,8 +55,23 @@ describe("weeklyGoals helpers", () => {
         { creatorCompleted: true, partnerCompleted: true },
         { creatorCompleted: true, partnerCompleted: false },
         { creatorCompleted: false, partnerCompleted: true },
-      ])
+      ], "shared")
     ).toBe(1);
+  });
+
+  it("counts solo completion from the creator only", () => {
+    const themes = [
+      { creatorCompleted: true },
+      { creatorCompleted: false },
+      { creatorCompleted: true },
+    ];
+
+    expect(countCompletedThemes(themes, "solo")).toBe(2);
+    expect(areAllThemesCompleted(themes, "solo")).toBe(false);
+    expect(areAllThemesCompleted(
+      [{ creatorCompleted: true }, { creatorCompleted: true }],
+      "solo"
+    )).toBe(true);
   });
 
   it("derives the delete deadline from the end date plus the grace window", () => {
@@ -252,6 +269,59 @@ describe("weeklyGoals helpers", () => {
       otherRole: "creator",
       updates: { partnerLocked: true, status: "locked", lockedAt: now },
     });
+  });
+
+  it("plans solo goal activation with one creator lock", () => {
+    const now = 1_000;
+    const plan = planWeeklyGoalLock({
+      goal: {
+        ...buildGoal({
+          mode: "solo",
+          themes: [
+            { creatorCompleted: false },
+            { creatorCompleted: false },
+          ],
+          status: "draft",
+          lockedAt: undefined,
+          endDate: now + 25 * HOUR,
+        }),
+        creatorLocked: false,
+        partnerId: undefined,
+        partnerLocked: undefined,
+      },
+      role: "creator",
+      now,
+    });
+
+    expect(plan).toEqual({
+      kind: "activate_goal",
+      role: "creator",
+      updates: { creatorLocked: true, status: "locked", lockedAt: now },
+    });
+  });
+
+  it("rejects partner locks for solo goals", () => {
+    expect(() =>
+      planWeeklyGoalLock({
+        goal: {
+          ...buildGoal({
+            mode: "solo",
+            themes: [
+              { creatorCompleted: false },
+              { creatorCompleted: false },
+            ],
+            status: "draft",
+            lockedAt: undefined,
+            endDate: 2_000 + 25 * HOUR,
+          }),
+          creatorLocked: false,
+          partnerId: undefined,
+          partnerLocked: undefined,
+        },
+        role: "partner",
+        now: 2_000,
+      })
+    ).toThrow(WeeklyGoalRuleViolation);
   });
 
   it("rejects invalid lock plans before side effects run", () => {

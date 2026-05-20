@@ -4,6 +4,7 @@ import { loadUsersById } from "../helpers/users";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
 import { buildSessionWords } from "../../lib/sessionWords";
 import { calculateStartingLives } from "../../lib/limitedLives";
+import { canAttachThemeToGoal } from "../../lib/themeAccess";
 import {
   getEffectiveBigBossStatus,
   getEffectiveMiniBossStatus,
@@ -23,6 +24,10 @@ import {
   loadSnapshotWeeklyGoalPracticeThemes,
   resolveWeeklyGoalPracticeThemeIds,
 } from "./practiceThemes";
+import {
+  getGoalParticipantIds,
+  isGoalParticipant,
+} from "./participants";
 import type { BossType, GoalWithUsers } from "./types";
 
 export async function getVisibleGoalsForViewer(
@@ -61,10 +66,7 @@ export async function getVisibleGoalsForViewer(
   );
   const usersById = await loadUsersById(
     ctx,
-    [...visibleGoalsAsCreator, ...visibleGoalsAsPartner].flatMap((goal) => [
-      goal.creatorId,
-      goal.partnerId,
-    ])
+    [...visibleGoalsAsCreator, ...visibleGoalsAsPartner].flatMap(getGoalParticipantIds)
   );
 
   return sortGoalsByRecency([
@@ -86,13 +88,12 @@ export async function getGoalForViewer(
   if (!goal) return null;
 
   const isCreator = goal.creatorId === userId;
-  const isPartner = goal.partnerId === userId;
-  if (!isCreator && !isPartner) return null;
+  if (!isGoalParticipant(goal, userId)) return null;
 
   const now = Date.now();
   if (!shouldIncludeGoal(goal, now)) return null;
 
-  const usersById = await loadUsersById(ctx, [goal.creatorId, goal.partnerId]);
+  const usersById = await loadUsersById(ctx, getGoalParticipantIds(goal));
   return buildGoalWithUsers(goal, usersById, isCreator ? "creator" : "partner", now);
 }
 
@@ -105,9 +106,7 @@ export async function getBossLaunchPreviewForViewer(
   const goal = await ctx.db.get(goalId);
   if (!goal) return null;
 
-  const isCreator = goal.creatorId === userId;
-  const isPartner = goal.partnerId === userId;
-  if (!isCreator && !isPartner) return null;
+  if (!isGoalParticipant(goal, userId)) return null;
 
   const now = Date.now();
   if (!shouldIncludeGoal(goal, now)) return null;
@@ -126,6 +125,7 @@ export async function getBossLaunchPreviewForViewer(
   });
 
   return {
+    mode: goal.mode,
     themeCount: themes.length,
     wordCount: fullSessionWords.length,
     livesTotal,
@@ -163,9 +163,7 @@ export async function getWeeklyGoalPracticeThemesForViewer(
   const goal = await ctx.db.get(weeklyGoalId);
   if (!goal) return null;
 
-  const isCreator = goal.creatorId === userId;
-  const isPartner = goal.partnerId === userId;
-  if (!isCreator && !isPartner) return null;
+  if (!isGoalParticipant(goal, userId)) return null;
 
   const resolvedThemeIds = resolveWeeklyGoalPracticeThemeIds(goal, themeIds);
   if (!resolvedThemeIds.ok) return resolvedThemeIds;
@@ -194,20 +192,18 @@ export async function getEligibleThemesForViewer(
   const goal = await ctx.db.get(goalId);
   if (!goal) return [];
 
-  const isCreator = goal.creatorId === userId;
-  const isPartner = goal.partnerId === userId;
-  if (!isCreator && !isPartner) return [];
+  if (!isGoalParticipant(goal, userId)) return [];
 
-  const [creatorThemes, partnerThemes] = await Promise.all([
-    ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", goal.creatorId))
-      .collect(),
-    ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", goal.partnerId))
-      .collect(),
-  ]);
+  const creatorThemes = await ctx.db
+    .query("themes")
+    .withIndex("by_owner", (q) => q.eq("ownerId", goal.creatorId))
+    .collect();
+  const partnerThemes = goal.partnerId === undefined
+    ? []
+    : await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", goal.partnerId!))
+        .collect();
 
   const existingThemeIds = new Set(goal.themes.map((theme) => theme.themeId));
   const themeMap = new Map<string, Doc<"themes">>();
@@ -216,6 +212,8 @@ export async function getEligibleThemesForViewer(
   }
 
   return Array.from(themeMap.values()).filter(
-    (theme) => !existingThemeIds.has(theme._id)
+    (theme) =>
+      !existingThemeIds.has(theme._id) &&
+      canAttachThemeToGoal({ goal, theme })
   );
 }

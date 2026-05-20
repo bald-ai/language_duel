@@ -15,6 +15,7 @@ import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
 import { summarizeThemeNames } from "../../lib/sessionWords";
 import { getGoalDeleteAt } from "../../lib/weeklyGoals";
 import { WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE } from "../../lib/weeklyGoalTiming";
+import { getGoalPartnerIdForViewer } from "../weeklyGoals/participants";
 
 export const getUserById = internalQuery({
   args: { id: v.id("users") },
@@ -101,18 +102,45 @@ export async function buildEmailData(
       id: args.weeklyGoalId,
     });
     if (goal) {
-      const partnerId =
-        goal.creatorId === args.toUser._id ? goal.partnerId : goal.creatorId;
-      const partner = await ctx.runQuery(internal.emails.notificationEmailData.getUserById, {
-        id: partnerId,
-      });
-      data.partnerName = partner ? formatVisibleUser(partner, data.partnerName) : data.partnerName;
+      data.mode = goal.mode;
+
+      if (
+        goal.mode === "solo" &&
+        (args.trigger === "weekly_goal_invite" ||
+          args.trigger === "weekly_goal_locked" ||
+          args.trigger === "weekly_goal_accepted")
+      ) {
+        throw new Error(`INVALID_STATE: solo goal hit shared-only email trigger '${args.trigger}'`);
+      }
+
+      if (
+        goal.mode === "solo" &&
+        (args.trigger === "weekly_goal_daily_reminder" ||
+          args.trigger === "weekly_goal_reminder_1" ||
+          args.trigger === "weekly_goal_reminder_2" ||
+          args.trigger === "weekly_goal_grace_period_reminder") &&
+        args.fromUserId !== undefined
+      ) {
+        throw new Error(`INVALID_STATE: solo goal reminder '${args.trigger}' cannot have fromUserId`);
+      }
+
+      const partnerId = getGoalPartnerIdForViewer(goal, args.toUser._id);
+      if (partnerId !== undefined) {
+        const partner = await ctx.runQuery(internal.emails.notificationEmailData.getUserById, {
+          id: partnerId,
+        });
+        data.partnerName = partner ? formatVisibleUser(partner, data.partnerName) : data.partnerName;
+      }
       if (goal.endDate) {
         data.scheduledTime = formatScheduledTimeForEmail(goal.endDate, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
       }
       data.completedCount = goal.themes.filter(
-        (theme: { creatorCompleted: boolean; partnerCompleted: boolean }) =>
-          args.toUser._id === goal.creatorId ? theme.creatorCompleted : theme.partnerCompleted
+        (theme: { creatorCompleted: boolean; partnerCompleted?: boolean }) =>
+          goal.mode === "solo"
+            ? theme.creatorCompleted
+            : args.toUser._id === goal.creatorId
+              ? theme.creatorCompleted
+              : theme.partnerCompleted === true
       ).length;
       data.totalCount = goal.themes.length;
       if (goal.endDate) {

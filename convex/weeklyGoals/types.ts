@@ -1,5 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type {
+  WeeklyGoalMode,
   WeeklyGoalBossStatus,
   WeeklyGoalLifecycleStatus,
 } from "../../lib/weeklyGoals";
@@ -13,6 +14,7 @@ export type GoalRole = "creator" | "partner";
 
 export interface GoalWithUsers {
   goal: Doc<"weeklyGoals">;
+  mode: WeeklyGoalMode;
   creator: UserSummary | null;
   partner: UserSummary | null;
   viewerRole: GoalRole;
@@ -22,4 +24,3 @@ export interface GoalWithUsers {
   completedThemeCount: number;
   canEditEndDate: boolean;
 }
-

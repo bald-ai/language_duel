@@ -4,6 +4,7 @@ import { getDuelParticipant } from "./helpers/auth";
 import { hintTypeValidator } from "./schema";
 import { assertDuelMode } from "./rules/duelModeGuards";
 import { canFireHint, resolveEffect } from "../lib/hintPool/rules";
+import { hashSeed } from "../lib/prng";
 
 export const fireHint = mutation({
   args: {
@@ -35,10 +36,15 @@ export const fireHint = mutation({
     const visibleOptions = currentQuestion.options.filter(
       (option) => !existingEliminated.includes(option)
     );
-    const effect = resolveEffect(hintType, {
-      options: visibleOptions,
-      correctOption: currentQuestion.correctOption,
-    });
+    const hintSeed = hashSeed(`${duel.seed}:${duel.currentWordIndex}:${hintType}`);
+    const effect = resolveEffect(
+      hintType,
+      {
+        options: visibleOptions,
+        correctOption: currentQuestion.correctOption,
+      },
+      hintSeed
+    );
     const nextEliminatedOptions = Array.from(
       new Set([...existingEliminated, ...effect.eliminatedOptions])
     );

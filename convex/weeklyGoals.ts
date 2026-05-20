@@ -25,7 +25,6 @@ import {
   handleAddTheme,
   handleArchiveCompletedGoalThemesFromNotification,
   handleCreateBossChallenge,
-  handleCreateGoal,
   handleDeclineWeeklyGoalInvitation,
   handleDeleteGoal,
   handleDismissWeeklyGoalInvitation,
@@ -35,6 +34,11 @@ import {
   handleStartBossSoloPractice,
   handleToggleCompletion,
 } from "./weeklyGoals/mutations";
+import { handleCompleteBossSoloPractice } from "./weeklyGoals/bossWorkflows";
+import {
+  handleCreateSharedGoal,
+  handleCreateSoloGoal,
+} from "./weeklyGoals/createGoal";
 
 export { closeVisibleGoalsBetweenParticipants };
 export type { GoalWithUsers } from "./weeklyGoals/types";
@@ -110,10 +114,17 @@ export const getEligibleThemes = query({
   },
 });
 
-export const createGoal = mutation({
+export const createSharedGoal = mutation({
   args: { partnerId: v.id("users") },
   handler: async (ctx, { partnerId }) => {
-    return await handleCreateGoal(ctx, partnerId);
+    return await handleCreateSharedGoal(ctx, partnerId);
+  },
+});
+
+export const createSoloGoal = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await handleCreateSoloGoal(ctx);
   },
 });
 
@@ -165,6 +176,13 @@ export const startBossSoloPractice = mutation({
   },
   handler: async (ctx, { goalId, bossType }) => {
     return await handleStartBossSoloPractice(ctx, goalId, bossType);
+  },
+});
+
+export const completeBossSoloPractice = mutation({
+  args: { soloPracticeSessionId: v.id("soloPracticeSessions") },
+  handler: async (ctx, { soloPracticeSessionId }) => {
+    return await handleCompleteBossSoloPractice(ctx, soloPracticeSessionId);
   },
 });
 

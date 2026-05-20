@@ -38,8 +38,8 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
         className="
           w-full bg-gradient-to-b
           border-t-2 border-b-4 border-x-2
-          rounded-xl py-3 px-6
-          text-base font-bold uppercase tracking-widest
+          rounded-xl py-2 px-4
+          text-sm font-bold uppercase tracking-widest
           hover:translate-y-0.5 hover:border-b-2 
           active:translate-y-1 active:border-b-0 
           transition-all duration-200 
@@ -69,7 +69,7 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
           e.currentTarget.style.boxShadow = "";
         }}
       >
-        <span className="relative z-10 flex items-center justify-start gap-4 pl-2">
+        <span className="relative z-10 flex items-center justify-start gap-3 pl-1">
           {children}
         </span>
       </button>

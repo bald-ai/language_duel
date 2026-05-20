@@ -29,6 +29,7 @@ export function GoalParticipantsPanel({
   endDate,
 }: GoalParticipantsPanelProps) {
   const colors = useAppearanceColors();
+  const solo = selectedGoal.mode === "solo";
   return (
     <section
       className="rounded-2xl border-2 p-4"
@@ -37,9 +38,9 @@ export function GoalParticipantsPanel({
         borderColor: colors.primary.dark,
       }}
     >
-      <div className="flex items-center justify-between">
+      <div className={solo ? "grid grid-cols-1 gap-3 text-center" : "flex items-center justify-between"}>
         <div className="flex items-center gap-3">
-          <div className="text-center">
+          <div className={solo ? "mx-auto text-center" : "text-center"}>
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
               style={{
@@ -57,6 +58,17 @@ export function GoalParticipantsPanel({
             </p>
             {selectedGoal.goal.creatorLocked && (
               <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
+            )}
+            {solo && (
+              <span
+                className="mt-1 inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase"
+                style={{
+                  borderColor: colors.primary.dark,
+                  color: colors.text.muted,
+                }}
+              >
+                Solo
+              </span>
             )}
           </div>
         </div>
@@ -77,6 +89,7 @@ export function GoalParticipantsPanel({
           </p>
         </div>
 
+        {!solo && (
         <div className="flex items-center gap-3">
           <div className="text-center">
             <div
@@ -94,11 +107,12 @@ export function GoalParticipantsPanel({
             >
               {formatVisibleUser(selectedGoal.partner)}
             </p>
-            {selectedGoal.goal.partnerLocked && (
+            {selectedGoal.goal.partnerLocked === true && (
               <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
             )}
           </div>
         </div>
+        )}
       </div>
     </section>
   );

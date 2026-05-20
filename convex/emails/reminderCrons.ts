@@ -14,6 +14,7 @@ import {
   planFixedReminderEmails,
   planGracePeriodReminderEmail,
 } from "./reminderPlanners";
+import { getGoalParticipantIds } from "../weeklyGoals/participants";
 
 async function runEmailSend(send: () => Promise<unknown>, context: string) {
   try {
@@ -34,7 +35,7 @@ export const sendWeeklyGoalReminders = internalAction({
     );
 
     for (const goal of lockedGoals) {
-      const participants = [goal.creatorId, goal.partnerId];
+      const participants = getGoalParticipantIds(goal);
 
       for (const userId of participants) {
         const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
@@ -86,7 +87,7 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
     const dailyKey = getTimeZoneDateKey(now, WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE);
 
     for (const goal of lockedGoals) {
-      const participants = [goal.creatorId, goal.partnerId];
+      const participants = getGoalParticipantIds(goal);
 
       for (const userId of participants) {
         const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
@@ -117,7 +118,7 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
     }
 
     for (const goal of gracePeriodGoals) {
-      const participants = [goal.creatorId, goal.partnerId];
+      const participants = getGoalParticipantIds(goal);
 
       for (const userId of participants) {
         const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {

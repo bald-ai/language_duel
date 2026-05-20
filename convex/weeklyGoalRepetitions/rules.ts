@@ -1,14 +1,8 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { CtxWithDb } from "./types";
-
-export function getGoalPartnerId(goal: Doc<"weeklyGoals">, userId: Id<"users">): Id<"users"> {
-  return goal.creatorId === userId ? goal.partnerId : goal.creatorId;
-}
-
-export function isGoalParticipant(goal: Doc<"weeklyGoals">, userId: Id<"users">): boolean {
-  return goal.creatorId === userId || goal.partnerId === userId;
-}
+import { getGoalParticipantIds } from "../weeklyGoals/participants";
+export { getGoalPartnerIdForViewer, isGoalParticipant } from "../weeklyGoals/participants";
 
 export function getThemeNames(goal: Doc<"weeklyGoals">): string[] {
   return goal.themes.map((theme) => theme.themeName);
@@ -32,7 +26,7 @@ export async function ensureRepetitionRecordsForCompletedGoal(
   goal: Doc<"weeklyGoals">,
   completedAt: number
 ): Promise<void> {
-  for (const userId of [goal.creatorId, goal.partnerId]) {
+  for (const userId of getGoalParticipantIds(goal)) {
     const existing = await getRepetitionRecord(ctx, goal._id, userId);
     if (existing) continue;
 
@@ -45,4 +39,3 @@ export async function ensureRepetitionRecordsForCompletedGoal(
     });
   }
 }
-

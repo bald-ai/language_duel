@@ -38,6 +38,7 @@ import type * as helpers_users from "../helpers/users.js";
 import type * as helpers_weeklyGoalSnapshots from "../helpers/weeklyGoalSnapshots.js";
 import type * as hintPool from "../hintPool.js";
 import type * as hints from "../hints.js";
+import type * as migrations_stampWeeklyGoalsMode from "../migrations/stampWeeklyGoalsMode.js";
 import type * as notificationHelpers from "../notificationHelpers.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
@@ -74,8 +75,10 @@ import type * as weeklyGoalRepetitions_types from "../weeklyGoalRepetitions/type
 import type * as weeklyGoals from "../weeklyGoals.js";
 import type * as weeklyGoals_bossWorkflows from "../weeklyGoals/bossWorkflows.js";
 import type * as weeklyGoals_cleanup from "../weeklyGoals/cleanup.js";
+import type * as weeklyGoals_createGoal from "../weeklyGoals/createGoal.js";
 import type * as weeklyGoals_mutations from "../weeklyGoals/mutations.js";
 import type * as weeklyGoals_notifications from "../weeklyGoals/notifications.js";
+import type * as weeklyGoals_participants from "../weeklyGoals/participants.js";
 import type * as weeklyGoals_practiceThemes from "../weeklyGoals/practiceThemes.js";
 import type * as weeklyGoals_queries from "../weeklyGoals/queries.js";
 import type * as weeklyGoals_readModels from "../weeklyGoals/readModels.js";
@@ -118,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "helpers/weeklyGoalSnapshots": typeof helpers_weeklyGoalSnapshots;
   hintPool: typeof hintPool;
   hints: typeof hints;
+  "migrations/stampWeeklyGoalsMode": typeof migrations_stampWeeklyGoalsMode;
   notificationHelpers: typeof notificationHelpers;
   notificationPayloads: typeof notificationPayloads;
   notificationPreferences: typeof notificationPreferences;
@@ -154,8 +158,10 @@ declare const fullApi: ApiFromModules<{
   weeklyGoals: typeof weeklyGoals;
   "weeklyGoals/bossWorkflows": typeof weeklyGoals_bossWorkflows;
   "weeklyGoals/cleanup": typeof weeklyGoals_cleanup;
+  "weeklyGoals/createGoal": typeof weeklyGoals_createGoal;
   "weeklyGoals/mutations": typeof weeklyGoals_mutations;
   "weeklyGoals/notifications": typeof weeklyGoals_notifications;
+  "weeklyGoals/participants": typeof weeklyGoals_participants;
   "weeklyGoals/practiceThemes": typeof weeklyGoals_practiceThemes;
   "weeklyGoals/queries": typeof weeklyGoals_queries;
   "weeklyGoals/readModels": typeof weeklyGoals_readModels;

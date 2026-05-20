@@ -1,5 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
+import { getGoalPartnerIdForViewer } from "./weeklyGoals/participants";
 
 /**
  * ADMIN: Fully delete a user and all associated data.
@@ -172,7 +173,8 @@ export const deleteUserFully = internalMutation({
 
     for (const goal of goalsById.values()) {
       const isCompleted = goal.status === "completed";
-      const remainingParticipantId = goal.creatorId === userId ? goal.partnerId : goal.creatorId;
+      const isSoloGoal = goal.mode === "solo";
+      const remainingParticipantId = getGoalPartnerIdForViewer(goal, userId);
 
       const goalChallenges = await ctx.db
         .query("challenges")
@@ -204,13 +206,13 @@ export const deleteUserFully = internalMutation({
         .withIndex("by_goal", (q) => q.eq("weeklyGoalId", goal._id))
         .collect();
       for (const repetition of repetitions) {
-        if (isCompleted && repetition.userId === remainingParticipantId) {
+        if (!isSoloGoal && isCompleted && repetition.userId === remainingParticipantId) {
           continue;
         }
         if (await deleteOnce(repetition._id)) deletionReport.weeklyGoalRepetitions++;
       }
 
-      if (isCompleted) {
+      if (!isSoloGoal && isCompleted) {
         continue;
       }
 

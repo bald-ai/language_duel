@@ -31,6 +31,7 @@ interface NotificationData {
             | "goal_unlocked"
             | "goal_activated"
             | "goal_completed"
+            | "goal_completed_solo"
             | "draft_expiring";
     };
     createdAt: number;
@@ -200,6 +201,42 @@ export function NotificationItem({
                                     dataTestId={`notification-${notification._id}-archive-completed-goal-themes`}
                                 >
                                     {archiveThemeLabel}
+                                </ActionButton>
+                            </div>
+                        ),
+                    };
+                }
+                if (payload?.event === "goal_completed_solo") {
+                    const archiveThemeLabel =
+                        payload.themeCount === 1
+                            ? "Archive 1 theme"
+                            : `Archive ${payload.themeCount || 0} themes`;
+
+                    return {
+                        icon: <CalendarIcon />,
+                        message: "You defeated your weekly goal.",
+                        actions: (
+                            <div className="flex gap-2 mt-3">
+                                <ActionButton
+                                    onClick={onViewWeeklyGoal}
+                                    variant="accept"
+                                    dataTestId={`notification-${notification._id}-view-weekly-goal`}
+                                >
+                                    View
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onArchiveCompletedGoalThemes}
+                                    variant="secondary"
+                                    dataTestId={`notification-${notification._id}-archive-completed-goal-themes`}
+                                >
+                                    {archiveThemeLabel}
+                                </ActionButton>
+                                <ActionButton
+                                    onClick={onDismissWeeklyGoal}
+                                    variant="dismiss"
+                                    dataTestId={`notification-${notification._id}-dismiss-weekly-goal`}
+                                >
+                                    Dismiss
                                 </ActionButton>
                             </div>
                         ),

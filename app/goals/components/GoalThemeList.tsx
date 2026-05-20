@@ -7,11 +7,12 @@ interface GoalTheme {
   themeId: Id<"themes">;
   themeName: string;
   creatorCompleted: boolean;
-  partnerCompleted: boolean;
+  partnerCompleted?: boolean;
 }
 
 interface GoalThemeListProps {
   themes: GoalTheme[];
+  mode: "solo" | "shared";
   viewerRole: "creator" | "partner";
   isEditing: boolean;
   canToggle: boolean;
@@ -21,6 +22,7 @@ interface GoalThemeListProps {
 
 export function GoalThemeList({
   themes,
+  mode,
   viewerRole,
   isEditing,
   canToggle,
@@ -57,10 +59,14 @@ export function GoalThemeList({
     >
       {themes.map((theme, index) => {
         const viewerCompleted =
-          viewerRole === "creator" ? theme.creatorCompleted : theme.partnerCompleted;
+          mode === "solo" || viewerRole === "creator"
+            ? theme.creatorCompleted
+            : theme.partnerCompleted === true;
         const partnerCompleted =
-          viewerRole === "creator" ? theme.partnerCompleted : theme.creatorCompleted;
-        const bothCompleted = theme.creatorCompleted && theme.partnerCompleted;
+          viewerRole === "creator" ? theme.partnerCompleted === true : theme.creatorCompleted;
+        const bothCompleted = mode === "solo"
+          ? theme.creatorCompleted
+          : theme.creatorCompleted && theme.partnerCompleted === true;
 
         return (
           <div
@@ -107,15 +113,17 @@ export function GoalThemeList({
                 >
                   You: {viewerCompleted ? "✓" : "—"}
                 </span>
-                <span
-                  style={{
-                    color: partnerCompleted
-                      ? colors.status.success.DEFAULT
-                      : colors.text.muted,
-                  }}
-                >
-                  Partner: {partnerCompleted ? "✓" : "—"}
-                </span>
+                {mode === "shared" && (
+                  <span
+                    style={{
+                      color: partnerCompleted
+                        ? colors.status.success.DEFAULT
+                        : colors.text.muted,
+                    }}
+                  >
+                    Partner: {partnerCompleted ? "✓" : "—"}
+                  </span>
+                )}
               </div>
             </div>
 

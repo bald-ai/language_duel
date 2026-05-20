@@ -13,8 +13,8 @@ import { shouldIncludeGoal } from "./readModels";
 import {
   dismissChallengeNotifications,
   dismissGoalNotifications,
-  getGoalParticipantIds,
 } from "./notifications";
+import { getGoalParticipantIds } from "./participants";
 
 export async function deleteGoalPlayRecordsForGoal(
   ctx: MutationCtx,
@@ -115,8 +115,9 @@ export async function dismissAndDeleteGoals(
   const goalIds: Id<"weeklyGoals">[] = [];
   for (const goal of goals) {
     goalIds.push(goal._id);
-    participantIdSet.add(goal.creatorId);
-    participantIdSet.add(goal.partnerId);
+    for (const participantId of getGoalParticipantIds(goal)) {
+      participantIdSet.add(participantId);
+    }
   }
 
   await dismissWeeklyGoalNotificationsForParticipants(

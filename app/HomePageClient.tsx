@@ -19,13 +19,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence" | "speed" | "math_gate";
 
 const SoloIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
   </svg>
 );
 
 const DuelIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <g transform="rotate(45 12 12)">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
@@ -40,27 +40,27 @@ const DuelIcon = () => (
 );
 
 const ThemesIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
   </svg>
 );
 
 const MemoryIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V6h1.5A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-9A2.5 2.5 0 0 1 6.5 6H8v-.5Z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6M9 14h3" />
   </svg>
 );
 
 const MissingChunkIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h6m4 0h6M4 12h3m7 0h6M4 17h6m4 0h6" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M11 10h2v4h-2z" />
   </svg>
 );
 
 const RebuildSentenceIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h7l-2-2m2 2-2 2" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M20 16h-7l2-2m-2 2 2 2" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 16h4m4-8h4" />
@@ -68,19 +68,19 @@ const RebuildSentenceIcon = () => (
 );
 
 const SpeedModeIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z" />
   </svg>
 );
 
 const MathGateIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 20h10M9 16V8l3-4 3 4v8M5 8h2M17 8h2" />
   </svg>
 );
 
 const MockFeaturesIcon = () => (
-  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v6M12 9v6M17 14v6" />
   </svg>

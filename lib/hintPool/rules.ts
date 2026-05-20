@@ -1,4 +1,5 @@
 import { stripIrr } from "../stringUtils";
+import { buildAnagramWithSpaces, generateAnagramLetters, seededShuffle } from "../prng";
 import {
   HINT_PLUS_TEN_BONUS_SECONDS,
   HINT_UNIVERSAL_TIMER_BONUS_SECONDS,
@@ -13,7 +14,11 @@ export function canFireHint(
   return !currentQuestionHintFired && !pool.includes(type);
 }
 
-export function resolveEffect(type: HintType, question: HintQuestion): HintEffect {
+export function resolveEffect(
+  type: HintType,
+  question: HintQuestion,
+  seed: number
+): HintEffect {
   const base: HintEffect = {
     type,
     eliminatedOptions: [],
@@ -23,7 +28,7 @@ export function resolveEffect(type: HintType, question: HintQuestion): HintEffec
   if (type === "fifty_fifty") {
     return {
       ...base,
-      eliminatedOptions: getFiftyFiftyEliminations(question),
+      eliminatedOptions: getFiftyFiftyEliminations(question, seed),
     };
   }
 
@@ -40,7 +45,7 @@ export function resolveEffect(type: HintType, question: HintQuestion): HintEffec
       ...base,
       reveal: {
         kind: "anagram",
-        value: buildDeterministicAnagram(question.correctOption),
+        value: buildShuffledAnagram(question.correctOption, seed),
       },
     };
   }
@@ -61,22 +66,22 @@ export function getWordLetterCounts(answer: string): number[] {
     .filter((length) => length > 0);
 }
 
-export function getFiftyFiftyEliminations(question: HintQuestion): string[] {
+export function getFiftyFiftyEliminations(
+  question: HintQuestion,
+  seed: number
+): string[] {
   const visibleOptions = question.options;
   const removalCount = Math.floor(visibleOptions.length / 2);
   if (removalCount <= 0) return [];
 
-  return visibleOptions
-    .filter((option) => option !== question.correctOption)
-    .slice(0, removalCount);
+  const wrongOptions = visibleOptions.filter(
+    (option) => option !== question.correctOption
+  );
+  return seededShuffle(wrongOptions, seed).slice(0, removalCount);
 }
 
-function buildDeterministicAnagram(answer: string): string {
-  if (answer.length <= 1) return answer;
-
-  const chars = [...answer];
-  const first = chars.shift();
-  if (!first) return answer;
-  chars.push(first);
-  return chars.join("");
+function buildShuffledAnagram(answer: string, seed: number): string {
+  const base = stripIrr(answer);
+  const shuffledLetters = generateAnagramLetters(base, seed);
+  return buildAnagramWithSpaces(base, shuffledLetters);
 }

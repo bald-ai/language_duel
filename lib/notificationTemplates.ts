@@ -34,6 +34,7 @@ function escapeEmailData(data: EmailData): EmailData {
 }
 
 export type EmailData = {
+  mode?: "solo" | "shared";
   recipientName: string;
   senderName?: string;
   themeName?: string;
@@ -87,6 +88,7 @@ export function getBodyForTrigger(
   const theme = data.themeName ?? "a mystery theme";
   const time = data.scheduledTime ?? "a scheduled time";
   const partner = data.partnerName ?? "your rival";
+  const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
 
   switch (trigger) {
     case "immediate_challenge_invite":
@@ -114,12 +116,26 @@ export function getBodyForTrigger(
         cta: "Open Language Duel",
       };
     case "weekly_goal_daily_reminder":
+      if (data.mode === "solo") {
+        return {
+          heading: "Weekly goal countdown",
+          body: `Your weekly goal ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You're at ${progress} themes. Keep the momentum going.`,
+          cta: "Open Language Duel",
+        };
+      }
       return {
         heading: "Weekly goal countdown",
         body: `Your weekly goal with ${partner} ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_grace_period_reminder":
+      if (data.mode === "solo") {
+        return {
+          heading: "Grace period, but still winnable",
+          body: `Your weekly goal is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at ${progress} themes.`,
+          cta: "Open Language Duel",
+        };
+      }
       return {
         heading: "Grace period, but still winnable",
         body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
@@ -132,12 +148,26 @@ export function getBodyForTrigger(
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_1":
+      if (data.mode === "solo") {
+        return {
+          heading: "The clock is ticking!",
+          body: `You have <strong>${data.hoursLeft ?? 0} hours</strong> left. You're at ${progress} themes. Keep going.`,
+          cta: "Open Language Duel",
+        };
+      }
       return {
         heading: "The clock is ticking!",
         body: `You and ${partner} have <strong>${data.hoursLeft ?? 0} hours</strong> left. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Don't let this one slip away!`,
         cta: "Open Language Duel",
       };
     case "weekly_goal_reminder_2":
+      if (data.mode === "solo") {
+        return {
+          heading: "This is it -- final stretch!",
+          body: `Your weekly goal expires soon. You're sitting at ${progress} themes. Sprint to the finish line!`,
+          cta: "Open Language Duel",
+        };
+      }
       return {
         heading: "This is it -- final stretch!",
         body: `Your goal with ${partner} expires soon. You're sitting at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Sprint to the finish line!`,

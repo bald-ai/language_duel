@@ -49,6 +49,7 @@ export function GoalsPageContent() {
     canEditEndDate,
     canPracticeGoalThemes,
     canToggleThemeCompletion,
+    creationMode,
     deleteAt,
     draftExpiresAt,
     endDate,
@@ -79,6 +80,7 @@ export function GoalsPageContent() {
     selectedGoalId,
     selectedPartnerId,
     selectGoal,
+    setCreationMode,
     setEndDateInput,
     setSelectedPartnerId,
     setShowPracticeModal,
@@ -139,9 +141,11 @@ export function GoalsPageContent() {
         {(!hasGoals || showCreationFlow) && (
           <GoalCreationPanel
             availableFriends={availableFriends}
+            creationMode={creationMode}
             selectedPartnerId={selectedPartnerId}
             isCreating={isCreating}
             showCancel={showCreationFlow}
+            onCreationModeChange={setCreationMode}
             onPartnerSelect={setSelectedPartnerId}
             onCancel={hideCreateGoal}
             onCreate={handleCreateGoal}
@@ -196,6 +200,7 @@ export function GoalsPageContent() {
 
             <GoalThemeList
               themes={selectedGoal.goal.themes}
+              mode={selectedGoal.mode}
               viewerRole={selectedGoal.viewerRole}
               isEditing={isDraft}
               canToggle={canToggleThemeCompletion}
@@ -230,6 +235,7 @@ export function GoalsPageContent() {
             {isDraft && !viewerLocked && (
               <>
                 <LockButton
+                  mode={selectedGoal.mode}
                   partnerLocked={partnerLocked}
                   onLock={handleLock}
                 />
@@ -245,7 +251,7 @@ export function GoalsPageContent() {
 
             <DeleteGoalButton onDelete={handleDelete} />
 
-            {isDraft && viewerLocked && !partnerLocked && (
+            {isDraft && selectedGoal.mode === "shared" && viewerLocked && !partnerLocked && (
               <div
                 className="text-center py-4 rounded-xl border-2"
                 style={{

@@ -7,7 +7,7 @@ import { buildChallengeInvite } from "../helpers/sessionCreation";
 import { createChallengeInviteNotificationAndEmail } from "../notificationHelpers";
 import { SPACED_REPETITION_TOTAL_STEPS } from "../../lib/spacedRepetition";
 import { loadReadyRepetitionContext } from "./attemptMutations";
-import { getGoalPartnerId } from "./rules";
+import { getGoalPartnerIdForViewer } from "./rules";
 
 export async function createRepetitionChallengeForCurrentUser(
   ctx: MutationCtx,
@@ -25,7 +25,14 @@ export async function createRepetitionChallengeForCurrentUser(
 
   await assertNoDuplicateAttemptInFlight(ctx, weeklyGoalId, step);
 
-  const opponentId = getGoalPartnerId(goal, user._id);
+  if (goal.mode === "solo") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Solo goals cannot run SR duels" });
+  }
+
+  const opponentId = getGoalPartnerIdForViewer(goal, user._id);
+  if (opponentId === undefined) {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Shared weekly goal is missing partner data" });
+  }
   const opponent = await ctx.db.get(opponentId);
   if (!opponent) {
     throw new ConvexError({

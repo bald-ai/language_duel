@@ -23,7 +23,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
 - Duel modes: New challenges choose `PvP` or `PvE`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool.
-- Weekly goals: Two users create a shared goal, add themes, lock it in, and work toward completion together. Goal progress can unlock boss-style challenge moments that turn shared study progress into a milestone event.
+- Weekly goals: A user can create a solo goal, or two users can create a shared goal. Goals collect themes, lock in a snapshot, and track completion toward boss-style milestone moments.
 
 ## System Map
 
@@ -41,7 +41,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - `challenges`: pending person-to-person duel invites, including participants, chosen themes, and optional weekly-goal linkage.
 - `duels`: accepted two-person gameplay sessions, including participants, chosen themes, generated session words, game state, and optional weekly-goal linkage.
 - `soloPracticeSessions`: single-player practice sessions, including chosen themes, generated session words, and optional weekly-goal linkage.
-- `weeklyGoals`: shared goals between two users that track chosen themes, participant lock flags, lifecycle state, completion progress, and boss readiness.
+- `weeklyGoals`: solo or shared goals that track chosen themes, participant lock state, lifecycle state, completion progress, and boss readiness.
 - `notifications`: in-app event records for friend requests, challenges, duel activity, and weekly-goal events.
 - `notificationPreferences`: per-user settings controlling which notification and reminder events should fire.
 - `emailNotificationLog`: idempotency and audit support for sent email notifications and reminders.
@@ -107,7 +107,7 @@ Weekly goal lifecycle:
 - PvE: cooperative duel mode with a shared hint pool and no sabotage/request-help mechanics.
 - Shared hint pool: the PvE team hint budget. It belongs to the duel, not to one player.
 - Solo practice: a single-player learning flow without another player.
-- Weekly goal: a shared study plan between two users, built from selected themes and tracked toward completion.
+- Weekly goal: a solo or shared study plan, built from selected themes and tracked toward completion.
 - Boss: a milestone challenge generated from weekly-goal progress, used to turn shared progress into a more game-like event.
 - TTS: text-to-speech audio attached to theme answers and used to support studying and challenge flows.
 
