@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDuration } from "@/lib/displayFormat";
+import { formatDuration, formatScore } from "@/lib/displayFormat";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatBossTrophy, getBossTrophy, type BossType } from "@/lib/limitedLives";
 
@@ -34,8 +34,6 @@ export function FinalResultsPanel({
   livesTotal,
 }: FinalResultsPanelProps) {
   const colors = useAppearanceColors();
-  const formatScore = (score: number) =>
-    Number.isInteger(score) ? score : score.toFixed(1);
   const isBossResult = !!bossType && typeof livesRemaining === "number";
   const bossFailed = isBossResult && livesRemaining <= 0;
   const bossTrophy = isBossResult && bossType === "big" && !bossFailed

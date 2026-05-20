@@ -396,7 +396,7 @@ export function RepetitionBoard() {
               className="shrink-0 rounded-full border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition"
               style={{
                 backgroundColor: active ? colors.primary.DEFAULT : colors.background.elevated,
-                borderColor: active ? colors.primary.dark : colors.primary.dark,
+                borderColor: colors.primary.dark,
                 color: active ? colors.text.inverse : colors.text.DEFAULT,
               }}
             >

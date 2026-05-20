@@ -15,6 +15,7 @@ import {
   getGoalDraftExpiresAt,
 } from "@/lib/weeklyGoals";
 import { formatVisibleUser } from "@/lib/userDisplay";
+import { formatDateInputValue } from "@/lib/displayFormat";
 import { toast } from "sonner";
 import { MAX_THEMES_PER_GOAL, MIN_THEMES_TO_LOCK_GOAL } from "../constants";
 import { formatBossStatus } from "../bossUi";
@@ -23,16 +24,6 @@ import { useGoalsController } from "./useGoalsController";
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatDateInputValue(timestamp: number | undefined): string {
-  if (typeof timestamp !== "number") return "";
-
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function toLocalEndOfDayTimestamp(dateValue: string): number | null {

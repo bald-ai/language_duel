@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import type { JSX } from "react";
-import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
+import { buildLetterSlots, normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { generateAnagramLetters } from "@/lib/prng";
 import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
 import type { Level2TypingProps } from "./types";
@@ -44,15 +44,7 @@ export function Level2TypingInput({
     [cleanAnswer]
   );
 
-  const letterSlots = useMemo(() => {
-    const slots: { char: string; originalIndex: number }[] = [];
-    cleanAnswer.split("").forEach((char, idx) => {
-      if (char !== " ") {
-        slots.push({ char: char.toLowerCase(), originalIndex: idx });
-      }
-    });
-    return slots;
-  }, [cleanAnswer]);
+  const letterSlots = useMemo(() => buildLetterSlots(cleanAnswer), [cleanAnswer]);
 
   const anagramBase = useMemo(
     () => (hintIsAnagram ? generateAnagramLetters(cleanAnswer, 0) : []),

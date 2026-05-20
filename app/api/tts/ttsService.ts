@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-import { auth } from "@clerk/nextjs/server";
 import { api } from "@/convex/_generated/api";
 import { TTS_GENERATION_COST } from "@/lib/credits/constants";
 import { ApiRouteError, resolveApiError } from "@/lib/api/serverErrors";
+import { getAuthedConvexClient } from "@/lib/api/convexClient";
 import {
   DEFAULT_TTS_PROVIDER,
   isTtsProvider,
@@ -13,28 +13,6 @@ import {
   generateTtsAudioWithFallback,
   TTS_TIMEOUT_MS,
 } from "@/lib/tts/providerAdapters";
-
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-
-async function getAuthedConvexClient() {
-  if (!CONVEX_URL) {
-    throw new ApiRouteError("CONFIG_ERROR", "Convex URL not configured", 500);
-  }
-
-  const authResult = await auth();
-  if (!authResult.userId) {
-    throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-
-  const token = await authResult.getToken({ template: "convex" });
-  if (!token) {
-    throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-
-  const client = new ConvexHttpClient(CONVEX_URL);
-  client.setAuth(token);
-  return client;
-}
 
 async function getUserAndCredits(): Promise<{
   client: ConvexHttpClient;

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-import { auth } from "@clerk/nextjs/server";
 import { api } from "@/convex/_generated/api";
 import {
   buildAddWordPrompt,
@@ -23,6 +22,7 @@ import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import { type GenerateRequest } from "@/lib/generate/requestValidation";
 import { ApiRouteError } from "@/lib/api/serverErrors";
+import { getAuthedConvexClient } from "@/lib/api/convexClient";
 import { getDefaultWordType } from "@/lib/themes/wordTypes";
 import type { ThemeWordInput } from "@/lib/themes/serverValidation";
 import {
@@ -30,7 +30,6 @@ import {
   buildRetryMessages,
   callOpenAIJson,
   createOpenAIClient,
-  type ChatMessage,
   type JsonSchema,
 } from "./openaiAdapter";
 import {
@@ -46,32 +45,10 @@ import {
   validateGeneratedWrongAnswer,
 } from "@/lib/generate/semanticValidation";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-
 type WordWithChoices = { word: string; answer: string; wrongAnswers: string[] };
 type AnswerOnly = { answer: string };
 type WrongAnswerOnly = { wrongAnswer: string };
 type FieldGeneratedData = WordWithChoices | AnswerOnly | WrongAnswerOnly;
-
-async function getAuthedConvexClient() {
-  if (!CONVEX_URL) {
-    throw new ApiRouteError("CONFIG_ERROR", "Convex URL not configured", 500);
-  }
-
-  const authResult = await auth();
-  if (!authResult.userId) {
-    throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-
-  const token = await authResult.getToken({ template: "convex" });
-  if (!token) {
-    throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-
-  const client = new ConvexHttpClient(CONVEX_URL);
-  client.setAuth(token);
-  return client;
-}
 
 async function ensureLlmCreditsAvailable(cost: number) {
   const client = await getAuthedConvexClient();
@@ -149,17 +126,12 @@ export async function handleGenerateRequest(body: GenerateRequest) {
       wordType
     );
 
-    const baseMessages: ChatMessage[] = [
-      { role: "system", content: systemPrompt },
-      ...(body.history || []).map((h) => ({
-        role: h.role as "user" | "assistant",
-        content: h.content,
-      })),
-      { role: "user", content: firstUserMessage },
-    ];
-
     let parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
-      messages: baseMessages,
+      messages: buildMessages({
+        systemPrompt,
+        userMessage: firstUserMessage,
+        history: body.history,
+      }),
       schemaName: "theme_words",
       schema: buildThemeSchema(wordCount),
     });
@@ -167,23 +139,16 @@ export async function handleGenerateRequest(body: GenerateRequest) {
     let validationIssues = validateGeneratedTheme(parsed.words, wordType);
 
     if (validationIssues.length > 0) {
-      const issueLines = validationIssues.join("\n- ");
-      const retryMessages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
-        ...(body.history || []).map((h) => ({
-          role: h.role as "user" | "assistant",
-          content: h.content,
-        })),
-        { role: "user", content: firstUserMessage },
-        { role: "assistant", content: JSON.stringify(parsed) },
-        {
-          role: "user",
-          content: `The previous result is invalid. Regenerate the full theme and fix these issues:\n- ${issueLines}`,
-        },
-      ];
-
       parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
-        messages: retryMessages,
+        messages: buildRetryMessages({
+          systemPrompt,
+          userMessage: firstUserMessage,
+          history: body.history,
+          parsed,
+          validationIssues,
+          retryInstruction:
+            "The previous result is invalid. Regenerate the full theme and fix these issues:",
+        }),
         schemaName: "theme_words_retry",
         schema: buildThemeSchema(wordCount),
       });

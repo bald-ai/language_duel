@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { JSX } from "react";
-import { normalizeAccents, stripIrr } from "@/lib/stringUtils";
+import { buildLetterSlots, normalizeAccents, stripIrr } from "@/lib/stringUtils";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { AUTO_COMPLETE_DELAY_MS, CURSOR_MOVE_DELAY_MS } from "./constants";
 import type { Level1Props } from "./types";
@@ -44,15 +44,7 @@ export function Level1Input({
 
   const cleanAnswer = useMemo(() => stripIrr(answer), [answer]);
 
-  const letterSlots = useMemo(() => {
-    const slots: { char: string; originalIndex: number }[] = [];
-    cleanAnswer.split("").forEach((char, idx) => {
-      if (char !== " ") {
-        slots.push({ char: char.toLowerCase(), originalIndex: idx });
-      }
-    });
-    return slots;
-  }, [cleanAnswer]);
+  const letterSlots = useMemo(() => buildLetterSlots(cleanAnswer), [cleanAnswer]);
 
   // Check if answer is all filled and correct
   const isAnswerCorrect = letterSlots.every((slot, idx) => {

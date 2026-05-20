@@ -36,3 +36,19 @@ export const normalizeForComparison = (
 export const normalizeAccents = (str: string): string => {
   return normalizeForComparison(str);
 };
+
+/**
+ * Build typeable letter slots from a cleaned answer, skipping spaces and
+ * keeping each kept letter's original index within the answer.
+ */
+export const buildLetterSlots = (
+  cleanAnswer: string
+): { char: string; originalIndex: number }[] => {
+  const slots: { char: string; originalIndex: number }[] = [];
+  cleanAnswer.split("").forEach((char, idx) => {
+    if (char !== " ") {
+      slots.push({ char: char.toLowerCase(), originalIndex: idx });
+    }
+  });
+  return slots;
+};

@@ -63,11 +63,9 @@ export async function getRelationshipMapForUser(
 
   const sentRequests = await ctx.db
     .query("friendRequests")
-    .withIndex("by_sender", (q) => q.eq("senderId", userId))
+    .withIndex("by_sender_status", (q) => q.eq("senderId", userId).eq("status", "pending"))
     .collect();
-  const pendingSentIds = sentRequests
-    .filter((request) => request.status === "pending")
-    .map((request) => request.receiverId.toString());
+  const pendingSentIds = sentRequests.map((request) => request.receiverId.toString());
 
   const receivedRequests = await ctx.db
     .query("friendRequests")

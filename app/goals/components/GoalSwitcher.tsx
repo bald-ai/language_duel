@@ -52,9 +52,7 @@ export function GoalSwitcher({
                             backgroundColor: isSelected
                                 ? colors.primary.DEFAULT
                                 : colors.background.elevated,
-                            borderColor: isSelected
-                                ? colors.primary.dark
-                                : colors.primary.dark,
+                            borderColor: colors.primary.dark,
                             color: isSelected
                                 ? "white"
                                 : colors.text.DEFAULT,

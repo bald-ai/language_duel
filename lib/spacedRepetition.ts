@@ -50,7 +50,7 @@ export function getSpacedRepetitionDueAt(
     return null;
   }
 
-  const intervalDays = SPACED_REPETITION_INTERVAL_DAYS[currentStep - 1];
+  const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
   const previousCompletion = state.completedSteps[state.completedSteps.length - 1];
   const baseTime = previousCompletion?.completedAt ?? state.goalCompletedAt;
 

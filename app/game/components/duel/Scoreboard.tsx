@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { formatScore } from "@/lib/displayFormat";
 
 interface ScoreboardProps {
   myName: string;
@@ -19,8 +20,6 @@ interface ScoreboardProps {
  */
 export const Scoreboard = memo(function Scoreboard({ myName, theirName, myScore, theirScore, livesRemaining }: ScoreboardProps) {
   const colors = useAppearanceColors();
-  const formatScore = (score: number) => 
-    Number.isInteger(score) ? score : score.toFixed(1);
 
   const cardStyle = {
     backgroundColor: colors.background.elevated,

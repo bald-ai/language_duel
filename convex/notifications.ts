@@ -45,19 +45,20 @@ export const getNotifications = query({
         const auth = await getAuthenticatedUserOrNull(ctx);
         if (!auth) return [];
 
-        const pendingNotifications = await ctx.db
-            .query("notifications")
-            .withIndex("by_recipient", (q) =>
-                q.eq("toUserId", auth.user._id).eq("status", "pending")
-            )
-            .collect();
-
-        const readNotifications = await ctx.db
-            .query("notifications")
-            .withIndex("by_recipient", (q) =>
-                q.eq("toUserId", auth.user._id).eq("status", "read")
-            )
-            .collect();
+        const [pendingNotifications, readNotifications] = await Promise.all([
+            ctx.db
+                .query("notifications")
+                .withIndex("by_recipient", (q) =>
+                    q.eq("toUserId", auth.user._id).eq("status", "pending")
+                )
+                .collect(),
+            ctx.db
+                .query("notifications")
+                .withIndex("by_recipient", (q) =>
+                    q.eq("toUserId", auth.user._id).eq("status", "read")
+                )
+                .collect(),
+        ]);
 
         const activeNotifications = [...pendingNotifications, ...readNotifications];
         const enrichedNotifications = await enrichNotificationsWithSender(ctx, activeNotifications);

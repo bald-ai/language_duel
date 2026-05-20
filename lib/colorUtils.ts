@@ -216,7 +216,7 @@ export function deriveNeutralShades(baseColor: string): NeutralShades {
 
   return {
     DEFAULT: hslToHex(h, neutralS, clamp(l + 10, 40, 80)),
-    light: hslToHex(h, neutralS - 5, clamp(l + 20, 50, 90)),
+    light: hslToHex(h, clamp(neutralS - 5, 0, 40), clamp(l + 20, 50, 90)),
     dark: hslToHex(h, neutralS, clamp(l - 10, 30, 60)),
   };
 }
