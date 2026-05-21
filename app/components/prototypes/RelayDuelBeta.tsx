@@ -245,38 +245,27 @@ export function RelayDuelBeta({ onBack }: RelayDuelBetaProps) {
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
           {/* ---- PICK PHASE ---- */}
           {phase === "pick" && (
-            <>
-              <div className="text-center mb-3">
-                <div className="text-sm mb-1" style={mutedTextStyle}>
-                  {remaining.length} {remaining.length === 1 ? "word" : "words"} left in the shared pool
-                </div>
-                <div className="text-xl md:text-2xl font-bold">
-                  {pickerName}, hand a word to {answererName}
-                </div>
-                <div className="text-sm mt-1" style={mutedTextStyle}>
-                  Tap a word — pick wisely, harder words are worth more if they get it right.
-                </div>
+            <div className="w-full max-w-md">
+              <div className="text-center mb-3 text-sm" style={mutedTextStyle}>
+                {pickerName}, hand a word to {answererName} · {remaining.length} left
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md">
+              <div className="flex flex-col gap-2">
                 {remaining.map((word) => (
                   <button
                     key={word.id}
                     type="button"
                     onClick={() => handleSelectWord(word.id)}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all hover:brightness-110"
+                    className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border-2 transition-all hover:brightness-110"
                     style={wordCardStyle(word.id)}
                     data-testid={`relay-duel-pick-${word.id}`}
                   >
-                    <span className="text-[11px] uppercase tracking-[0.2em]" style={mutedTextStyle}>
-                      {word.theme}
-                    </span>
-                    <span className="text-lg font-bold">{word.prompt}</span>
+                    <span className="text-base font-semibold">{word.prompt}</span>
                     {renderPill(word.difficulty)}
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
 
           {/* ---- HANDOFF PHASE ---- */}

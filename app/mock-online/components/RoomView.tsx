@@ -6,6 +6,7 @@ import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { getWinner } from "@/lib/mockOnline/engine";
+import { otherSlot } from "@/lib/mockOnline/players";
 import type { GameState, Move, PlayerSlot } from "@/lib/mockOnline/state";
 import { GAME_META } from "../games";
 import { convexErrorMessage, playerName } from "../helpers";
@@ -14,6 +15,7 @@ import { McqRace } from "./McqRace";
 import { MemoryBoard } from "./MemoryBoard";
 import { MockOnlineShell } from "./MockOnlineShell";
 import { OrderRace } from "./OrderRace";
+import { RelayDuel } from "./RelayDuel";
 
 export type RoomData = NonNullable<FunctionReturnType<typeof api.prototypeRooms.getRoom>>;
 
@@ -54,7 +56,13 @@ export function RoomView({ data, onLeave }: { data: RoomData; onLeave: () => voi
             hostName={hostName}
             guestName={guestName}
           />
-          <GameBody state={room.state} viewerSlot={viewerSlot} onMove={handleMove} />
+          <GameBody
+            state={room.state}
+            viewerSlot={viewerSlot}
+            hostName={hostName}
+            guestName={guestName}
+            onMove={handleMove}
+          />
           {room.status === "finished" && (
             <FinishedPanel
               state={room.state}
@@ -111,13 +119,16 @@ function Scoreboard({
   hostName: string;
   guestName: string;
 }) {
-  const turn = state.kind === "memory" ? state.turn : null;
+  const turn = relayOrMemoryTurn(state);
   const youAreHost = viewerSlot === "host";
   const opponentName = youAreHost ? guestName : hostName;
 
   let statusLine: string;
   if (status === "finished") {
     statusLine = "Game over";
+  } else if (state.kind === "relay") {
+    const action = state.phase === "pick" ? "pick a word" : "answer";
+    statusLine = turn === viewerSlot ? `Your turn — ${action}` : `${opponentName}'s turn`;
   } else if (turn) {
     statusLine = turn === viewerSlot ? "Your turn" : `${opponentName}'s turn`;
   } else {
@@ -158,15 +169,27 @@ function PlayerCard({ name, score, active }: { name: string; score: number; acti
   );
 }
 
+// The active player for turn-based games (memory, relay); null for the races.
+function relayOrMemoryTurn(state: GameState): PlayerSlot | null {
+  if (state.kind === "memory") return state.turn;
+  if (state.kind === "relay") return state.phase === "pick" ? state.picker : otherSlot(state.picker);
+  return null;
+}
+
 function GameBody({
   state,
   viewerSlot,
+  hostName,
+  guestName,
   onMove,
 }: {
   state: GameState;
   viewerSlot: PlayerSlot;
+  hostName: string;
+  guestName: string;
   onMove: (move: Move) => void;
 }) {
+  const opponentName = viewerSlot === "host" ? guestName : hostName;
   switch (state.kind) {
     case "memory":
       return <MemoryBoard state={state} viewerSlot={viewerSlot} onFlip={(index) => onMove({ kind: "flip", index })} />;
@@ -179,6 +202,17 @@ function GameBody({
           state={state}
           viewerSlot={viewerSlot}
           onSubmit={(order) => onMove({ kind: "order", order })}
+        />
+      );
+    case "relay":
+      return (
+        <RelayDuel
+          key={`${state.phase}-${state.assigned?.id ?? "none"}-${state.resolved}`}
+          state={state}
+          viewerSlot={viewerSlot}
+          opponentName={opponentName}
+          onPick={(wordId) => onMove({ kind: "pick", wordId })}
+          onAnswer={(value) => onMove({ kind: "answer", value })}
         />
       );
   }

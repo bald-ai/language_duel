@@ -1,15 +1,25 @@
 import { v, type Infer } from "convex/values";
 
-// The four online prototypes the homepage exposes. `memory` is its own engine;
-// `missing_chunk` and `speed` share the `mcq` engine; `rebuild_sentence` uses `order`.
-export const MOCK_GAMES = ["memory", "missing_chunk", "rebuild_sentence", "speed"] as const;
+// The online prototypes the homepage exposes. `memory` is its own engine;
+// `missing_chunk` and `speed` share the `mcq` engine; `rebuild_sentence` uses
+// `order`; `relay` and `relay_stakes` share the turn-based `relay` engine.
+export const MOCK_GAMES = [
+  "memory",
+  "missing_chunk",
+  "rebuild_sentence",
+  "speed",
+  "relay",
+  "relay_stakes",
+] as const;
 export type MockGame = (typeof MOCK_GAMES)[number];
 
 export const mockGameValidator = v.union(
   v.literal("memory"),
   v.literal("missing_chunk"),
   v.literal("rebuild_sentence"),
-  v.literal("speed")
+  v.literal("speed"),
+  v.literal("relay"),
+  v.literal("relay_stakes")
 );
 
 export const roomStatusValidator = v.union(
@@ -87,16 +97,57 @@ const orderStateValidator = v.object({
 export type OrderState = Infer<typeof orderStateValidator>;
 export type OrderRound = OrderState["rounds"][number];
 
+// --- Relay duel (relay + relay_stakes): one shared pool, players alternate ---
+// roles — the picker hands a word to the rival, who answers it, then becomes the
+// next picker. `stakes` decides whether harder words are worth more points.
+export const relayDifficultyValidator = v.union(
+  v.literal("easy"),
+  v.literal("medium"),
+  v.literal("hard")
+);
+const relayWordValidator = v.object({
+  id: v.string(),
+  prompt: v.string(),
+  answer: v.string(),
+  options: v.array(v.string()),
+  difficulty: relayDifficultyValidator,
+});
+const relayResultValidator = v.object({
+  prompt: v.string(),
+  answer: v.string(),
+  chosen: v.string(),
+  correct: v.boolean(),
+  scorer: v.union(playerSlotValidator, v.null()),
+  gained: v.number(),
+});
+const relayStateValidator = v.object({
+  kind: v.literal("relay"),
+  stakes: v.boolean(),
+  pool: v.array(relayWordValidator),
+  total: v.number(),
+  picker: playerSlotValidator,
+  phase: v.union(v.literal("pick"), v.literal("answer")),
+  assigned: v.union(relayWordValidator, v.null()),
+  scores: scoresValidator,
+  resolved: v.number(),
+  lastResult: v.union(relayResultValidator, v.null()),
+});
+export type RelayState = Infer<typeof relayStateValidator>;
+export type RelayWord = Infer<typeof relayWordValidator>;
+export type RelayDifficulty = Infer<typeof relayDifficultyValidator>;
+
 export const gameStateValidator = v.union(
   memoryStateValidator,
   mcqStateValidator,
-  orderStateValidator
+  orderStateValidator,
+  relayStateValidator
 );
 export type GameState = Infer<typeof gameStateValidator>;
 
 export const moveValidator = v.union(
   v.object({ kind: v.literal("flip"), index: v.number() }),
   v.object({ kind: v.literal("answer"), value: v.string() }),
-  v.object({ kind: v.literal("order"), order: v.array(v.number()) })
+  v.object({ kind: v.literal("order"), order: v.array(v.number()) }),
+  v.object({ kind: v.literal("pick"), wordId: v.string() })
 );
 export type Move = Infer<typeof moveValidator>;

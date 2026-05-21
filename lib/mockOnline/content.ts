@@ -55,3 +55,25 @@ export const REBUILD_SENTENCES: readonly OrderContentRound[] = [
   { english: "The dog is big", correct: ["El", "perro", "es", "grande"] },
   { english: "I read a book", correct: ["Yo", "leo", "un", "libro"] },
 ];
+
+export type RelayDifficulty = "easy" | "medium" | "hard";
+
+export interface RelayContentWord {
+  id: string;
+  prompt: string;
+  answer: string;
+  distractors: string[];
+  difficulty: RelayDifficulty;
+}
+
+// Shared pool the two players hand back and forth in Relay Duel.
+export const RELAY_WORDS: readonly RelayContentWord[] = [
+  { id: "airport", prompt: "airport", answer: "aeropuerto", distractors: ["estación", "puerto", "frontera"], difficulty: "hard" },
+  { id: "ticket", prompt: "ticket", answer: "billete", distractors: ["maleta", "asiento", "puerta"], difficulty: "medium" },
+  { id: "map", prompt: "map", answer: "mapa", distractors: ["carta", "calle", "libro"], difficulty: "easy" },
+  { id: "luggage", prompt: "luggage", answer: "equipaje", distractors: ["paquete", "mochila", "bolsa"], difficulty: "hard" },
+  { id: "bread", prompt: "bread", answer: "pan", distractors: ["leche", "queso", "huevo"], difficulty: "easy" },
+  { id: "water", prompt: "water", answer: "agua", distractors: ["vino", "zumo", "café"], difficulty: "easy" },
+  { id: "spicy", prompt: "spicy", answer: "picante", distractors: ["dulce", "salado", "amargo"], difficulty: "medium" },
+  { id: "breakfast", prompt: "breakfast", answer: "desayuno", distractors: ["almuerzo", "cena", "merienda"], difficulty: "hard" },
+];

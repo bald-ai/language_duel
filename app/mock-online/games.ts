@@ -5,6 +5,8 @@ export const GAME_ORDER: readonly MockGame[] = [
   "missing_chunk",
   "rebuild_sentence",
   "speed",
+  "relay",
+  "relay_stakes",
 ];
 
 interface GameMeta {
@@ -18,4 +20,6 @@ export const GAME_META: Record<MockGame, GameMeta> = {
   missing_chunk: { label: "Missing Chunk", tagline: "Fill the blank · fastest scores", maxWidthClass: "max-w-[480px]" },
   rebuild_sentence: { label: "Rebuild Sentence", tagline: "Unscramble first to score", maxWidthClass: "max-w-[520px]" },
   speed: { label: "Speed Translate", tagline: "Rapid-fire · first correct scores", maxWidthClass: "max-w-[480px]" },
+  relay: { label: "Relay Duel", tagline: "Hand words to your rival · take turns", maxWidthClass: "max-w-[480px]" },
+  relay_stakes: { label: "Relay Duel: Stakes", tagline: "Harder words score more · play it mean", maxWidthClass: "max-w-[480px]" },
 };

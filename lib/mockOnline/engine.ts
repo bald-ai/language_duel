@@ -2,6 +2,7 @@ import {
   MEMORY_PAIRS,
   MISSING_CHUNK_QUESTIONS,
   REBUILD_SENTENCES,
+  RELAY_WORDS,
   SPEED_QUESTIONS,
 } from "./content";
 import { applyMemoryFlip, createMemoryState, isMemoryFinished } from "./memory";
@@ -13,6 +14,7 @@ import {
   isMcqFinished,
   isOrderFinished,
 } from "./race";
+import { answerRelay, createRelayState, isRelayFinished, pickRelayWord } from "./relay";
 import type { Rng } from "./shuffle";
 import type { GameState, Move, MockGame, PlayerSlot } from "./state";
 
@@ -26,6 +28,10 @@ export function createGameState(game: MockGame, rng: Rng = Math.random): GameSta
       return createMcqState(SPEED_QUESTIONS, rng);
     case "rebuild_sentence":
       return createOrderState(REBUILD_SENTENCES, rng);
+    case "relay":
+      return createRelayState(RELAY_WORDS, false, rng);
+    case "relay_stakes":
+      return createRelayState(RELAY_WORDS, true, rng);
   }
 }
 
@@ -37,6 +43,10 @@ export function applyGameMove(state: GameState, slot: PlayerSlot, move: Move): G
       return move.kind === "answer" ? answerMcq(state, slot, move.value) : state;
     case "order":
       return move.kind === "order" ? answerOrder(state, slot, move.order) : state;
+    case "relay":
+      if (move.kind === "pick") return pickRelayWord(state, slot, move.wordId);
+      if (move.kind === "answer") return answerRelay(state, slot, move.value);
+      return state;
   }
 }
 
@@ -48,6 +58,8 @@ export function isGameFinished(state: GameState): boolean {
       return isMcqFinished(state);
     case "order":
       return isOrderFinished(state);
+    case "relay":
+      return isRelayFinished(state);
   }
 }
 
