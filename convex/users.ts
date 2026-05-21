@@ -46,27 +46,6 @@ export type CurrentUser = {
   ttsProvider: TtsProvider;
 };
 
-export const getUsers = query({
-  args: {},
-  handler: async (ctx): Promise<PublicUser[]> => {
-    const auth = await getAuthenticatedUserOrNull(ctx);
-    if (!auth) return [];
-
-    const users = await ctx.db.query("users").take(MAX_USERS_QUERY);
-
-    // Filter out current user and return public fields
-    return users
-      .filter((u) => u._id !== auth.user._id)
-      .map((u) => ({
-        _id: u._id,
-        name: u.name,
-        imageUrl: u.imageUrl,
-        nickname: u.nickname,
-        discriminator: u.discriminator,
-      }));
-  },
-});
-
 /**
  * Get current authenticated user's full profile
  */

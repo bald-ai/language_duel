@@ -36,7 +36,6 @@ function CheckmarkIcon() {
 interface User {
   _id: Id<"users">;
   name?: string;
-  email?: string;
   nickname?: string;
   discriminator?: number;
 }

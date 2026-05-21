@@ -3,7 +3,6 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { consumeCredits } from "@/convex/credits";
 import {
   getCurrentUser,
-  getUsers,
   isUserOnline,
   searchUsers,
   syncUser,
@@ -135,39 +134,6 @@ function createCtx(db: InMemoryDb, identitySubject: string | null) {
 }
 
 describe("users core handlers", () => {
-  it("getUsers returns empty list when unauthenticated", async () => {
-    const db = new InMemoryDb();
-
-    const result = await callConvex(getUsers, createCtx(db, null), {});
-
-    expect(result).toEqual([]);
-  });
-
-  it("getUsers excludes current user and returns public data only", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
-    db.users.push(
-      userDoc({
-        _id: "user_2" as Id<"users">,
-        clerkId: "clerk_2",
-        email: "friend@example.com",
-        nickname: "Friend",
-        discriminator: 2222,
-      })
-    );
-
-    const result = await callConvex(getUsers, createCtx(db, "clerk_1"), {});
-
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      _id: "user_2",
-      nickname: "Friend",
-      discriminator: 2222,
-    });
-    expect(result[0]).not.toHaveProperty("email");
-    expect("clerkId" in (result[0] ?? {})).toBe(false);
-  });
-
   it("getCurrentUser returns null when unauthenticated", async () => {
     const db = new InMemoryDb();
 

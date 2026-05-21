@@ -138,11 +138,6 @@ export function FriendFilterModal({
                       <p className="font-medium truncate" style={{ color: colors.text.DEFAULT }}>
                         {displayName}
                       </p>
-                      {friend.nickname && (
-                        <p className="text-sm truncate" style={{ color: colors.text.muted }}>
-                          {friend.email}
-                        </p>
-                      )}
                     </div>
                     <svg
                       className="w-5 h-5"

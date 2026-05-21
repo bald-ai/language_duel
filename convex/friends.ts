@@ -24,7 +24,6 @@ export type FriendWithDetails = {
   nickname?: string;
   discriminator?: number;
   name?: string;
-  email: string;
   imageUrl?: string;
   createdAt: number;
   isOnline: boolean;
@@ -39,7 +38,6 @@ export type SentRequestWithDetails = {
   nickname?: string;
   discriminator?: number;
   name?: string;
-  email: string;
   imageUrl?: string;
   createdAt: number;
 };
@@ -166,7 +164,6 @@ export const getSentRequests = query({
         nickname: receiver.nickname,
         discriminator: receiver.discriminator,
         name: receiver.name,
-        email: receiver.email,
         imageUrl: receiver.imageUrl,
         createdAt: request.createdAt,
       }];
@@ -199,7 +196,6 @@ export const getFriends = query({
         nickname: friend.nickname,
         discriminator: friend.discriminator,
         name: friend.name,
-        email: friend.email,
         imageUrl: friend.imageUrl,
         createdAt: friendship.createdAt,
         isOnline: isUserOnline(friend.lastSeenAt),

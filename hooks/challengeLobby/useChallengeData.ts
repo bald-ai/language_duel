@@ -23,7 +23,6 @@ export function useChallengeData(shouldLoad: boolean) {
     users: friends?.map((friend) => ({
       _id: friend.friendId,
       name: friend.name,
-      email: friend.email,
       imageUrl: friend.imageUrl,
       nickname: friend.nickname,
       discriminator: friend.discriminator,

@@ -9,7 +9,6 @@ interface Friend {
   nickname?: string;
   discriminator?: number;
   name?: string;
-  email?: string;
   imageUrl?: string;
 }
 
@@ -93,11 +92,6 @@ export function PartnerSelector({
                   >
                     {formatVisibleUser(friend)}
                   </div>
-                  {friend.email && (friend.nickname || friend.name) && (
-                    <div className="text-xs" style={{ color: colors.text.muted }}>
-                      {friend.email}
-                    </div>
-                  )}
                 </div>
               </div>
               {isSelected && (
