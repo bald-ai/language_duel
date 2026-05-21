@@ -1,7 +1,9 @@
 import {
   ANSWER_MAX,
   ANSWER_MIN,
+  BURST_OPERAND_MAX,
   GENERATION_MAX_ATTEMPTS,
+  TWO_DIGIT_MAX,
 } from "./constants";
 import {
   assertExpressionIntegrity,
@@ -27,6 +29,9 @@ import type {
 
 const TWO_TERM_OPERATORS: MathOperator[] = ["+", "-", "*", "/"];
 
+// Sabotage bursts use only addition/subtraction so each problem is a quick glance.
+const BURST_OPERATORS: MathOperator[] = ["+", "-"];
+
 type ThreeTermTemplate = {
   operators: [MathOperator, MathOperator];
   label: string;
@@ -45,9 +50,13 @@ function isAnswerInRange(answer: number): boolean {
   return Number.isInteger(answer) && answer >= ANSWER_MIN && answer <= ANSWER_MAX;
 }
 
-function tryBuildTwoTerm(random: RandomFn): { operands: number[]; operators: MathOperator[] } | null {
-  const operator = pickOne(random, TWO_TERM_OPERATORS);
-  const pair = pickTwoTermOperands(random, operator);
+function tryBuildTwoTerm(
+  random: RandomFn,
+  operatorPool: MathOperator[],
+  operandMax: number
+): { operands: number[]; operators: MathOperator[] } | null {
+  const operator = pickOne(random, operatorPool);
+  const pair = pickTwoTermOperands(random, operator, operandMax);
   if (!pair) return null;
   const operands = pair;
   const operators = [operator];
@@ -60,8 +69,15 @@ function tryBuildTwoTerm(random: RandomFn): { operands: number[]; operators: Mat
   }
 }
 
-function tryBuildThreeTerm(random: RandomFn): { operands: number[]; operators: MathOperator[] } | null {
-  const template = pickOne(random, THREE_TERM_TEMPLATES);
+function tryBuildThreeTerm(
+  random: RandomFn,
+  operatorPool: MathOperator[]
+): { operands: number[]; operators: MathOperator[] } | null {
+  const allowedTemplates = THREE_TERM_TEMPLATES.filter((template) =>
+    template.operators.every((operator) => operatorPool.includes(operator))
+  );
+  if (allowedTemplates.length === 0) return null;
+  const template = pickOne(random, allowedTemplates);
   const digitSlots = planThreeTermDigitSlots(random);
   const operands: number[] = [
     pickOperandForSlot(random, digitSlots[0]),
@@ -95,12 +111,14 @@ function pickTermCount(random: RandomFn, termCount: MathTermCount | "random"): M
 
 function buildExpression(
   random: RandomFn,
-  termCount: MathTermCount
+  termCount: MathTermCount,
+  operatorPool: MathOperator[],
+  operandMax: number
 ): { operands: number[]; operators: MathOperator[] } | null {
   if (termCount === 2) {
-    return tryBuildTwoTerm(random);
+    return tryBuildTwoTerm(random, operatorPool, operandMax);
   }
-  return tryBuildThreeTerm(random);
+  return tryBuildThreeTerm(random, operatorPool);
 }
 
 export function generateMathGateProblem(
@@ -108,9 +126,11 @@ export function generateMathGateProblem(
 ): MathGateProblem {
   const random = resolveRandom(options);
   const termCount = pickTermCount(random, options.termCount ?? "random");
+  const operatorPool = options.operators ?? TWO_TERM_OPERATORS;
+  const operandMax = options.operandMax ?? TWO_DIGIT_MAX;
 
   for (let attempt = 0; attempt < GENERATION_MAX_ATTEMPTS; attempt += 1) {
-    const expression = buildExpression(random, termCount);
+    const expression = buildExpression(random, termCount, operatorPool, operandMax);
     if (!expression) continue;
 
     const { operands, operators } = expression;
@@ -166,7 +186,10 @@ export function generateMathGateProblems(
   return problems;
 }
 
-/** Weighted term count for sabotage-style bursts (2 easy items). */
+/**
+ * Sabotage-style burst: easy, quick-glance problems — always two numbers,
+ * addition/subtraction only, with small operands.
+ */
 export function generateMathGateBurst(
   size: number,
   options: GenerateMathGateProblemOptions = {}
@@ -174,12 +197,12 @@ export function generateMathGateBurst(
   const baseRandom = resolveRandom(options);
   const burst: MathGateProblem[] = [];
   for (let i = 0; i < size; i += 1) {
-    const termCount: MathTermCount | "random" =
-      i === 0 ? 2 : pickOne(baseRandom, [2, 3] as const);
     burst.push(
       generateMathGateProblem({
         ...options,
-        termCount,
+        termCount: 2,
+        operators: BURST_OPERATORS,
+        operandMax: BURST_OPERAND_MAX,
         random: () => baseRandom(),
       })
     );

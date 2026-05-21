@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "@/lib/prng";
 import {
   evaluateLeftToRight,
+  generateMathGateBurst,
   generateMathGateProblem,
   generateMathGateProblems,
   WRONG_ANSWER_COUNT,
@@ -86,5 +87,19 @@ describe("mathGate generator", () => {
       if (twoDigitCount >= 2) sawTwoDigitPair = true;
     }
     expect(sawTwoDigitPair).toBe(true);
+  });
+
+  it("generateMathGateBurst keeps problems easy: two numbers, add/subtract, small operands", () => {
+    const burst = generateMathGateBurst(12, { seed: 7 });
+    expect(burst).toHaveLength(12);
+    for (const problem of burst) {
+      expect(problem.termCount).toBe(2);
+      expect(problem.operators).toHaveLength(1);
+      expect(["+", "-"]).toContain(problem.operators[0]);
+      for (const operand of problem.operands) {
+        expect(operand).toBeGreaterThanOrEqual(1);
+        expect(operand).toBeLessThanOrEqual(20);
+      }
+    }
   });
 });

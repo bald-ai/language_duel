@@ -50,16 +50,17 @@ export function planThreeTermDigitSlots(random: RandomFn): [boolean, boolean, bo
 
 export function pickTwoTermOperands(
   random: RandomFn,
-  operator: MathOperator
+  operator: MathOperator,
+  operandMax: number = TWO_DIGIT_MAX
 ): [number, number] | null {
   switch (operator) {
     case "+": {
-      const a = randomInt(random, ONE_DIGIT_MIN, TWO_DIGIT_MAX);
-      const b = randomInt(random, ONE_DIGIT_MIN, TWO_DIGIT_MAX);
+      const a = randomInt(random, ONE_DIGIT_MIN, operandMax);
+      const b = randomInt(random, ONE_DIGIT_MIN, operandMax);
       return [a, b];
     }
     case "-": {
-      const a = randomInt(random, ONE_DIGIT_MIN, TWO_DIGIT_MAX);
+      const a = randomInt(random, ONE_DIGIT_MIN, operandMax);
       const b = randomInt(random, ONE_DIGIT_MIN, a);
       return [a, b];
     }

@@ -42,4 +42,8 @@ export interface GenerateMathGateProblemOptions {
   seed?: number;
   random?: RandomFn;
   termCount?: MathTermCount | "random";
+  /** Restrict which operators may appear. Defaults to all four. */
+  operators?: MathOperator[];
+  /** Cap operand magnitude for two-term add/subtract problems. Defaults to 99. */
+  operandMax?: number;
 }

@@ -26,3 +26,6 @@ export const DIVISION_DIVISOR_MAX = 12;
 /** Division: quotient range (dividend = divisor × quotient). */
 export const DIVISION_QUOTIENT_MIN = 2;
 export const DIVISION_QUOTIENT_MAX = 12;
+
+/** Sabotage burst keeps operands small so each problem is a quick glance. */
+export const BURST_OPERAND_MAX = 20;
