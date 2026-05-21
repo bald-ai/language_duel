@@ -406,11 +406,75 @@ tr.hide{display:none}
 .statbig{border-radius:16px; padding:14px; text-align:center; border:1px solid color-mix(in srgb,var(--primary) 18%,transparent); background:color-mix(in srgb,var(--elevated) 64%,transparent)}
 .statbig .n{font-family:'Fredoka','Outfit'; font-weight:700; font-size:30px; line-height:1; color:var(--primary-dark)}
 .statbig .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-top:4px}
+/* ============================================================
+   v3 CRAFT POLISH — motion, depth, delight (reduced-motion safe)
+   ============================================================ */
+.aurora{position:fixed; inset:-10%; z-index:-1; pointer-events:none; opacity:.65;
+  background:
+    radial-gradient(38vw 38vw at 15% 18%, color-mix(in srgb,var(--primary) 24%,transparent), transparent 60%),
+    radial-gradient(36vw 36vw at 86% 12%, color-mix(in srgb,var(--cta) 22%,transparent), transparent 60%),
+    radial-gradient(44vw 44vw at 62% 92%, color-mix(in srgb,var(--secondary) 20%,transparent), transparent 62%);
+  filter:blur(10px);}
+@keyframes aurora{0%{transform:translate3d(0,0,0) scale(1) rotate(0)}50%{transform:translate3d(2.5%,-1.5%,0) scale(1.08) rotate(1.5deg)}100%{transform:translate3d(-2%,1.5%,0) scale(1.04) rotate(-1deg)}}
+
+/* hero shimmer + sparkles */
+.g-rose,.g-green{background-size:220% 100%}
+@keyframes shimmer{to{background-position:220% 0}}
+.spark{position:absolute; z-index:1; pointer-events:none; color:var(--cta); filter:drop-shadow(0 0 6px color-mix(in srgb,var(--cta) 60%,transparent)); opacity:0}
+.spark.r{color:var(--primary); filter:drop-shadow(0 0 6px color-mix(in srgb,var(--primary) 60%,transparent))}
+@keyframes twinkle{0%,100%{opacity:0; transform:scale(.4) rotate(0)}50%{opacity:.9; transform:scale(1) rotate(90deg)}}
+
+/* card hover lifts */
+.pillar,.bank-card,.archbox,.statbig,.meta-chip,.swatch,.pg-tab{transition:transform .18s ease, box-shadow .18s ease, background .2s ease, color .15s ease}
+table.matrix tbody tr{transition:background .15s ease}
+.feature__num,.bank-num{transition:transform .2s ease, box-shadow .2s ease}
+.feature:hover .feature__num,.bank-card:hover .bank-num{transform:rotate(-4deg) scale(1.05)}
+
+/* demo motion */
+.s-face.up,.s-face.up2{animation:flipIn .34s ease both}
+@keyframes flipIn{from{transform:rotateY(85deg); opacity:.15}to{transform:rotateY(0); opacity:1}}
+.s-face.match{animation:matchPop .42s ease both}
+@keyframes matchPop{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+.streak-pop{animation:popn .36s cubic-bezier(.2,1.4,.5,1) both}
+@keyframes popn{0%{transform:scale(.7); opacity:.4}60%{transform:scale(1.14)}100%{transform:scale(1)}}
+.s-banner.go{animation:bannerIn .3s ease both}
+@keyframes bannerIn{from{opacity:0; transform:translateY(-4px)}to{opacity:1; transform:none}}
+
+/* confetti */
+.confetti-pc{position:fixed; top:0; left:0; width:9px; height:14px; z-index:80; border-radius:2px; pointer-events:none; will-change:transform,opacity}
+@keyframes confFall{0%{transform:translate3d(var(--x0),var(--y0),0) rotate(0); opacity:1}100%{transform:translate3d(var(--x1),var(--y1),0) rotate(var(--rot)); opacity:0}}
+
+/* sound toggle */
+.snd-toggle{cursor:pointer; border:1px solid color-mix(in srgb,var(--primary) 26%,transparent); background:color-mix(in srgb,var(--elevated) 66%,transparent); color:var(--ink-soft); font-weight:800; font-size:12px; padding:7px 12px; border-radius:999px; display:inline-flex; gap:6px; align-items:center}
+.snd-toggle.on{background:linear-gradient(160deg,var(--cta),var(--cta-dark)); color:#fff; border-color:transparent}
+
+/* animated kicker shine */
+.hero .kicker{position:relative; overflow:hidden}
+.hero .kicker::after{content:""; position:absolute; inset:0; background:linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%); transform:translateX(-120%)}
+
+@media (prefers-reduced-motion: no-preference){
+  .aurora{animation:aurora 26s ease-in-out infinite alternate}
+  .g-rose{animation:shimmer 7s linear infinite}
+  .g-green{animation:shimmer 7s linear infinite .4s}
+  .spark{animation:twinkle 3.2s ease-in-out infinite}
+  .spark:nth-of-type(2){animation-delay:.8s} .spark:nth-of-type(3){animation-delay:1.5s} .spark:nth-of-type(4){animation-delay:2.2s}
+  .pillar:hover,.bank-card:hover,.archbox:hover,.statbig:hover{transform:translateY(-4px)}
+  .bank-card:hover{box-shadow:0 20px 44px rgba(0,0,0,.15)}
+  .meta-chip:hover{transform:translateY(-2px)}
+  table.matrix tbody tr:hover{transform:scale(1.004)}
+  .hero .kicker::after{animation:shine 5.5s ease-in-out infinite 1.5s}
+  @keyframes shine{0%,100%{transform:translateX(-120%)}18%,82%{transform:translateX(120%)}}
+}
+@media (prefers-reduced-motion: reduce){
+  .aurora,.g-rose,.g-green,.spark,.s-face.up,.s-face.up2,.s-face.match,.streak-pop,.s-banner.go,.hero .kicker::after{animation:none !important}
+  .spark{opacity:.5}
+}
 </style>
 <noscript><style>.reveal{opacity:1 !important; transform:none !important} .pg-tabs,.pg-controls,.filterbar,.palette-bar{display:none} .pg-stage{display:block !important; margin-bottom:18px}</style></noscript>
 </head>
 <body>
 <div class="progress" id="progress"></div>
+<div class="aurora" aria-hidden="true"></div>
 
 <!-- ===================== TOP BAR ===================== -->
 <div class="topbar">
@@ -433,6 +497,10 @@ tr.hide{display:none}
 
 <!-- ===================== HERO ===================== -->
 <header class="hero wrap">
+  <span class="spark" aria-hidden="true" style="left:8%; top:18%; font-size:20px">✦</span>
+  <span class="spark r" aria-hidden="true" style="right:12%; top:26%; font-size:26px">✦</span>
+  <span class="spark" aria-hidden="true" style="left:18%; bottom:22%; font-size:16px">✦</span>
+  <span class="spark r" aria-hidden="true" style="right:16%; bottom:30%; font-size:22px">✦</span>
   <span class="kicker">Proposal · Design Exploration</span>
   <h1>
     <span class="outline g-rose" data-text="Two Minds.">Two Minds.</span><br>
@@ -584,7 +652,8 @@ tr.hide{display:none}
   <div class="app-card">
     <div class="pg-intro">
       <span class="tag loc">CO-LOCATED ✨</span>
-      <span class="note">Hot-seat = one screen, two humans. (Per the tech section, co-located modes need <b>zero</b> Convex sync — pure client state — so they're the cheapest to ship.)</span>
+      <span class="note" style="flex:1; min-width:180px">Hot-seat = one screen, two humans. (Co-located modes need <b>zero</b> Convex sync — pure client state — cheapest to ship.)</span>
+      <button class="snd-toggle on" id="sndToggle" type="button">🔊 Sound on</button>
     </div>
 
     <div class="pg-tabs" id="pgTabs">
@@ -2524,6 +2593,39 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
   var shuffle=function(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;};
   function topnav(title,cta){return '<div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow'+(cta?' cta':'')+'">Live demo</div><h5>'+title+'</h5></div></div>';}
 
+  /* ---------------- sound · haptics · confetti ---------------- */
+  var prefersReduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var soundOn = true, actx = null;
+  function ac(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=null; } } if(actx && actx.state==='suspended'){ try{ actx.resume(); }catch(e){} } return actx; }
+  function tone(freq,dur,type,gv,when){ if(!soundOn) return; var c=ac(); if(!c) return; var t=c.currentTime+(when||0); var o=c.createOscillator(), g=c.createGain(); o.type=type||'sine'; o.frequency.value=freq; o.connect(g); g.connect(c.destination); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(gv||0.07,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
+  function buzz(p){ if(typeof navigator!=='undefined' && navigator.vibrate){ try{ navigator.vibrate(p); }catch(e){} } }
+  var sfx={
+    flip:function(){ tone(520,0.08,'triangle',0.05); buzz(8); },
+    place:function(){ tone(450,0.07,'square',0.04); buzz(8); },
+    correct:function(){ tone(660,0.10,'sine',0.07); tone(880,0.12,'sine',0.06,0.09); buzz(14); },
+    wrong:function(){ tone(180,0.20,'sawtooth',0.05); buzz([18,40,18]); },
+    win:function(){ [523,659,784,1047].forEach(function(f,i){ tone(f,0.16,'triangle',0.07,i*0.10); }); buzz([16,28,16,28,46]); }
+  };
+  function cssv(v){ return (getComputedStyle(document.documentElement).getPropertyValue(v)||'').trim()||'#FB7185'; }
+  function confetti(el){
+    if(prefersReduced||!el||!el.getBoundingClientRect) return;
+    var r=el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/3;
+    var cols=[cssv('--primary'),cssv('--cta'),cssv('--warning'),cssv('--secondary'),cssv('--primary-light')];
+    for(var i=0;i<46;i++){
+      var p=document.createElement('div'); p.className='confetti-pc';
+      var ang=Math.random()*Math.PI*2, dist=50+Math.random()*190;
+      p.style.background=cols[i%cols.length];
+      p.style.setProperty('--x0',cx+'px'); p.style.setProperty('--y0',cy+'px');
+      p.style.setProperty('--x1',(cx+Math.cos(ang)*dist)+'px');
+      p.style.setProperty('--y1',(cy+Math.sin(ang)*dist*0.6+240)+'px');
+      p.style.setProperty('--rot',(Math.random()*820-410)+'deg');
+      p.style.transform='translate3d('+cx+'px,'+cy+'px,0)';
+      p.style.animation='confFall '+(0.9+Math.random()*0.8)+'s cubic-bezier(.2,.6,.3,1) forwards';
+      document.body.appendChild(p);
+      (function(n){ setTimeout(function(){ n.remove(); }, 1800); })(p);
+    }
+  }
+
   /* ---------------- TWO-MINDS MEMORY ---------------- */
   var MEM_PAIRS=[{id:'madre',en:'mother',es:'madre'},{id:'padre',en:'father',es:'padre'},{id:'hijo',en:'son',es:'hijo'},{id:'gato',en:'cat',es:'gato'}];
   var Mem=(function(){
@@ -2534,7 +2636,7 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
       if(status==='win'||busy)return;
       var player=lang==='EN'?'P1':'P2'; if(player!==active)return;
       var card=(lang==='EN'?enC:esC)[idx]; if(matched[card.id])return; if(flips[lang]!==null)return;
-      flips[lang]=idx;
+      flips[lang]=idx; sfx.flip();
       if(flips.EN!==null&&flips.ES!==null){resolve();} else {active=other(active);}
       render();
     }
@@ -2543,6 +2645,7 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
       setTimeout(function(){
         if(match){matched[en.id]=true;if(MEM_PAIRS.every(function(p){return matched[p.id];}))status='win';}
         flips={EN:null,ES:null};starter=other(starter);active=starter;busy=false;render();
+        if(match){ if(status==='win'){sfx.win();confetti(document.getElementById('memScreen'));} else sfx.correct(); } else sfx.wrong();
       },match?520:850);
     }
     function board(lang){
@@ -2578,7 +2681,7 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
     var si=0,toks,tray,turn,status,target,en;
     function build(idx){si=((idx%SENTENCES.length)+SENTENCES.length)%SENTENCES.length;target=SENTENCES[si].t;en=SENTENCES[si].en;toks=target.map(function(tok,i){return {id:i,tok:tok,owner:(i%2===0?'P1':'P2'),used:false};});tray=[];turn=toks[0].owner;status='play';}
     function newS(){build(si+1);render();}
-    function place(id){if(status!=='play')return;var t=toks[id];if(!t||t.used||t.owner!==turn)return;t.used=true;tray.push(id);turn=other(turn);if(tray.length===target.length)check();render();}
+    function place(id){if(status!=='play')return;var t=toks[id];if(!t||t.used||t.owner!==turn)return;t.used=true;tray.push(id);turn=other(turn);sfx.place();if(tray.length===target.length){check();if(status==='win'){sfx.win();confetti(document.getElementById('relayScreen'));}else sfx.wrong();}render();}
     function check(){var built=tray.map(function(id){return toks[id].tok;}).join(" ");status=(built===target.join(" "))?'win':'wrong';}
     function undo(){if(status==='win'||tray.length===0)return;var last=tray.pop();toks[last].used=false;turn=toks[last].owner;status='play';render();}
     function clear(){if(status==='win')return;toks.forEach(function(t){t.used=false;});tray=[];turn=toks[0].owner;status='play';render();}
@@ -2616,7 +2719,7 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
     function reset(){i=0;score=0;rounds=0;clueGiver='P1';phase='clue';lastPick=null;render();}
     function picker(){return other(clueGiver);}
     function toPick(){phase='pick';render();}
-    function pick(opt){if(phase!=='pick')return;lastPick=opt;rounds++;if(opt===DECK[i].answer)score++;phase='result';render();}
+    function pick(opt){if(phase!=='pick')return;lastPick=opt;rounds++;var ok=opt===DECK[i].answer;if(ok)score++;phase='result';render();if(ok){sfx.correct();confetti(document.getElementById('decoderScreen'));}else sfx.wrong();}
     function next(){i=(i+1)%DECK.length;clueGiver=other(clueGiver);phase='clue';lastPick=null;render();}
     function render(){
       var el=document.getElementById('decoderScreen');if(!el)return;var card=DECK[i];var h=topnav('Decoder Duo',true);
@@ -2657,10 +2760,11 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
     function build(){deck=shuffle(STREAK_DECK);qi=0;turn='P1';mult=1;best=0;locked=false;lastPick=null;lastRes=null;}
     function reset(){build();render();}
     function pick(opt){if(locked)return;var card=deck[qi];var ok=opt===card.a;locked=true;lastPick=opt;lastRes=ok?'correct':'wrong';if(ok){mult++;if(mult>best)best=mult;}else{mult=1;}render();
+      if(ok){sfx.correct();if(mult%5===0)confetti(document.getElementById('streakScreen'));}else sfx.wrong();
       setTimeout(function(){turn=other(turn);qi=(qi+1)%deck.length;locked=false;lastPick=null;lastRes=null;render();},800);}
     function render(){
       var el=document.getElementById('streakScreen');if(!el)return;var card=deck[qi];var h=topnav('One Streak',true);
-      h+='<div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">Shared multiplier</div><div class="s-big" style="font-size:40px;color:var(--cta-dark);line-height:1.05">×'+mult+'</div><div class="s-mid" style="color:var(--muted)">best this run: ×'+best+'</div></div>';
+      h+='<div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">Shared multiplier</div><div class="s-big streak-pop" style="font-size:40px;color:var(--cta-dark);line-height:1.05">×'+mult+'</div><div class="s-mid" style="color:var(--muted)">best this run: ×'+best+'</div></div>';
       h+='<div class="s-turn" style="margin-top:8px">'+(turn==='P1'?'<span class="who p1"><span class="av p1">EN</span>P1\'s turn':'<span class="who p2"><span class="av p2">ES</span>P2\'s turn')+'</span></div>';
       h+='<div class="s-card'+(turn==='P2'?' p2':'')+'" style="margin-top:6px"><div class="s-eye" style="color:'+(turn==='P1'?'var(--primary-dark)':'var(--cta-dark)')+'">Translate</div><div class="s-big" style="margin:2px 0">'+card.w+'</div></div>';
       card.opts.forEach(function(o){var cls='s-opt';if(locked){if(o===card.a)cls+=' correct';else if(o===lastPick)cls+=' wrong';cls+=' locked';}else cls+=' clk';h+='<div class="'+cls+'"'+(locked?'':(' data-streak-opt="'+o+'"'))+'>'+o+'</div>';});
@@ -2717,6 +2821,15 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
   var rev=document.querySelectorAll('.reveal');
   if('IntersectionObserver' in window&&rev.length){var ro=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');ro.unobserve(en.target);}});},{rootMargin:'0px 0px -8% 0px'});[].forEach.call(rev,function(x){ro.observe(x);});}
   else{[].forEach.call(rev,function(x){x.classList.add('in');});}
+
+  /* ---------------- sound toggle ---------------- */
+  var sndBtn=document.getElementById('sndToggle');
+  if(sndBtn)sndBtn.addEventListener('click',function(){soundOn=!soundOn;sndBtn.classList.toggle('on',soundOn);sndBtn.textContent=soundOn?'🔊 Sound on':'🔇 Sound off';if(soundOn){ac();tone(660,0.08,'sine',0.05);}});
+
+  /* ---------------- count-up numbers ---------------- */
+  function countUp(el,to){var start=null,dur=950;function step(ts){if(start===null)start=ts;var p=Math.min(1,(ts-start)/dur);el.textContent=Math.round(to*(0.5-Math.cos(p*Math.PI)/2));if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+  var nums=document.querySelectorAll('.meta-chip .n, .statbig .n');
+  if('IntersectionObserver' in window){var no=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){var el=en.target,raw=(el.textContent||'').trim();if(/^\d+$/.test(raw)&&!el.dataset.done){el.dataset.done='1';if(!prefersReduced)countUp(el,parseInt(raw,10));}no.unobserve(el);}});},{threshold:0.6});[].forEach.call(nums,function(n){no.observe(n);});}
 })();
 </script>
 </body>
