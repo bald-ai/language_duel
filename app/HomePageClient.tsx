@@ -94,6 +94,13 @@ const ContextCluesIcon = () => (
   </svg>
 );
 
+const OnlineMockIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+    <circle cx="12" cy="12" r="9" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
+  </svg>
+);
+
 const ChallengeModal = dynamic(
   () => import("@/app/components/modals/ChallengeModal").then((mod) => mod.ChallengeModal),
   { loading: () => null }
@@ -412,6 +419,13 @@ export default function Home() {
                 <MenuButton onClick={() => setShowMockFeaturesMenu(true)} dataTestId="home-mock-features">
                   <MockFeaturesIcon />
                   Mock Features
+                </MenuButton>
+              </div>
+
+              <div className="animate-slide-up delay-700">
+                <MenuButton onClick={() => guardAuth(() => router.push("/mock-online"))} dataTestId="home-online-mock-features">
+                  <OnlineMockIcon />
+                  Online Mock Features
                 </MenuButton>
               </div>
             </>
