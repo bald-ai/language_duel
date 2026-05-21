@@ -280,7 +280,7 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
 .legend-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .legend-item{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600}
 .sw{width:26px;height:16px;border-radius:6px}
-@media print{.topbar,.back-top,.progress,.pg-tabs,.filterbar,.palette-bar{display:none} body{background:#fff}}
+@media print{.topbar,.back-top,.progress,.pg-tabs,.filterbar,.palette-bar{display:none} body{background:#fff} .reveal{opacity:1 !important; transform:none !important} .pg-stage{display:block !important} .detail-block .body{display:block !important}}
 
 /* ============================================================
    v2 ADDITIONS — pillars, playground, filters, palette, polish
@@ -407,6 +407,7 @@ tr.hide{display:none}
 .statbig .n{font-family:'Fredoka','Outfit'; font-weight:700; font-size:30px; line-height:1; color:var(--primary-dark)}
 .statbig .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-top:4px}
 </style>
+<noscript><style>.reveal{opacity:1 !important; transform:none !important} .pg-tabs,.pg-controls,.filterbar,.palette-bar{display:none} .pg-stage{display:block !important; margin-bottom:18px}</style></noscript>
 </head>
 <body>
 <div class="progress" id="progress"></div>
@@ -1066,6 +1067,30 @@ tr.hide{display:none}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Don't let the strong partner become a dumping ground. The toss cost + a cap on how many you can hold at once keeps it collaborative, not lopsided.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · economy, edge cases, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">The toss economy</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li>Each toss costs a shared token (or a few points) → triage, not dumping.</li>
+                <li><b>Catch bonus</b>: answering a rescue fast nudges the team streak — catching feels heroic.</li>
+                <li><b>Boomerang once</b>: P2 can lob it back; a second miss banks it for "learn together" after.</li>
+                <li>Incoming-tray cap stops one player drowning the other.</li>
+              </ul>
+              <p class="h-mini">Edge cases</p>
+              <p class="note" style="margin-top:0">Clock hits zero with words left = team loss, but reveal every answer so it's a study moment, not a wall.</p>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Deal the learner fewer / easier words and cheaper tosses; the expert's catch bonus pays them for <i>helping</i>, not for hoarding a giant stack.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE B · live</span> The one mode here that's natively two-device: reuses the duel answer engine + per-player queues + a shared timer on the doc. An <b>async</b> variant works too — tosses arrive as notifications.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 </section>
@@ -1489,6 +1514,29 @@ tr.hide{display:none}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Death-spirals: if both bars are low it can feel hopeless. Tune refill generously, and maybe make the first revive each game free.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · scoring, anti-spiral, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">Scoring</p>
+              <p class="note" style="margin-top:0">Survival time (arcade) or words cleared without a double-freeze (target). Track revives given — the "I saved you 4 times" brag is the point. No-death run = 🌟.</p>
+              <p class="h-mini">Anti death-spiral</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li>First revive each game is free.</li>
+                <li>Generous refill on correct answers.</li>
+                <li>Optional revive tax (rescuer loses a sliver) for stakes — off by default.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">The learner's bar drains slower and refills more; the expert's revive cards are harder. Or simply assign revive duty to the stronger player so rescuing is their job.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE B · live</span> Reuses the Speed Mode per-card timer. New: two independent lifelines + a freeze flag + the revive-card hand-off, all fields on the duel doc synced by the existing reactive query.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 </section>
@@ -1690,6 +1738,29 @@ tr.hide{display:none}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Timing windows can frustrate mixed skill levels. Make the window generous and the shield slow to regen at first.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · phases, scoring, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">Fight phases</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li><b>Enrage</b>: at low HP the boss flips which direction breaks the shield — you swap jobs mid-fight.</li>
+                <li><b>Adds</b>: spawn minions only the off-role can clear, so nobody idles.</li>
+                <li><b>Soft-fail</b>: out of time = boss heals a little and you retry. Study-friendly, no wipe screen.</li>
+              </ul>
+              <p class="h-mini">Scoring</p>
+              <p class="note" style="margin-top:0">Shields broken (P1) + damage dealt (P2) + clear time. The recap names both roles — see the win mockup.</p>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Assign each player the <i>direction</i> they're comfier with; scale the strike window to the slower player. It's co-op vs the boss, so a weaker round just means a longer fight, never a benched partner.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE B · live</span> Reuses your weekly-goal boss state + duel engine + the PvE hint pool. New: the shield/health two-layer model and the strike-window timer.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 
