@@ -112,7 +112,7 @@ function seedDb(duelOverrides: Partial<DuelDoc> = {}) {
 const handler = (sendSabotage as unknown as {
   _handler: (
     ctx: unknown,
-    args: { duelId: Id<"duels">; effect: "sticky" | "bounce" | "trampoline" | "reverse" }
+    args: { duelId: Id<"duels">; effect: "sticky" | "bounce" | "trampoline" | "reverse" | "math" }
   ) => Promise<void>;
 })._handler;
 
@@ -134,6 +134,19 @@ describe("sendSabotage", () => {
     expect(db.duels[0].challengerSabotagesUsed).toBe(2);
     expect(db.duels[0].challengerSabotage).toBeUndefined();
     expect(db.duels[0].opponentSabotagesUsed).toBeUndefined();
+  });
+
+  it("patches the math gate sabotage onto the opponent", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(7_000);
+    const db = seedDb();
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      effect: "math",
+    });
+
+    expect(db.duels[0].opponentSabotage).toEqual({ effect: "math", timestamp: 7_000 });
+    expect(db.duels[0].challengerSabotagesUsed).toBe(1);
   });
 
   it("patches the challenger side and defaults usage count when opponent sends sabotage", async () => {

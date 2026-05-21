@@ -5,4 +5,5 @@ export const SABOTAGE_OPTIONS: { effect: SabotageEffect; label: string; emoji: s
   { effect: "bounce", label: "Ping Pong", emoji: "🏓" },
   { effect: "trampoline", label: "Trampoline", emoji: "🤸" },
   { effect: "reverse", label: "Reverse", emoji: "🔄" },
+  { effect: "math", label: "Math", emoji: "🧮" },
 ];
