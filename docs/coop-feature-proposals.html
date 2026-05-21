@@ -280,10 +280,136 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
 .legend-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
 .legend-item{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600}
 .sw{width:26px;height:16px;border-radius:6px}
-@media print{.topbar,.back-top{display:none} body{background:#fff}}
+@media print{.topbar,.back-top,.progress,.pg-tabs,.filterbar,.palette-bar{display:none} body{background:#fff}}
+
+/* ============================================================
+   v2 ADDITIONS — pillars, playground, filters, palette, polish
+   ============================================================ */
+/* scroll progress */
+.progress{position:fixed; top:0; left:0; height:3px; width:0%; z-index:60;
+  background:linear-gradient(90deg,var(--primary),var(--cta)); box-shadow:0 0 10px color-mix(in srgb,var(--primary) 60%,transparent)}
+/* reveal on scroll */
+.reveal{opacity:0; transform:translateY(18px); transition:opacity .5s ease, transform .5s ease}
+.reveal.in{opacity:1; transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1; transform:none; transition:none}}
+
+/* pillars */
+.pillars{display:grid; grid-template-columns:repeat(5,1fr); gap:12px}
+@media(max-width:980px){.pillars{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.pillars{grid-template-columns:1fr}}
+.pillar{border-radius:18px; padding:16px; border:1px solid color-mix(in srgb,var(--primary) 18%, transparent);
+  background:color-mix(in srgb,var(--elevated) 70%, transparent); box-shadow:var(--shadow-soft)}
+.pillar .pic{font-size:26px}
+.pillar h4{margin:8px 0 4px; font-family:'Fredoka','Outfit'; font-weight:600; font-size:17px}
+.pillar p{margin:0; font-size:13px; color:var(--ink-soft)}
+.pillar .no{font-size:11px; font-weight:800; color:var(--danger-dark); margin-top:8px}
+
+/* tag clickable in matrix filter */
+.badge-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0}
+.mode-badge{font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; padding:4px 9px; border-radius:999px}
+.mode-badge.mode{background:color-mix(in srgb,var(--primary) 16%,white 84%); color:var(--primary-dark)}
+.mode-badge.mod{background:color-mix(in srgb,var(--cta) 16%,white 84%); color:var(--cta-dark)}
+
+/* ---------- PLAYGROUND ---------- */
+.pg-intro{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px}
+.pg-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
+.pg-tab{cursor:pointer; border:1px solid color-mix(in srgb,var(--primary) 26%, transparent); background:color-mix(in srgb,var(--elevated) 66%, transparent);
+  color:var(--ink-soft); font-weight:800; font-size:13px; padding:9px 14px; border-radius:999px; transition:all .15s; display:flex; gap:7px; align-items:center}
+.pg-tab:hover{color:var(--text)}
+.pg-tab.active{color:#fff; border-color:transparent; background:linear-gradient(160deg,var(--primary),var(--primary-dark)); box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 32%,transparent)}
+.pg-tab .em{font-size:15px}
+.pg-stage{display:none}
+.pg-stage.active{display:block; animation:fade-in .25s ease}
+.pg-layout{display:grid; grid-template-columns:300px 1fr; gap:20px; align-items:start}
+@media(max-width:820px){.pg-layout{grid-template-columns:1fr}}
+.pg-side h4{font-family:'Fredoka','Outfit'; font-weight:600; font-size:20px; margin:0 0 6px}
+.pg-side p{font-size:14px; color:var(--ink-soft); margin:.4em 0}
+.pg-controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+.pg-btn{cursor:pointer; border:2px solid var(--cta-light); background:linear-gradient(180deg,var(--cta),var(--cta-dark)); color:#fff;
+  font-weight:800; font-size:12px; letter-spacing:.04em; padding:9px 14px; border-radius:12px; box-shadow:0 8px 16px color-mix(in srgb,var(--cta) 30%,transparent)}
+.pg-btn.ghost{background:color-mix(in srgb,var(--elevated) 70%,transparent); color:var(--text); border-color:color-mix(in srgb,var(--primary) 28%,transparent); box-shadow:none}
+.pg-btn:active{transform:translateY(1px)}
+.pg-phone-wrap{display:flex; justify-content:center}
+.pg-phone .screen{min-height:440px}
+.pg-live{cursor:pointer; user-select:none}
+.pg-live.dead{cursor:default}
+.s-face.clk{cursor:pointer; transition:transform .12s}
+.s-face.clk:hover{transform:translateY(-2px)}
+.s-tok.clk{cursor:pointer}
+.s-opt.clk{cursor:pointer}
+.s-opt.clk:hover{filter:brightness(.98)}
+.pg-roles{display:flex; gap:8px; justify-content:center; margin-bottom:6px}
+.pg-stat{font-size:12px; font-weight:800; color:var(--muted)}
+.handover{position:relative; border-radius:16px; padding:22px 14px; text-align:center; border:2px dashed color-mix(in srgb,var(--secondary) 50%,transparent); background:color-mix(in srgb,var(--secondary) 12%,white 88%)}
+.handover .big{font-size:30px}
+.flash-good{animation:flashg .5s ease}
+@keyframes flashg{0%{background:color-mix(in srgb,var(--cta) 30%,white 70%)}100%{}}
+.shake{animation:shk .35s}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+/* ---------- FILTER BAR (matrix) ---------- */
+.filterbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.filterbar .lbl{font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin-right:2px}
+.fbtn{cursor:pointer; font-size:12px; font-weight:800; padding:6px 11px; border-radius:999px; border:1px solid color-mix(in srgb,var(--primary) 24%,transparent);
+  background:color-mix(in srgb,var(--elevated) 64%,transparent); color:var(--ink-soft)}
+.fbtn.active{background:linear-gradient(160deg,var(--primary),var(--primary-dark)); color:#fff; border-color:transparent}
+tr.hide{display:none}
+
+/* ---------- PALETTE SWITCHER ---------- */
+.palette-bar{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.swatch{cursor:pointer; display:flex; gap:8px; align-items:center; padding:7px 11px; border-radius:12px;
+  border:1px solid color-mix(in srgb,var(--text) 12%,transparent); background:color-mix(in srgb,var(--elevated) 64%,transparent); font-size:12px; font-weight:700}
+.swatch.active{border-color:var(--primary); box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 30%,transparent)}
+.swatch .dots{display:flex}
+.swatch .dots i{width:14px;height:14px;border-radius:50%; margin-left:-4px; border:2px solid color-mix(in srgb,var(--elevated) 90%,white)}
+.swatch .dots i:first-child{margin-left:0}
+
+/* ---------- EVENING TIMELINE ---------- */
+.timeline{position:relative; padding-left:26px}
+.timeline::before{content:""; position:absolute; left:8px; top:4px; bottom:4px; width:3px; border-radius:3px; background:linear-gradient(var(--primary),var(--cta))}
+.tl{position:relative; padding:6px 0 16px}
+.tl::before{content:""; position:absolute; left:-22px; top:9px; width:13px;height:13px; border-radius:50%; background:var(--primary); box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 20%,transparent)}
+.tl:nth-child(even)::before{background:var(--cta); box-shadow:0 0 0 4px color-mix(in srgb,var(--cta) 20%,transparent)}
+.tl .t{font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.tl h4{margin:2px 0 3px; font-family:'Fredoka','Outfit'; font-weight:600; font-size:17px}
+.tl p{margin:0; font-size:14px; color:var(--ink-soft)}
+
+/* ---------- DO / DON'T ---------- */
+.dd{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media(max-width:680px){.dd{grid-template-columns:1fr}}
+.dd .col{border-radius:16px; padding:14px 16px; border:1px solid}
+.dd .do{background:color-mix(in srgb,var(--cta) 8%,white 92%); border-color:color-mix(in srgb,var(--cta) 26%,transparent)}
+.dd .dont{background:color-mix(in srgb,var(--danger) 7%,white 93%); border-color:color-mix(in srgb,var(--danger) 22%,transparent)}
+.dd h5{margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.1em}
+.dd .do h5{color:var(--cta-dark)} .dd .dont h5{color:var(--danger-dark)}
+.dd ul{margin:0; padding-left:18px} .dd li{font-size:13.5px; margin:5px 0; color:var(--ink-soft)}
+.quote{font-size:14px; font-style:italic; color:var(--text); background:color-mix(in srgb,var(--primary) 8%,white 92%); border-left:3px solid var(--primary); padding:8px 12px; border-radius:0 10px 10px 0; margin:6px 0}
+
+/* ---------- ARCH / REUSE MAP ---------- */
+.archgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+@media(max-width:820px){.archgrid{grid-template-columns:1fr}}
+.archbox{border-radius:14px; padding:13px; border:1px solid color-mix(in srgb,var(--secondary) 30%,transparent); background:color-mix(in srgb,var(--secondary) 8%,white 92%)}
+.archbox .f{font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--secondary-dark); font-weight:700}
+.archbox p{font-size:13px; margin:5px 0 0; color:var(--ink-soft)}
+.flowarch{display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; font-weight:700}
+.flowarch .node{padding:6px 10px; border-radius:10px; background:color-mix(in srgb,var(--primary) 12%,white 88%); border:1px solid color-mix(in srgb,var(--primary) 26%,transparent)}
+.flowarch .ar{color:var(--muted)}
+.detail-block{border-radius:16px; border:1px solid color-mix(in srgb,var(--primary) 16%,transparent); background:color-mix(in srgb,var(--elevated) 55%,transparent); padding:14px 16px; margin-top:14px}
+.detail-block summary{cursor:pointer; font-weight:800; font-size:14px; color:var(--primary-dark); list-style:none}
+.detail-block summary::-webkit-details-marker{display:none}
+.detail-block summary::before{content:"▸ "; color:var(--primary)}
+.detail-block[open] summary::before{content:"▾ "}
+.detail-block .body{margin-top:10px}
+.grid-4{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
+@media(max-width:820px){.grid-4{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.grid-4{grid-template-columns:1fr}}
+.statbig{border-radius:16px; padding:14px; text-align:center; border:1px solid color-mix(in srgb,var(--primary) 18%,transparent); background:color-mix(in srgb,var(--elevated) 64%,transparent)}
+.statbig .n{font-family:'Fredoka','Outfit'; font-weight:700; font-size:30px; line-height:1; color:var(--primary-dark)}
+.statbig .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-top:4px}
 </style>
 </head>
 <body>
+<div class="progress" id="progress"></div>
 
 <!-- ===================== TOP BAR ===================== -->
 <div class="topbar">
@@ -291,13 +417,15 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
     <div class="brand"><span class="dot"></span><b>Co-op Mode</b><span class="note" style="font-weight:600">· Language Duel</span></div>
     <nav class="toc" id="toc">
       <a href="#north-star">North Star</a>
-      <a href="#legend">How to read</a>
-      <a href="#seeds">Your 3 seeds</a>
-      <a href="#interdep">Two-halves</a>
-      <a href="#momentum">Shared fate</a>
-      <a href="#bank">Idea bank</a>
-      <a href="#matrix">Compare all</a>
-      <a href="#build">Build order</a>
+      <a href="#pillars">Pillars</a>
+      <a href="#playground">▶ Play</a>
+      <a href="#seeds">Ideas</a>
+      <a href="#mixed">Mixed-skill</a>
+      <a href="#matrix">Compare</a>
+      <a href="#naming">Naming</a>
+      <a href="#evening">An evening</a>
+      <a href="#build">Roadmap</a>
+      <a href="#tech">Tech</a>
     </nav>
   </div>
 </div>
@@ -309,13 +437,15 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
     <span class="outline g-rose" data-text="Two Minds.">Two Minds.</span><br>
     <span class="outline g-green" data-text="One Win.">One Win.</span>
   </h1>
-  <p class="lead">A pile of co-op feature ideas where you literally <b>can't win without each other</b> — built on the <i>It Takes Two</i> north star and tuned for two people learning Spanish side by side. Go nuts, then keep whatever sparks joy. <b>Even one is a win.</b></p>
+  <p class="lead">A working design exploration of co-op features where you literally <b>can't win without each other</b> — built on the <i>It Takes Two</i> north star and tuned for two people learning Spanish side by side. Three of these are <b>playable right here in the page</b>. Go nuts, then keep whatever sparks joy. <b>Even one is a win.</b></p>
   <div class="meta-chips">
     <div class="meta-chip"><span class="n">18</span><span class="l">ideas</span></div>
-    <div class="meta-chip"><span class="n">3</span><span class="l">from your braindump</span></div>
-    <div class="meta-chip"><span class="n">∞</span><span class="l">co-op interdependence</span></div>
-    <div class="meta-chip"><span class="n title-font" style="color:var(--cta-dark)">PvE</span><span class="l">extends today's co-op</span></div>
+    <div class="meta-chip"><span class="n title-font" style="color:var(--cta-dark)">3</span><span class="l">playable demos</span></div>
+    <div class="meta-chip"><span class="n">5</span><span class="l">design pillars</span></div>
+    <div class="meta-chip"><span class="n">1</span><span class="l">mixed-skill system</span></div>
+    <div class="meta-chip"><span class="n title-font" style="color:var(--primary-dark)">∞</span><span class="l">interdependence</span></div>
   </div>
+  <p class="note" style="margin-top:18px; max-width:560px; margin-left:auto; margin-right:auto">Living document · v2 · grounded in your actual Convex + Next.js code. Use the nav to jump around; the <b>▶ Play</b> section is the fun part.</p>
 </header>
 
 <main class="wrap">
@@ -358,6 +488,52 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
   </div>
 </section>
 
+<!-- ===================== PILLARS ===================== -->
+<section class="block reveal" id="pillars">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Five rules I held every idea to</span>
+      <h2>Design pillars</h2>
+      <p>The north star is one big idea; these are the five working principles I used to keep the good and cut the filler. If an idea broke a pillar, it got reworked or dropped. They're opinionated on purpose — argue with them.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pic">🧩</div>
+        <h4>1 · Two halves, one answer</h4>
+        <p>Split the <i>solution</i>, not just the workload. The answer should live <b>between</b> you — impossible to produce from one screen alone.</p>
+        <div class="no">✗ Fails if one person can solo both roles.</div>
+      </div>
+      <div class="pillar">
+        <div class="pic">🗣️</div>
+        <h4>2 · Make their mouths move</h4>
+        <p>The phone is a prop; the <b>conversation</b> is the gameplay. Every mechanic should give you a reason to talk across the couch.</p>
+        <div class="no">✗ Fails if you can play in total silence.</div>
+      </div>
+      <div class="pillar">
+        <div class="pic">❤️</div>
+        <h4>3 · One heartbeat</h4>
+        <p>Shared score, shared streak, shared boss. You rise and fall as a unit. The brag is always "<b>we</b> did it," never "I won."</p>
+        <div class="no">✗ Fails if it's just two solo scores side by side.</div>
+      </div>
+      <div class="pillar">
+        <div class="pic">⚖️</div>
+        <h4>4 · Carry, don't crush</h4>
+        <p>A real couple has a skill gap. The stronger player should be able to <b>help</b> — never to carry-and-bench the other into a passenger.</p>
+        <div class="no">✗ Fails if the weaker player can zone out.</div>
+      </div>
+      <div class="pillar">
+        <div class="pic">🍮</div>
+        <h4>5 · Warm, not ruthless</h4>
+        <p>Your voice is cheeky-loving, not toxic. Co-op should feel like a hug with stakes — tense, silly, and kind even when you lose.</p>
+        <div class="no">✗ Fails if losing makes someone actually grumpy.</div>
+      </div>
+    </div>
+    <div class="callout why" style="margin-top:16px"><span class="ic">📐</span><div><b>How to use these</b>When you're deciding what to build, score a candidate against all five. The flagships (#02 Relay, #04 Decoder, #06 Call &amp; Response) hit 5/5. The cozy ones (#10 Bridge) trade pillar 3's intensity for calm — which is a deliberate choice, not an accident.</div></div>
+  </div>
+</section>
+
 <!-- ===================== LEGEND ===================== -->
 <section class="block" id="legend">
   <div class="section-head">
@@ -382,6 +558,97 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
       <div class="legend-item"><span class="tag loc">CO-LOCATED</span> best in the same room</div>
     </div>
     <p class="note" style="margin-top:14px">Flow strips scroll sideways → on phones. The cheeky copy in the mockups is placeholder voice, matching your <i>"find out which one of you sucks more"</i> tone — swap freely.</p>
+    <div class="divider"></div>
+    <div class="palette-bar">
+      <span class="eyebrow" style="align-self:center">Recolor this whole doc →</span>
+      <button class="swatch active" data-pal="playful-duo"><span class="dots"><i style="background:#FFF8F1"></i><i style="background:#FB7185"></i><i style="background:#22C55E"></i></span>Playful Duo</button>
+      <button class="swatch" data-pal="toybox-adventure"><span class="dots"><i style="background:#FDF4FF"></i><i style="background:#A855F7"></i><i style="background:#FACC15"></i></span>Toybox Adventure</button>
+      <button class="swatch" data-pal="warm-mischief"><span class="dots"><i style="background:#FFF7ED"></i><i style="background:#F97316"></i><i style="background:#0EA5E9"></i></span>Warm Mischief</button>
+      <button class="swatch" data-pal="friendly-rivalry"><span class="dots"><i style="background:#F0F9FF"></i><i style="background:#2563EB"></i><i style="background:#FB7185"></i></span>Friendly Rivalry</button>
+      <button class="swatch" data-pal="candy-coop"><span class="dots"><i style="background:#FFF1F2"></i><i style="background:#EC4899"></i><i style="background:#22D3EE"></i></span>Candy Co-op</button>
+    </div>
+    <p class="note" style="margin-top:8px">These are your 5 real palettes from <span class="kbd">lib/theme.ts</span>. Fun fact: one's already literally named <b>Candy Co-op</b>. (Approximated here; the app derives exact shades via <span class="kbd">colorUtils</span>.)</p>
+  </div>
+</section>
+
+<!-- ===================== PLAYGROUND ===================== -->
+<section class="block reveal" id="playground">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">Stop reading, start tapping</span>
+      <h2>▶ Interactive playground</h2>
+      <p>Three of the ideas, actually playable right here — single-device "hot-seat" versions where you pass the phone (or both reach in). This is the fastest way to feel whether a mechanic is fun before a line of real code gets written. <b>Grab your partner.</b></p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="pg-intro">
+      <span class="tag loc">CO-LOCATED ✨</span>
+      <span class="note">Hot-seat = one screen, two humans. (Per the tech section, co-located modes need <b>zero</b> Convex sync — pure client state — so they're the cheapest to ship.)</span>
+    </div>
+
+    <div class="pg-tabs" id="pgTabs">
+      <button class="pg-tab active" data-pg="memory"><span class="em">🧠</span> Two-Minds Memory</button>
+      <button class="pg-tab" data-pg="relay"><span class="em">🧩</span> Sentence Relay</button>
+      <button class="pg-tab" data-pg="decoder"><span class="em">🕵️</span> Decoder Duo</button>
+    </div>
+
+    <!-- MEMORY DEMO -->
+    <div class="pg-stage active" data-stage="memory">
+      <div class="pg-layout">
+        <div class="pg-side">
+          <h4>🧠 Two-Minds Memory</h4>
+          <p><span class="who p1"><span class="av p1">EN</span>P1</span> taps only English cards; <span class="who p2"><span class="av p2">ES</span>P2</span> taps only Spanish. A round = one of each. Find all 4 pairs.</p>
+          <p class="note">The active board glows; the other is locked. You'll have to say where things are out loud — that's the point.</p>
+          <div class="pg-controls">
+            <button class="pg-btn" id="memNew">New game</button>
+          </div>
+          <p class="pg-stat" id="memStat"></p>
+        </div>
+        <div class="pg-phone-wrap">
+          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="memScreen">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RELAY DEMO -->
+    <div class="pg-stage" data-stage="relay">
+      <div class="pg-layout">
+        <div class="pg-side">
+          <h4>🧩 Sentence Relay</h4>
+          <p>The tokens are split between two hands and you <b>alternate</b> turns. Tap one of <i>your</i> tokens to drop it in the next slot. Build the sentence in order, then it auto-checks.</p>
+          <p class="note">Tip: each correct slot needs the other person's hand next — so you must hand off every single word.</p>
+          <div class="pg-controls">
+            <button class="pg-btn ghost" id="relayUndo">Undo</button>
+            <button class="pg-btn ghost" id="relayClear">Clear</button>
+            <button class="pg-btn" id="relayNew">New sentence</button>
+          </div>
+          <p class="pg-stat" id="relayStat"></p>
+        </div>
+        <div class="pg-phone-wrap">
+          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="relayScreen">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DECODER DEMO -->
+    <div class="pg-stage" data-stage="decoder">
+      <div class="pg-layout">
+        <div class="pg-side">
+          <h4>🕵️ Decoder Duo</h4>
+          <p>The clue-giver sees the Spanish word + a hint but <b>no buttons</b>. They describe it; then hand the phone over. The picker sees four English options but <b>not the word</b>. Roles swap each round.</p>
+          <p class="note">Real pass-and-play. Try the "Spanish-only clues" house rule for pain &amp; glory.</p>
+          <div class="pg-controls">
+            <button class="pg-btn" id="decoderNew">Restart</button>
+          </div>
+          <p class="pg-stat" id="decoderStat"></p>
+        </div>
+        <div class="pg-phone-wrap">
+          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="decoderScreen">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout why" style="margin-top:16px"><span class="ic">🧪</span><div><b>What you're feeling for</b>Do you talk more? Do you laugh? Does the weaker-Spanish partner still feel useful? If yes on a demo, that idea earns a real build. If a demo feels like solo-with-extra-steps, that's the pillar-1 alarm — tell me and I'll rework it.</div></div>
   </div>
 </section>
 
@@ -510,6 +777,29 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>6 pairs can get easy on repeat. Scale to 8–10 pairs, or shuffle in a 3rd "distractor" language-less card to add doubt.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · scoring, edge cases, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">Scoring &amp; economy</p>
+              <p class="note" style="margin-top:0">No PvP score — the only number is <b>rounds to clear</b> (lower = better) and your shared best. Optional: consecutive matches feed a streak glow (modifier #08); a perfect "no mismatch" board earns a 🌟.</p>
+              <p class="h-mini">Edge cases</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li>During the 0.9s mismatch reveal, both boards lock (no double-flip).</li>
+                <li>Tapping the partner's board does nothing — enforced, not just dimmed.</li>
+                <li>Odd theme sizes: pad to an even pair count or drop the orphan.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Give the beginner the language they're <i>learning toward</i> (Spanish) for max exposure, or run <b>Blind mode as the expert's handicap</b> — the stronger player can't see their own board and must rely on the partner's narration.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE A · hot-seat</span> Already prototyped in <span class="kbd">MemoryGame.tsx</span> + playable above. Two-device later = put the deck + flips + <span class="kbd">activePlayer</span> on the duel doc.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 
@@ -622,6 +912,29 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>If both hands can place the same needed word, the dependency softens. Deal so that <i>order-critical</i> words (subject, verb) sit in opposite hands.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · scoring, edge cases, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">Scoring &amp; economy</p>
+              <p class="note" style="margin-top:0">Track <b>hand-offs</b> and <b>rebuilds</b>; a zero-undo sentence is a 🌟. Chain a shared streak across sentences for a session score — gives the cozy mode some spine.</p>
+              <p class="h-mini">Edge cases · deadlocks</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li>Deal owners <b>alternating along the correct order</b> → strict alternation is always solvable (that's exactly what the playable demo does — try to break it).</li>
+                <li>Wrong order = shake + Undo, never a hard fail.</li>
+                <li>No-undo hard mode: lock placed tokens for chaos.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Beginner holds the <b>function words</b> (por, la, en) and the shorter hand; expert holds verbs/subjects. Or run <b>Telephone</b>: beginner sees the English meaning &amp; directs, expert holds tokens but is "blind" to the goal.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE A · hot-seat</span> Reuses <span class="kbd">RebuildSentenceBeta</span> token→tray. Two-device adds <span class="kbd">trayTokenIds</span> + per-player hands + <span class="kbd">activePlayer</span> on the doc.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 
@@ -828,6 +1141,29 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Needs two devices (or a pass-and-peek single-device mode). Define the "what's a legal clue" rule up front or it dissolves into just saying the answer.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · the "legal clue" rule, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">House-rule difficulty dial</p>
+              <ul style="font-size:13px; color:var(--ink-soft); margin:0; padding-left:18px">
+                <li><b>Casual:</b> describe freely in English, just don't say the answer word.</li>
+                <li><b>Spicy:</b> no English root of the answer, no rhymes.</li>
+                <li><b>Fluent:</b> 🔥 Spanish-only clues. This is the real workout.</li>
+              </ul>
+              <p class="h-mini">Scoring</p>
+              <p class="note" style="margin-top:0">Team correct / total; roles swap every card so describing &amp; recall both get reps. Optional shared timer per word to stop over-describing.</p>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Put the stronger speaker on <b>describe</b> (productive, hard) and the learner on <b>pick</b> (recognition, easier) — then flip when they're ready. The handicap is literally which role you take.</p>
+              <p class="h-mini">Build lane &amp; the killer reuse</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE A · hot-seat</span> trivial (playable above). For two-device, <span class="kbd">canRevealQuestionAnswer</span> in <span class="kbd">getDuel</span> <b>already</b> hides answers per viewer — render the prompt to the clue-giver and the options to the picker; the hidden-info plumbing exists.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 
@@ -1602,6 +1938,64 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
   </div>
 </section>
 
+<!-- ===================== MIXED SKILL ===================== -->
+<section class="block reveal" id="mixed">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Pillar 4, made concrete</span>
+      <h2>The mixed-skill problem</h2>
+      <p>This is the one that quietly kills couple co-op. You two won't have identical Spanish. If the stronger player can carry, the other becomes a passenger; if the weaker player is a pure bottleneck, they feel bad. <b>Both ruin the night.</b> Here's the toolbox for tuning every mode so the gap becomes texture, not friction.</p>
+    </div>
+  </div>
+
+  <div class="app-card">
+    <div class="grid-2" style="margin-bottom:6px">
+      <div class="callout risk"><span class="ic">🪨</span><div><b>Failure A · The carry</b>Strong player does everything; weak player taps "next" and disengages. Looks cooperative, feels like babysitting.</div></div>
+      <div class="callout risk"><span class="ic">🧱</span><div><b>Failure B · The bottleneck</b>Every stall is the weak player's fault, in the open, on a shared clock. Shame is not a study aid.</div></div>
+    </div>
+
+    <div class="h-mini">Six levers to balance any mode</div>
+    <div class="grid-3">
+      <div class="panel p1"><span class="eyebrow">Lever 1</span><h4>Asymmetric difficulty</h4><p>Same round, different hardness <i>per player</i>. Beginner gets 3 options; expert gets 4 + "none of the above" or must type. Your engine already varies difficulty by question index — make it per-player.</p><p class="note">Reuses <span class="kbd">lib/difficultyUtils</span> + <span class="kbd">answerShuffle</span> wrongCount.</p></div>
+      <div class="panel p2"><span class="eyebrow cta">Lever 2</span><h4>Direction split</h4><p>Beginner answers <b>ES→EN</b> (recognition, easier). Expert answers <b>EN→ES</b> (production, harder). Decoder &amp; Co-op Boss already lean on direction — bake it into the handicap.</p></div>
+      <div class="panel muted"><span class="eyebrow muted">Lever 3</span><h4>Handicap clocks</h4><p>The trailing learner simply gets more seconds per card. On shared-clock modes, weight their correct answers a touch higher so effort, not raw speed, wins.</p></div>
+      <div class="panel p2"><span class="eyebrow cta">Lever 4</span><h4>Role by strength</h4><p>Hand the demanding role to whoever's stronger: the <i>describer</i> in Decoder, the <i>shield-breaker</i> in Boss, the bigger hand in Relay. The weaker player still does the decisive act.</p></div>
+      <div class="panel p1"><span class="eyebrow">Lever 5</span><h4>Rubber-banding</h4><p>When the gap widens mid-game, quietly feed the trailing player easier or higher-value cards to pull them back into contention. Catch-up, not charity.</p></div>
+      <div class="panel muted"><span class="eyebrow muted">Lever 6</span><h4>The mentor loop</h4><p>Best of all: design so the strong player's <i>optimal</i> move is to teach — gift a hint (#14), take the describe role, set up the easy pass — never to hoard the turns.</p></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="cols">
+      <div>
+        <div class="h-mini cta">What "balanced" looks like</div>
+        <div class="schem">
+          <p class="tiny-label" style="margin:0 0 6px">Unbalanced — expert (P1) does 80% of the lifting</p>
+          <div class="lane"><span class="tagn"><span class="who p1"><span class="av p1">EN</span></span></span><div class="bar"><span class="fill p1" style="width:82%"></span></div></div>
+          <div class="lane"><span class="tagn"><span class="who p2"><span class="av p2">ES</span></span></span><div class="bar"><span class="fill p2" style="width:18%"></span></div></div>
+          <p class="tiny-label" style="margin:14px 0 6px">Balanced — handicaps even out the <i>contribution</i>, not the skill</p>
+          <div class="lane"><span class="tagn"><span class="who p1"><span class="av p1">EN</span></span></span><div class="bar"><span class="fill p1" style="width:52%"></span></div></div>
+          <div class="lane"><span class="tagn"><span class="who p2"><span class="av p2">ES</span></span></span><div class="bar"><span class="fill p2" style="width:48%"></span></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="h-mini">Quick-tune cheat sheet</div>
+        <div class="tablewrap" style="box-shadow:none">
+          <table class="matrix" style="min-width:0">
+            <thead><tr><th>If the gap is…</th><th>Turn these knobs</th></tr></thead>
+            <tbody>
+              <tr><td><b>Tiny</b></td><td>Nothing. Let it ride; the rivalry is fun.</td></tr>
+              <tr><td><b>Noticeable</b></td><td>Direction split + a small clock handicap.</td></tr>
+              <tr><td><b>Big</b></td><td>Asymmetric difficulty + role-by-strength + mentor loop.</td></tr>
+              <tr><td><b>Huge</b></td><td>Put the expert fully in "teacher mode" (Decoder describer, hint-gifter) so winning = good coaching.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout why" style="margin-top:12px"><span class="ic">🤙</span><div><b>The cheapest balancer is social</b>Before any of this code: just let the stronger partner play in their <i>weaker</i> direction (EN→ES, or typing instead of tapping). A house rule beats a feature every time — ship the modes, add knobs only where you actually feel the gap.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== MATRIX ===================== -->
 <section class="block" id="matrix">
   <div class="section-head">
@@ -1611,34 +2005,124 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
       <p>Skim for what fits your appetite: how the idea chains you together, whether it needs the same room, what code it leans on, rough build effort, and a totally-biased "will it make you two laugh" rating.</p>
     </div>
   </div>
+  <div class="filterbar" id="matrixFilter">
+    <span class="lbl">Filter</span>
+    <button class="fbtn active" data-filter="all">All 18</button>
+    <button class="fbtn" data-filter="mode">Standalone modes</button>
+    <button class="fbtn" data-filter="modifier">Modifiers</button>
+    <button class="fbtn" data-filter="colocated">Same-room best</button>
+    <button class="fbtn" data-filter="reuse">Reuse-heavy</button>
+    <button class="fbtn" data-filter="small">Small effort</button>
+    <button class="fbtn" data-filter="top">★★★★★ fun only</button>
+  </div>
   <div class="tablewrap">
-    <table class="matrix">
+    <table class="matrix" style="min-width:900px">
       <thead>
-        <tr><th>#</th><th>Idea</th><th>Dependency type</th><th>Same room?</th><th>Leans on</th><th>Effort</th><th>Couple-fun</th></tr>
+        <tr><th>#</th><th>Idea</th><th>Type</th><th>Dependency type</th><th>Same room?</th><th>Leans on</th><th>Effort</th><th>Couple-fun</th></tr>
       </thead>
       <tbody>
-        <tr><td>01</td><td><a href="#i-memory"><b>Two-Minds Memory</b></a></td><td>Complementary halves</td><td>✨ best</td><td>MemoryGame.tsx</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>02</td><td><a href="#i-relay"><b>Sentence Relay</b></a></td><td>Split word bank + turns</td><td>✨ best</td><td>RebuildSentenceBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
-        <tr><td>03</td><td><a href="#i-toss"><b>Word Toss</b></a></td><td>Divided load + rescue</td><td>Either</td><td>Duel engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>04</td><td><a href="#i-decoder"><b>Decoder Duo</b></a></td><td>Split info (guide↔follower)</td><td>✨✨ ideal</td><td>Options + TTS</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
-        <tr><td>05</td><td><a href="#i-forge"><b>Split-Letter Forge</b></a></td><td>Split letter pool</td><td>✨ best</td><td>Anagram hint logic</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>06</td><td><a href="#i-call"><b>Call &amp; Response</b></a></td><td>Audio ↔ text</td><td>✨ best</td><td>useTTS + audio</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
-        <tr><td>07</td><td><a href="#i-lifeline"><b>Lifeline</b></a></td><td>Revive / shared game-over</td><td>Either</td><td>Speed engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>08</td><td><a href="#i-streak"><b>One Streak, Two Hands</b></a></td><td>Shared streak, mutual risk</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>09</td><td><a href="#i-boss"><b>Co-op Boss: Shield &amp; Sword</b></a></td><td>Sequential asymmetric roles</td><td>Either</td><td>Boss + duel</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>10</td><td><a href="#i-bridge"><b>Bridge Builder</b></a></td><td>Alternating path</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
-        <tr><td>11</td><td><a href="#i-mirror"><b>Mirror Match</b></a></td><td>Must converge</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>12</td><td><a href="#i-password"><b>Password (Taboo)</b></a></td><td>Describe ↔ guess</td><td>✨ best</td><td>New taboo lists</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
-        <tr><td>13</td><td><a href="#i-dictation"><b>Duet Dictation</b></a></td><td>Voice ↔ keyboard</td><td>✨ best</td><td>Typing levels + TTS</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
-        <tr><td>14</td><td><a href="#i-hints"><b>Hint Token Economy</b></a></td><td>Give / receive resource</td><td>Either</td><td>PvE hint pool</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
-        <tr><td>15</td><td><a href="#i-flame"><b>Carry the Flame</b></a></td><td>Prep ↔ execute (timed)</td><td>Either</td><td>Answer + timer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
-        <tr><td>16</td><td><a href="#i-heist"><b>Heist: Role Vault</b></a></td><td>Complementary specialties</td><td>✨ pass-phone</td><td>Word types + answer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>17</td><td><a href="#i-speedsplit"><b>Co-op Speed Split</b></a></td><td>Shared clock + steal-to-help</td><td>Either</td><td>SpeedModeBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
-        <tr><td>18</td><td><a href="#i-shield"><b>Trust Shield</b></a></td><td>Rescue from sabotage</td><td>Either</td><td>SabotageRenderer</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="1" data-effort="lo" data-fun="4"><td>01</td><td><a href="#i-memory"><b>Two-Minds Memory</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Complementary halves</td><td>✨ best</td><td>MemoryGame.tsx</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="1" data-effort="md" data-fun="5"><td>02</td><td><a href="#i-relay"><b>Sentence Relay</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Split word bank + turns</td><td>✨ best</td><td>RebuildSentenceBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="0" data-effort="md" data-fun="4"><td>03</td><td><a href="#i-toss"><b>Word Toss</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Divided load + rescue</td><td>Either</td><td>Duel engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="1" data-effort="md" data-fun="5"><td>04</td><td><a href="#i-decoder"><b>Decoder Duo</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Split info (guide↔follower)</td><td>✨✨ ideal</td><td>Options + TTS</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="0" data-effort="md" data-fun="4"><td>05</td><td><a href="#i-forge"><b>Split-Letter Forge</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Split letter pool</td><td>✨ best</td><td>Anagram hint logic</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="1" data-effort="md" data-fun="5"><td>06</td><td><a href="#i-call"><b>Call &amp; Response</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Audio ↔ text</td><td>✨ best</td><td>useTTS + audio</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="0" data-effort="md" data-fun="4"><td>07</td><td><a href="#i-lifeline"><b>Lifeline</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Revive / shared game-over</td><td>Either</td><td>Speed engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mod" data-loc="0" data-reuse="1" data-effort="lo" data-fun="4"><td>08</td><td><a href="#i-streak"><b>One Streak, Two Hands</b></a></td><td><span class="mode-badge mod">Modifier</span></td><td>Shared streak, mutual risk</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="0" data-effort="md" data-fun="4"><td>09</td><td><a href="#i-boss"><b>Co-op Boss: Shield &amp; Sword</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Sequential asymmetric roles</td><td>Either</td><td>Boss + duel</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="0" data-effort="md" data-fun="3"><td>10</td><td><a href="#i-bridge"><b>Bridge Builder</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Alternating path</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="1" data-effort="lo" data-fun="4"><td>11</td><td><a href="#i-mirror"><b>Mirror Match</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Must converge</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="0" data-effort="md" data-fun="5"><td>12</td><td><a href="#i-password"><b>Password (Taboo)</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Describe ↔ guess</td><td>✨ best</td><td>New taboo lists</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="1" data-effort="lo" data-fun="3"><td>13</td><td><a href="#i-dictation"><b>Duet Dictation</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Voice ↔ keyboard</td><td>✨ best</td><td>Typing levels + TTS</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr data-cat="mod" data-loc="0" data-reuse="1" data-effort="lo" data-fun="3"><td>14</td><td><a href="#i-hints"><b>Hint Token Economy</b></a></td><td><span class="mode-badge mod">Modifier</span></td><td>Give / receive resource</td><td>Either</td><td>PvE hint pool</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="0" data-effort="md" data-fun="3"><td>15</td><td><a href="#i-flame"><b>Carry the Flame</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Prep ↔ execute (timed)</td><td>Either</td><td>Answer + timer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="1" data-reuse="0" data-effort="md" data-fun="4"><td>16</td><td><a href="#i-heist"><b>Heist: Role Vault</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Complementary specialties</td><td>✨ pass-phone</td><td>Word types + answer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mode" data-loc="0" data-reuse="1" data-effort="md" data-fun="4"><td>17</td><td><a href="#i-speedsplit"><b>Co-op Speed Split</b></a></td><td><span class="mode-badge mode">Mode</span></td><td>Shared clock + steal-to-help</td><td>Either</td><td>SpeedModeBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr data-cat="mod" data-loc="0" data-reuse="1" data-effort="lo" data-fun="4"><td>18</td><td><a href="#i-shield"><b>Trust Shield</b></a></td><td><span class="mode-badge mod">Modifier</span></td><td>Rescue from sabotage</td><td>Either</td><td>SabotageRenderer</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
       </tbody>
     </table>
   </div>
   <p class="note" style="margin-top:10px">Ratings are vibes, not gospel — you know what makes <i>your</i> two-player table laugh better than I do.</p>
+</section>
+
+<!-- ===================== NAMING & VOICE ===================== -->
+<section class="block reveal" id="naming">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">Because "Duel" is fighting the product</span>
+      <h2>Naming &amp; voice</h2>
+      <p>Your own docs flag it: the app is called <i>Language Duel</i>, but the heart is collaborative. As you add real co-op, the competitive name starts lying to users. You don't have to rename the app — but the co-op modes need an umbrella that signals "team", and the app is about <b>Spanish</b>, so the answer is probably Spanish.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="cols">
+      <div>
+        <div class="h-mini">Umbrella name candidates</div>
+        <div class="tablewrap" style="box-shadow:none">
+          <table class="matrix" style="min-width:0">
+            <thead><tr><th>Term</th><th>Means</th><th>Vibe</th><th>Verdict</th></tr></thead>
+            <tbody>
+              <tr><td><b>Juntos</b></td><td>"together" (ES)</td><td>warm, on-theme, simple</td><td><span class="pill-sm lo">top pick</span></td></tr>
+              <tr><td><b>En Pareja</b></td><td>"as a pair / couple" (ES)</td><td>literally you two 💞</td><td><span class="pill-sm lo">strong</span></td></tr>
+              <tr><td><b>Tándem</b></td><td>language-exchange term</td><td>learner-coded, real</td><td><span class="pill-sm md">good</span></td></tr>
+              <tr><td><b>Dúo / Duo Mode</b></td><td>"duo"</td><td>echoes "Duel", clear</td><td><span class="pill-sm md">safe</span></td></tr>
+              <tr><td><b>Compañero</b></td><td>"companion/teammate"</td><td>nice, a bit long</td><td><span class="pill-sm md">ok</span></td></tr>
+              <tr><td><b>Co-op</b></td><td>gamer plain-speak</td><td>functional, flat</td><td><span class="pill-sm hi">fallback</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout why" style="margin-top:12px"><span class="ic">🏷️</span><div><b>Recommendation</b>Keep <b>Duel</b> for PvP. Group all cooperative modes under <b>Juntos</b> (or <b>En Pareja</b>). So the home menu reads <i>Solo · Duel · Juntos</i>. Per your <span class="kbd">AGENTS.md</span> ("naming across the stack is non-negotiable"), pick one and use it for the route, table fields, and UI copy together — no <span class="kbd">coopMode</span> in code while the UI says "Juntos".</div></div>
+      </div>
+      <div>
+        <div class="h-mini cta">Voice &amp; copy guide</div>
+        <p class="note" style="margin-top:0">Your tagline — <i>"find out which one of you sucks more"</i> — is gold: cheeky, warm, a little mean to <b>both</b> of you equally. Co-op copy should keep the teasing but aim it at the <i>team</i> vs the game, never one partner at the other.</p>
+        <div class="dd">
+          <div class="col do">
+            <h5>✓ Do</h5>
+            <ul>
+              <li>Celebrate the <b>team</b>: "You two cleared it!"</li>
+              <li>Tease the pair vs the game: "The boss is laughing at you both."</li>
+              <li>Make losing funny: "Catastrophe! Run it back?"</li>
+              <li>Name the assist: "P1 carried verbs, P2 caught the in-laws."</li>
+            </ul>
+          </div>
+          <div class="col dont">
+            <h5>✗ Don't</h5>
+            <ul>
+              <li>Single out the weaker player: "P2 lost it for you."</li>
+              <li>Go corporate-wholesome: "Great teamwork, partner!" 🤖</li>
+              <li>Punish silently — always wink at a wipe.</li>
+              <li>Reward hoarding the turns over helping.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="quote">"Disaster. Beautiful disaster. The streak died at ×9 and honestly that's on both of you. Again?"</div>
+        <p class="note">↑ the target tone for a co-op fail screen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== AN EVENING ===================== -->
+<section class="block reveal" id="evening">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">The actual product vision</span>
+      <h2>An evening with the app</h2>
+      <p>Forget the feature list for a second. Here's the thing I'm actually pitching: co-op as your <b>evening ritual</b>. One plausible 45 minutes on the couch, and how the modes chain into a rhythm — warm up, laugh, focus, climax, cool down.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="timeline">
+      <div class="tl"><div class="t">8:02 · warm up</div><h4>🧠 Two-Minds Memory</h4><p>Low stakes, gets you both talking and remembering. "Where was madre again?" Five minutes and you're synced.</p></div>
+      <div class="tl"><div class="t">8:10 · the laugh</div><h4>🕵️ Decoder Duo</h4><p>Belly laughs as one of you mimes "sunflower" without saying it. This is the bit you'll text friends about. Energy peaks.</p></div>
+      <div class="tl"><div class="t">8:24 · the build</div><h4>🧩 Sentence Relay</h4><p>Calmer, brainier. You assemble real sentences together, hand-off by hand-off. The "we made that" feeling kicks in.</p></div>
+      <div class="tl"><div class="t">8:38 · the climax</div><h4>👹 Co-op Boss (weekly goal)</h4><p>Tonight's progress feeds the boss. P1 breaks shields, P2 strikes. You beat it together and the weekly goal ticks up. Fist bump.</p></div>
+      <div class="tl"><div class="t">8:52 · cool down</div><h4>🌉 Bridge Builder</h4><p>Cozy, wordless-almost. You amble across a chasm laying planks, no timer, just closing the night on a calm win.</p></div>
+      <div class="tl"><div class="t">later · the hook</div><h4>📈 Spaced repetition, solo</h4><p>Tomorrow on the train, each of you does the solo SR review of tonight's words. Co-op created the memories; solo cements them.</p></div>
+    </div>
+    <div class="callout hook" style="margin-top:16px"><span class="ic">🎬</span><div><b>Why this matters</b>No single mode is the product — the <i>ritual</i> is. If you build a small spread across the energy curve (silly → focused → triumphant → calm), you've got a reason to pick up the phone <i>together</i> most nights. That's the whole ballgame for a two-person app.</div></div>
+  </div>
 </section>
 
 <!-- ===================== BUILD ORDER ===================== -->
@@ -1691,8 +2175,168 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
   </div>
 
   <div class="app-card" style="margin-top:18px">
+    <span class="eyebrow">Ruthless edits — what I'd cut or merge first</span>
+    <p class="note" style="margin:8px 0 12px">You said edit out the bullshit, so here's me doing it to my own pile. Not every idea earns a slot:</p>
+    <div class="grid-2">
+      <div class="panel warn">
+        <h4>✂️ Demote / merge</h4>
+        <ul>
+          <li><b>#15 Carry the Flame</b> → overlaps Relay + Lifeline. Keep only as a "timed hand-off" variant of Relay, not its own mode.</li>
+          <li><b>#13 Duet Dictation</b> → it's really a Call &amp; Response toggle (type instead of pick). Ship as a setting, not a tile.</li>
+          <li><b>#10 Bridge Builder</b> → keep <i>only</i> as the cozy cool-down. Don't expect it to carry a session.</li>
+          <li><b>#14 Hints</b> &amp; <b>#18 Trust Shield</b> → modifiers, not headline modes. Bolt onto others.</li>
+        </ul>
+      </div>
+      <div class="panel p2">
+        <h4>💎 Protect at all costs</h4>
+        <ul>
+          <li>The four 5-star modes: <b>#02 Relay, #04 Decoder, #06 Call &amp; Response, #12 Password.</b></li>
+          <li><b>#01 Memory</b> — because it's nearly free and a perfect warm-up.</li>
+          <li><b>#08 One Streak</b> — the single best value-per-line modifier; it makes everything else tenser.</li>
+        </ul>
+        <p class="note" style="margin-bottom:0">If you built <i>only</i> these six and ignored the other twelve, you'd have a genuinely great co-op app. The rest is a buffet, not a checklist.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-card" style="margin-top:18px">
     <span class="eyebrow">My one-line pick</span>
     <p style="font-size:17px; margin:8px 0 0; color:var(--text)">If I had to bet on what'll make you and your gf actually keep playing: <b>#04 Decoder Duo</b> for the belly-laughs, <b>#02 Sentence Relay</b> for the "we built that together" feeling, and <b>#01 Two-Minds Memory</b> because it's basically already done. Everything else is gravy. 🍮</p>
+  </div>
+</section>
+
+<!-- ===================== TECH / ARCHITECTURE ===================== -->
+<section class="block reveal" id="tech">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">Grounded in your actual repo</span>
+      <h2>How this fits your stack</h2>
+      <p>I mapped your real Convex + Next.js duel system so these aren't fantasy features. The short version: most co-op modes are <b>cheaper than they look</b>, and the cheapest ones need no backend at all.</p>
+    </div>
+  </div>
+
+  <div class="app-card">
+    <div class="h-mini">Two implementation lanes</div>
+    <div class="grid-2">
+      <div class="panel p2">
+        <span class="eyebrow cta">Lane A · fastest</span>
+        <h4>Co-located hot-seat = pure client state</h4>
+        <p>One device, two humans, zero networking. Just React state in a prototype component — exactly like the three playable demos above. <b>No Convex, no sync, no latency.</b></p>
+        <p>Perfect for: Decoder, Memory, Relay, Password, Split-Letter Forge, Mirror, Heist. Drop them in <span class="kbd">app/components/prototypes/</span> behind the <span class="kbd">Mock Features</span> menu and ship in an afternoon.</p>
+      </div>
+      <div class="panel p1">
+        <span class="eyebrow">Lane B · two devices</span>
+        <h4>Live = extend the duel doc</h4>
+        <p>Your duel is a single Convex document; both clients hold one reactive <span class="kbd">useQuery(api.duels.getDuel)</span> that auto-invalidates on every mutation. No polling exists or is needed.</p>
+        <p>To add co-op: put shared state on that doc and write mutations that patch it — the exact pattern your <b>hint pool</b> and <b>sabotage</b> systems already use. Both screens update for free.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="h-mini cta">The reuse map — what each idea borrows</div>
+    <div class="archgrid">
+      <div class="archbox"><div class="f">convex/duels.ts · getDuel</div><p><b>canRevealQuestionAnswer</b> already hides answers per-viewer. That's literally Decoder Duo's "one side can't see the word" — extend the viewer filter, don't invent it.</p></div>
+      <div class="archbox"><div class="f">convex/gameplay.ts</div><p><b>answerDuel</b> + <b>haveBothPlayersAnswered()</b> gate round advancement. Reuse for any "both must act" co-op beat.</p></div>
+      <div class="archbox"><div class="f">convex/hintPool.ts</div><p>Shared, one-per-question, either-fires pool. The template for <b>shared streak</b>, <b>shared tray</b>, <b>lifelines</b> — co-op state that belongs to the duel, not a player.</p></div>
+      <div class="archbox"><div class="f">convex/sabotage.ts + SabotageRenderer</div><p>Choose → store on opponent → broadcast → render effect. <b>Trust Shield</b> reuses the bounce/reverse FX wholesale, just flips who clears it.</p></div>
+      <div class="archbox"><div class="f">lib/answerShuffle.ts</div><p>Seeded RNG (<span class="kbd">word::index</span>) makes both clients compute the <i>same</i> shuffle. Use the seed so Split-Letter Forge deals identical letters to both phones.</p></div>
+      <div class="archbox"><div class="f">app/game/hooks/useTTS.ts</div><p>Storage-backed audio + live fallback + cache. Drives Call &amp; Response and Duet Dictation with no new audio work.</p></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="cols">
+      <div>
+        <div class="h-mini">The one genuinely new primitive: turns</div>
+        <p class="note" style="margin-top:0">Today, duels have <b>no "whose turn"</b> — both players answer the same question in parallel and the round advances when both are done. Turn-based co-op (Relay, Memory, Bridge, Boss windows) needs an explicit <span class="kbd">activePlayer</span> on the doc plus a guard — mirror your existing <span class="kbd">assertDuelMode</span> with an <span class="kbd">assertActivePlayer</span>. That's the main net-new backend concept; almost everything else is fields + a mutation.</p>
+        <div class="schem">
+          <div class="tiny-label" style="margin-bottom:8px">A turn-based co-op mutation, end to end</div>
+          <div class="flowarch">
+            <span class="node">P1 taps token</span><span class="ar">→</span>
+            <span class="node">answerCoop()</span><span class="ar">→</span>
+            <span class="node">assertActivePlayer = P1 ✓</span><span class="ar">→</span>
+            <span class="node">patch duel {tray+token, activePlayer:'P2'}</span><span class="ar">→</span>
+            <span class="node">Convex invalidates</span><span class="ar">→</span>
+            <span class="node">both screens re-render</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="h-mini cta">Schema sketch — fields on the <span class="kbd">duels</span> doc</div>
+        <pre style="margin:0; padding:14px; border-radius:14px; background:#1c1916; color:#e9e2da; font-family:ui-monospace,Menlo,monospace; font-size:12px; line-height:1.5; overflow:auto"><span style="color:#9aa">// co-op additions (optional, mode-gated)</span>
+coopMode?:      <span style="color:#fca">"relay"|"memory"|"decoder"|...</span>
+activePlayer?:  <span style="color:#fca">"challenger"|"opponent"</span>
+turnStarter?:   <span style="color:#fca">"challenger"|"opponent"</span>
+<span style="color:#9aa">// shared-fate state (see hintPool pattern)</span>
+sharedStreak?:  <span style="color:#9cf">number</span>
+streakShield?:  <span style="color:#9cf">number</span>
+<span style="color:#9aa">// relay / forge</span>
+trayTokenIds?:  <span style="color:#9cf">number[]</span>
+<span style="color:#9aa">// lifeline</span>
+lifelines?:     <span style="color:#9cf">{ challenger:number; opponent:number }</span>
+frozenPlayer?:  <span style="color:#fca">"challenger"|"opponent"|null</span>
+<span style="color:#9aa">// co-op boss</span>
+shieldHp?:      <span style="color:#9cf">number</span>
+bossHp?:        <span style="color:#9cf">number</span></pre>
+        <p class="note">All optional &amp; mode-gated, so PvP/PvE/solo are untouched. Matches your "no fallback / enforce the contract" rule: validate <span class="kbd">coopMode</span> at the mutation boundary.</p>
+      </div>
+    </div>
+
+    <details class="detail-block">
+      <summary>First PR, concretely — Decoder Duo hot-seat (a weekend)</summary>
+      <div class="body">
+        <ol class="steps-list">
+          <li>New <span class="kbd">app/components/prototypes/DecoderDuo.tsx</span> — copy the structure of <span class="kbd">MemoryGame.tsx</span> (it's the closest sibling). Pure client state, no Convex.</li>
+          <li>Reuse <span class="kbd">buildDuelQuestionSnapshot</span> from <span class="kbd">lib/answerShuffle</span> to get a word + shuffled options from any Theme.</li>
+          <li>Two phases (<span class="kbd">clue</span> / <span class="kbd">pick</span>) + a "hand the phone over" button — the exact state machine in the playground demo above. Swap clue-giver each round.</li>
+          <li>Add a menu entry in <span class="kbd">HomePageClient.tsx</span> beside Memory Game / Sentence Betas (the <span class="kbd">Mock Features</span> list).</li>
+          <li>Feed it real Theme words instead of the demo's hardcoded deck. Add a couple of <span class="kbd">data-testid</span>s and a Vitest for the phase/role-swap reducer (your bar: 70% coverage).</li>
+        </ol>
+        <p class="note">Definition of done: you and your gf play 5 rounds on one phone and laugh at least twice. If yes → promote from "Mock Features" to a real <i>Juntos</i> mode and consider a two-device version later.</p>
+      </div>
+    </details>
+
+    <div class="grid-4" style="margin-top:14px">
+      <div class="statbig"><div class="n">1</div><div class="l">reactive query syncs a duel</div></div>
+      <div class="statbig"><div class="n">0</div><div class="l">backend for hot-seat modes</div></div>
+      <div class="statbig"><div class="n">2</div><div class="l">shared-pool patterns to copy</div></div>
+      <div class="statbig"><div class="n">5</div><div class="l">max sabotages · 7s each</div></div>
+    </div>
+
+    <div class="callout risk" style="margin-top:14px"><span class="ic">⚠️</span><div><b>Honest constraints</b>(1) There's <b>no hot-seat mode today</b> — Lane A is a new client pattern (easy, but new). (2) Self-duels are forced to PvE, so a "vs CPU" co-op practice already has a home. (3) Non-sticky sabotage FX persist until the question changes — fine for Trust Shield. (4) Call &amp; Response lives or dies on TTS quality; prefer stored theme audio over live generation.</div></div>
+  </div>
+</section>
+
+<!-- ===================== SOURCES ===================== -->
+<section class="block reveal" id="sources">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow muted">Where the thinking came from</span>
+      <h2>Sources &amp; credits</h2>
+      <p>I did steal like an artist, as instructed. The interdependence framing and the mixed-skill lens are lifted from games writing and co-op research; the structure nods to the doc you linked.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="grid-2">
+      <div class="panel muted">
+        <div class="h-mini">Co-op &amp; interdependence</div>
+        <ul>
+          <li><a href="https://medium.com/@longvuahs/it-takes-two-how-a-game-truly-demonstrates-cooperation-of-2-players-592ebf1b3caa">It Takes Two: how a game demonstrates cooperation of 2 players</a> — the "diverse but complementary abilities" idea.</li>
+          <li><a href="https://www.cbr.com/greatest-asymmetric-multiplayer-video-games/">Best asymmetric multiplayer games</a> — asymmetry as anti-"two people doing the same thing".</li>
+          <li><a href="https://critical-gaming.squarespace.com/blog/2008/10/25/co-op-mechanics-and-design.html">Critical-Gaming · Co-op mechanics and design</a>.</li>
+          <li><a href="https://www.twoaveragegamers.com/co-op-games-couples-mixed-platformer-skill/">Co-op games for couples with mixed skill</a> — fed the mixed-skill section.</li>
+        </ul>
+      </div>
+      <div class="panel muted">
+        <div class="h-mini cta">Cooperative language-game research</div>
+        <ul>
+          <li><a href="https://arxiv.org/pdf/2403.17497">Sharing the Cost of Success (CoGRIP)</a> — the guide/follower asymmetry behind Decoder Duo.</li>
+          <li><a href="https://arxiv.org/html/2412.12409">Improving Cooperation in Language Games</a> — partner-modelling &amp; convergence (Mirror Match).</li>
+          <li><a href="https://arxiv.org/pdf/1606.02447">Learning Language Games through Interaction</a> — emergent shared protocols.</li>
+          <li>Structure &amp; density nod to <span class="kbd">thariqs.github.io/html-effectiveness</span> (couldn't fetch it from here — network allowlist — so I rebuilt from its philosophy).</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px">Everything else — the 18 mechanics, the mockups, the playable demos — is original, mapped onto your app's real systems and your <i>"oral mastery / which one of you sucks more"</i> voice.</p>
   </div>
 </section>
 
@@ -1700,8 +2344,9 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
 
 <footer class="wrap">
   <div class="divider"></div>
-  <p class="title-font" style="font-size:22px; color:var(--text); margin-bottom:4px">That's the pile. 🎉</p>
-  <p>Edit it down to the 1–3 that make you both grin. I can prototype any of these into the existing <span class="kbd">app/components/prototypes/</span> "Mock Features" menu next.</p>
+  <p class="title-font" style="font-size:24px; color:var(--text); margin-bottom:4px">That's the pile — now go play it. 🎉</p>
+  <p style="max-width:620px; margin:0 auto">18 ideas, 3 of them playable above, all mapped onto your real code and your voice. The honest TL;DR: build <b>Decoder Duo</b> first (it's a weekend, it's hot-seat, it'll make you both laugh), keep <b>Memory</b> as the warm-up, and grow from there.</p>
+  <p style="margin-top:14px">Tell me which ones spark joy and I'll prototype them into the <span class="kbd">Mock Features</span> menu for real — starting with the <span class="kbd">DecoderDuo.tsx</span> first-PR spec in the Tech section. Even if you keep one, this was a win. 🍮</p>
 </footer>
 
 <button class="back-top" id="backTop" aria-label="Back to top">↑</button>
@@ -1718,6 +2363,181 @@ footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
   var bt=document.getElementById('backTop');
   addEventListener('scroll',function(){ bt.classList.toggle('show', scrollY>700); },{passive:true});
   bt.addEventListener('click',function(){scrollTo({top:0,behavior:'smooth'});});
+})();
+</script>
+
+<script>
+/* ============================================================
+   v2 INTERACTIVITY — playable demos, palette, filter, polish.
+   Pure vanilla JS, no deps. Doc is fully readable without it.
+   ============================================================ */
+(function(){
+  "use strict";
+  var other=function(p){return p==='P1'?'P2':'P1';};
+  var shuffle=function(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;};
+  function topnav(title,cta){return '<div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow'+(cta?' cta':'')+'">Live demo</div><h5>'+title+'</h5></div></div>';}
+
+  /* ---------------- TWO-MINDS MEMORY ---------------- */
+  var MEM_PAIRS=[{id:'madre',en:'mother',es:'madre'},{id:'padre',en:'father',es:'padre'},{id:'hijo',en:'son',es:'hijo'},{id:'gato',en:'cat',es:'gato'}];
+  var Mem=(function(){
+    var enC,esC,matched,flips,starter,active,moves,busy,status;
+    function build(){enC=shuffle(MEM_PAIRS.map(function(p){return {id:p.id,txt:p.en};}));esC=shuffle(MEM_PAIRS.map(function(p){return {id:p.id,txt:p.es};}));matched={};flips={EN:null,ES:null};starter='P1';active='P1';moves=0;busy=false;status='play';}
+    function reset(){build();render();}
+    function flip(lang,idx){
+      if(status==='win'||busy)return;
+      var player=lang==='EN'?'P1':'P2'; if(player!==active)return;
+      var card=(lang==='EN'?enC:esC)[idx]; if(matched[card.id])return; if(flips[lang]!==null)return;
+      flips[lang]=idx;
+      if(flips.EN!==null&&flips.ES!==null){resolve();} else {active=other(active);}
+      render();
+    }
+    function resolve(){
+      busy=true;moves++;var en=enC[flips.EN],es=esC[flips.ES];var match=en.id===es.id;render();
+      setTimeout(function(){
+        if(match){matched[en.id]=true;if(MEM_PAIRS.every(function(p){return matched[p.id];}))status='win';}
+        flips={EN:null,ES:null};starter=other(starter);active=starter;busy=false;render();
+      },match?520:850);
+    }
+    function board(lang){
+      var cards=lang==='EN'?enC:esC,player=lang==='EN'?'P1':'P2',isActive=active===player&&status==='play';
+      var cls='s-card'+(lang==='ES'?' p2':'')+(isActive?(lang==='EN'?' glow-p1':' glow-p2'):' dim');
+      var lab=(lang==='EN'?'P1 · English':'P2 · Spanish')+(isActive?' · Active':(status==='play'?' · Waiting':''));
+      var h='<div class="'+cls+'" style="margin-top:8px"><div class="s-eye" style="color:'+(lang==='EN'?'var(--primary-dark)':'var(--cta-dark)')+'">'+lab+'</div><div class="s-mini-deck">';
+      for(var i=0;i<cards.length;i++){var c=cards[i],isM=!!matched[c.id],isF=flips[lang]===i;
+        if(isM||isF){h+='<div class="s-face '+(lang==='EN'?'up':'up2')+(isM?' match':'')+'">'+c.txt+'</div>';}
+        else{var ck=isActive&&!busy;h+='<div class="s-face '+(lang==='EN'?'q':'q2')+(ck?' clk':'')+'"'+(ck?(' data-flip-lang="'+lang+'" data-flip-idx="'+i+'"'):'')+'>?</div>';}}
+      return h+'</div></div>';
+    }
+    function render(){
+      var el=document.getElementById('memScreen');if(!el)return;var done=Object.keys(matched).length;var h=topnav('Two-Minds Memory');
+      if(status==='win'){
+        h+='<div class="s-card plain" style="text-align:center;padding:18px;border-color:var(--cta);background:color-mix(in srgb,var(--cta) 12%,white 88%)"><div class="s-eye" style="color:var(--cta-dark)">Cleared together 🎉</div><div class="s-big" style="font-size:30px;margin:6px 0">'+MEM_PAIRS.length+' / '+MEM_PAIRS.length+'</div><div class="s-mid">'+moves+' rounds</div></div><div class="s-btn" data-act="mem-new">Play again</div>';
+      } else {
+        var win2=flips.EN!==null&&flips.ES!==null;
+        var turnTxt=busy?(win2&&enC[flips.EN].id===esC[flips.ES].id?'✅ Match! Next round…':'❌ No match — flipping back…'):(active==='P1'?"P1's turn — flip an English card":"P2's turn — flip a Spanish card");
+        h+='<div class="s-turn">'+(active==='P1'?'<span class="who p1"><span class="av p1">EN</span>P1</span>':'<span class="who p2"><span class="av p2">ES</span>P2</span>')+'</div>';
+        h+='<div class="s-banner'+(busy?'':' go')+'">'+turnTxt+'</div>';
+        h+='<div class="s-chips" style="margin-top:8px"><div class="s-chip"><div class="k">Rounds</div><div class="v">'+moves+'</div></div><div class="s-chip g"><div class="k">Pairs</div><div class="v">'+done+'/'+MEM_PAIRS.length+'</div></div><div class="s-chip n"><div class="k">Turn</div><div class="v">'+active+'</div></div></div>';
+        h+=board('EN')+board('ES');
+      }
+      el.innerHTML=h;var st=document.getElementById('memStat');if(st)st.textContent='Rounds: '+moves+' · Pairs: '+done+'/'+MEM_PAIRS.length;
+    }
+    return {build:build,reset:reset,flip:flip,render:render};
+  })();
+
+  /* ---------------- SENTENCE RELAY ---------------- */
+  var SENTENCES=[{en:"I write at night.",t:["Yo","escribo","por","la","noche."]},{en:"We live in Madrid.",t:["Nosotros","vivimos","en","Madrid."]},{en:"The cat sleeps a lot.",t:["El","gato","duerme","mucho."]}];
+  var Relay=(function(){
+    var si=0,toks,tray,turn,status,target,en;
+    function build(idx){si=((idx%SENTENCES.length)+SENTENCES.length)%SENTENCES.length;target=SENTENCES[si].t;en=SENTENCES[si].en;toks=target.map(function(tok,i){return {id:i,tok:tok,owner:(i%2===0?'P1':'P2'),used:false};});tray=[];turn=toks[0].owner;status='play';}
+    function newS(){build(si+1);render();}
+    function place(id){if(status!=='play')return;var t=toks[id];if(!t||t.used||t.owner!==turn)return;t.used=true;tray.push(id);turn=other(turn);if(tray.length===target.length)check();render();}
+    function check(){var built=tray.map(function(id){return toks[id].tok;}).join(" ");status=(built===target.join(" "))?'win':'wrong';}
+    function undo(){if(status==='win'||tray.length===0)return;var last=tray.pop();toks[last].used=false;turn=toks[last].owner;status='play';render();}
+    function clear(){if(status==='win')return;toks.forEach(function(t){t.used=false;});tray=[];turn=toks[0].owner;status='play';render();}
+    function hand(owner){
+      var mine=toks.filter(function(t){return t.owner===owner;}),isTurn=turn===owner&&status==='play';
+      var cls='s-card'+(owner==='P2'?' p2':'')+(isTurn?(owner==='P1'?' glow-p1':' glow-p2'):' dim');
+      var h='<div class="'+cls+'" style="margin-top:8px"><div class="s-eye" style="color:'+(owner==='P1'?'var(--primary-dark)':'var(--cta-dark)')+'">'+owner+'\'s tokens'+(isTurn?' · YOUR TURN':'')+'</div><div>';
+      mine.forEach(function(t){if(t.used){h+='<span class="s-tok'+(owner==='P2'?' p2':'')+' used">'+t.tok+'</span>';}else{h+='<span class="s-tok'+(owner==='P2'?' p2':'')+(isTurn?' clk':'')+'"'+(isTurn?(' data-place="'+t.id+'"'):'')+'>'+t.tok+'</span>';}});
+      return h+'</div></div>';
+    }
+    function render(){
+      var el=document.getElementById('relayScreen');if(!el)return;var h=topnav('Sentence Relay',true);
+      h+='<div class="s-card plain"><div class="s-eye">English meaning</div><div class="s-mid" style="margin-top:3px">'+en+'</div></div>';
+      var tray2='';for(var i=0;i<target.length;i++){if(i<tray.length){var t=toks[tray[i]];tray2+='<span class="s-tok'+(t.owner==='P2'?' p2':'')+'">'+t.tok+'</span>';}else{tray2+='<span class="s-tok ghost">＿</span>';}}
+      h+='<div class="s-card plain'+(status==='wrong'?' shake':'')+'" style="margin-top:8px'+(status==='win'?';border-color:var(--cta)':'')+'"><div class="s-eye"'+(status==='win'?' style="color:var(--cta-dark)"':'')+'>'+(status==='win'?'Solved ✓':'Shared sentence')+'</div><div style="margin-top:4px">'+tray2+'</div></div>';
+      if(status==='win'){h+='<div class="s-banner go" style="margin-top:8px">¡Perfecto! You built it together.</div><div class="s-btn" data-act="relay-next">Next sentence →</div>';}
+      else if(status==='wrong'){h+='<div class="s-banner wait" style="margin-top:8px">Not that order — Undo &amp; talk it through.</div>';}
+      else{h+='<div class="s-turn" style="margin-top:8px">'+(turn==='P1'?'<span class="who p1"><span class="av p1">EN</span>P1\'s turn</span>':'<span class="who p2"><span class="av p2">ES</span>P2\'s turn</span>')+'</div>';}
+      h+=hand('P1')+hand('P2');el.innerHTML=h;
+      var st=document.getElementById('relayStat');if(st)st.textContent=status==='win'?'Solved! 🎉':('Placed '+tray.length+'/'+target.length);
+    }
+    return {build:build,render:render,place:place,undo:undo,clear:clear,newS:newS};
+  })();
+
+  /* ---------------- DECODER DUO ---------------- */
+  var DECK=[
+    {es:"el girasol",hint:"a tall yellow flower 🌻",answer:"sunflower",opts:["rose","sunflower","daisy","oak tree"]},
+    {es:"la zanahoria",hint:"orange veg, rabbits love it 🥕",answer:"carrot",opts:["potato","carrot","onion","apple"]},
+    {es:"el relámpago",hint:"the flash in a storm ⚡",answer:"lightning",opts:["thunder","cloud","lightning","rain"]},
+    {es:"la almohada",hint:"soft, you sleep on it 😴",answer:"pillow",opts:["blanket","pillow","mattress","towel"]},
+    {es:"el bombero",hint:"puts out fires 🚒",answer:"firefighter",opts:["police officer","firefighter","baker","pilot"]}
+  ];
+  var Decoder=(function(){
+    var i,phase,score,rounds,clueGiver,lastPick;
+    function reset(){i=0;score=0;rounds=0;clueGiver='P1';phase='clue';lastPick=null;render();}
+    function picker(){return other(clueGiver);}
+    function toPick(){phase='pick';render();}
+    function pick(opt){if(phase!=='pick')return;lastPick=opt;rounds++;if(opt===DECK[i].answer)score++;phase='result';render();}
+    function next(){i=(i+1)%DECK.length;clueGiver=other(clueGiver);phase='clue';lastPick=null;render();}
+    function render(){
+      var el=document.getElementById('decoderScreen');if(!el)return;var card=DECK[i];var h=topnav('Decoder Duo',true);
+      if(phase==='clue'){
+        h+='<div class="s-turn"><span class="who '+(clueGiver==='P1'?'p1':'p2')+'"><span class="av '+(clueGiver==='P1'?'p1':'p2')+'">'+(clueGiver==='P1'?'EN':'ES')+'</span>'+clueGiver+' = the Clue</span></div>';
+        h+='<div class="s-card '+(clueGiver==='P1'?'glow-p1':'p2 glow-p2')+'"><div class="s-eye" style="color:'+(clueGiver==='P1'?'var(--primary-dark)':'var(--cta-dark)')+'">Only you can see this</div><div class="s-big" style="margin:4px 0">'+card.es+'</div><div class="s-mid" style="font-weight:600;color:var(--muted)">hint: '+card.hint+'</div></div>';
+        h+='<div class="s-banner" style="margin-top:8px">Describe it out loud — <b>don\'t say the English word!</b></div>';
+        h+='<div class="s-btn" data-act="decoder-hand">Described it → hand to '+picker()+' →</div>';
+      } else if(phase==='pick'){
+        var pk=picker();
+        h+='<div class="s-turn"><span class="who '+(pk==='P1'?'p1':'p2')+'"><span class="av '+(pk==='P1'?'p1':'p2')+'">'+(pk==='P1'?'EN':'ES')+'</span>'+pk+' = the Pick</span></div>';
+        h+='<div class="s-card plain"><div class="s-eye">Pick what they described</div><div class="s-mid" style="margin-top:2px;color:var(--muted)">??? · word hidden from you</div></div>';
+        card.opts.forEach(function(o){h+='<div class="s-opt clk" data-opt="'+o+'">'+o+'</div>';});
+      } else {
+        var ok=lastPick===card.answer;
+        h+='<div class="s-card plain" style="text-align:center;border-color:'+(ok?'var(--cta)':'var(--danger)')+';background:color-mix(in srgb,'+(ok?'var(--cta)':'var(--danger)')+' 10%,white 90%)"><div class="s-eye" style="color:'+(ok?'var(--cta-dark)':'var(--danger-dark)')+'">'+(ok?'Nailed it ✓':'Missed — you said “'+lastPick+'”')+'</div><div class="s-big" style="margin:5px 0">'+card.es+'</div><div class="s-mid">= '+card.answer+'</div></div>';
+        h+='<div class="s-banner'+(ok?' go':' wait')+'" style="margin-top:8px">Team score '+score+' / '+rounds+'. Roles swap next.</div>';
+        h+='<div class="s-btn" data-act="decoder-next">Next word (swap roles) →</div>';
+      }
+      el.innerHTML=h;var st=document.getElementById('decoderStat');if(st)st.textContent='Score: '+score+' / '+rounds;
+    }
+    return {reset:reset,toPick:toPick,pick:pick,next:next,render:render};
+  })();
+
+  /* ---------------- wiring ---------------- */
+  function delegate(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
+  delegate('memScreen',function(e){var f=e.target.closest('[data-flip-lang]');if(f){Mem.flip(f.getAttribute('data-flip-lang'),+f.getAttribute('data-flip-idx'));return;}var a=e.target.closest('[data-act]');if(a&&a.getAttribute('data-act')==='mem-new')Mem.reset();});
+  delegate('relayScreen',function(e){var p=e.target.closest('[data-place]');if(p){Relay.place(+p.getAttribute('data-place'));return;}var a=e.target.closest('[data-act]');if(a&&a.getAttribute('data-act')==='relay-next')Relay.newS();});
+  delegate('decoderScreen',function(e){var o=e.target.closest('[data-opt]');if(o){Decoder.pick(o.getAttribute('data-opt'));return;}var a=e.target.closest('[data-act]');if(a){var k=a.getAttribute('data-act');if(k==='decoder-hand')Decoder.toPick();else if(k==='decoder-next')Decoder.next();}});
+  [['memNew',function(){Mem.reset();}],['relayUndo',function(){Relay.undo();}],['relayClear',function(){Relay.clear();}],['relayNew',function(){Relay.newS();}],['decoderNew',function(){Decoder.reset();}]].forEach(function(p){var b=document.getElementById(p[0]);if(b)b.addEventListener('click',p[1]);});
+  var tabs=document.getElementById('pgTabs');
+  if(tabs)tabs.addEventListener('click',function(e){var t=e.target.closest('.pg-tab');if(!t)return;var k=t.getAttribute('data-pg');[].forEach.call(tabs.querySelectorAll('.pg-tab'),function(x){x.classList.toggle('active',x===t);});[].forEach.call(document.querySelectorAll('.pg-stage'),function(s){s.classList.toggle('active',s.getAttribute('data-stage')===k);});});
+  if(document.getElementById('memScreen')){Mem.build();Mem.render();}
+  if(document.getElementById('relayScreen')){Relay.build(0);Relay.render();}
+  if(document.getElementById('decoderScreen')){Decoder.reset();}
+
+  /* ---------------- palette switcher ---------------- */
+  var PAL={'playful-duo':{bg:'#FFF8F1',p:'#FB7185',c:'#22C55E'},'toybox-adventure':{bg:'#FDF4FF',p:'#A855F7',c:'#FACC15'},'warm-mischief':{bg:'#FFF7ED',p:'#F97316',c:'#0EA5E9'},'friendly-rivalry':{bg:'#F0F9FF',p:'#2563EB',c:'#FB7185'},'candy-coop':{bg:'#FFF1F2',p:'#EC4899',c:'#22D3EE'}};
+  function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
+  function toHex(a){return '#'+a.map(function(x){x=Math.round(Math.max(0,Math.min(255,x)));var s=x.toString(16);return s.length<2?'0'+s:s;}).join('');}
+  function mix(a,b,t){var A=hx(a),B=hx(b);return toHex([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t]);}
+  function setPalette(name){var q=PAL[name];if(!q)return;var r=document.documentElement.style;
+    r.setProperty('--primary',q.p);r.setProperty('--primary-light',mix(q.p,'#ffffff',.2));r.setProperty('--primary-dark',mix(q.p,'#000000',.16));
+    r.setProperty('--cta',q.c);r.setProperty('--cta-light',mix(q.c,'#ffffff',.2));r.setProperty('--cta-dark',mix(q.c,'#000000',.2));
+    r.setProperty('--neutral',mix(q.c,'#9aa7a0',.4));r.setProperty('--secondary',mix(q.p,'#7f93a6',.5));r.setProperty('--secondary-dark',mix(q.p,'#41566a',.5));
+    r.setProperty('--bg',q.bg);}
+  [].forEach.call(document.querySelectorAll('.swatch'),function(b){b.addEventListener('click',function(){setPalette(b.getAttribute('data-pal'));[].forEach.call(document.querySelectorAll('.swatch'),function(x){x.classList.toggle('active',x===b);});});});
+
+  /* ---------------- matrix filter ---------------- */
+  var fb=document.querySelector('.filterbar');
+  if(fb)fb.addEventListener('click',function(e){var btn=e.target.closest('.fbtn');if(!btn)return;var f=btn.getAttribute('data-filter');
+    [].forEach.call(fb.querySelectorAll('.fbtn'),function(x){x.classList.toggle('active',x===btn);});
+    [].forEach.call(document.querySelectorAll('table.matrix tbody tr'),function(tr){var show=true;
+      if(f==='mode')show=tr.getAttribute('data-cat')==='mode';
+      else if(f==='modifier')show=tr.getAttribute('data-cat')==='mod';
+      else if(f==='colocated')show=tr.getAttribute('data-loc')==='1';
+      else if(f==='reuse')show=tr.getAttribute('data-reuse')==='1';
+      else if(f==='small')show=tr.getAttribute('data-effort')==='lo';
+      else if(f==='top')show=parseInt(tr.getAttribute('data-fun')||'0',10)>=5;
+      tr.classList.toggle('hide',!show);});});
+
+  /* ---------------- progress + reveal ---------------- */
+  var prog=document.getElementById('progress');
+  function onScroll(){if(prog){var h=document.documentElement,max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?(h.scrollTop/max*100):0)+'%';}}
+  addEventListener('scroll',onScroll,{passive:true});onScroll();
+  var rev=document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window&&rev.length){var ro=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');ro.unobserve(en.target);}});},{rootMargin:'0px 0px -8% 0px'});[].forEach.call(rev,function(x){ro.observe(x);});}
+  else{[].forEach.call(rev,function(x){x.classList.add('in');});}
 })();
 </script>
 </body>
