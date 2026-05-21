@@ -14,7 +14,6 @@ import { MissingChunkBeta } from "@/app/components/prototypes/MissingChunkBeta";
 import { RebuildSentenceBeta } from "@/app/components/prototypes/RebuildSentenceBeta";
 import { SpeedModeBeta } from "@/app/components/prototypes/SpeedModeBeta";
 import { ContextCluesBeta } from "@/app/components/prototypes/ContextCluesBeta";
-import { SentenceBuilderBeta } from "@/app/components/prototypes/SentenceBuilderBeta";
 import { RelayDuelBeta } from "@/app/components/prototypes/RelayDuelBeta";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -25,7 +24,6 @@ type HomeScreenMode =
   | "rebuild_sentence"
   | "speed"
   | "context_clues"
-  | "sentence_builder"
   | "relay_duel";
 
 const SoloIcon = () => (
@@ -95,15 +93,6 @@ const ContextCluesIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.2-5.2" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 7.5v.01M10.5 10v2.5" />
-  </svg>
-);
-
-const SentenceBuilderIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <rect x="3" y="5" width="6" height="5" rx="1.5" />
-    <rect x="11" y="5" width="10" height="5" rx="1.5" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M5 16h14" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M5 19h9" />
   </svg>
 );
 
@@ -305,14 +294,6 @@ export default function Home() {
     );
   }
 
-  if (screen === "sentence_builder") {
-    return (
-      <ThemedPage>
-        <SentenceBuilderBeta onBack={handleBackToHome} />
-      </ThemedPage>
-    );
-  }
-
   if (screen === "relay_duel") {
     return (
       <ThemedPage>
@@ -415,13 +396,6 @@ export default function Home() {
                 <MenuButton onClick={() => openPrototype("context_clues")} dataTestId="home-context-clues">
                   <ContextCluesIcon />
                   Context Clues
-                </MenuButton>
-              </div>
-
-              <div className="animate-slide-up delay-700">
-                <MenuButton onClick={() => openPrototype("sentence_builder")} dataTestId="home-sentence-builder">
-                  <SentenceBuilderIcon />
-                  Sentence Beta: Sentence Builder
                 </MenuButton>
               </div>
 

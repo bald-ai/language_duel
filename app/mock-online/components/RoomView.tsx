@@ -14,6 +14,7 @@ import { McqRace } from "./McqRace";
 import { MemoryBoard } from "./MemoryBoard";
 import { MockOnlineShell } from "./MockOnlineShell";
 import { OrderRace } from "./OrderRace";
+import { SentenceBuilder } from "./SentenceBuilder";
 
 export type RoomData = NonNullable<FunctionReturnType<typeof api.prototypeRooms.getRoom>>;
 
@@ -111,13 +112,21 @@ function Scoreboard({
   hostName: string;
   guestName: string;
 }) {
-  const turn = state.kind === "memory" ? state.turn : null;
+  const turn =
+    state.kind === "memory"
+      ? state.turn
+      : state.kind === "sentence" && state.mode !== "race"
+        ? state.turn
+        : null;
   const youAreHost = viewerSlot === "host";
   const opponentName = youAreHost ? guestName : hostName;
+  const isCoop = state.kind === "sentence" && state.mode === "coop";
 
   let statusLine: string;
   if (status === "finished") {
     statusLine = "Game over";
+  } else if (isCoop) {
+    statusLine = turn === viewerSlot ? "Your turn — add a word" : `${opponentName}'s turn`;
   } else if (turn) {
     statusLine = turn === viewerSlot ? "Your turn" : `${opponentName}'s turn`;
   } else {
@@ -126,10 +135,14 @@ function Scoreboard({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2.5">
-        <PlayerCard name={youAreHost ? `${hostName} (you)` : hostName} score={state.scores.host} active={turn === "host"} />
-        <PlayerCard name={!youAreHost ? `${guestName} (you)` : guestName} score={state.scores.guest} active={turn === "guest"} />
-      </div>
+      {isCoop ? (
+        <PlayerCard name="Team" score={state.scores.host} active={status !== "finished"} />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5">
+          <PlayerCard name={youAreHost ? `${hostName} (you)` : hostName} score={state.scores.host} active={turn === "host"} />
+          <PlayerCard name={!youAreHost ? `${guestName} (you)` : guestName} score={state.scores.guest} active={turn === "guest"} />
+        </div>
+      )}
       <p className="mt-2 text-center text-sm font-semibold" data-testid="status-line" style={{ color: "var(--color-text)" }}>
         {statusLine}
       </p>
@@ -181,6 +194,16 @@ function GameBody({
           onSubmit={(order) => onMove({ kind: "order", order })}
         />
       );
+    case "sentence":
+      return (
+        <SentenceBuilder
+          key={state.index}
+          state={state}
+          viewerSlot={viewerSlot}
+          onSubmit={(order) => onMove({ kind: "submit", order })}
+          onTap={(tile) => onMove({ kind: "tap", tile })}
+        />
+      );
   }
 }
 
@@ -201,11 +224,13 @@ function FinishedPanel({
 }) {
   const winner = getWinner(state);
   const line =
-    winner === "tie"
-      ? "It's a tie!"
-      : winner === viewerSlot
-        ? "You win!"
-        : `${winner === "host" ? hostName : guestName} wins!`;
+    state.kind === "sentence" && state.mode === "coop"
+      ? `Teamwork! You built all ${state.rounds.length} sentences.`
+      : winner === "tie"
+        ? "It's a tie!"
+        : winner === viewerSlot
+          ? "You win!"
+          : `${winner === "host" ? hostName : guestName} wins!`;
 
   return (
     <div className="space-y-3">

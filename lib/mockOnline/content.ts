@@ -55,3 +55,21 @@ export const REBUILD_SENTENCES: readonly OrderContentRound[] = [
   { english: "The dog is big", correct: ["El", "perro", "es", "grande"] },
   { english: "I read a book", correct: ["Yo", "leo", "un", "libro"] },
 ];
+
+// Sentence Builder (race / co-op / duel). Short, simple sentences with no
+// repeated word inside a sentence, so each tapped tile maps to one position.
+export interface SentenceContentRound {
+  english: string;
+  correct: string[];
+}
+
+export const SENTENCE_ROUNDS: readonly SentenceContentRound[] = [
+  { english: "I drink water", correct: ["Yo", "bebo", "agua"] },
+  { english: "We eat bread", correct: ["Nosotros", "comemos", "pan"] },
+  { english: "They speak Spanish", correct: ["Ellos", "hablan", "español"] },
+  { english: "She has a book", correct: ["Ella", "tiene", "un", "libro"] },
+  { english: "The cat is small", correct: ["El", "gato", "es", "pequeño"] },
+  { english: "The house is big", correct: ["La", "casa", "es", "grande"] },
+  { english: "You have a dog", correct: ["Tú", "tienes", "un", "perro"] },
+  { english: "I go to the park", correct: ["Yo", "voy", "al", "parque"] },
+];
