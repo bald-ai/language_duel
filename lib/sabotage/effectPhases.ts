@@ -12,7 +12,6 @@ const PERSISTENT_UNTIL_QUESTION_END = new Set<SabotageEffect>([
   "bounce",
   "trampoline",
   "reverse",
-  "math",
 ]);
 
 export function isPersistentSabotageEffect(effect: SabotageEffect | null): boolean {

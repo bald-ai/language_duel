@@ -17,8 +17,7 @@ export const sendSabotage = mutation({
       v.literal("sticky"),
       v.literal("bounce"),
       v.literal("trampoline"),
-      v.literal("reverse"),
-      v.literal("math")
+      v.literal("reverse")
     ),
   },
   handler: async (ctx, { duelId, effect }) => {

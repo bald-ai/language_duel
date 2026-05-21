@@ -38,8 +38,3 @@ export const BOUNCE_Y_OFFSET_MAX = 200;
 export const STICKY_NOTE_COUNT = 20;
 export const STICKY_NOTE_SIZE_MIN = 100;
 export const STICKY_NOTE_SIZE_RANGE = 50;
-
-// Math gate: number of problems the target must solve before they can answer
-export const MATH_GATE_PROBLEM_COUNT = 3;
-export const MATH_GATE_WRONG_LOCK_MS = 1500;
-export const MATH_GATE_CORRECT_ADVANCE_MS = 500;

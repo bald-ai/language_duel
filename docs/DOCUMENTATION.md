@@ -127,6 +127,7 @@ Weekly goal lifecycle:
 - Product positioning is still unsettled. The current experience is more collaborative than the name "Language Duel" suggests.
 - Naming tension matters: some code and UI language still lean competitive, while the broader product thesis is moving toward learning together.
 - AI should be careful not to over-optimize for one play style. The app supports in-app play, solo play, and side-by-side real-life learning rhythms.
+- Sabotage design principle: a sabotage must **hinder, not deny**. Sending a sabotage does not pause or add time to the question clock, so the target's timer keeps running. The shipped sabotages (sticky, ping-pong, trampoline, reverse) only add friction — the target can still answer immediately. A "math gate" sabotage (a full-screen overlay that blocked the answers until the target solved a few math problems) was prototyped and then removed: sent late, it could run the target's clock out entirely and force an auto-timeout, making it categorically more powerful than every other sabotage. Do not add hard-blocking sabotages unless they also protect the target's ability to answer (e.g. pausing the timer while the block is up).
 
 ## How AI Should Maintain This Doc
 

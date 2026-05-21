@@ -126,8 +126,7 @@ const sabotageEffectValidator = v.union(
   v.literal("sticky"),
   v.literal("bounce"),
   v.literal("trampoline"),
-  v.literal("reverse"),
-  v.literal("math")
+  v.literal("reverse")
 );
 
 const sabotageValidator = v.object({
