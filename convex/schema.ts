@@ -3,6 +3,11 @@ import { v, type Infer } from "convex/values";
 import { TTS_PROVIDER_IDS } from "../lib/tts/providers";
 import { DUEL_MODES } from "../lib/duelMode";
 import { HINT_TYPES } from "../lib/hintPool/types";
+import {
+  gameStateValidator,
+  mockGameValidator,
+  roomStatusValidator,
+} from "../lib/mockOnline/state";
 
 // ===========================================
 // Shared Validators
@@ -544,4 +549,21 @@ export default defineSchema({
     .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_status", ["status"])
     .index("by_sentAt", ["sentAt"]),
+
+  // -------------------------------------------
+  // Prototype Rooms Table
+  // Self-contained backing for the "Online Mock Features" prototypes. Not wired
+  // into duels/challenges/themes — safe to drop together with the mockOnline
+  // feature (lib/mockOnline, convex/prototypeRooms.ts, app/mock-online).
+  // -------------------------------------------
+  prototypeRooms: defineTable({
+    code: v.string(),
+    game: mockGameValidator,
+    hostId: v.id("users"),
+    guestId: v.optional(v.id("users")),
+    status: roomStatusValidator,
+    state: gameStateValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_code", ["code"]),
 });
