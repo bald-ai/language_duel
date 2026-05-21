@@ -14,9 +14,17 @@ import { MissingChunkBeta } from "@/app/components/prototypes/MissingChunkBeta";
 import { RebuildSentenceBeta } from "@/app/components/prototypes/RebuildSentenceBeta";
 import { MathGateBeta } from "@/app/components/prototypes/MathGateBeta";
 import { SpeedModeBeta } from "@/app/components/prototypes/SpeedModeBeta";
+import { ContextCluesBeta } from "@/app/components/prototypes/ContextCluesBeta";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type HomeScreenMode = "home" | "memory" | "missing_chunk" | "rebuild_sentence" | "speed" | "math_gate";
+type HomeScreenMode =
+  | "home"
+  | "memory"
+  | "missing_chunk"
+  | "rebuild_sentence"
+  | "speed"
+  | "math_gate"
+  | "context_clues";
 
 const SoloIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
@@ -83,6 +91,14 @@ const MockFeaturesIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v6M12 9v6M17 14v6" />
+  </svg>
+);
+
+const ContextCluesIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.2-5.2" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 7.5v.01M10.5 10v2.5" />
   </svg>
 );
 
@@ -270,6 +286,20 @@ export default function Home() {
     );
   }
 
+  if (screen === "context_clues") {
+    return (
+      <ThemedPage>
+        <div className="absolute top-3 left-2 sm:left-4 z-20">
+          <LeftNavButtons />
+        </div>
+        <div className="absolute top-3 right-2 sm:right-4 z-20">
+          <AuthButtons flash={flashAuth} />
+        </div>
+        <ContextCluesBeta onBack={handleBackToHome} />
+      </ThemedPage>
+    );
+  }
+
   return (
     <ThemedPage className="justify-between">
       <div className="absolute top-3 left-2 sm:left-4 z-20">
@@ -364,6 +394,13 @@ export default function Home() {
                 <MenuButton onClick={() => openPrototype("math_gate")} dataTestId="home-math-gate">
                   <MathGateIcon />
                   Math Gate (Sabotage)
+                </MenuButton>
+              </div>
+
+              <div className="animate-slide-up delay-700">
+                <MenuButton onClick={() => openPrototype("context_clues")} dataTestId="home-context-clues">
+                  <ContextCluesIcon />
+                  Context Clues
                 </MenuButton>
               </div>
 
