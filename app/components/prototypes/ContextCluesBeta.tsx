@@ -7,7 +7,6 @@ import {
   createRound,
   currentItem,
   isLastItem,
-  isSelectionCorrect,
   selectedOption,
   VARIANT_META,
   VARIANT_ORDER,
@@ -142,7 +141,9 @@ function VariantTabs({ active, onSelect }: VariantTabsProps) {
             key={variant}
             type="button"
             role="tab"
+            id={`context-clues-tab-${variant}`}
             aria-selected={isActive}
+            aria-controls="context-clues-panel"
             onClick={() => onSelect(variant)}
             data-testid={`context-clues-tab-${variant}`}
             className="rounded-xl border-2 px-2 py-2 text-xs font-bold transition"
@@ -198,42 +199,44 @@ export function ContextCluesBeta({ onBack }: ContextCluesBetaProps) {
       <div className="space-y-4">
         <VariantTabs active={round.variant} onSelect={handleSwitchVariant} />
 
-        {round.status === "complete" ? (
-          <div className="space-y-4 text-center" data-testid="context-clues-complete">
-            <div className="space-y-2">
-              <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: "var(--color-cta-dark)" }}>
-                {meta.label} complete
-              </p>
-              <h2 className="text-2xl font-bold" style={{ color: "var(--color-text)" }}>
-                You got {round.correctCount} of {round.items.length}
-              </h2>
-              <p className="text-sm leading-6" style={{ color: "var(--color-text)" }}>
-                Play again, switch modes with the tabs above, or head back home.
-              </p>
+        <div role="tabpanel" id="context-clues-panel" aria-labelledby={`context-clues-tab-${round.variant}`}>
+          {round.status === "complete" ? (
+            <div className="space-y-4 text-center" data-testid="context-clues-complete">
+              <div className="space-y-2">
+                <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: "var(--color-cta-dark)" }}>
+                  {meta.label} complete
+                </p>
+                <h2 className="text-2xl font-bold" style={{ color: "var(--color-text)" }}>
+                  You got {round.correctCount} of {round.items.length}
+                </h2>
+                <p className="text-sm leading-6" style={{ color: "var(--color-text)" }}>
+                  Play again, switch modes with the tabs above, or head back home.
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <PrototypeActionButton
+                  fullWidth
+                  variant="primary"
+                  onClick={handleRestart}
+                  dataTestId="context-clues-restart"
+                >
+                  Play again
+                </PrototypeActionButton>
+                <PrototypeActionButton fullWidth onClick={onBack} dataTestId="context-clues-complete-back">
+                  Back to Home
+                </PrototypeActionButton>
+              </div>
             </div>
-            <div className="grid gap-3">
-              <PrototypeActionButton
-                fullWidth
-                variant="primary"
-                onClick={handleRestart}
-                dataTestId="context-clues-restart"
-              >
-                Play again
-              </PrototypeActionButton>
-              <PrototypeActionButton fullWidth onClick={onBack} dataTestId="context-clues-complete-back">
-                Back to Home
-              </PrototypeActionButton>
-            </div>
-          </div>
-        ) : (
-          <ActiveRound
-            round={round}
-            meta={meta}
-            onAnswer={handleAnswer}
-            onNext={handleNext}
-            onBack={onBack}
-          />
-        )}
+          ) : (
+            <ActiveRound
+              round={round}
+              meta={meta}
+              onAnswer={handleAnswer}
+              onNext={handleNext}
+              onBack={onBack}
+            />
+          )}
+        </div>
       </div>
     </PrototypeShell>
   );
@@ -250,8 +253,8 @@ interface ActiveRoundProps {
 function ActiveRound({ round, meta, onAnswer, onNext, onBack }: ActiveRoundProps) {
   const prepared = currentItem(round);
   const answered = round.status === "answered";
-  const correct = isSelectionCorrect(round);
   const chosen = selectedOption(round);
+  const correct = chosen?.isCorrect ?? false;
   const lastItem = isLastItem(round);
 
   return (

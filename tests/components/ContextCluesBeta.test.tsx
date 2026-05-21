@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ContextCluesBeta } from "@/app/components/prototypes/ContextCluesBeta";
-import { getItems, type ContextCluesItem } from "@/lib/contextClues";
+import {
+  getItems,
+  type ContextCluesItem,
+  type SpotPatternItem,
+  type StoryDetectiveItem,
+} from "@/lib/contextClues";
 
 function correctTestId(item: ContextCluesItem): string {
   const index = item.options.findIndex((option) => option.isCorrect);
@@ -49,12 +54,12 @@ describe("ContextCluesBeta", () => {
 
     fireEvent.click(screen.getByTestId("context-clues-tab-spot_pattern"));
 
-    const patternItem = getItems("spot_pattern")[0];
+    const patternItem = getItems("spot_pattern")[0] as SpotPatternItem;
     expect(screen.getByText(patternItem.prompt)).toBeInTheDocument();
     expect(screen.getByTestId("context-clues-next")).toBeDisabled();
 
     fireEvent.click(screen.getByTestId("context-clues-tab-story_detective"));
-    const storyItem = getItems("story_detective")[0];
+    const storyItem = getItems("story_detective")[0] as StoryDetectiveItem;
     expect(screen.getByText(storyItem.question)).toBeInTheDocument();
   });
 

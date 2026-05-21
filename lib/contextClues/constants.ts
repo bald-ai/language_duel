@@ -1,6 +1,6 @@
 import type { ContextCluesVariant } from "./types";
 
-/** One correct answer plus two plausible distractors (research: 3 is enough). */
+/** One correct answer plus two plausible distractors. */
 export const OPTIONS_PER_ITEM = 3;
 
 /** Tab order and the mode shown first. */
