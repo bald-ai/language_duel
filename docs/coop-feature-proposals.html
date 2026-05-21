@@ -437,10 +437,10 @@ tr.hide{display:none}
     <span class="outline g-rose" data-text="Two Minds.">Two Minds.</span><br>
     <span class="outline g-green" data-text="One Win.">One Win.</span>
   </h1>
-  <p class="lead">A working design exploration of co-op features where you literally <b>can't win without each other</b> — built on the <i>It Takes Two</i> north star and tuned for two people learning Spanish side by side. Three of these are <b>playable right here in the page</b>. Go nuts, then keep whatever sparks joy. <b>Even one is a win.</b></p>
+  <p class="lead">A working design exploration of co-op features where you literally <b>can't win without each other</b> — built on the <i>It Takes Two</i> north star and tuned for two people learning Spanish side by side. Four of these are <b>playable right here in the page</b>. Go nuts, then keep whatever sparks joy. <b>Even one is a win.</b></p>
   <div class="meta-chips">
     <div class="meta-chip"><span class="n">18</span><span class="l">ideas</span></div>
-    <div class="meta-chip"><span class="n title-font" style="color:var(--cta-dark)">3</span><span class="l">playable demos</span></div>
+    <div class="meta-chip"><span class="n title-font" style="color:var(--cta-dark)">4</span><span class="l">playable demos</span></div>
     <div class="meta-chip"><span class="n">5</span><span class="l">design pillars</span></div>
     <div class="meta-chip"><span class="n">1</span><span class="l">mixed-skill system</span></div>
     <div class="meta-chip"><span class="n title-font" style="color:var(--primary-dark)">∞</span><span class="l">interdependence</span></div>
@@ -577,7 +577,7 @@ tr.hide{display:none}
     <div>
       <span class="eyebrow cta">Stop reading, start tapping</span>
       <h2>▶ Interactive playground</h2>
-      <p>Three of the ideas, actually playable right here — single-device "hot-seat" versions where you pass the phone (or both reach in). This is the fastest way to feel whether a mechanic is fun before a line of real code gets written. <b>Grab your partner.</b></p>
+      <p>Four of the ideas, actually playable right here — single-device "hot-seat" versions where you pass the phone (or both reach in). This is the fastest way to feel whether a mechanic is fun before a line of real code gets written. <b>Grab your partner.</b></p>
     </div>
   </div>
   <div class="app-card">
@@ -590,6 +590,7 @@ tr.hide{display:none}
       <button class="pg-tab active" data-pg="memory"><span class="em">🧠</span> Two-Minds Memory</button>
       <button class="pg-tab" data-pg="relay"><span class="em">🧩</span> Sentence Relay</button>
       <button class="pg-tab" data-pg="decoder"><span class="em">🕵️</span> Decoder Duo</button>
+      <button class="pg-tab" data-pg="streak"><span class="em">🔥</span> One Streak</button>
     </div>
 
     <!-- MEMORY DEMO -->
@@ -644,6 +645,21 @@ tr.hide{display:none}
         </div>
         <div class="pg-phone-wrap">
           <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="decoderScreen">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pg-stage" data-stage="streak">
+      <div class="pg-layout">
+        <div class="pg-side">
+          <h4>🔥 One Streak, Two Hands</h4>
+          <p>Take turns answering. Every correct answer — from <i>either</i> of you — grows one shared multiplier. A single miss by either of you resets it to ×1.</p>
+          <p class="note">This is modifier #08, playable solo-style here. Notice how you start silently rooting for your partner's turn.</p>
+          <div class="pg-controls"><button class="pg-btn" id="streakNew">New run</button></div>
+          <p class="pg-stat" id="streakStat"></p>
+        </div>
+        <div class="pg-phone-wrap">
+          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="streakScreen">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -1358,6 +1374,25 @@ tr.hide{display:none}
           <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>TTS pronunciation quality is the whole game here — bad audio = unfair. Lean on your stored theme audio where available.</div></div>
         </div>
       </div>
+      <details class="detail-block">
+        <summary>Design detail · distractors, balancing, build lane</summary>
+        <div class="body">
+          <div class="grid-2">
+            <div>
+              <p class="h-mini" style="margin-top:0">Making it hard the <i>right</i> way</p>
+              <p class="note" style="margin-top:0">The options should be <b>minimal pairs</b> — words differing by one sound the ear must catch: b/v (<i>bello/vello</i>), c/s (<i>cocer/coser</i>), ll/y, single vs double vowels. Auto-build distractor sets from these so the listening is real, not guessable.</p>
+              <p class="h-mini">Scoring</p>
+              <p class="note" style="margin-top:0">Team correct / total; swap Ears↔Eyes each round. Bonus for a clean pick on the first listen (no replay).</p>
+            </div>
+            <div>
+              <p class="h-mini" style="margin-top:0">Mixed-skill (pillar 4)</p>
+              <p class="note" style="margin-top:0">Beginner on <b>Eyes</b> (map sound→spelling, recognition). Stronger speaker on <b>Ears</b> (must reproduce the sound aloud). Both train listening; only one has to perform.</p>
+              <p class="h-mini">Build lane</p>
+              <p class="note" style="margin-top:0"><span class="tag loc">LANE A/B</span> One device works (P1 listens on earbud, passes); two devices is ideal (audio to P1, text to P2). Reuses <span class="kbd">useTTS</span> storage audio directly — no new audio pipeline.</p>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   </article>
 
@@ -2113,6 +2148,26 @@ tr.hide{display:none}
     </div>
   </div>
   <div class="app-card">
+    <div class="schem" style="margin-bottom:18px">
+      <div class="tiny-label" style="margin-bottom:8px">The energy curve — build a small spread across it, not five copies of the same beat</div>
+      <svg viewBox="0 0 600 170" width="100%" height="150" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Energy curve across an evening: warm up, laugh, build, climax, cool down, solo">
+        <defs>
+          <linearGradient id="ecurve" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="var(--primary)"/><stop offset="1" stop-color="var(--cta)"/>
+          </linearGradient>
+        </defs>
+        <line x1="20" y1="150" x2="585" y2="150" stroke="color-mix(in srgb,var(--text) 18%,transparent)" stroke-width="1"/>
+        <polyline points="35,120 150,55 260,95 370,32 480,128 565,140" fill="none" stroke="url(#ecurve)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <g font-family="'Fredoka','Outfit'" font-size="12" font-weight="600" text-anchor="middle">
+          <circle cx="35" cy="120" r="6" fill="var(--primary)"/><text x="35" y="105" fill="var(--ink-soft)">warm</text>
+          <circle cx="150" cy="55" r="6" fill="var(--cta)"/><text x="150" y="42" fill="var(--ink-soft)">laugh 🤣</text>
+          <circle cx="260" cy="95" r="6" fill="var(--primary)"/><text x="260" y="82" fill="var(--ink-soft)">build</text>
+          <circle cx="370" cy="32" r="6" fill="var(--cta)"/><text x="370" y="20" fill="var(--ink-soft)">climax 👹</text>
+          <circle cx="480" cy="128" r="6" fill="var(--primary)"/><text x="480" y="115" fill="var(--ink-soft)">cool</text>
+          <circle cx="565" cy="140" r="6" fill="var(--cta)"/><text x="565" y="127" fill="var(--ink-soft)">solo</text>
+        </g>
+      </svg>
+    </div>
     <div class="timeline">
       <div class="tl"><div class="t">8:02 · warm up</div><h4>🧠 Two-Minds Memory</h4><p>Low stakes, gets you both talking and remembering. "Where was madre again?" Five minutes and you're synced.</p></div>
       <div class="tl"><div class="t">8:10 · the laugh</div><h4>🕵️ Decoder Duo</h4><p>Belly laughs as one of you mimes "sunflower" without saying it. This is the bit you'll text friends about. Energy peaks.</p></div>
@@ -2221,7 +2276,7 @@ tr.hide{display:none}
       <div class="panel p2">
         <span class="eyebrow cta">Lane A · fastest</span>
         <h4>Co-located hot-seat = pure client state</h4>
-        <p>One device, two humans, zero networking. Just React state in a prototype component — exactly like the three playable demos above. <b>No Convex, no sync, no latency.</b></p>
+        <p>One device, two humans, zero networking. Just React state in a prototype component — exactly like the four playable demos above. <b>No Convex, no sync, no latency.</b></p>
         <p>Perfect for: Decoder, Memory, Relay, Password, Split-Letter Forge, Mirror, Heist. Drop them in <span class="kbd">app/components/prototypes/</span> behind the <span class="kbd">Mock Features</span> menu and ship in an afternoon.</p>
       </div>
       <div class="panel p1">
@@ -2303,6 +2358,27 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
     </div>
 
     <div class="callout risk" style="margin-top:14px"><span class="ic">⚠️</span><div><b>Honest constraints</b>(1) There's <b>no hot-seat mode today</b> — Lane A is a new client pattern (easy, but new). (2) Self-duels are forced to PvE, so a "vs CPU" co-op practice already has a home. (3) Non-sticky sabotage FX persist until the question changes — fine for Trust Shield. (4) Call &amp; Response lives or dies on TTS quality; prefer stored theme audio over live generation.</div></div>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section class="block reveal" id="faq">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">The objections I'd raise if I were you</span>
+      <h2>Honest FAQ</h2>
+      <p>Pre-empting the doubts, because a proposal that only sells itself is useless.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="grid-2">
+      <div class="panel"><h4>"We're not always in the same room."</h4><p>Fair — co-located is the <i>best</i> case, not the only one. The <b>Same room?</b> column in the matrix flags it. Word Toss, One Streak, Lifeline, and Co-op Boss all work across two devices/async; the hidden-info ones (Decoder, Call &amp; Response) are where being together really sings. Filter the matrix by "Same-room best" to separate them.</p></div>
+      <div class="panel"><h4>"Do we really need two phones?"</h4><p>No. Every flagship has a single-device <b>hot-seat</b> version — that's exactly what the playground demos are. Pass the phone for Decoder/Memory/Relay/Password. Two devices only matter when you both need to see different secret info <i>at the same time</i>.</p></div>
+      <div class="panel"><h4>"Isn't this just trivia with extra steps?"</h4><p>That's the failure mode pillar 1 guards against. The test: if a mode plays fine with one person doing both roles, it <b>is</b> just trivia and I'd cut it. The keepers force a hand-off, a description, or a shared risk — the "extra step" <i>is</i> the togetherness.</p></div>
+      <div class="panel"><h4>"Our Spanish levels are really different."</h4><p>Good — that's a feature here, not a bug. The whole <a href="#mixed">mixed-skill section</a> is about turning the gap into roles: the stronger player describes/teaches, the learner picks/decides. Start with the free social fix (play your weaker direction) before touching code.</p></div>
+      <div class="panel"><h4>"Won't this fragment the app?"</h4><p>Co-op slots under one umbrella (e.g. <i>Juntos</i>) beside Solo and Duel. Every mode reuses the same Themes + answer engine, and the backend changes are optional &amp; mode-gated, so Solo/PvP/PvE are untouched. It's additive, not a rewrite.</p></div>
+      <div class="panel"><h4>"What stops cheating in Decoder?"</h4><p>Three answers: it's you and your gf (who's cheating whom?); house rules set the clue difficulty; and for two-device play, your existing <span class="kbd">canRevealQuestionAnswer</span> genuinely hides the word from the picker's client. Cheat-proof if you want it.</p></div>
+    </div>
   </div>
 </section>
 
@@ -2494,17 +2570,49 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
     return {reset:reset,toPick:toPick,pick:pick,next:next,render:render};
   })();
 
+  /* ---------------- ONE STREAK ---------------- */
+  var STREAK_DECK=[
+    {w:"el perro",a:"dog",opts:["dog","cat","horse","fox"]},
+    {w:"la leche",a:"milk",opts:["water","milk","juice","bread"]},
+    {w:"rojo",a:"red",opts:["blue","green","red","black"]},
+    {w:"comer",a:"to eat",opts:["to drink","to sleep","to eat","to run"]},
+    {w:"la playa",a:"beach",opts:["mountain","beach","city","forest"]},
+    {w:"feliz",a:"happy",opts:["sad","angry","happy","tired"]},
+    {w:"el libro",a:"book",opts:["pen","book","table","door"]},
+    {w:"beber",a:"to drink",opts:["to eat","to drink","to walk","to talk"]}
+  ];
+  var Streak=(function(){
+    var deck,qi,turn,mult,best,locked,lastPick,lastRes;
+    function build(){deck=shuffle(STREAK_DECK);qi=0;turn='P1';mult=1;best=0;locked=false;lastPick=null;lastRes=null;}
+    function reset(){build();render();}
+    function pick(opt){if(locked)return;var card=deck[qi];var ok=opt===card.a;locked=true;lastPick=opt;lastRes=ok?'correct':'wrong';if(ok){mult++;if(mult>best)best=mult;}else{mult=1;}render();
+      setTimeout(function(){turn=other(turn);qi=(qi+1)%deck.length;locked=false;lastPick=null;lastRes=null;render();},800);}
+    function render(){
+      var el=document.getElementById('streakScreen');if(!el)return;var card=deck[qi];var h=topnav('One Streak',true);
+      h+='<div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">Shared multiplier</div><div class="s-big" style="font-size:40px;color:var(--cta-dark);line-height:1.05">×'+mult+'</div><div class="s-mid" style="color:var(--muted)">best this run: ×'+best+'</div></div>';
+      h+='<div class="s-turn" style="margin-top:8px">'+(turn==='P1'?'<span class="who p1"><span class="av p1">EN</span>P1\'s turn':'<span class="who p2"><span class="av p2">ES</span>P2\'s turn')+'</span></div>';
+      h+='<div class="s-card'+(turn==='P2'?' p2':'')+'" style="margin-top:6px"><div class="s-eye" style="color:'+(turn==='P1'?'var(--primary-dark)':'var(--cta-dark)')+'">Translate</div><div class="s-big" style="margin:2px 0">'+card.w+'</div></div>';
+      card.opts.forEach(function(o){var cls='s-opt';if(locked){if(o===card.a)cls+=' correct';else if(o===lastPick)cls+=' wrong';cls+=' locked';}else cls+=' clk';h+='<div class="'+cls+'"'+(locked?'':(' data-streak-opt="'+o+'"'))+'>'+o+'</div>';});
+      if(locked){h+='<div class="s-banner'+(lastRes==='correct'?' go':' wait')+'" style="margin-top:8px">'+(lastRes==='correct'?'✅ +1 → ×'+mult+'. Pass to '+other(turn)+'!':'❌ Streak reset to ×1. Shake it off — together.')+'</div>';}
+      else{h+='<div class="s-banner" style="margin-top:8px">One miss by either of you resets it. No pressure 😬</div>';}
+      el.innerHTML=h;var st=document.getElementById('streakStat');if(st)st.textContent='Multiplier ×'+mult+' · best ×'+best;
+    }
+    return {build:build,reset:reset,pick:pick,render:render};
+  })();
+
   /* ---------------- wiring ---------------- */
   function delegate(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
   delegate('memScreen',function(e){var f=e.target.closest('[data-flip-lang]');if(f){Mem.flip(f.getAttribute('data-flip-lang'),+f.getAttribute('data-flip-idx'));return;}var a=e.target.closest('[data-act]');if(a&&a.getAttribute('data-act')==='mem-new')Mem.reset();});
   delegate('relayScreen',function(e){var p=e.target.closest('[data-place]');if(p){Relay.place(+p.getAttribute('data-place'));return;}var a=e.target.closest('[data-act]');if(a&&a.getAttribute('data-act')==='relay-next')Relay.newS();});
   delegate('decoderScreen',function(e){var o=e.target.closest('[data-opt]');if(o){Decoder.pick(o.getAttribute('data-opt'));return;}var a=e.target.closest('[data-act]');if(a){var k=a.getAttribute('data-act');if(k==='decoder-hand')Decoder.toPick();else if(k==='decoder-next')Decoder.next();}});
-  [['memNew',function(){Mem.reset();}],['relayUndo',function(){Relay.undo();}],['relayClear',function(){Relay.clear();}],['relayNew',function(){Relay.newS();}],['decoderNew',function(){Decoder.reset();}]].forEach(function(p){var b=document.getElementById(p[0]);if(b)b.addEventListener('click',p[1]);});
+  delegate('streakScreen',function(e){var o=e.target.closest('[data-streak-opt]');if(o)Streak.pick(o.getAttribute('data-streak-opt'));});
+  [['memNew',function(){Mem.reset();}],['relayUndo',function(){Relay.undo();}],['relayClear',function(){Relay.clear();}],['relayNew',function(){Relay.newS();}],['decoderNew',function(){Decoder.reset();}],['streakNew',function(){Streak.reset();}]].forEach(function(p){var b=document.getElementById(p[0]);if(b)b.addEventListener('click',p[1]);});
   var tabs=document.getElementById('pgTabs');
   if(tabs)tabs.addEventListener('click',function(e){var t=e.target.closest('.pg-tab');if(!t)return;var k=t.getAttribute('data-pg');[].forEach.call(tabs.querySelectorAll('.pg-tab'),function(x){x.classList.toggle('active',x===t);});[].forEach.call(document.querySelectorAll('.pg-stage'),function(s){s.classList.toggle('active',s.getAttribute('data-stage')===k);});});
   if(document.getElementById('memScreen')){Mem.build();Mem.render();}
   if(document.getElementById('relayScreen')){Relay.build(0);Relay.render();}
   if(document.getElementById('decoderScreen')){Decoder.reset();}
+  if(document.getElementById('streakScreen')){Streak.build();Streak.render();}
 
   /* ---------------- palette switcher ---------------- */
   var PAL={'playful-duo':{bg:'#FFF8F1',p:'#FB7185',c:'#22C55E'},'toybox-adventure':{bg:'#FDF4FF',p:'#A855F7',c:'#FACC15'},'warm-mischief':{bg:'#FFF7ED',p:'#F97316',c:'#0EA5E9'},'friendly-rivalry':{bg:'#F0F9FF',p:'#2563EB',c:'#FB7185'},'candy-coop':{bg:'#FFF1F2',p:'#EC4899',c:'#22D3EE'}};
