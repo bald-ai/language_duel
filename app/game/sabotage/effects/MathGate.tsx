@@ -17,7 +17,7 @@ type MathGateFeedback = "idle" | "correct" | "wrong";
 export function MathGate() {
   const colors = useAppearanceColors();
   const [burst] = useState<MathGateProblem[]>(() =>
-    generateMathGateBurst(MATH_GATE_PROBLEM_COUNT, { termCount: "random" })
+    generateMathGateBurst(MATH_GATE_PROBLEM_COUNT)
   );
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
