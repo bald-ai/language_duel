@@ -189,8 +189,11 @@ section.block{padding:30px 0}
 .phone{width:262px; border-radius:32px; padding:9px;
   background:linear-gradient(160deg,#2a2622,#15110f);
   box-shadow:0 18px 40px rgba(0,0,0,.30), inset 0 0 0 2px rgba(255,255,255,.06)}
-.phone .notch{height:18px; display:grid; place-items:center}
-.phone .notch::after{content:""; width:64px; height:6px; border-radius:99px; background:rgba(255,255,255,.22)}
+.phone .notch{height:20px; display:flex; align-items:center; justify-content:space-between; padding:3px 15px 0; position:relative}
+.phone .notch::before{content:"9:41"; font-size:9px; font-weight:800; letter-spacing:.02em; color:rgba(255,255,255,.62)}
+.phone .notch::after{content:"\1F4F6\00A0\1F50B"; font-size:9px; color:rgba(255,255,255,.6)}
+.phone .notch i.island{position:absolute; left:50%; top:4px; transform:translateX(-50%); width:46px; height:12px; border-radius:99px; background:rgba(0,0,0,.55)}
+.pg-phone{transition:transform .18s ease; transform-style:preserve-3d; will-change:transform}
 .screen{border-radius:24px; overflow:hidden; min-height:380px;
   background:
     radial-gradient(420px 220px at 18% -10%, color-mix(in srgb,var(--primary) 14%, transparent), transparent 60%),
@@ -409,6 +412,7 @@ tr.hide{display:none}
 /* ============================================================
    v3 CRAFT POLISH — motion, depth, delight (reduced-motion safe)
    ============================================================ */
+.pal-anim *{transition:background-color .45s ease, border-color .45s ease, color .35s ease, fill .35s ease, box-shadow .45s ease !important}
 .aurora{position:fixed; inset:-10%; z-index:-1; pointer-events:none; opacity:.65;
   background:
     radial-gradient(38vw 38vw at 15% 18%, color-mix(in srgb,var(--primary) 24%,transparent), transparent 60%),
@@ -676,7 +680,7 @@ table.matrix tbody tr{transition:background .15s ease}
           <p class="pg-stat" id="memStat"></p>
         </div>
         <div class="pg-phone-wrap">
-          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="memScreen">Loading…</div></div>
+          <div class="phone pg-phone"><div class="notch"><i class="island"></i></div><div class="screen pg-live" id="memScreen">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -696,7 +700,7 @@ table.matrix tbody tr{transition:background .15s ease}
           <p class="pg-stat" id="relayStat"></p>
         </div>
         <div class="pg-phone-wrap">
-          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="relayScreen">Loading…</div></div>
+          <div class="phone pg-phone"><div class="notch"><i class="island"></i></div><div class="screen pg-live" id="relayScreen">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -714,7 +718,7 @@ table.matrix tbody tr{transition:background .15s ease}
           <p class="pg-stat" id="decoderStat"></p>
         </div>
         <div class="pg-phone-wrap">
-          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="decoderScreen">Loading…</div></div>
+          <div class="phone pg-phone"><div class="notch"><i class="island"></i></div><div class="screen pg-live" id="decoderScreen">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -729,7 +733,7 @@ table.matrix tbody tr{transition:background .15s ease}
           <p class="pg-stat" id="streakStat"></p>
         </div>
         <div class="pg-phone-wrap">
-          <div class="phone pg-phone"><div class="notch"></div><div class="screen pg-live" id="streakScreen">Loading…</div></div>
+          <div class="phone pg-phone"><div class="notch"><i class="island"></i></div><div class="screen pg-live" id="streakScreen">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -787,7 +791,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · Setup</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
             <div class="s-chips"><div class="s-chip"><div class="k">Rounds</div><div class="v">0</div></div><div class="s-chip g"><div class="k">Time</div><div class="v">0:00</div></div><div class="s-chip n"><div class="k">Pairs</div><div class="v">0/6</div></div></div>
             <div class="s-banner">P1 picks an English card, P2 picks the matching Spanish card. <b>Work together!</b></div>
@@ -803,7 +807,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · P1 flips</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
             <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>P1's turn</span></div>
             <div class="s-banner go">P1's turn — flip an English card.</div>
@@ -819,7 +823,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 3 · P2 matches</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
             <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>P2's turn</span></div>
             <div class="s-banner go">P2's turn — find "mother" in Spanish.</div>
@@ -836,7 +840,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Together</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
             <div class="s-card plain" style="text-align:center; padding:18px"><div class="s-eye" style="color:var(--cta-dark)">Cleared together</div><div class="s-big" style="font-size:30px; margin:6px 0">6 / 6</div><div class="s-mid">9 rounds · 1:12</div></div>
             <div class="s-chips" style="margin-top:8px"><div class="s-chip"><div class="k">Rounds</div><div class="v">9</div></div><div class="s-chip g"><div class="k">Time</div><div class="v">1:12</div></div><div class="s-chip n"><div class="k">Pairs</div><div class="v">6/6</div></div></div>
@@ -928,7 +932,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · The deal</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
             <div class="s-card plain"><div class="s-eye">English meaning</div><div class="s-mid" style="margin-top:3px">I write at night.</div></div>
             <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1's tokens</div><div><span class="s-tok">escribo</span><span class="s-tok">la</span></div></div>
@@ -942,7 +946,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · P2 places</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
             <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>P2 placed a word</span></div>
             <div class="s-card plain"><div class="s-eye">Shared sentence</div><div style="margin-top:4px"><span class="s-tok p2">Yo</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
@@ -957,7 +961,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 3 · Relay</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
             <div class="s-card plain"><div class="s-eye">Shared sentence</div><div style="margin-top:4px"><span class="s-tok p2">Yo</span><span class="s-tok">escribo</span><span class="s-tok p2">por</span><span class="s-tok">la</span><span class="s-tok ghost">＿</span></div></div>
             <div class="s-turn" style="margin-top:8px"><span class="who p2"><span class="av p2">ES</span>P2's turn — last word</span></div>
@@ -971,7 +975,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 4 · Check</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
             <div class="s-card plain" style="border-color:color-mix(in srgb,var(--cta) 45%, transparent)"><div class="s-eye" style="color:var(--cta-dark)">Solved ✓</div><div class="s-mid" style="margin-top:4px; color:var(--cta-dark)">Yo escribo por la noche.</div></div>
             <div class="s-banner go" style="margin-top:8px">Perfect — built in 5 hand-offs, zero rebuilds.</div>
@@ -1063,7 +1067,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · The split</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
             <div class="s-chips"><div class="s-chip"><div class="k">My stack</div><div class="v">10</div></div><div class="s-chip g"><div class="k">Team time</div><div class="v">2:00</div></div><div class="s-chip n"><div class="k">Tosses</div><div class="v">3</div></div></div>
             <div class="s-card plain"><div class="s-eye">Shared progress</div>
@@ -1078,7 +1082,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · Stuck → toss</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
             <div class="s-card"><div class="s-eye" style="color:var(--primary-dark)">Your word</div><div class="s-big" style="margin:3px 0">la suegra</div></div>
             <div class="s-opt locked">mother-in-law</div>
@@ -1094,7 +1098,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 3 · P2 catches</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
             <div class="s-banner go">🪃 Incoming from P1! +1 word in your tray.</div>
             <div class="s-card p2 glow-p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">Rescue · from P1</div><div class="s-big" style="margin:3px 0">la suegra</div></div>
@@ -1110,7 +1114,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Cleared</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
             <div class="s-card plain" style="text-align:center; padding:16px"><div class="s-eye" style="color:var(--cta-dark)">Stacks cleared</div><div class="s-big" style="font-size:28px; margin:6px 0">20 / 20</div><div class="s-mid">0:18 left · 4 tosses · 4 saves</div></div>
             <div class="s-banner go" style="margin-top:8px">Balanced team! P1 carried verbs, P2 caught the in-laws.</div>
@@ -1213,7 +1217,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="grid-2" style="align-items:start">
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
           <span class="step-pill" style="color:var(--primary-dark); background:color-mix(in srgb,var(--primary) 12%,white 88%)">P1's screen · the Clue</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Decoder Duo</h5></div></div>
             <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>You give the clue</span></div>
             <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">Only you can see this</div><div class="s-big" style="margin:4px 0">el girasol</div><div class="s-mid" style="font-weight:600; color:var(--muted)">hint: a tall yellow flower 🌻</div></div>
@@ -1222,7 +1226,7 @@ table.matrix tbody tr{transition:background .15s ease}
         </div>
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
           <span class="step-pill" style="color:var(--cta-dark); background:color-mix(in srgb,var(--cta) 12%,white 88%)">P2's screen · the Pick</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Decoder Duo</h5></div></div>
             <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>You pick</span></div>
             <div class="s-card p2 glow-p2"><div class="s-eye" style="color:var(--cta-dark)">Listen to P1, then choose</div><div class="s-mid" style="margin-top:3px; color:var(--muted)">??? · word hidden from you</div></div>
@@ -1317,7 +1321,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · Deal the tiles</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
             <div class="s-card plain"><div class="s-eye">Spell in Spanish</div><div class="s-mid" style="margin-top:3px">butterfly</div></div>
             <div class="s-card plain" style="margin-top:8px"><div class="s-eye">Shared tray · 8 slots</div><div style="margin-top:4px"><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
@@ -1331,7 +1335,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · Forge together</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
             <div class="s-card plain"><div class="s-eye">Shared tray</div><div style="margin-top:4px"><span class="s-tok">m</span><span class="s-tok p2">a</span><span class="s-tok">r</span><span class="s-tok p2">i</span><span class="s-tok">p</span><span class="s-tok p2">o</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
             <div class="s-banner go" style="margin-top:8px">Slot 7 needs <b>"s"</b> — that's P1. Slot 8 needs <b>"a"</b> — that's P2.</div>
@@ -1345,7 +1349,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Forged</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
             <div class="s-card plain" style="border-color:var(--cta); background:color-mix(in srgb,var(--cta) 14%,white 86%); text-align:center; padding:16px"><div class="s-eye" style="color:var(--cta-dark)">Forged ✓</div><div class="s-big" style="font-size:26px; margin:6px 0; color:var(--cta-dark)">mariposa</div><div class="s-mid">butterfly</div></div>
             <div class="s-banner go" style="margin-top:8px">🔊 Hear it · then on to the next word.</div>
@@ -1413,7 +1417,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · P1 hears</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
             <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>You are the Ears</span></div>
             <div class="s-card glow-p1" style="text-align:center; padding:20px"><div class="s-eye" style="color:var(--primary-dark)">Audio only</div><div class="s-big" style="font-size:34px; margin:8px 0">🔊</div><div class="s-mid" style="color:var(--muted)">tap to replay · no text</div></div>
@@ -1426,7 +1430,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · P2 picks</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
             <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>You are the Eyes</span></div>
             <div class="s-card p2 glow-p2"><div class="s-eye" style="color:var(--cta-dark)">Pick what P1 is saying</div><div class="s-mid" style="margin-top:2px; color:var(--muted)">🔇 you hear nothing</div></div>
@@ -1442,7 +1446,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Reveal</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
             <div class="s-card plain" style="text-align:center; border-color:color-mix(in srgb,var(--cta) 40%,transparent)"><div class="s-eye" style="color:var(--cta-dark)">Matched ✓</div><div class="s-big" style="margin:5px 0">cocina</div><div class="s-mid">= kitchen</div></div>
             <div class="s-banner go" style="margin-top:8px">Both of you now see the meaning. Swap roles → next.</div>
@@ -1529,7 +1533,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · Both alive</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
             <div class="s-card plain"><div class="s-eye" style="color:var(--primary-dark)">P1 lifeline</div><div class="bar" style="margin:4px 0 8px"><span class="fill p1" style="width:72%"></span></div><div class="s-eye" style="color:var(--cta-dark)">P2 lifeline</div><div class="bar" style="margin:4px 0 0"><span class="fill p2" style="width:55%"></span></div></div>
             <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">Your card</div><div class="s-big" style="margin:2px 0">el tenedor</div></div>
@@ -1543,7 +1547,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · P1 freezes</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
             <div class="s-card plain"><div class="s-eye" style="color:var(--primary-dark)">P1 lifeline</div><div class="bar" style="margin:4px 0 8px"><span class="fill p1" style="width:2%"></span></div><div class="s-eye" style="color:var(--cta-dark)">P2 lifeline</div><div class="bar" style="margin:4px 0 0"><span class="fill p2" style="width:48%"></span></div></div>
             <div class="s-card" style="margin-top:8px; text-align:center; border-color:color-mix(in srgb,var(--secondary) 50%,transparent); background:color-mix(in srgb,var(--secondary) 14%,white 86%)"><div class="s-big" style="font-size:30px">🧊</div><div class="s-mid" style="color:var(--secondary-dark)">Frozen — waiting for P2</div></div>
@@ -1556,7 +1560,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 3 · P2 revives</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
             <div class="s-banner go">🚑 P1 is down! Clear this to revive them.</div>
             <div class="s-card p2 glow-p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">Revive card</div><div class="s-big" style="margin:2px 0">la cuchara</div></div>
@@ -1659,7 +1663,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · Building</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>One Streak</h5></div></div>
             <div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">Shared multiplier</div><div class="s-big" style="font-size:38px; color:var(--cta-dark)">×4</div><div class="s-mid" style="color:var(--muted)">team score 1,240</div></div>
             <div class="s-turn" style="margin-top:8px"><span class="who p1"><span class="av p1">EN</span>P1 nailed it</span></div>
@@ -1672,7 +1676,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · On the line</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>One Streak</h5></div></div>
             <div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">On the line</div><div class="s-big" style="font-size:34px; color:var(--cta-dark)">×4 → ×5?</div></div>
             <div class="s-turn" style="margin-top:6px"><span class="who p2"><span class="av p2">ES</span>P2's turn</span></div>
@@ -1687,7 +1691,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Milestone</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>One Streak</h5></div></div>
             <div class="s-card plain" style="text-align:center; border-color:var(--cta); background:color-mix(in srgb,var(--cta) 13%,white 87%); padding:18px"><div class="s-eye" style="color:var(--cta-dark)">Milestone ×5 🎉</div><div class="s-big" style="font-size:30px; margin:5px 0">Reward unlocked</div><div class="s-mid">+ boss key for the team</div></div>
             <div class="s-banner go" style="margin-top:8px">You two are in sync. Keep the chain alive?</div>
@@ -1755,7 +1759,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · Shield up</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
             <div class="s-card plain" style="text-align:center"><div class="s-big" style="font-size:34px">👹</div><div class="s-eye" style="color:var(--secondary-dark)">🛡️ Shield</div><div class="bar" style="margin:4px 0 7px"><span class="fill" style="width:80%; background:linear-gradient(90deg,var(--secondary-light),var(--secondary-dark))"></span></div><div class="s-eye" style="color:var(--danger-dark)">❤️ Health</div><div class="bar" style="margin:4px 0 0"><span class="fill" style="width:100%; background:linear-gradient(90deg,var(--danger),var(--danger-dark))"></span></div></div>
             <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 · break shield (EN→ES)</div><div class="s-big" style="margin:2px 0">grateful → ?</div></div>
@@ -1768,7 +1772,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · Window open</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
             <div class="s-card plain" style="text-align:center"><div class="s-big" style="font-size:34px">😵</div><div class="s-eye" style="color:var(--secondary-dark)">🛡️ Shield DOWN</div><div class="bar" style="margin:4px 0 7px"><span class="fill" style="width:4%; background:linear-gradient(90deg,var(--secondary-light),var(--secondary-dark))"></span></div><div class="s-eye" style="color:var(--danger-dark)">❤️ Health</div><div class="bar" style="margin:4px 0 0"><span class="fill" style="width:62%; background:linear-gradient(90deg,var(--danger),var(--danger-dark))"></span></div></div>
             <div class="s-banner go" style="margin-top:8px">⚡ STRIKE WINDOW — P2 go!</div>
@@ -1781,7 +1785,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Defeated</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
             <div class="s-card plain" style="text-align:center; border-color:var(--cta); background:color-mix(in srgb,var(--cta) 12%,white 88%); padding:16px"><div class="s-big" style="font-size:30px">🏆</div><div class="s-eye" style="color:var(--cta-dark)">Boss defeated · together</div><div class="s-mid" style="margin-top:4px">Weekly goal complete</div></div>
             <div class="s-banner go" style="margin-top:8px">P1 broke 4 shields · P2 landed the final blow.</div>
@@ -1872,7 +1876,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="flow">
         <div class="flow-step">
           <span class="step-pill">Step 1 · The gap</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
             <div class="s-card plain" style="padding:14px"><div class="s-eye">The crossing</div>
               <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
@@ -1896,7 +1900,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Step 2 · Mid-span</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
             <div class="s-card plain" style="padding:14px"><div class="s-eye">Halfway…</div>
               <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
@@ -1921,7 +1925,7 @@ table.matrix tbody tr{transition:background .15s ease}
 
         <div class="flow-step">
           <span class="step-pill">Win · Across</span>
-          <div class="phone"><div class="notch"></div><div class="screen">
+          <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
             <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
             <div class="s-card plain" style="padding:14px; border-color:color-mix(in srgb,var(--cta) 40%,transparent)"><div class="s-eye" style="color:var(--cta-dark)">Crossed together 🎉</div>
               <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
@@ -1996,7 +2000,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">11</span><div><span class="eyebrow">the newlywed game</span><h4>Mirror Match</h4></div></div>
       <p class="pitch-sm">Same word, both of you, no peeking. You only score if your two answers <b>agree</b> — and are right. Tests whether you two are actually on the same page.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: must converge</span><span class="tag reuse">REUSES answer engine</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Mirror Match</h5></div></div>
         <div class="s-card plain"><div class="s-eye">Both answer secretly</div><div class="s-big" style="margin:2px 0">contento</div></div>
         <div class="s-grid2" style="margin-top:8px">
@@ -2013,7 +2017,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">12</span><div><span class="eyebrow cta">taboo, en español</span><h4>Password</h4></div></div>
       <p class="pitch-sm">P1 must get P2 to <i>say the target Spanish word</i> using only Spanish clues — and never the word itself or its forbidden cousins. Top-tier fluency drill.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: describe ↔ guess</span><span class="tag loc">CO-LOCATED ✨</span><span class="tag new">NEW: taboo lists</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Password</h5></div></div>
         <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">Get P2 to say…</div><div class="s-big" style="margin:3px 0">el médico</div></div>
         <div class="s-card plain" style="margin-top:8px"><div class="s-eye" style="color:var(--danger-dark)">🚫 can't say</div><div class="s-mid" style="font-size:13px">doctor · hospital · enfermo</div></div>
@@ -2027,7 +2031,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">13</span><div><span class="eyebrow">you read, I write</span><h4>Duet Dictation</h4></div></div>
       <p class="pitch-sm">P1's screen shows a Spanish line to <b>read aloud</b>. P2 can't see it and must <b>type</b> what they hear. Then swap. Reading + spelling in one loop.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: voice ↔ keyboard</span><span class="tag reuse">REUSES typing levels + TTS</span><span class="tag loc">CO-LOCATED ✨</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Duet Dictation</h5></div></div>
         <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">P1 reads aloud</div><div class="s-mid" style="margin-top:2px">"Hace frío hoy."</div></div>
         <div class="s-card p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 types what they hear</div><div class="s-mid" style="margin-top:3px; color:var(--muted)">Hace fr|</div></div>
@@ -2041,7 +2045,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">14</span><div><span class="eyebrow cta">extends your PvE pool</span><h4>Hint Token Economy</h4></div></div>
       <p class="pitch-sm">Turn the shared hint pool into a currency: answer fast to <b>earn</b> tokens, then <b>gift</b> them to your partner when they're stuck. Generosity as a mechanic.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: give/receive resource</span><span class="tag reuse">REUSES PvE hint pool</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Hint Tokens</h5></div></div>
         <div class="s-chips"><div class="s-chip"><div class="k">P1 tokens</div><div class="v">4</div></div><div class="s-chip g"><div class="k">P2 tokens</div><div class="v">0</div></div><div class="s-chip n"><div class="k">Streak</div><div class="v">×3</div></div></div>
         <div class="s-banner wait" style="margin-top:8px">P2 is stuck on "el alféizar"…</div>
@@ -2056,7 +2060,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">15</span><div><span class="eyebrow">charge → deliver relay</span><h4>Carry the Flame</h4></div></div>
       <p class="pitch-sm">P1 "charges" a word (reads its meaning) and passes a glowing ember to P2, who must <b>spell/answer it before it cools</b>. A two-stage relay against a fuse.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: prep ↔ execute, timed</span><span class="tag reuse">REUSES answer + timer</span><span class="tag new">NEW: hand-off fuse</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Carry the Flame</h5></div></div>
         <div class="s-card" style="text-align:center; padding:14px"><div class="s-big" style="font-size:26px">🔥</div><div class="s-eye" style="color:var(--primary-dark)">P1 charged: "to bring"</div></div>
         <div class="bar" style="margin:8px 0 0"><span class="fill p1" style="width:40%"></span></div>
@@ -2070,7 +2074,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">16</span><div><span class="eyebrow cta">specialists only</span><h4>Heist: Role Vault</h4></div></div>
       <p class="pitch-sm">A multi-room vault. Each door only opens for a word-type <b>specialist</b>: P1 cracks the verb locks, P2 the noun locks. Pass control room to room.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: complementary specialties</span><span class="tag reuse">REUSES word types + answer</span><span class="tag new">NEW: stage gating</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Role Vault</h5></div></div>
         <div class="s-card plain"><div class="s-eye">Room 2 of 4</div><div class="s-mid" style="margin-top:2px">🔒 Verb lock — P1 only</div></div>
         <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 · crack it (verb)</div><div class="s-big" style="margin:2px 0">correr → ?</div></div>
@@ -2085,7 +2089,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">17</span><div><span class="eyebrow">your Speed Mode, ×2</span><h4>Co-op Speed Split</h4></div></div>
       <p class="pitch-sm">Two decks, one shared timer. Burn through your own — but if your partner's falling behind, tap <b>"cover me"</b> to grab a card off their pile.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: shared clock + steal-to-help</span><span class="tag reuse">REUSES SpeedModeBeta</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Speed Split</h5></div></div>
         <div class="s-chips"><div class="s-chip"><div class="k">My pile</div><div class="v">3</div></div><div class="s-chip g"><div class="k">P2 pile</div><div class="v">7</div></div><div class="s-chip n"><div class="k">Time</div><div class="v">0:21</div></div></div>
         <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">Your card</div><div class="s-big" style="margin:2px 0">la silla</div></div>
@@ -2100,7 +2104,7 @@ table.matrix tbody tr{transition:background .15s ease}
       <div class="bank-head"><span class="bank-num">18</span><div><span class="eyebrow cta">your sabotages, flipped to good</span><h4>Trust Shield</h4></div></div>
       <p class="pitch-sm">A CPU "gremlin" sabotages one of you (buttons bounce, text reverses — your real sabotage FX). Only your <b>partner</b> can dispel it by clearing a quick card.</p>
       <div class="tags"><span class="tag dep">DEPENDENCY: rescue from sabotage</span><span class="tag reuse">REUSES SabotageRenderer (bounce/reverse/…)</span></div>
-      <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="phone"><div class="notch"><i class="island"></i></div><div class="screen">
         <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Trust Shield</h5></div></div>
         <div class="s-banner wait">👹 Gremlin hit P1 — buttons are bouncing!</div>
         <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 (sabotaged)</div><div style="margin-top:4px"><span class="s-tok" style="transform:rotate(-7deg)">otneirbma</span><span class="s-tok" style="transform:translateY(5px) rotate(5deg)">🔄</span></div></div>
@@ -2794,7 +2798,8 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
   function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
   function toHex(a){return '#'+a.map(function(x){x=Math.round(Math.max(0,Math.min(255,x)));var s=x.toString(16);return s.length<2?'0'+s:s;}).join('');}
   function mix(a,b,t){var A=hx(a),B=hx(b);return toHex([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t]);}
-  function setPalette(name){var q=PAL[name];if(!q)return;var r=document.documentElement.style;
+  var palTimer=null;
+  function setPalette(name){var q=PAL[name];if(!q)return;var root=document.documentElement,r=root.style;root.classList.add('pal-anim');clearTimeout(palTimer);palTimer=setTimeout(function(){root.classList.remove('pal-anim');},620);
     r.setProperty('--primary',q.p);r.setProperty('--primary-light',mix(q.p,'#ffffff',.2));r.setProperty('--primary-dark',mix(q.p,'#000000',.16));
     r.setProperty('--cta',q.c);r.setProperty('--cta-light',mix(q.c,'#ffffff',.2));r.setProperty('--cta-dark',mix(q.c,'#000000',.2));
     r.setProperty('--neutral',mix(q.c,'#9aa7a0',.4));r.setProperty('--secondary',mix(q.p,'#7f93a6',.5));r.setProperty('--secondary-dark',mix(q.p,'#41566a',.5));
@@ -2821,6 +2826,14 @@ bossHp?:        <span style="color:#9cf">number</span></pre>
   var rev=document.querySelectorAll('.reveal');
   if('IntersectionObserver' in window&&rev.length){var ro=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');ro.unobserve(en.target);}});},{rootMargin:'0px 0px -8% 0px'});[].forEach.call(rev,function(x){ro.observe(x);});}
   else{[].forEach.call(rev,function(x){x.classList.add('in');});}
+
+  /* ---------------- playground phone tilt ---------------- */
+  if(!prefersReduced && window.matchMedia && matchMedia('(pointer:fine)').matches){
+    [].forEach.call(document.querySelectorAll('.pg-phone'),function(ph){
+      ph.addEventListener('pointermove',function(e){var r=ph.getBoundingClientRect();var x=(e.clientX-r.left)/r.width-0.5,y=(e.clientY-r.top)/r.height-0.5;ph.style.transform='perspective(820px) rotateY('+(x*7).toFixed(2)+'deg) rotateX('+(-y*7).toFixed(2)+'deg)';});
+      ph.addEventListener('pointerleave',function(){ph.style.transform='';});
+    });
+  }
 
   /* ---------------- sound toggle ---------------- */
   var sndBtn=document.getElementById('sndToggle');
