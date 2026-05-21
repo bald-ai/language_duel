@@ -42,7 +42,10 @@ describe("soloPracticeRuntime", () => {
     expect(session.activePool).toHaveLength(1);
     expect(session.remainingPool).toHaveLength(2);
     expect(session.currentWordIndex).not.toBeNull();
-    expect([2, 3]).toContain(session.questionLevel);
+    // The shuffle decides which word becomes active: word 0 starts at mastery 2
+    // (question levels 2-3), the others default to mastery 1 (levels 1-2).
+    const expectedLevels = session.currentWordIndex === 0 ? [2, 3] : [1, 2];
+    expect(expectedLevels).toContain(session.questionLevel);
   });
 
   it("marks level 3 correct answers as mastered without React", () => {

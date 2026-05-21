@@ -93,7 +93,7 @@ export function PartnerSelector({
                   >
                     {formatVisibleUser(friend)}
                   </div>
-                  {friend.nickname && (
+                  {friend.email && (friend.nickname || friend.name) && (
                     <div className="text-xs" style={{ color: colors.text.muted }}>
                       {friend.email}
                     </div>
