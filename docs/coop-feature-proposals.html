@@ -1,0 +1,1724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Co-op Mode Proposals · Language Duel</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ============================================================
+   DESIGN SYSTEM — mirrors app/globals.css "Playful Duo" palette.
+   P1 = English = rose/primary.  P2 = Spanish = green/cta.
+   ============================================================ */
+:root{
+  --primary:#FB7185; --primary-light:#FC8A9C; --primary-dark:#E9586E;
+  --cta:#22C55E; --cta-light:#3DD672; --cta-dark:#1A9A4A;
+  --neutral:#6BBF8E; --neutral-light:#8AD0A6; --neutral-dark:#4F9A6D;
+  --secondary:#8AB0C4; --secondary-light:#A5C4D5; --secondary-dark:#6B95AD;
+  --bg:#FFF8F1; --elevated:#FFFFFF;
+  --text:#1A1A1A; --muted:#6B6B6B;
+  --warning:#E3B341; --warning-dark:#B98928;
+  --danger:#E35F5F; --danger-dark:#B54848;
+  --ink-soft:#3a3330;
+  --shadow-card:0 24px 70px rgba(0,0,0,.22);
+  --shadow-soft:0 10px 30px rgba(0,0,0,.10);
+  --maxw:1180px;
+  scroll-behavior:smooth;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:84px}
+body{
+  margin:0; color:var(--text);
+  font-family:'Outfit',ui-sans-serif,system-ui,'Segoe UI',Arial,sans-serif;
+  background:
+    radial-gradient(1200px 600px at 12% -5%, color-mix(in srgb,var(--primary) 16%, transparent), transparent 60%),
+    radial-gradient(1100px 560px at 100% 0%, color-mix(in srgb,var(--cta) 13%, transparent), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, color-mix(in srgb,var(--secondary) 12%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.title-font{font-family:'Fredoka','Outfit',system-ui,sans-serif; font-weight:600; letter-spacing:-.01em}
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px}
+a{color:var(--primary-dark); text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ---------- eyebrow / labels ---------- */
+.eyebrow{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.24em; color:var(--primary-dark)}
+.eyebrow.cta{color:var(--cta-dark)}
+.eyebrow.muted{color:var(--muted)}
+.tiny-label{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.2em; color:var(--muted)}
+
+/* ============================================================
+   TOP BAR / TOC
+   ============================================================ */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid color-mix(in srgb,var(--primary) 16%, transparent);
+}
+.topbar__inner{display:flex; align-items:center; gap:14px; padding:10px 20px; max-width:var(--maxw); margin:0 auto; flex-wrap:wrap}
+.brand{display:flex; align-items:center; gap:9px; font-weight:800}
+.brand .dot{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--cta));box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 18%,transparent)}
+.brand b{font-family:'Fredoka','Outfit';font-weight:600; font-size:16px}
+.toc{display:flex; gap:4px; flex-wrap:wrap; margin-left:auto}
+.toc a{
+  font-size:12px; font-weight:700; color:var(--muted);
+  padding:5px 10px; border-radius:999px; border:1px solid transparent; white-space:nowrap;
+}
+.toc a:hover{color:var(--text); background:color-mix(in srgb,var(--primary) 10%, transparent); text-decoration:none}
+.toc a.active{color:var(--primary-dark); background:color-mix(in srgb,var(--primary) 16%, transparent); border-color:color-mix(in srgb,var(--primary) 28%, transparent)}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{padding:64px 0 26px; text-align:center; position:relative}
+.hero .kicker{display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px;
+  background:color-mix(in srgb,var(--elevated) 70%, transparent); border:1px solid color-mix(in srgb,var(--primary) 24%, transparent);
+  box-shadow:var(--shadow-soft); font-size:11px; font-weight:800; letter-spacing:.22em; text-transform:uppercase; color:var(--primary-dark)}
+.hero h1{font-family:'Fredoka','Outfit'; font-weight:700; font-size:clamp(48px,9vw,104px); line-height:.92; margin:18px 0 6px; letter-spacing:-.02em}
+.outline{position:relative; display:inline-block}
+.outline::before{content:attr(data-text); position:absolute; left:0; top:0; z-index:-1; -webkit-text-stroke:5px var(--stroke); color:transparent}
+.g-rose{background:linear-gradient(135deg,var(--primary-dark),var(--primary-light),var(--primary-dark)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; --stroke:var(--primary-dark)}
+.g-green{background:linear-gradient(135deg,var(--cta-dark),var(--cta-light),var(--cta-dark)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; --stroke:var(--cta-dark)}
+.hero p.lead{max-width:640px; margin:14px auto 0; font-size:clamp(16px,2.4vw,20px); color:var(--ink-soft); font-weight:400}
+.hero p.lead b{color:var(--text)}
+.meta-chips{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:24px}
+.meta-chip{display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:14px;
+  background:color-mix(in srgb,var(--elevated) 72%, transparent); border:1px solid color-mix(in srgb,var(--primary) 18%, transparent); box-shadow:var(--shadow-soft)}
+.meta-chip .n{font-family:'Fredoka','Outfit'; font-weight:700; font-size:20px; line-height:1}
+.meta-chip .l{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.16em; color:var(--muted)}
+
+/* ============================================================
+   SECTION + APP CARD (glass shell, mirrors PrototypeShell)
+   ============================================================ */
+section.block{padding:30px 0}
+.section-head{display:flex; align-items:flex-end; gap:16px; margin:8px 0 20px; flex-wrap:wrap}
+.section-head h2{font-family:'Fredoka','Outfit'; font-weight:600; font-size:clamp(26px,4vw,40px); margin:6px 0 0; line-height:1.02}
+.section-head p{margin:0; color:var(--ink-soft); max-width:680px}
+
+.app-card{
+  border-radius:28px; border:1px solid color-mix(in srgb,var(--primary) 22%, white 24%);
+  background:linear-gradient(180deg, color-mix(in srgb,var(--elevated) 82%, white 18%) 0%, color-mix(in srgb,var(--elevated) 90%, transparent) 100%);
+  box-shadow:var(--shadow-card); padding:22px;
+}
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+@media(max-width:780px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* ---------- panels (inner tinted cards) ---------- */
+.panel{border-radius:18px; border:2px solid color-mix(in srgb,var(--primary) 24%, transparent);
+  background:color-mix(in srgb,var(--primary) 9%, white 91%); padding:16px}
+.panel.p1{border-color:color-mix(in srgb,var(--primary) 40%, transparent); background:color-mix(in srgb,var(--primary-light) 16%, white 84%)}
+.panel.p2{border-color:color-mix(in srgb,var(--cta) 38%, transparent); background:color-mix(in srgb,var(--cta-light) 16%, white 84%)}
+.panel.muted{border-color:color-mix(in srgb,var(--neutral) 30%, transparent); background:color-mix(in srgb,var(--neutral) 8%, white 92%)}
+.panel.warn{border-color:color-mix(in srgb,var(--warning) 42%, transparent); background:color-mix(in srgb,var(--warning) 13%, white 87%)}
+.panel h4{margin:.1em 0 .5em; font-size:15px}
+.panel p{margin:.3em 0; font-size:14px; color:var(--ink-soft)}
+.panel ul{margin:.4em 0; padding-left:18px} .panel li{margin:.25em 0; font-size:14px; color:var(--ink-soft)}
+
+/* ============================================================
+   PLAYER IDENTITY
+   ============================================================ */
+.who{display:inline-flex; align-items:center; gap:7px; font-weight:800; font-size:12px}
+.av{width:22px;height:22px;border-radius:50%; display:grid; place-items:center; color:#fff; font-size:10px; font-weight:900; letter-spacing:.04em; box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.av.p1{background:linear-gradient(180deg,var(--primary),var(--primary-dark))}
+.av.p2{background:linear-gradient(180deg,var(--cta),var(--cta-dark))}
+.who.p1{color:var(--primary-dark)} .who.p2{color:var(--cta-dark)}
+
+/* ============================================================
+   TAGS / BADGES / DEPENDENCY METER
+   ============================================================ */
+.tags{display:flex; flex-wrap:wrap; gap:7px; margin:10px 0}
+.tag{font-size:11px; font-weight:800; letter-spacing:.02em; padding:5px 10px; border-radius:999px; border:1px solid color-mix(in srgb,var(--text) 14%, transparent); color:var(--ink-soft); background:color-mix(in srgb,var(--elevated) 60%, transparent)}
+.tag.dep{background:color-mix(in srgb,var(--primary) 14%, white 86%); border-color:color-mix(in srgb,var(--primary) 30%, transparent); color:var(--primary-dark)}
+.tag.reuse{background:color-mix(in srgb,var(--cta) 14%, white 86%); border-color:color-mix(in srgb,var(--cta) 30%, transparent); color:var(--cta-dark)}
+.tag.new{background:color-mix(in srgb,var(--warning) 16%, white 84%); border-color:color-mix(in srgb,var(--warning) 36%, transparent); color:var(--warning-dark)}
+.tag.loc{background:color-mix(in srgb,var(--secondary) 16%, white 84%); border-color:color-mix(in srgb,var(--secondary) 36%, transparent); color:var(--secondary-dark)}
+.dep-meter{display:inline-flex; gap:4px; align-items:center; vertical-align:middle}
+.dep-meter i{width:9px;height:9px;border-radius:50%; background:color-mix(in srgb,var(--text) 16%, transparent); display:inline-block}
+.dep-meter i.on{background:linear-gradient(135deg,var(--primary),var(--primary-dark))}
+
+/* ============================================================
+   CALLOUTS
+   ============================================================ */
+.callout{border-radius:16px; padding:14px 16px; border:1px solid; display:flex; gap:12px; align-items:flex-start; font-size:14px}
+.callout .ic{font-size:18px; line-height:1.2}
+.callout b{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.16em; margin-bottom:3px}
+.callout.hook{background:color-mix(in srgb,var(--cta) 9%, white 91%); border-color:color-mix(in srgb,var(--cta) 28%, transparent)} .callout.hook b{color:var(--cta-dark)}
+.callout.why{background:color-mix(in srgb,var(--secondary) 11%, white 89%); border-color:color-mix(in srgb,var(--secondary) 32%, transparent)} .callout.why b{color:var(--secondary-dark)}
+.callout.risk{background:color-mix(in srgb,var(--danger) 8%, white 92%); border-color:color-mix(in srgb,var(--danger) 26%, transparent)} .callout.risk b{color:var(--danger-dark)}
+.callout.effort{background:color-mix(in srgb,var(--warning) 11%, white 89%); border-color:color-mix(in srgb,var(--warning) 32%, transparent)} .callout.effort b{color:var(--warning-dark)}
+
+/* ============================================================
+   FEATURE BLOCK
+   ============================================================ */
+.feature{margin:22px 0 8px; scroll-margin-top:84px}
+.feature__bar{display:flex; align-items:center; gap:14px; margin-bottom:14px}
+.feature__num{font-family:'Fredoka','Outfit'; font-weight:700; font-size:34px; line-height:1;
+  width:64px; height:64px; flex:none; border-radius:20px; display:grid; place-items:center; color:#fff;
+  background:linear-gradient(160deg,var(--primary),var(--primary-dark)); box-shadow:0 12px 26px color-mix(in srgb,var(--primary) 40%, transparent)}
+.feature.alt .feature__num{background:linear-gradient(160deg,var(--cta),var(--cta-dark)); box-shadow:0 12px 26px color-mix(in srgb,var(--cta) 38%, transparent)}
+.feature__title h3{font-family:'Fredoka','Outfit'; font-weight:600; font-size:clamp(22px,3.4vw,32px); margin:2px 0 2px}
+.feature__title .pitch{color:var(--ink-soft); font-size:15px; margin:0}
+.cols{display:grid; grid-template-columns:1.05fr .95fr; gap:18px; align-items:start}
+@media(max-width:920px){.cols{grid-template-columns:1fr}}
+.h-mini{font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.16em; color:var(--primary-dark); margin:2px 0 8px}
+.h-mini.cta{color:var(--cta-dark)}
+.steps-list{counter-reset:s; list-style:none; padding:0; margin:0}
+.steps-list li{position:relative; padding:7px 0 7px 34px; font-size:14.5px; color:var(--ink-soft); border-bottom:1px dashed color-mix(in srgb,var(--text) 10%, transparent)}
+.steps-list li:last-child{border-bottom:0}
+.steps-list li::before{counter-increment:s; content:counter(s); position:absolute; left:0; top:7px; width:23px;height:23px; border-radius:50%;
+  background:color-mix(in srgb,var(--primary) 16%, white 84%); color:var(--primary-dark); font-weight:900; font-size:12px; display:grid; place-items:center}
+.feature.alt .steps-list li::before{background:color-mix(in srgb,var(--cta) 16%, white 84%); color:var(--cta-dark)}
+
+/* ============================================================
+   PHONE MOCKUP + FLOW STRIP  (the "visuals")
+   ============================================================ */
+.flow{display:flex; gap:0; align-items:stretch; overflow-x:auto; padding:6px 2px 16px; scroll-snap-type:x proximity}
+.flow::-webkit-scrollbar{height:10px} .flow::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--primary) 55%, transparent); border-radius:6px}
+.flow-step{flex:0 0 auto; scroll-snap-align:start; display:flex; flex-direction:column; align-items:center; gap:8px; width:262px}
+.flow-cap{font-size:12px; color:var(--muted); text-align:center; max-width:240px; min-height:32px}
+.flow-cap b{color:var(--text)}
+.flow-arrow{flex:0 0 auto; align-self:center; display:grid; place-items:center; width:42px; color:color-mix(in srgb,var(--primary) 70%, var(--text)); font-size:26px; font-weight:800}
+.step-pill{font-size:10px; font-weight:900; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); background:color-mix(in srgb,var(--elevated) 70%, transparent); border:1px solid color-mix(in srgb,var(--text) 12%, transparent); padding:3px 9px; border-radius:999px}
+
+.phone{width:262px; border-radius:32px; padding:9px;
+  background:linear-gradient(160deg,#2a2622,#15110f);
+  box-shadow:0 18px 40px rgba(0,0,0,.30), inset 0 0 0 2px rgba(255,255,255,.06)}
+.phone .notch{height:18px; display:grid; place-items:center}
+.phone .notch::after{content:""; width:64px; height:6px; border-radius:99px; background:rgba(255,255,255,.22)}
+.screen{border-radius:24px; overflow:hidden; min-height:380px;
+  background:
+    radial-gradient(420px 220px at 18% -10%, color-mix(in srgb,var(--primary) 14%, transparent), transparent 60%),
+    radial-gradient(420px 220px at 110% 0%, color-mix(in srgb,var(--cta) 12%, transparent), transparent 55%),
+    var(--bg);
+  padding:12px;}
+.screen .topnav{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+.screen .topnav .back{font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--text); border:1px solid color-mix(in srgb,var(--primary) 40%,transparent); border-radius:999px; padding:3px 9px; background:color-mix(in srgb,var(--elevated) 65%, transparent)}
+.screen .topnav .titwrap{text-align:right}
+.screen .topnav .eyebrow{font-size:8.5px; letter-spacing:.2em}
+.screen .topnav h5{font-family:'Fredoka','Outfit'; font-weight:600; font-size:18px; margin:0; line-height:1}
+
+/* mini app components used inside .screen */
+.s-card{border-radius:16px; border:2px solid color-mix(in srgb,var(--primary) 60%, transparent); background:color-mix(in srgb,var(--primary) 16%, white 84%); padding:11px; margin-top:8px}
+.s-card.p2{border-color:color-mix(in srgb,var(--cta) 55%, transparent); background:color-mix(in srgb,var(--cta) 14%, white 86%)}
+.s-card.plain{border-color:color-mix(in srgb,var(--primary) 16%, transparent); background:color-mix(in srgb,var(--elevated) 72%, transparent)}
+.s-eye{font-size:8.5px; font-weight:900; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
+.s-big{font-size:18px; font-weight:800; color:var(--text); line-height:1.15}
+.s-mid{font-size:14px; font-weight:700; color:var(--text)}
+.s-chips{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:4px}
+.s-chip{border-radius:12px; border:1px solid color-mix(in srgb,var(--primary) 30%, transparent); background:color-mix(in srgb,var(--primary-light) 22%, white 78%); padding:6px 7px}
+.s-chip.g{border-color:color-mix(in srgb,var(--cta) 22%, transparent); background:color-mix(in srgb,var(--cta-light) 24%, white 76%)}
+.s-chip.n{border-color:color-mix(in srgb,var(--neutral) 30%, transparent); background:color-mix(in srgb,var(--neutral) 13%, white 87%)}
+.s-chip .k{font-size:8px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.s-chip .v{font-size:15px; font-weight:900; color:var(--text); line-height:1.1}
+.s-tok{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:700; padding:5px 9px; border-radius:10px; border:2px solid color-mix(in srgb,var(--primary) 60%, transparent); background:color-mix(in srgb,var(--primary) 16%, white 84%); color:var(--text); margin:3px 3px 0 0}
+.s-tok.p2{border-color:color-mix(in srgb,var(--cta) 55%, transparent); background:color-mix(in srgb,var(--cta) 14%, white 86%)}
+.s-tok.ghost{border-style:dashed; color:var(--muted); background:transparent}
+.s-tok.used{opacity:.35}
+.s-opt{display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700; padding:9px 11px; border-radius:13px; border:2px solid color-mix(in srgb,var(--primary) 55%, transparent); background:color-mix(in srgb,var(--primary) 14%, white 86%); margin-top:7px; color:var(--text)}
+.s-opt.correct{border-color:var(--cta); background:color-mix(in srgb,var(--cta) 20%, white 80%)}
+.s-opt.wrong{border-color:var(--danger); background:color-mix(in srgb,var(--danger) 13%, white 87%)}
+.s-opt.locked{opacity:.5}
+.s-btn{display:block; text-align:center; font-size:12px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; padding:11px; border-radius:14px; margin-top:9px; color:#fff; border:2px solid var(--cta-light); background:linear-gradient(180deg,var(--cta),var(--cta-dark)); box-shadow:0 8px 18px color-mix(in srgb,var(--cta) 34%, transparent)}
+.s-btn.ghost{color:var(--text); background:color-mix(in srgb,var(--elevated) 72%, transparent); border-color:color-mix(in srgb,var(--primary) 24%, transparent); box-shadow:none}
+.s-banner{border-radius:13px; padding:9px 11px; font-size:12px; font-weight:600; color:var(--text); margin-top:8px; border:1px solid color-mix(in srgb,var(--primary) 16%, transparent); background:color-mix(in srgb,var(--elevated) 74%, transparent)}
+.s-banner.go{border-color:color-mix(in srgb,var(--cta) 30%, transparent); background:color-mix(in srgb,var(--cta-light) 16%, white 84%)}
+.s-banner.wait{border-color:color-mix(in srgb,var(--warning) 30%, transparent); background:color-mix(in srgb,var(--warning) 12%, white 88%)}
+.s-turn{display:flex; gap:6px; align-items:center; justify-content:center; margin:8px 0 2px}
+.dim{opacity:.45; filter:saturate(.7)}
+.glow-p1{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 45%, transparent), 0 8px 22px color-mix(in srgb,var(--primary) 28%, transparent)}
+.glow-p2{box-shadow:0 0 0 2px color-mix(in srgb,var(--cta) 45%, transparent), 0 8px 22px color-mix(in srgb,var(--cta) 26%, transparent)}
+.s-grid2{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.s-mini-deck{display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:6px}
+.s-face{aspect-ratio:.82; border-radius:10px; display:grid; place-items:center; font-size:9px; font-weight:900; color:#fff}
+.s-face.q{background:linear-gradient(180deg,var(--primary),var(--primary-dark))}
+.s-face.q2{background:linear-gradient(180deg,var(--cta),var(--cta-dark))}
+.s-face.up{background:color-mix(in srgb,var(--elevated) 88%, white); color:var(--text); border:1px solid color-mix(in srgb,var(--primary) 30%, transparent); font-size:9.5px}
+.s-face.up2{background:color-mix(in srgb,var(--elevated) 88%, white); color:var(--text); border:1px solid color-mix(in srgb,var(--cta) 30%, transparent); font-size:9.5px}
+.s-face.match{outline:2px solid var(--cta); opacity:.9}
+
+/* schematic (non-phone diagrams) */
+.schem{border-radius:16px; border:1px dashed color-mix(in srgb,var(--primary) 34%, transparent); background:color-mix(in srgb,var(--elevated) 55%, transparent); padding:16px}
+.lane{display:flex; align-items:center; gap:10px; margin:8px 0}
+.lane .tagn{flex:none; width:46px; text-align:center}
+.bar{height:14px; border-radius:99px; background:color-mix(in srgb,var(--text) 8%, transparent); flex:1; overflow:hidden; position:relative}
+.bar .fill{position:absolute; inset:0 auto 0 0; border-radius:99px}
+.fill.p1{background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))}
+.fill.p2{background:linear-gradient(90deg,var(--cta-light),var(--cta-dark))}
+
+/* ============================================================
+   MATRIX TABLE
+   ============================================================ */
+.tablewrap{overflow-x:auto; border-radius:18px; border:1px solid color-mix(in srgb,var(--primary) 18%, transparent); box-shadow:var(--shadow-soft)}
+table.matrix{border-collapse:collapse; width:100%; min-width:760px; background:color-mix(in srgb,var(--elevated) 78%, transparent); font-size:13.5px}
+table.matrix th,table.matrix td{padding:11px 13px; text-align:left; border-bottom:1px solid color-mix(in srgb,var(--text) 8%, transparent)}
+table.matrix thead th{position:sticky; top:0; background:color-mix(in srgb,var(--primary) 13%, white 87%); font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--primary-dark)}
+table.matrix tbody tr:hover{background:color-mix(in srgb,var(--primary) 6%, transparent)}
+table.matrix td b{font-weight:800}
+.rate{letter-spacing:1px; font-size:12px}
+.rate .on{color:var(--primary-dark)} .rate .off{color:color-mix(in srgb,var(--text) 22%, transparent)}
+.pill-sm{font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; white-space:nowrap}
+.pill-sm.lo{background:color-mix(in srgb,var(--cta) 16%, white 84%); color:var(--cta-dark)}
+.pill-sm.md{background:color-mix(in srgb,var(--warning) 18%, white 82%); color:var(--warning-dark)}
+.pill-sm.hi{background:color-mix(in srgb,var(--danger) 14%, white 86%); color:var(--danger-dark)}
+
+/* ============================================================
+   MISC
+   ============================================================ */
+.divider{height:1px; background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--primary) 40%,transparent),transparent); margin:10px 0}
+.note{font-size:13px; color:var(--muted)}
+.kbd{font-family:ui-monospace,Menlo,monospace; font-size:12px; background:color-mix(in srgb,var(--text) 8%, transparent); padding:1px 6px; border-radius:6px}
+footer{padding:46px 0 80px; text-align:center; color:var(--muted)}
+.back-top{position:fixed; right:18px; bottom:18px; z-index:60; width:46px;height:46px; border-radius:50%; display:grid; place-items:center;
+  background:linear-gradient(180deg,var(--primary),var(--primary-dark)); color:#fff; font-size:20px; box-shadow:0 10px 24px color-mix(in srgb,var(--primary) 40%, transparent); opacity:0; pointer-events:none; transition:opacity .25s; border:none; cursor:pointer}
+.back-top.show{opacity:1; pointer-events:auto}
+.legend-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
+.legend-item{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600}
+.sw{width:26px;height:16px;border-radius:6px}
+@media print{.topbar,.back-top{display:none} body{background:#fff}}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<div class="topbar">
+  <div class="topbar__inner">
+    <div class="brand"><span class="dot"></span><b>Co-op Mode</b><span class="note" style="font-weight:600">· Language Duel</span></div>
+    <nav class="toc" id="toc">
+      <a href="#north-star">North Star</a>
+      <a href="#legend">How to read</a>
+      <a href="#seeds">Your 3 seeds</a>
+      <a href="#interdep">Two-halves</a>
+      <a href="#momentum">Shared fate</a>
+      <a href="#bank">Idea bank</a>
+      <a href="#matrix">Compare all</a>
+      <a href="#build">Build order</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero wrap">
+  <span class="kicker">Proposal · Design Exploration</span>
+  <h1>
+    <span class="outline g-rose" data-text="Two Minds.">Two Minds.</span><br>
+    <span class="outline g-green" data-text="One Win.">One Win.</span>
+  </h1>
+  <p class="lead">A pile of co-op feature ideas where you literally <b>can't win without each other</b> — built on the <i>It Takes Two</i> north star and tuned for two people learning Spanish side by side. Go nuts, then keep whatever sparks joy. <b>Even one is a win.</b></p>
+  <div class="meta-chips">
+    <div class="meta-chip"><span class="n">18</span><span class="l">ideas</span></div>
+    <div class="meta-chip"><span class="n">3</span><span class="l">from your braindump</span></div>
+    <div class="meta-chip"><span class="n">∞</span><span class="l">co-op interdependence</span></div>
+    <div class="meta-chip"><span class="n title-font" style="color:var(--cta-dark)">PvE</span><span class="l">extends today's co-op</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ===================== NORTH STAR ===================== -->
+<section class="block" id="north-star">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">The single rule that makes co-op feel good</span>
+      <h2>The <i>It Takes Two</i> north star</h2>
+      <p>The reason that game feels magical isn't the set pieces — it's that designers gave each player <b>diverse but complementary abilities</b>, so neither person can solve the puzzle alone. Combat becomes a conversation. We want every idea below to pass one test:</p>
+    </div>
+  </div>
+
+  <div class="app-card">
+    <div class="grid-3">
+      <div class="panel p1">
+        <span class="eyebrow">Test #1</span>
+        <h4>Each player holds half</h4>
+        <p>If one strong player could just carry the other, it's not co-op — it's a babysitter sim. The best ideas split the <i>solution</i> itself: you have a piece I don't, and vice-versa.</p>
+      </div>
+      <div class="panel p2">
+        <span class="eyebrow cta">Test #2</span>
+        <h4>Talking is the gameplay</h4>
+        <p>You and your gf are sitting together. Force the table-talk: <i>"It's the one on the left!" "No, the feminine one!"</i> The mechanic should make your mouths move, not just your thumbs.</p>
+      </div>
+      <div class="panel muted">
+        <span class="eyebrow muted">Test #3</span>
+        <h4>Shared fate, shared brag</h4>
+        <p>One scoreboard. One streak. One boss. When it lands, you both did it. When it breaks, you both feel it — and you immediately want to run it back.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid-2">
+      <div class="callout why"><span class="ic">🧭</span><div><b>Where this fits today</b>Your app already has the seed: <b>PvE mode</b> (shared hint pool, "two players sitting together") and the <b>Memory Game</b> prototype (P1 only flips English, P2 only flips Spanish). These ideas are the natural next rooms in that house — not a new house.</div></div>
+      <div class="callout risk"><span class="ic">⚠️</span><div><b>The anti-pattern to avoid</b>"Two people doing the same thing at the same time." That's just solo ×2 with extra latency. If an idea works fine when one person plays both roles, it failed Test #1 — push it harder or drop it.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LEGEND ===================== -->
+<section class="block" id="legend">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">A 20-second key</span>
+      <h2>How to read the mockups</h2>
+      <p>Every flow is drawn as real phone screens in your app's style. Same palette, same cards, same chips. Colour = who's acting.</p>
+    </div>
+  </div>
+  <div class="app-card">
+    <div class="legend-row" style="margin-bottom:14px">
+      <div class="legend-item"><span class="av p1">EN</span><b>Player 1</b> — owns <span style="color:var(--primary-dark)">English</span> (rose)</div>
+      <div class="legend-item"><span class="av p2">ES</span><b>Player 2</b> — owns <span style="color:var(--cta-dark)">Spanish</span> (green)</div>
+      <div class="legend-item"><span class="sw" style="background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>P1 action / card</div>
+      <div class="legend-item"><span class="sw" style="background:linear-gradient(90deg,var(--cta-light),var(--cta-dark))"></span>P2 action / card</div>
+    </div>
+    <div class="legend-row">
+      <div class="legend-item"><span class="tag dep">DEPENDENCY TYPE</span> how the two of you are chained together</div>
+      <div class="legend-item"><span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span> interdependence rating (1–5)</div>
+      <div class="legend-item"><span class="tag reuse">REUSES X</span> leans on existing code</div>
+      <div class="legend-item"><span class="tag new">NEW: X</span> needs new system</div>
+      <div class="legend-item"><span class="tag loc">CO-LOCATED</span> best in the same room</div>
+    </div>
+    <p class="note" style="margin-top:14px">Flow strips scroll sideways → on phones. The cheeky copy in the mockups is placeholder voice, matching your <i>"find out which one of you sucks more"</i> tone — swap freely.</p>
+  </div>
+</section>
+
+<!-- ===================== SEEDS ===================== -->
+<section class="block" id="seeds">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Starting where you started</span>
+      <h2>Your 3 seeds, fully grown</h2>
+      <p>The ideas from your braindump — the memory game, building a sentence one word at a time, and tossing words to your partner — pushed until each one passes the "each player holds half" test.</p>
+    </div>
+  </div>
+
+  <!-- ===== IDEA 1: TWO-MINDS MEMORY ===== -->
+  <article class="feature" id="i-memory">
+    <div class="feature__bar">
+      <div class="feature__num">01</div>
+      <div class="feature__title">
+        <span class="eyebrow">Seed · the mock memory game</span>
+        <h3>Two-Minds Memory</h3>
+        <p class="pitch">Classic memory match, but the deck is split by language — and the board only moves when you take turns.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: complementary halves + shared memory</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES MemoryGame.tsx</span>
+      <span class="tag loc">CO-LOCATED ✨</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li><span class="who p1"><span class="av p1">EN</span>P1</span> can <b>only</b> flip English cards. <span class="who p2"><span class="av p2">ES</span>P2</span> can <b>only</b> flip Spanish cards. The other person's cards are physically un-tappable for you.</li>
+            <li>A "round" is one EN flip + one ES flip. So every single match <b>requires both of you to act</b> — there is no solo move.</li>
+            <li>You're each holding half the board's memory. P1 remembers where "madre" probably was; P2 remembers where "mother" went. You have to <b>say it out loud</b>.</li>
+            <li>Match → the player who <i>didn't</i> start the last round starts the next one, so turn pressure keeps swapping. Clear all pairs to win together.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🧠</span><div><b>Why it's fun</b>Memory is already social agony ("I KNOW we saw it!"). Splitting the deck turns your two imperfect memories into one shared brain — neither of you can brute-force it alone.</div></div>
+          <div class="callout why"><span class="ic">🗣️</span><div><b>Forces table-talk</b>"I flipped <i>mother</i> — where's madre?!" is the entire game. This is the purest version of your co-located thesis.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · Setup</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
+            <div class="s-chips"><div class="s-chip"><div class="k">Rounds</div><div class="v">0</div></div><div class="s-chip g"><div class="k">Time</div><div class="v">0:00</div></div><div class="s-chip n"><div class="k">Pairs</div><div class="v">0/6</div></div></div>
+            <div class="s-banner">P1 picks an English card, P2 picks the matching Spanish card. <b>Work together!</b></div>
+            <div class="s-grid2" style="margin-top:8px">
+              <div class="s-card"><div class="s-eye" style="color:var(--primary-dark)">P1 · English</div><div class="s-mini-deck"><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div></div></div>
+              <div class="s-card p2"><div class="s-eye" style="color:var(--cta-dark)">P2 · Spanish</div><div class="s-mini-deck"><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div></div></div>
+            </div>
+          </div></div>
+          <div class="flow-cap">Two boards, two owners. <b>Six pairs</b> hidden across English &amp; Spanish.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · P1 flips</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
+            <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>P1's turn</span></div>
+            <div class="s-banner go">P1's turn — flip an English card.</div>
+            <div class="s-grid2" style="margin-top:8px">
+              <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">P1 · English · Active</div><div class="s-mini-deck"><div class="s-face up">mother</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div></div></div>
+              <div class="s-card p2 dim"><div class="s-eye" style="color:var(--cta-dark)">P2 · Spanish · Waiting</div><div class="s-mini-deck"><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div></div></div>
+            </div>
+          </div></div>
+          <div class="flow-cap">P1 reveals <b>"mother"</b>. P2's board is dimmed &amp; locked — only P1 can act right now.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 3 · P2 matches</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
+            <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>P2's turn</span></div>
+            <div class="s-banner go">P2's turn — find "mother" in Spanish.</div>
+            <div class="s-grid2" style="margin-top:8px">
+              <div class="s-card dim"><div class="s-eye" style="color:var(--primary-dark)">P1 · English</div><div class="s-mini-deck"><div class="s-face up match">mother</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div><div class="s-face q">?</div></div></div>
+              <div class="s-card p2 glow-p2"><div class="s-eye" style="color:var(--cta-dark)">P2 · Spanish · Active</div><div class="s-mini-deck"><div class="s-face q2">?</div><div class="s-face up2 match">madre</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div><div class="s-face q2">?</div></div></div>
+            </div>
+            <div class="s-banner go" style="margin-top:8px">✅ Match! P2 starts the next round.</div>
+          </div></div>
+          <div class="flow-cap">P2 flips <b>"madre"</b> — pair locked. The non-starter opens the next round, so pressure ping-pongs.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Together</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Two-Minds Memory</h5></div></div>
+            <div class="s-card plain" style="text-align:center; padding:18px"><div class="s-eye" style="color:var(--cta-dark)">Cleared together</div><div class="s-big" style="font-size:30px; margin:6px 0">6 / 6</div><div class="s-mid">9 rounds · 1:12</div></div>
+            <div class="s-chips" style="margin-top:8px"><div class="s-chip"><div class="k">Rounds</div><div class="v">9</div></div><div class="s-chip g"><div class="k">Time</div><div class="v">1:12</div></div><div class="s-chip n"><div class="k">Pairs</div><div class="v">6/6</div></div></div>
+            <div class="s-btn">Play Again</div>
+            <div class="s-btn ghost">Back to Home</div>
+          </div></div>
+          <div class="flow-cap">One shared scoreboard. "<b>We</b> did it in 9 rounds" — never "I won".</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Blind Memory</b> 🔥 — each phone shows <i>only your own</i> board. You can't see her flips at all, so you must narrate position out loud ("top-left!"). The hardest, most co-op version.</li>
+            <li><b>Shared streak meter</b> — consecutive matches build a combo glow; one mismatch resets it (ties into idea #08).</li>
+            <li><b>Theme-fed</b> — pull the 6 pairs from any saved Theme instead of the hardcoded family words.</li>
+            <li><b>Mismatch mercy</b> — first mismatch each game doesn't swap starters (gentler for mixed skill).</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: small</b>The prototype already exists and already does the EN/ES split. This is mostly polish + the Blind variant + Theme wiring.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>6 pairs can get easy on repeat. Scale to 8–10 pairs, or shuffle in a 3rd "distractor" language-less card to add doubt.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 2: SENTENCE RELAY ===== -->
+  <article class="feature alt" id="i-relay">
+    <div class="feature__bar">
+      <div class="feature__num">02</div>
+      <div class="feature__title">
+        <span class="eyebrow cta">Seed · build sentences one word at a time</span>
+        <h3>Sentence Relay</h3>
+        <p class="pitch">Build one Spanish sentence together — but you alternate, placing exactly one word per turn, and you each only hold half the word bank.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: split word bank + turn lock</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span>
+      <span class="tag reuse">REUSES RebuildSentenceBeta.tsx</span>
+      <span class="tag loc">CO-LOCATED ✨</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini cta">How it works</div>
+          <ol class="steps-list">
+            <li>One target sentence, e.g. <i>"I write at night"</i> → <b>Yo · escribo · por · la · noche</b>. The scrambled tokens are <b>dealt between you</b>: P1 holds half, P2 holds the other half.</li>
+            <li>Turns alternate. On your turn you place <b>exactly one</b> token from <i>your</i> hand into the shared sentence tray, then it's the other person's turn.</li>
+            <li>Because the correct next word might be in your partner's hand, you constantly have to <b>hand off</b> — "okay I need a verb next, you got <i>escribo</i>?"</li>
+            <li>Build the full sentence in the right order, then either of you hits <b>Check</b>. Wrong order = it shakes; talk it out and rebuild.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🧩</span><div><b>Why it's fun</b>It's a tiny improv scene. Neither hand can finish the sentence, so you're forced to plan word order <i>together</i> and predict what the other holds.</div></div>
+          <div class="callout why"><span class="ic">🪢</span><div><b>The interdependence</b>Split bank + strict alternation = you can stall the whole sentence by being out of sync. Real co-op friction, in a good way.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · The deal</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
+            <div class="s-card plain"><div class="s-eye">English meaning</div><div class="s-mid" style="margin-top:3px">I write at night.</div></div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1's tokens</div><div><span class="s-tok">escribo</span><span class="s-tok">la</span></div></div>
+            <div class="s-card p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2's tokens</div><div><span class="s-tok p2">Yo</span><span class="s-tok p2">por</span><span class="s-tok p2">noche</span></div></div>
+            <div class="s-banner" style="margin-top:8px">5 words, split between you. <b>P2 starts</b> (the sentence opens with "Yo").</div>
+          </div></div>
+          <div class="flow-cap">Tokens dealt to two hands. Notice: <b>only P2 holds "Yo"</b>, so only P2 can open.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · P2 places</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
+            <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>P2 placed a word</span></div>
+            <div class="s-card plain"><div class="s-eye">Shared sentence</div><div style="margin-top:4px"><span class="s-tok p2">Yo</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1's tokens · YOUR TURN</div><div><span class="s-tok">escribo</span><span class="s-tok">la</span></div></div>
+            <div class="s-card p2 dim" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2's tokens · waiting</div><div><span class="s-tok p2 used">Yo</span><span class="s-tok p2">por</span><span class="s-tok p2">noche</span></div></div>
+            <div class="s-banner go" style="margin-top:8px">P1's turn — you need a verb next. You've got <b>escribo</b>.</div>
+          </div></div>
+          <div class="flow-cap">P2 drops <b>"Yo"</b> → hand-off. Now only P1 can play, and P1 happens to hold the verb.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 3 · Relay</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
+            <div class="s-card plain"><div class="s-eye">Shared sentence</div><div style="margin-top:4px"><span class="s-tok p2">Yo</span><span class="s-tok">escribo</span><span class="s-tok p2">por</span><span class="s-tok">la</span><span class="s-tok ghost">＿</span></div></div>
+            <div class="s-turn" style="margin-top:8px"><span class="who p2"><span class="av p2">ES</span>P2's turn — last word</span></div>
+            <div class="s-card p2 glow-p2" style="margin-top:6px"><div class="s-eye" style="color:var(--cta-dark)">P2's tokens · YOUR TURN</div><div><span class="s-tok p2 used">Yo</span><span class="s-tok p2 used">por</span><span class="s-tok p2">noche</span></div></div>
+            <div class="s-banner" style="margin-top:8px">Alternating: P2 → P1 → P2 → P1 → <b>P2 finishes</b>.</div>
+          </div></div>
+          <div class="flow-cap">Watch the colours alternate in the tray. The final <b>"noche"</b> lives in P2's hand only.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 4 · Check</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Sentence Relay</h5></div></div>
+            <div class="s-card plain" style="border-color:color-mix(in srgb,var(--cta) 45%, transparent)"><div class="s-eye" style="color:var(--cta-dark)">Solved ✓</div><div class="s-mid" style="margin-top:4px; color:var(--cta-dark)">Yo escribo por la noche.</div></div>
+            <div class="s-banner go" style="margin-top:8px">Perfect — built in 5 hand-offs, zero rebuilds.</div>
+            <div class="s-btn">Next sentence →</div>
+            <div class="s-btn ghost">Swap hands &amp; replay</div>
+          </div></div>
+          <div class="flow-cap">Either player can hit Check. Success is shared; so is the "ugh, wrong order" shake.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini cta">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Telephone mode</b> — P1 sees the English meaning but holds no tokens; P2 holds all tokens but <i>can't see the meaning</i>. P1 must describe, P2 must build. Pure guide/follower.</li>
+            <li><b>No-undo hard mode</b> — placed words lock. One bad turn means you finish wrong and laugh about it.</li>
+            <li><b>Free-build</b> — drop the target; any grammatical sentence the checker accepts scores. Great for show-offs.</li>
+            <li><b>Length ramp</b> — start at 4 tokens, grow to 8–10 with clauses (porque, cuando…).</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: small–medium</b>RebuildSentence already does token→tray + check. New bits: deal tokens to two hands + enforce alternating turns. Mostly state, not new UI.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>If both hands can place the same needed word, the dependency softens. Deal so that <i>order-critical</i> words (subject, verb) sit in opposite hands.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 3: WORD TOSS ===== -->
+  <article class="feature" id="i-toss">
+    <div class="feature__bar">
+      <div class="feature__num">03</div>
+      <div class="feature__title">
+        <span class="eyebrow">Seed · throw words to your partner for help</span>
+        <h3>Word Toss</h3>
+        <p class="pitch">Split a challenge's words between you, race a shared clock — and fling the ones you're stuck on across to your partner to answer.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: divided workload + rescue economy</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES duel question/answer engine</span>
+      <span class="tag new">NEW: toss + shared timer</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li>A challenge of, say, <b>20 words</b> is dealt <b>10 to each</b> of you. One shared countdown for the whole team.</li>
+            <li>You blast through your own stack. Hit one you blank on? <b>Toss it</b> — it flies out of your queue and lands in your partner's "Incoming" tray.</li>
+            <li>Tossed words are worth a little less (or cost a shared "toss token") so you can't just dump your whole stack — you triage together.</li>
+            <li>Team wins when <b>every</b> word across both stacks is answered before the clock hits zero. One timer, one result.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🤝</span><div><b>Why it's fun</b>It models real studying together: "ugh I always forget this one — here, you take it." The toss is a tiny act of trust, and catching a save feels great.</div></div>
+          <div class="callout why"><span class="ic">⏱️</span><div><b>The interdependence</b>A shared clock + divided list means you're balancing two workloads. A strong player can <i>help</i> but the toss budget stops them from just doing everything.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · The split</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
+            <div class="s-chips"><div class="s-chip"><div class="k">My stack</div><div class="v">10</div></div><div class="s-chip g"><div class="k">Team time</div><div class="v">2:00</div></div><div class="s-chip n"><div class="k">Tosses</div><div class="v">3</div></div></div>
+            <div class="s-card plain"><div class="s-eye">Shared progress</div>
+              <div style="margin-top:6px"><div class="s-eye" style="color:var(--primary-dark)">P1</div><div class="bar" style="margin:3px 0 7px"><span class="fill p1" style="width:20%"></span></div><div class="s-eye" style="color:var(--cta-dark)">P2</div><div class="bar" style="margin:3px 0 0"><span class="fill p2" style="width:30%"></span></div></div>
+            </div>
+            <div class="s-banner" style="margin-top:8px">20 words · 10 each · <b>one clock</b>. Clear them all together.</div>
+          </div></div>
+          <div class="flow-cap">Workload divided, but the <b>timer and the win are shared</b>.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · Stuck → toss</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
+            <div class="s-card"><div class="s-eye" style="color:var(--primary-dark)">Your word</div><div class="s-big" style="margin:3px 0">la suegra</div></div>
+            <div class="s-opt locked">mother-in-law</div>
+            <div class="s-opt locked">grandmother</div>
+            <div class="s-opt locked">stepmother</div>
+            <div class="s-btn" style="background:linear-gradient(180deg,var(--primary),var(--primary-dark)); border-color:var(--primary-light); box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 34%,transparent)">🪃 Toss to P2 (−2 pts · 1 token)</div>
+            <div class="s-banner wait" style="margin-top:8px">Blanking? Don't burn the clock — fling it.</div>
+          </div></div>
+          <div class="flow-cap">P1 freezes on <b>"la suegra"</b> and tosses it instead of guessing.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 3 · P2 catches</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
+            <div class="s-banner go">🪃 Incoming from P1! +1 word in your tray.</div>
+            <div class="s-card p2 glow-p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">Rescue · from P1</div><div class="s-big" style="margin:3px 0">la suegra</div></div>
+            <div class="s-opt">grandmother</div>
+            <div class="s-opt correct">mother-in-law ✓</div>
+            <div class="s-opt">aunt</div>
+            <div class="s-banner go" style="margin-top:8px">Nice save — that's a team point back.</div>
+          </div></div>
+          <div class="flow-cap">It lands in P2's <b>Incoming</b> tray, highlighted as a rescue. P2 knows this one.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Cleared</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Word Toss</h5></div></div>
+            <div class="s-card plain" style="text-align:center; padding:16px"><div class="s-eye" style="color:var(--cta-dark)">Stacks cleared</div><div class="s-big" style="font-size:28px; margin:6px 0">20 / 20</div><div class="s-mid">0:18 left · 4 tosses · 4 saves</div></div>
+            <div class="s-banner go" style="margin-top:8px">Balanced team! P1 carried verbs, P2 caught the in-laws.</div>
+            <div class="s-btn">Run it back</div>
+          </div></div>
+          <div class="flow-cap">A post-game line celebrates <b>how you split the load</b> — the brag is teamwork, not K/D.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Toss budget</b> — limited tokens force triage; unlimited but point-costed is gentler.</li>
+            <li><b>Catch bonus</b> — answering a rescued word fast gives a small team-streak boost, so catching feels heroic.</li>
+            <li><b>Boomerang</b> — if P2 also doesn't know it, they can toss it <i>back</i> once; second miss = it's gone, learn it together after.</li>
+            <li><b>Asynchronous</b> — works remote too: tosses queue as notifications. (Most others here are co-located; this one travels.)</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: medium</b>Answering reuses the duel engine. New: per-player queues, a toss action, a shared timer, and the Incoming tray. Real-time sync via Convex (you already do live duels).</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Don't let the strong partner become a dumping ground. The toss cost + a cap on how many you can hold at once keeps it collaborative, not lopsided.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== TWO HALVES ===================== -->
+<section class="block" id="interdep">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">The It Takes Two heart</span>
+      <h2>Each player holds half the solution</h2>
+      <p>These lean hardest on the north star: the information or the tools are <b>physically incomplete</b> on one screen. You can't even attempt the answer without your partner's half. Maximum table-talk.</p>
+    </div>
+  </div>
+
+  <!-- ===== IDEA 4: DECODER DUO ===== -->
+  <article class="feature alt" id="i-decoder">
+    <div class="feature__bar">
+      <div class="feature__num">04</div>
+      <div class="feature__title">
+        <span class="eyebrow cta">Asymmetric info · guide &amp; follower</span>
+        <h3>Decoder Duo</h3>
+        <p class="pitch">One of you can see the word. The other is the only one who can answer it. Neither screen is enough — your voices bridge the gap.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: split information (guide ↔ follower)</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span>
+      <span class="tag reuse">REUSES duel options engine + TTS</span>
+      <span class="tag loc">CO-LOCATED ✨✨</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini cta">How it works</div>
+          <ol class="steps-list">
+            <li><span class="who p1"><span class="av p1">EN</span>P1 = the Clue.</span> Sees the Spanish word + a little hint. Has <b>no answer buttons</b> — can look but can't tap.</li>
+            <li><span class="who p2"><span class="av p2">ES</span>P2 = the Pick.</span> Sees four English options and is the <b>only</b> one who can tap. But P2 can't see the Spanish word at all.</li>
+            <li>P1 has to <b>talk P2 onto the answer</b> — describe it, act it out, give a Spanish synonym (your call how strict). P2 decides and taps.</li>
+            <li>Roles swap every round, so you both practise recall <i>and</i> describing. Right answer = shared point.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🕵️</span><div><b>Why it's fun</b>It's <i>Keep Talking and Nobody Explodes</i> for vocab. The person who knows can't click; the person who clicks doesn't know. Pure dependency, tons of laughing.</div></div>
+          <div class="callout why"><span class="ic">🔬</span><div><b>Grounded in research</b>This is the classic co-op "guide &amp; follower" split — proven to force collaborative dialogue and corrective feedback. (See sources.)</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini">Same moment, two screens</div>
+      <div class="grid-2" style="align-items:start">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
+          <span class="step-pill" style="color:var(--primary-dark); background:color-mix(in srgb,var(--primary) 12%,white 88%)">P1's screen · the Clue</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Decoder Duo</h5></div></div>
+            <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>You give the clue</span></div>
+            <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">Only you can see this</div><div class="s-big" style="margin:4px 0">el girasol</div><div class="s-mid" style="font-weight:600; color:var(--muted)">hint: a tall yellow flower 🌻</div></div>
+            <div class="s-banner" style="margin-top:8px">Describe it to P2 — <b>don't say "sunflower"!</b> No buttons on your side.</div>
+          </div></div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
+          <span class="step-pill" style="color:var(--cta-dark); background:color-mix(in srgb,var(--cta) 12%,white 88%)">P2's screen · the Pick</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Decoder Duo</h5></div></div>
+            <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>You pick</span></div>
+            <div class="s-card p2 glow-p2"><div class="s-eye" style="color:var(--cta-dark)">Listen to P1, then choose</div><div class="s-mid" style="margin-top:3px; color:var(--muted)">??? · word hidden from you</div></div>
+            <div class="s-opt">rose</div>
+            <div class="s-opt">sunflower</div>
+            <div class="s-opt">daisy</div>
+            <div class="s-opt">tree</div>
+          </div></div>
+        </div>
+      </div>
+      <div class="flow-cap" style="max-width:100%; text-align:center; margin-top:6px">P1 knows the word but can't tap. P2 can tap but can't see the word. The answer only exists <b>between you</b> → P1 talks → P2 taps <b>sunflower</b> → ✅ shared point, then roles swap.</div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini cta">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Spanish-only clues</b> 🔥 — P1 may only describe using Spanish. Brutal, brilliant fluency drill.</li>
+            <li><b>Audio decoder</b> — P1 hears the word via TTS (no text) and must relay the <i>sound</i>; folds in idea #06.</li>
+            <li><b>Reverse decoder</b> — P2 sees Spanish options, P1 holds the English meaning. Train both directions.</li>
+            <li><b>Speed pressure</b> — shared 20s timer per word so you can't over-describe.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: medium</b>Two synced views of one question (one renders prompt, one renders options). You already shuffle options + run live duels; this is mostly a per-role render flag.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Needs two devices (or a pass-and-peek single-device mode). Define the "what's a legal clue" rule up front or it dissolves into just saying the answer.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 5: SPLIT-LETTER FORGE ===== -->
+  <article class="feature" id="i-forge">
+    <div class="feature__bar">
+      <div class="feature__num">05</div>
+      <div class="feature__title">
+        <span class="eyebrow">Literally half each</span>
+        <h3>Split-Letter Forge</h3>
+        <p class="pitch">Spell the Spanish answer by dragging letters into a shared tray — except the letters are split across both your phones.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: split letter pool → shared tray</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span>
+      <span class="tag reuse">REUSES Anagram hint logic</span>
+      <span class="tag new">NEW: shared drag tray</span>
+      <span class="tag loc">CO-LOCATED ✨</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li>Prompt: English meaning → spell the Spanish. The answer's scrambled letters are <b>dealt across two phones</b> — P1 gets some tiles, P2 gets the rest.</li>
+            <li>There's <b>one shared tray</b> of empty slots. Either of you can drop a letter into the next slot, but you only own <i>your</i> tiles.</li>
+            <li>Since the next letter you need might be in your partner's hand, you call it out: "I need an 'i' for slot 5 — that's you."</li>
+            <li>Fill every slot in order to forge the word. The tray glows green when it matches.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">⚒️</span><div><b>Why it's fun</b>It's the most literal "each holds half." You can <i>see</i> the missing letter sitting in your partner's hand and can't grab it — you have to ask.</div></div>
+          <div class="callout why"><span class="ic">✍️</span><div><b>Bonus</b>Spelling/production is harder than recognition, so this trains a deeper skill than multiple-choice — together.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · Deal the tiles</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
+            <div class="s-card plain"><div class="s-eye">Spell in Spanish</div><div class="s-mid" style="margin-top:3px">butterfly</div></div>
+            <div class="s-card plain" style="margin-top:8px"><div class="s-eye">Shared tray · 8 slots</div><div style="margin-top:4px"><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 tiles</div><div><span class="s-tok">m</span><span class="s-tok">r</span><span class="s-tok">p</span><span class="s-tok">s</span></div></div>
+            <div class="s-card p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 tiles</div><div><span class="s-tok p2">a</span><span class="s-tok p2">i</span><span class="s-tok p2">o</span><span class="s-tok p2">a</span></div></div>
+          </div></div>
+          <div class="flow-cap">"mariposa" = 8 letters, split 4/4. Neither hand can spell it alone.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · Forge together</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
+            <div class="s-card plain"><div class="s-eye">Shared tray</div><div style="margin-top:4px"><span class="s-tok">m</span><span class="s-tok p2">a</span><span class="s-tok">r</span><span class="s-tok p2">i</span><span class="s-tok">p</span><span class="s-tok p2">o</span><span class="s-tok ghost">＿</span><span class="s-tok ghost">＿</span></div></div>
+            <div class="s-banner go" style="margin-top:8px">Slot 7 needs <b>"s"</b> — that's P1. Slot 8 needs <b>"a"</b> — that's P2.</div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 tiles</div><div><span class="s-tok used">m</span><span class="s-tok used">r</span><span class="s-tok used">p</span><span class="s-tok glow-p1">s</span></div></div>
+            <div class="s-card p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 tiles</div><div><span class="s-tok p2 used">a</span><span class="s-tok p2 used">i</span><span class="s-tok p2 used">o</span><span class="s-tok p2 glow-p2">a</span></div></div>
+          </div></div>
+          <div class="flow-cap">Tray colours alternate as you each drop tiles. Last two letters live in opposite hands.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Forged</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Split-Letter Forge</h5></div></div>
+            <div class="s-card plain" style="border-color:var(--cta); background:color-mix(in srgb,var(--cta) 14%,white 86%); text-align:center; padding:16px"><div class="s-eye" style="color:var(--cta-dark)">Forged ✓</div><div class="s-big" style="font-size:26px; margin:6px 0; color:var(--cta-dark)">mariposa</div><div class="s-mid">butterfly</div></div>
+            <div class="s-banner go" style="margin-top:8px">🔊 Hear it · then on to the next word.</div>
+            <div class="s-btn">Next word →</div>
+          </div></div>
+          <div class="flow-cap">Tray matches → glows green, TTS plays the word so you both hear it land.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Decoy tiles</b> — deal a couple of wrong letters into each hand so you must reject as well as place.</li>
+            <li><b>Any-order tray</b> — fill slots in any sequence (easier coordination) vs strict left-to-right (harder).</li>
+            <li><b>Race the timer</b> — shared countdown adds panic-collaboration.</li>
+            <li><b>One device</b> — split the screen top/bottom; pass-free co-located play.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: medium</b>You already compute anagram letters for the PvE hint. New work is the shared, synced tray + ownership of tiles. Drag-drop or tap-to-place both fine.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Long words on small phones get cramped. Cap at ~8–9 letters, or wrap tiles to two rows.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 6: CALL & RESPONSE ===== -->
+  <article class="feature alt" id="i-call">
+    <div class="feature__bar">
+      <div class="feature__num">06</div>
+      <div class="feature__title">
+        <span class="eyebrow cta">Ears vs eyes · leans on your TTS</span>
+        <h3>Call &amp; Response</h3>
+        <p class="pitch">One of you only <i>hears</i> the word. The other only <i>sees</i> the spellings. Say what you heard; pick what you saw.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: audio ↔ text split</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES useTTS + theme audio</span>
+      <span class="tag loc">CO-LOCATED ✨</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini cta">How it works</div>
+          <ol class="steps-list">
+            <li><span class="who p1"><span class="av p1">EN</span>P1 = Ears.</span> Taps play and hears the Spanish word via TTS. <b>No text on screen.</b> Must repeat it out loud as best they can.</li>
+            <li><span class="who p2"><span class="av p2">ES</span>P2 = Eyes.</span> Sees four very similar Spanish spellings (e.g. <i>cocina / cocinar / cocido / cosina</i>) but hears nothing. Picks the one P1 is saying.</li>
+            <li>This nails the hardest real-world skill: hearing Spanish and mapping it to spelling — and it makes P1 actually <b>pronounce</b> things ("oral mastery", per your thesis).</li>
+            <li>Swap ears/eyes each round. Correct = shared point + the word's meaning revealed to both.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🎧</span><div><b>Why it's fun</b>P1 mangling a rolled "r" while P2 squints at near-identical spellings is peak couch comedy — and sneakily great listening + pronunciation practice.</div></div>
+          <div class="callout why"><span class="ic">🗣️</span><div><b>On-thesis</b>Your tagline is literally about <i>oral mastery</i>. This is the only mode where someone <b>must speak</b> for the team to score.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · P1 hears</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
+            <div class="s-turn"><span class="who p1"><span class="av p1">EN</span>You are the Ears</span></div>
+            <div class="s-card glow-p1" style="text-align:center; padding:20px"><div class="s-eye" style="color:var(--primary-dark)">Audio only</div><div class="s-big" style="font-size:34px; margin:8px 0">🔊</div><div class="s-mid" style="color:var(--muted)">tap to replay · no text</div></div>
+            <div class="s-banner" style="margin-top:8px">Say what you hear out loud for P2.</div>
+          </div></div>
+          <div class="flow-cap">P1 taps, hears <b>"cocina"</b> via TTS. Nothing written — they must voice it.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · P2 picks</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
+            <div class="s-turn"><span class="who p2"><span class="av p2">ES</span>You are the Eyes</span></div>
+            <div class="s-card p2 glow-p2"><div class="s-eye" style="color:var(--cta-dark)">Pick what P1 is saying</div><div class="s-mid" style="margin-top:2px; color:var(--muted)">🔇 you hear nothing</div></div>
+            <div class="s-opt">cosina</div>
+            <div class="s-opt correct">cocina ✓</div>
+            <div class="s-opt">cocido</div>
+            <div class="s-opt">cocinar</div>
+          </div></div>
+          <div class="flow-cap">Four near-twins. P2 has to really listen to P1's vowels to choose.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Reveal</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Call &amp; Response</h5></div></div>
+            <div class="s-card plain" style="text-align:center; border-color:color-mix(in srgb,var(--cta) 40%,transparent)"><div class="s-eye" style="color:var(--cta-dark)">Matched ✓</div><div class="s-big" style="margin:5px 0">cocina</div><div class="s-mid">= kitchen</div></div>
+            <div class="s-banner go" style="margin-top:8px">Both of you now see the meaning. Swap roles → next.</div>
+            <div class="s-btn">Next word →</div>
+          </div></div>
+          <div class="flow-cap">Meaning revealed to <b>both</b> only after a correct pick — the payoff is shared.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini cta">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Dictation hard mode</b> — P2 types the word instead of picking. Trains true spelling-from-sound.</li>
+            <li><b>Sentence echo</b> — P1 hears a whole sentence; P2 rebuilds it from tokens (folds in idea #02).</li>
+            <li><b>Confusable packs</b> — auto-build option sets from minimal pairs (b/v, c/s, ll/y) for targeted ear training.</li>
+            <li><b>Mic check</b> (later) — optional speech-to-text scores P1's pronunciation for a bonus.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: small–medium</b>TTS + theme audio already exist. Main new piece is the "hide text from P1 / hide audio from P2" role split and good confusable distractors.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>TTS pronunciation quality is the whole game here — bad audio = unfair. Lean on your stored theme audio where available.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 7: LIFELINE ===== -->
+  <article class="feature" id="i-lifeline">
+    <div class="feature__bar">
+      <div class="feature__num">07</div>
+      <div class="feature__title">
+        <span class="eyebrow">Shared survival</span>
+        <h3>Lifeline</h3>
+        <p class="pitch">You each have your own timer. If yours runs out you freeze — and only your partner can thaw you back in.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: revive mechanic + shared game-over</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES speed/answer engine</span>
+      <span class="tag new">NEW: freeze + revive state</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li>Both players answer their own stream of cards. Every correct answer tops your personal timer back up; the clock always ticks down.</li>
+            <li>Let your timer hit zero and you <b>freeze</b> — you can't answer your own cards anymore. A "Reviving…" overlay takes over your screen.</li>
+            <li>The instant you freeze, a <b>Revive card</b> pops onto your partner's screen. They drop their own stream to clear it, which thaws you and gives you a few seconds back.</li>
+            <li>If <b>both</b> of you are frozen at once → team game-over. Score = how long you survived / how many words you cleared together.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🧊</span><div><b>Why it's fun</b>It creates real "I got you!" moments. You're keeping one eye on your partner's bar, ready to dive in — like reviving a downed teammate in any good co-op shooter.</div></div>
+          <div class="callout why"><span class="ic">💞</span><div><b>The interdependence</b>You cannot self-rescue. Survival is only ever a thing your partner does for you, and vice-versa.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · Both alive</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
+            <div class="s-card plain"><div class="s-eye" style="color:var(--primary-dark)">P1 lifeline</div><div class="bar" style="margin:4px 0 8px"><span class="fill p1" style="width:72%"></span></div><div class="s-eye" style="color:var(--cta-dark)">P2 lifeline</div><div class="bar" style="margin:4px 0 0"><span class="fill p2" style="width:55%"></span></div></div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">Your card</div><div class="s-big" style="margin:2px 0">el tenedor</div></div>
+            <div class="s-opt">fork</div><div class="s-opt">spoon</div>
+            <div class="s-banner" style="margin-top:8px">Keep answering to refill your bar. Watch P2's, too.</div>
+          </div></div>
+          <div class="flow-cap">Two bars, two streams. Right answers refill <b>your own</b> lifeline.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · P1 freezes</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
+            <div class="s-card plain"><div class="s-eye" style="color:var(--primary-dark)">P1 lifeline</div><div class="bar" style="margin:4px 0 8px"><span class="fill p1" style="width:2%"></span></div><div class="s-eye" style="color:var(--cta-dark)">P2 lifeline</div><div class="bar" style="margin:4px 0 0"><span class="fill p2" style="width:48%"></span></div></div>
+            <div class="s-card" style="margin-top:8px; text-align:center; border-color:color-mix(in srgb,var(--secondary) 50%,transparent); background:color-mix(in srgb,var(--secondary) 14%,white 86%)"><div class="s-big" style="font-size:30px">🧊</div><div class="s-mid" style="color:var(--secondary-dark)">Frozen — waiting for P2</div></div>
+            <div class="s-banner wait" style="margin-top:8px">You can't answer your own cards now. Hang tight!</div>
+          </div></div>
+          <div class="flow-cap">P1's bar empties → frozen overlay. P1 is helpless until rescued.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 3 · P2 revives</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Lifeline</h5></div></div>
+            <div class="s-banner go">🚑 P1 is down! Clear this to revive them.</div>
+            <div class="s-card p2 glow-p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">Revive card</div><div class="s-big" style="margin:2px 0">la cuchara</div></div>
+            <div class="s-opt correct">spoon ✓</div><div class="s-opt">knife</div>
+            <div class="s-banner go" style="margin-top:8px">Solve = P1 thaws with +6s. Then back to your own stream.</div>
+          </div></div>
+          <div class="flow-cap">P2 interrupts their own run to answer the <b>Revive card</b> → P1 is back.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Endless vs target</b> — survive as long as possible (arcade) or clear a fixed deck without a double-freeze.</li>
+            <li><b>Revive tax</b> — reviving costs the rescuer a chunk of their own bar, so it's a real sacrifice, not free.</li>
+            <li><b>Difficulty drift</b> — the longer you survive, the faster the timers drain.</li>
+            <li><b>Boss timer</b> — reskin as a co-op boss whose attacks freeze whoever's slower.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: medium</b>Speed Mode covers the per-card timer + answering. New: two independent lifelines, a freeze state, and the revive-card hand-off (live-synced).</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Death-spirals: if both bars are low it can feel hopeless. Tune refill generously, and maybe make the first revive each game free.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== SHARED FATE ===================== -->
+<section class="block" id="momentum">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">One scoreboard, one heartbeat</span>
+      <h2>Shared fate &amp; momentum</h2>
+      <p>Less about splitting information, more about <b>chaining your outcomes together</b> so you rise and fall as one. Great for remote play too, since they don't all need two screens of secret info.</p>
+    </div>
+  </div>
+
+  <!-- ===== IDEA 8: ONE STREAK ===== -->
+  <article class="feature" id="i-streak">
+    <div class="feature__bar">
+      <div class="feature__num">08</div>
+      <div class="feature__title">
+        <span class="eyebrow">Shared combo</span>
+        <h3>One Streak, Two Hands</h3>
+        <p class="pitch">A single combo multiplier that you build by alternating turns — and that <i>either</i> of you can shatter with one wrong tap.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: shared streak, mutual risk</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span>
+      <span class="tag reuse">REUSES answer engine</span>
+      <span class="tag loc">CO-LOCATED or remote</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li>You take turns answering. Every correct answer — <b>from either of you</b> — bumps one shared multiplier: ×1 → ×2 → ×3…</li>
+            <li>The catch: a single wrong answer by <b>either</b> player resets the whole thing to ×1. Your fates are welded together.</li>
+            <li>This creates great pressure: when your shaky partner is up at ×8, you're silently coaching. You start <i>strategising who takes which word</i>.</li>
+            <li>Hit milestone multipliers (×5, ×10) to unlock shared rewards — confetti, a new theme, a boss key, whatever.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🔥</span><div><b>Why it's fun</b>Shared streaks are pure tension. "Don't mess up, don't mess up…" while your partner answers is the whole emotional ride — and the celebration is genuinely mutual.</div></div>
+          <div class="callout why"><span class="ic">🎯</span><div><b>The interdependence</b>You can't protect the streak alone. The weakest link sets the ceiling, so you naturally help each other up.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · Building</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>One Streak</h5></div></div>
+            <div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">Shared multiplier</div><div class="s-big" style="font-size:38px; color:var(--cta-dark)">×4</div><div class="s-mid" style="color:var(--muted)">team score 1,240</div></div>
+            <div class="s-turn" style="margin-top:8px"><span class="who p1"><span class="av p1">EN</span>P1 nailed it</span></div>
+            <div class="s-banner go" style="margin-top:6px">+1! Multiplier up to ×4. Pass to P2…</div>
+          </div></div>
+          <div class="flow-cap">P1 answers right → the <b>shared</b> ×4 climbs. Now it's P2's turn.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · On the line</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>One Streak</h5></div></div>
+            <div class="s-card plain" style="text-align:center"><div class="s-eye" style="color:var(--cta-dark)">On the line</div><div class="s-big" style="font-size:34px; color:var(--cta-dark)">×4 → ×5?</div></div>
+            <div class="s-turn" style="margin-top:6px"><span class="who p2"><span class="av p2">ES</span>P2's turn</span></div>
+            <div class="s-card p2 glow-p2" style="margin-top:6px"><div class="s-eye" style="color:var(--cta-dark)">Don't break it…</div><div class="s-big" style="margin:2px 0">agradecido</div></div>
+            <div class="s-opt">grateful</div><div class="s-opt">angry</div>
+            <div class="s-banner wait" style="margin-top:8px">One miss resets the team to ×1. No pressure 😬</div>
+          </div></div>
+          <div class="flow-cap">P2 is up with the streak at stake. P1 is sweating in the background.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Milestone</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>One Streak</h5></div></div>
+            <div class="s-card plain" style="text-align:center; border-color:var(--cta); background:color-mix(in srgb,var(--cta) 13%,white 87%); padding:18px"><div class="s-eye" style="color:var(--cta-dark)">Milestone ×5 🎉</div><div class="s-big" style="font-size:30px; margin:5px 0">Reward unlocked</div><div class="s-mid">+ boss key for the team</div></div>
+            <div class="s-banner go" style="margin-top:8px">You two are in sync. Keep the chain alive?</div>
+            <div class="s-btn">Keep going →</div>
+          </div></div>
+          <div class="flow-cap">Hit ×5 together → shared reward. (Miss instead → it all resets, and you both groan.)</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Layer onto anything</b> — this is a modifier you can bolt onto Speed Mode, the duel, even Memory.</li>
+            <li><b>Shield charge</b> — every ×5 earns one "oops shield" that absorbs a single miss without resetting.</li>
+            <li><b>Insurance turn</b> — a player can tap "I'll take this one" to answer out of turn for the nervous partner.</li>
+            <li><b>Decay</b> — multiplier slowly ticks down if you stall, nudging pace.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: small</b>It's mostly one shared number + a turn pointer layered on the existing answer flow. Cheapest big-feel idea here.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Hard resets can feel punishing for a beginner partner. The oops-shield/insurance knobs keep it warm rather than blame-y.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 9: CO-OP BOSS ===== -->
+  <article class="feature alt" id="i-boss">
+    <div class="feature__bar">
+      <div class="feature__num">09</div>
+      <div class="feature__title">
+        <span class="eyebrow cta">Reskins your boss system</span>
+        <h3>Co-op Boss: Shield &amp; Sword</h3>
+        <p class="pitch">The boss has a shield only P1 can break and health only P2 can hit. Break, then strike — in that order, on the clock.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: sequential asymmetric roles</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES weekly-goal boss + duel</span>
+      <span class="tag loc">CO-LOCATED or remote</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini cta">How it works</div>
+          <ol class="steps-list">
+            <li>Your existing mini/big boss gets two layers: a <b>shield</b> and <b>health</b>. Different attacks need different people.</li>
+            <li><span class="who p1"><span class="av p1">EN</span>P1 breaks the shield</span> by answering English→Spanish cards. While shielded, P2's hits do nothing.</li>
+            <li>Shield down → a <b>strike window</b> opens. <span class="who p2"><span class="av p2">ES</span>P2 deals damage</span> with Spanish→English cards until the shield regenerates.</li>
+            <li>You have to <b>call the timing</b>: "Shield's down — go go go!" Defeat the boss together to complete the weekly goal.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">👹</span><div><b>Why it's fun</b>It turns the milestone moment into a real fight with roles, instead of two separate score screens. Very <i>It Takes Two</i> boss-arena energy.</div></div>
+          <div class="callout why"><span class="ic">⚔️</span><div><b>The interdependence</b>Strict order: no shield-break (P1) means P2 is useless; no follow-up (P2) means P1's break was wasted. Pure combo dependency.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · Shield up</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
+            <div class="s-card plain" style="text-align:center"><div class="s-big" style="font-size:34px">👹</div><div class="s-eye" style="color:var(--secondary-dark)">🛡️ Shield</div><div class="bar" style="margin:4px 0 7px"><span class="fill" style="width:80%; background:linear-gradient(90deg,var(--secondary-light),var(--secondary-dark))"></span></div><div class="s-eye" style="color:var(--danger-dark)">❤️ Health</div><div class="bar" style="margin:4px 0 0"><span class="fill" style="width:100%; background:linear-gradient(90deg,var(--danger),var(--danger-dark))"></span></div></div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 · break shield (EN→ES)</div><div class="s-big" style="margin:2px 0">grateful → ?</div></div>
+            <div class="s-banner" style="margin-top:6px">P2's hits bounce off until the shield is gone.</div>
+          </div></div>
+          <div class="flow-cap">Shield's up → only <b>P1's</b> EN→ES answers chip it down.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · Window open</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
+            <div class="s-card plain" style="text-align:center"><div class="s-big" style="font-size:34px">😵</div><div class="s-eye" style="color:var(--secondary-dark)">🛡️ Shield DOWN</div><div class="bar" style="margin:4px 0 7px"><span class="fill" style="width:4%; background:linear-gradient(90deg,var(--secondary-light),var(--secondary-dark))"></span></div><div class="s-eye" style="color:var(--danger-dark)">❤️ Health</div><div class="bar" style="margin:4px 0 0"><span class="fill" style="width:62%; background:linear-gradient(90deg,var(--danger),var(--danger-dark))"></span></div></div>
+            <div class="s-banner go" style="margin-top:8px">⚡ STRIKE WINDOW — P2 go!</div>
+            <div class="s-card p2 glow-p2" style="margin-top:6px"><div class="s-eye" style="color:var(--cta-dark)">P2 · deal damage (ES→EN)</div><div class="s-big" style="margin:2px 0">la espada → ?</div></div>
+          </div></div>
+          <div class="flow-cap">P1 yells "now!" → P2's ES→EN answers pour in damage before the shield recharges.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Defeated</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Co-op Boss</h5></div></div>
+            <div class="s-card plain" style="text-align:center; border-color:var(--cta); background:color-mix(in srgb,var(--cta) 12%,white 88%); padding:16px"><div class="s-big" style="font-size:30px">🏆</div><div class="s-eye" style="color:var(--cta-dark)">Boss defeated · together</div><div class="s-mid" style="margin-top:4px">Weekly goal complete</div></div>
+            <div class="s-banner go" style="margin-top:8px">P1 broke 4 shields · P2 landed the final blow.</div>
+            <div class="s-btn">Claim reward</div>
+          </div></div>
+          <div class="flow-cap">The recap names <b>both roles</b>. Slots straight into your existing goal → boss → reward loop.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini cta">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Role swap mid-fight</b> — boss "enrages" and flips which direction breaks the shield, forcing you to switch jobs.</li>
+            <li><b>Add-ons</b> — boss spawns adds only the off-role can clear, so both stay busy at all times.</li>
+            <li><b>Soft-fail</b> — running out of time doesn't wipe you; the boss heals a little and you go again (study-friendly).</li>
+            <li><b>PvE hint pool</b> — let your existing shared hints (50/50, +15s) carry straight into the fight.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: medium</b>You already have boss state, weekly-goal plumbing, and live duels. New: the shield/health two-layer model + the strike-window timing.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Timing windows can frustrate mixed skill levels. Make the window generous and the shield slow to regen at first.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ===== IDEA 10: BRIDGE BUILDER ===== -->
+  <article class="feature" id="i-bridge">
+    <div class="feature__bar">
+      <div class="feature__num">10</div>
+      <div class="feature__title">
+        <span class="eyebrow">Traversal metaphor</span>
+        <h3>Bridge Builder</h3>
+        <p class="pitch">Cross a chasm by laying planks with correct answers — but the planks alternate owners, so the bridge only grows if you both keep pace.</p>
+      </div>
+    </div>
+    <div class="tags">
+      <span class="tag dep">DEPENDENCY: alternating contribution to one path</span>
+      <span class="dep-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span>
+      <span class="tag reuse">REUSES answer engine</span>
+      <span class="tag new">NEW: bridge progress visual</span>
+    </div>
+
+    <div class="app-card">
+      <div class="cols">
+        <div>
+          <div class="h-mini">How it works</div>
+          <ol class="steps-list">
+            <li>A gap separates your two little avatars from the goal. Each correct answer lays one plank across it.</li>
+            <li>Planks <b>alternate ownership</b>: P1 lays plank 1, P2 lays plank 2, P1 plank 3… You can't lay your partner's plank for them.</li>
+            <li>If one of you stalls, the bridge stops dead at their plank — you're literally stuck mid-air until they answer.</li>
+            <li>Complete the span and you both walk across together to the next theme/level. A gentle, visual co-op journey.</li>
+          </ol>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout hook"><span class="ic">🌉</span><div><b>Why it's fun</b>It gives the studying a <i>journey</i> shape — you can see the two of you inching across together. Calm, wholesome, very "we're in this as a pair."</div></div>
+          <div class="callout why"><span class="ic">👣</span><div><b>The interdependence</b>Strict alternation means the slower learner literally sets the pace, but their planks are just as essential — no one is dead weight.</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="h-mini cta">The flow</div>
+      <div class="flow">
+        <div class="flow-step">
+          <span class="step-pill">Step 1 · The gap</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
+            <div class="s-card plain" style="padding:14px"><div class="s-eye">The crossing</div>
+              <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
+                <span style="font-size:20px">🧍🧍</span>
+                <div style="flex:1; display:flex; gap:3px; align-self:center">
+                  <span style="height:8px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                  <span style="height:8px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                  <span style="height:8px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                  <span style="height:8px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                  <span style="height:8px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                </div>
+                <span style="font-size:18px">🏁</span>
+              </div>
+            </div>
+            <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 lays plank 1 (EN→ES)</div><div class="s-big" style="margin:2px 0">night → ?</div></div>
+          </div></div>
+          <div class="flow-cap">Two avatars, five empty plank slots, a goal flag. P1 starts.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Step 2 · Mid-span</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
+            <div class="s-card plain" style="padding:14px"><div class="s-eye">Halfway…</div>
+              <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
+                <div style="flex:1; display:flex; gap:3px; align-self:center">
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--cta-light),var(--cta-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:color-mix(in srgb,var(--text) 10%,transparent)"></span>
+                </div>
+                <span style="font-size:20px; align-self:center">🧍🧍</span>
+                <span style="font-size:18px">🏁</span>
+              </div>
+            </div>
+            <div class="s-turn" style="margin-top:8px"><span class="who p2"><span class="av p2">ES</span>P2 lays plank 4</span></div>
+            <div class="s-banner go" style="margin-top:6px">3 planks down (rose, green, rose). P2's turn or you're stuck here.</div>
+          </div></div>
+          <div class="flow-cap">Planks alternate rose/green. The pair stands on the last finished plank.</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <span class="step-pill">Win · Across</span>
+          <div class="phone"><div class="notch"></div><div class="screen">
+            <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Bridge Builder</h5></div></div>
+            <div class="s-card plain" style="padding:14px; border-color:color-mix(in srgb,var(--cta) 40%,transparent)"><div class="s-eye" style="color:var(--cta-dark)">Crossed together 🎉</div>
+              <div style="display:flex; align-items:flex-end; gap:3px; margin-top:8px; height:34px">
+                <div style="flex:1; display:flex; gap:3px; align-self:center">
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--cta-light),var(--cta-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--cta-light),var(--cta-dark))"></span>
+                  <span style="height:9px;flex:1;border-radius:3px;background:linear-gradient(90deg,var(--primary-light),var(--primary-dark))"></span>
+                </div>
+                <span style="font-size:20px; align-self:center">🧍🧍🏁</span>
+              </div>
+            </div>
+            <div class="s-banner go" style="margin-top:8px">Next theme unlocked. Onward!</div>
+            <div class="s-btn">Next crossing →</div>
+          </div></div>
+          <div class="flow-cap">Span complete → both avatars stroll across to the next theme. Wholesome.</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="grid-2">
+        <div class="panel muted">
+          <div class="h-mini">Knobs &amp; variants</div>
+          <ul>
+            <li><b>Wind/erosion</b> — a wrong answer cracks your last plank; fix it before it falls (adds light stakes).</li>
+            <li><b>Campaign map</b> — chain crossings into a little world map of themes, an evening's "journey".</li>
+            <li><b>Asymmetric spans</b> — some gaps need more of one person's planks, nudging who studies what.</li>
+            <li><b>Co-op art</b> — reuse your themed palettes so each biome looks different.</li>
+          </ul>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:12px">
+          <div class="callout effort"><span class="ic">🛠️</span><div><b>Effort: small–medium</b>Gameplay is just alternating answers; the work is the bridge visual + a campaign wrapper. A lovely low-stress mode.</div></div>
+          <div class="callout risk"><span class="ic">⚠️</span><div><b>Watch out</b>Low tension by design — pair it with a streak or timer if you want more excitement, or keep it as the "cozy" mode.</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<style>
+  .bank-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media(max-width:880px){.bank-grid{grid-template-columns:1fr}}
+  .bank-card{border-radius:24px; border:1px solid color-mix(in srgb,var(--primary) 20%, white 24%);
+    background:linear-gradient(180deg, color-mix(in srgb,var(--elevated) 84%, white 16%), color-mix(in srgb,var(--elevated) 92%, transparent));
+    box-shadow:var(--shadow-soft); padding:18px; display:flex; flex-direction:column; gap:10px; scroll-margin-top:84px}
+  .bank-head{display:flex; gap:12px; align-items:center}
+  .bank-num{flex:none; width:44px;height:44px;border-radius:14px; display:grid; place-items:center; color:#fff; font-family:'Fredoka','Outfit'; font-weight:700; font-size:22px;
+    background:linear-gradient(160deg,var(--primary),var(--primary-dark)); box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 34%, transparent)}
+  .bank-card:nth-child(even) .bank-num{background:linear-gradient(160deg,var(--cta),var(--cta-dark)); box-shadow:0 8px 18px color-mix(in srgb,var(--cta) 30%, transparent)}
+  .bank-head h4{margin:2px 0 0; font-family:'Fredoka','Outfit'; font-weight:600; font-size:21px; line-height:1.05}
+  .pitch-sm{margin:0; font-size:14px; color:var(--ink-soft)}
+  .bank-card .phone{align-self:center}
+  .bank-foot{font-size:13px; color:var(--ink-soft); border-top:1px dashed color-mix(in srgb,var(--text) 12%,transparent); padding-top:8px; margin-top:auto}
+  .bank-foot b{color:var(--text)}
+</style>
+
+<!-- ===================== IDEA BANK ===================== -->
+<section class="block" id="bank">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Going overboard, as requested</span>
+      <h2>The idea bank · rapid fire</h2>
+      <p>Eight more, each with a quick mockup. Some are whole modes, some are modifiers you sprinkle on top. Steal a mechanic, mash two together, or toss the lot — your call.</p>
+    </div>
+  </div>
+
+  <div class="bank-grid">
+
+    <!-- 11 MIRROR MATCH -->
+    <article class="bank-card" id="i-mirror">
+      <div class="bank-head"><span class="bank-num">11</span><div><span class="eyebrow">the newlywed game</span><h4>Mirror Match</h4></div></div>
+      <p class="pitch-sm">Same word, both of you, no peeking. You only score if your two answers <b>agree</b> — and are right. Tests whether you two are actually on the same page.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: must converge</span><span class="tag reuse">REUSES answer engine</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Mirror Match</h5></div></div>
+        <div class="s-card plain"><div class="s-eye">Both answer secretly</div><div class="s-big" style="margin:2px 0">contento</div></div>
+        <div class="s-grid2" style="margin-top:8px">
+          <div class="s-card"><div class="s-eye" style="color:var(--primary-dark)">P1 said</div><div class="s-mid">happy</div></div>
+          <div class="s-card p2"><div class="s-eye" style="color:var(--cta-dark)">P2 said</div><div class="s-mid">happy</div></div>
+        </div>
+        <div class="s-banner go" style="margin-top:8px">🪞 Match &amp; correct → double points!</div>
+      </div></div>
+      <div class="bank-foot"><b>Variant:</b> "blame round" — if you disagree, you each defend your answer before the reveal. <b>Effort:</b> small.</div>
+    </article>
+
+    <!-- 12 PASSWORD -->
+    <article class="bank-card" id="i-password">
+      <div class="bank-head"><span class="bank-num">12</span><div><span class="eyebrow cta">taboo, en español</span><h4>Password</h4></div></div>
+      <p class="pitch-sm">P1 must get P2 to <i>say the target Spanish word</i> using only Spanish clues — and never the word itself or its forbidden cousins. Top-tier fluency drill.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: describe ↔ guess</span><span class="tag loc">CO-LOCATED ✨</span><span class="tag new">NEW: taboo lists</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Password</h5></div></div>
+        <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">Get P2 to say…</div><div class="s-big" style="margin:3px 0">el médico</div></div>
+        <div class="s-card plain" style="margin-top:8px"><div class="s-eye" style="color:var(--danger-dark)">🚫 can't say</div><div class="s-mid" style="font-size:13px">doctor · hospital · enfermo</div></div>
+        <div class="s-banner" style="margin-top:8px">Describe in Spanish only. P2 shouts guesses.</div>
+      </div></div>
+      <div class="bank-foot"><b>Why:</b> forces real productive speech, not recognition. <b>Effort:</b> medium (needs taboo word sets per entry).</div>
+    </article>
+
+    <!-- 13 DUET DICTATION -->
+    <article class="bank-card" id="i-dictation">
+      <div class="bank-head"><span class="bank-num">13</span><div><span class="eyebrow">you read, I write</span><h4>Duet Dictation</h4></div></div>
+      <p class="pitch-sm">P1's screen shows a Spanish line to <b>read aloud</b>. P2 can't see it and must <b>type</b> what they hear. Then swap. Reading + spelling in one loop.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: voice ↔ keyboard</span><span class="tag reuse">REUSES typing levels + TTS</span><span class="tag loc">CO-LOCATED ✨</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Duet Dictation</h5></div></div>
+        <div class="s-card glow-p1"><div class="s-eye" style="color:var(--primary-dark)">P1 reads aloud</div><div class="s-mid" style="margin-top:2px">"Hace frío hoy."</div></div>
+        <div class="s-card p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 types what they hear</div><div class="s-mid" style="margin-top:3px; color:var(--muted)">Hace fr|</div></div>
+        <div class="s-banner go" style="margin-top:8px">Match the line letter-for-letter to score.</div>
+      </div></div>
+      <div class="bank-foot"><b>Variant:</b> P1 can't read — TTS reads to P1's ear, P1 relays, P2 types (stacks with #06). <b>Effort:</b> small.</div>
+    </article>
+
+    <!-- 14 HINT ECONOMY -->
+    <article class="bank-card" id="i-hints">
+      <div class="bank-head"><span class="bank-num">14</span><div><span class="eyebrow cta">extends your PvE pool</span><h4>Hint Token Economy</h4></div></div>
+      <p class="pitch-sm">Turn the shared hint pool into a currency: answer fast to <b>earn</b> tokens, then <b>gift</b> them to your partner when they're stuck. Generosity as a mechanic.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: give/receive resource</span><span class="tag reuse">REUSES PvE hint pool</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Hint Tokens</h5></div></div>
+        <div class="s-chips"><div class="s-chip"><div class="k">P1 tokens</div><div class="v">4</div></div><div class="s-chip g"><div class="k">P2 tokens</div><div class="v">0</div></div><div class="s-chip n"><div class="k">Streak</div><div class="v">×3</div></div></div>
+        <div class="s-banner wait" style="margin-top:8px">P2 is stuck on "el alféizar"…</div>
+        <div class="s-btn" style="margin-top:8px">🎁 Gift 50/50 to P2 (−1 token)</div>
+        <div class="s-btn ghost">Gift +15s to P2</div>
+      </div></div>
+      <div class="bank-foot"><b>Why:</b> keeps the strong player invested in the weaker one's success. <b>Effort:</b> small (you have the hint types already).</div>
+    </article>
+
+    <!-- 15 CARRY THE FLAME -->
+    <article class="bank-card" id="i-flame">
+      <div class="bank-head"><span class="bank-num">15</span><div><span class="eyebrow">charge → deliver relay</span><h4>Carry the Flame</h4></div></div>
+      <p class="pitch-sm">P1 "charges" a word (reads its meaning) and passes a glowing ember to P2, who must <b>spell/answer it before it cools</b>. A two-stage relay against a fuse.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: prep ↔ execute, timed</span><span class="tag reuse">REUSES answer + timer</span><span class="tag new">NEW: hand-off fuse</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Carry the Flame</h5></div></div>
+        <div class="s-card" style="text-align:center; padding:14px"><div class="s-big" style="font-size:26px">🔥</div><div class="s-eye" style="color:var(--primary-dark)">P1 charged: "to bring"</div></div>
+        <div class="bar" style="margin:8px 0 0"><span class="fill p1" style="width:40%"></span></div>
+        <div class="s-banner go" style="margin-top:8px">Passed to P2 — spell <b>traer</b> before the fuse burns out!</div>
+      </div></div>
+      <div class="bank-foot"><b>Twist:</b> P1 chooses <i>when</i> to pass — pass early (more time, less prep) or late. <b>Effort:</b> medium.</div>
+    </article>
+
+    <!-- 16 HEIST ROLES -->
+    <article class="bank-card" id="i-heist">
+      <div class="bank-head"><span class="bank-num">16</span><div><span class="eyebrow cta">specialists only</span><h4>Heist: Role Vault</h4></div></div>
+      <p class="pitch-sm">A multi-room vault. Each door only opens for a word-type <b>specialist</b>: P1 cracks the verb locks, P2 the noun locks. Pass control room to room.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: complementary specialties</span><span class="tag reuse">REUSES word types + answer</span><span class="tag new">NEW: stage gating</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Role Vault</h5></div></div>
+        <div class="s-card plain"><div class="s-eye">Room 2 of 4</div><div class="s-mid" style="margin-top:2px">🔒 Verb lock — P1 only</div></div>
+        <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 · crack it (verb)</div><div class="s-big" style="margin:2px 0">correr → ?</div></div>
+        <div class="s-card p2 dim" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 · stand by (noun room next)</div></div>
+        <div class="s-banner" style="margin-top:8px">Clear the lock → hand the controller to P2.</div>
+      </div></div>
+      <div class="bank-foot"><b>Why:</b> rewards letting each person own a category. <b>Effort:</b> medium. Great single-device "pass the phone" mode.</div>
+    </article>
+
+    <!-- 17 SPEED SPLIT -->
+    <article class="bank-card" id="i-speedsplit">
+      <div class="bank-head"><span class="bank-num">17</span><div><span class="eyebrow">your Speed Mode, ×2</span><h4>Co-op Speed Split</h4></div></div>
+      <p class="pitch-sm">Two decks, one shared timer. Burn through your own — but if your partner's falling behind, tap <b>"cover me"</b> to grab a card off their pile.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: shared clock + steal-to-help</span><span class="tag reuse">REUSES SpeedModeBeta</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow">Coop Prototype</div><h5>Speed Split</h5></div></div>
+        <div class="s-chips"><div class="s-chip"><div class="k">My pile</div><div class="v">3</div></div><div class="s-chip g"><div class="k">P2 pile</div><div class="v">7</div></div><div class="s-chip n"><div class="k">Time</div><div class="v">0:21</div></div></div>
+        <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">Your card</div><div class="s-big" style="margin:2px 0">la silla</div></div>
+        <div class="s-opt">chair</div><div class="s-opt">table</div>
+        <div class="s-btn" style="margin-top:8px; background:linear-gradient(180deg,var(--primary),var(--primary-dark)); border-color:var(--primary-light)">🆘 Cover me — grab P2's card</div>
+      </div></div>
+      <div class="bank-foot"><b>Why:</b> finishing your pile early isn't "done" — you jump in to help. <b>Effort:</b> small–medium.</div>
+    </article>
+
+    <!-- 18 TRUST SHIELD -->
+    <article class="bank-card" id="i-shield">
+      <div class="bank-head"><span class="bank-num">18</span><div><span class="eyebrow cta">your sabotages, flipped to good</span><h4>Trust Shield</h4></div></div>
+      <p class="pitch-sm">A CPU "gremlin" sabotages one of you (buttons bounce, text reverses — your real sabotage FX). Only your <b>partner</b> can dispel it by clearing a quick card.</p>
+      <div class="tags"><span class="tag dep">DEPENDENCY: rescue from sabotage</span><span class="tag reuse">REUSES SabotageRenderer (bounce/reverse/…)</span></div>
+      <div class="phone"><div class="notch"></div><div class="screen">
+        <div class="topnav"><span class="back">Back</span><div class="titwrap"><div class="eyebrow cta">Coop Prototype</div><h5>Trust Shield</h5></div></div>
+        <div class="s-banner wait">👹 Gremlin hit P1 — buttons are bouncing!</div>
+        <div class="s-card" style="margin-top:8px"><div class="s-eye" style="color:var(--primary-dark)">P1 (sabotaged)</div><div style="margin-top:4px"><span class="s-tok" style="transform:rotate(-7deg)">otneirbma</span><span class="s-tok" style="transform:translateY(5px) rotate(5deg)">🔄</span></div></div>
+        <div class="s-card p2 glow-p2" style="margin-top:8px"><div class="s-eye" style="color:var(--cta-dark)">P2 · dispel it</div><div class="s-big" style="margin:2px 0">la nube → ?</div></div>
+        <div class="s-btn">Answer to shield P1</div>
+      </div></div>
+      <div class="bank-foot"><b>Why:</b> recycles your fun sabotage tech as a co-op rescue. <b>Effort:</b> small (FX already built).</div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ===================== MATRIX ===================== -->
+<section class="block" id="matrix">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Everything on one screen</span>
+      <h2>Compare all 18</h2>
+      <p>Skim for what fits your appetite: how the idea chains you together, whether it needs the same room, what code it leans on, rough build effort, and a totally-biased "will it make you two laugh" rating.</p>
+    </div>
+  </div>
+  <div class="tablewrap">
+    <table class="matrix">
+      <thead>
+        <tr><th>#</th><th>Idea</th><th>Dependency type</th><th>Same room?</th><th>Leans on</th><th>Effort</th><th>Couple-fun</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>01</td><td><a href="#i-memory"><b>Two-Minds Memory</b></a></td><td>Complementary halves</td><td>✨ best</td><td>MemoryGame.tsx</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>02</td><td><a href="#i-relay"><b>Sentence Relay</b></a></td><td>Split word bank + turns</td><td>✨ best</td><td>RebuildSentenceBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr><td>03</td><td><a href="#i-toss"><b>Word Toss</b></a></td><td>Divided load + rescue</td><td>Either</td><td>Duel engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>04</td><td><a href="#i-decoder"><b>Decoder Duo</b></a></td><td>Split info (guide↔follower)</td><td>✨✨ ideal</td><td>Options + TTS</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr><td>05</td><td><a href="#i-forge"><b>Split-Letter Forge</b></a></td><td>Split letter pool</td><td>✨ best</td><td>Anagram hint logic</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>06</td><td><a href="#i-call"><b>Call &amp; Response</b></a></td><td>Audio ↔ text</td><td>✨ best</td><td>useTTS + audio</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr><td>07</td><td><a href="#i-lifeline"><b>Lifeline</b></a></td><td>Revive / shared game-over</td><td>Either</td><td>Speed engine</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>08</td><td><a href="#i-streak"><b>One Streak, Two Hands</b></a></td><td>Shared streak, mutual risk</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>09</td><td><a href="#i-boss"><b>Co-op Boss: Shield &amp; Sword</b></a></td><td>Sequential asymmetric roles</td><td>Either</td><td>Boss + duel</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>10</td><td><a href="#i-bridge"><b>Bridge Builder</b></a></td><td>Alternating path</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr><td>11</td><td><a href="#i-mirror"><b>Mirror Match</b></a></td><td>Must converge</td><td>Either</td><td>Answer engine</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>12</td><td><a href="#i-password"><b>Password (Taboo)</b></a></td><td>Describe ↔ guess</td><td>✨ best</td><td>New taboo lists</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★★</span></span></td></tr>
+        <tr><td>13</td><td><a href="#i-dictation"><b>Duet Dictation</b></a></td><td>Voice ↔ keyboard</td><td>✨ best</td><td>Typing levels + TTS</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr><td>14</td><td><a href="#i-hints"><b>Hint Token Economy</b></a></td><td>Give / receive resource</td><td>Either</td><td>PvE hint pool</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr><td>15</td><td><a href="#i-flame"><b>Carry the Flame</b></a></td><td>Prep ↔ execute (timed)</td><td>Either</td><td>Answer + timer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★</span><span class="off">★★</span></span></td></tr>
+        <tr><td>16</td><td><a href="#i-heist"><b>Heist: Role Vault</b></a></td><td>Complementary specialties</td><td>✨ pass-phone</td><td>Word types + answer</td><td><span class="pill-sm md">Medium</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>17</td><td><a href="#i-speedsplit"><b>Co-op Speed Split</b></a></td><td>Shared clock + steal-to-help</td><td>Either</td><td>SpeedModeBeta</td><td><span class="pill-sm md">Small–Med</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+        <tr><td>18</td><td><a href="#i-shield"><b>Trust Shield</b></a></td><td>Rescue from sabotage</td><td>Either</td><td>SabotageRenderer</td><td><span class="pill-sm lo">Small</span></td><td><span class="rate"><span class="on">★★★★</span><span class="off">★</span></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:10px">Ratings are vibes, not gospel — you know what makes <i>your</i> two-player table laugh better than I do.</p>
+</section>
+
+<!-- ===================== BUILD ORDER ===================== -->
+<section class="block" id="build">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow cta">If you want a path through it</span>
+      <h2>A suggested build order</h2>
+      <p>You asked for the pile, not a roadmap — but here's how I'd actually sequence it to get co-op joy on the cheap, then escalate. Three tiers.</p>
+    </div>
+  </div>
+
+  <div class="app-card">
+    <div class="grid-3">
+      <div class="panel p2">
+        <span class="eyebrow cta">Tier 1 · This weekend</span>
+        <h4>Quick wins that already half-exist</h4>
+        <ul>
+          <li><b>#01 Two-Minds Memory</b> — the prototype is built and already splits EN/ES. Add the <i>Blind</i> variant + Theme words and you have a real co-op mode almost for free.</li>
+          <li><b>#08 One Streak</b> — one shared number + a turn pointer. Bolt it onto Memory or Speed for instant tension.</li>
+          <li><b>#14 Hint Tokens</b> — small extension of the PvE pool you already shipped.</li>
+        </ul>
+      </div>
+      <div class="panel p1">
+        <span class="eyebrow">Tier 2 · The flagships</span>
+        <h4>The "whoa, this is the app" modes</h4>
+        <ul>
+          <li><b>#04 Decoder Duo</b> ⭐ — the showcase. Purest interdependence, biggest laughs, leans on the options engine. If you build only one new mode, build this.</li>
+          <li><b>#02 Sentence Relay</b> — RebuildSentence + split hands + turns. Deep and very co-op.</li>
+          <li><b>#06 Call &amp; Response</b> — finally makes someone <i>speak</i>, dead-on for your oral-mastery thesis.</li>
+        </ul>
+      </div>
+      <div class="panel muted">
+        <span class="eyebrow muted">Tier 3 · When you're hungry</span>
+        <h4>Bigger swings &amp; campaigns</h4>
+        <ul>
+          <li><b>#09 Co-op Boss</b> — turns the weekly-goal milestone into a real two-role fight.</li>
+          <li><b>#07 Lifeline</b> / <b>#05 Split-Letter Forge</b> — meatier real-time co-op.</li>
+          <li><b>#10 Bridge Builder</b> — wrap several modes in a cozy campaign map.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid-2">
+      <div class="callout why"><span class="ic">🧪</span><div><b>They're Lego, not silos</b>Several ideas are <i>modifiers</i> that snap onto others: <b>#08 Streak</b>, <b>#14 Hints</b>, and <b>#18 Trust Shield</b> all layer on top of any answering mode. So "build #04 + turn on #08" is a totally valid first feature.</div></div>
+      <div class="callout hook"><span class="ic">🚪</span><div><b>Where they live</b>All of these can debut behind your existing <span class="kbd">Mock Features</span> menu in <span class="kbd">app/components/prototypes/</span> exactly like Memory Game and the Sentence Betas — prototype cheaply, promote the winners.</div></div>
+    </div>
+  </div>
+
+  <div class="app-card" style="margin-top:18px">
+    <span class="eyebrow">My one-line pick</span>
+    <p style="font-size:17px; margin:8px 0 0; color:var(--text)">If I had to bet on what'll make you and your gf actually keep playing: <b>#04 Decoder Duo</b> for the belly-laughs, <b>#02 Sentence Relay</b> for the "we built that together" feeling, and <b>#01 Two-Minds Memory</b> because it's basically already done. Everything else is gravy. 🍮</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <div class="divider"></div>
+  <p class="title-font" style="font-size:22px; color:var(--text); margin-bottom:4px">That's the pile. 🎉</p>
+  <p>Edit it down to the 1–3 that make you both grin. I can prototype any of these into the existing <span class="kbd">app/components/prototypes/</span> "Mock Features" menu next.</p>
+</footer>
+
+<button class="back-top" id="backTop" aria-label="Back to top">↑</button>
+
+<script>
+// active TOC highlight + back-to-top (progressive enhancement; doc is fully readable without JS)
+(function(){
+  var links=[].slice.call(document.querySelectorAll('#toc a'));
+  var map={}; links.forEach(function(a){var id=a.getAttribute('href').slice(1); var el=document.getElementById(id); if(el) map[id]=a;});
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ links.forEach(function(l){l.classList.remove('active');}); var a=map[e.target.id]; if(a)a.classList.add('active'); }});
+  },{rootMargin:'-45% 0px -50% 0px'});
+  Object.keys(map).forEach(function(id){var el=document.getElementById(id); if(el)io.observe(el);});
+  var bt=document.getElementById('backTop');
+  addEventListener('scroll',function(){ bt.classList.toggle('show', scrollY>700); },{passive:true});
+  bt.addEventListener('click',function(){scrollTo({top:0,behavior:'smooth'});});
+})();
+</script>
+</body>
+</html>
