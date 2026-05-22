@@ -67,10 +67,12 @@ is only whatever line-wrap the title produces, and the `<h3>` already has `trunc
 typical user theme counts. Deletes the entire size-map + content-ref + setRowSize +
 ResizeObserver dance (~100 LOC).
 
-### 5. Five modals hand-roll the same chrome and ignore the canonical `ModalShell`
+### 5. Four modals hand-roll the same chrome and ignore the canonical `ModalShell`
 
-`AddWordModal`, `DeleteConfirmModal`, `RegenerateConfirmModal`,
-`DiscardPickAndPruneModal`, `FriendFilterModal` all repeat:
+`AddWordModal`, `DeleteConfirmModal`, `RegenerateConfirmModal`, `FriendFilterModal` all repeat
+(`DiscardPickAndPruneModal` has the identical problem but is owned by **Area 3** — see Area 3 #4/#5
+and [cross-area reconciliation C2/C3](./code_review_cross_area_reconciliation.md); the shared
+`ConfirmModal` that resolves the delete/regenerate/discard confirms is built once, not per-area):
 
 ```
 fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4
@@ -82,7 +84,7 @@ fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4
 already handles SSR mount + portaling + appearance colors.
 
 **Remedy:** wrap with `<ModalShell title="…">`. Eliminates `getThemeModalPanelStyle` and
-the `if (!isOpen) return null` boilerplate from all five files.
+the `if (!isOpen) return null` boilerplate from all four files.
 
 ### 6. `DeleteConfirmModal` mixes two color systems and duplicates `getThemeActionButtonStyle("danger")`
 
