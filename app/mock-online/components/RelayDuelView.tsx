@@ -28,15 +28,16 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
   const applyMove = useMutation(api.prototypeRooms.applyMove);
   const restartGame = useMutation(api.prototypeRooms.restartGame);
 
-  const [selectedWordId, setSelectedWordId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
-  const handlePick = useCallback(() => {
-    if (!selectedWordId) return;
-    void applyMove({ roomId: data.room._id, move: { kind: "pick", wordId: selectedWordId } })
-      .then(() => setSelectedWordId(null))
-      .catch((error) => toast.error(convexErrorMessage(error, "Move failed")));
-  }, [applyMove, data.room._id, selectedWordId]);
+  const handlePick = useCallback(
+    (wordId: string) => {
+      void applyMove({ roomId: data.room._id, move: { kind: "pick", wordId } }).catch((error) =>
+        toast.error(convexErrorMessage(error, "Move failed"))
+      );
+    },
+    [applyMove, data.room._id]
+  );
 
   const handleConfirm = useCallback(() => {
     if (!selectedAnswer) return;
@@ -52,7 +53,6 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
   }, [applyMove, data.room._id]);
 
   const handleRestart = useCallback(() => {
-    setSelectedWordId(null);
     setSelectedAnswer(null);
     void restartGame({ roomId: data.room._id }).catch((error) =>
       toast.error(convexErrorMessage(error, "Could not restart"))
@@ -109,10 +109,11 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
     </span>
   );
 
-  const wordCardStyle = (id: string): CSSProperties =>
-    selectedWordId === id
-      ? { borderColor: colors.secondary.DEFAULT, backgroundColor: `${colors.secondary.DEFAULT}26`, color: colors.secondary.dark }
-      : { borderColor: colors.primary.dark, backgroundColor: colors.background.elevated, color: colors.text.DEFAULT };
+  const wordCardStyle: CSSProperties = {
+    borderColor: colors.primary.dark,
+    backgroundColor: colors.background.elevated,
+    color: colors.text.DEFAULT,
+  };
 
   const optionContext = (): OptionContext => ({
     answer: "",
@@ -207,9 +208,9 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
                     <button
                       key={poolWord.id}
                       type="button"
-                      onClick={() => setSelectedWordId(poolWord.id)}
-                      className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border-2 transition-all hover:brightness-110"
-                      style={wordCardStyle(poolWord.id)}
+                      onClick={() => handlePick(poolWord.id)}
+                      className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border-2 transition-all hover:brightness-110 active:scale-[0.98]"
+                      style={wordCardStyle}
                       data-testid={`relay-pick-${poolWord.id}`}
                     >
                       <span className="text-base font-semibold">{poolWord.prompt}</span>
@@ -244,11 +245,6 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
         </div>
 
         <footer className="flex-shrink-0 flex flex-col items-center gap-2 w-full px-4 py-3 md:pb-4 border-t" style={subtleBorderStyle}>
-          {!finished && data.room.status === "active" && state.phase === "pick" && amPicker && (
-            <button className={footerButtonClass} style={selectedWordId ? ctaEnabledStyle : ctaDisabledStyle} disabled={!selectedWordId} onClick={handlePick} data-testid="relay-hand-over">
-              Hand to {opponentName}
-            </button>
-          )}
           {!finished && state.phase === "answer" && amAnswerer && (
             <button className={footerButtonClass} style={selectedAnswer ? ctaEnabledStyle : ctaDisabledStyle} disabled={!selectedAnswer} onClick={handleConfirm} data-testid="relay-confirm">
               Confirm Answer
