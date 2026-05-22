@@ -1,18 +1,10 @@
-import type { RelayContentWord, RelayDifficulty } from "./content";
+import type { RelayContentWord } from "./content";
 import { addScore, otherSlot } from "./players";
 import { shuffle, type Rng } from "./shuffle";
 import type { PlayerSlot, RelayState, RelayWord } from "./state";
 
-const DIFFICULTY_POINTS: Record<RelayDifficulty, number> = { easy: 1, medium: 2, hard: 3 };
-
-// Clean mode scores every correct answer the same; stakes mode rewards harder words.
-export function relayPoints(difficulty: RelayDifficulty, stakes: boolean): number {
-  return stakes ? DIFFICULTY_POINTS[difficulty] : 1;
-}
-
 export function createRelayState(
   words: readonly RelayContentWord[],
-  stakes: boolean,
   rng: Rng = Math.random
 ): RelayState {
   const pool: RelayWord[] = shuffle(words, rng).map((word) => ({
@@ -20,11 +12,9 @@ export function createRelayState(
     prompt: word.prompt,
     answer: word.answer,
     options: shuffle([word.answer, ...word.distractors], rng),
-    difficulty: word.difficulty,
   }));
   return {
     kind: "relay",
-    stakes,
     pool,
     total: pool.length,
     picker: "host",
@@ -67,13 +57,12 @@ export function answerRelay(state: RelayState, slot: PlayerSlot, value: string):
 
   const word = state.assigned;
   const correct = value === word.answer;
-  const gained = correct ? relayPoints(word.difficulty, state.stakes) : 0;
   const scorer = correct ? slot : null;
   return {
     ...state,
     phase: "feedback",
-    scores: scorer ? addScore(state.scores, scorer, gained) : state.scores,
-    lastResult: { prompt: word.prompt, answer: word.answer, chosen: value, correct, scorer, gained },
+    scores: scorer ? addScore(state.scores, scorer, 1) : state.scores,
+    lastResult: { prompt: word.prompt, answer: word.answer, chosen: value, correct, scorer },
   };
 }
 

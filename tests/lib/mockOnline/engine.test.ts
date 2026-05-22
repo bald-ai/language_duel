@@ -20,7 +20,6 @@ import {
   createRelayState,
   isRelayFinished,
   pickRelayWord,
-  relayPoints,
 } from "@/lib/mockOnline/relay";
 import { RELAY_WORDS } from "@/lib/mockOnline/content";
 import { otherSlot } from "@/lib/mockOnline/players";
@@ -79,21 +78,18 @@ const mapWord: RelayWord = {
   id: "map",
   prompt: "map",
   answer: "mapa",
-  options: ["mapa", "carta", "calle", "libro"],
-  difficulty: "easy",
+  options: ["mapa", "carta", "calle", "libro", "plano", "guía"],
 };
 const airportWord: RelayWord = {
   id: "airport",
   prompt: "airport",
   answer: "aeropuerto",
-  options: ["aeropuerto", "estación", "puerto", "frontera"],
-  difficulty: "hard",
+  options: ["aeropuerto", "estación", "puerto", "frontera", "carretera", "muelle"],
 };
 
 function relayState(overrides: Partial<RelayState> = {}): RelayState {
   return {
     kind: "relay",
-    stakes: false,
     pool: [mapWord, airportWord],
     total: 2,
     picker: "host",
@@ -217,8 +213,8 @@ describe("order race", () => {
 });
 
 describe("relay duel", () => {
-  it("builds a shuffled pool with options that include the answer", () => {
-    const state = createRelayState(RELAY_WORDS, false, fixedRng);
+  it("builds a shuffled pool with six options that include the answer", () => {
+    const state = createRelayState(RELAY_WORDS, fixedRng);
     expect(state.kind).toBe("relay");
     expect(state.pool).toHaveLength(RELAY_WORDS.length);
     expect(state.total).toBe(RELAY_WORDS.length);
@@ -226,7 +222,7 @@ describe("relay duel", () => {
     expect(state.phase).toBe("pick");
     for (const word of state.pool) {
       expect(word.options).toContain(word.answer);
-      expect(word.options).toHaveLength(4);
+      expect(word.options).toHaveLength(6);
     }
   });
 
@@ -259,7 +255,6 @@ describe("relay duel", () => {
       chosen: "mapa",
       correct: true,
       scorer: "guest",
-      gained: 1,
     });
 
     const advanced = advanceRelay(revealed, "guest");
@@ -275,22 +270,12 @@ describe("relay duel", () => {
     expect(revealed.phase).toBe("feedback");
     expect(revealed.scores).toEqual({ host: 0, guest: 0 });
     expect(revealed.lastResult?.correct).toBe(false);
-    expect(revealed.lastResult?.gained).toBe(0);
+    expect(revealed.lastResult?.scorer).toBeNull();
 
     const advanced = advanceRelay(revealed, "guest");
     expect(advanced.phase).toBe("pick");
     expect(advanced.picker).toBe("guest");
     expect(advanced.resolved).toBe(1);
-  });
-
-  it("awards difficulty points only in stakes mode", () => {
-    expect(relayPoints("hard", false)).toBe(1);
-    expect(relayPoints("hard", true)).toBe(3);
-    const answering = relayState({ stakes: true, phase: "answer", assigned: airportWord, pool: [] });
-    const revealed = answerRelay(answering, "guest", "aeropuerto");
-    expect(revealed.scores).toEqual({ host: 0, guest: 3 });
-    expect(isRelayFinished(revealed)).toBe(false); // word still on screen for the reveal
-    expect(isRelayFinished(advanceRelay(revealed, "guest"))).toBe(true);
   });
 
   it("ignores answers from the picker or in the pick phase", () => {
@@ -316,8 +301,8 @@ describe("relay duel", () => {
   // Drives a whole game through the public dispatch the way two clients would:
   // the picker hands the top word over, the rival answers it, then becomes the
   // next picker — until the shared pool is exhausted.
-  function playAllCorrect(game: "relay" | "relay_stakes"): GameState {
-    let state = createGameState(game, fixedRng);
+  function playAllCorrect(): GameState {
+    let state = createGameState("relay", fixedRng);
     let guard = 0;
     while (!isGameFinished(state) && guard < 100) {
       guard += 1;
@@ -333,8 +318,8 @@ describe("relay duel", () => {
     return state;
   }
 
-  it("plays a full clean game where every correct answer banks one point", () => {
-    const state = playAllCorrect("relay");
+  it("plays a full game where every correct answer banks one point", () => {
+    const state = playAllCorrect();
     expect(state.kind).toBe("relay");
     if (state.kind !== "relay") return;
     expect(isRelayFinished(state)).toBe(true);
@@ -342,17 +327,6 @@ describe("relay duel", () => {
     expect(state.scores.host + state.scores.guest).toBe(RELAY_WORDS.length);
     // Roles strictly alternate, so each player answers half of the eight words.
     expect(state.scores).toEqual({ host: 4, guest: 4 });
-  });
-
-  it("plays a full stakes game where points sum to the pool's difficulty value", () => {
-    const totalStakes = RELAY_WORDS.reduce(
-      (sum, word) => sum + relayPoints(word.difficulty, true),
-      0
-    );
-    const state = playAllCorrect("relay_stakes");
-    if (state.kind !== "relay") throw new Error("expected relay state");
-    expect(isRelayFinished(state)).toBe(true);
-    expect(state.scores.host + state.scores.guest).toBe(totalStakes);
   });
 });
 
@@ -362,10 +336,7 @@ describe("engine dispatch", () => {
     expect(createGameState("missing_chunk", fixedRng).kind).toBe("mcq");
     expect(createGameState("speed", fixedRng).kind).toBe("mcq");
     expect(createGameState("rebuild_sentence", fixedRng).kind).toBe("order");
-    const relay = createGameState("relay", fixedRng);
-    const relayStakes = createGameState("relay_stakes", fixedRng);
-    expect(relay.kind === "relay" && relay.stakes).toBe(false);
-    expect(relayStakes.kind === "relay" && relayStakes.stakes).toBe(true);
+    expect(createGameState("relay", fixedRng).kind).toBe("relay");
   });
 
   it("bakes the correct answer into every generated question", () => {

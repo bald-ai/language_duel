@@ -8,7 +8,6 @@ export const GAME_ORDER: readonly MockGame[] = [
   "sentence_coop",
   "sentence_duel",
   "relay",
-  "relay_stakes",
 ];
 
 interface GameMeta {
@@ -25,5 +24,4 @@ export const GAME_META: Record<MockGame, GameMeta> = {
   sentence_coop: { label: "Sentence Co-op", tagline: "Take turns · build it together", maxWidthClass: "max-w-[560px]" },
   sentence_duel: { label: "Sentence Duel", tagline: "Word by word · fewest mistakes wins", maxWidthClass: "max-w-[560px]" },
   relay: { label: "Relay Duel", tagline: "Hand words to your rival · take turns", maxWidthClass: "max-w-[480px]" },
-  relay_stakes: { label: "Relay Duel: Stakes", tagline: "Harder words score more · play it mean", maxWidthClass: "max-w-[480px]" },
 };

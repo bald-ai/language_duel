@@ -13,8 +13,7 @@ import {
   type OptionContext,
 } from "@/app/duel/[duelId]/components/AnswerOptionButton";
 import { otherSlot } from "@/lib/mockOnline/players";
-import { relayPoints } from "@/lib/mockOnline/relay";
-import type { RelayDifficulty, RelayState } from "@/lib/mockOnline/state";
+import type { RelayState } from "@/lib/mockOnline/state";
 import { convexErrorMessage, playerName } from "../helpers";
 import type { RoomData } from "./RoomView";
 
@@ -90,25 +89,6 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
   const ctaEnabledStyle = { backgroundColor: colors.cta.DEFAULT, borderBottomColor: colors.cta.dark, color: colors.text.DEFAULT };
   const ctaDisabledStyle = { backgroundColor: colors.background.elevated, borderBottomColor: colors.neutral.dark, color: colors.text.muted };
 
-  const levelStyles: Record<RelayDifficulty, CSSProperties> = {
-    easy: { color: colors.status.success.light, backgroundColor: `${colors.status.success.DEFAULT}33`, borderColor: colors.status.success.DEFAULT },
-    medium: { color: colors.status.warning.light, backgroundColor: `${colors.status.warning.DEFAULT}33`, borderColor: colors.status.warning.DEFAULT },
-    hard: { color: colors.status.danger.light, backgroundColor: `${colors.status.danger.DEFAULT}33`, borderColor: colors.status.danger.DEFAULT },
-  };
-  const difficultyPill = (difficulty: RelayDifficulty) => (
-    <span className="inline-block px-3 py-1 rounded-full border text-sm font-medium" style={levelStyles[difficulty]}>
-      {difficulty.toUpperCase()} (+{relayPoints(difficulty, true)} pts)
-    </span>
-  );
-  const pointPill = (
-    <span
-      className="inline-block px-3 py-1 rounded-full border text-sm font-medium"
-      style={{ color: colors.secondary.light, backgroundColor: `${colors.secondary.DEFAULT}22`, borderColor: colors.secondary.dark }}
-    >
-      +1 pt
-    </span>
-  );
-
   const wordCardStyle: CSSProperties = {
     borderColor: colors.primary.dark,
     backgroundColor: colors.background.elevated,
@@ -150,11 +130,8 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
 
   const wordHeader = word && (
     <>
-      <div className="text-center mb-3">
-        <div className="text-sm mb-1" style={mutedTextStyle}>
-          Word #{state.resolved + 1} of {state.total}
-        </div>
-        <div>{state.stakes ? difficultyPill(word.difficulty) : pointPill}</div>
+      <div className="text-center text-sm mb-3" style={mutedTextStyle}>
+        Word #{state.resolved + 1} of {state.total}
       </div>
       <div className="text-center mb-4">
         <div className="text-xs uppercase tracking-[0.25em] mb-2" style={mutedTextStyle}>
@@ -214,7 +191,6 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
                       data-testid={`relay-pick-${poolWord.id}`}
                     >
                       <span className="text-base font-semibold">{poolWord.prompt}</span>
-                      {state.stakes && difficultyPill(poolWord.difficulty)}
                     </button>
                   ))}
                 </div>
@@ -304,7 +280,7 @@ function FeedbackLine({
   colors: Colors;
 }) {
   const who = mine ? "You" : "They";
-  const text = result.correct ? `${who} got it — +${result.gained}` : `${who} missed — answer: ${result.answer}`;
+  const text = result.correct ? `${who} got it — +1` : `${who} missed — answer: ${result.answer}`;
   return (
     <div
       className="mt-4 text-center text-sm font-medium"

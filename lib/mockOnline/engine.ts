@@ -35,9 +35,7 @@ export function createGameState(game: MockGame, rng: Rng = Math.random): GameSta
     case "sentence_duel":
       return createSentenceState("duel", SENTENCE_ROUNDS, rng);
     case "relay":
-      return createRelayState(RELAY_WORDS, false, rng);
-    case "relay_stakes":
-      return createRelayState(RELAY_WORDS, true, rng);
+      return createRelayState(RELAY_WORDS, rng);
   }
 }
 

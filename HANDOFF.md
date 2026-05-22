@@ -7,33 +7,29 @@ merging the online Relay Duel branch into the Sentence Builder rework on `main`.
 
 Relay Duel was promoted from the single-device mock into the real
 Convex-backed **Online Mock Features** framework (room codes, two accounts,
-realtime). It ships as **two lobby entries** that share one engine:
+realtime). One lobby entry, one engine: `game: "relay"`.
 
-- **Relay Duel** (`game: "relay"`) — clean scoring, every correct answer = +1.
-- **Relay Duel: Stakes** (`game: "relay_stakes"`) — words show difficulty and
-  harder words score more (easy +1 / medium +2 / hard +3), so there is strategy
-  in handing your rival the nastiest words.
-
-Both reached via **Home → Online Mock Features**. Turn-based loop:
+Reached via **Home → Online Mock Features**. Turn-based loop:
 pick → answer → **feedback reveal** → (advance) → repeat until the shared pool
-is empty. The rival who answers becomes the next picker.
+is empty. The rival who answers becomes the next picker. Tapping a word in the
+picker phase hands it off immediately — no separate confirm step. Every word
+uses the medium duel layout (1 correct + 5 wrong) and every correct answer
+banks one point — relay does not vary scoring by difficulty.
 
 **Visuals mirror the real duel** (`DuelView`): it renders full-bleed in the
 same game container and reuses the real `Scoreboard`, `AnswerOptionButton`
-(so the green/right + red/wrong reveal is identical), the difficulty pill, and
-`FinalResultsPanel`. The **word-selection screen is a clean vertical list** in
-the same duel styling (just the words; a difficulty pill per row only in Stakes
-mode).
+(so the green/right + red/wrong reveal is identical), and `FinalResultsPanel`.
+The word-selection screen is a clean vertical list in the same duel styling.
 
 Relay files in the `mockOnline` feature:
-- Engine: `lib/mockOnline/relay.ts` (+ `relay`/`relay_stakes` cases in
-  `engine.ts`, validators/types in `state.ts`, words in `content.ts`).
-  Phases: `pick → answer → feedback`; moves: `pick` / `answer` / `next`.
+- Engine: `lib/mockOnline/relay.ts` (+ `relay` case in `engine.ts`, validators
+  in `state.ts`, words in `content.ts`). Phases: `pick → answer → feedback`;
+  moves: `pick` / `answer` / `next`.
 - UI: `app/mock-online/components/RelayDuelView.tsx`, rendered full-bleed
   straight from `app/mock-online/[roomId]/page.tsx` (relay bypasses the
   lobby-card `RoomView`). Listed in `app/mock-online/games.ts`.
-- Tests: relay cases in `tests/lib/mockOnline/engine.test.ts` (incl. two
-  full-game playthroughs).
+- Tests: relay cases in `tests/lib/mockOnline/engine.test.ts` (incl. a full
+  game playthrough).
 - **Not yet verified live** — needs a Convex deploy + Clerk + two signed-in
   users. To feel it: open two browsers/accounts, create a room in one, join
   with the code in the other.

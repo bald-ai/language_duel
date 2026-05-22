@@ -74,25 +74,24 @@ export const SENTENCE_ROUNDS: readonly SentenceContentRound[] = [
   { english: "I go to the park", correct: ["Yo", "voy", "al", "parque"] },
 ];
 
-export type RelayDifficulty = "easy" | "medium" | "hard";
-
 export interface RelayContentWord {
   id: string;
   prompt: string;
   answer: string;
+  // Five distractors so the answer grid renders six total options to match
+  // the medium difficulty layout (1 correct + 5 wrong) from the main duel.
   distractors: string[];
-  difficulty: RelayDifficulty;
 }
 
-// Shared pool the two players hand back and forth in Relay Duel. All words are
-// medium difficulty to match the standard duel difficulty in the main app.
+// Shared pool the two players hand back and forth in Relay Duel. Every word
+// is one point — relay does not vary scoring by difficulty.
 export const RELAY_WORDS: readonly RelayContentWord[] = [
-  { id: "airport", prompt: "airport", answer: "aeropuerto", distractors: ["estación", "puerto", "frontera"], difficulty: "medium" },
-  { id: "ticket", prompt: "ticket", answer: "billete", distractors: ["maleta", "asiento", "puerta"], difficulty: "medium" },
-  { id: "map", prompt: "map", answer: "mapa", distractors: ["carta", "calle", "libro"], difficulty: "medium" },
-  { id: "luggage", prompt: "luggage", answer: "equipaje", distractors: ["paquete", "mochila", "bolsa"], difficulty: "medium" },
-  { id: "bread", prompt: "bread", answer: "pan", distractors: ["leche", "queso", "huevo"], difficulty: "medium" },
-  { id: "water", prompt: "water", answer: "agua", distractors: ["vino", "zumo", "café"], difficulty: "medium" },
-  { id: "spicy", prompt: "spicy", answer: "picante", distractors: ["dulce", "salado", "amargo"], difficulty: "medium" },
-  { id: "breakfast", prompt: "breakfast", answer: "desayuno", distractors: ["almuerzo", "cena", "merienda"], difficulty: "medium" },
+  { id: "airport", prompt: "airport", answer: "aeropuerto", distractors: ["estación", "puerto", "frontera", "carretera", "muelle"] },
+  { id: "ticket", prompt: "ticket", answer: "billete", distractors: ["maleta", "asiento", "puerta", "tarjeta", "recibo"] },
+  { id: "map", prompt: "map", answer: "mapa", distractors: ["carta", "calle", "libro", "plano", "guía"] },
+  { id: "luggage", prompt: "luggage", answer: "equipaje", distractors: ["paquete", "mochila", "bolsa", "cajón", "maletero"] },
+  { id: "bread", prompt: "bread", answer: "pan", distractors: ["leche", "queso", "huevo", "harina", "mantequilla"] },
+  { id: "water", prompt: "water", answer: "agua", distractors: ["vino", "zumo", "café", "leche", "té"] },
+  { id: "spicy", prompt: "spicy", answer: "picante", distractors: ["dulce", "salado", "amargo", "ácido", "soso"] },
+  { id: "breakfast", prompt: "breakfast", answer: "desayuno", distractors: ["almuerzo", "cena", "merienda", "postre", "tentempié"] },
 ];
