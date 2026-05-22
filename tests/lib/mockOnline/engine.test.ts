@@ -15,6 +15,7 @@ import {
   isOrderFinished,
 } from "@/lib/mockOnline/race";
 import {
+  advanceRelay,
   answerRelay,
   createRelayState,
   isRelayFinished,
@@ -243,15 +244,16 @@ describe("relay duel", () => {
     expect(pickRelayWord(relayState(), "host", "nope")).toEqual(relayState());
   });
 
-  it("scores the answerer and passes the pick to them on a correct answer", () => {
+  it("reveals a correct answer in the feedback phase before advancing", () => {
     const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
-    const next = answerRelay(answering, "guest", "mapa");
-    expect(next.scores).toEqual({ host: 0, guest: 1 });
-    expect(next.picker).toBe("guest");
-    expect(next.phase).toBe("pick");
-    expect(next.assigned).toBeNull();
-    expect(next.resolved).toBe(1);
-    expect(next.lastResult).toEqual({
+    const revealed = answerRelay(answering, "guest", "mapa");
+    // Feedback keeps the word on screen and the picker unchanged until advance.
+    expect(revealed.phase).toBe("feedback");
+    expect(revealed.scores).toEqual({ host: 0, guest: 1 });
+    expect(revealed.picker).toBe("host");
+    expect(revealed.assigned?.id).toBe("map");
+    expect(revealed.resolved).toBe(0);
+    expect(revealed.lastResult).toEqual({
       prompt: "map",
       answer: "mapa",
       chosen: "mapa",
@@ -259,25 +261,36 @@ describe("relay duel", () => {
       scorer: "guest",
       gained: 1,
     });
+
+    const advanced = advanceRelay(revealed, "guest");
+    expect(advanced.phase).toBe("pick");
+    expect(advanced.picker).toBe("guest");
+    expect(advanced.assigned).toBeNull();
+    expect(advanced.resolved).toBe(1);
   });
 
-  it("advances with no points on a wrong answer", () => {
+  it("reveals a wrong answer with no points, then advances", () => {
     const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
-    const next = answerRelay(answering, "guest", "carta");
-    expect(next.scores).toEqual({ host: 0, guest: 0 });
-    expect(next.picker).toBe("guest");
-    expect(next.resolved).toBe(1);
-    expect(next.lastResult?.correct).toBe(false);
-    expect(next.lastResult?.gained).toBe(0);
+    const revealed = answerRelay(answering, "guest", "carta");
+    expect(revealed.phase).toBe("feedback");
+    expect(revealed.scores).toEqual({ host: 0, guest: 0 });
+    expect(revealed.lastResult?.correct).toBe(false);
+    expect(revealed.lastResult?.gained).toBe(0);
+
+    const advanced = advanceRelay(revealed, "guest");
+    expect(advanced.phase).toBe("pick");
+    expect(advanced.picker).toBe("guest");
+    expect(advanced.resolved).toBe(1);
   });
 
   it("awards difficulty points only in stakes mode", () => {
     expect(relayPoints("hard", false)).toBe(1);
     expect(relayPoints("hard", true)).toBe(3);
     const answering = relayState({ stakes: true, phase: "answer", assigned: airportWord, pool: [] });
-    const next = answerRelay(answering, "guest", "aeropuerto");
-    expect(next.scores).toEqual({ host: 0, guest: 3 });
-    expect(isRelayFinished(next)).toBe(true);
+    const revealed = answerRelay(answering, "guest", "aeropuerto");
+    expect(revealed.scores).toEqual({ host: 0, guest: 3 });
+    expect(isRelayFinished(revealed)).toBe(false); // word still on screen for the reveal
+    expect(isRelayFinished(advanceRelay(revealed, "guest"))).toBe(true);
   });
 
   it("ignores answers from the picker or in the pick phase", () => {
@@ -286,9 +299,16 @@ describe("relay duel", () => {
     expect(answerRelay(relayState(), "guest", "mapa")).toEqual(relayState());
   });
 
+  it("only lets the answerer leave the feedback reveal", () => {
+    const feedback = relayState({ phase: "feedback", assigned: mapWord, pool: [airportWord] });
+    expect(advanceRelay(feedback, "host")).toEqual(feedback); // host is the picker, not the answerer
+    expect(advanceRelay(relayState(), "guest")).toEqual(relayState()); // not in feedback
+    expect(advanceRelay(feedback, "guest").phase).toBe("pick");
+  });
+
   it("is finished only once the pool is empty and nothing is in flight", () => {
     expect(isRelayFinished(relayState({ pool: [], assigned: null }))).toBe(true);
-    expect(isRelayFinished(relayState({ pool: [], assigned: mapWord, phase: "answer" }))).toBe(false);
+    expect(isRelayFinished(relayState({ pool: [], assigned: mapWord, phase: "feedback" }))).toBe(false);
     const finished = relayState({ pool: [], assigned: null, scores: { host: 3, guest: 1 } });
     expect(getWinner(finished)).toBe("host");
   });
@@ -304,8 +324,10 @@ describe("relay duel", () => {
       if (state.kind !== "relay") break;
       if (state.phase === "pick") {
         state = applyGameMove(state, state.picker, { kind: "pick", wordId: state.pool[0].id });
-      } else if (state.assigned) {
+      } else if (state.phase === "answer" && state.assigned) {
         state = applyGameMove(state, otherSlot(state.picker), { kind: "answer", value: state.assigned.answer });
+      } else if (state.phase === "feedback") {
+        state = applyGameMove(state, otherSlot(state.picker), { kind: "next" });
       }
     }
     return state;

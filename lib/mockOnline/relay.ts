@@ -58,6 +58,8 @@ export function pickRelayWord(state: RelayState, slot: PlayerSlot, wordId: strin
   };
 }
 
+// The rival answers; the word stays on screen in a `feedback` phase so both
+// players see the correct/wrong reveal before `advanceRelay` moves things on.
 export function answerRelay(state: RelayState, slot: PlayerSlot, value: string): RelayState {
   if (isRelayFinished(state)) return state;
   if (state.phase !== "answer" || !state.assigned) return state;
@@ -69,12 +71,23 @@ export function answerRelay(state: RelayState, slot: PlayerSlot, value: string):
   const scorer = correct ? slot : null;
   return {
     ...state,
+    phase: "feedback",
+    scores: scorer ? addScore(state.scores, scorer, gained) : state.scores,
+    lastResult: { prompt: word.prompt, answer: word.answer, chosen: value, correct, scorer, gained },
+  };
+}
+
+// Leaves the feedback reveal: the rival who just answered becomes the next picker.
+export function advanceRelay(state: RelayState, slot: PlayerSlot): RelayState {
+  if (isRelayFinished(state)) return state;
+  if (state.phase !== "feedback") return state;
+  const answerer = relayAnswerer(state);
+  if (slot !== answerer) return state;
+  return {
+    ...state,
+    picker: answerer,
     assigned: null,
     phase: "pick",
-    // Whoever just answered becomes the next picker.
-    picker: slot,
-    scores: scorer ? addScore(state.scores, scorer, gained) : state.scores,
     resolved: state.resolved + 1,
-    lastResult: { prompt: word.prompt, answer: word.answer, chosen: value, correct, scorer, gained },
   };
 }

@@ -126,7 +126,7 @@ const relayStateValidator = v.object({
   pool: v.array(relayWordValidator),
   total: v.number(),
   picker: playerSlotValidator,
-  phase: v.union(v.literal("pick"), v.literal("answer")),
+  phase: v.union(v.literal("pick"), v.literal("answer"), v.literal("feedback")),
   assigned: v.union(relayWordValidator, v.null()),
   scores: scoresValidator,
   resolved: v.number(),
@@ -148,6 +148,7 @@ export const moveValidator = v.union(
   v.object({ kind: v.literal("flip"), index: v.number() }),
   v.object({ kind: v.literal("answer"), value: v.string() }),
   v.object({ kind: v.literal("order"), order: v.array(v.number()) }),
-  v.object({ kind: v.literal("pick"), wordId: v.string() })
+  v.object({ kind: v.literal("pick"), wordId: v.string() }),
+  v.object({ kind: v.literal("next") })
 );
 export type Move = Infer<typeof moveValidator>;

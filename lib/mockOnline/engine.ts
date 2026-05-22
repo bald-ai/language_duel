@@ -14,7 +14,7 @@ import {
   isMcqFinished,
   isOrderFinished,
 } from "./race";
-import { answerRelay, createRelayState, isRelayFinished, pickRelayWord } from "./relay";
+import { advanceRelay, answerRelay, createRelayState, isRelayFinished, pickRelayWord } from "./relay";
 import type { Rng } from "./shuffle";
 import type { GameState, Move, MockGame, PlayerSlot } from "./state";
 
@@ -46,6 +46,7 @@ export function applyGameMove(state: GameState, slot: PlayerSlot, move: Move): G
     case "relay":
       if (move.kind === "pick") return pickRelayWord(state, slot, move.wordId);
       if (move.kind === "answer") return answerRelay(state, slot, move.value);
+      if (move.kind === "next") return advanceRelay(state, slot);
       return state;
   }
 }
