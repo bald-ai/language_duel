@@ -23,7 +23,6 @@ export function RoomView({ data, onLeave }: { data: RoomData; onLeave: () => voi
   const restartGame = useMutation(api.prototypeRooms.restartGame);
 
   const { room, viewerSlot, host, guest } = data;
-  const meta = GAME_META[room.game];
   const hostName = playerName(host, "Host");
   const guestName = playerName(guest, "Guest");
 
@@ -42,6 +41,26 @@ export function RoomView({ data, onLeave }: { data: RoomData; onLeave: () => voi
     );
   }, [restartGame, room._id]);
 
+  const meta = GAME_META[room.game];
+  const roomState = room.state;
+
+  if (roomState.kind === "sentence") {
+    return (
+      <SentenceBuilder
+        state={roomState}
+        viewerSlot={viewerSlot}
+        status={room.status}
+        code={room.code}
+        hostName={hostName}
+        guestName={guestName}
+        title={meta.label}
+        onTap={(tile) => handleMove({ kind: "tap", tile })}
+        onLeave={onLeave}
+        onRestart={handleRestart}
+      />
+    );
+  }
+
   return (
     <MockOnlineShell title={meta.label} onBack={onLeave} maxWidthClass={meta.maxWidthClass}>
       {room.status === "waiting" ? (
@@ -49,16 +68,16 @@ export function RoomView({ data, onLeave }: { data: RoomData; onLeave: () => voi
       ) : (
         <div className="space-y-4">
           <Scoreboard
-            state={room.state}
+            state={roomState}
             status={room.status}
             viewerSlot={viewerSlot}
             hostName={hostName}
             guestName={guestName}
           />
-          <GameBody state={room.state} viewerSlot={viewerSlot} onMove={handleMove} />
+          <GameBody state={roomState} viewerSlot={viewerSlot} onMove={handleMove} />
           {room.status === "finished" && (
             <FinishedPanel
-              state={room.state}
+              state={roomState}
               viewerSlot={viewerSlot}
               hostName={hostName}
               guestName={guestName}
@@ -99,6 +118,10 @@ function WaitingPanel({ code }: { code: string }) {
   );
 }
 
+// Sentence games render their own scoreboard inside SentenceBuilder, so this
+// helper only handles memory / mcq / order shapes.
+type NonSentenceState = Exclude<GameState, { kind: "sentence" }>;
+
 function Scoreboard({
   state,
   status,
@@ -106,27 +129,19 @@ function Scoreboard({
   hostName,
   guestName,
 }: {
-  state: GameState;
+  state: NonSentenceState;
   status: RoomData["room"]["status"];
   viewerSlot: PlayerSlot;
   hostName: string;
   guestName: string;
 }) {
-  const turn =
-    state.kind === "memory"
-      ? state.turn
-      : state.kind === "sentence" && state.mode !== "race"
-        ? state.turn
-        : null;
+  const turn = state.kind === "memory" ? state.turn : null;
   const youAreHost = viewerSlot === "host";
   const opponentName = youAreHost ? guestName : hostName;
-  const isCoop = state.kind === "sentence" && state.mode === "coop";
 
   let statusLine: string;
   if (status === "finished") {
     statusLine = "Game over";
-  } else if (isCoop) {
-    statusLine = turn === viewerSlot ? "Your turn — add a word" : `${opponentName}'s turn`;
   } else if (turn) {
     statusLine = turn === viewerSlot ? "Your turn" : `${opponentName}'s turn`;
   } else {
@@ -135,14 +150,18 @@ function Scoreboard({
 
   return (
     <div>
-      {isCoop ? (
-        <PlayerCard name="Team" score={state.scores.host} active={status !== "finished"} />
-      ) : (
-        <div className="grid grid-cols-2 gap-2.5">
-          <PlayerCard name={youAreHost ? `${hostName} (you)` : hostName} score={state.scores.host} active={turn === "host"} />
-          <PlayerCard name={!youAreHost ? `${guestName} (you)` : guestName} score={state.scores.guest} active={turn === "guest"} />
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-2.5">
+        <PlayerCard
+          name={youAreHost ? `${hostName} (you)` : hostName}
+          score={state.scores.host}
+          active={turn === "host"}
+        />
+        <PlayerCard
+          name={!youAreHost ? `${guestName} (you)` : guestName}
+          score={state.scores.guest}
+          active={turn === "guest"}
+        />
+      </div>
       <p className="mt-2 text-center text-sm font-semibold" data-testid="status-line" style={{ color: "var(--color-text)" }}>
         {statusLine}
       </p>
@@ -176,7 +195,7 @@ function GameBody({
   viewerSlot,
   onMove,
 }: {
-  state: GameState;
+  state: NonSentenceState;
   viewerSlot: PlayerSlot;
   onMove: (move: Move) => void;
 }) {
@@ -194,16 +213,6 @@ function GameBody({
           onSubmit={(order) => onMove({ kind: "order", order })}
         />
       );
-    case "sentence":
-      return (
-        <SentenceBuilder
-          key={state.index}
-          state={state}
-          viewerSlot={viewerSlot}
-          onSubmit={(order) => onMove({ kind: "submit", order })}
-          onTap={(tile) => onMove({ kind: "tap", tile })}
-        />
-      );
   }
 }
 
@@ -215,7 +224,7 @@ function FinishedPanel({
   onRestart,
   onLeave,
 }: {
-  state: GameState;
+  state: NonSentenceState;
   viewerSlot: PlayerSlot;
   hostName: string;
   guestName: string;
@@ -224,13 +233,11 @@ function FinishedPanel({
 }) {
   const winner = getWinner(state);
   const line =
-    state.kind === "sentence" && state.mode === "coop"
-      ? `Teamwork! You built all ${state.rounds.length} sentences.`
-      : winner === "tie"
-        ? "It's a tie!"
-        : winner === viewerSlot
-          ? "You win!"
-          : `${winner === "host" ? hostName : guestName} wins!`;
+    winner === "tie"
+      ? "It's a tie!"
+      : winner === viewerSlot
+        ? "You win!"
+        : `${winner === "host" ? hostName : guestName} wins!`;
 
   return (
     <div className="space-y-3">

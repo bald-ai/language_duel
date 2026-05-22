@@ -38,7 +38,6 @@ import type * as helpers_users from "../helpers/users.js";
 import type * as helpers_weeklyGoalSnapshots from "../helpers/weeklyGoalSnapshots.js";
 import type * as hintPool from "../hintPool.js";
 import type * as hints from "../hints.js";
-import type * as migrations_stampWeeklyGoalsMode from "../migrations/stampWeeklyGoalsMode.js";
 import type * as notificationHelpers from "../notificationHelpers.js";
 import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
@@ -122,7 +121,6 @@ declare const fullApi: ApiFromModules<{
   "helpers/weeklyGoalSnapshots": typeof helpers_weeklyGoalSnapshots;
   hintPool: typeof hintPool;
   hints: typeof hints;
-  "migrations/stampWeeklyGoalsMode": typeof migrations_stampWeeklyGoalsMode;
   notificationHelpers: typeof notificationHelpers;
   notificationPayloads: typeof notificationPayloads;
   notificationPreferences: typeof notificationPreferences;

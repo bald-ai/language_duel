@@ -30,36 +30,36 @@ mirror lives in `app/duel/[duelId]/components/DuelView.tsx`.
 > Note: a separate, real online feature (`app/mock-online/`) IS backed by
 > Convex (`api.prototypeRooms`). That is unrelated to these home-menu mocks.
 
-## Sentence Builder — now an online game (3 modes)
+## Sentence Builder — now an online game (2 modes)
 
 The old offline `SentenceBuilderBeta` home-menu mock was **removed** and rebuilt
-as three real-time, two-player online games inside the `mock-online` system
-(**Home → Online Mock Features**). All three reuse the generic room/code/join
+as two real-time, two-player online games inside the `mock-online` system
+(**Home → Online Mock Features**). Both reuse the generic room/code/join
 backend (`convex/prototypeRooms.ts`) and the shared engine — no backend changes
-were needed; the engine is dispatched purely by the new `game` values.
+were needed; the engine is dispatched purely by the `game` values.
 
-- **Sentence Race** (`sentence_race`) — both players get the same sentence on
-  their own board and race to assemble it. Free assembly with numbered badges,
-  tap-a-tile-to-remove, **Undo** (last) and **Clear** (all); first correct
-  **Submit** scores, a wrong submit locks you out for that round.
 - **Sentence Co-op** (`sentence_coop`) — one shared board, players alternate
   placing the next word; a finished sentence banks a shared point ("Team" score).
-- **Sentence Duel** (`sentence_duel`) — one shared board; a correct word scores
-  you and **keeps** your turn, a wrong word **loses** your turn to the opponent.
+  A wrong tap passes the turn so the partner can place the right word.
+- **Sentence Duel** (`sentence_duel`) — each player builds their **own** copy of
+  the same sentence independently (no turns). A wrong tap is rejected and adds
+  a mistake to that player. The round advances once **both** players complete
+  the sentence; the slower player sees a "waiting for opponent" footer.
+  **Fewest mistakes wins** at the end (lower is better, ties allowed).
 
 Code:
 - Engine: `lib/mockOnline/sentence.ts` (pure, fully unit-tested in
   `tests/lib/mockOnline/sentence.test.ts`).
 - State/validators: `lib/mockOnline/state.ts` (`SentenceState`, `sentence` kind,
-  `submit`/`tap` moves, `sentence_*` games).
+  `tap` move, `sentence_coop` / `sentence_duel` games, `mistakes` field).
 - Content: `SENTENCE_ROUNDS` in `lib/mockOnline/content.ts`.
 - UI: `app/mock-online/components/SentenceBuilder.tsx`, dispatched from
   `RoomView.tsx`; lobby entries in `app/mock-online/games.ts`.
 
 Open / easy to tweak: co-op scoring is intentionally minimal (completion only);
-duel "keep turn on correct" can let a strong player sweep a sentence (starting
-turn alternates per round to balance). No timer yet. Not browser-verified end to
-end (needs Clerk auth + Convex + two sessions) — logic is covered by unit tests.
+duel uses mistakes-as-score (inverted: lower wins) and starting turn alternates
+per round. No timer yet. Not browser-verified end to end (needs Clerk auth +
+Convex + two sessions) — logic is covered by unit tests.
 
 ## Relay Duel — design notes / open decisions
 

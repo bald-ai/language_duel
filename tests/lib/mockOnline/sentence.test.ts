@@ -8,10 +8,13 @@ import {
 import {
   createSentenceState,
   isSentenceFinished,
-  submitSentence,
   tapSentence,
 } from "@/lib/mockOnline/sentence";
-import type { SentenceMode, SentenceRound, SentenceState } from "@/lib/mockOnline/state";
+import type {
+  SentenceCoopState,
+  SentenceDuelState,
+  SentenceRound,
+} from "@/lib/mockOnline/state";
 
 const fixedRng = () => 0;
 
@@ -26,15 +29,13 @@ function round(): SentenceRound {
   };
 }
 
-function sentenceState(mode: SentenceMode, overrides: Partial<SentenceState> = {}): SentenceState {
+function coopState(overrides: Partial<SentenceCoopState> = {}): SentenceCoopState {
   return {
     kind: "sentence",
-    mode,
+    mode: "coop",
     rounds: [round(), round()],
     index: 0,
     scores: { host: 0, guest: 0 },
-    lockedHost: false,
-    lockedGuest: false,
     placed: [],
     turn: "host",
     lastError: null,
@@ -43,144 +44,184 @@ function sentenceState(mode: SentenceMode, overrides: Partial<SentenceState> = {
   };
 }
 
+function duelState(overrides: Partial<SentenceDuelState> = {}): SentenceDuelState {
+  return {
+    kind: "sentence",
+    mode: "duel",
+    rounds: [round(), round()],
+    index: 0,
+    mistakes: { host: 0, guest: 0 },
+    placedHost: [],
+    placedGuest: [],
+    doneHost: false,
+    doneGuest: false,
+    lastError: null,
+    lastResolved: null,
+    ...overrides,
+  };
+}
+
 describe("createSentenceState", () => {
-  it("scrambles words but keeps the solution and joined text", () => {
-    const state = createSentenceState("duel", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"] }], fixedRng);
+  it("creates the coop shape", () => {
+    const state = createSentenceState("coop", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"] }], fixedRng);
     expect(state.kind).toBe("sentence");
-    expect(state.mode).toBe("duel");
-    expect(state.rounds[0].solution).toEqual(["Yo", "bebo", "agua"]);
-    expect([...state.rounds[0].words].sort()).toEqual(["Yo", "bebo", "agua"].sort());
-    expect(state.rounds[0].correctText).toBe("Yo bebo agua");
+    expect(state.mode).toBe("coop");
+    if (state.mode !== "coop") throw new Error("expected coop");
     expect(state.turn).toBe("host");
     expect(state.placed).toEqual([]);
   });
 
+  it("creates the duel shape with separate boards", () => {
+    const state = createSentenceState("duel", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"] }], fixedRng);
+    expect(state.mode).toBe("duel");
+    if (state.mode !== "duel") throw new Error("expected duel");
+    expect(state.placedHost).toEqual([]);
+    expect(state.placedGuest).toEqual([]);
+    expect(state.doneHost).toBe(false);
+    expect(state.doneGuest).toBe(false);
+    expect(state.mistakes).toEqual({ host: 0, guest: 0 });
+  });
+
   it("knows when the deck is finished", () => {
-    expect(isSentenceFinished(sentenceState("race", { index: 2 }))).toBe(true);
-    expect(isSentenceFinished(sentenceState("race"))).toBe(false);
-  });
-});
-
-describe("sentence race", () => {
-  it("scores a correct submission and advances", () => {
-    const next = submitSentence(sentenceState("race"), "host", [1, 2, 0]);
-    expect(next.index).toBe(1);
-    expect(next.scores).toEqual({ host: 1, guest: 0 });
-    expect(next.lastResolved).toEqual({ index: 0, correctText: "Yo bebo agua", scorer: "host" });
-  });
-
-  it("locks a wrong submission without advancing", () => {
-    const next = submitSentence(sentenceState("race"), "host", [0, 1, 2]);
-    expect(next.index).toBe(0);
-    expect(next.lockedHost).toBe(true);
-    expect(next.scores).toEqual({ host: 0, guest: 0 });
-  });
-
-  it("advances with no score when both players submit wrong", () => {
-    const afterHost = submitSentence(sentenceState("race"), "host", [0, 1, 2]);
-    const afterBoth = submitSentence(afterHost, "guest", [2, 1, 0]);
-    expect(afterBoth.index).toBe(1);
-    expect(afterBoth.scores).toEqual({ host: 0, guest: 0 });
-    expect(afterBoth.lastResolved?.scorer).toBeNull();
-  });
-
-  it("treats invalid permutations as wrong", () => {
-    expect(submitSentence(sentenceState("race"), "host", [0, 1]).lockedHost).toBe(true);
-    expect(submitSentence(sentenceState("race"), "host", [0, 0, 1]).lockedHost).toBe(true);
-    expect(submitSentence(sentenceState("race"), "host", [0, 1, 9]).lockedHost).toBe(true);
-  });
-
-  it("ignores submissions from a locked player and taps in race mode", () => {
-    const locked = sentenceState("race", { lockedHost: true });
-    expect(submitSentence(locked, "host", [1, 2, 0])).toEqual(locked);
-    const fresh = sentenceState("race");
-    expect(tapSentence(fresh, "host", 1)).toEqual(fresh);
+    expect(isSentenceFinished(coopState({ index: 2 }))).toBe(true);
+    expect(isSentenceFinished(coopState())).toBe(false);
   });
 });
 
 describe("sentence coop", () => {
   it("ignores a tap when it is not your turn", () => {
-    const state = sentenceState("coop", { turn: "host" });
+    const state = coopState({ turn: "host" });
     expect(tapSentence(state, "guest", 1)).toEqual(state);
   });
 
   it("places a correct word and passes the turn", () => {
-    const next = tapSentence(sentenceState("coop"), "host", 1);
+    const next = tapSentence(coopState(), "host", 1) as SentenceCoopState;
     expect(next.placed).toEqual([1]);
     expect(next.turn).toBe("guest");
     expect(next.lastError).toBeNull();
-    expect(next.scores).toEqual({ host: 0, guest: 0 });
   });
 
   it("passes the turn and flags the error on a wrong word", () => {
-    const next = tapSentence(sentenceState("coop"), "host", 0);
+    const next = tapSentence(coopState(), "host", 0) as SentenceCoopState;
     expect(next.placed).toEqual([]);
     expect(next.turn).toBe("guest");
     expect(next.lastError).toBe("host");
   });
 
+  it("lets the partner continue placing after a wrong tap", () => {
+    let state = tapSentence(coopState(), "host", 0) as SentenceCoopState; // wrong -> guest
+    state = tapSentence(state, "guest", 1) as SentenceCoopState; // correct -> host
+    expect(state.placed).toEqual([1]);
+    expect(state.turn).toBe("host");
+    expect(state.lastError).toBeNull();
+  });
+
   it("banks a shared point and advances when the sentence is complete", () => {
-    let state = sentenceState("coop");
-    state = tapSentence(state, "host", 1);
-    state = tapSentence(state, "guest", 2);
-    state = tapSentence(state, "host", 0);
+    let state = coopState();
+    state = tapSentence(state, "host", 1) as SentenceCoopState;
+    state = tapSentence(state, "guest", 2) as SentenceCoopState;
+    state = tapSentence(state, "host", 0) as SentenceCoopState;
     expect(state.index).toBe(1);
     expect(state.placed).toEqual([]);
     expect(state.scores).toEqual({ host: 1, guest: 1 });
-    expect(state.lastResolved).toEqual({ index: 0, correctText: "Yo bebo agua", scorer: "shared" });
+    expect(state.lastResolved).toEqual({ index: 0, correctText: "Yo bebo agua" });
     expect(state.turn).toBe("guest");
   });
 });
 
-describe("sentence duel", () => {
-  it("scores and keeps your turn on a correct word", () => {
-    const next = tapSentence(sentenceState("duel"), "host", 1);
-    expect(next.placed).toEqual([1]);
-    expect(next.scores).toEqual({ host: 1, guest: 0 });
-    expect(next.turn).toBe("host");
-    expect(next.lastError).toBeNull();
+describe("sentence duel (per-player boards)", () => {
+  it("each player builds their own board independently", () => {
+    let state = duelState();
+    state = tapSentence(state, "host", 1) as SentenceDuelState;
+    state = tapSentence(state, "guest", 1) as SentenceDuelState;
+    expect(state.placedHost).toEqual([1]);
+    expect(state.placedGuest).toEqual([1]);
+    expect(state.mistakes).toEqual({ host: 0, guest: 0 });
   });
 
-  it("loses your turn with no score on a wrong word", () => {
-    const next = tapSentence(sentenceState("duel"), "host", 0);
-    expect(next.placed).toEqual([]);
-    expect(next.scores).toEqual({ host: 0, guest: 0 });
-    expect(next.turn).toBe("guest");
+  it("rejects a wrong tap (nothing placed) and adds a mistake", () => {
+    const next = tapSentence(duelState(), "host", 0) as SentenceDuelState;
+    expect(next.placedHost).toEqual([]);
+    expect(next.mistakes).toEqual({ host: 1, guest: 0 });
     expect(next.lastError).toBe("host");
+    expect(next.doneHost).toBe(false);
   });
 
-  it("awards each word to whoever placed it and advances on completion", () => {
-    let state = sentenceState("duel");
-    state = tapSentence(state, "host", 1); // "Yo" correct, host keeps turn
-    state = tapSentence(state, "host", 0); // wrong, turn passes to guest
-    expect(state.scores).toEqual({ host: 1, guest: 0 });
-    expect(state.turn).toBe("guest");
-    state = tapSentence(state, "guest", 2); // "bebo" correct, guest keeps turn
-    state = tapSentence(state, "guest", 0); // "agua" completes the sentence
+  it("accumulates mistakes without ending the player's turn", () => {
+    let state = duelState();
+    state = tapSentence(state, "host", 0) as SentenceDuelState; // wrong
+    state = tapSentence(state, "host", 2) as SentenceDuelState; // wrong
+    state = tapSentence(state, "host", 1) as SentenceDuelState; // correct
+    expect(state.placedHost).toEqual([1]);
+    expect(state.mistakes).toEqual({ host: 2, guest: 0 });
+  });
+
+  it("marks a player done when they complete their sentence and waits for the other", () => {
+    let state = duelState();
+    state = tapSentence(state, "host", 1) as SentenceDuelState;
+    state = tapSentence(state, "host", 2) as SentenceDuelState;
+    state = tapSentence(state, "host", 0) as SentenceDuelState;
+    expect(state.doneHost).toBe(true);
+    expect(state.doneGuest).toBe(false);
+    expect(state.index).toBe(0);
+    expect(state.placedHost).toEqual([1, 2, 0]);
+  });
+
+  it("ignores further taps from a player who is already done", () => {
+    let state = duelState({ doneHost: true, placedHost: [1, 2, 0] });
+    state = tapSentence(state, "host", 0) as SentenceDuelState;
+    expect(state.placedHost).toEqual([1, 2, 0]);
+    expect(state.mistakes).toEqual({ host: 0, guest: 0 });
+  });
+
+  it("advances to the next sentence when both players finish", () => {
+    let state = duelState();
+    // host builds full sentence
+    state = tapSentence(state, "host", 1) as SentenceDuelState;
+    state = tapSentence(state, "host", 2) as SentenceDuelState;
+    state = tapSentence(state, "host", 0) as SentenceDuelState;
+    // guest builds full sentence (with one wrong pick mid-way)
+    state = tapSentence(state, "guest", 1) as SentenceDuelState;
+    state = tapSentence(state, "guest", 0) as SentenceDuelState; // wrong (expected "bebo")
+    state = tapSentence(state, "guest", 2) as SentenceDuelState;
+    state = tapSentence(state, "guest", 0) as SentenceDuelState;
+
     expect(state.index).toBe(1);
-    expect(state.scores).toEqual({ host: 1, guest: 2 });
-    expect(state.lastResolved).toEqual({ index: 0, correctText: "Yo bebo agua", scorer: "guest" });
-    expect(state.turn).toBe("guest");
+    expect(state.placedHost).toEqual([]);
+    expect(state.placedGuest).toEqual([]);
+    expect(state.doneHost).toBe(false);
+    expect(state.doneGuest).toBe(false);
+    expect(state.mistakes).toEqual({ host: 0, guest: 1 });
+    expect(state.lastResolved).toEqual({ index: 0, correctText: "Yo bebo agua" });
   });
 });
 
 describe("sentence dispatch", () => {
   it("builds sentence state for each mode", () => {
-    expect(createGameState("sentence_race", fixedRng)).toMatchObject({ kind: "sentence", mode: "race" });
     expect(createGameState("sentence_coop", fixedRng)).toMatchObject({ kind: "sentence", mode: "coop" });
     expect(createGameState("sentence_duel", fixedRng)).toMatchObject({ kind: "sentence", mode: "duel" });
   });
 
-  it("routes moves to the engine and ignores cross-mode moves", () => {
-    const race = createGameState("sentence_race", fixedRng);
-    expect(applyGameMove(race, "host", { kind: "tap", tile: 0 })).toEqual(race);
+  it("routes tap moves and ignores unknown moves", () => {
     const coop = createGameState("sentence_coop", fixedRng);
-    expect(applyGameMove(coop, "host", { kind: "submit", order: [0] })).toEqual(coop);
+    expect(applyGameMove(coop, "host", { kind: "answer", value: "x" })).toEqual(coop);
+    const duel = createGameState("sentence_duel", fixedRng);
+    expect(applyGameMove(duel, "host", { kind: "order", order: [0] })).toEqual(duel);
   });
 
-  it("reports finished and a winner from scores", () => {
-    const finished = sentenceState("duel", { index: 2, scores: { host: 3, guest: 1 } });
+  it("reports a duel winner from mistakes (lower wins)", () => {
+    const finished = duelState({ index: 2, mistakes: { host: 1, guest: 3 } });
     expect(isGameFinished(finished)).toBe(true);
     expect(getWinner(finished)).toBe("host");
+  });
+
+  it("reports a tie when duel mistakes are equal", () => {
+    const finished = duelState({ index: 2, mistakes: { host: 2, guest: 2 } });
+    expect(getWinner(finished)).toBe("tie");
+  });
+
+  it("reports a tie for coop at the end (no individual winner)", () => {
+    const finished = coopState({ index: 2, scores: { host: 2, guest: 2 } });
+    expect(getWinner(finished)).toBe("tie");
   });
 });

@@ -11,11 +11,6 @@ export type HintReveal =
   | { kind: "anagram"; value: string }
   | { kind: "letterCount"; value: number[] };
 
-export type HintPoolState = {
-  used: HintType[];
-  currentQuestionHintFired: boolean;
-};
-
 export type HintQuestion = {
   options: string[];
   correctOption: string;

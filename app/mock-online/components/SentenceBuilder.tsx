@@ -1,291 +1,650 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import type { PlayerSlot, SentenceRound, SentenceState } from "@/lib/mockOnline/state";
-import { ActionButton } from "./ActionButton";
+import { type CSSProperties, type ReactNode } from "react";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { getWinner } from "@/lib/mockOnline/engine";
+import type {
+  PlayerSlot,
+  RoomStatus,
+  SentenceCoopState,
+  SentenceDuelState,
+  SentenceRound,
+  SentenceState,
+} from "@/lib/mockOnline/state";
 
 interface SentenceBuilderProps {
   state: SentenceState;
   viewerSlot: PlayerSlot;
-  onSubmit: (order: number[]) => void;
+  status: RoomStatus;
+  code: string;
+  hostName: string;
+  guestName: string;
+  title: string;
   onTap: (tile: number) => void;
+  onLeave: () => void;
+  onRestart: () => void;
 }
 
-// Reset of in-progress race picks is handled by remounting (key={state.index}
-// from the parent), so this component needs no effects.
-export function SentenceBuilder({ state, viewerSlot, onSubmit, onTap }: SentenceBuilderProps) {
-  const round = state.rounds[state.index];
-  if (!round) return null;
+// Full duel-style card (mirrors app/duel/[duelId]/components/DuelView).
+export function SentenceBuilder(props: SentenceBuilderProps) {
+  const colors = useAppearanceColors();
+  const {
+    state,
+    viewerSlot,
+    status,
+    code,
+    hostName,
+    guestName,
+    title,
+    onLeave,
+  } = props;
+
+  const isCoop = state.mode === "coop";
+  const myName = viewerSlot === "host" ? hostName : guestName;
+  const theirName = viewerSlot === "host" ? guestName : hostName;
+
+  const gameContainerStyle = {
+    "--duel-bg": `${colors.background.DEFAULT}E6`,
+    "--duel-bg-elevated": `${colors.background.elevated}80`,
+    borderColor: colors.primary.dark,
+  } as CSSProperties;
+  const subtleBorderStyle = { borderColor: `${colors.primary.dark}80` };
+  const exitButtonStyle = {
+    backgroundColor: colors.status.danger.DEFAULT,
+    color: colors.text.inverse,
+  };
 
   return (
-    <div className="space-y-4" data-testid="sentence-builder">
-      <RoundHeader index={state.index} total={state.rounds.length} round={round} />
-      {state.mode === "race" ? (
-        <RaceBoard
-          round={round}
-          locked={viewerSlot === "host" ? state.lockedHost : state.lockedGuest}
-          onSubmit={onSubmit}
-        />
-      ) : (
-        <SharedBoard state={state} round={round} viewerSlot={viewerSlot} onTap={onTap} />
-      )}
-      {state.lastResolved && (
-        <p
-          className="text-center text-sm font-semibold"
-          data-testid="sentence-last-result"
-          style={{ color: "var(--color-cta-dark)" }}
+    <main
+      className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
+      style={{ color: colors.text.DEFAULT }}
+      data-testid="sentence-builder"
+    >
+      <div
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
+        style={gameContainerStyle}
+      >
+        <header
+          className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
+          style={subtleBorderStyle}
         >
-          {resultLine(state.lastResolved.scorer, viewerSlot)}{" "}
-          <span className="font-bold">{state.lastResolved.correctText}</span>
-        </p>
-      )}
+          {state.mode === "coop" ? (
+            <TeamScoreboardCard score={state.scores.host} title={title} />
+          ) : (
+            <MistakesBoard
+              myName={myName}
+              theirName={theirName}
+              myMistakes={viewerSlot === "host" ? state.mistakes.host : state.mistakes.guest}
+              theirMistakes={viewerSlot === "host" ? state.mistakes.guest : state.mistakes.host}
+            />
+          )}
+          <button
+            onClick={onLeave}
+            className="font-bold py-2 px-5 rounded-lg text-base flex-shrink-0 transition hover:brightness-110"
+            style={exitButtonStyle}
+            data-testid="sentence-exit"
+          >
+            Exit Duel
+          </button>
+        </header>
+
+        {status === "waiting" ? (
+          <WaitingBody code={code} title={title} />
+        ) : status === "finished" ? (
+          <FinishedBody {...props} myName={myName} theirName={theirName} />
+        ) : isCoop ? (
+          <CoopPlayBody
+            state={state as SentenceCoopState}
+            viewerSlot={viewerSlot}
+            onTap={props.onTap}
+          />
+        ) : (
+          <DuelPlayBody
+            state={state as SentenceDuelState}
+            viewerSlot={viewerSlot}
+            onTap={props.onTap}
+          />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function TeamScoreboardCard({ score, title }: { score: number; title: string }) {
+  const colors = useAppearanceColors();
+  return (
+    <div
+      className="rounded-lg p-2 sm:p-3 md:p-4 min-w-[160px] sm:min-w-[200px] border-2"
+      style={{
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        boxShadow: `0 12px 30px ${colors.primary.glow}`,
+      }}
+    >
+      <div className="text-xs sm:text-sm mb-1" style={{ color: colors.text.muted }}>
+        {title}
+      </div>
+      <div className="flex justify-between items-center gap-2">
+        <span className="font-medium text-xs sm:text-sm" style={{ color: colors.status.success.light }}>
+          Team
+        </span>
+        <span
+          className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums"
+          style={{ color: colors.status.success.light }}
+        >
+          {score}
+        </span>
+      </div>
     </div>
   );
 }
 
-function RoundHeader({ index, total, round }: { index: number; total: number; round: SentenceRound }) {
+function MistakesBoard({
+  myName,
+  theirName,
+  myMistakes,
+  theirMistakes,
+}: {
+  myName: string;
+  theirName: string;
+  myMistakes: number;
+  theirMistakes: number;
+}) {
+  const colors = useAppearanceColors();
+  const myColor = colors.status.success.light;
+  const theirColor = colors.secondary.light;
+
   return (
-    <>
-      <p className="text-center text-xs font-black uppercase tracking-[0.24em]" style={{ color: "var(--color-cta-dark)" }}>
-        Sentence {index + 1} of {total}
-      </p>
+    <div
+      className="rounded-lg p-2 sm:p-3 md:p-4 min-w-[160px] sm:min-w-[200px] border-2"
+      style={{
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        boxShadow: `0 12px 30px ${colors.primary.glow}`,
+      }}
+    >
+      <div className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: colors.text.muted }}>
+        Mistakes
+      </div>
+      <div className="flex justify-between items-center gap-2 mb-0.5 sm:mb-1">
+        <span className="font-medium text-xs sm:text-sm truncate" style={{ color: myColor }}>
+          You ({myName?.split(" ")[0] || "You"})
+        </span>
+        <span
+          className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums"
+          data-testid="sentence-mistakes-me"
+          style={{ color: myColor }}
+        >
+          {myMistakes}
+        </span>
+      </div>
+      <div className="flex justify-between items-center gap-2">
+        <span className="font-medium text-xs sm:text-sm truncate" style={{ color: theirColor }}>
+          {theirName?.split(" ")[0] || "Opponent"}
+        </span>
+        <span
+          className="text-lg sm:text-xl md:text-2xl font-bold tabular-nums"
+          data-testid="sentence-mistakes-them"
+          style={{ color: theirColor }}
+        >
+          {theirMistakes}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Waiting ----------------
+
+function WaitingBody({ code, title }: { code: string; title: string }) {
+  const colors = useAppearanceColors();
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 gap-6 text-center">
+      <div>
+        <div
+          className="text-xs uppercase tracking-[0.28em]"
+          style={{ color: colors.text.muted }}
+        >
+          {title}
+        </div>
+        <div className="mt-1 text-2xl font-bold" style={{ color: colors.text.DEFAULT }}>
+          Share this code
+        </div>
+      </div>
       <div
-        className="rounded-3xl border-2 p-4 text-center"
+        className="rounded-2xl border-2 px-8 py-5"
         style={{
-          borderColor: "color-mix(in srgb, var(--color-primary) 70%, transparent)",
-          backgroundColor: "color-mix(in srgb, var(--color-primary) 16%, white 84%)",
+          borderColor: colors.secondary.dark,
+          backgroundColor: `${colors.secondary.DEFAULT}1A`,
         }}
       >
-        <p className="text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: "var(--color-text-muted)" }}>
-          Build this sentence
-        </p>
-        <p className="mt-1 text-lg font-semibold" style={{ color: "var(--color-text)" }}>
-          {round.english}
+        <div
+          className="title-font text-5xl tracking-[0.3em]"
+          data-testid="room-code"
+          style={{ color: colors.cta.dark }}
+        >
+          {code}
+        </div>
+      </div>
+      <div
+        className="text-sm font-semibold"
+        data-testid="waiting-message"
+        style={{ color: colors.text.muted }}
+      >
+        Waiting for opponent…
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Finished ----------------
+
+function FinishedBody({
+  state,
+  viewerSlot,
+  myName,
+  theirName,
+  onLeave,
+  onRestart,
+}: SentenceBuilderProps & { myName: string; theirName: string }) {
+  const colors = useAppearanceColors();
+  const winner = getWinner(state);
+  const line =
+    state.mode === "coop"
+      ? `Teamwork! You built all ${state.rounds.length} sentences.`
+      : winner === "tie"
+        ? "Tie — same number of mistakes!"
+        : winner === viewerSlot
+          ? "You win with fewer mistakes!"
+          : `${winner === "host" ? myName : theirName} wins with fewer mistakes!`;
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 gap-5 text-center">
+      <div
+        className="w-full rounded-2xl border-2 p-5"
+        style={{
+          borderColor: colors.cta.dark,
+          backgroundColor: `${colors.cta.DEFAULT}1A`,
+        }}
+      >
+        <p className="title-font text-3xl" data-testid="winner-line" style={{ color: colors.cta.dark }}>
+          {line}
         </p>
       </div>
+      <div className="flex w-full gap-3">
+        <button
+          type="button"
+          onClick={onLeave}
+          data-testid="finished-leave"
+          className="flex-1 rounded-xl px-6 py-3 font-bold text-base border-b-4 transition-all active:scale-95 hover:brightness-110"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderBottomColor: colors.neutral.dark,
+            color: colors.text.DEFAULT,
+          }}
+        >
+          Leave
+        </button>
+        <button
+          type="button"
+          onClick={onRestart}
+          data-testid="finished-restart"
+          className="flex-1 rounded-xl px-6 py-3 font-bold text-base border-b-4 shadow-2xl transition-all active:scale-95 hover:brightness-110"
+          style={{
+            backgroundColor: colors.cta.DEFAULT,
+            borderBottomColor: colors.cta.dark,
+            color: colors.text.DEFAULT,
+          }}
+        >
+          Play again
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Coop play ----------------
+
+function CoopPlayBody({
+  state,
+  viewerSlot,
+  onTap,
+}: {
+  state: SentenceCoopState;
+  viewerSlot: PlayerSlot;
+  onTap: (tile: number) => void;
+}) {
+  const round = state.rounds[state.index];
+  if (!round) return null;
+  const isYourTurn = state.turn === viewerSlot;
+
+  return (
+    <>
+      <div className="flex-1 flex flex-col items-center px-4 py-4 overflow-y-auto">
+        <RoundHeader index={state.index} total={state.rounds.length} round={round} mode="coop" />
+        <BoardArea
+          words={round.words}
+          placed={state.placed}
+          interactive={isYourTurn}
+          onTap={onTap}
+        />
+        {state.lastResolved && <ResultLine resolved={state.lastResolved} mode="coop" />}
+      </div>
+      <CoopFooter state={state} viewerSlot={viewerSlot} />
     </>
   );
 }
 
-// ---------------- Race: free assembly on your own board, then submit ----------------
-
-function RaceBoard({
-  round,
-  locked,
-  onSubmit,
+function CoopFooter({
+  state,
+  viewerSlot,
 }: {
-  round: SentenceRound;
-  locked: boolean;
-  onSubmit: (order: number[]) => void;
+  state: SentenceCoopState;
+  viewerSlot: PlayerSlot;
 }) {
-  const [picked, setPicked] = useState<number[]>([]);
-  const used = new Set(picked);
-  const canSubmit = !locked && picked.length === round.words.length;
+  const colors = useAppearanceColors();
+  const isYourTurn = state.turn === viewerSlot;
+  const youMissed = state.lastError === viewerSlot;
+  const theyMissed = state.lastError !== null && state.lastError !== viewerSlot;
+  const subtleBorderStyle = { borderColor: `${colors.primary.dark}80` };
 
-  const place = (tile: number) =>
-    setPicked((current) => (locked || current.includes(tile) ? current : [...current, tile]));
-  const removeAt = (position: number) =>
-    setPicked((current) => (locked ? current : current.filter((_, i) => i !== position)));
-  const undoLast = () => setPicked((current) => (locked ? current : current.slice(0, -1)));
-  const clearAll = () => {
-    if (!locked) setPicked([]);
-  };
+  const message = isYourTurn
+    ? `Your turn — place the next word${theyMissed ? " · opponent missed, grab it!" : ""}`
+    : `Waiting for opponent…${youMissed ? " (your pick was wrong)" : ""}`;
 
   return (
-    <div className="space-y-4">
-      <AssembledRow tiles={picked.map((t) => round.words[t])} onRemove={locked ? undefined : removeAt} />
-
-      <WordTray>
-        {round.words.map((word, tile) => (
-          <WordTile
-            key={tile}
-            label={word}
-            testId={`sentence-word-${tile}`}
-            disabled={locked || used.has(tile)}
-            dimmed={used.has(tile)}
-            onClick={() => place(tile)}
-          />
-        ))}
-      </WordTray>
-
-      <div className="flex gap-2">
-        <ActionButton
-          fullWidth
-          variant="ghost"
-          disabled={locked || picked.length === 0}
-          onClick={undoLast}
-          dataTestId="sentence-undo"
-        >
-          Undo
-        </ActionButton>
-        <ActionButton
-          fullWidth
-          variant="ghost"
-          disabled={locked || picked.length === 0}
-          onClick={clearAll}
-          dataTestId="sentence-clear"
-        >
-          Clear
-        </ActionButton>
-        <ActionButton fullWidth variant="primary" disabled={!canSubmit} onClick={() => onSubmit(picked)} dataTestId="sentence-submit">
-          Submit
-        </ActionButton>
+    <footer
+      className="flex-shrink-0 px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t"
+      style={subtleBorderStyle}
+    >
+      <div
+        className="text-center text-sm font-semibold"
+        data-testid="sentence-turn"
+        style={{ color: isYourTurn ? colors.cta.dark : colors.text.muted }}
+      >
+        {message}
       </div>
-
-      {locked && (
-        <p className="text-center text-sm font-semibold text-red-500" data-testid="sentence-locked">
-          Wrong order — wait for the round to resolve.
-        </p>
-      )}
-    </div>
+    </footer>
   );
 }
 
-// ---------------- Coop + Duel: one shared board, place the next word ----------------
+// ---------------- Duel play ----------------
 
-function SharedBoard({
+function DuelPlayBody({
   state,
-  round,
   viewerSlot,
   onTap,
 }: {
-  state: SentenceState;
-  round: SentenceRound;
+  state: SentenceDuelState;
   viewerSlot: PlayerSlot;
   onTap: (tile: number) => void;
 }) {
-  const isYourTurn = state.turn === viewerSlot;
-  const placedSet = new Set(state.placed);
+  const round = state.rounds[state.index];
+  if (!round) return null;
+  const myPlaced = viewerSlot === "host" ? state.placedHost : state.placedGuest;
+  const myDone = viewerSlot === "host" ? state.doneHost : state.doneGuest;
+  const theirDone = viewerSlot === "host" ? state.doneGuest : state.doneHost;
+  const theirProgress = viewerSlot === "host" ? state.placedGuest.length : state.placedHost.length;
 
   return (
-    <div className="space-y-4">
-      <AssembledRow tiles={state.placed.map((t) => round.words[t])} />
-
-      <WordTray>
-        {round.words.map((word, tile) => (
-          <WordTile
-            key={tile}
-            label={word}
-            testId={`sentence-word-${tile}`}
-            disabled={!isYourTurn || placedSet.has(tile)}
-            dimmed={placedSet.has(tile)}
-            onClick={() => onTap(tile)}
-          />
-        ))}
-      </WordTray>
-
-      <TurnBanner mode={state.mode} isYourTurn={isYourTurn} lastError={state.lastError} viewerSlot={viewerSlot} />
-    </div>
+    <>
+      <div className="flex-1 flex flex-col items-center px-4 py-4 overflow-y-auto">
+        <RoundHeader index={state.index} total={state.rounds.length} round={round} mode="duel" />
+        <BoardArea
+          words={round.words}
+          placed={myPlaced}
+          interactive={!myDone}
+          onTap={onTap}
+        />
+        {state.lastResolved && <ResultLine resolved={state.lastResolved} mode="duel" />}
+      </div>
+      <DuelFooter
+        myDone={myDone}
+        theirDone={theirDone}
+        myPlacedCount={myPlaced.length}
+        theirPlacedCount={theirProgress}
+        total={round.solution.length}
+        youMissed={state.lastError === viewerSlot}
+      />
+    </>
   );
 }
 
-function TurnBanner({
-  mode,
-  isYourTurn,
-  lastError,
-  viewerSlot,
+function DuelFooter({
+  myDone,
+  theirDone,
+  myPlacedCount,
+  theirPlacedCount,
+  total,
+  youMissed,
 }: {
-  mode: SentenceState["mode"];
-  isYourTurn: boolean;
-  lastError: PlayerSlot | null;
-  viewerSlot: PlayerSlot;
+  myDone: boolean;
+  theirDone: boolean;
+  myPlacedCount: number;
+  theirPlacedCount: number;
+  total: number;
+  youMissed: boolean;
 }) {
-  const youMissed = lastError === viewerSlot;
-  const theyMissed = lastError !== null && lastError !== viewerSlot;
+  const colors = useAppearanceColors();
+  const subtleBorderStyle = { borderColor: `${colors.primary.dark}80` };
+
+  let message: string;
+  if (myDone && !theirDone) {
+    message = `Done! Waiting for opponent (${theirPlacedCount}/${total})…`;
+  } else if (!myDone && theirDone) {
+    message = `Opponent finished — keep going (${myPlacedCount}/${total})`;
+  } else if (myDone && theirDone) {
+    message = "Both done — next sentence…";
+  } else {
+    message = youMissed
+      ? `Wrong pick · +1 mistake · keep building (${myPlacedCount}/${total})`
+      : `Build the sentence (${myPlacedCount}/${total}) · opponent ${theirPlacedCount}/${total}`;
+  }
 
   return (
-    <div className="text-center text-sm font-semibold" data-testid="sentence-turn">
-      {isYourTurn ? (
-        <span style={{ color: "var(--color-cta-dark)" }}>
-          Your turn — {mode === "duel" ? "place the next word to score" : "place the next word"}
-          {theyMissed && " · opponent missed, grab it!"}
-        </span>
-      ) : (
-        <span style={{ color: "var(--color-text-muted)" }}>
-          Waiting for opponent…{youMissed && " (your pick was wrong)"}
-        </span>
-      )}
+    <footer
+      className="flex-shrink-0 px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t"
+      style={subtleBorderStyle}
+    >
+      <div
+        className="text-center text-sm font-semibold"
+        data-testid="sentence-turn"
+        style={{ color: myDone ? colors.text.muted : colors.cta.dark }}
+      >
+        {message}
+      </div>
+    </footer>
+  );
+}
+
+// ---------------- Shared body pieces ----------------
+
+function RoundHeader({
+  index,
+  total,
+  round,
+  mode,
+}: {
+  index: number;
+  total: number;
+  round: SentenceRound;
+  mode: SentenceState["mode"];
+}) {
+  const colors = useAppearanceColors();
+  const pillStyle =
+    mode === "coop"
+      ? {
+          color: colors.status.success.light,
+          backgroundColor: `${colors.status.success.DEFAULT}33`,
+          borderColor: colors.status.success.DEFAULT,
+        }
+      : {
+          color: colors.status.danger.light,
+          backgroundColor: `${colors.status.danger.DEFAULT}33`,
+          borderColor: colors.status.danger.DEFAULT,
+        };
+
+  return (
+    <div className="text-center mb-4 w-full max-w-md">
+      <div className="text-sm mb-1" style={{ color: colors.text.muted }}>
+        Sentence #{index + 1} of {total}
+      </div>
+      <span
+        className="inline-block px-3 py-1 rounded-full border text-sm font-medium uppercase"
+        style={pillStyle}
+      >
+        {mode}
+      </span>
+      <div className="mt-3 text-xs uppercase tracking-[0.25em]" style={{ color: colors.text.muted }}>
+        Build this sentence
+      </div>
+      <div className="text-2xl md:text-3xl font-bold mt-1" style={{ color: colors.text.DEFAULT }}>
+        {round.english}
+      </div>
     </div>
   );
 }
 
-// ---------------- Shared building blocks ----------------
+function BoardArea({
+  words,
+  placed,
+  interactive,
+  onTap,
+}: {
+  words: readonly string[];
+  placed: readonly number[];
+  interactive: boolean;
+  onTap: (tile: number) => void;
+}) {
+  const positions = new Map(placed.map((tile, position) => [tile, position]));
+  const assembled = placed.map((tile) => words[tile]).join(" ");
 
-function AssembledRow({ tiles, onRemove }: { tiles: string[]; onRemove?: (position: number) => void }) {
+  return (
+    <div className="w-full max-w-md flex flex-col gap-4 items-stretch">
+      <AssembledRow text={assembled} />
+      <WordGrid>
+        {words.map((word, tile) => {
+          const orderPosition = positions.has(tile) ? (positions.get(tile) as number) : -1;
+          const isPlaced = orderPosition !== -1;
+          const variant: WordVariant = isPlaced ? "placed" : interactive ? "idle" : "disabled";
+          return (
+            <WordButton
+              key={tile}
+              word={word}
+              testId={`sentence-word-${tile}`}
+              orderPosition={orderPosition}
+              variant={variant}
+              disabled={!interactive || isPlaced}
+              onClick={() => onTap(tile)}
+            />
+          );
+        })}
+      </WordGrid>
+    </div>
+  );
+}
+
+function AssembledRow({ text }: { text: string }) {
+  const colors = useAppearanceColors();
   return (
     <div
-      className="flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed p-3"
-      style={{ borderColor: "color-mix(in srgb, var(--color-cta) 55%, transparent)" }}
+      className="w-full min-h-12 rounded-xl border-2 border-dashed p-3 text-center text-lg font-semibold"
+      style={{
+        borderColor: `${colors.primary.dark}80`,
+        color: colors.text.DEFAULT,
+      }}
       data-testid="sentence-assembled"
     >
-      {tiles.length === 0 ? (
-        <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+      {text || (
+        <span className="text-sm font-normal" style={{ color: colors.text.muted }}>
           Tap the words in order…
         </span>
-      ) : (
-        tiles.map((word, position) => (
-          <button
-            key={`${word}-${position}`}
-            type="button"
-            disabled={!onRemove}
-            onClick={() => onRemove?.(position)}
-            className="relative rounded-xl border px-3 py-1.5 text-sm font-semibold transition-all active:scale-95 disabled:cursor-default"
-            style={{ backgroundColor: "var(--color-cta)", borderColor: "var(--color-cta-light)", color: "white" }}
-          >
-            <span
-              className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black"
-              style={{ backgroundColor: "var(--color-cta-dark)", color: "white" }}
-            >
-              {position + 1}
-            </span>
-            {word}
-          </button>
-        ))
       )}
     </div>
   );
 }
 
-function WordTray({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap justify-center gap-2">{children}</div>;
+function WordGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-2 sm:gap-3">{children}</div>;
 }
 
-function WordTile({
-  label,
+type WordVariant = "idle" | "placed" | "disabled";
+
+function WordButton({
+  word,
   testId,
+  orderPosition,
+  variant,
   disabled,
-  dimmed,
   onClick,
 }: {
-  label: string;
+  word: string;
   testId: string;
+  orderPosition: number;
+  variant: WordVariant;
   disabled: boolean;
-  dimmed: boolean;
   onClick: () => void;
 }) {
+  const colors = useAppearanceColors();
+  const style: CSSProperties =
+    variant === "placed"
+      ? {
+          backgroundColor: `${colors.secondary.DEFAULT}26`,
+          borderColor: colors.secondary.DEFAULT,
+          color: colors.secondary.dark,
+        }
+      : variant === "disabled"
+        ? {
+            borderColor: colors.neutral.dark,
+            backgroundColor: colors.background.DEFAULT,
+            color: colors.text.muted,
+            opacity: 0.6,
+          }
+        : {
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          };
+
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       data-testid={testId}
-      className="rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all hover:brightness-105 active:scale-95 disabled:cursor-not-allowed"
-      style={{
-        backgroundColor: dimmed
-          ? "color-mix(in srgb, var(--color-primary) 8%, white 92%)"
-          : "color-mix(in srgb, var(--color-primary) 16%, white 84%)",
-        borderColor: "color-mix(in srgb, var(--color-primary) 70%, transparent)",
-        color: "var(--color-text)",
-        opacity: dimmed ? 0.4 : 1,
-      }}
+      className="relative p-4 rounded-lg border-2 text-lg font-medium transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed"
+      style={style}
     >
-      {label}
+      {orderPosition !== -1 && (
+        <span
+          className="absolute -top-2 -left-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+          style={{ backgroundColor: colors.secondary.DEFAULT, color: colors.text.inverse }}
+        >
+          {orderPosition + 1}
+        </span>
+      )}
+      {word}
     </button>
   );
 }
 
-function resultLine(scorer: PlayerSlot | "shared" | null, viewerSlot: PlayerSlot): string {
-  if (scorer === "shared") return "Built together!";
-  if (scorer === null) return "Nobody got it:";
-  return scorer === viewerSlot ? "You scored!" : "Opponent scored:";
+function ResultLine({
+  resolved,
+  mode,
+}: {
+  resolved: NonNullable<SentenceState["lastResolved"]>;
+  mode: SentenceState["mode"];
+}) {
+  const colors = useAppearanceColors();
+  const lead = mode === "coop" ? "Built together!" : "Both finished:";
+
+  return (
+    <p
+      className="text-center text-sm font-semibold mt-4"
+      data-testid="sentence-last-result"
+      style={{ color: colors.status.success.light }}
+    >
+      {lead} <span className="font-bold">{resolved.correctText}</span>
+    </p>
+  );
 }

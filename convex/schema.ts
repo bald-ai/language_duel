@@ -95,8 +95,6 @@ export const duelModeValidator = v.union(
   v.literal(DUEL_MODES[1])
 );
 
-export type DuelMode = Infer<typeof duelModeValidator>;
-
 export const hintTypeValidator = v.union(
   v.literal(HINT_TYPES[0]),
   v.literal(HINT_TYPES[1]),

@@ -1,12 +1,27 @@
 import type { SentenceContentRound } from "./content";
 import { addScore, otherSlot } from "./players";
 import { shuffle, type Rng } from "./shuffle";
-import type { PlayerSlot, Scores, SentenceMode, SentenceState } from "./state";
+import type {
+  PlayerSlot,
+  Scores,
+  SentenceCoopState,
+  SentenceDuelState,
+  SentenceMode,
+  SentenceState,
+} from "./state";
 
-// Whoever starts a coop/duel round alternates by round so neither player always
-// opens. Race mode ignores `turn` (each player builds independently).
+// Alternates which side opens each coop round so neither player always opens.
 function startTurn(index: number): PlayerSlot {
   return index % 2 === 0 ? "host" : "guest";
+}
+
+function buildRounds(rounds: readonly SentenceContentRound[], rng: Rng) {
+  return rounds.map((round) => ({
+    english: round.english,
+    words: shuffle(round.correct, rng),
+    solution: [...round.correct],
+    correctText: round.correct.join(" "),
+  }));
 }
 
 export function createSentenceState(
@@ -14,21 +29,30 @@ export function createSentenceState(
   rounds: readonly SentenceContentRound[],
   rng: Rng = Math.random
 ): SentenceState {
+  const built = buildRounds(rounds, rng);
+  if (mode === "coop") {
+    return {
+      kind: "sentence",
+      mode: "coop",
+      rounds: built,
+      index: 0,
+      scores: { host: 0, guest: 0 },
+      placed: [],
+      turn: startTurn(0),
+      lastError: null,
+      lastResolved: null,
+    };
+  }
   return {
     kind: "sentence",
-    mode,
-    rounds: rounds.map((round) => ({
-      english: round.english,
-      words: shuffle(round.correct, rng),
-      solution: [...round.correct],
-      correctText: round.correct.join(" "),
-    })),
+    mode: "duel",
+    rounds: built,
     index: 0,
-    scores: { host: 0, guest: 0 },
-    lockedHost: false,
-    lockedGuest: false,
-    placed: [],
-    turn: startTurn(0),
+    mistakes: { host: 0, guest: 0 },
+    placedHost: [],
+    placedGuest: [],
+    doneHost: false,
+    doneGuest: false,
     lastError: null,
     lastResolved: null,
   };
@@ -38,138 +62,117 @@ export function isSentenceFinished(state: SentenceState): boolean {
   return state.index >= state.rounds.length;
 }
 
-// ---------------- Race: independent boards, first correct submission scores ----------------
-
-export function submitSentence(
-  state: SentenceState,
-  slot: PlayerSlot,
-  order: readonly number[]
-): SentenceState {
-  if (state.mode !== "race") return state;
-  if (isSentenceFinished(state)) return state;
-  if (slot === "host" ? state.lockedHost : state.lockedGuest) return state;
-
-  const round = state.rounds[state.index];
-  const attempt = reconstruct(round.words, order);
-  if (attempt !== null && attempt === round.correctText) {
-    return advanceRace(state, slot, round.correctText);
-  }
-
-  const lockedHost = slot === "host" ? true : state.lockedHost;
-  const lockedGuest = slot === "guest" ? true : state.lockedGuest;
-  if (lockedHost && lockedGuest) {
-    return advanceRace({ ...state, lockedHost, lockedGuest }, null, round.correctText);
-  }
-  return { ...state, lockedHost, lockedGuest };
-}
-
-function advanceRace(
-  state: SentenceState,
-  scorer: PlayerSlot | null,
-  correctText: string
-): SentenceState {
-  return {
-    ...state,
-    index: state.index + 1,
-    scores: scorer ? addScore(state.scores, scorer, 1) : state.scores,
-    lockedHost: false,
-    lockedGuest: false,
-    lastResolved: { index: state.index, correctText, scorer },
-  };
-}
-
-// ---------------- Coop + Duel: one shared board, place the next word ----------------
-
 export function tapSentence(
   state: SentenceState,
   slot: PlayerSlot,
   tile: number
 ): SentenceState {
-  if (state.mode === "race") return state;
   if (isSentenceFinished(state)) return state;
-  if (state.turn !== slot) return state;
-
   const round = state.rounds[state.index];
-  if (tile < 0 || tile >= round.words.length || state.placed.includes(tile)) return state;
-
-  const expected = round.solution[state.placed.length];
-  const correct = round.words[tile] === expected;
+  if (tile < 0 || tile >= round.words.length) return state;
   return state.mode === "coop"
-    ? tapCoop(state, slot, tile, correct)
-    : tapDuel(state, slot, tile, correct);
+    ? tapCoop(state, slot, tile, round.solution, round.words, round.correctText)
+    : tapDuel(state, slot, tile, round.solution, round.words, round.correctText);
 }
 
 // Coop: every tap hands the turn over. A correct tap advances the shared
-// sentence; a wrong tap just passes so a partner can place the right word.
+// sentence; a wrong tap passes so a partner can place the right word.
 function tapCoop(
-  state: SentenceState,
+  state: SentenceCoopState,
   slot: PlayerSlot,
   tile: number,
-  correct: boolean
-): SentenceState {
+  solution: readonly string[],
+  words: readonly string[],
+  correctText: string
+): SentenceCoopState {
+  if (state.turn !== slot) return state;
+  if (state.placed.includes(tile)) return state;
+
+  const expected = solution[state.placed.length];
+  const correct = words[tile] === expected;
   if (!correct) {
     return { ...state, turn: otherSlot(slot), lastError: slot };
   }
   const placed = [...state.placed, tile];
-  const round = state.rounds[state.index];
-  if (placed.length === round.solution.length) {
-    return advanceShared(state, "shared", round.correctText);
+  if (placed.length === solution.length) {
+    return advanceCoop(state, correctText);
   }
   return { ...state, placed, turn: otherSlot(slot), lastError: null };
 }
 
-// Duel: a correct tap scores you and keeps your turn; a wrong tap ends your turn
-// and hands the same slot to the opponent.
-function tapDuel(
-  state: SentenceState,
-  slot: PlayerSlot,
-  tile: number,
-  correct: boolean
-): SentenceState {
-  if (!correct) {
-    return { ...state, turn: otherSlot(slot), lastError: slot };
-  }
-  const placed = [...state.placed, tile];
-  const scores = addScore(state.scores, slot, 1);
-  const round = state.rounds[state.index];
-  if (placed.length === round.solution.length) {
-    return advanceShared({ ...state, scores }, slot, round.correctText);
-  }
-  return { ...state, placed, scores, turn: slot, lastError: null };
-}
-
-function advanceShared(
-  state: SentenceState,
-  scorer: PlayerSlot | "shared",
-  correctText: string
-): SentenceState {
+function advanceCoop(state: SentenceCoopState, correctText: string): SentenceCoopState {
   const nextIndex = state.index + 1;
-  const scores: Scores = scorer === "shared" ? addShared(state.scores) : state.scores;
   return {
     ...state,
     index: nextIndex,
-    scores,
+    scores: addShared(state.scores),
     placed: [],
     turn: startTurn(nextIndex),
     lastError: null,
-    lastResolved: { index: state.index, correctText, scorer },
+    lastResolved: { index: state.index, correctText },
+  };
+}
+
+// Duel: each player builds their own copy. Wrong taps add a mistake and place
+// nothing; correct taps progress your own board. When both players finish the
+// same sentence the round advances.
+function tapDuel(
+  state: SentenceDuelState,
+  slot: PlayerSlot,
+  tile: number,
+  solution: readonly string[],
+  words: readonly string[],
+  correctText: string
+): SentenceDuelState {
+  const done = slot === "host" ? state.doneHost : state.doneGuest;
+  if (done) return state;
+
+  const playerPlaced = slot === "host" ? state.placedHost : state.placedGuest;
+  if (playerPlaced.includes(tile)) return state;
+
+  const expected = solution[playerPlaced.length];
+  const correct = words[tile] === expected;
+  if (!correct) {
+    return {
+      ...state,
+      mistakes: addScore(state.mistakes, slot, 1),
+      lastError: slot,
+    };
+  }
+
+  const nextPlaced = [...playerPlaced, tile];
+  const sentenceComplete = nextPlaced.length === solution.length;
+  const placedHost = slot === "host" ? nextPlaced : state.placedHost;
+  const placedGuest = slot === "guest" ? nextPlaced : state.placedGuest;
+  const doneHost = slot === "host" ? sentenceComplete : state.doneHost;
+  const doneGuest = slot === "guest" ? sentenceComplete : state.doneGuest;
+
+  if (doneHost && doneGuest) {
+    return advanceDuel(state, correctText);
+  }
+  return {
+    ...state,
+    placedHost,
+    placedGuest,
+    doneHost,
+    doneGuest,
+    lastError: null,
+  };
+}
+
+function advanceDuel(state: SentenceDuelState, correctText: string): SentenceDuelState {
+  return {
+    ...state,
+    index: state.index + 1,
+    placedHost: [],
+    placedGuest: [],
+    doneHost: false,
+    doneGuest: false,
+    lastError: null,
+    lastResolved: { index: state.index, correctText },
   };
 }
 
 function addShared(scores: Scores): Scores {
   return { host: scores.host + 1, guest: scores.guest + 1 };
-}
-
-// Rebuilds the sentence from an ordering of tile indices. Returns null when the
-// ordering is not a valid permutation of the scrambled words.
-function reconstruct(words: readonly string[], order: readonly number[]): string | null {
-  if (order.length !== words.length) return null;
-  const seen = new Set<number>();
-  const parts: string[] = [];
-  for (const i of order) {
-    if (i < 0 || i >= words.length || seen.has(i)) return null;
-    seen.add(i);
-    parts.push(words[i]);
-  }
-  return parts.join(" ");
 }
