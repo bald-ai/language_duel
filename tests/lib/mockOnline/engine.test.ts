@@ -14,7 +14,17 @@ import {
   isMcqFinished,
   isOrderFinished,
 } from "@/lib/mockOnline/race";
-import type { McqState, MemoryState, OrderState } from "@/lib/mockOnline/state";
+import {
+  advanceRelay,
+  answerRelay,
+  createRelayState,
+  isRelayFinished,
+  pickRelayWord,
+  relayPoints,
+} from "@/lib/mockOnline/relay";
+import { RELAY_WORDS } from "@/lib/mockOnline/content";
+import { otherSlot } from "@/lib/mockOnline/players";
+import type { GameState, McqState, MemoryState, OrderState, RelayState, RelayWord } from "@/lib/mockOnline/state";
 
 const fixedRng = () => 0;
 
@@ -61,6 +71,37 @@ function orderState(overrides: Partial<OrderState> = {}): OrderState {
     lockedHost: false,
     lockedGuest: false,
     lastResolved: null,
+    ...overrides,
+  };
+}
+
+const mapWord: RelayWord = {
+  id: "map",
+  prompt: "map",
+  answer: "mapa",
+  options: ["mapa", "carta", "calle", "libro"],
+  difficulty: "easy",
+};
+const airportWord: RelayWord = {
+  id: "airport",
+  prompt: "airport",
+  answer: "aeropuerto",
+  options: ["aeropuerto", "estación", "puerto", "frontera"],
+  difficulty: "hard",
+};
+
+function relayState(overrides: Partial<RelayState> = {}): RelayState {
+  return {
+    kind: "relay",
+    stakes: false,
+    pool: [mapWord, airportWord],
+    total: 2,
+    picker: "host",
+    phase: "pick",
+    assigned: null,
+    scores: { host: 0, guest: 0 },
+    resolved: 0,
+    lastResult: null,
     ...overrides,
   };
 }
@@ -175,12 +216,156 @@ describe("order race", () => {
   });
 });
 
+describe("relay duel", () => {
+  it("builds a shuffled pool with options that include the answer", () => {
+    const state = createRelayState(RELAY_WORDS, false, fixedRng);
+    expect(state.kind).toBe("relay");
+    expect(state.pool).toHaveLength(RELAY_WORDS.length);
+    expect(state.total).toBe(RELAY_WORDS.length);
+    expect(state.picker).toBe("host");
+    expect(state.phase).toBe("pick");
+    for (const word of state.pool) {
+      expect(word.options).toContain(word.answer);
+      expect(word.options).toHaveLength(4);
+    }
+  });
+
+  it("hands the picked word to the rival and flips to the answer phase", () => {
+    const next = pickRelayWord(relayState(), "host", "map");
+    expect(next.phase).toBe("answer");
+    expect(next.assigned?.id).toBe("map");
+    expect(next.pool.map((word) => word.id)).toEqual(["airport"]);
+  });
+
+  it("ignores a pick out of turn, in the wrong phase, or of an unknown word", () => {
+    expect(pickRelayWord(relayState(), "guest", "map")).toEqual(relayState());
+    const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
+    expect(pickRelayWord(answering, "host", "airport")).toEqual(answering);
+    expect(pickRelayWord(relayState(), "host", "nope")).toEqual(relayState());
+  });
+
+  it("reveals a correct answer in the feedback phase before advancing", () => {
+    const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
+    const revealed = answerRelay(answering, "guest", "mapa");
+    // Feedback keeps the word on screen and the picker unchanged until advance.
+    expect(revealed.phase).toBe("feedback");
+    expect(revealed.scores).toEqual({ host: 0, guest: 1 });
+    expect(revealed.picker).toBe("host");
+    expect(revealed.assigned?.id).toBe("map");
+    expect(revealed.resolved).toBe(0);
+    expect(revealed.lastResult).toEqual({
+      prompt: "map",
+      answer: "mapa",
+      chosen: "mapa",
+      correct: true,
+      scorer: "guest",
+      gained: 1,
+    });
+
+    const advanced = advanceRelay(revealed, "guest");
+    expect(advanced.phase).toBe("pick");
+    expect(advanced.picker).toBe("guest");
+    expect(advanced.assigned).toBeNull();
+    expect(advanced.resolved).toBe(1);
+  });
+
+  it("reveals a wrong answer with no points, then advances", () => {
+    const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
+    const revealed = answerRelay(answering, "guest", "carta");
+    expect(revealed.phase).toBe("feedback");
+    expect(revealed.scores).toEqual({ host: 0, guest: 0 });
+    expect(revealed.lastResult?.correct).toBe(false);
+    expect(revealed.lastResult?.gained).toBe(0);
+
+    const advanced = advanceRelay(revealed, "guest");
+    expect(advanced.phase).toBe("pick");
+    expect(advanced.picker).toBe("guest");
+    expect(advanced.resolved).toBe(1);
+  });
+
+  it("awards difficulty points only in stakes mode", () => {
+    expect(relayPoints("hard", false)).toBe(1);
+    expect(relayPoints("hard", true)).toBe(3);
+    const answering = relayState({ stakes: true, phase: "answer", assigned: airportWord, pool: [] });
+    const revealed = answerRelay(answering, "guest", "aeropuerto");
+    expect(revealed.scores).toEqual({ host: 0, guest: 3 });
+    expect(isRelayFinished(revealed)).toBe(false); // word still on screen for the reveal
+    expect(isRelayFinished(advanceRelay(revealed, "guest"))).toBe(true);
+  });
+
+  it("ignores answers from the picker or in the pick phase", () => {
+    const answering = relayState({ phase: "answer", assigned: mapWord, pool: [airportWord] });
+    expect(answerRelay(answering, "host", "mapa")).toEqual(answering);
+    expect(answerRelay(relayState(), "guest", "mapa")).toEqual(relayState());
+  });
+
+  it("only lets the answerer leave the feedback reveal", () => {
+    const feedback = relayState({ phase: "feedback", assigned: mapWord, pool: [airportWord] });
+    expect(advanceRelay(feedback, "host")).toEqual(feedback); // host is the picker, not the answerer
+    expect(advanceRelay(relayState(), "guest")).toEqual(relayState()); // not in feedback
+    expect(advanceRelay(feedback, "guest").phase).toBe("pick");
+  });
+
+  it("is finished only once the pool is empty and nothing is in flight", () => {
+    expect(isRelayFinished(relayState({ pool: [], assigned: null }))).toBe(true);
+    expect(isRelayFinished(relayState({ pool: [], assigned: mapWord, phase: "feedback" }))).toBe(false);
+    const finished = relayState({ pool: [], assigned: null, scores: { host: 3, guest: 1 } });
+    expect(getWinner(finished)).toBe("host");
+  });
+
+  // Drives a whole game through the public dispatch the way two clients would:
+  // the picker hands the top word over, the rival answers it, then becomes the
+  // next picker — until the shared pool is exhausted.
+  function playAllCorrect(game: "relay" | "relay_stakes"): GameState {
+    let state = createGameState(game, fixedRng);
+    let guard = 0;
+    while (!isGameFinished(state) && guard < 100) {
+      guard += 1;
+      if (state.kind !== "relay") break;
+      if (state.phase === "pick") {
+        state = applyGameMove(state, state.picker, { kind: "pick", wordId: state.pool[0].id });
+      } else if (state.phase === "answer" && state.assigned) {
+        state = applyGameMove(state, otherSlot(state.picker), { kind: "answer", value: state.assigned.answer });
+      } else if (state.phase === "feedback") {
+        state = applyGameMove(state, otherSlot(state.picker), { kind: "next" });
+      }
+    }
+    return state;
+  }
+
+  it("plays a full clean game where every correct answer banks one point", () => {
+    const state = playAllCorrect("relay");
+    expect(state.kind).toBe("relay");
+    if (state.kind !== "relay") return;
+    expect(isRelayFinished(state)).toBe(true);
+    expect(state.resolved).toBe(RELAY_WORDS.length);
+    expect(state.scores.host + state.scores.guest).toBe(RELAY_WORDS.length);
+    // Roles strictly alternate, so each player answers half of the eight words.
+    expect(state.scores).toEqual({ host: 4, guest: 4 });
+  });
+
+  it("plays a full stakes game where points sum to the pool's difficulty value", () => {
+    const totalStakes = RELAY_WORDS.reduce(
+      (sum, word) => sum + relayPoints(word.difficulty, true),
+      0
+    );
+    const state = playAllCorrect("relay_stakes");
+    if (state.kind !== "relay") throw new Error("expected relay state");
+    expect(isRelayFinished(state)).toBe(true);
+    expect(state.scores.host + state.scores.guest).toBe(totalStakes);
+  });
+});
+
 describe("engine dispatch", () => {
   it("builds initial state for each game", () => {
     expect(createGameState("memory", fixedRng).kind).toBe("memory");
     expect(createGameState("missing_chunk", fixedRng).kind).toBe("mcq");
     expect(createGameState("speed", fixedRng).kind).toBe("mcq");
     expect(createGameState("rebuild_sentence", fixedRng).kind).toBe("order");
+    const relay = createGameState("relay", fixedRng);
+    const relayStakes = createGameState("relay_stakes", fixedRng);
+    expect(relay.kind === "relay" && relay.stakes).toBe(false);
+    expect(relayStakes.kind === "relay" && relayStakes.stakes).toBe(true);
   });
 
   it("bakes the correct answer into every generated question", () => {
@@ -199,6 +384,12 @@ describe("engine dispatch", () => {
 
     const mcq = createGameState("missing_chunk", fixedRng);
     expect(applyGameMove(mcq, "host", { kind: "flip", index: 0 })).toEqual(mcq);
+
+    const relay = relayState();
+    const pickedId = relay.pool[0].id;
+    const picked = applyGameMove(relay, "host", { kind: "pick", wordId: pickedId });
+    expect(picked.kind === "relay" && picked.phase).toBe("answer");
+    expect(applyGameMove(relay, "host", { kind: "flip", index: 0 })).toEqual(relay);
   });
 
   it("reports no winner while a game is unfinished", () => {

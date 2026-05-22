@@ -1,17 +1,51 @@
 # Handoff — Mock Prototypes
 
-Quick context for continuing this work (e.g. in Cloud). Last updated after the
-Relay Duel + Sentence Builder commit on `main`.
+Quick context for continuing this work (e.g. in Cloud). Last updated after
+merging the online Relay Duel branch into the Sentence Builder rework on `main`.
 
-## What was just built
+## Relay Duel is now an online prototype
 
-Homepage mock prototypes reached via **Home → Mock Features**:
+Relay Duel was promoted from the single-device mock into the real
+Convex-backed **Online Mock Features** framework (room codes, two accounts,
+realtime). It ships as **two lobby entries** that share one engine:
 
-- **Relay Duel** (`app/components/prototypes/RelayDuelBeta.tsx`) — turn-based
-  duel variant. Two players **share one word pool** and alternate roles:
-  pick a word for your rival → they answer → they pick one for you → repeat
-  until the pool is exhausted. Correct answers bank that word's points
-  (easy +1 / medium +2 / hard +3). Single-device pass-and-play UI mock.
+- **Relay Duel** (`game: "relay"`) — clean scoring, every correct answer = +1.
+- **Relay Duel: Stakes** (`game: "relay_stakes"`) — words show difficulty and
+  harder words score more (easy +1 / medium +2 / hard +3), so there is strategy
+  in handing your rival the nastiest words.
+
+Both reached via **Home → Online Mock Features**. Turn-based loop:
+pick → answer → **feedback reveal** → (advance) → repeat until the shared pool
+is empty. The rival who answers becomes the next picker.
+
+**Visuals mirror the real duel** (`DuelView`): it renders full-bleed in the
+same game container and reuses the real `Scoreboard`, `AnswerOptionButton`
+(so the green/right + red/wrong reveal is identical), the difficulty pill, and
+`FinalResultsPanel`. The **word-selection screen is a clean vertical list** in
+the same duel styling (just the words; a difficulty pill per row only in Stakes
+mode).
+
+Relay files in the `mockOnline` feature:
+- Engine: `lib/mockOnline/relay.ts` (+ `relay`/`relay_stakes` cases in
+  `engine.ts`, validators/types in `state.ts`, words in `content.ts`).
+  Phases: `pick → answer → feedback`; moves: `pick` / `answer` / `next`.
+- UI: `app/mock-online/components/RelayDuelView.tsx`, rendered full-bleed
+  straight from `app/mock-online/[roomId]/page.tsx` (relay bypasses the
+  lobby-card `RoomView`). Listed in `app/mock-online/games.ts`.
+- Tests: relay cases in `tests/lib/mockOnline/engine.test.ts` (incl. two
+  full-game playthroughs).
+- **Not yet verified live** — needs a Convex deploy + Clerk + two signed-in
+  users. To feel it: open two browsers/accounts, create a room in one, join
+  with the code in the other.
+
+## Earlier single-device mocks (still present)
+
+Reached via **Home → Mock Features**:
+
+- **Relay Duel** (`app/components/prototypes/RelayDuelBeta.tsx`) — the original
+  single-device pass-and-play mock (kept alongside the online version, mirroring
+  how memory/missing-chunk/etc. exist both offline and online). Its pick screen
+  was also simplified to the clean word list.
 
 ## How the prototypes are wired
 
@@ -30,7 +64,7 @@ mirror lives in `app/duel/[duelId]/components/DuelView.tsx`.
 > Note: a separate, real online feature (`app/mock-online/`) IS backed by
 > Convex (`api.prototypeRooms`). That is unrelated to these home-menu mocks.
 
-## Sentence Builder — now an online game (2 modes)
+## Sentence Builder — online game (2 modes)
 
 The old offline `SentenceBuilderBeta` home-menu mock was **removed** and rebuilt
 as two real-time, two-player online games inside the `mock-online` system
@@ -61,18 +95,15 @@ duel uses mistakes-as-score (inverted: lower wins) and starting turn alternates
 per round. No timer yet. Not browser-verified end to end (needs Clerk auth +
 Convex + two sessions) — logic is covered by unit tests.
 
-## Relay Duel — design notes / open decisions
-
-- Phases: `pick → handoff → answer → feedback → (loop) → done`.
-- "You" in the scoreboard follows whoever holds the device (the current actor).
-- Added a **hand-off screen** between pick and answer to sell the two-player
-  turn-taking on one device. Not in the original spec — easy to drop if a
-  direct jump to the answer screen is preferred.
-- Word bank is hardcoded in `RelayDuelBeta.tsx` (`WORDS`, 8 words / 2 themes).
-- No timer (the real duel has one) — could be added for fidelity.
-- All single-device mock; real PvP would need backend like `mock-online/`.
-
 ## How to remove a prototype
 
-Delete its file in `app/components/prototypes/` and revert its 4 small
-additions in `app/HomePageClient.tsx`. Nothing else touches it.
+- **Single-device mock:** delete its file in `app/components/prototypes/` and
+  revert its 4 small additions in `app/HomePageClient.tsx`. Nothing else touches it.
+- **Online Relay Duel only:** drop the `relay` cases from `lib/mockOnline/engine.ts`,
+  remove `relay.ts`, the relay validators in `state.ts`, `RELAY_WORDS` in
+  `content.ts`, the two entries in `app/mock-online/games.ts`, the relay
+  short-circuit in `app/mock-online/[roomId]/page.tsx`, the `case "relay"` arm of
+  `RoomView.tsx`, `app/mock-online/components/RelayDuelView.tsx`, and the relay tests.
+- **The whole online framework** is self-contained and safe to delete together:
+  `lib/mockOnline`, `convex/prototypeRooms.ts`, `app/mock-online`, the
+  `prototypeRooms` schema table, and the homepage button.

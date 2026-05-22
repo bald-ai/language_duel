@@ -2,6 +2,7 @@ import {
   MEMORY_PAIRS,
   MISSING_CHUNK_QUESTIONS,
   REBUILD_SENTENCES,
+  RELAY_WORDS,
   SENTENCE_ROUNDS,
   SPEED_QUESTIONS,
 } from "./content";
@@ -14,11 +15,8 @@ import {
   isMcqFinished,
   isOrderFinished,
 } from "./race";
-import {
-  createSentenceState,
-  isSentenceFinished,
-  tapSentence,
-} from "./sentence";
+import { advanceRelay, answerRelay, createRelayState, isRelayFinished, pickRelayWord } from "./relay";
+import { createSentenceState, isSentenceFinished, tapSentence } from "./sentence";
 import type { Rng } from "./shuffle";
 import type { GameState, Move, MockGame, PlayerSlot } from "./state";
 
@@ -36,6 +34,10 @@ export function createGameState(game: MockGame, rng: Rng = Math.random): GameSta
       return createSentenceState("coop", SENTENCE_ROUNDS, rng);
     case "sentence_duel":
       return createSentenceState("duel", SENTENCE_ROUNDS, rng);
+    case "relay":
+      return createRelayState(RELAY_WORDS, false, rng);
+    case "relay_stakes":
+      return createRelayState(RELAY_WORDS, true, rng);
   }
 }
 
@@ -49,6 +51,11 @@ export function applyGameMove(state: GameState, slot: PlayerSlot, move: Move): G
       return move.kind === "order" ? answerOrder(state, slot, move.order) : state;
     case "sentence":
       return move.kind === "tap" ? tapSentence(state, slot, move.tile) : state;
+    case "relay":
+      if (move.kind === "pick") return pickRelayWord(state, slot, move.wordId);
+      if (move.kind === "answer") return answerRelay(state, slot, move.value);
+      if (move.kind === "next") return advanceRelay(state, slot);
+      return state;
   }
 }
 
@@ -62,6 +69,8 @@ export function isGameFinished(state: GameState): boolean {
       return isOrderFinished(state);
     case "sentence":
       return isSentenceFinished(state);
+    case "relay":
+      return isRelayFinished(state);
   }
 }
 

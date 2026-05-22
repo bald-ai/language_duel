@@ -56,8 +56,8 @@ export const REBUILD_SENTENCES: readonly OrderContentRound[] = [
   { english: "I read a book", correct: ["Yo", "leo", "un", "libro"] },
 ];
 
-// Sentence Builder (race / co-op / duel). Short, simple sentences with no
-// repeated word inside a sentence, so each tapped tile maps to one position.
+// Sentence Builder (co-op / duel). Short, simple sentences with no repeated
+// word inside a sentence, so each tapped tile maps to one position.
 export interface SentenceContentRound {
   english: string;
   correct: string[];
@@ -72,4 +72,26 @@ export const SENTENCE_ROUNDS: readonly SentenceContentRound[] = [
   { english: "The house is big", correct: ["La", "casa", "es", "grande"] },
   { english: "You have a dog", correct: ["Tú", "tienes", "un", "perro"] },
   { english: "I go to the park", correct: ["Yo", "voy", "al", "parque"] },
+];
+
+export type RelayDifficulty = "easy" | "medium" | "hard";
+
+export interface RelayContentWord {
+  id: string;
+  prompt: string;
+  answer: string;
+  distractors: string[];
+  difficulty: RelayDifficulty;
+}
+
+// Shared pool the two players hand back and forth in Relay Duel.
+export const RELAY_WORDS: readonly RelayContentWord[] = [
+  { id: "airport", prompt: "airport", answer: "aeropuerto", distractors: ["estación", "puerto", "frontera"], difficulty: "hard" },
+  { id: "ticket", prompt: "ticket", answer: "billete", distractors: ["maleta", "asiento", "puerta"], difficulty: "medium" },
+  { id: "map", prompt: "map", answer: "mapa", distractors: ["carta", "calle", "libro"], difficulty: "easy" },
+  { id: "luggage", prompt: "luggage", answer: "equipaje", distractors: ["paquete", "mochila", "bolsa"], difficulty: "hard" },
+  { id: "bread", prompt: "bread", answer: "pan", distractors: ["leche", "queso", "huevo"], difficulty: "easy" },
+  { id: "water", prompt: "water", answer: "agua", distractors: ["vino", "zumo", "café"], difficulty: "easy" },
+  { id: "spicy", prompt: "spicy", answer: "picante", distractors: ["dulce", "salado", "amargo"], difficulty: "medium" },
+  { id: "breakfast", prompt: "breakfast", answer: "desayuno", distractors: ["almuerzo", "cena", "merienda"], difficulty: "hard" },
 ];

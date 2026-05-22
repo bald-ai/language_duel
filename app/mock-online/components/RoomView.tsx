@@ -213,6 +213,9 @@ function GameBody({
           onSubmit={(order) => onMove({ kind: "order", order })}
         />
       );
+    // Relay Duel renders full-bleed via RelayDuelView, never through RoomView.
+    case "relay":
+      return null;
   }
 }
 
