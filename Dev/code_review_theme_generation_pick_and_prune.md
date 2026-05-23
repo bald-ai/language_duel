@@ -318,19 +318,94 @@ from the public return.
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **#1 generationService pipeline collapse** — biggest single LOC win and the area's core
-   spaghetti; do first so #2/#6 land on top of one flow instead of five.
-2. **#2 validation-layer dedup** + **#6/#7 wordType default consolidation** — these are
-   contract-cleanups that also shrink the service further.
-3. **#4/#5 ModalShell + ConfirmModal adoption** — low-risk LOC delete (coordinate with Area 1,
-   which needs the same `ConfirmModal`).
-4. **#9–#11 generate-modal decomposition** (carousel, CTA, shared spinner/slider).
-5. **#12/#13 controller handler-merge + surface trim.**
-6. **#3 shared request/response contract** — larger, possibly cross-area (touches Area 2
-   `api.ts`); schedule deliberately.
-7. Minors as drive-bys.
+Decisions: #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · #9 A · #10 A ·
+**#11 leave (B)** · #12 A · #13 A · #14 minors A.
+
+Everything is fixed **except #11** — the two generate modals stay as separate modals (their
+shared pieces still get extracted under #9/#10, but they are not merged toward one modal).
+This is a pure refactor: behavior must stay identical. Run eslint + `npm run typecheck` +
+`npm run test:run` before handoff.
+
+### Step 1 — collapse the generation engine (#1)
+Rewrite `generationService.ts` (492 LOC) around one generic pipeline:
+- Define `GenerationSpec<T>` ({ systemPrompt, userMessage, history?, schemaName, schema,
+  validate, toResponseData, retryInstruction }) and a single
+  `runGeneration(openai, spec)` that does generate → validate → retry-once → validate.
+- `handleGenerateRequest` becomes: resolve credit cost → `ensureLlmCreditsAvailable` →
+  `switch (body.type)` building a spec → one `runGeneration` → one shared "issues → 502 /
+  else charge + success" tail.
+- Delete the four duplicated retry/charge tails (158–168 ≡ 266–275 ≡ 334–343 ≡ 397–406 ≡
+  479–488) and merge the near-identical `add-word` (346–414) / `regenerate-for-word`
+  (278–344) blocks into one shared spec builder (keep `add-word`'s pre-flight duplicate
+  check 98–110). Target < 250 LOC.
+
+### Step 2 — dedup the validation contract (#2)
+- Route `validateGeneratedAnswer` (semanticValidation.ts:146–150) and
+  `validateGeneratedWrongAnswer` (186–192) through the same length rule the rest of the
+  stack uses — extract one `validateAnswerString` / `validateWrongAnswerString` helper (or
+  reuse `collectThemeIssues`) so "min 1 / max N" lives once.
+- The field validators then reduce to: length (shared) + word-type rule + the genuinely
+  field-specific uniqueness checks.
+
+### Step 3 — wordType default + name consolidation (#6, #7)
+- Make `parseWordType` (requestValidation.ts:114–118) return a concrete `WordType`
+  defaulting to `DEFAULT_WORD_TYPE`; make `wordType` **required** on the request types.
+- Delete the six `|| getDefaultWordType()` in the service (96, 116, 173, 280, 348, 418) and
+  the seven `= DEFAULT_WORD_TYPE` defaults in `prompts.ts`; prompt builders take a plain
+  required `WordType`.
+- Delete `getDefaultWordType()` (wordTypes.ts:190) and its imports; keep the const
+  `DEFAULT_WORD_TYPE`.
+
+### Step 4 — ModalShell + ConfirmModal adoption (#4, #5) — cross-area
+- Wrap `GenerateThemeModal`, `GenerateMoreModal`, `DiscardPickAndPruneModal` in
+  `<ModalShell title="…">`; delete their overlay/panel/title boilerplate + the
+  `getThemeModalPanelStyle` dialog usage and the `if (!isOpen) return null` gates.
+  `PickAndPruneReview` stays an inline full-height panel (legitimate exception).
+- Collapse `DiscardPickAndPruneModal` (75 LOC) into the shared `<ConfirmModal>` with the
+  `reviewKind`→message ternary. **Depends on Area 1, which creates
+  `app/components/modals/ConfirmModal.tsx` and must land first** — this step only *consumes* it. Do
+  not create a `ConfirmModal` here or ship a fourth bespoke confirm dialog.
+
+### Step 5 — generate-modal decomposition (#9, #10)
+- Extract `<WordTypeCarousel value onChange disabled />` from `GenerateThemeModal`
+  (75–146 + the inline Chevron SVGs 302–316).
+- Extract `<PickAndPruneCta description onTry disabled />`, replacing the duplicated promo
+  card in `GenerateThemeModal` (269–296) and `GenerateMoreModal` (115–142).
+- (#11 B) Leave the two generate modals separate — do **not** merge them. Optionally still
+  pull out the shared spinner/slider pieces if it's a clean win, but a merge is out of scope.
+
+### Step 6 — controller cleanup (#8, #12, #13)
+- Move `useAddWord` (useThemeGenerator.ts:112–187) to its own `useAddWord.ts`; drop the
+  `WordType` re-export (line 189).
+- Parameterize the controller's success destination by `mode`: collapse the four handlers
+  (`handleGenerateNewTheme` / `handleGeneratePickAndPruneTheme` / `handleGenerateMore` /
+  `handleGenerateMorePickAndPrune`) into `handleGenerateTheme(mode)` + `handleGenerateMore(mode)`.
+  Derive the spinner copy from the "how many words" value instead of the separate
+  `pickAndPrune` boolean threaded through `useGenerateMore`.
+- Trim the public return of `useThemeGenerationController` (277–294) to the `*Props` bundles +
+  the handlers `page.tsx` actually needs; stop leaking the raw `show*`/`set*` setters and the
+  `addWordHook`/`generateMoreHook`/`pickAndPrune` objects.
+
+### Step 7 — request contract unification (#3) — cross-area, schedule deliberately
+- Make `GenerateRequest` (requestValidation.ts) the single exported contract; have
+  `lib/themes/api.ts` derive its params via `Extract<GenerateRequest, { type: "theme" }>`
+  minus `type` instead of re-declaring `*Params`, and collapse the per-field response guards
+  (`isWordEntryArray` / `isAnswerAndWrongsData` / `isGenerateFieldData`) against shared shapes.
+- Touches the Area 2 file `api.ts` — do this after Steps 1–6 land.
+
+### Step 8 — minors (#14)
+- Delete the `Math.random` fallback in `createPickAndPruneWordId` (usePickAndPrune.ts:63–69)
+  after confirming the runtime floor (Node 18+ has `crypto.randomUUID`).
+- Drop the redundant first-issue prefix in `buildGenerationValidationError`
+  (responses.ts:8–14); the full array is already in the body.
+- Replace magic `6` in `prompts.ts` summaries (278, 288) with `WRONG_ANSWER_COUNT`.
+- Lift `max_output_tokens: 30000` (openaiAdapter.ts:51) to `constants.ts`.
+- Type the internal message shape as `{ role; content: string }` in `toResponsesInput`
+  (openaiAdapter.ts:25–30) to remove the `as string` cast.
+- Document `GENERATE_API_INCLUDE_DEBUG_PROMPT` (responses.ts:4) in the env example / current
+  docs.
 
 ## Approval bar
 

@@ -215,16 +215,58 @@ live in one place. Drops the file well under 150 LOC and removes the per-button 
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-23
 
-1. **#1 Avatar border bug** — smallest, fixes a real silent-default contract break.
-2. **#2 button-style consolidation** — highest LOC/clarity payoff, low risk (canonical helper
-   already exists and is already used by the modal styles).
-3. **#4 + #5 schema dedup** — foundation cleanups; do before more tables copy the patterns.
-4. **#3 HomePageClient chrome extraction** + **#8 auth.tsx nav-button extraction** — related shell
-   decomposition; share the `NavIconButton`/chrome work.
-5. **#6 search cap constant**, **#7 ModalTheme.words** — quick contract tightenings.
-6. Minor items as convenient.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · minors A.
+All accepted. Documentation only — implementation not yet authorized.
+
+**Step 1 — Avatar border bug (#1).** Smallest; fixes a real silent-default contract break.
+- Drop the `cssVarColors` import from `Avatar.tsx`; make `borderColor?: string` with no default;
+  inside the body use `const effectiveBorder = borderColor ?? colors.neutral.DEFAULT` from
+  `useAppearanceColors()`. Border becomes theme-aware; removes the shadowed-import trap.
+
+**Step 2 — button-style consolidation (#2).** Highest payoff, low risk.
+- Route `MenuButton` (`:21-70`) and `BackButton` (`:17-57`) through `getButtonStyles(colors)` from
+  `lib/theme.ts` (the modal helper `getCtaActionStyle` is the template). Replace `MenuButton`'s
+  `onMouseEnter/Leave` style mutation with CSS hover (the `group` wrapper already exists). Collapses
+  three style encodings to one.
+
+**Step 3 — schema dedup (#4, #5).** Foundation cleanups; do before more tables copy the patterns.
+- Keep one difficulty validator; make `duelDifficultyPresetValidator = difficultyLevelValidator`
+  (alias) or derive both from `const DIFFICULTY_LEVELS = [...] as const` (`schema.ts:47-51, 87-91`).
+  Collapse `DifficultyLevel`/`DuelDifficultyPreset` in lib to one exported type.
+- Extract a shared `sessionSourceFields` validator-object spread into `challenges`, `duels`,
+  `soloPracticeSessions` (`schema.ts:296-316, 321-378, 383-400`), parameterizing only the differing
+  `sourceType` union.
+
+**Step 4 — shell decomposition (#3, #8).** Related; share the `NavIconButton`/chrome work.
+- Extract `<HomeChrome flash={…}>` (or have `ThemedPage` render the nav corners) and use it in every
+  `HomePageClient` branch; move the ~10 inline `*Icon` SVGs to a co-located `homeMenuIcons.tsx` (or
+  fold shared ones into `app/components/icons.tsx`); pull the solo deep-link parser into
+  `useSoloDeepLink(searchParams)` (localizes the `as Id<"themes">[]` cast). Real surface drops
+  under 250 LOC without touching prototype branches.
+- Extract `<NavIconButton icon onClick title testId badge?>` in `auth.tsx`; render the four nav
+  targets as data; consolidate the three `router.prefetch` effects (and the overlapping prefetch in
+  `HomePageClient:138-143`) into one place. File drops well under 150 LOC.
+
+**Step 5 — contract tightenings (#6, #7).**
+- Add `MAX_USER_SEARCH_RESULTS = 20` to `convex/constants.ts`; use it for the `searchUsers` slice
+  (`users.ts:185, 203`). Keep the take-then-filter pattern.
+- Replace `ModalTheme.words: unknown[]` (`modals/types.ts:1-7`) with `wordCount: number`; have the
+  providers compute the count; update the three consumers (`ChallengeModal:610`,
+  `SoloPracticeModal:195`, `ThemeSelector:121`) to read `wordCount`.
+
+**Step 6 — minors (as convenient).**
+- Delete `normalizeAccents` identity wrapper, call `normalizeForComparison` directly, drop the dead
+  `.toLowerCase()` chains in `app/game/levels/*`.
+- Add the one-line "why this parallel `Id`/`WordEntry` exists" comment in `lib/types.ts`.
+- Have `getErrorMessage` reuse `isRecord` from `typeGuards`.
+- Confirm each of the five `notifications` indexes (`schema.ts:484-488`) has a live query
+  (coordinate with the notifications-area owner; delete any with no consumer).
+- `ModalShell` `z-[70]` vs feature-modal `z-50` resolves once Area 1 blocker #5 lands — noted only.
+
+**Gate at implementation time (docs-only now, so not run yet):** eslint + `npm run typecheck` +
+`npm run test:run`.
 
 ## Approval bar
 

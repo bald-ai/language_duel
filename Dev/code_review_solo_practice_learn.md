@@ -260,16 +260,82 @@ lines 245, 264, 319, 575, and indirectly here).
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **#1 `useSoloSessionSource` + `SoloStatusScreen`** — biggest single LOC delete, removes the
-   highest-risk duplication, and unblocks measuring both pages against the guideline.
-2. **#3 + #4 shared `SoloHeader` / `SoloExitButton` / `SoloPageShell`** — mechanical, low-risk
-   chrome de-duplication; also pulls `actionButtonClassName` back to the canonical helper.
-3. **#2 page decomposition** — completion-reporting into a hook, `SoloQuestion` dispatch component.
-4. **#7 + #8 `useSoloLearnState` / `useSoloLearnTimer`** — moves learn-page orchestration into hooks.
-5. **#6 + #10 type `currentWord`/`words` as `SessionWordEntry`** — deletes the `in`/`typeof` guards.
-6. **#9 confidence-param codec, #5 advance-path dedupe, #11 row rename** — in any order.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · #9 A · #10 A · #11 A · minors A.
+
+This is a refactor / de-duplication pass — **not a behavior change**. The pure runtime
+(`soloPracticeRuntime.ts`), navigation/timer helpers, and the learn leaf components
+(`ConfidenceSlider`, `LetterGroups`, `SetAllDropdown`) stay untouched. `lib/contextClues/` is
+**excluded** (prototype). Run eslint + `npm run typecheck` + `npm run test:run` before handoff
+(code changed, so the gate applies).
+
+Ordered steps:
+
+### Step 1 — Extract the shared session-source layer (#1)
+- Create `app/solo/hooks/useSoloSessionSource.ts`: owns `useSearchParams` + the three `useQuery`
+  calls (`getBossPracticeSession`, `getWeeklyGoalPracticeThemes`, `getThemes`) + the
+  `requestedThemeIds` / `selectedThemes` / `sessionWords` / `themeSummary` memos. Returns the
+  discriminated `SoloSessionSource` (`invalid` / `loading` / `unavailable` / `ready`).
+- Create `app/solo/components/SoloStatusScreen.tsx`: wraps `SoloStatusCard` in the
+  `ThemedPage` + bottom-gradient shell, takes `{ status, returnLabel, onExit, testIdBase }`,
+  renders the four non-ready states.
+- Both pages collapse to `if (source.status !== "ready") return <SoloStatusScreen .../>;`.
+- Deletes ~200 LOC across the two pages. Do first — it unblocks measuring both files.
+
+### Step 2 — Shared page chrome (#3, #4)
+- `app/solo/components/SoloHeader.tsx` taking `{ subtitle?: ReactNode; variant: "outline" | "shadow" }`;
+  practice's theme-summary pill becomes the `subtitle` slot. (#3)
+- Shared `SoloExitButton` (or fold into the shell) + a `SoloPageShell` wrapping `ThemedPage` + the
+  bottom `h-1` gradient bar so the gradient string lives once. (#4)
+- In `CompletionScreen` and the learn page, import the canonical `actionButtonClassName` (and
+  `getCtaActionStyle`) from `app/components/modals/modalButtonStyles.ts` instead of re-declaring. (#4)
+- Mechanical, low-risk; do before the big decomposition.
+
+### Step 3 — Decompose `app/solo/[sessionId]/page.tsx` (#2)
+- Move completion-reporting orchestration (the three `useRef` idle/pending/done latches,
+  `reportedMasteryIndicesRef`, `pendingMasteryWritesRef`/`masteryWritesPending`, the two completion
+  effects) into `useSoloSession` or a sibling `useSoloCompletionReporting` hook — make it
+  unit-testable.
+- Replace the 220-line `level → input component` ladder with a typed
+  `app/solo/[sessionId]/components/SoloQuestion.tsx` that takes the resolved `currentWord` + session
+  slice and picks the input internally (dispatch key already typed in `soloPracticeRuntime.ts`).
+- Extract the inline header into `SoloHeader` (from Step 2).
+- Target: page under ~250 LOC.
+
+### Step 4 — Move learn-page state into hooks (#7, #8)
+- `useSoloLearnState({ sessionWords, sessionSourceKey })`: `hintStates`, `isAllRevealed`,
+  `confidenceLevels`, legend dismissal, `isSetAllOpen`, the seven memoized mutators. (#7)
+- `useSoloLearnTimer(initialDuration, isSessionReady)` returning `{ timeRemaining, timerStyle }`;
+  drop the redundant `const duration = initialDuration` alias. (#8)
+- Add one shared `revealablePositions(answer): number[]` helper in `lib/` (currently inlined 4×:
+  `learn/page.tsx` 207-220 & 239-249, `WordCard.tsx` 88-95, `LetterGroups.tsx` 24-44). (#7)
+
+### Step 5 — Type the word contract (#6, #10)
+- Import `SessionWordEntry` from `lib/sessionWords.ts`; in `useSoloSession` type
+  `words: SessionWordEntry[] | undefined` and drop the local `interface WordEntry`. (#6)
+- Type `currentWord` as `SessionWordEntry` so the `"themeName" in currentWord` + `typeof` guards
+  become `hasMultipleThemes && currentWord.themeName`; render the multi-theme label once inside
+  `SoloQuestion` (from Step 3). (#10)
+
+### Step 6 — Codec + small dedupes (#9, #5, #11), any order
+- Add `encodeConfidenceParam(record): string` + `decodeConfidenceParam(raw): Record<number,
+  SoloMasteryLevel> | null` to `lib/soloNavigation.ts` (or `lib/soloConfidenceParam.ts`); both
+  pages call them — removes the inline JSON parse/validate from the page. (#9)
+- Extract `advanceToNextQuestion()` in `useSoloSession` (shared by `scheduleAutoAdvance` +
+  `selectNextQuestion`); set init state directly, drop the `queueMicrotask`. (#5)
+- Rename `MemoizedWordCardWrapper` → `SoloLearnWordRow`; pass the parent's already-computed
+  `wordKey` instead of recomputing `${themeId}-${originalIndex}`, so the key format lives in one
+  place. (#11)
+
+### Minors block (fold into files touched above)
+- Drop `ConfidenceSlider`'s unused `compact`/`readOnly` props — **verify against Area 9/10 first**.
+- Use `cardStyleBase` directly in `WordCard.tsx` (kill the identity-spread empty-dep memo).
+- Remove the `const state = hintState` alias in the row component.
+- Rename the static `import { cssVarColors as colors }` to `cssColors` in the files where a live
+  `useAppearanceColors()` shadows it (pages, `SoloStatusCard`, `WordCard`, `CompletionScreen`).
+- **Deferred:** `lib/contextClues/` relocation (prototype-only) and the two `constants.ts`
+  re-export shims — leave as-is.
 
 ## Approval bar
 

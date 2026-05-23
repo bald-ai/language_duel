@@ -251,18 +251,74 @@ or — better — have the Area-6 `getDuel` DTO type already include `correctOpt
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **Collapse the props-builder (#1) + fold PvE hint override into `deriveHintFlags` (#2).** Biggest
-   structural win, removes a layer + a duplicate type surface + a cast. Output contract is
-   test-pinned, so risk is contained.
-2. **Decompose `DuelView.tsx` (#3)** — extract `DuelAnswerGrid` (collapsing the triplicate overlay
-   loops), `DuelRoundHeader`, and `duelViewStyles.ts`. Do after #1 so children can take grouped props.
-3. **Drop the un-nesting preamble (#4)** — falls out of #1 + #3 naturally.
-4. **Single `displayedQuestion` model (#5)** + **unify phase-edge detection / `useDuelDuration`
-   (#6).**
-5. Mediums #7, #9, then the naming coordination in #8 (cross-area).
-6. Minors as convenient.
+**Decisions:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · **#8 comment-only (not a rename)** · #9 A · #10 minors A.
+
+This is a pure refactor (behavior identical). The `DuelSession.test.tsx` output contract is the
+pinned surface — keep it green. Run eslint + `npm run typecheck` + `npm run test:run` before any
+handoff.
+
+### Step 1 — Collapse the props-builder + fold PvE hint override (#1, #2)
+- Delete `DuelViewPropsInput` (`buildDuelViewProps.ts:55–98`), `DuelViewCallbacks` (100–114), the
+  13-line identity `actions` copy (203–217), and the `as DuelViewProps` cast (219).
+- Have `useDuelSessionViewModel` assemble the nested `DuelViewProps` groups directly
+  (`round`, `timer`, `countdown`, `answers`, `hints`, `sabotage`, `score`, `actions`, `audio`) and
+  return them with **no cast**; `actions` becomes the `useDuelActions` object passed straight through.
+- Keep the two real-logic pieces as plain pure functions the view-model calls: `deriveHintFlags(...)`
+  and the `myName`/`theirName` formatting (`buildDuelViewProps.ts:117–137`).
+- **#2:** push `duelMode`/`isPve` into `deriveHintFlags` so it early-returns the all-`false` flags
+  for PvE. Delete the builder's PvE override (126–137). One source of truth for hint flags.
+
+### Step 2 — Decompose `DuelView.tsx` (#3)
+Do after Step 1 so children take grouped props.
+- Extract `DuelAnswerGrid` — owns grid + bounce + trampoline behind one `renderOption(ans, i, posStyle?)`
+  helper, collapsing the triplicate `displayAnswers.map` (`DuelView.tsx:510–618`, ~70 LOC of copy-paste).
+- Extract `DuelRoundHeader` — word/progress/difficulty/hint-reveal block (394–454).
+- Move the static style objects (284–353) into a `duelViewStyles.ts` builder keyed on `colors`
+  (same pattern as Area 1 `themeStyles.ts`).
+- Target: `DuelView` lands well under 400 LOC.
+
+### Step 3 — Drop the un-nesting preamble (#4)
+- With Steps 1–2 done, remove the 90-line destructure preamble (`DuelView.tsx:142–230`); read grouped
+  props at use sites, and have each extracted child receive only the group it needs.
+
+### Step 4 — Single `displayedQuestion` model + unify phase-edge detection (#5, #6)
+- **#5:** have `useDuelPhaseState` (or the view-model) emit one
+  `displayedQuestion = frozenData ?? liveQuestion` with `word/answers/selected/correct/hasNone/
+  difficulty/wordIndex` resolved. Remove the ~8 scattered `frozenData ? … : …` ternaries
+  (`DuelView.tsx:232–237`, 328, 266–268; view-model 204–209, 139–147) and the
+  `displayAnswersForReverse` alias (242).
+- **#6:** compute `duelDuration` where the `answering` edge is already detected inside
+  `useDuelPhaseState` (162–171); delete `useDuelDuration`'s own `prevPhaseRef` (6–16). One phase-edge
+  detector for the feature.
+
+### Step 5 — Mediums #7, #9, then #8
+- **#7:** drop the unused `isLockedIndexRef`/`selectedAnswerIndexRef` exports
+  (`useIndexedAnswerLock.ts:35–36`); add a one-line invariant comment at the hook head.
+- **#9:** declare `ViewerSafeDuelQuestion` once — shared `duelSessionTypes.ts` next to the hooks
+  (or fold `correctOption?`/`answerRevealedToViewer?` into the Area-6 `getDuel` DTO so the cast
+  disappears). Dedupe the two verbatim declarations (`useDuelSessionViewModel.ts:25–28`,
+  `useDuelPhaseState.ts:11–14`).
+- **#8 (comment-only — NOT a rename):** the `plus_ten_seconds` / `duel-hint-plus-ten` identifiers
+  stay. Add a comment at `HintPoolUI.tsx:20–24` (and worth mirroring at the constants in
+  `lib/hintPool/*`) explaining: the "+15 Seconds" label is the **user-facing** total; the code is
+  correct as +10 (`HINT_PLUS_TEN_BONUS_SECONDS`) plus the universal +5
+  (`HINT_UNIVERSAL_TIMER_BONUS_SECONDS`). No type/constant/testid changes.
+
+### Step 6 — Minors (#10)
+- Replace magic `5` (`useDuelPhaseState.ts:140`) with `TRANSITION_COUNTDOWN_SECONDS`.
+- Derive one `isRoundOver` boolean to replace the `"done"` string sentinel
+  (`useDuelSessionViewModel.ts:131`) and the scattered `!== "done"` guards (`DuelView` 511, 627, 640,
+  659, 684; `SabotageSystemUI.tsx:40`).
+- `AnswerOptionButton.tsx`: pick one color system — pass `colors` into `computeOptionState` if
+  appearance theming should be live, else drop the component's `useAppearanceColors()`.
+- Hoist the loop-invariant `disabled` above the `.map` in `SabotageSystemUI.tsx:77–82`.
+- Fix/drop the stale "Skinny Page" comment (`SabotageSystemUI.tsx:21–25`).
+- Remove the `toSabotageEffect` identity-cast wrapper (`useSabotageEffect.ts:31–33`) by typing
+  `SabotageData.effect` as `SabotageEffect` at the source.
+- Resolve duplicated signin/forbidden gating: let either the page (`page.tsx:49,54`) or the
+  view-model (`DuelSession.tsx:34–40`) own those checks, not both.
 
 ## Approval bar
 

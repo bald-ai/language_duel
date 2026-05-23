@@ -318,7 +318,7 @@ export default function Home() {
           style={{ color: "var(--color-text-muted)" }}
         />
 
-        <h1 className="title-font text-5xl sm:text-6xl md:text-7xl tracking-tight text-center leading-none relative">
+        <h1 className="brand-font text-[clamp(48px,9vw,104px)] tracking-tight text-center leading-[0.92] relative">
           <span
             className="title-text-outline"
             data-text="Language"

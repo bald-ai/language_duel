@@ -18,7 +18,7 @@ function startTurn(index: number): PlayerSlot {
 function buildRounds(rounds: readonly SentenceContentRound[], rng: Rng) {
   return rounds.map((round) => ({
     english: round.english,
-    words: shuffle(round.correct, rng),
+    words: shuffle([...round.correct, ...round.distractors], rng),
     solution: [...round.correct],
     correctText: round.correct.join(" "),
   }));

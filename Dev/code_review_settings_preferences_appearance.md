@@ -242,16 +242,60 @@ would be a thin indirection over `ctx.db.patch` and obscure the per-field contra
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-23
 
-1. Delete the test-fallback global + branches (#1) — clearest AGENTS.md violation, removes prod/test
-   coupling.
-2. Make credit props required and drop the view-layer constants (#2).
-3. Drop the inert `applyValue` param + `normalizeThemeName` (#3) — pure deletion, no behavior change.
-4. Consolidate the background catalog and tighten the selector's types (#5, #6) together.
-5. Uniform preference-mutation validation via arg validators (#7).
-6. `themeCssVars` lockstep fix (#4) — coordinate with Area 1.
-7. Minor dead-export / cosmetic cleanups in any order; fix the wrong `~60 degrees` comment.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · minors A.
+All accepted. Documentation only — implementation not yet authorized.
+
+**Step 1 — delete the test-fallback escape hatch (#1).** Clearest AGENTS.md violation.
+- Remove the `__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__` global declaration and both
+  `if (globalThis.__…__)` branches (`AppearanceProvider.tsx:32-34, 95-103, 105-117`); hooks always
+  throw when used outside the provider. In tests, wrap the component in `<AppearanceProvider>` (the
+  file's own second test already does this) or a test-only `ColorSetContext.Provider`.
+
+**Step 2 — required credit props, no view-layer constants (#2).**
+- Make `CreditsPanelProps.llmCreditsRemaining` / `ttsGenerationsRemaining` required `number`; drop
+  both `?? LLM_MONTHLY_CREDITS` / `?? TTS_MONTHLY_GENERATIONS` fallbacks and remove those constant
+  imports from `CreditsPanel.tsx:11-22`. The panel renders exactly what the server computed.
+
+**Step 3 — drop the inert `applyValue` param (#3).** Pure deletion, no behavior change.
+- Remove `applyValue` from `PersistedPreferenceOptions`, the `applyValue?.(nextValue)` line
+  (`usePersistedPreference.ts:11, 30-37`), and `normalizeThemeName` from
+  `AppearanceProvider.tsx:36-38, 49`. (CSS vars are already applied by the dedicated `useEffect`.)
+
+**Step 4 — consolidate background catalog + tighten selector types (#5, #6).** Do together.
+- Move the `{ filename, label }` catalog into `lib/preferences/backgrounds.ts` (e.g.
+  `BACKGROUND_OPTIONS`), derive `VALID_BACKGROUNDS`/`DEFAULT_BACKGROUND` from it, import in the
+  selector (`BackgroundSelector.tsx:7-13`).
+- Type `selectedBackground: BackgroundFilename` and delete the `|| BACKGROUND_OPTIONS[0]` default
+  (`BackgroundSelector.tsx:15-28`).
+
+**Step 5 — uniform preference-mutation validation (#7).**
+- Give `updateColorSet` / `updateBackground` the same arg-validator treatment `updateTtsProvider`
+  already has, so all three handlers collapse to `patch + return`; remove the in-handler
+  `isThemeName` / `isValidBackground` `ConvexError` blocks (`convex/userPreferences.ts:31-90`). Do
+  **not** introduce a generic `updatePreferenceField` wrapper.
+
+**Step 6 — `themeCssVars` lockstep fix (#4).** Coordinate with Area 1 (owns `lib/theme.ts`).
+- Derive `cssVarColors` and `applyThemeCssVariables` (`lib/theme.ts:323-353`) from one shared
+  CSS-var-name manifest so they cannot drift; fix the two already-approximating mappings
+  (`primary.darkest`, `text.inverse`).
+
+**Step 7 — minors (any order).**
+- Delete dead exports: `useTTSProvider`'s `isLoading`; `useNicknameUpdate`'s `validateNickname`;
+  `usePersistedPreference`'s returned `hasHydrated`; `useNotificationSettings`'s `error`/`clearError`
+  (or wire them in + memoize). Keep `BackgroundProvider`'s `isLoading` (page consumes it).
+- Fix the wrong `// Shift hue by ~60 degrees` comment (`lib/colorUtils.ts:230` — code does `+ 180`);
+  add the one-line "tuned offsets" note on the `derive*` magic numbers.
+- Hoist the duplicated font-style object in `CreditsPanel.tsx:50-54, 75-79` to a module const;
+  reformat `TTSProviderSelector.tsx` indentation to match the codebase.
+- Leave `NicknameEditor`/`formatPaddedHandle` impossible-value guards as-is (noted only). Defer the
+  `<PreferenceOptionList>` shell extraction until a third selector of that shape appears.
+
+**Gate at implementation time (docs-only now, so not run yet):** eslint + `npm run typecheck` +
+`npm run test:run`. Note: Step 1 changes test setup — `tests/setup.ts:13` and
+`tests/components/AppearanceProvider.test.tsx:21-22` must be updated to wrap renders instead of
+flipping the global.
 
 ## Approval bar
 

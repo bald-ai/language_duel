@@ -205,16 +205,75 @@ not mandating an edit here.)
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **Delete dead surface** (#2 re-exports, #3 `pendingCount`) — zero-risk, immediate.
-2. **Fix `ModeSelectionButton` dual color system** (#4) — small, correctness-adjacent.
-3. **Converge `CompactThemeSelector` onto `ThemeSelector`** (#5) — biggest LOC delete, feeds #1.
-4. **Decompose `ChallengeModal.tsx`** (#1) — extract the three surfaces; lands the file well
-   under guideline once #5 is done.
-5. **Collapse `User`/`Viewer` types** (#6).
-6. **Consider the shared `<ChallengeLobbyModals/>` wrapper** (#7) — cross-area, do last / with
-   owner sign-off.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · minors A. All findings accepted
+as recommended. This is a refactor/de-duplication pass — **not** a behavior change. The
+`ModalState` discriminated-union state machine is preserved exactly as-is (it is the model the
+rubric wants). Two items reach outside this area and carry sign-off notes: #5 touches the shared
+`ThemeSelector`, and #7 touches `HomePageClient` + `FriendDuelLauncher` (do last).
+
+Before any handoff: run eslint + `npm run typecheck` + `npm run test:run`. Pinned test surface to
+keep green / update in the same change: `tests/hooks/useChallengeActions.test.tsx`,
+`tests/components/{ChallengeModalMeRow,DuelModePickerSurfaces,WeeklyGoalThemeMarkerSurfaces}.test.tsx`.
+
+Ordered so each step shrinks the blast radius of the next:
+
+### Step 1 — Delete dead surface (#2, #3) — zero-risk, immediate
+- **#2** Delete the re-export lines `useChallengeLobby.ts:16–20` (the four sub-hooks +
+  `CreateChallengeOptions` + `ModalState`). Keep only the value `import`s the hook body needs
+  (lines 9–14). `useChallengeLobby()` is the single public entry point; the four sub-hooks stay
+  private implementation details.
+- **#3** Delete `pendingCount` from `useChallengeData.ts:32` (its return) and from
+  `useChallengeLobby.ts:107` (the re-return). No consumer reads `lobby.pendingCount`.
+
+### Step 2 — Unify `ModeSelectionButton` color system (#4) — small, correctness-adjacent
+- Drop the `cssVarColors as colors` module-scope import (`ModeSelectionButton.tsx:6`) and build
+  the tone lookup from the live `useAppearanceColors()` inside the component, so every color in
+  the button comes from one source. Same defect class blocked in Area 1 (#6).
+- Narrow `selectedTone` to the two tones actually passed by `DUEL_MODE_OPTIONS`
+  (`primary | secondary`); remove the dead `cta` branch.
+
+### Step 3 — Converge `CompactThemeSelector` onto shared `ThemeSelector` (#5) — biggest LOC delete, feeds Step 4
+- Replace the bespoke `CompactThemeSelector` (`ChallengeModal.tsx:522–643`) with the canonical
+  `ThemeSelector` rendered controlled (`draftThemeIds` / `onDraftThemeIdsChange`,
+  `hideConfirmButton`). If the compact visual is required, add a `variant`/`compact` prop to
+  `ThemeSelector` and converge rather than fork. Deletes ~120 LOC + one duplicated checkmark SVG.
+- **Cross-area note:** this edits the shared `ThemeSelector.tsx`. Confirm no other consumer
+  regresses (it already supports controlled selection — it was built to be embedded).
+
+### Step 4 — Decompose `ChallengeModal.tsx` (#1) — lands the file well under guideline once Step 3 is done
+- Extract the remaining surfaces into sibling files: `ChallengeRespondSurface.tsx` and
+  `OpponentSelector.tsx` (and optionally `DifficultySelector.tsx`). **There is no
+  `CompactThemeSelector.tsx` to extract** — Step 3 already replaced it with the controlled shared
+  `ThemeSelector`, which `ChallengeModal` now renders directly. `ChallengeModal.tsx` becomes a thin
+  shell (~250 LOC) that composes them.
+- While extracting the respond-inbox: it is a second accept/decline UI (notifications already has
+  one wired to `notificationId` vs this one's `challengeId`). Keep it as a deliberate convenience
+  surface but name the modal honestly; flag the two-entry-points overlap for the Area 11
+  cross-check (notifications) — do not unify backend paths here.
+
+### Step 5 — Collapse local types (#6)
+- Merge `Viewer` into `User` (they are byte-identical) — define one `LobbyUser` reused for both
+  `users[]` and `viewer` — and source the field shape from `useChallengeData`'s exported return
+  type or `VisibleUser` (`lib/userDisplay.ts:1`) rather than re-typing it in the component.
+
+### Step 6 — Shared `<ChallengeLobbyModals/>` wrapper (#7) — cross-area, do last, with owner sign-off
+- Expose one `<ChallengeLobbyModals />` component co-located with `useChallengeLobby` that calls
+  the hook and renders the `ChallengeModal` + `WaitingModal` + `JoiningModal` trio (including the
+  `key={…}` remount-reset contract). Both consumers — `HomePageClient.tsx:460–496` and
+  `FriendDuelLauncher.tsx:21–46` — collapse to a single element.
+- **Cross-area note:** `HomePageClient` is Area 15, `FriendDuelLauncher` is Area 11. The wrapper
+  *originates* here (belongs next to the hook) but touches those files; coordinate before editing.
+
+### Minors (fold into the steps that touch each file)
+- `?? []` for `selectedThemes` (`ChallengeModal.tsx:97`) and `?? 0` idiom where applicable.
+- Optional `pickVisibleUser(currentUser)` helper for the `viewer` ladder
+  (`useChallengeData.ts:10–20`) — low value, only if touched.
+- Keep the accurate self-duel comment (`ChallengeModal.tsx:90–91`) and `isSelfDuelSelection.ts`
+  (correct layer/size) as-is.
+- Shared `<CheckmarkIcon>` (inlined in 5 files repo-wide) is **deferred** to a cross-area cleanup
+  — do not block or do it here.
 
 ## Approval bar
 

@@ -242,15 +242,78 @@ same concept as the theme action buttons and could share one styler instead of a
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-23
 
-1. **#1 type the notification at the boundary** (delete local `NotificationData`, use the
-   schema union via the query type). Everything else keys off this.
-2. **#2 + #3 decompose `NotificationItem` into a per-type dispatch table** with narrowed props.
-3. **#4** delete `hasGoalId`; **#8/#7** collapse the event enum and drop dead `draft_expiring`.
-4. **#5** route `removeFriend` through `loadFriendshipsBetweenUsers`.
-5. **#6, #9, #10** lookup-table / helper cleanups.
-6. Minor relocations (`useCountdown`, preferences trio) as housekeeping.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · #9 A · #10 A · minors A.
+
+All findings accepted. This is the boundary/type-contract fix the whole area hinges on: the
+backend already exposes a validated discriminated payload union; the work is making the UI
+consume it instead of re-declaring a loose copy. Behavior is unchanged except where dead
+surface is removed (#7) and a query is made cheaper (#5). Gate before handoff:
+eslint + `npm run typecheck` + `npm run test:run`.
+
+### Step 1 — type the notification at the boundary (#1, #4, #8, #7)
+Everything below keys off this; do it first.
+- Delete the hand-declared `NotificationData` and the all-optional `payload` shape
+  (`NotificationItem.tsx:10-39`) and the duplicate `NotificationData` in
+  `useNotifications.ts:15`. Type the notification as the inferred element type of the
+  `api.notifications.getNotifications` query result so `payload` is the real schema union
+  (`notificationPayloadValidator`, `schema.ts:176`).
+- Delete the bespoke `hasGoalId` guard + `isRecord`/`unknown` import
+  (`NotificationsTab.tsx:15-18`); narrow on the typed payload directly (or import
+  `isWeeklyGoalPayload` from `notificationPayloads.ts:21` — do not hand-roll a parallel one).
+- Export one `WeeklyGoalNotificationEvent = WeeklyGoalPayload["event"]` and import it in
+  `notificationHelpers.ts:251-257` and the renderer; delete the two hand-written copies
+  (`schema.ts:185-192` source stays; the helper + renderer copies go).
+- Drop the never-read `event: "draft_expiring"` from the writer (`weeklyGoals.ts:315`) and from
+  the schema event union (`schema.ts:192`); the `type` already distinguishes that notification.
+
+### Step 2 — decompose `NotificationItem` into a per-type dispatch table (#2, #3)
+- Replace the 280-line `getNotificationContent()` switch (`NotificationItem.tsx:78-358`) with a
+  registry keyed by `type` (+ `event` for weekly goals): tiny presentational cards
+  (`<FriendRequestCard>`, `<ChallengeInviteCard>`, `<WeeklyGoalCard>` with an inner
+  event→content map, `<DraftExpiringCard>`). Outer `NotificationItem` shrinks to the chrome
+  (`:362-397`) + lookup; target outer <150 LOC, each card 20-40 LOC. Move the icon components
+  (`:486-524`) next to the card that uses them. Factor the repeated action row into one
+  `<NotificationActions>` taking a small button list.
+- Each card declares only the handlers it uses; push the `(notification → handlers)` mapping out
+  of `NotificationsTab`'s nine-arrow-prop block (`:150-162`) so the call site becomes
+  `<NotificationItem notification={n} />` with the card pulling its actions from the
+  `useNotifications` action bag / context. Removes the nine-arg `NotificationItemProps`
+  (`:41-52`) and the nine-arg call (`:153-161`).
+
+### Step 3 — backend friendship-pair lookup (#5)
+- Rewrite `friends.removeFriend` (`friends.ts:338-364`) to load the pair via
+  `loadFriendshipsBetweenUsers` (`convex/helpers/relationshipPolicy.ts:7`) — same indexed path
+  `sendFriendRequest` (`:238-242`) and the challenge flow (`challenges.ts:201`) already use —
+  and delete both rows from there. Drops the two full-per-user `collect()` scans.
+
+### Step 4 — lookup-table / helper cleanups (#6, #9, #10)
+- #6: write `NOTIFICATION_TYPES` as a four-entry literal object (no cast)
+  (`lib/notifications/definitions.ts:36-43`).
+- #9: one `themeCountLabel(n)` → `"1 theme"`/`"N themes"` helper, reused by the button labels
+  (`NotificationItem.tsx:181-184`, `:210-213`) and the toast (`NotificationsTab.tsx:89-95`);
+  callers prepend their verb.
+- #10: replace `ActionButton.getStyles()` switch (`NotificationItem.tsx:409-432`) with a
+  `Record<variant, …>` lookup. **Prefer sharing the Area 1 canonical button styler**
+  (`getThemeActionButtonStyle`) rather than adding a third copy — confirm its signature fits the
+  accept/reject/dismiss/secondary variants before reusing; fall back to a local Record if not.
+
+### Minors (housekeeping — all accepted)
+- Move `useCountdown` (`app/notifications/hooks/`) to a shared `hooks/` (or `app/goals/hooks/`)
+  location — its only callers are `app/goals/` (`useGoalsPageModel.ts:8,94,97`). Pure relocation.
+- Move the email-preferences trio (`lib/notificationPreferences.ts`,
+  `lib/notificationPreferencesDefaults.ts`, `convex/notificationPreferences.ts`) into the Area 12
+  email scope — they have no in-app notification consumer. Coordinate with Area 12 so it isn't
+  double-handled.
+- `useNotificationPanel` (`:42-51`) sets `document.body.style.overflow` directly — reuse a
+  canonical `useLockBodyScroll` if one exists; otherwise leave.
+- `NotificationPanel.tsx:78` repeats the `sm:` prefix over base values — drop the redundant
+  `sm:` classes. Cosmetic.
+- `handleViewWeeklyGoal(_goalId)` (`NotificationsTab.tsx:73`) ignores its arg — drop the unused
+  param (it falls out of #4 anyway) rather than deep-linking, unless deep-link is wanted.
+- `getNotificationCount` `.collect().length` (`notifications.ts:80-88`): left as-is, fine at
+  current scale — noted only.
 
 ## Approval bar
 

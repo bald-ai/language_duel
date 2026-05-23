@@ -75,6 +75,13 @@ body {
 /* Title font */
 .title-font {
   font-family: var(--font-display), var(--font-geist-sans), sans-serif;
+  font-weight: 700;
+}
+
+/* Brand wordmark font - used for the homepage hero title */
+.brand-font {
+  font-family: var(--font-brand), var(--font-display), var(--font-geist-sans), sans-serif;
+  font-weight: 400;
 }
 
 /* ========================================

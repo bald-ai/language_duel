@@ -120,24 +120,26 @@ a future answer patch silently fails to mirror. And it is applied to the
 fire in a self-duel (hints are PvP-gated, self-duel is forced PvE). That is a
 non-obvious cross-module invariant holding the correctness together.
 
-**Remedy (code judo):** stop modeling a self-duel as a PvP row.
-`SELF_DUEL_FORCED_MODE = "pve"` already says a self-duel *is* a PvE session.
-Resolve the player at the boundary (`getDuelParticipant` /`forRole`) and treat
-PvE as inherently single-actor:
-- In a PvE/self-duel, "the opponent" is not a second human — there is nothing to
-  mirror. The cleanest framing is that PvE answer/timeout writes the single
-  player's progress and `haveBothPlayersAnswered` is trivially true once that one
-  player acts. The countdown handshake (`requirePeer`) and the answer-mirror both
-  collapse to "single actor advances immediately" — i.e. the *PvE* branch the
-  code already needs, not a *self-duel* branch.
-- If the two-row mirror must stay for now, at minimum collapse the three
-  `isSelfDuel` sites into a single derived `isSingleActorDuel(duel)` policy and
-  push the answer-mirror to cover *all* score-bearing patches (next-round /
-  completion included) so the invariant is structural, not "happens to be PvE."
+**Remedy (code judo):** stop modeling a self-duel as a PvP row — but keep the
+discriminator at the **self-duel** (`challengerId === opponentId` / `isSelfDuel`),
+not the mode. `SELF_DUEL_FORCED_MODE = "pve"` says a self-duel *is a kind of* PvE
+session; it does **not** say PvE is single-actor. Normal PvE is a two-person co-op
+duel (two distinct humans, shared hint pool — see `DOCUMENTATION.md` "PvE"), so it
+must stay two-actor: `haveBothPlayersAnswered` still requires both halves.
+- Only in a **self-duel** is "the opponent" not a second human — there is nothing
+  to mirror because one person fills both roles. Clean framing: when `isSelfDuel`,
+  the single human's answer/timeout writes both halves so `haveBothPlayersAnswered`
+  is satisfied once they act. Normal PvE keeps the `requirePeer` handshake and
+  waits for both real players. The single-actor collapse is a *self-duel* branch,
+  **not** a PvE-wide one.
+- Preferred shape: collapse the three `isSelfDuel` sites into one derived
+  `isSingleActorDuel(duel)` (defined as `isSelfDuel`, i.e. equal IDs) and push the
+  answer write to cover *all* score-bearing patches (next-round / completion
+  included) so the invariant is structural — but the policy stays keyed on equal
+  IDs, never on `mode === "pve"`.
 
-This deletes the `clearImmediately` vs `requirePeer` fork and the
-`bothSkipped`-shortcut fork, because "single actor" is the same concept in all
-three places.
+This keeps the `clearImmediately` vs `requirePeer` fork meaningful for normal PvE
+and only short-circuits it for self-duels, where "single actor" genuinely holds.
 
 ### 4. Sabotage effect literals are a triplicated source of truth
 
@@ -316,20 +318,144 @@ Notifications — but the dedup itself is local.)
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **Delete dead code first** (#1 `duelInitialization.ts`, #2 `gameLogic.ts`
-   solo block, #8/#9 dead sessionWords helpers) — biggest LOC reduction, lowest
-   risk, and it clears the field before the structural work. Remove orphaned
-   tests in the same change.
-2. **De-duplicate sources of truth** (#4 sabotage effect literals, #5
-   `SabotagePhase`) — trivial, prevents drift.
-3. **Self-duel model** (#3) — the headline structural fix; do after dead code is
-   gone so the mirror's blast radius is clear.
-4. **`gameplay.ts` tail extraction** (#6) and **`active.ts` cleanup** (#7).
-5. **Challenge-creation dedup** (#10, #11) — touches schema (Area 15) /
-   notifications (Area 11) at the edges, so sequence last.
-6. Minor items opportunistically.
+**Decisions:** #1 A · #2 A · #3 A (full code-judo) · #4 A · #5 A · #6 A · #7 A
+(drop params + explicit contract) · #8 A · #9 A · #10 A · #11 A · minors A.
+
+All eleven findings + the minor bundle are approved. #1, #2, #8, #9 are approved
+**deletions** of dead code (incl. their orphaned tests). #3 is the headline
+structural change (self-duel single-actor, keyed on equal IDs — **not** PvE-wide). The rest is pure refactor /
+de-duplication. The `assertDuelMode` mode boundary is preserved exactly as-is.
+
+The deleted code (#1, #2, #8, #9) has no live callers, so those are safe. #3 is
+the one change that touches live gameplay: done right — single-actor collapse kept
+on `isSelfDuel` (equal IDs) — it is behavior-preserving, because self-duels already
+advance on one answer via the mirror and normal two-person PvE keeps requiring both.
+Done wrong (collapsing *PvE* to single-actor) it would break co-op PvE. Treat #3 as
+the behavior-sensitive change and test both self-duel and two-person PvE.
+Before any handoff, run eslint + `npm run typecheck` + `npm run test:run`. The
+**pinned test surface** is `tests/convex/gameLogic.test.ts`,
+`tests/convex/sessionWords.test.ts`, and `tests/lib/sessionWords.test.ts` — the
+orphaned cases covering deleted functions must be removed in the same change
+(tests pinning dead code, not behavior), each with a one-line handoff rationale.
+
+### Step 1 — Delete dead modules (#1, #2, #8, #9)
+
+Lowest-risk, biggest LOC reduction; clears the field before structural work.
+
+- **#1** Delete `convex/helpers/duelInitialization.ts` entirely (`buildSoloInitState`,
+  zero callers). No test coverage, nothing else moves.
+- **#2** In `convex/helpers/gameLogic.ts`, delete the "Word Pool Management (Solo
+  Mode)" + "Level Progression (Solo Mode)" block (lines ~101–328) and the
+  `advanceSeed` LCG step + `LCG_*` / `LEVEL_*_PROBABILITY` constant imports that
+  only the dead helpers use. Keep `shuffleArray` (caller:
+  `weeklyGoals/bossWorkflows.ts:50`) and `createShuffledWordOrder` (caller:
+  `helpers/sessionCreation.ts:234`) + the shared `Array.from` index helper. File
+  goes 328 → ~40 LOC; fold into `helpers/sessionWords.ts` or a small
+  `helpers/shuffle.ts`. Delete the orphaned cases in
+  `tests/convex/gameLogic.test.ts` covering the removed seeded helpers (rationale:
+  "removed solo word-pool helpers superseded by `lib/soloPracticeRuntime.ts`").
+- **#8** Delete `getThemeIdsFromChallenge` + `getThemeIdsFromSessionWords` from
+  `convex/helpers/sessionWords.ts` (test-only). Callers needing unique theme IDs
+  already use `getUniqueThemeIds` from `lib/sessionWords` directly. Remove their
+  cases in `tests/convex/sessionWords.test.ts`.
+- **#9** Delete `getUniqueThemeNames` from `lib/sessionWords.ts` (test-only; live
+  path is `summarizeSessionWords` → `summarizeThemeNames`). Remove its case in
+  `tests/lib/sessionWords.test.ts`.
+
+### Step 2 — De-duplicate sources of truth (#4, #5)
+
+Trivial, prevents drift.
+
+- **#4** Add a `lib/sabotage` `SABOTAGE_EFFECTS` `as const` array as the single
+  literal list; derive `sabotageEffectValidator` (schema) and the
+  `SabotageEffect` type from it (mirror how `duelModeValidator` is built from
+  `DUEL_MODES`). In `convex/sabotage.ts`, import `sabotageEffectValidator` from
+  `./schema` for the `sendSabotage` `effect` arg instead of re-spelling the inline
+  `v.union` (lines 17–20).
+- **#5** Delete the `SabotagePhase` redeclaration in `lib/sabotage/effectPhases.ts:8`;
+  import it from `./types` (already imports `SabotageEffect` from there).
+
+### Step 3 — Self-duel single-actor cleanup (#3, full code-judo)
+
+The headline structural fix; do after dead code is gone so the blast radius is
+clear.
+
+**The discriminator is the self-duel, NOT the mode.** A self-duel is one human in
+both roles (`challengerId === opponentId`, i.e. `isSelfDuel`). Normal PvE is a
+two-person co-op duel (two distinct users, shared hint pool — see
+`DOCUMENTATION.md` "PvE"), so it stays **two-actor**: `haveBothPlayersAnswered`
+must keep requiring `challengerAnswered && opponentAnswered`. Do **not** collapse
+PvE to single-actor — that would complete a co-op round when only one of the two
+players has answered. (`SELF_DUEL_FORCED_MODE = "pve"` means a self-duel is *a
+kind of* PvE; it does **not** mean PvE = self-duel.)
+
+- The single-actor behavior — one human's answer/timeout satisfies both halves —
+  applies **only when `isSelfDuel`**. Keep `isSelfDuel` as the discriminator; the
+  cleanup is about *where that check lives*, not removing it.
+- The mirror (`rules/selfDuelMirror.ts` `mirrorPatchForSelfDuel`, called at
+  `gameplay.ts:111,156`) is correct and already self-duel-gated. Safe default:
+  leave it. Optional consolidation: resolve the player at the boundary
+  (`getDuelParticipant` / `forRole`) and, when `isSelfDuel`, write the one human's
+  progress to both roles there — but any replacement must stay self-duel-gated,
+  never PvE-wide.
+- Keep the `rules/countdownPlanners.ts` self-duel forks gated on `isSelfDuel`:
+  `planConfirmUnpauseCountdown` `clearImmediately` (line 16) and `planSkipCountdown`
+  `bothSkipped: true` (line 38). They exist because one human can't wait on a peer;
+  a normal two-person PvE still needs the `requirePeer` path. Tidy if helpful, but
+  they cannot collapse into a generic PvE branch.
+- Invariant: `isSelfDuel` (equal IDs) is the single-actor signal; PvE stays
+  two-actor. This is the **only** runtime-behavior change in the batch — cover both
+  self-duel (one answer advances) and two-person PvE (needs both answers) with
+  tests.
+
+### Step 4 — gameplay.ts tail + active.ts cleanup (#6, #7)
+
+- **#6** Extract `finalizeAfterAnswer(ctx, duelId, duel) → DuelLifecycleIntent`
+  doing the re-get + active(`advanceDuelIfBothAnswered`) / completed / none
+  dispatch. `answerDuel` (126–137) and `timeoutAnswer` (165–177) both become:
+  build patch → patch → `return finalizeAfterAnswer(...)`. Removes the hand-rebuilt
+  `completed` object and ~20 duplicated LOC. (Note: the mirror step in those
+  bodies is gone after Step 3.)
+- **#7** In `lib/sabotage/active.ts`, drop the optional `sabotageDurationMs` /
+  `sabotageFallbackDurationMs` params on `getSabotageExpiryAt` + `isSabotageActive`;
+  read the imported constants directly. Update the lone caller
+  `app/duel/[duelId]/hooks/useOutgoingSabotageStatus.ts:27-31` to stop passing
+  them. Make the missing-`questionStartTime` contract explicit (treat as "no
+  active sabotage" → return `null`/`false`, or assert present), removing the 25 s
+  `SABOTAGE_FALLBACK_DURATION_MS` magic branch and collapsing `isSabotageActive`
+  to one path. Confirm the frontend hook doesn't depend on the 25 s window first.
+
+### Step 5 — Challenge-creation dedup (#10, #11)
+
+Touches schema (Area 15) / notifications (Area 11) at the edges, so sequence last.
+
+- **#10** Add a `challengeToDuelSourceFields(challenge)` adapter in
+  `sessionCreation.ts` that narrows the loosely-typed `challenges` doc to a typed
+  `DuelSourceFields` once. `insertDuelSessionForChallenge` (challenges.ts:71–123)
+  becomes one `buildDuelSession({ ...baseSession, ...sourceFields })` with no
+  per-branch `throw`s. (Giving `challenges` the discriminated `DuelSourceFields`
+  shape directly is a schema change deferred to Area 15; the adapter lives here.)
+- **#11** Extract `resolveAcceptableChallenge(ctx, challenge, userId)` running the
+  pending/opponent/expiry (`rejectExpiredChallenge`) guards. All four mutations
+  (`acceptChallenge`, `declineChallenge`,
+  `acceptChallengeFromNotification`, `declineChallengeFromNotification`) call it
+  after each obtains the challenge (by id vs notification payload). Cross-check the
+  `challenge_invite` payload handling with Area 11; the dedup itself is local.
+
+### Step 6 — Minors (sweep)
+
+- `sessionCreation.ts:131` — remove the unreachable `validateDuelMode` defensive
+  check (every caller passes a `duelModeValidator`-typed `DuelMode`).
+- `hints.ts:122` — type the patch as `Partial<Doc<"duels">>` instead of
+  `Record<string, unknown>`.
+- `duels.ts:62` — replace the silent `?? sessionWordIndex` fallback with an
+  explicit invariant (every session word has a `wordOrder` slot).
+- Merge `hints/constants.ts` (`PVP_HINT_ELIMINATION_PICKS`) into
+  `hintPool/constants.ts` (or a shared `lib/hints` constants module).
+- `active.ts:7-10` — replace the locally redeclared `SabotageState` with the
+  `{ effect, timestamp }` shape from `duelRole.ts` (`DuelSabotage`) / `schema.ts`.
 
 ## Approval bar
 

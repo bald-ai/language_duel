@@ -227,15 +227,59 @@ domain queries.
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-23
 
-1. Delete dead code: `logNotificationSent` (#2) and `resetEmailNotificationLogForStatusCutover`
-   (#3) — zero-risk, ~46 LOC gone.
-2. Collapse the duplicated lookup ladder (#1) — biggest single LOC delete (~75), behavior-preserving.
-3. Derive the validator from the contract (#4) — closes the silent-drift hole.
-4. Delete the re-export shim (#6) and drop the inert `reminderOffsetMinutes` lookup args (#5).
-5. Move `EMAIL_SEND_CLAIM_STALE_MS` to constants (#7); drop unused `by_status` index (#8).
-6. Single prefs gate (#9), generic getter (#10), and the minors in any order.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · #9 A · #10 A · minors A.
+All accepted. Documentation only — implementation not yet authorized.
+
+**Step 1 — delete dead code (#2, #3).** Zero-risk, ~46 LOC.
+- Delete `logNotificationSent` (`emailNotificationLog.ts:182-213`) — no callers; the live path is
+  `claimNotificationSend` → `markNotificationSendSent`.
+- Delete `resetEmailNotificationLogForStatusCutover` (`emailNotificationLog.ts:313-326`) — finished
+  one-off cutover migration, forbidden by AGENTS.md "no fallback/compat code".
+
+**Step 2 — collapse the duplicated lookup ladder (#1).** Behavior-preserving, ~75 LOC.
+- Keep `findEmailNotificationLog` (`:104-164`) as the single index lookup.
+- Delete `checkEmailNotificationSent`'s copied ladder (`:25-102`) and redefine it as
+  `const log = await findEmailNotificationLog(ctx, args); return log?.status === "sent";`.
+
+**Step 3 — derive the trigger validator from the contract (#4).** Closes the silent-drift hole.
+- Build `emailNotificationTriggerValidator` (`schema.ts:207-217`) from the contract keys
+  (`NOTIFICATION_EMAIL_TRIGGERS` in `lib/notifications/definitions.ts:67-121`) instead of re-listing
+  the nine literals, or add a `satisfies`/type-level equivalence assert so a mismatch fails
+  `typecheck`. One source of truth.
+
+**Step 4 — delete the re-export shim (#6) + drop the inert idempotency arg (#5).**
+- Delete `lib/notificationEmailTriggerContract.ts`; have `lib/notificationPreferences.ts:11-15`
+  import directly from `./notifications/definitions`. Keep the precise name `NotificationEmailTrigger`
+  end-to-end (do not broaden to `NotificationTrigger`, which collides with in-app `NotificationType`).
+- Drop `reminderOffsetMinutes` from the arg lists of `checkNotificationSent` and
+  `claimNotificationSend` (`emailNotificationLog.ts:174, 223`) and from
+  `EmailNotificationLogLookupArgs`; keep it only as a written audit field on the claimed row
+  (`:256`) and on the schema column (`schema.ts:527`). reminder_1/reminder_2 dedupe on trigger alone.
+
+**Step 5 — constants + unused index (#7, #8).**
+- Move `EMAIL_SEND_CLAIM_STALE_MS` (`emailNotificationLog.ts:13`) to `convex/constants.ts` next to
+  `EMAIL_LOG_TTL_MS` (`:114`) with a one-line comment.
+- Delete the unused `by_status` index (`schema.ts:548`) — no query reads it; retry path doesn't exist.
+
+**Step 6 — single prefs gate (#9), generic getter (#10), minors.**
+- Make `sendNotificationEmail`'s prefs check (`notificationEmails.ts:78-84`) the single enablement
+  gate; drop the `isNotificationEnabled` checks from the planners (`reminderPlanners.ts:48,64,88,106,134`)
+  so they become pure send-descriptor shapers. Keep the send-side check (also hit directly by
+  `notificationHelpers.scheduleNotificationEmail`).
+- Collapse the four get-by-id getters (`notificationEmailData.ts:20-46`) to one generic `getDocById`
+  (or reuse a canonical user getter for `getUserById`). Low priority.
+- Minors: drop redundant cast (`notificationEmails.ts:65`); switch raw `Error` →
+  `ConvexError` (`notificationEmailData.ts:113-125`); add the justify-with-a-comment notes on
+  `cleanupEmailNotificationLog`'s double-guard and `runEmailSend`'s intentional error swallow.
+
+**Coordination note:** Area 11's minor "move the email-preferences trio to Area 12" — this area owns
+that relocation; pull `lib/notificationPreferences.ts`'s email-pref helpers/UI into scope here so it
+isn't handled twice.
+
+**Gate at implementation time (docs-only now, so not run yet):** eslint + `npm run typecheck` +
+`npm run test:run`.
 
 ## Approval bar
 

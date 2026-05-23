@@ -29,6 +29,69 @@ Total reviewable: ~43k LOC across 15 areas.
 > styles, type-contract drift, ModalShell/ConfirmModal, dead code, friendship helpers, etc.).
 > Verdicts: **7 🔴 BLOCK** (1, 2, 3, 5, 6, 8, 11) · **8 🟡 APPROVE-WITH-CHANGES** (4, 7, 9, 10, 12, 13, 14, 15).
 
+> **Status (2026-05-23): all 15 areas approved for implementation.** Each area file now carries an
+> "Implementation Plan — approved" section with per-finding decisions (A = do it). The per-area
+> plans are individually correct, but several **share files** or **must land in a specific order** —
+> read the coordination note directly below before picking up any area in isolation.
+
+---
+
+## Implementation — cross-area coordination & sequencing
+
+> Companion to [`code_review_cross_area_reconciliation.md`](./code_review_cross_area_reconciliation.md)
+> (which picks the single canonical fix per recurring issue). This note is the *implementation-time*
+> checklist: what order to work in, which files two+ areas both touch, and what to verify before
+> handoff. None of these are blockers — they're the things that bite if an area is done in isolation.
+
+### Hard sequencing — do in this order
+1. **Dead-code deletions first** (all user-approved; remove orphaned tests in the same change):
+   Area 5 #1 (~700 LOC dead `mode="duel"` level path), Area 6 #1/#2/#8/#9, Area 13 #1, Area 12
+   #2/#3/#8, Area 11 #7, Area 7 #2/#3, Area 14 #1/#3, Area 9 #7. Biggest reduction, clears the field.
+   *(Verified safe: the live duel screen `app/duel/` does not import the `Level*` components — only
+   the solo page + tests render them.)*
+2. **Schema as one coordinated pass** — `convex/schema.ts` is edited by 6 areas. Do Area 15 #4
+   (difficulty-validator dedup) + #5 (`sessionSourceFields` spread) first; **Area 6 #10's adapter
+   depends on Area 15 #5.** Fold the other schema edits into the same pass: Area 9 #3 (`mode`
+   required), Area 11 #7 (event union), Area 12 #4/#8, Area 2 #9 (word-type validator).
+3. **Shared UI primitives, built once:**
+   - **`ConfirmModal`: Area 1 *creates* it → Area 3 *consumes* it. Area 1 must land before Area 3.**
+   - **Button styles (C1):** one primitive `getButtonStyles` + two wrappers (`modalButtonStyles`,
+     `getThemeActionButtonStyle`); every site consumes them — including Area 5's `levelButtonStyles.ts`,
+     which must wrap them, not re-encode CSS-var strings.
+   - Two-color-system sweep (T1) and shared icons (T7) per the reconciliation.
+4. **Type-contract discipline (T2)** — derive from the server / canonical lib types everywhere a
+   local `type`/`interface` mirrors a server return.
+5. **Per-area structural refactors**, then canonical-helper routing (T6) + naming coordination.
+
+   *(Full rationale + the canonical pick for each recurring issue: reconciliation §5.)*
+
+### Shared files touched by 2+ areas — coordinate edits (merge-risk)
+
+| File | Areas | Note |
+|---|---|---|
+| `convex/schema.ts` | 2, 6, 9, 11, 12, 15 | One coordinated pass; different sections (see seq. #2). |
+| `app/components/modals/ChallengeModal.tsx` | 7, 15 | 7 decomposes the modal; 15 #7 swaps `words`→`wordCount`. |
+| `app/components/modals/ThemeSelector.tsx` | 7, 15 | 7 #5 converges Compact onto it; 15 #7 reads `wordCount`. |
+| `app/HomePageClient.tsx` | 7, 15 | 7 #7 modal wrapper (do last); 15 #3 chrome/icons/deep-link. |
+| `…/useGoalsPageModel.ts` | 9, 11 | Same lines (~94–98): 9 lifts lock state + rename; 11 relocates `useCountdown`. |
+| `convex/themes/mutations.ts` | 2, 13 | Different fns (2: delete/word-type/patch; 13 #1: TTS apply). |
+| `lib/themes/wordTypes.ts` | 2, 3 | Both want `getDefaultWordType()` gone — **Area 3 deletes it**. |
+| `app/solo/[sessionId]` + `learn/` pages | 5, 8, 13 | 8 decomposes; 5 removes level `mode` prop; 13 updates `useTTS` import. |
+| `app/duel/…/useDuelActions.ts` | 4, 13 | 4 reshapes the view-model; 13 #4 deletes `useDuelAudio`. |
+| `convex/weeklyGoals.ts` (+ schema event union) | 9, 11, 15 | 11 #7 drops `draft_expiring` from 9's writer + 15's schema. |
+
+### Verify / decide before handoff
+- **Self-duel (Area 6 #3)** — the *only* genuine behavior change (everything else is dead-code or
+  pure refactor). After it lands, re-confirm the lobby's `createSelfDuel` path still aligns (C6 —
+  Area 7 keeps its client helper as-is). Needs strong tests + a manual self-duel playthrough.
+- **Seeded PRNG (Area 5 #5)** — ensure the sabotage-animation seed varies per round, or animations
+  become visibly identical every time.
+- **`mode` required (Area 9 #3)** — backfill any production goal rows missing `mode` *before*
+  tightening the schema, or reads break.
+- **TTS apply (Area 13 #1)** — resolve whether the Convex mutation can import from `lib/`; if not,
+  delete the helper + its test instead of collapsing the mutation onto it.
+- **Email-preferences trio** — the relocation is owned by **Area 12**; don't also handle it in Area 11.
+
 ---
 
 ## Theme content

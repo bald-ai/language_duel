@@ -174,14 +174,70 @@ inside setters that already gated on `=== null`.
 
 ---
 
-## Recommended ordering
+## ✅ Implementation Plan — approved 2026-05-22
 
-1. ModalShell adoption (#5, #6) — biggest LOC delete, lowest risk.
-2. ThemeDetail decomposition (#1).
-3. Props-pyramid removal (#2) + drop the false `useMemo` (#3).
-4. ThemeList virtualization simplification (#4).
-5. Filter discriminated union (#7).
-6. Medium items in any order.
+All 13 findings + both minor notes reviewed with the user. **Decision: option A on every item**
+(do the fix), **except #14 and #15 which are A = "leave as-is"** (minors deferred, reviewer +
+user agree). Order below puts the biggest, lowest-risk deletions first and lets later steps build
+on earlier ones. This is a **pure refactor — behavior must stay identical**; run eslint +
+`npm run typecheck` + tests before handoff.
+
+### Step 1 — Modal consolidation (#5, #6) — **A**
+- **#5 (plain chrome):** Convert `AddWordModal` and `FriendFilterModal` to `<ModalShell title="…">`.
+  Remove each file's `fixed inset-0 …` backdrop, `getThemeModalPanelStyle`, and the
+  `if (!isOpen) return null` boilerplate.
+- **#5 + #6 (confirm dialogs) — build the shared `ConfirmModal` here; this area owns it.** Create
+  `app/components/modals/ConfirmModal.tsx` on top of `ModalShell` (title + message + confirm/cancel
+  actions, with a `danger` variant). Then replace **both** `DeleteConfirmModal` and
+  `RegenerateConfirmModal` with uses of it — do **not** just wrap each one in `ModalShell` separately
+  (that would leave two bespoke confirms and nothing for Area 3 to collapse onto). The `danger`
+  confirm renders its button via `getThemeActionButtonStyle("danger", colors)` (#6); delete the
+  `dangerActionStyle` constant and the `cssVarColors` import.
+- **⚠️ Cross-area sequencing (reconciliation C2/C3):** the same confirm pattern also lives in Area 3
+  (`DiscardPickAndPruneModal`) and `app/goals/.../GoalPracticeModalHost.tsx`. There must be **one**
+  `ConfirmModal`, created in this step. **Area 1 must land before Area 3** so Area 3's discard dialog
+  has the shared component to collapse onto — do not ship a themes-only variant or a second
+  `ConfirmModal`.
+
+### Step 2 — Decompose `ThemeDetail` (#1) — **A**
+- Split `ThemeDetail.tsx` (762) into `ThemeDetailHeader.tsx`, `ThemeWordCard.tsx`,
+  `ThemeActionDock.tsx`. Target the parent under ~250 LOC; the 30-prop interface shrinks naturally.
+
+### Step 3 — Remove the prop pyramid + dead memo (#2, #3) — **A**
+- **#2:** Render `<AddWordModal>` and `<GenerateMoreModal>` directly in `page.tsx` (same pattern as
+  `DeleteConfirmModal`). Drop ~15 props, the `handleX_Click` / `handleX_Close` wrappers, and the
+  `addWordState` / `generateMoreState` grouping shims.
+- **#3:** Delete the `detailProps` `useMemo` in `useThemesController` (it never memoizes).
+
+### Step 4 — Simplify the list (#4) — **A**
+- Replace `VariableSizeList` with `FixedSizeList` + `ITEM_SIZE` in `ThemeList.tsx`. Delete
+  `sizeMapRef`, the per-row `useLayoutEffect` / `setRowSize`, both `ResizeObserver`s, the
+  `availableHeight` / `listWidth` state, and `LIST_VIEWPORT_RESERVED_PX`. (Keep virtualization —
+  no cap on a user's theme count.)
+
+### Step 5 — Filter discriminated union (#7) — **A**
+- Replace the 3 flags in `useThemeListController` with
+  `type ListFilter = {kind:"all"} | {kind:"mine"} | {kind:"friend", friendId} | {kind:"archived"}`
+  + a single `setFilter`. Collapse `queryArgs` / `filterDisplay` / `isFiltering` to switches.
+
+### Step 6 — Split `WordEditor` (#8) — **A**
+- Extract `<ChoiceMode/>`, `<GenerateMode/>`, `<ManualMode/>` from `WordEditor.tsx` (381); each
+  declares only the props it consumes.
+
+### Step 7 — Remaining cleanups (#9–#13) — **A**
+- **#9:** Trim `useThemesController` to `viewMode` + the `*Props` bundles + the two render-gate
+  fields; remove the dead raw-state exports (`selectedTheme`, `localWords`, `themes`, etc.).
+- **#10:** Delete `useWordEditor.setEditMode` (confirmed unused — no callers).
+- **#11:** Compute repair issues once in the parent (`{ saveError, perWord: Map<index, RowIssues> }`)
+  and pass each card its slice; drops 4 of `WordCard`'s 7 issue props.
+- **#12:** Remove the `editingWordIndex!` / `editingField!` non-null assertions by destructuring
+  after the existing null guards.
+- **#13:** Extract `commitThemeName()` and call it from both the blur and the Enter handlers.
+
+### Deferred — minor notes (leave as-is) — **A = leave**
+- **#14:** Leave the two near-identical visibility handlers (`handleVisibilityChange` /
+  `handleFriendsCanEditChange`); revisit only if a third field appears.
+- **#15:** Leave `themeControllerTypes.ts` as a 3-type file.
 
 ## Approval bar
 

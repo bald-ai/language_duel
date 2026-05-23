@@ -63,7 +63,7 @@ function duelState(overrides: Partial<SentenceDuelState> = {}): SentenceDuelStat
 
 describe("createSentenceState", () => {
   it("creates the coop shape", () => {
-    const state = createSentenceState("coop", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"] }], fixedRng);
+    const state = createSentenceState("coop", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"], distractors: [] }], fixedRng);
     expect(state.kind).toBe("sentence");
     expect(state.mode).toBe("coop");
     if (state.mode !== "coop") throw new Error("expected coop");
@@ -72,7 +72,7 @@ describe("createSentenceState", () => {
   });
 
   it("creates the duel shape with separate boards", () => {
-    const state = createSentenceState("duel", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"] }], fixedRng);
+    const state = createSentenceState("duel", [{ english: "I drink water", correct: ["Yo", "bebo", "agua"], distractors: [] }], fixedRng);
     expect(state.mode).toBe("duel");
     if (state.mode !== "duel") throw new Error("expected duel");
     expect(state.placedHost).toEqual([]);

@@ -123,15 +123,29 @@ The file is the largest in scope and is really five concerns glued together: the
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. Consolidate the lifecycle derivation (#1) — delete `isGoalInGracePeriod`, route `shouldIncludeGoal` through `getEffectiveGoalStatus`. Highest leverage, removes the most duplicated mental models.
-2. Lift the lock-state derivation into `buildGoalWithUsers` (#2) and reuse the completed-theme helper (#4) — both remove copy-pasted role/mode conditionals from the UI.
-3. Make `mode` required and drop the fallback + dead branch (#3).
-4. Split `mutations.ts` (#5); fold the boss wrappers and invitation handlers to where they belong.
-5. Order the lock/complete writes deliberately (#6).
-6. Resolve the `canTriggerGoalBoss` duplication (#7) and the practice-id double-tracking (#8).
-7. Minors as convenient.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · minors A.
+
+This is a de-duplication / lifecycle-consolidation pass — no behavior change for live goals. The pure runtime helpers in `lib/weeklyGoalTiming.ts` and the clean leaf panels are untouched. Excluded per scope: `convex/weeklyGoalRepetitions*`, `app/repetition/*`, `lib/spacedRepetition.ts` (Area 10) and notifications (Area 11). Code changes here, so run eslint + `npm run typecheck` + `npm run test:run` before handoff.
+
+**Step 1 — Consolidate the lifecycle derivation (#1).** Make `getEffectiveGoalStatus` (`lib/weeklyGoals.ts:221-242`) the single canonical "what state is this goal in" function. Delete `isGoalInGracePeriod` (`lib/weeklyGoals.ts:182-196`) and reduce `isGoalPlayable` (line ~208) to `const s = getEffectiveGoalStatus(...); return s === "locked" || s === "grace_period";` (the `effectiveStatus` is already in scope). Route `shouldIncludeGoal` (`readModels.ts:16-31`) through `getEffectiveGoalStatus` alone (`completed`→false, else true) and drop the `isGoalPastGracePeriod` import. Leave the raw Convex `withIndex` predicates (`weeklyGoals.ts:213-275`, `cleanup.ts:138-171`, `queries.ts:38-59`, `createGoal.ts:30-72`) — those run before reclassification and legitimately need raw arithmetic. Highest leverage; collapses four "expired" notions into one.
+
+**Step 2 — Lift the lock state into the read model (#2) + reuse the completed-theme helper (#4).**
+- #2: Compute the lock view once in `buildGoalWithUsers` (`readModels.ts:33-58`) and expose it on `GoalWithUsers`, e.g. `lockState: "none" | "viewer_locked" | "partner_locked" | "both_locked"`. Collapse `useGoalsPageModel.ts:279-289` (the 11-line `viewerLocked`/`partnerLocked` block), the `lockedRole` line (`:151`), and `GoalParticipantsPanel.tsx:59,110` raw-boolean reads to read that field. The `partnerLocked === true` vs truthy inconsistency disappears in the one typed place. Server-side `planWeeklyGoalLock` stays the only writer of the raw booleans; `mutations.ts:104-108` reads from the normalized view.
+- #4: Export `isGoalThemeCompleted(theme, mode): boolean` from `lib/weeklyGoals.ts`; have `countCompletedThemes`, `getEligibleThemeIdsForBoss` (`bossWorkflows.ts:33-37`), and `GoalThemeList.tsx:67-69` call it. Replace `useGoalsPageModel.ts:296-300` with `areAllThemesCompleted(selectedGoal.goal.themes, selectedGoal.mode)` (canonical helper already exists, currently unused by UI).
+
+**Step 3 — Make `mode` required, drop the fallback (#3).** Backfill any un-migrated rows first if production data without `mode` exists. Then make `mode` required in the schema, drop the `?? "shared"` in `normalizeWeeklyGoal` (`lib/weeklyGoals.ts:97`) and its unreachable third branch (lines 134-137), and tighten `countCompletedThemes`/`areAllThemesCompleted` (`:142,153`) to `mode: WeeklyGoalMode`. Removes one fallback, one dead branch, and a `| undefined` from the pure layer.
+
+**Step 4 — Split `mutations.ts` (#5).** Move the three `*FromNotification` / `*Invitation` handlers (`395-525`) into `weeklyGoals/invitationMutations.ts` (they share `requireCallerOwnedNotificationPayload` + `isWeeklyGoalPayload`). Move the two boss-launch wrappers (`172-260`) next to the boss logic they delegate to in `bossWorkflows.ts`. Leaves `mutations.ts` as goal-editing CRUD (~250 LOC).
+
+**Step 5 — Order the lock/complete writes deliberately (#6).** In `handleLockGoal` (`mutations.ts:334-375`, `activate_goal` path) and `completeBigBoss` (`bossWorkflows.ts:111-163`): validate-and-snapshot → perform the goal `patch` (state transition) → fire notifications/emails last. Keeps the canonical state transition adjacent to the snapshot it depends on, side-effects after.
+
+**Step 6 — Resolve remaining duplication (#7, #8).**
+- #7: Either route `validateAndPrepareBoss` (`bossWorkflows.ts:78-88`) through `canTriggerGoalBoss` (`lib/weeklyGoals.ts:411-423`), or delete `canTriggerGoalBoss` and point `tests/lib/weeklyGoals.test.ts` at the real path. Don't keep a tested-but-unused public helper next to a hand-rolled copy. (Judgement call: prod path still needs per-type status for the error message.)
+- #8: In `resolveWeeklyGoalPracticeThemeIds` (`practiceThemes.ts:11-46`), drop `selectedThemeIds`; check `seen.size === 0` for empty and return `goalThemeIds.filter((id) => seen.has(String(id)))`.
+
+**Minors.** Rename `formatGoalGraceCountdown` → `formatGoalCountdown` so the draft usage (`useGoalsPageModel.ts:95,98`) doesn't read as a copy-paste bug; name the draft-expiry window constant (e.g. `DRAFT_EXPIRY_REMINDER_WINDOW_MS`) in `weeklyGoalTiming.ts` (`weeklyGoals.ts:261-263`); remove `partnerId!` non-null asserts by destructuring off the narrowed `SharedGoal` (`readModels.ts:50`, `queries.ts:205`); optional `getBossHintCopy(status)` switch beside `bossUi.ts` for `GoalBossProgressPanel.tsx:121-142`; drop unused `setShowCreationFlow` (`useGoalsController.ts:63`); formatter pass for mixed indentation (`GoalSwitcher.tsx`, `DeleteGoalButton.tsx:74-88`); import the practice-themes shape into `GoalPracticeModalHost.tsx:13-34` instead of redeclaring it.
 
 ## Approval bar
 

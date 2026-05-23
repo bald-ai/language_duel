@@ -196,16 +196,58 @@ one explicit boundary. (Lower priority than #1/#2, but it lives in the special-f
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-23
 
-1. **#1** — collapse the apply-logic duplication into the canonical lib helper (biggest
-   correctness/maintenance win; aligns tests with the real path).
-2. **#2** — unify the `ThemeWordWithTts` / generated-result type families (falls out naturally
-   once #1 is done).
-3. **#5** — hoist the timeout policy into `lib/tts/`, drop the `generateAudio` injection layer.
-4. **#3 / #4** — relocate `useTTS`, delete `useDuelAudio`.
-5. **#6 / #7** — provider-file dedup + Resemble shape parsing.
-6. Minor items opportunistically.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · minors A.
+All accepted. Documentation only — implementation not yet authorized.
+
+**Step 1 — collapse apply-logic into the canonical lib helper (#1).** Biggest correctness/maintenance win.
+- Extend `applyGeneratedTtsToWords` (`lib/themes/tts.ts:75-107`) to (a) skip slots where
+  `ttsStorageId` is already set and (b) return `rejectedStorageIds`.
+- Rewrite `handleApplyGeneratedThemeTts` (`convex/themes/mutations.ts:233-276`) to call it:
+  load theme → `applyGeneratedTtsToWords(...)` → `patch` if `applied > 0` →
+  return `{ applied, skipped, rejectedStorageIds }`. Deletes ~25 lines of duplicated branching; the
+  existing test (`tests/lib/themesTts.test.ts:67-142`) now covers the real path.
+- If the mutation genuinely cannot import from `lib/`, instead delete `applyGeneratedTtsToWords` +
+  its test entirely (a tested-but-unused divergent copy is strictly worse than none).
+
+**Step 2 — unify the `ThemeWordWithTts` type families (#2).** Falls out of Step 1.
+- Define the structural word shape once in `lib/themes/tts.ts` (plain, non-generic); have
+  `convex/themes/ttsPipeline.ts:5-21` re-export/extend it for the `Id<"_storage">` specialization
+  rather than re-declaring. Drop `ApplyGeneratedTtsResult` and the generic `GeneratedWordTtsResult`
+  + `<TStorageId extends string>` machinery from lib.
+
+**Step 3 — hoist the timeout policy (#5).**
+- Give `generateTtsAudioWithFallback` (or a small `withTtsTimeout(fn)` helper in `lib/tts/`)
+  ownership of the AbortController + `TTS_TIMEOUT_MS` timeout. Both call sites
+  (`app/api/tts/ttsService.ts:68-89`, `convex/themes/ttsPipeline.ts:79-90`) collapse to a single
+  `await generateTtsAudioWithFallback(...)`; drop `generateThemeTtsAudio`'s injected `generateAudio`
+  param and the wrapper closure in `generateThemeTtsAction.ts:60-67`.
+
+**Step 4 — playback hook relocation/cleanup (#3, #4).**
+- Move `useTTS` from `app/game/hooks/useTTS.ts` to top-level `hooks/useTTS.ts`; update the three
+  importers (`useThemeTtsController.ts:6`, `app/solo/learn/[sessionId]/page.tsx:24`,
+  `useDuelAudio.ts:4`). Pure relocation.
+- Delete `app/duel/[duelId]/hooks/useDuelAudio.ts`; call `useTTS()` directly in `useDuelActions.ts:51`,
+  destructuring `{ isPlaying: isPlayingAudio, playTTS }`.
+
+**Step 5 — provider-file dedup + Resemble parsing (#6, #7).**
+- Replace `getResembleApiKey`/`getElevenLabsApiKey` (`providerAdapters.ts:46-58`) with one
+  `readApiKey(envVar)` helper.
+- Define the expected Resemble response types once + a single `extractResembleEntity(data)` /
+  `extractResemblePresetList(data)` parser, used by `createResembleClip` (`:158`),
+  `waitForResembleAudio` (`:186`), and `ensureRemoteResemblePreset` (`:87-93, :115`) — replaces the
+  scattered `||` shape guesses with one typed boundary.
+
+**Step 6 — minors (opportunistic).**
+- Add the `revokeOnCleanup` invariant comment (`useTTS.ts:20`); optionally route the duplicated
+  `TTS_GENERATION_LOCK_MS` (`generateThemeTtsAction.ts:18`, `ttsGenerationLocks.ts:4`) through a
+  shared `convex/constants.ts` entry; consider the `GenerateThemeTtsResult` builder only if Step 1
+  already touches that file.
+
+**Gate at implementation time (docs-only now, so not run yet):** eslint + `npm run typecheck` +
+`npm run test:run`. Note: Step 1 changes test coverage semantics — confirm `themesTts.test.ts`
+exercises the real mutation path after the collapse.
 
 ## Approval bar
 

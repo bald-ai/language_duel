@@ -39,7 +39,7 @@ No file is over the 700 LOC guideline; the biggest in-scope files are `lib/theme
 
 ### 0. `lib/theme.ts` (360 LOC) is the *appearance* theme system and does not belong in this area at all
 
-`lib/theme.ts` is entirely about visual design tokens: `colorPalettes`, `deriveThemeColors`, `getButtonStyles`, `applyThemeCssVariables`, `ThemeName = "playful-duo" | …`. Its only consumers are `app/components/AppearanceProvider.tsx`, `app/components/themeCssVars.ts`, `app/themes/components/themeStyles.ts`, and `convex/userPreferences.ts` (the `colorSet` preference). It has **zero** relationship to the language-learning theme (vocabulary set) that every other file in this scope manipulates.
+`lib/theme.ts` is entirely about visual design tokens: `colorPalettes`, `deriveThemeColors`, `getButtonStyles`, `applyThemeCssVariables`, `ThemeName = "playful-duo" | …`. Its consumers are wider than the appearance cluster — ~15 importers across app, convex, and tests: `app/components/AppearanceProvider.tsx`, `app/components/themeCssVars.ts`, `app/components/modals/modalButtonStyles.ts`, `app/components/MenuButton.tsx`, `app/themes/components/themeStyles.ts`, `app/themes/components/PickAndPruneReview.tsx`, `app/layout.tsx`, `app/settings/components/ColorSetSelector.tsx`, `app/goals/bossUi.ts`, `app/solo/learn/[sessionId]/page.tsx`, plus two **backend** files — `convex/userPreferences.ts` (`isThemeName`) and `convex/emails/notificationEmailData.ts` (`colorPalettes`, `DEFAULT_THEME_NAME`) — and three test files. The Step 5 rename must update all of them (see C7). It has **zero** relationship to the language-learning theme (vocabulary set) that every other file in this scope manipulates.
 
 This is a genuine cross-stack naming collision of exactly the kind AGENTS.md forbids: two unrelated product concepts both called "theme". A reader landing in this area sees `lib/theme.ts` next to `lib/themeAccess.ts` and reasonably assumes they're related — they are not. `theme.ts` exposes `ThemeName`/`ThemeColors`; `themeAccess.ts` exposes `ThemeAccessData` keyed on `Id<"themes">`. Same word, two universes.
 
@@ -134,14 +134,70 @@ This is also a thin-wrapper smell: `hasDuplicateWrongAnswersInWord` (line 68), `
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **Unify the edit predicate (#1 + #2 + #3).** Rename `canGenerateStoredThemeTts → canEditTheme`, rewrite `requireThemeEditor` to load-then-delegate, delete `isFriendOfOwner`. This is the highest-value structural fix and removes the worst drift risk.
-2. **Fix the list access fan-out (#4).** Make the archived filter pure; stop re-running `canViewTheme` per row. Biggest runtime/structure win.
-3. **Collapse `accessPolicy.ts` (#5)** — pick one module name for view-access and import it consistently.
-4. **Single-pass validation core (#6, #7)** — one `collectThemeIssues` call feeding all selectors; kill the fake-entry hack.
-5. **Reclassify `lib/theme.ts` (#0)** — rename/move out of this area (coordinate with Area 1).
-6. **Enum + dedup cleanups (#8, #9, #10)** in any order.
+All items approved as **fix it (A)** except where noted. Pure refactor: **behavior must stay
+identical** — no permission rule, list result, or validation verdict changes. Before handoff run
+eslint (no errors) + `npm run typecheck` + `npm run test:run`.
+
+Decisions: #0 A · #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · #9 A · #10 A ·
+#11 A · #12 **tidy (B)** · #13 A · #14 **deferred to Area 3**.
+
+### Step 1 — Unify the edit predicate (#1 + #2 + #3)
+The linchpin. One pure rule, everyone delegates to it.
+- Rename `canGenerateStoredThemeTts → canEditTheme` in `lib/themeAccess.ts:130`; update call sites
+  `readModels.ts:24`, `queries.ts:24`, and the test `tests/lib/themeAccess.test.ts:282`.
+- Rewrite `requireThemeEditor` (`convex/helpers/permissions.ts:18`) to **load-then-delegate**: load
+  theme, load friendships via `loadFriendshipsBetweenUsers`, call `canEditTheme(...)`, throw if false.
+  Deletes the duplicated inline predicate at `permissions.ts:28–40`.
+- Delete `isFriendOfOwner` (`permissions.ts:44–60`); use `areUsersFriendsInDb(ctx, userId, ownerId)`.
+
+### Step 2 — Fix the list access fan-out (#4)
+Stop re-confirming access the indexed loaders already established.
+- Split `shouldListTheme`'s two jobs: apply the archived filter **purely** in `getThemeListForViewer`
+  (`archivedThemeIds.has(theme._id)`, no async).
+- Drop the per-theme `canViewTheme` re-check (the 9-query-per-row scan) — trust the indexed load.
+
+### Step 3 — Collapse `accessPolicy.ts` (#5)
+- Delete the 6-line re-export `convex/themes/accessPolicy.ts`; import directly from
+  `convex/helpers/themeAccess` at the 4 call sites (`convex/themes.ts:9`, `mutations.ts:19`,
+  `queries.ts:9`, `listQueries.ts:5`). Optionally rename the helper to a real `accessPolicy.ts`.
+
+### Step 4 — Single-pass validation core (#6 + #7)
+- Make the `themeUiValidation.ts` helpers derive everything from **one** `collectThemeIssues(words)`
+  result (duplicate-index set, per-word wrong-answer map, prioritized repair issue); collapse the
+  thin `checkThemeForX`/`getXIndices` wrappers into selectors over that result.
+- Replace `isWordDuplicate`'s fake-entry hack (`themeUiValidation.ts:165`) with a direct
+  `normalizeForComparison` equality check — no dummy word, no dependency on the wrong-answer rule.
+
+### Step 5 — Reclassify `lib/theme.ts` (#0)
+- Rename/move the appearance-color file out of this area (e.g. `lib/colorSets.ts` to match the
+  `colorSet` preference). **This is a repo-wide rename, NOT an Area-1-only cleanup.** `lib/theme.ts`
+  has ~15 importers across many areas, including two backend files that the "appearance cluster"
+  framing misses: `convex/emails/notificationEmailData.ts` (`colorPalettes`, `DEFAULT_THEME_NAME`)
+  and `convex/userPreferences.ts` (`isThemeName`). Other consumers: app shell (`app/layout.tsx`),
+  settings (`ColorSetSelector.tsx`, Area 14), solo (`app/solo/learn/[sessionId]/page.tsx`, Area 8),
+  goals (`app/goals/bossUi.ts`, Area 9), theme generation (`PickAndPruneReview.tsx`, Area 3), shared
+  UI (`modalButtonStyles.ts`, `themeCssVars.ts`, `themeStyles.ts`, `MenuButton.tsx`,
+  `AppearanceProvider.tsx`), plus tests. Do it as **one pass** and update every import path (including
+  the `convex/` ones) or the build breaks. Coordinate with Area 1 and Area 14 (see C7).
+
+### Step 6 — Cleanups (#8, #9, #10, #11, #12, #13) — any order
+- **#8** Extract `loadDraftGoalsForUser(ctx, userId)` (creator∪partner, draft, Set/Map dedup); reuse
+  in `handleDeleteTheme` (`mutations.ts:169–184`) and `loadDraftGoalAccessThemes`.
+- **#9** Replace the literal `ThemeWordType` (`mutations.ts:22`) with the canonical `WordType` from
+  `lib/themes/wordTypes.ts`; ideally derive the schema validator from `WORD_TYPE_VALUES` too.
+- **#10** Replace `WEEKLY_GOAL_ACCESS_STATUSES` array + cast with `goal.status === "draft"`.
+- **#11** Inline the identity wrappers `normalizeValue`/`normalizeComparableValue`
+  (`serverValidation.ts:53–59`).
+- **#12** Tidy the trivial pass-throughs in `wordTypes.ts` (callers of `getDefaultWordType()` read the
+  `DEFAULT_WORD_TYPE` constant directly).
+- **#13** Give the `filteredUpdates` patch (`mutations.ts:98`) a typed shape
+  (`Partial<Pick<Doc<"themes">, "name"|"description"|"words">>`) instead of `Record<string, unknown>`.
+
+### Deferred
+- **#14** Loose `Generate*Result` interfaces in `lib/themes/api.ts` — **leave to Area 3** (generation
+  boundary); do not touch in this area.
 
 ## Approval bar
 

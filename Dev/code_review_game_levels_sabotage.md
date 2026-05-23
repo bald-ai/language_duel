@@ -233,16 +233,97 @@ hook), so there's one source of truth for whether these buttons track live appea
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **Confirm intent on #1 with the user**, then delete the duel-mode half of all four level
-   components + `HintProps` + anagram feature, and retarget the tests to solo-only. Biggest LOC
-   delete (~700), removes the dual-path violation, and shrinks every file under guideline.
-2. Extract `levelButtonStyles.ts` + `<LevelActions>` (#2) and `groupSlotsByWord` (#3) — both get
-   simpler once #1 is done.
-3. `useAnimatedOptions` extraction (#4), which then lets you remove the `queueMicrotask`/`setTimeout(0)`
-   deferrals (#6) and is the natural place to address the PRNG inconsistency (#5).
-4. Mediums #7, #8 in any order.
+**Decisions:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · #7 A · #8 A · minors A.
+(There is no finding #9 — findings are #1–#8 plus an unnumbered minor bundle.)
+
+**#1 is an approved deletion** — the user signed off on removing the dead `mode="duel"` half.
+Everything else is pure refactor (behavior identical for the solo path). This is **not**
+a behavior change to production: the deleted branches have no production caller. Run eslint +
+`npm run typecheck` + `npm run test:run` before any handoff; the level component test suites are
+the pinned surface and must be **retargeted to solo-only**, not just left passing.
+
+### Step 1 — Delete the duel half of all four level components (#1)
+- Drop the `mode` prop + `isDuelMode` from `Level1Input`, `Level2TypingInput`,
+  `Level2MultipleChoice`, `Level3Input`; components become solo-only.
+- Remove every `isDuelMode ? A : B` ternary (styling riddled with them:
+  `Level1Input.tsx:308–314, 353, 462, 487`; `Level2TypingInput.tsx:303, 319–357`;
+  `Level3Input.tsx:94, 188–235`; `Level2MultipleChoice.tsx:240, 267–280`).
+- Delete the 4× copy-pasted "Hint System UI" block (`Level1Input.tsx:380–455`,
+  `Level2TypingInput.tsx:368–435`, `Level2MultipleChoice.tsx:315–382`, `Level3Input.tsx:114–181`).
+- Delete the anagram feature in `Level2TypingInput` (`handleSubmitAnagram`, drag handlers,
+  `handleShuffleAnagram`, `renderAnagramTiles`, the `hintIsAnagram` JSX 220–277, and
+  `anagramLetters`/`anagramResult`/`dragIndexRef` state) and `Level3Input`'s `showAnagramHint`
+  path (49–55, 102, 108–112).
+- Delete the duel Confirm button + `handleConfirm` (`Level1Input.tsx:72–78, 457–481`),
+  `onUpdateHintState` effect (234–238), `handleRequestHint` (241–245), `revealHint`'s duel branch,
+  the `hintRevealedPositions` apply effect (215–231) with its `eslint-disable`.
+- Delete the duel keyboard branch + `eliminatedOptions` handling in `Level2MultipleChoice`
+  (112–119, 59, 117, 186, 195–201), its `handleRequestHint`, and `handleDontKnow`'s
+  reveal-then-skip (89–97, 266).
+- Delete `HintProps` (`types.ts:28–37`) and the per-level `onRequestHint` signatures
+  (`types.ts:43,51,58`).
+- Retarget tests: remove all `mode="duel"` cases + `-hint-request`/`-confirm`/anagram testid
+  assertions across the four `LevelX.test.tsx`; keep/expand solo assertions.
+- Expected: `Level1Input` ~510→~250, `Level2TypingInput` ~438→~210, `Level2MultipleChoice`
+  ~385→~250, `Level3Input` ~260→~150 (~700 LOC removed).
+
+### Step 2 — Extract shared button styling + actions (#2, #8)
+- New `levels/components/LevelActions.tsx`: `<LevelActions onSkip onConfirm confirmDisabled
+  dataTestIdBase />` replacing the structurally identical "Don't Know" + "Confirm" footer in
+  `Level2TypingInput.tsx:316–358`, `Level2MultipleChoice.tsx:264–296`, `Level3Input.tsx:185–240`.
+- New `levels/levelButtonStyles.ts` for the level button styles (hoisted module-level so they stop
+  rebuilding on every render). **⚠️ C1 constraint — this must NOT become a fourth parallel button
+  recipe.** The gradient/border *colors* must derive from the canonical primitive `getButtonStyles`
+  (via `getCtaActionStyle` / `getThemeActionButtonStyle`), never from re-encoded `cssVarColors`
+  strings. Only the layout className may be level-specific, and it must **not** reuse the name
+  `actionButtonClassName` — that is already exported by `app/components/modals/modalButtonStyles.ts`;
+  name it e.g. `levelActionButtonClassName` to avoid the collision. If the level buttons end up
+  visually identical to the modal CTA, skip the new module and import
+  `actionButtonClassName`/`getCtaActionStyle` directly.
+- `Level0Input` (#8): drop the shadowed `cssVarColors as colors` import; route its button consts
+  through `levelButtonStyles.ts` so there's one source of truth for whether buttons track live vs
+  static appearance colors.
+
+### Step 3 — Extract `groupSlotsByWord` helper (#3)
+- Add pure `groupSlotsByWord(slots): {char,originalIndex}[][]` to `lib/stringUtils.ts` next to
+  `buildLetterSlots`; replace the duplicated grouping loops in `Level1Input.renderSlots`
+  (251–346) and (if the anagram path survived) `Level2TypingInput.renderAnagramTiles` (160–216).
+  After Step 1's anagram deletion this collapses to a single Level1 caller, but the helper is
+  still the right home and is now unit-testable without React.
+
+### Step 4 — Extract `useAnimatedOptions` + remove setState deferrals (#4, #6)
+- New `useAnimatedOptions<T>({ activeSabotage, effect, optionCount, init, step })` owning the rAF
+  lifecycle, cleanup, and `positionsRef`↔state mirroring. Rewrite `useBounceOptions` (126) and
+  `useTrampolineOptions` (175) as ~40 LOC of pure physics (`init(i, screen)` / `step(opt, dt,
+  screen)`).
+- Set initial state inside the effect normally and drive updates from the rAF callback so the
+  `queueMicrotask`/`setTimeout(0)` deferrals (#6) disappear (bounce 47–50/73–74, trampoline
+  53–57/91–92). Collapse `useReverseAnswers`'s triplicated timer-clear block (38–42, 47–51,
+  54–57) to one local helper (stays timer-based, separate from the rAF hook).
+
+### Step 5 — PRNG consistency (#5)
+- Replace raw `Math.random()` in `useBounceOptions.ts:66–69` and
+  `useTrampolineOptions.ts:123–151` with `lib/prng` (seedable, matching `Level2MultipleChoice`/
+  `StickyNotes`). Deliberate decision recorded: sabotage randomness should be seeded like the
+  rest of the area, not per-client `Math.random()`.
+
+### Step 6 — `Level2MultipleChoice` keyboard cleanup (#7)
+- After Step 1 removes the duel number-key branch, inline the small solo arrow-nav; drop the
+  parallel `selectedIndexRef` mirror and the redundant `setTimeout(0)` around Enter-submit
+  (107–146). Only promote to a `useListKeyboard` hook if it stays generic.
+
+### Step 7 — Minors (the unnumbered 🟢 bundle)
+- `Level1Input.tsx:191–209`: replace `revealHint`'s setState-as-getter with a ref mirror or a
+  next-unfilled computation from `letterSlots`.
+- `Level3ExtendedProps` (`Level3Input.tsx:10–12`): moot after Step 1 (hint types deleted); ensure
+  removed.
+- `SabotageRenderer.tsx:16–21`: leave the one-case switch (more overlay effects plausible) — no
+  change unless trivially simplified to `effect === "sticky"`.
+- `StickyNotes.tsx:12–30`: leave `STICKY_COLORS`/`STICKY_TEXTS` in place unless another effect
+  needs taunt copy.
+- `useTTS.ts:85–87` empty-catch is a legitimate storage→regenerate degradation — **leave**.
 
 ## Approval bar
 

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Outfit, Bebas_Neue } from "next/font/google";
+import { Geist, Geist_Mono, Outfit, Fredoka, Modak } from "next/font/google";
 import { ConvexClientProvider } from "@/app/components/convex-provider";
 import { AppearanceProvider } from "@/app/components/AppearanceProvider";
 import { BackgroundProvider } from "@/app/components/BackgroundProvider";
@@ -30,11 +30,17 @@ const outfit = Outfit({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-// Bebas Neue for display headings - bold, impactful display font
-const bebasNeue = Bebas_Neue({
+// Fredoka for display headings - rounded, playful bubble font
+const fredoka = Fredoka({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "500", "600", "700"],
+});
+
+const modak = Modak({
+  variable: "--font-brand",
+  subsets: ["latin"],
+  weight: ["400"],
 });
 
 export const metadata: Metadata = {
@@ -79,7 +85,7 @@ export default function RootLayout({
       <ConvexClientProvider>
         <html lang="en" suppressHydrationWarning>
           <body
-            className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${bebasNeue.variable} antialiased`}
+            className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${fredoka.variable} ${modak.variable} antialiased`}
           >
             <UserPreferencesProvider>
               <AppearanceProvider>

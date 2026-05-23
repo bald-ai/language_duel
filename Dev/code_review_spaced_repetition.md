@@ -94,13 +94,31 @@ For each `ready` item the board calls `loadSpacedRepetitionSnapshotContent` (whi
 
 ---
 
-## Recommended ordering
+## Implementation Plan — approved 2026-05-22
 
-1. **#1** server-derived `BoardData` type (kills the drifted/phantom contract; lowest risk, biggest correctness win). Will require fixing the test fixture's `partner` shape.
-2. **#5** delete redundant `isDueNow` (trivial, pairs with #1's type churn).
-3. **#6** board snapshot light-check (removes wasted server work on the hottest query).
-4. **#2 + #3 + #4** decompose `RepetitionBoard.tsx`, fold the ready section into `CompactSection`, and lift shared title/step helpers — do these together since they move the same code.
-5. Minors as encountered.
+**Decision:** #1 A · #2 A · #3 A · #4 A · #5 A · #6 A · minors A.
+
+Pure cleanup pass — no behavior change. `lib/spacedRepetition.ts` (the clean pure scheduling module) is untouched. Excluded per brief: rest of weekly goals (Area 9), notifications (Area 11). Run eslint + `npm run typecheck` + `npm run test:run` before handoff (the test fixture's `partner` shape must be corrected as part of Step 1).
+
+**Step 1 — single-source the board contract (#1, #5).**
+- Delete the hand-rolled `BoardItem`/`BoardData` (`RepetitionBoard.tsx:19-43`); derive from the server: `type BoardData = FunctionReturnType<typeof api.weeklyGoalRepetitions.getBoard>; type BoardItem = BoardData["all"][number]`.
+- Fix the test fixture (`tests/components/RepetitionBoard.test.tsx:20`) to use the real `UserSummary` shape — drops the phantom `email` field.
+- Delete redundant `isDueNow` from `buildBoardItem` (`readModel.ts:51`) and from the client type/fixture; consumers use `bucket === "ready"` / `canStart`.
+
+**Step 2 — lighten the hottest query (#6).**
+- Replace the full `loadSpacedRepetitionSnapshotContent` call in the board path (`board.ts:91-94`) with a lightweight `assertSnapshotContentReady(ctx, goal)` returning `{ ok: true } | { ok: false; message }` from the existing per-theme checks (`contentLoading.ts:27-41`), skipping `buildSessionWords`/`summarizeSessionWords`. Keep the full loader for the launch preview and start/challenge mutations.
+
+**Step 3 — decompose the board + share display helpers (#2, #3, #4).**
+- Split `RepetitionBoard.tsx` (412) into `RepetitionReadyCard.tsx`, `RepetitionCompactRow.tsx`, and a `RepetitionSection`/`VisibleItems` module; leave `RepetitionBoard.tsx` as the ~80-LOC shell (stats grid + tabs + `<VisibleItems>`).
+- Give `CompactSection` a `variant: "panel" | "cards"` (or `unstyledBody`) and route every section through it, removing the special-case "ready" branch and hardcoded `"Ready Now"` title (#3).
+- Extract `boardItemTitle(item)` and `currentStepOf(item)` (plus `formatShortDate`, `partnerLabel`, `themeTitle`, `sectionTitle`) into a shared `boardItemDisplay.ts`, called from both the board and the launch page (`[goalId]/page.tsx:101-111`) (#4).
+
+**Minors — address opportunistically when in the relevant file.**
+- Inline `EMPTY_BOARD` at the query (`weeklyGoalRepetitions.ts:9`) if touched.
+- `getThemeNames` thin wrapper (`rules.ts:7-9`) — leave unless a second caller appears.
+- Consider a `finalizeSoloSession` helper if a third "advance + mark completed" trigger appears (`soloPractice.ts:112-127`, `172-192`).
+- Keep the warn-vs-throw split between `completeRepetitionSoloPractice` and `recordRepetitionSoloMastery` deliberate.
+- Extract `buildBoardItemForGoal` only if already in `board.ts` for Step 2.
 
 ## Approval bar
 
