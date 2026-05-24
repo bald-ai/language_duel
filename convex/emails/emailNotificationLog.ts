@@ -6,15 +6,13 @@ import {
 } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { emailNotificationTriggerValidator } from "../schema";
-import { type NotificationTrigger } from "../../lib/notificationPreferences";
-import { EMAIL_LOG_TTL_MS } from "../constants";
+import { type NotificationEmailTrigger } from "../../lib/notificationPreferences";
+import { EMAIL_LOG_TTL_MS, EMAIL_SEND_CLAIM_STALE_MS } from "../constants";
 import { isEmailLogPastRetention } from "../../lib/cleanupRetention";
-
-const EMAIL_SEND_CLAIM_STALE_MS = 10 * 60 * 1000;
 
 type EmailNotificationLogLookupArgs = {
   toUserId: Id<"users">;
-  trigger: NotificationTrigger;
+  trigger: NotificationEmailTrigger;
   challengeId?: Id<"challenges">;
   duelId?: Id<"duels">;
   soloPracticeSessionId?: Id<"soloPracticeSessions">;
@@ -26,78 +24,7 @@ async function checkEmailNotificationSent(
   ctx: Pick<QueryCtx, "db">,
   args: EmailNotificationLogLookupArgs
 ): Promise<boolean> {
-  if (args.weeklyGoalId && args.dedupeKey) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("weeklyGoalId", args.weeklyGoalId)
-          .eq("dedupeKey", args.dedupeKey)
-      )
-      .first();
-    return log?.status === "sent";
-  }
-
-  if (args.challengeId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_challenge", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("challengeId", args.challengeId)
-      )
-      .first();
-    return log?.status === "sent";
-  }
-
-  if (args.duelId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_duel", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("duelId", args.duelId)
-      )
-      .first();
-    return log?.status === "sent";
-  }
-
-  if (args.soloPracticeSessionId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_soloPracticeSession", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("soloPracticeSessionId", args.soloPracticeSessionId)
-      )
-      .first();
-    return log?.status === "sent";
-  }
-
-  if (args.weeklyGoalId) {
-    const log = await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_weeklyGoal", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("weeklyGoalId", args.weeklyGoalId)
-      )
-      .first();
-    return log?.status === "sent";
-  }
-
-  const log = await ctx.db
-    .query("emailNotificationLog")
-    .withIndex("by_user_trigger", (q) =>
-      q.eq("toUserId", args.toUserId).eq("trigger", args.trigger)
-    )
-    .first();
+  const log = await findEmailNotificationLog(ctx, args);
   return log?.status === "sent";
 }
 
@@ -171,44 +98,10 @@ export const checkNotificationSent = internalQuery({
     duelId: v.optional(v.id("duels")),
     soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await checkEmailNotificationSent(ctx, args);
-  },
-});
-
-export const logNotificationSent = internalMutation({
-  args: {
-    toUserId: v.id("users"),
-    trigger: emailNotificationTriggerValidator,
-    challengeId: v.optional(v.id("challenges")),
-    duelId: v.optional(v.id("duels")),
-    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
-    weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    reminderOffsetMinutes: v.optional(v.number()),
-    dedupeKey: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const alreadySent = await checkEmailNotificationSent(ctx, args);
-    if (alreadySent) {
-      return { logged: false };
-    }
-
-    const logId = await ctx.db.insert("emailNotificationLog", {
-      toUserId: args.toUserId,
-      trigger: args.trigger,
-      status: "sent",
-      challengeId: args.challengeId,
-      duelId: args.duelId,
-      soloPracticeSessionId: args.soloPracticeSessionId,
-      weeklyGoalId: args.weeklyGoalId,
-      reminderOffsetMinutes: args.reminderOffsetMinutes,
-      dedupeKey: args.dedupeKey,
-      sentAt: Date.now(),
-    });
-    return { logged: true, logId };
   },
 });
 
@@ -220,7 +113,6 @@ export const claimNotificationSend = internalMutation({
     duelId: v.optional(v.id("duels")),
     soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -253,7 +145,6 @@ export const claimNotificationSend = internalMutation({
       duelId: args.duelId,
       soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
-      reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
       claimedAt: now,
     });
@@ -298,25 +189,12 @@ export const cleanupEmailNotificationLog = internalMutation({
       .collect();
     let deletedCount = 0;
 
+    // The by_sentAt range only narrows candidates; isEmailLogPastRetention is the
+    // single authority on whether a row is past retention.
     for (const log of logs) {
       if (log.status !== "sent" || typeof log.sentAt !== "number") continue;
       if (!isEmailLogPastRetention({ sentAt: log.sentAt }, now, EMAIL_LOG_TTL_MS)) continue;
 
-      await ctx.db.delete(log._id);
-      deletedCount++;
-    }
-
-    return { deletedCount };
-  },
-});
-
-export const resetEmailNotificationLogForStatusCutover = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const logs = await ctx.db.query("emailNotificationLog").collect();
-    let deletedCount = 0;
-
-    for (const log of logs) {
       await ctx.db.delete(log._id);
       deletedCount++;
     }

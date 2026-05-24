@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     canAttachThemeToGoal,
-    canGenerateStoredThemeTts,
+    canEditTheme,
     hasThemeAccess,
     type ThemeAccessParams,
 } from "../../lib/themeAccess";
@@ -279,10 +279,10 @@ describe("hasThemeAccess", () => {
     });
 });
 
-describe("canGenerateStoredThemeTts", () => {
-    it("allows owners to generate stored theme TTS", () => {
+describe("canEditTheme", () => {
+    it("allows owners to edit their own theme", () => {
         expect(
-            canGenerateStoredThemeTts(userId("owner1"), {
+            canEditTheme(userId("owner1"), {
                 themeId: themeId("theme1"),
                 ownerId: userId("owner1"),
                 visibility: "private",
@@ -292,7 +292,7 @@ describe("canGenerateStoredThemeTts", () => {
 
     it("allows shared editable themes for friends of the owner", () => {
         expect(
-            canGenerateStoredThemeTts(
+            canEditTheme(
                 userId("user1"),
                 {
                     themeId: themeId("theme1"),
@@ -307,7 +307,7 @@ describe("canGenerateStoredThemeTts", () => {
 
     it("rejects challenge-only access even when a shared theme is editable for friends", () => {
         expect(
-            canGenerateStoredThemeTts(userId("user1"), {
+            canEditTheme(userId("user1"), {
                 themeId: themeId("theme1"),
                 ownerId: userId("owner1"),
                 visibility: "shared",
@@ -318,7 +318,7 @@ describe("canGenerateStoredThemeTts", () => {
 
     it("rejects view-only shared themes", () => {
         expect(
-            canGenerateStoredThemeTts(userId("user1"), {
+            canEditTheme(userId("user1"), {
                 themeId: themeId("theme1"),
                 ownerId: userId("owner1"),
                 visibility: "shared",

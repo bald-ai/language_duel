@@ -1,8 +1,12 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { loadUsersById } from "../helpers/users";
-import { getSpacedRepetitionBucket } from "../../lib/spacedRepetition";
 import {
+  getSpacedRepetitionBucket,
+  type SpacedRepetitionBucket,
+} from "../../lib/spacedRepetition";
+import {
+  assertSnapshotContentReady,
   buildDeferredSnapshotContent,
   loadSpacedRepetitionSnapshotContent,
 } from "./contentLoading";
@@ -13,6 +17,7 @@ import {
   getRepetitionRecord,
   isGoalParticipant,
 } from "./rules";
+import type { LoadedSnapshotContent } from "./types";
 
 type BoardItem = ReturnType<typeof buildBoardItem>;
 
@@ -31,6 +36,20 @@ const EMPTY_BOARD: RepetitionBoard = {
   comingUp: [],
   done: [],
 };
+
+// The board only renders the availability flag/reason, never wordCount, so for
+// ready items run the cheap snapshot probe and reuse the word-free deferred
+// content shape when it passes — skipping full word materialization. The launch
+// preview keeps the full loader because it shows wordCount/themeSummary.
+async function loadBoardContent(
+  ctx: QueryCtx,
+  goal: Doc<"weeklyGoals">,
+  bucket: SpacedRepetitionBucket
+): Promise<LoadedSnapshotContent> {
+  if (bucket !== "ready") return buildDeferredSnapshotContent(goal);
+  const ready = await assertSnapshotContentReady(ctx, goal);
+  return ready.ok ? buildDeferredSnapshotContent(goal) : ready;
+}
 
 async function loadCompletedGoalsForUser(
   ctx: QueryCtx,
@@ -88,10 +107,7 @@ export async function loadRepetitionBoardForUser(
       },
       now
     );
-    const content =
-      bucket === "ready"
-        ? await loadSpacedRepetitionSnapshotContent(ctx, goal)
-        : buildDeferredSnapshotContent(goal);
+    const content = await loadBoardContent(ctx, goal, bucket);
     const partnerId = getGoalPartnerIdForViewer(goal, userId);
     items.push(
       buildBoardItem({

@@ -26,6 +26,7 @@ function baseProps(overrides: DuelViewOverrides = {}): DuelViewProps {
     status: "active",
     duelMode: "pve",
     phase: "answering",
+    isRoundOver: false,
     round: {
       wordsCount: 2,
       index: 0,
@@ -164,7 +165,7 @@ describe("DuelView PvE mode", () => {
         {...baseProps({
           status: "completed",
           phase: "transition",
-          round: { word: "done" },
+          isRoundOver: true,
           timer: { questionTimer: null },
         })}
       />

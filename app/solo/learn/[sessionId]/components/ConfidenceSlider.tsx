@@ -9,8 +9,6 @@ export type ConfidenceLevel = 0 | 1 | 2 | 3;
 interface ConfidenceSliderProps {
   value: ConfidenceLevel;
   onChange: (value: ConfidenceLevel) => void;
-  compact?: boolean;
-  readOnly?: boolean;
   dataTestIdPrefix?: string;
 }
 
@@ -48,8 +46,6 @@ type OutgoingState = { value: number; dir: SlideDirection } | null;
 export const ConfidenceSlider = memo(function ConfidenceSlider({
   value,
   onChange,
-  compact = false,
-  readOnly = false,
   dataTestIdPrefix,
 }: ConfidenceSliderProps) {
   const colors = useAppearanceColors();
@@ -68,11 +64,10 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
 
   const step = useCallback(
     (delta: number) => {
-      if (readOnly) return;
       const next = clampLevel(value + delta);
       if (next !== value) onChange(next);
     },
-    [onChange, readOnly, value]
+    [onChange, value]
   );
 
   const decrement = useCallback(() => step(-1), [step]);
@@ -83,12 +78,8 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
   const currentColor = CONFIDENCE_COLORS[value];
   const currentBg = CONFIDENCE_COLORS_LIGHT[value];
 
-  const btnSize = compact ? "w-9 h-9 text-lg" : "w-10 h-10 text-xl";
-  const boxSize = compact ? "w-14 h-9 text-lg" : "w-16 h-10 text-xl";
-  const gap = compact ? "gap-1.5" : "gap-2";
-
   const stepBtnClass = `
-    ${btnSize}
+    w-10 h-10 text-xl
     font-bold
     rounded-xl
     border-2
@@ -96,7 +87,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
     leading-none
     transition-all
     duration-150
-    ${readOnly ? "cursor-default" : "cursor-pointer hover:brightness-110 active:scale-95"}
+    cursor-pointer hover:brightness-110 active:scale-95
   `;
 
   const stepBtnStyle = (disabled: boolean) => ({
@@ -104,7 +95,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
     borderColor: colors.primary.dark,
     color: colors.primary.dark,
     opacity: disabled ? 0.35 : 1,
-    cursor: disabled || readOnly ? "not-allowed" : "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
   });
 
   const boxStyle = {
@@ -117,13 +108,13 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
 
   return (
     <div
-      className={`flex items-center ${gap}`}
+      className="flex items-center gap-2"
       data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-control` : undefined}
     >
       <button
         type="button"
         onClick={decrement}
-        disabled={readOnly || atMin}
+        disabled={atMin}
         aria-label="Decrease confidence"
         data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-decrement` : undefined}
         className={stepBtnClass}
@@ -133,7 +124,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
       </button>
 
       <div
-        className={`${boxSize} relative overflow-hidden rounded-xl border-2 font-bold select-none`}
+        className="w-16 h-10 text-xl relative overflow-hidden rounded-xl border-2 font-bold select-none"
         style={boxStyle}
         aria-live="polite"
         aria-label={`Confidence level ${value}`}
@@ -159,7 +150,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
       <button
         type="button"
         onClick={increment}
-        disabled={readOnly || atMax}
+        disabled={atMax}
         aria-label="Increase confidence"
         data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-increment` : undefined}
         className={stepBtnClass}

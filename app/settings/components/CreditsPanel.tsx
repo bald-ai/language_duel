@@ -1,25 +1,27 @@
 "use client";
 
 import {
-  LLM_MONTHLY_CREDITS,
-  TTS_MONTHLY_GENERATIONS,
   LLM_THEME_CREDITS,
   LLM_SMALL_ACTION_CREDITS,
 } from "@/lib/credits/constants";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 type CreditsPanelProps = {
-  llmCreditsRemaining?: number;
-  ttsGenerationsRemaining?: number;
+  llmCreditsRemaining: number;
+  ttsGenerationsRemaining: number;
 };
+
+const CREDIT_VALUE_FONT = {
+  fontFamily: "Outfit, system-ui, sans-serif",
+  fontWeight: 500,
+  fontStyle: "normal",
+} as const;
 
 export function CreditsPanel({
   llmCreditsRemaining,
   ttsGenerationsRemaining,
 }: CreditsPanelProps) {
   const colors = useAppearanceColors();
-  const llmRemaining = llmCreditsRemaining ?? LLM_MONTHLY_CREDITS;
-  const ttsRemaining = ttsGenerationsRemaining ?? TTS_MONTHLY_GENERATIONS;
 
   return (
     <div
@@ -46,14 +48,9 @@ export function CreditsPanel({
           </p>
           <p
             className="text-xl"
-            style={{
-              color: colors.text.DEFAULT,
-              fontFamily: "Outfit, system-ui, sans-serif",
-              fontWeight: 500,
-              fontStyle: "normal",
-            }}
+            style={{ color: colors.text.DEFAULT, ...CREDIT_VALUE_FONT }}
           >
-            {llmRemaining}
+            {llmCreditsRemaining}
           </p>
           <p className="text-xs" style={{ color: colors.text.muted }}>
             Theme {LLM_THEME_CREDITS} | Other {LLM_SMALL_ACTION_CREDITS}
@@ -71,14 +68,9 @@ export function CreditsPanel({
           </p>
           <p
             className="text-xl"
-            style={{
-              color: colors.text.DEFAULT,
-              fontFamily: "Outfit, system-ui, sans-serif",
-              fontWeight: 500,
-              fontStyle: "normal",
-            }}
+            style={{ color: colors.text.DEFAULT, ...CREDIT_VALUE_FONT }}
           >
-            {ttsRemaining}
+            {ttsGenerationsRemaining}
           </p>
           <p className="text-xs" style={{ color: colors.text.muted }}>Generations</p>
         </div>

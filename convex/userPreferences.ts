@@ -1,10 +1,26 @@
 import { mutation, query } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
-import { isValidBackground } from "../lib/preferences/backgrounds";
-import { isThemeName } from "../lib/theme";
+import { BACKGROUND_OPTIONS } from "../lib/preferences/backgrounds";
+import { themeOptions } from "../lib/appearance";
 import { DEFAULT_TTS_PROVIDER } from "../lib/tts/providers";
 import { ttsProviderValidator } from "./schema";
+
+// Build a Convex union validator from a list of allowed string values so invalid
+// values are rejected at the arg layer (the same treatment ttsProviderValidator
+// already gets) instead of a hand-rolled check inside each handler.
+function literalUnion(values: readonly string[]) {
+  const [first, second, ...rest] = values.map((value) => v.literal(value));
+  if (!first || !second) {
+    throw new Error("literalUnion requires at least two values");
+  }
+  return v.union(first, second, ...rest);
+}
+
+export const colorSetValidator = literalUnion(themeOptions.map((option) => option.name));
+export const backgroundValidator = literalUnion(
+  BACKGROUND_OPTIONS.map((option) => option.filename)
+);
 
 /**
  * Get current user's preferences (color set and background)
@@ -30,15 +46,10 @@ export const getUserPreferences = query({
  */
 export const updateColorSet = mutation({
   args: {
-    colorSet: v.string(),
+    colorSet: colorSetValidator,
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
-
-    // Validate color set name
-    if (!isThemeName(args.colorSet)) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: `Invalid color set: ${args.colorSet}` });
-    }
 
     await ctx.db.patch(user._id, {
       selectedColorSet: args.colorSet,
@@ -53,15 +64,10 @@ export const updateColorSet = mutation({
  */
 export const updateBackground = mutation({
   args: {
-    background: v.string(),
+    background: backgroundValidator,
   },
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
-
-    // Validate background filename
-    if (!isValidBackground(args.background)) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: `Invalid background: ${args.background}` });
-    }
 
     await ctx.db.patch(user._id, {
       selectedBackground: args.background,

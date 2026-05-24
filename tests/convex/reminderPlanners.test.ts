@@ -51,21 +51,21 @@ describe("reminder planners", () => {
     ]);
   });
 
-  it("returns no fixed reminders when category emails are disabled", () => {
+  it("returns no fixed reminders before any reminder window opens", () => {
+    const now = Date.now();
+    // Goal ends in 10 days; the default reminders (3 days / 1 day before end)
+    // have not come due yet, so timing alone excludes them.
     const planned = planFixedReminderEmails({
-      goal: buildGoal(),
+      goal: buildGoal({ endDate: now + 10 * 24 * 60 * 60 * 1000 }),
       toUserId: "user_1" as Id<"users">,
-      now: Date.now(),
-      prefs: {
-        ...DEFAULT_NOTIFICATION_PREFS,
-        weeklyGoalEmailsEnabled: false,
-      },
+      now,
+      prefs: DEFAULT_NOTIFICATION_PREFS,
     });
 
     expect(planned).toEqual([]);
   });
 
-  it("plans daily and grace-period reminders when enabled", () => {
+  it("plans daily and grace-period reminder descriptors", () => {
     const goal = buildGoal();
 
     expect(
@@ -73,7 +73,6 @@ describe("reminder planners", () => {
         goal,
         toUserId: "user_1" as Id<"users">,
         dedupeKey: "2026-05-13",
-        prefs: DEFAULT_NOTIFICATION_PREFS,
       })
     ).toEqual({
       trigger: "weekly_goal_daily_reminder",
@@ -87,7 +86,6 @@ describe("reminder planners", () => {
         goal,
         toUserId: "user_1" as Id<"users">,
         dedupeKey: "2026-05-13",
-        prefs: DEFAULT_NOTIFICATION_PREFS,
       })
     ).toEqual({
       trigger: "weekly_goal_grace_period_reminder",
@@ -97,11 +95,10 @@ describe("reminder planners", () => {
     });
   });
 
-  it("draft-expiry decisions create in-app first, but email only if enabled", () => {
+  it("draft-expiry creates in-app and plans email unless already sent", () => {
     expect(
       planDraftExpiryDecision({
         alreadySent: false,
-        prefs: DEFAULT_NOTIFICATION_PREFS,
       })
     ).toEqual({
       shouldCreateInAppNotification: true,
@@ -110,21 +107,7 @@ describe("reminder planners", () => {
 
     expect(
       planDraftExpiryDecision({
-        alreadySent: false,
-        prefs: {
-          ...DEFAULT_NOTIFICATION_PREFS,
-          weeklyGoalDraftExpiringEmailEnabled: false,
-        },
-      })
-    ).toEqual({
-      shouldCreateInAppNotification: true,
-      shouldSendEmail: false,
-    });
-
-    expect(
-      planDraftExpiryDecision({
         alreadySent: true,
-        prefs: DEFAULT_NOTIFICATION_PREFS,
       })
     ).toEqual({
       shouldCreateInAppNotification: false,

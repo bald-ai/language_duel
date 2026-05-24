@@ -1,12 +1,12 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { canGenerateStoredThemeTts } from "../../lib/themeAccess";
+import { canEditTheme } from "../../lib/themeAccess";
 import {
   collectTtsStorageIds,
   getSnapshotReferencedStorageIdsForTheme,
 } from "../helpers/themeTtsStorage";
 import { loadFriendshipsBetweenUsers } from "../helpers/relationshipPolicy";
-import { loadThemeWithViewerAccess } from "./accessPolicy";
+import { loadThemeWithViewerAccess } from "../helpers/themeAccess";
 import type { ThemeWordWithTts } from "./ttsPipeline";
 
 export async function loadThemeForStoredTtsEditor(
@@ -21,7 +21,7 @@ export async function loadThemeForStoredTtsEditor(
     : [];
 
   if (
-    !canGenerateStoredThemeTts(
+    !canEditTheme(
       args.viewerId,
       {
         themeId: theme._id,

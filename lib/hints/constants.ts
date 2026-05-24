@@ -1,1 +1,0 @@
-export const PVP_HINT_ELIMINATION_PICKS = 2;

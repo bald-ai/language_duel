@@ -3,8 +3,7 @@
 import { memo } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
-type ModeTone = "primary" | "secondary" | "cta";
+type ModeTone = "primary" | "secondary";
 
 interface ModeSelectionButtonProps {
   selected: boolean;
@@ -15,12 +14,6 @@ interface ModeSelectionButtonProps {
   dataTestId?: string;
 }
 
-const toneMap = {
-  primary: colors.primary,
-  secondary: colors.secondary,
-  cta: colors.cta,
-} as const;
-
 export const ModeSelectionButton = memo(function ModeSelectionButton({
   selected,
   onClick,
@@ -30,7 +23,7 @@ export const ModeSelectionButton = memo(function ModeSelectionButton({
   dataTestId,
 }: ModeSelectionButtonProps) {
   const colors = useAppearanceColors();
-  const tone = toneMap[selectedTone];
+  const tone = { primary: colors.primary, secondary: colors.secondary }[selectedTone];
   const cardStyle = selected
     ? {
         backgroundColor: `${tone.DEFAULT}1A`,

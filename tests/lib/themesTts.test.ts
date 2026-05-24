@@ -139,6 +139,40 @@ describe("safe apply of generated TTS IDs", () => {
     expect(result.words[1]?.ttsStorageId).toBeUndefined();
     expect(result.words[2]?.ttsStorageId).toBe("st_bird");
   });
+
+  it("skips a slot that already has audio and rejects the new storage ID", () => {
+    const currentWords = [makeWord({ ttsStorageId: "st_existing" })];
+
+    const result = applyGeneratedTtsToWords(currentWords, [
+      {
+        wordIndex: 0,
+        sourceWord: "cat",
+        sourceAnswer: "el gato",
+        storageId: "st_new",
+      },
+    ]);
+
+    expect(result.applied).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.rejectedStorageIds).toEqual(["st_new"]);
+    expect(result.words[0]?.ttsStorageId).toBe("st_existing");
+  });
+
+  it("collects every unapplied storage ID in rejectedStorageIds", () => {
+    const currentWords = [
+      makeWord({ word: "cat", answer: "el gato", ttsStorageId: undefined }),
+      makeWord({ word: "dog", answer: "el perro", ttsStorageId: undefined }),
+    ];
+
+    const result = applyGeneratedTtsToWords(currentWords, [
+      { wordIndex: 0, sourceWord: "cat", sourceAnswer: "el gato", storageId: "st_cat" },
+      { wordIndex: 1, sourceWord: "dog", sourceAnswer: "la perra", storageId: "st_stale" },
+      { wordIndex: 9, sourceWord: "ghost", sourceAnswer: "fantasma", storageId: "st_oob" },
+    ]);
+
+    expect(result.applied).toBe(1);
+    expect(result.rejectedStorageIds).toEqual(["st_stale", "st_oob"]);
+  });
 });
 
 describe("helper guards", () => {

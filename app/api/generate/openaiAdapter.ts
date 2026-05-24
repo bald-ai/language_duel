@@ -1,9 +1,12 @@
 import OpenAI from "openai";
+import { MAX_OUTPUT_TOKENS } from "@/lib/generate/constants";
 
 export const OPENAI_MODEL = "gpt-5.4-2026-03-05" as const;
 export const OPENAI_REASONING_EFFORT = "low" as const;
 
-export type ChatMessage = OpenAI.Chat.ChatCompletionMessageParam;
+// All generate prompts use plain string content, so model this directly instead
+// of the SDK's broader message union (whose content can be an array/null).
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 export type JsonSchema = Record<string, unknown>;
 
 export function buildMessages(params: {
@@ -14,18 +17,15 @@ export function buildMessages(params: {
   const { systemPrompt, userMessage, history } = params;
   return [
     { role: "system", content: systemPrompt },
-    ...(history || []).map((h) => ({
-      role: h.role as "user" | "assistant",
-      content: h.content,
-    })),
+    ...(history || []),
     { role: "user", content: userMessage },
   ];
 }
 
 function toResponsesInput(messages: ChatMessage[]) {
   return messages.map((message) => ({
-    role: message.role as "user" | "assistant" | "system",
-    content: message.content as string,
+    role: message.role,
+    content: message.content,
   }));
 }
 
@@ -48,7 +48,7 @@ export async function callOpenAIJson<T>(
     model: OPENAI_MODEL,
     reasoning: { effort: OPENAI_REASONING_EFFORT },
     input: toResponsesInput(params.messages),
-    max_output_tokens: 30000,
+    max_output_tokens: MAX_OUTPUT_TOKENS,
     text: {
       format: {
         type: "json_schema",

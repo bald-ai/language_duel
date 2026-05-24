@@ -17,7 +17,6 @@ export function useTTSProvider() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const provider: TtsProvider = userPreferences?.ttsProvider ?? DEFAULT_TTS_PROVIDER;
-  const isLoading = userPreferences === undefined;
 
   const setProvider = useCallback(
     async (newProvider: TtsProvider) => {
@@ -40,7 +39,6 @@ export function useTTSProvider() {
   return {
     provider,
     setProvider,
-    isLoading,
     isUpdating,
   };
 }

@@ -1,21 +1,8 @@
-export interface ThemeWordWithTts<TStorageId extends string = string> {
+export interface ThemeWordWithTts {
   word: string;
   answer: string;
   wrongAnswers: string[];
-  ttsStorageId?: TStorageId;
-}
-
-export interface GeneratedWordTtsResult<TStorageId extends string = string> {
-  wordIndex: number;
-  sourceWord: string;
-  sourceAnswer: string;
-  storageId: TStorageId;
-}
-
-export interface ApplyGeneratedTtsResult<TWord extends ThemeWordWithTts<string>> {
-  words: TWord[];
-  applied: number;
-  skipped: number;
+  ttsStorageId?: string;
 }
 
 export function hasWordOrAnswerChanged(
@@ -30,7 +17,7 @@ export function hasWordOrAnswerChanged(
  * TTS stays valid only when both word and answer are unchanged.
  * Wrong answer edits keep the existing TTS ID.
  */
-export function reconcileThemeWordTts<TWord extends ThemeWordWithTts<string>>(
+export function reconcileThemeWordTts<TWord extends ThemeWordWithTts>(
   previousWords: readonly TWord[],
   nextWords: readonly TWord[]
 ): TWord[] {
@@ -69,30 +56,47 @@ export function reconcileThemeWordTts<TWord extends ThemeWordWithTts<string>>(
 }
 
 /**
- * Applies generated TTS IDs only if the original source snapshot still matches.
- * This protects against stale action results overwriting words edited during generation.
+ * Applies generated TTS IDs to the theme words. The single source of truth for
+ * the apply rules — used by both the unit tests and the production mutation.
+ *
+ * A generated result is applied only when its source snapshot still matches the
+ * current word (so a word edited mid-generation is not clobbered) and the slot
+ * does not already have audio. Every storage ID that is not applied is returned
+ * in `rejectedStorageIds` so the caller can delete the now-orphaned files.
+ *
+ * Generic over the word type so the caller's storage-ID brand (`Id<"_storage">`
+ * in Convex, plain `string` in tests) is preserved on the returned words.
  */
-export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts<string>>(
+export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts>(
   currentWords: readonly TWord[],
-  generatedResults: readonly GeneratedWordTtsResult<NonNullable<TWord["ttsStorageId"]>>[]
-): ApplyGeneratedTtsResult<TWord> {
+  generatedResults: ReadonlyArray<{
+    wordIndex: number;
+    sourceWord: string;
+    sourceAnswer: string;
+    storageId: NonNullable<TWord["ttsStorageId"]>;
+  }>
+): {
+  words: TWord[];
+  applied: number;
+  skipped: number;
+  rejectedStorageIds: NonNullable<TWord["ttsStorageId"]>[];
+} {
   const words = currentWords.map((word) => ({ ...word })) as TWord[];
   let applied = 0;
   let skipped = 0;
+  const rejectedStorageIds: NonNullable<TWord["ttsStorageId"]>[] = [];
 
   for (const result of generatedResults) {
     const currentWord = words[result.wordIndex];
 
-    if (!currentWord) {
-      skipped += 1;
-      continue;
-    }
-
     if (
+      !currentWord ||
       currentWord.word !== result.sourceWord ||
-      currentWord.answer !== result.sourceAnswer
+      currentWord.answer !== result.sourceAnswer ||
+      currentWord.ttsStorageId
     ) {
       skipped += 1;
+      rejectedStorageIds.push(result.storageId);
       continue;
     }
 
@@ -103,9 +107,9 @@ export function applyGeneratedTtsToWords<TWord extends ThemeWordWithTts<string>>
     applied += 1;
   }
 
-  return { words, applied, skipped };
+  return { words, applied, skipped, rejectedStorageIds };
 }
 
-export function hasMissingThemeTts(words: readonly ThemeWordWithTts<string>[]): boolean {
+export function hasMissingThemeTts(words: readonly ThemeWordWithTts[]): boolean {
   return words.some((word) => !word.ttsStorageId);
 }

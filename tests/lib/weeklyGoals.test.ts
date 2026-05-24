@@ -3,15 +3,13 @@ import {
   areAllThemesCompleted,
   canEditGoalEndDate,
   canToggleGoalThemeCompletion,
-  canTriggerGoalBoss,
   countCompletedThemes,
-  formatGoalGraceCountdown,
+  formatGoalCountdown,
   getGoalDeleteAt,
   getEffectiveBigBossStatus,
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   getGoalDraftExpiresAt,
-  isGoalInGracePeriod,
   isGoalPlayable,
   planWeeklyGoalLock,
   WeeklyGoalRuleViolation,
@@ -84,8 +82,8 @@ describe("weeklyGoals helpers", () => {
     expect(getGoalDraftExpiresAt(createdAt)).toBe(createdAt + WEEK_MS);
   });
 
-  it("formats the grace countdown as total-hours hh:mm:ss", () => {
-    expect(formatGoalGraceCountdown((47 * 60 * 60 + 59 * 60 + 59) * 1_000)).toBe("47:59:59");
+  it("formats the countdown as total-hours hh:mm:ss", () => {
+    expect(formatGoalCountdown((47 * 60 * 60 + 59 * 60 + 59) * 1_000)).toBe("47:59:59");
   });
 
   it("returns draft as the effective status for unlocked goals", () => {
@@ -105,8 +103,19 @@ describe("weeklyGoals helpers", () => {
     const now = 9_001;
     const goal = buildGoal();
 
-    expect(isGoalInGracePeriod(goal, now)).toBe(true);
+    expect(getEffectiveGoalStatus(goal, now)).toBe("grace_period");
     expect(isGoalPlayable(goal, now)).toBe(true);
+  });
+
+  it("stops being playable once the grace window is past the delete deadline", () => {
+    const goal = buildGoal();
+    const deleteAt = getGoalDeleteAt(goal.endDate)!;
+
+    // Still grace_period by effective status, but past the permanent-deletion
+    // deadline (e.g. the cleanup cron has not swept it yet) — must not be playable.
+    expect(getEffectiveGoalStatus(goal, deleteAt + 1)).toBe("grace_period");
+    expect(isGoalPlayable(goal, deleteAt)).toBe(false);
+    expect(isGoalPlayable(goal, deleteAt + 1)).toBe(false);
   });
 
   it("unlocks the mini boss early once half the themes are jointly completed", () => {
@@ -141,8 +150,7 @@ describe("weeklyGoals helpers", () => {
 
     expect(getEffectiveMiniBossStatus(goal, 5_000)).toBe("unavailable");
     expect(getEffectiveBigBossStatus(goal, 5_000)).toBe("unavailable");
-    expect(canTriggerGoalBoss(goal, "mini", 5_000)).toBe(false);
-    expect(canTriggerGoalBoss(goal, "big", 5_000)).toBe(false);
+    expect(isGoalPlayable(goal, 5_000)).toBe(false);
   });
 
   it("makes the big boss ready once all shared themes are done", () => {
@@ -165,8 +173,8 @@ describe("weeklyGoals helpers", () => {
     });
 
     expect(getEffectiveMiniBossStatus(goal, 4_000)).toBe("unavailable");
-    expect(canTriggerGoalBoss(goal, "mini", 4_000)).toBe(false);
-    expect(canTriggerGoalBoss(goal, "big", 4_000)).toBe(true);
+    expect(getEffectiveBigBossStatus(goal, 4_000)).toBe("ready");
+    expect(isGoalPlayable(goal, 4_000)).toBe(true);
   });
 
   it("keeps the mini boss unavailable after big boss opens even when mini was defeated", () => {
@@ -211,8 +219,11 @@ describe("weeklyGoals helpers", () => {
   });
 
   it("allows triggering the mini boss during the grace window", () => {
-    expect(canTriggerGoalBoss(buildGoal(), "mini", 5_000)).toBe(true);
-    expect(canTriggerGoalBoss(buildGoal(), "mini", 9_001)).toBe(true);
+    const goal = buildGoal();
+    expect(isGoalPlayable(goal, 5_000)).toBe(true);
+    expect(getEffectiveMiniBossStatus(goal, 5_000)).toBe("ready");
+    expect(isGoalPlayable(goal, 9_001)).toBe(true);
+    expect(getEffectiveMiniBossStatus(goal, 9_001)).toBe("ready");
   });
 
   it("centralizes whether a weekly-goal theme can be toggled", () => {

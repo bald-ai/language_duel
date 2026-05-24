@@ -43,15 +43,8 @@ type TtsProviderAdapter = {
   generateAudio: (text: string, signal: AbortSignal) => Promise<ArrayBuffer | null>;
 };
 
-export function getResembleApiKey(): string | null {
-  const apiKey = process.env.RESEMBLE_API_KEY;
-  if (!apiKey) return null;
-  const trimmed = apiKey.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function getElevenLabsApiKey(): string | null {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
+function readApiKey(envVar: string): string | null {
+  const apiKey = process.env[envVar];
   if (!apiKey) return null;
   const trimmed = apiKey.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -64,12 +57,40 @@ function getResembleHeaders(apiKey: string) {
   };
 }
 
+type ResemblePreset = { name: string; uuid: string };
+type ResembleClip = { uuid: string; audio_src?: string };
+
+// Resemble's API has returned the entity at the top level, nested under `item`,
+// or nested under `data` across versions; normalize all three shapes here.
+function extractResembleEntity<T>(data: unknown): T {
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (record.item) return record.item as T;
+    if (record.data) return record.data as T;
+  }
+  return data as T;
+}
+
+// The preset-list endpoint has returned a bare array, `{ data: [...] }`, or
+// `{ items: [...] }`; normalize all three to a plain array.
+function extractResemblePresetList(data: unknown): ResemblePreset[] {
+  if (Array.isArray(data)) {
+    return data as ResemblePreset[];
+  }
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data as ResemblePreset[];
+    if (Array.isArray(record.items)) return record.items as ResemblePreset[];
+  }
+  return [];
+}
+
 export async function ensureRemoteResemblePreset(signal: AbortSignal): Promise<string | null> {
   if (cachedResemblePresetUuid) {
     return cachedResemblePresetUuid;
   }
 
-  const apiKey = getResembleApiKey();
+  const apiKey = readApiKey("RESEMBLE_API_KEY");
   if (!apiKey) {
     return null;
   }
@@ -82,16 +103,7 @@ export async function ensureRemoteResemblePreset(signal: AbortSignal): Promise<s
     });
 
     if (listResponse.ok) {
-      const listData = await listResponse.json();
-      let presets: Array<{ name: string; uuid: string }> = [];
-      if (Array.isArray(listData)) {
-        presets = listData;
-      } else if (listData.data && Array.isArray(listData.data)) {
-        presets = listData.data;
-      } else if (listData.items && Array.isArray(listData.items)) {
-        presets = listData.items;
-      }
-
+      const presets = extractResemblePresetList(await listResponse.json());
       const existingPreset = presets.find((preset) => preset.name === RESEMBLE_VOICE_SETTINGS.name);
       if (existingPreset) {
         cachedResemblePresetUuid = existingPreset.uuid;
@@ -112,7 +124,7 @@ export async function ensureRemoteResemblePreset(signal: AbortSignal): Promise<s
       return null;
     }
 
-    const preset = data.item || data.data || data;
+    const preset = extractResembleEntity<ResemblePreset>(data);
     cachedResemblePresetUuid = preset.uuid;
     return preset.uuid;
   } catch (error) {
@@ -129,7 +141,7 @@ async function createResembleClip(
   presetUuid: string | null,
   signal: AbortSignal,
   apiKey: string
-): Promise<{ uuid: string; audio_src?: string } | null> {
+): Promise<ResembleClip | null> {
   const requestBody: Record<string, unknown> = {
     voice_uuid: RESEMBLE_VOICE_UUID,
     body: text,
@@ -155,7 +167,7 @@ async function createResembleClip(
   }
 
   const data = await response.json();
-  return data.item || data.data || data;
+  return extractResembleEntity<ResembleClip>(data);
 }
 
 async function waitForResembleAudio(
@@ -183,10 +195,10 @@ async function waitForResembleAudio(
     }
 
     const data = await response.json();
-    const clip = data.item || data.data || data;
+    const clip = extractResembleEntity<ResembleClip>(data);
 
     if (clip.audio_src) {
-      return clip.audio_src as string;
+      return clip.audio_src;
     }
 
     await new Promise((resolve) => setTimeout(resolve, RESEMBLE_POLL_INTERVAL_MS));
@@ -200,7 +212,7 @@ export async function generateResembleTtsAudio(
   text: string,
   signal: AbortSignal
 ): Promise<ArrayBuffer | null> {
-  const apiKey = getResembleApiKey();
+  const apiKey = readApiKey("RESEMBLE_API_KEY");
   if (!apiKey) {
     console.error("[Resemble TTS] API key not configured");
     return null;
@@ -226,7 +238,7 @@ export async function generateElevenLabsTtsAudio(
   text: string,
   signal: AbortSignal
 ): Promise<ArrayBuffer | null> {
-  const apiKey = getElevenLabsApiKey();
+  const apiKey = readApiKey("ELEVENLABS_API_KEY");
   if (!apiKey) {
     console.error("[ElevenLabs TTS] API key not configured");
     return null;
@@ -263,7 +275,7 @@ export function getTtsProviderAdapter(provider: TtsProvider): TtsProviderAdapter
     return {
       id: TTS_PROVIDER_IDS.ELEVENLABS,
       contentType: "audio/mpeg",
-      isConfigured: () => getElevenLabsApiKey() !== null,
+      isConfigured: () => readApiKey("ELEVENLABS_API_KEY") !== null,
       generateAudio: generateElevenLabsTtsAudio,
     };
   }
@@ -271,7 +283,7 @@ export function getTtsProviderAdapter(provider: TtsProvider): TtsProviderAdapter
   return {
     id: TTS_PROVIDER_IDS.RESEMBLE,
     contentType: "audio/wav",
-    isConfigured: () => getResembleApiKey() !== null,
+    isConfigured: () => readApiKey("RESEMBLE_API_KEY") !== null,
     generateAudio: generateResembleTtsAudio,
   };
 }
@@ -279,7 +291,6 @@ export function getTtsProviderAdapter(provider: TtsProvider): TtsProviderAdapter
 export async function generateTtsAudioWithFallback(params: {
   text: string;
   preferredProvider?: TtsProvider;
-  signal: AbortSignal;
 }): Promise<TtsProviderAudio | null> {
   const preferredProvider = params.preferredProvider ?? DEFAULT_TTS_PROVIDER;
   const fallbackProvider =
@@ -287,21 +298,33 @@ export async function generateTtsAudioWithFallback(params: {
       ? TTS_PROVIDER_IDS.ELEVENLABS
       : TTS_PROVIDER_IDS.RESEMBLE;
 
-  for (const provider of [preferredProvider, fallbackProvider]) {
-    const adapter = getTtsProviderAdapter(provider);
-    if (!adapter.isConfigured()) {
-      continue;
+  // This function owns the request-timeout policy: a single AbortController is
+  // aborted after TTS_TIMEOUT_MS and its signal is threaded into every provider
+  // attempt, so the budget covers the preferred + fallback try together. Callers
+  // no longer manage their own controller. An attempt aborted mid-flight surfaces
+  // an AbortError, which propagates out of here so HTTP callers can map it to 504.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
+
+  try {
+    for (const provider of [preferredProvider, fallbackProvider]) {
+      const adapter = getTtsProviderAdapter(provider);
+      if (!adapter.isConfigured()) {
+        continue;
+      }
+
+      const audioBuffer = await adapter.generateAudio(params.text, controller.signal);
+      if (audioBuffer) {
+        return {
+          audioBuffer,
+          provider: adapter.id,
+          contentType: adapter.contentType,
+        };
+      }
     }
 
-    const audioBuffer = await adapter.generateAudio(params.text, params.signal);
-    if (audioBuffer) {
-      return {
-        audioBuffer,
-        provider: adapter.id,
-        contentType: adapter.contentType,
-      };
-    }
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return null;
 }

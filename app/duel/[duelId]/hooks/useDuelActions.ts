@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { SabotageEffect } from "@/lib/sabotage/types";
-import { useDuelAudio } from "./useDuelAudio";
+import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage, isExpectedDuelRaceError } from "./useDuelRaceErrors";
 
 type SessionWord = Doc<"duels">["sessionWords"][number] & {
@@ -48,7 +48,7 @@ export function useDuelActions({
   lockedAnswerRef,
 }: DuelActionsArgs): DuelActions {
   const router = useRouter();
-  const { isPlayingAudio, playAudio } = useDuelAudio();
+  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   const answer = useMutation(api.gameplay.answerDuel);
   const stopDuel = useMutation(api.duels.stopDuel);
@@ -182,14 +182,12 @@ export function useDuelActions({
     (word: SessionWord | undefined) => {
       const correctAnswer = word?.answer;
       if (!word || !correctAnswer || correctAnswer === "done") return;
-      playAudio(
-        `duel-answer-${correctAnswer}`,
-        correctAnswer,
-        word.ttsStorageId,
-        String(word.themeId)
-      );
+      void playTTS(`duel-answer-${correctAnswer}`, correctAnswer, {
+        storageId: word.ttsStorageId,
+        themeId: String(word.themeId),
+      });
     },
-    [playAudio]
+    [playTTS]
   );
 
   return {

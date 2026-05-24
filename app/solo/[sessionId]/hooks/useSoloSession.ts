@@ -14,18 +14,13 @@ import {
   type SoloMasteryLevel,
   type SoloSessionState,
 } from "@/lib/soloPracticeRuntime";
+import type { SessionWordEntry } from "@/lib/sessionWords";
 import { getDirectionalCopy } from "../translationDirection";
 
 type SessionState = SoloSessionState;
 
-interface WordEntry {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-}
-
 interface UseSoloSessionParams {
-  words: WordEntry[] | undefined;
+  words: SessionWordEntry[] | undefined;
   initialConfidenceByWordIndex: Record<number, SoloMasteryLevel> | null;
 }
 
@@ -41,7 +36,7 @@ interface UseSoloSessionResult {
   handleLevel0GotIt: () => void;
   handleLevel0NotYet: () => void;
   // Derived
-  currentWord: WordEntry | null;
+  currentWord: SessionWordEntry | null;
   masteredCount: number;
 }
 
@@ -70,22 +65,32 @@ export function useSoloSession({
     }
   }, []);
 
+  // Advance to the next question, clearing any in-flight feedback. Shared by the
+  // auto-advance timeout and the immediate Level-0 handlers so timed and
+  // immediate advances can never drift apart.
+  const advanceToNextQuestion = useCallback(() => {
+    setSession((prev) => selectNextSoloQuestion(prev, Math.random));
+    setShowFeedback(false);
+    setFeedbackAnswer(null);
+  }, []);
+
   const scheduleAutoAdvance = useCallback(
     (delayMs: number) => {
       clearAutoAdvanceTimeout();
       autoAdvanceTimeoutRef.current = setTimeout(() => {
         autoAdvanceTimeoutRef.current = null;
-        setSession((prev) => selectNextSoloQuestion(prev, Math.random));
-        setShowFeedback(false);
-        setFeedbackAnswer(null);
+        advanceToNextQuestion();
       }, delayMs);
     },
-    [clearAutoAdvanceTimeout]
+    [clearAutoAdvanceTimeout, advanceToNextQuestion]
   );
 
   useEffect(() => clearAutoAdvanceTimeout, [clearAutoAdvanceTimeout]);
 
-  // Initialize session when words load
+  // Initialize session when words load. The setState pair is deferred via
+  // queueMicrotask because this project's react-hooks/set-state-in-effect lint
+  // rule forbids synchronous setState in an effect body; a microtask callback is
+  // the supported escape hatch.
   useEffect(() => {
     if (words && words.length > 0 && !session.initialized) {
       const newSession = initializeSoloSession({
@@ -93,8 +98,6 @@ export function useSoloSession({
         initialConfidenceByWordIndex,
         random: Math.random,
       });
-
-      // Use queueMicrotask to avoid synchronous setState in effect body
       queueMicrotask(() => {
         setSession(newSession);
         setStartTime(Date.now());
@@ -118,10 +121,8 @@ export function useSoloSession({
    */
   const selectNextQuestion = useCallback(() => {
     clearAutoAdvanceTimeout();
-    setSession((prev) => selectNextSoloQuestion(prev, Math.random));
-    setShowFeedback(false);
-    setFeedbackAnswer(null);
-  }, [clearAutoAdvanceTimeout]);
+    advanceToNextQuestion();
+  }, [clearAutoAdvanceTimeout, advanceToNextQuestion]);
 
   /**
    * Handle correct answer - progress mastery and auto-advance.

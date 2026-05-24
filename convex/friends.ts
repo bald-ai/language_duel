@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { getAuthenticatedUser, getAuthenticatedUserOrNull } from "./helpers/auth";
 import { isUserOnline, loadUsersById } from "./helpers/users";
+import { loadFriendshipDocsBetweenUsers } from "./helpers/relationshipPolicy";
 import {
   createFriendRequestNotification,
   dismissFriendRequestNotifications,
@@ -335,22 +336,11 @@ export const removeFriend = mutation({
   handler: async (ctx, args) => {
     const { user } = await getAuthenticatedUser(ctx);
 
-    // Find and delete both directions of friendship
-    const friendshipsFromUser = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    const outgoingFriendship =
-      friendshipsFromUser.find((friendship) => friendship.friendId === args.friendId) ?? null;
+    // Load both directions via the canonical indexed-pair helper (O(1) per
+    // direction) instead of scanning each user's whole friend list.
+    const friendships = await loadFriendshipDocsBetweenUsers(ctx, user._id, args.friendId);
 
-    const friendshipsToUser = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", args.friendId))
-      .collect();
-    const incomingFriendship =
-      friendshipsToUser.find((friendship) => friendship.friendId === user._id) ?? null;
-
-    if (!outgoingFriendship && !incomingFriendship) {
+    if (friendships.length === 0) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Friendship not found" });
     }
 
@@ -360,8 +350,9 @@ export const removeFriend = mutation({
       args.friendId
     );
 
-    if (outgoingFriendship) await ctx.db.delete(outgoingFriendship._id);
-    if (incomingFriendship) await ctx.db.delete(incomingFriendship._id);
+    for (const friendship of friendships) {
+      await ctx.db.delete(friendship._id);
+    }
 
     return { success: true, closedGoalCount };
   },

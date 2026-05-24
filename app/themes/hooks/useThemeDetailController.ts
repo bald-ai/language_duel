@@ -6,7 +6,7 @@ import type { ThemeWithOwner } from "@/convex/themes";
 import type { WordEntry } from "@/lib/types";
 import { getThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
 import { areThemeWordsEqual } from "@/lib/themes/wordEditing";
-import { getDefaultWordType, VIEW_MODES, type ViewMode } from "../constants";
+import { DEFAULT_WORD_TYPE, VIEW_MODES, type ViewMode } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
     };
   }, [selectedThemeState]);
 
-  const selectedWordType = selectedTheme?.wordType || getDefaultWordType();
+  const selectedWordType = selectedTheme?.wordType || DEFAULT_WORD_TYPE;
   const persistedSelectedTheme = useMemo(() => {
     if (!selectedThemeState || selectedThemeState.kind === "unsaved") return null;
     return selectedThemeState.theme;

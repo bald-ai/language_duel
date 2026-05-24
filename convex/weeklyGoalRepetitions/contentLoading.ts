@@ -15,6 +15,50 @@ export function buildDeferredSnapshotContent(goal: Doc<"weeklyGoals">): LoadedSn
   };
 }
 
+/**
+ * Cheap availability probe for the board, which only needs the ok/error flags
+ * (the launch preview is the only consumer that renders wordCount). Runs the
+ * same per-theme missing/empty-snapshot checks as the full loader but skips
+ * buildSessionWords/summarizeSessionWords. Behavior-equivalent because
+ * buildSessionWords is a flatMap with no filtering — "every theme has words"
+ * implies "sessionWords non-empty" — and the empty-themes case is guarded below
+ * to match the full loader's final "no words" check.
+ */
+export async function assertSnapshotContentReady(
+  ctx: CtxWithDb,
+  goal: Doc<"weeklyGoals">
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const snapshots = await listWeeklyGoalThemeSnapshots(ctx, goal._id);
+  const snapshotsByOriginalThemeId = new Map(
+    snapshots.map((snapshot) => [String(snapshot.originalThemeId), snapshot])
+  );
+
+  for (const theme of goal.themes) {
+    const snapshot = snapshotsByOriginalThemeId.get(String(theme.themeId));
+    if (!snapshot) {
+      return {
+        ok: false,
+        message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
+      };
+    }
+    if (snapshot.words.length === 0) {
+      return {
+        ok: false,
+        message: `"${theme.themeName}" snapshot has no words. Spaced repetition cannot start.`,
+      };
+    }
+  }
+
+  if (goal.themes.length === 0) {
+    return {
+      ok: false,
+      message: "This goal snapshot has no words. Spaced repetition cannot start.",
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function loadSpacedRepetitionSnapshotContent(
   ctx: CtxWithDb,
   goal: Doc<"weeklyGoals">

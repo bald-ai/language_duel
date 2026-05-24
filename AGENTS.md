@@ -28,7 +28,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 
 ## Handoff
 - Update docs when behavior changes (short note in existing docs).
-- Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, plus any existing tests before handing off only when code or tests changed.
+- Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, `npx tsc --noEmit -p convex/tsconfig.json` (Convex uses a stricter `lib: ES2021` config than the root tsconfig and rejects newer APIs like `Object.hasOwn`), plus any existing tests before handing off only when code or tests changed.
 - For handoff validation, prefer `npm run test:run -- <test files>` or `npm run test:run` so Vitest runs once and exits. Do not use `npm test` for handoff validation unless the user explicitly wants watch mode.
 - Do not run eslint, typecheck, or tests for documentation-only, prompt-only, content-only, or other non-code changes. In those cases, handoff should just state that validation was skipped because no code changed.
 - Do not suggest manual testing in handoff unless the user explicitly asks for it.

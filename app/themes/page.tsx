@@ -23,6 +23,14 @@ const DeleteConfirmModal = dynamic(
   () => import("./components/DeleteConfirmModal").then((mod) => mod.DeleteConfirmModal),
   { loading: () => null }
 );
+const AddWordModal = dynamic(
+  () => import("./components/AddWordModal").then((mod) => mod.AddWordModal),
+  { loading: () => null }
+);
+const GenerateMoreModal = dynamic(
+  () => import("./components/GenerateMoreModal").then((mod) => mod.GenerateMoreModal),
+  { loading: () => null }
+);
 const DiscardPickAndPruneModal = dynamic(
   () => import("./components/DiscardPickAndPruneModal").then((mod) => mod.DiscardPickAndPruneModal),
   { loading: () => null }
@@ -73,6 +81,8 @@ export default function ThemesPage() {
 
       <DeleteConfirmModal {...controller.deleteConfirmProps} />
       <DiscardPickAndPruneModal {...controller.discardPickAndPruneProps} />
+      <AddWordModal {...controller.addWordModalProps} />
+      <GenerateMoreModal {...controller.generateMoreModalProps} />
     </ThemedPage>
   );
 }

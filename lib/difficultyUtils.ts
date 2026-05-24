@@ -56,7 +56,9 @@ export interface DifficultyDistribution {
   total: number;
 }
 
-export type DuelDifficultyPreset = "easy" | "medium" | "hard";
+// A duel's chosen difficulty preset is the same set of levels as a question's
+// difficulty — one type, kept as an alias for call-site readability.
+export type DuelDifficultyPreset = DifficultyLevel;
 
 // ============================================================================
 // Distribution Calculators

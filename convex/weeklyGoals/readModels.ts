@@ -1,7 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { GRACE_PERIOD_MS, MIN_GOAL_DURATION_MS } from "../constants";
-import { isGoalPastGracePeriod } from "../../lib/cleanupExpiry";
+import { MIN_GOAL_DURATION_MS } from "../constants";
 import {
   canEditGoalEndDate,
   countCompletedThemes,
@@ -9,6 +8,8 @@ import {
   getEffectiveGoalStatus,
   getEffectiveMiniBossStatus,
   normalizeWeeklyGoal,
+  type NormalizedWeeklyGoal,
+  type WeeklyGoalLockState,
 } from "../../lib/weeklyGoals";
 import type { GoalRole, GoalWithUsers } from "./types";
 import { toUserSummary } from "../helpers/userSummary";
@@ -17,17 +18,36 @@ export function shouldIncludeGoal(
   goal: Doc<"weeklyGoals">,
   now: number
 ): boolean {
-  const effectiveStatus = getEffectiveGoalStatus(goal, now);
+  // getEffectiveGoalStatus is the single lifecycle truth: a goal is visible
+  // until it is completed. Past-grace deletion is handled by the cron, whose
+  // index predicate (cleanup.ts) needs the raw arithmetic because it runs
+  // before this reclassification would apply.
+  return getEffectiveGoalStatus(goal, now) !== "completed";
+}
 
-  if (effectiveStatus === "completed") {
-    return false;
-  }
+/**
+ * Derive the viewer-relative lock view once, so no client read path has to
+ * re-implement the role↔lock mapping from the raw creator/partner booleans.
+ */
+function deriveLockState(
+  goal: NormalizedWeeklyGoal<Doc<"weeklyGoals">>,
+  viewerRole: GoalRole
+): WeeklyGoalLockState {
+  const viewerLocked = goal.mode === "solo"
+    ? goal.creatorLocked
+    : viewerRole === "creator"
+      ? goal.creatorLocked
+      : goal.partnerLocked;
+  const partnerLocked = goal.mode === "solo"
+    ? false
+    : viewerRole === "creator"
+      ? goal.partnerLocked
+      : goal.creatorLocked;
 
-  if (effectiveStatus === "draft") {
-    return true;
-  }
-
-  return !isGoalPastGracePeriod(goal.endDate, now, GRACE_PERIOD_MS);
+  if (viewerLocked && partnerLocked) return "both_locked";
+  if (viewerLocked) return "viewer_locked";
+  if (partnerLocked) return "partner_locked";
+  return "none";
 }
 
 export function buildGoalWithUsers(
@@ -40,15 +60,17 @@ export function buildGoalWithUsers(
   const miniBossStatus = getEffectiveMiniBossStatus(normalizedGoal, now);
   const bigBossStatus = getEffectiveBigBossStatus(normalizedGoal, now);
   const effectiveViewerRole = normalizedGoal.mode === "solo" ? "creator" : viewerRole;
+  const partnerId = goal.partnerId;
 
   return {
     goal: normalizedGoal,
     mode: normalizedGoal.mode,
     creator: toUserSummary(usersById.get(goal.creatorId) ?? null),
-    partner: normalizedGoal.mode === "solo"
+    partner: normalizedGoal.mode === "solo" || partnerId === undefined
       ? null
-      : toUserSummary(usersById.get(goal.partnerId!) ?? null),
+      : toUserSummary(usersById.get(partnerId) ?? null),
     viewerRole: effectiveViewerRole,
+    lockState: deriveLockState(normalizedGoal, effectiveViewerRole),
     effectiveStatus: getEffectiveGoalStatus(normalizedGoal, now),
     miniBossStatus,
     bigBossStatus,

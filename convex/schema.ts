@@ -3,6 +3,9 @@ import { v, type Infer } from "convex/values";
 import { TTS_PROVIDER_IDS } from "../lib/tts/providers";
 import { DUEL_MODES } from "../lib/duelMode";
 import { HINT_TYPES } from "../lib/hintPool/types";
+import { SABOTAGE_EFFECTS } from "../lib/sabotage/types";
+import type { WordType } from "../lib/themes/wordTypes";
+import type { NotificationEmailTrigger } from "../lib/notifications/definitions";
 import {
   gameStateValidator,
   mockGameValidator,
@@ -26,6 +29,15 @@ export const wordTypeValidator = v.union(
   v.literal("adjectives"),
   v.literal("adverbs")
 );
+
+// Drift guard: wordTypeValidator must stay in sync with the canonical WordType
+// (lib/themes/wordTypes.ts). If they diverge, this assignment fails typecheck.
+type AssertExact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const _wordTypeValidatorMatchesWordType: AssertExact<
+  Infer<typeof wordTypeValidator>,
+  WordType
+> = true;
+void _wordTypeValidatorMatchesWordType;
 
 export const ttsProviderValidator = v.union(
   v.literal(TTS_PROVIDER_IDS.RESEMBLE),
@@ -84,11 +96,9 @@ const soloPracticeSourceTypeValidator = v.union(
 
 const bossTypeValidator = v.union(v.literal("mini"), v.literal("big"));
 
-const duelDifficultyPresetValidator = v.union(
-  v.literal("easy"),
-  v.literal("medium"),
-  v.literal("hard")
-);
+// A duel's chosen difficulty preset uses the same three levels as a question's
+// difficulty — one validator, not two near-identical copies.
+const duelDifficultyPresetValidator = difficultyLevelValidator;
 
 export const duelModeValidator = v.union(
   v.literal(DUEL_MODES[0]),
@@ -125,17 +135,28 @@ const playerStatsValidator = v.object({
   correctAnswers: v.number(),
 });
 
-const sabotageEffectValidator = v.union(
-  v.literal("sticky"),
-  v.literal("bounce"),
-  v.literal("trampoline"),
-  v.literal("reverse")
+export const sabotageEffectValidator = v.union(
+  v.literal(SABOTAGE_EFFECTS[0]),
+  v.literal(SABOTAGE_EFFECTS[1]),
+  v.literal(SABOTAGE_EFFECTS[2]),
+  v.literal(SABOTAGE_EFFECTS[3])
 );
 
 const sabotageValidator = v.object({
   effect: sabotageEffectValidator,
   timestamp: v.number(),
 });
+
+// Fields shared by every session-source table (challenges, duels,
+// soloPracticeSessions): the themes played plus the optional weekly-goal / boss /
+// spaced-repetition linkage. Each table adds its own `sourceType` union, and
+// soloPracticeSessions overrides `weeklyGoalId` to required.
+const sessionSourceFields = {
+  themeIds: v.array(v.id("themes")),
+  weeklyGoalId: v.optional(v.id("weeklyGoals")),
+  bossType: v.optional(bossTypeValidator),
+  spacedRepetitionStep: v.optional(v.number()),
+};
 
 // ===========================================
 // Schema Definition
@@ -188,8 +209,7 @@ export const notificationPayloadValidator = v.union(
         v.literal("goal_unlocked"),
         v.literal("goal_activated"),
         v.literal("goal_completed"),
-        v.literal("goal_completed_solo"),
-        v.literal("draft_expiring")
+        v.literal("goal_completed_solo")
       )
     ),
   }),
@@ -215,6 +235,15 @@ export const emailNotificationTriggerValidator = v.union(
   v.literal("weekly_goal_reminder_1"),
   v.literal("weekly_goal_reminder_2")
 );
+
+// Drift guard: the trigger validator must match the canonical trigger contract
+// (NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS in lib/notifications/definitions.ts).
+// If they diverge, this assignment fails typecheck.
+const _emailTriggerValidatorMatchesContract: AssertExact<
+  Infer<typeof emailNotificationTriggerValidator>,
+  NotificationEmailTrigger
+> = true;
+void _emailTriggerValidatorMatchesContract;
 
 export default defineSchema({
   // -------------------------------------------
@@ -296,11 +325,8 @@ export default defineSchema({
   challenges: defineTable({
     challengerId: v.id("users"),
     opponentId: v.id("users"),
-    themeIds: v.array(v.id("themes")),
+    ...sessionSourceFields,
     sourceType: duelSourceTypeValidator,
-    weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    bossType: v.optional(bossTypeValidator),
-    spacedRepetitionStep: v.optional(v.number()),
     status: challengeStatusValidator,
     duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
     duelMode: duelModeValidator,
@@ -322,19 +348,16 @@ export default defineSchema({
     challengeId: v.optional(v.id("challenges")),
     challengerId: v.id("users"),
     opponentId: v.id("users"),
-    themeIds: v.array(v.id("themes")),
+    ...sessionSourceFields,
     sessionWords: v.array(sessionWordValidator),
     sourceType: duelSourceTypeValidator,
-    weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    bossType: v.optional(bossTypeValidator),
-    spacedRepetitionStep: v.optional(v.number()),
     livesTotal: v.optional(v.number()),
     livesRemaining: v.optional(v.number()),
     status: duelStatusValidator,
     createdAt: v.number(),
 
     currentWordIndex: v.number(),
-    wordOrder: v.optional(v.array(v.number())),
+    wordOrder: v.array(v.number()),
     duelQuestions: v.optional(v.array(duelQuestionValidator)),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
@@ -382,12 +405,11 @@ export default defineSchema({
   // -------------------------------------------
   soloPracticeSessions: defineTable({
     userId: v.id("users"),
-    themeIds: v.array(v.id("themes")),
+    ...sessionSourceFields,
+    // Solo practice always belongs to a weekly goal, so weeklyGoalId is required here.
+    weeklyGoalId: v.id("weeklyGoals"),
     sessionWords: v.array(sessionWordValidator),
     sourceType: soloPracticeSourceTypeValidator,
-    weeklyGoalId: v.id("weeklyGoals"),
-    bossType: v.optional(bossTypeValidator),
-    spacedRepetitionStep: v.optional(v.number()),
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),
     finalStats: v.optional(playerStatsValidator),
@@ -404,7 +426,7 @@ export default defineSchema({
   // -------------------------------------------
   weeklyGoals: defineTable({
     creatorId: v.id("users"),
-    mode: v.optional(weeklyGoalModeValidator),
+    mode: weeklyGoalModeValidator,
     partnerId: v.optional(v.id("users")),
     themes: v.array(
       v.object({
@@ -524,7 +546,6 @@ export default defineSchema({
     duelId: v.optional(v.id("duels")),
     soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
-    reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
     claimedAt: v.optional(v.number()),
     sentAt: v.optional(v.number()),
@@ -545,7 +566,6 @@ export default defineSchema({
       "soloPracticeSessionId",
     ])
     .index("by_user_trigger", ["toUserId", "trigger"])
-    .index("by_status", ["status"])
     .index("by_sentAt", ["sentAt"]),
 
   // -------------------------------------------

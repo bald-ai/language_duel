@@ -13,7 +13,7 @@ import {
 export type { SabotagePhase } from "@/lib/sabotage/effectPhases";
 
 interface SabotageData {
-  effect: string;
+  effect: SabotageEffect;
   timestamp: number;
 }
 
@@ -26,10 +26,6 @@ interface UseSabotageEffectParams {
 interface UseSabotageEffectResult {
   activeSabotage: SabotageEffect | null;
   sabotagePhase: SabotagePhase;
-}
-
-function toSabotageEffect(effect: string): SabotageEffect {
-  return effect as SabotageEffect;
 }
 
 export function useSabotageEffect({
@@ -68,7 +64,7 @@ export function useSabotageEffect({
     clearTimers();
 
     scheduleTimer(() => {
-      const sabotageEffect = toSabotageEffect(mySabotage.effect);
+      const sabotageEffect = mySabotage.effect;
       setSabotagePhase("wind-up");
       setActiveSabotage(sabotageEffect);
 

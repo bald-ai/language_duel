@@ -2,6 +2,8 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { getButtonStyles } from "@/lib/appearance";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 type BackButtonProps = {
   /**
@@ -25,6 +27,8 @@ export function BackButton({
   fallbackHref = "/",
 }: BackButtonProps) {
   const router = useRouter();
+  const colors = useAppearanceColors();
+  const primaryStyle = getButtonStyles(colors).primary;
 
   const handleClick = useCallback(() => {
     if (onClick) {
@@ -46,13 +50,12 @@ export function BackButton({
       onClick={handleClick}
       className={[baseClassName, className].filter(Boolean).join(" ")}
       style={{
-        backgroundImage:
-          "linear-gradient(to bottom, var(--color-primary), var(--color-primary-dark))",
-        borderTopColor: "var(--color-primary-light)",
-        borderBottomColor: "var(--color-primary-dark)",
-        borderLeftColor: "var(--color-primary)",
-        borderRightColor: "var(--color-primary)",
-        color: "var(--color-text)",
+        backgroundImage: `linear-gradient(to bottom, ${primaryStyle.gradient.from}, ${primaryStyle.gradient.to})`,
+        borderTopColor: primaryStyle.border.top,
+        borderBottomColor: primaryStyle.border.bottom,
+        borderLeftColor: primaryStyle.border.sides,
+        borderRightColor: primaryStyle.border.sides,
+        color: colors.text.DEFAULT,
         textShadow: "0 2px 4px rgba(0,0,0,0.4)",
       }}
       data-testid={dataTestId}

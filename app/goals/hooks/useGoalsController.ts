@@ -57,7 +57,6 @@ export function useGoalsController(allGoals: GoalWithUsers[] | undefined) {
     selectedGoalId,
     initialLoadDone,
     showCreationFlow,
-    setShowCreationFlow,
     selectGoal,
     showCreateGoal,
     hideCreateGoal,

@@ -5,9 +5,9 @@ import { ConfidenceSlider, type ConfidenceLevel } from "./ConfidenceSlider";
 import { LetterGroups } from "./LetterGroups";
 import { EyeIcon, EyeSlashIcon, SpeakerIcon } from "@/app/components/icons";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import { stripIrr } from "@/lib/stringUtils";
+import { revealablePositions } from "@/lib/stringUtils";
 
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
+import { cssVarColors as cssColors } from "@/app/components/themeCssVars";
 interface WordCardProps {
   word: {
     word: string;
@@ -28,41 +28,41 @@ interface WordCardProps {
   dataTestIdBase?: string;
 }
 
-// Memoized static styles to avoid recreation on each render
+// Static styles built from CSS-variable colors (resolved live by the browser)
 const cardStyleBase = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.primary.dark,
+  backgroundColor: cssColors.background.DEFAULT,
+  borderColor: cssColors.primary.dark,
 } as const;
 
 const iconButtonStyleConst = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
+  backgroundColor: cssColors.background.elevated,
+  borderColor: cssColors.primary.dark,
+  color: cssColors.text.DEFAULT,
 } as const;
 
 const disabledButtonStyleConst = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.neutral.dark,
-  color: colors.text.muted,
+  backgroundColor: cssColors.background.DEFAULT,
+  borderColor: cssColors.neutral.dark,
+  color: cssColors.text.muted,
 } as const;
 
 const playingButtonStyleConst = {
-  backgroundColor: colors.secondary.DEFAULT,
-  borderColor: colors.secondary.dark,
-  color: colors.text.DEFAULT,
+  backgroundColor: cssColors.secondary.DEFAULT,
+  borderColor: cssColors.secondary.dark,
+  color: cssColors.text.DEFAULT,
 } as const;
 
 // Hint counter is informational, not a button - dimmer + lower contrast than icon buttons
 const hintCounterActiveStyle = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.primary.dark,
-  color: colors.text.DEFAULT,
+  backgroundColor: cssColors.background.DEFAULT,
+  borderColor: cssColors.primary.dark,
+  color: cssColors.text.DEFAULT,
 } as const;
 
 const hintCounterEmptyStyle = {
-  backgroundColor: colors.background.DEFAULT,
-  borderColor: colors.neutral.dark,
-  color: colors.text.muted,
+  backgroundColor: cssColors.background.DEFAULT,
+  borderColor: cssColors.neutral.dark,
+  color: cssColors.text.muted,
 } as const;
 
 export const WordCard = memo(function WordCard({
@@ -80,20 +80,9 @@ export const WordCard = memo(function WordCard({
   dataTestIdBase,
 }: WordCardProps) {
   const colors = useAppearanceColors();
-  // Memoize computed styles to avoid recreation
-  const computedStyle = useMemo(() => ({
-    ...cardStyleBase,
-  }), []);
 
-  const revealablePositions = useMemo(
-    () =>
-      stripIrr(word.answer)
-        .split("")
-        .map((char, idx) => (char !== " " ? idx : -1))
-        .filter((idx) => idx !== -1),
-    [word.answer]
-  );
-  const isFullyRevealed = revealablePositions.every((idx) => revealedPositions.includes(idx));
+  const revealableIndices = useMemo(() => revealablePositions(word.answer), [word.answer]);
+  const isFullyRevealed = revealableIndices.every((idx) => revealedPositions.includes(idx));
   const handleRevealToggle = isFullyRevealed ? onResetWord : onRevealFullWord;
 
   const revealedTTSStyle = isTTSPlaying
@@ -106,7 +95,7 @@ export const WordCard = memo(function WordCard({
 
   return (
     <div
-      style={computedStyle}
+      style={cardStyleBase}
       className={baseClasses}
       data-testid={dataTestIdBase}
     >

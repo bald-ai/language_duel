@@ -14,6 +14,7 @@ import {
 import {
   buildChallengeInvite,
   buildDuelSession,
+  challengeToDuelSourceFields,
 } from "./helpers/sessionCreation";
 import {
   loadThemesByIds,
@@ -80,45 +81,17 @@ async function insertDuelSessionForChallenge(
       ? await resolveSpacedRepetitionLives(ctx, challenge)
       : undefined;
 
-  const baseSession = {
+  return await ctx.db.insert("duels", buildDuelSession({
     challengeId: challenge._id,
     challengerId: challenge.challengerId,
     opponentId: challenge.opponentId,
     sessionWords,
-    livesTotal: livesTotal,
+    livesTotal,
     livesRemaining: livesTotal,
     duelDifficultyPreset: challenge.duelDifficultyPreset,
     duelMode: challenge.duelMode,
     createdAt: now,
-  };
-
-  if (challenge.sourceType === "boss") {
-    if (!challenge.weeklyGoalId || !challenge.bossType) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss challenge is missing source fields" });
-    }
-    return await ctx.db.insert("duels", buildDuelSession({
-      ...baseSession,
-      sourceType: "boss",
-      weeklyGoalId: challenge.weeklyGoalId,
-      bossType: challenge.bossType,
-    }));
-  }
-
-  if (challenge.sourceType === "spaced_repetition") {
-    if (!challenge.weeklyGoalId || typeof challenge.spacedRepetitionStep !== "number") {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition challenge is missing source fields" });
-    }
-    return await ctx.db.insert("duels", buildDuelSession({
-      ...baseSession,
-      sourceType: "spaced_repetition",
-      weeklyGoalId: challenge.weeklyGoalId,
-      spacedRepetitionStep: challenge.spacedRepetitionStep,
-    }));
-  }
-
-  return await ctx.db.insert("duels", buildDuelSession({
-    ...baseSession,
-    sourceType: "normal",
+    ...challengeToDuelSourceFields(challenge),
   }));
 }
 
@@ -150,6 +123,30 @@ async function declineChallengeCore(
 function rejectExpiredChallenge(challenge: Doc<"challenges">, now: number) {
   if (!isCreatedAtExpired(challenge.createdAt, now, CHALLENGE_INVITE_TTL_MS)) return;
   throw new ConvexError({ code: "INVALID_STATE", message: "Challenge has expired" });
+}
+
+/**
+ * Shared guard for responding to a challenge invite (accept or decline): the
+ * caller must be the invited opponent and the invite must still be pending.
+ * Expiry is checked separately because only accept is gated on it — declining
+ * an expired-but-pending invite should still dismiss it.
+ */
+function assertRespondableByOpponent(
+  challenge: Doc<"challenges">,
+  userId: Id<"users">
+) {
+  if (challenge.opponentId !== userId) {
+    throw new ConvexError({
+      code: "NOT_AUTHORIZED",
+      message: "Only the invited opponent can respond to this challenge",
+    });
+  }
+  if (challenge.status !== "pending") {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Challenge is no longer pending",
+    });
+  }
 }
 
 async function resolveBossChallengeLives(
@@ -321,14 +318,8 @@ export const getPendingChallenges = query({
 export const acceptChallenge = mutation({
   args: { challengeId: v.id("challenges") },
   handler: async (ctx, { challengeId }) => {
-    const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
-
-    if (!isOpponent) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only opponent can accept challenge" });
-    }
-    if (challenge.status !== "pending") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is not pending" });
-    }
+    const { challenge, user } = await getChallengeParticipant(ctx, challengeId);
+    assertRespondableByOpponent(challenge, user._id);
 
     const now = Date.now();
     rejectExpiredChallenge(challenge, now);
@@ -340,14 +331,8 @@ export const acceptChallenge = mutation({
 export const declineChallenge = mutation({
   args: { challengeId: v.id("challenges") },
   handler: async (ctx, { challengeId }) => {
-    const { challenge, isOpponent } = await getChallengeParticipant(ctx, challengeId);
-
-    if (!isOpponent) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only opponent can decline challenge" });
-    }
-    if (challenge.status !== "pending") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is not pending" });
-    }
+    const { challenge, user } = await getChallengeParticipant(ctx, challengeId);
+    assertRespondableByOpponent(challenge, user._id);
 
     await declineChallengeCore(ctx, challenge, Date.now());
   },
@@ -389,12 +374,7 @@ export const acceptChallengeFromNotification = mutation({
     if (!challenge) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Challenge not found" });
     }
-    if (challenge.status !== "pending") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is no longer pending" });
-    }
-    if (challenge.opponentId !== user._id) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-    }
+    assertRespondableByOpponent(challenge, user._id);
 
     const now = Date.now();
     rejectExpiredChallenge(challenge, now);
@@ -423,12 +403,7 @@ export const declineChallengeFromNotification = mutation({
     if (!challenge) {
       throw new ConvexError({ code: "NOT_FOUND", message: "Challenge not found" });
     }
-    if (challenge.status !== "pending") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Challenge is no longer pending" });
-    }
-    if (challenge.opponentId !== user._id) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-    }
+    assertRespondableByOpponent(challenge, user._id);
 
     await declineChallengeCore(ctx, challenge, Date.now());
 

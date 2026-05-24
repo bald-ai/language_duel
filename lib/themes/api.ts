@@ -1,7 +1,7 @@
 import type { WordEntry } from "@/lib/types";
 import { getResponseErrorMessage } from "@/lib/api/errors";
-import type { WordType } from "@/lib/themes/wordTypes";
 import { isRecord } from "@/lib/typeGuards";
+import type { GenerateRequest } from "@/lib/generate/requestValidation";
 export type { WordType } from "@/lib/themes/wordTypes";
 
 export type FieldType = "word" | "answer" | "wrong";
@@ -17,24 +17,20 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function isWordEntry(value: unknown): value is WordEntry {
-  if (!isRecord(value)) return false;
-  return (
-    typeof value.word === "string" &&
-    typeof value.answer === "string" &&
-    isStringArray(value.wrongAnswers)
-  );
-}
-
-function isWordEntryArray(value: unknown): value is WordEntry[] {
-  return Array.isArray(value) && value.every((item) => isWordEntry(item));
-}
-
 function isAnswerAndWrongsData(
   value: unknown
 ): value is { answer: string; wrongAnswers: string[] } {
   if (!isRecord(value)) return false;
   return typeof value.answer === "string" && isStringArray(value.wrongAnswers);
+}
+
+// A word entry is an answer-and-wrongs payload that also carries its word.
+function isWordEntry(value: unknown): value is WordEntry {
+  return isAnswerAndWrongsData(value) && typeof (value as { word?: unknown }).word === "string";
+}
+
+function isWordEntryArray(value: unknown): value is WordEntry[] {
+  return Array.isArray(value) && value.every((item) => isWordEntry(item));
 }
 
 function isGenerateFieldData(
@@ -115,12 +111,7 @@ async function callGenerateApi<T>(
   return { success: true, data: payload.data, prompt: payload.prompt };
 }
 
-export interface GenerateThemeParams {
-  themeName: string;
-  themePrompt?: string;
-  wordType: WordType;
-  wordCount: number;
-}
+export type GenerateThemeParams = Omit<Extract<GenerateRequest, { type: "theme" }>, "type">;
 
 export interface GenerateThemeResult {
   success: boolean;
@@ -146,19 +137,7 @@ export async function generateTheme(params: GenerateThemeParams): Promise<Genera
   return { success: true, data: result.data };
 }
 
-export interface GenerateFieldParams {
-  fieldType: FieldType;
-  themeName: string;
-  wordType: WordType;
-  currentWord: string;
-  currentAnswer: string;
-  currentWrongAnswers: string[];
-  fieldIndex?: number;
-  existingWords?: string[];
-  rejectedWords?: string[];
-  history?: { role: "user" | "assistant"; content: string }[];
-  customInstructions?: string;
-}
+export type GenerateFieldParams = Omit<Extract<GenerateRequest, { type: "field" }>, "type">;
 
 export interface GenerateFieldResult {
   success: boolean;
@@ -197,11 +176,10 @@ export async function generateField(params: GenerateFieldParams): Promise<Genera
   return { success: true, prompt: result.prompt, data: result.data };
 }
 
-export interface RegenerateForWordParams {
-  themeName: string;
-  wordType: WordType;
-  newWord: string;
-}
+export type RegenerateForWordParams = Omit<
+  Extract<GenerateRequest, { type: "regenerate-for-word" }>,
+  "type"
+>;
 
 export interface RegenerateForWordResult {
   success: boolean;
@@ -229,12 +207,7 @@ export async function regenerateForWord(params: RegenerateForWordParams): Promis
   return { success: true, data: result.data };
 }
 
-export interface AddWordParams {
-  themeName: string;
-  wordType: WordType;
-  newWord: string;
-  existingWords: string[];
-}
+export type AddWordParams = Omit<Extract<GenerateRequest, { type: "add-word" }>, "type">;
 
 export interface AddWordResult {
   success: boolean;
@@ -260,12 +233,10 @@ export async function addWord(params: AddWordParams): Promise<AddWordResult> {
   return { success: true, data: result.data };
 }
 
-export interface GenerateMoreWordsParams {
-  themeName: string;
-  wordType: WordType;
-  count: number;
-  existingWords: string[];
-}
+export type GenerateMoreWordsParams = Omit<
+  Extract<GenerateRequest, { type: "generate-more-words" }>,
+  "type"
+>;
 
 export interface GenerateMoreWordsResult {
   success: boolean;

@@ -2,18 +2,10 @@
 
 import Image from "next/image";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import type { BackgroundFilename } from "@/lib/preferences/backgrounds";
-
-const BACKGROUND_OPTIONS: ReadonlyArray<{
-  filename: BackgroundFilename;
-  label: string;
-}> = [
-  { filename: "background.jpg", label: "Castle Lights" },
-  { filename: "background_2.jpg", label: "Mystic Forest" },
-];
+import { BACKGROUND_OPTIONS, type BackgroundFilename } from "@/lib/preferences/backgrounds";
 
 type BackgroundSelectorProps = {
-  selectedBackground: string | null;
+  selectedBackground: BackgroundFilename;
   onSelect: (background: BackgroundFilename) => void;
   isUpdating?: boolean;
 };
@@ -24,8 +16,6 @@ export function BackgroundSelector({
   isUpdating = false,
 }: BackgroundSelectorProps) {
   const colors = useAppearanceColors();
-  // Default to first background if none selected
-  const activeBackground = selectedBackground || BACKGROUND_OPTIONS[0].filename;
 
   return (
     <section
@@ -52,7 +42,7 @@ export function BackgroundSelector({
 
       <div className="p-4 grid grid-cols-2 gap-3">
         {BACKGROUND_OPTIONS.map((option) => {
-          const isActive = option.filename === activeBackground;
+          const isActive = option.filename === selectedBackground;
 
           return (
             <button

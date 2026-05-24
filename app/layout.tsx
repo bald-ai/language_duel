@@ -8,7 +8,7 @@ import { SignedInPresenceOwner } from "@/app/components/auth";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SignedIn } from "@clerk/nextjs";
 import { Toaster } from "sonner";
-import { themes, DEFAULT_THEME_NAME } from "@/lib/theme";
+import { themes, DEFAULT_THEME_NAME } from "@/lib/appearance";
 import "./globals.css";
 
 // Source theme colors from centralized theme config

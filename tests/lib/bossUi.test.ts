@@ -5,7 +5,7 @@ import {
   getBossButtonStyle,
   isBossButtonDisabled,
 } from "@/app/goals/bossUi";
-import { DEFAULT_THEME_NAME, getThemeColors } from "@/lib/theme";
+import { DEFAULT_THEME_NAME, getThemeColors } from "@/lib/appearance";
 
 describe("bossUi", () => {
   const colors = getThemeColors(DEFAULT_THEME_NAME);

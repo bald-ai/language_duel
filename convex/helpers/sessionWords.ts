@@ -2,19 +2,12 @@ import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import {
-  getUniqueThemeIds,
   summarizeThemeNames,
   type SessionThemeInput,
   type SessionWordEntry,
 } from "../../lib/sessionWords";
 
 type CtxWithDb = QueryCtx | MutationCtx;
-
-export function getThemeIdsFromChallenge(
-  challenge: Pick<Doc<"challenges">, "themeIds">
-): Id<"themes">[] {
-  return challenge.themeIds;
-}
 
 export function summarizeSessionWords(sessionWords: SessionWordEntry[]): string {
   return summarizeThemeNames(
@@ -55,10 +48,4 @@ export function getSessionWords(
     throw new ConvexError({ code: "INTERNAL_ERROR", message: "Session is missing words" });
   }
   return session.sessionWords;
-}
-
-export function getThemeIdsFromSessionWords(
-  sessionWords: SessionWordEntry[]
-): Id<"themes">[] {
-  return getUniqueThemeIds(sessionWords);
 }

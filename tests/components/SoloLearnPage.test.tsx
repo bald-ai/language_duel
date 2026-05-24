@@ -43,7 +43,7 @@ vi.mock("@/app/components/ThemedPage", () => ({
   ThemedPage: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock("@/app/game/hooks/useTTS", () => ({
+vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
     playingWordKey: null,
     playTTS: playTTSMock,

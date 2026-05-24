@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
 interface AvatarProps {
   src?: string;
   name: string;
@@ -22,9 +21,10 @@ export function Avatar({
   name,
   size = 48,
   className = "",
-  borderColor = colors.neutral.DEFAULT,
+  borderColor,
 }: AvatarProps) {
   const colors = useAppearanceColors();
+  const effectiveBorder = borderColor ?? colors.neutral.DEFAULT;
   const [error, setError] = useState(false);
 
   // Fallback initials (max 2 characters)
@@ -46,7 +46,7 @@ export function Avatar({
         onError={() => setError(true)}
         className={`rounded-full border-2 object-cover shrink-0 ${className}`}
         style={{
-          borderColor: borderColor,
+          borderColor: effectiveBorder,
         }}
       />
     );
@@ -59,7 +59,7 @@ export function Avatar({
         width: size,
         height: size,
         backgroundColor: colors.primary.dark,
-        borderColor: borderColor,
+        borderColor: effectiveBorder,
       }}
     >
       <span

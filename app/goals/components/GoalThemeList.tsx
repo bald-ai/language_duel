@@ -2,6 +2,7 @@
 
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { isGoalThemeCompleted } from "@/lib/weeklyGoals";
 
 interface GoalTheme {
   themeId: Id<"themes">;
@@ -64,9 +65,7 @@ export function GoalThemeList({
             : theme.partnerCompleted === true;
         const partnerCompleted =
           viewerRole === "creator" ? theme.partnerCompleted === true : theme.creatorCompleted;
-        const bothCompleted = mode === "solo"
-          ? theme.creatorCompleted
-          : theme.creatorCompleted && theme.partnerCompleted === true;
+        const bothCompleted = isGoalThemeCompleted(theme, mode);
 
         return (
           <div

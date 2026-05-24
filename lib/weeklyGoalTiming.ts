@@ -13,3 +13,11 @@ export const WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE = "Europe/Prague";
 export const WEEKLY_GOAL_DAILY_REMINDER_LOCAL_HOUR = 12;
 
 export const MIN_GOAL_DURATION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Daily reminder window for drafts nearing expiry. The cron reminds about a
+ * draft when its TTL is between (lead − window) and lead away — i.e. ~1 day
+ * before expiry, within a 2h catch window so each draft is reminded once.
+ */
+export const DRAFT_EXPIRY_REMINDER_LEAD_MS = 24 * 60 * 60 * 1000;
+export const DRAFT_EXPIRY_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;

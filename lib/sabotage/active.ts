@@ -1,69 +1,48 @@
-import {
-  SABOTAGE_DURATION_MS,
-  SABOTAGE_FALLBACK_DURATION_MS,
-} from "./constants";
-import type { SabotageEffect } from "./types";
+import { SABOTAGE_DURATION_MS } from "./constants";
+import type { SabotageState } from "./types";
 
-type SabotageState = {
-  effect: SabotageEffect;
-  timestamp: number;
-};
-
-export function getSabotageExpiryAt(params: {
-  sabotage?: SabotageState;
-  questionStartTime?: number;
-  sabotageDurationMs?: number;
-  sabotageFallbackDurationMs?: number;
-}): number | null {
-  const {
-    sabotage,
-    questionStartTime,
-    sabotageDurationMs = SABOTAGE_DURATION_MS,
-    sabotageFallbackDurationMs = SABOTAGE_FALLBACK_DURATION_MS,
-  } = params;
-
+/**
+ * Wall-clock expiry for a sabotage, or `null` when it has none.
+ *
+ * Only sticky sabotage expires on a timer (a fixed `SABOTAGE_DURATION_MS`
+ * window). Movement sabotages (bounce/trampoline/reverse) are bound to the
+ * current question instead of the clock, so they have no time-based expiry.
+ */
+export function getSabotageExpiryAt(sabotage?: SabotageState): number | null {
   if (!sabotage) return null;
 
   if (sabotage.effect === "sticky") {
-    return sabotage.timestamp + sabotageDurationMs;
+    return sabotage.timestamp + SABOTAGE_DURATION_MS;
   }
 
-  if (typeof questionStartTime === "number") {
-    return null;
-  }
-
-  return sabotage.timestamp + sabotageFallbackDurationMs;
+  return null;
 }
 
+/**
+ * Whether a sabotage is currently affecting its target.
+ *
+ * - sticky: active until its fixed-duration expiry.
+ * - movement: active only while the question it was sent during is still in
+ *   progress (`timestamp >= questionStartTime`). With no question in flight
+ *   there is nothing to apply.
+ */
 export function isSabotageActive(params: {
   sabotage?: SabotageState;
   now: number;
   questionStartTime?: number;
-  sabotageDurationMs?: number;
-  sabotageFallbackDurationMs?: number;
 }): boolean {
-  const {
-    sabotage,
-    now,
-    questionStartTime,
-    sabotageDurationMs = SABOTAGE_DURATION_MS,
-    sabotageFallbackDurationMs = SABOTAGE_FALLBACK_DURATION_MS,
-  } = params;
+  const { sabotage, now, questionStartTime } = params;
 
   if (!sabotage) return false;
 
-  if (sabotage.effect !== "sticky") {
-    if (typeof questionStartTime === "number") {
-      return sabotage.timestamp >= questionStartTime;
-    }
+  if (sabotage.effect === "sticky") {
+    const expiresAt = getSabotageExpiryAt(sabotage);
+    return expiresAt !== null && now < expiresAt;
   }
 
-  const expiresAt = getSabotageExpiryAt({
-    sabotage,
-    questionStartTime,
-    sabotageDurationMs,
-    sabotageFallbackDurationMs,
-  });
+  if (typeof questionStartTime !== "number") {
+    return false;
+  }
 
-  return expiresAt !== null && now < expiresAt;
+  return sabotage.timestamp >= questionStartTime;
 }

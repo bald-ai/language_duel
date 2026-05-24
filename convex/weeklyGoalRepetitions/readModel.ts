@@ -34,7 +34,7 @@ export function buildBoardItem(args: {
   );
   const step = getSpacedRepetitionCurrentStep(args.record.completedSteps);
 
-  const mode = args.goal.mode ?? "shared";
+  const mode = args.goal.mode;
   return {
     weeklyGoalId: args.goal._id,
     mode,
@@ -48,7 +48,6 @@ export function buildBoardItem(args: {
     bucket,
     dueAt,
     daysRemaining: getSpacedRepetitionDaysRemaining(dueAt, args.now),
-    isDueNow: bucket === "ready",
     contentAvailable: args.content.ok,
     canStart: bucket === "ready" && args.content.ok,
     unavailableReason: args.content.ok ? undefined : args.content.message,

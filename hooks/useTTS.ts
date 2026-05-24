@@ -17,6 +17,9 @@ import { DEFAULT_TTS_PROVIDER, type TtsProvider } from "@/lib/tts/providers";
 export function useTTS() {
   const [playingWordKey, setPlayingWordKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // revokeOnCleanup is true only for live blobs we created via URL.createObjectURL
+  // (we own them, so revoke on eviction/unmount); false for Convex storage URLs,
+  // which are remote, never object-URLs, and must not be revoked.
   const cacheRef = useRef<Map<string, { url: string; revokeOnCleanup: boolean }>>(new Map());
   const prevProviderRef = useRef<TtsProvider | null>(null);
   const maxCacheSize = 25;

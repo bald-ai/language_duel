@@ -1,56 +1,38 @@
-import { getButtonStyles, type ThemeColors } from "@/lib/theme";
+import {
+  getButtonStyles,
+  THEME_COLOR_CSS_VARS,
+  type CssVarTree,
+  type ThemeColors,
+} from "@/lib/appearance";
+
+// Mirror of THEME_COLOR_CSS_VARS: each var-backed shade becomes a `var(--…)`
+// reference. Built from the same manifest the writer uses, so the names cannot
+// drift. The glow shades have no CSS variable and are computed below.
+type VarRefTree<T> = {
+  [K in keyof T]: T[K] extends string ? string : VarRefTree<T[K]>;
+};
+
+function buildVarReferences<T extends CssVarTree>(varTree: T): VarRefTree<T> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(varTree)) {
+    const value = varTree[key];
+    result[key] =
+      typeof value === "string" ? `var(${value})` : buildVarReferences(value as CssVarTree);
+  }
+  return result as VarRefTree<T>;
+}
+
+const varColors = buildVarReferences(THEME_COLOR_CSS_VARS);
 
 export const cssVarColors: ThemeColors = {
+  ...varColors,
   primary: {
-    DEFAULT: "var(--color-primary)",
-    light: "var(--color-primary-light)",
-    dark: "var(--color-primary-dark)",
-    darkest: "var(--color-primary-dark)",
+    ...varColors.primary,
     glow: "color-mix(in srgb, var(--color-primary) 35%, transparent)",
   },
   cta: {
-    DEFAULT: "var(--color-cta)",
-    light: "var(--color-cta-light)",
-    lighter: "var(--color-cta-light)",
-    dark: "var(--color-cta-dark)",
-    darkest: "var(--color-cta-dark)",
+    ...varColors.cta,
     glow: "color-mix(in srgb, var(--color-cta) 35%, transparent)",
-  },
-  neutral: {
-    DEFAULT: "var(--color-neutral)",
-    light: "var(--color-neutral-light)",
-    dark: "var(--color-neutral-dark)",
-  },
-  secondary: {
-    DEFAULT: "var(--color-secondary)",
-    light: "var(--color-secondary-light)",
-    dark: "var(--color-secondary-dark)",
-  },
-  background: {
-    DEFAULT: "var(--color-background)",
-    elevated: "var(--color-background-elevated)",
-  },
-  text: {
-    DEFAULT: "var(--color-text)",
-    muted: "var(--color-text-muted)",
-    inverse: "var(--color-background)",
-  },
-  status: {
-    success: {
-      DEFAULT: "var(--color-success)",
-      light: "var(--color-success-light)",
-      dark: "var(--color-success-dark)",
-    },
-    warning: {
-      DEFAULT: "var(--color-warning)",
-      light: "var(--color-warning-light)",
-      dark: "var(--color-warning-dark)",
-    },
-    danger: {
-      DEFAULT: "var(--color-danger)",
-      light: "var(--color-danger-light)",
-      dark: "var(--color-danger-dark)",
-    },
   },
 };
 

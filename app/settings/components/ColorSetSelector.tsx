@@ -1,6 +1,6 @@
 "use client";
 
-import { themeOptions } from "@/lib/theme";
+import { themeOptions } from "@/lib/appearance";
 import { useColorSet } from "@/app/components/AppearanceProvider";
 
 /**

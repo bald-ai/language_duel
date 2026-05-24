@@ -15,6 +15,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
+    wordOrder: [],
     challengerAnswered: true,
     opponentAnswered: false,
     challengerScore: 3,

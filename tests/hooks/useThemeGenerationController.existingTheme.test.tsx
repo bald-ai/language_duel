@@ -107,23 +107,23 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
       setupController([existingWord]);
 
     await act(async () => {
-      await hook.result.current.handleGenerateMorePickAndPrune();
+      await hook.result.current.generateMoreModalProps.onGeneratePickAndPrune();
     });
 
     expect(setViewMode).toHaveBeenLastCalledWith(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-    expect(hook.result.current.pickAndPrune.draft).toEqual({ kind: "existing-theme" });
-    expect(hook.result.current.pickAndPrune.activeWords).toHaveLength(3);
+    expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("existing-theme");
+    expect(hook.result.current.pickAndPruneReviewProps.activeWords).toHaveLength(3);
 
-    const removableId = hook.result.current.pickAndPrune.activeWords.find(
+    const removableId = hook.result.current.pickAndPruneReviewProps.activeWords.find(
       (entry) => entry.word.word === "fish"
     )?.id;
     if (!removableId) throw new Error("Expected fish in active words");
 
     act(() => {
-      hook.result.current.pickAndPrune.removeWord(removableId);
+      hook.result.current.pickAndPruneReviewProps.onRemove(removableId);
     });
 
-    expect(hook.result.current.pickAndPrune.activeWords).toHaveLength(2);
+    expect(hook.result.current.pickAndPruneReviewProps.activeWords).toHaveLength(2);
 
     setLocalWords.mockClear();
     setViewMode.mockClear();
@@ -137,7 +137,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
     expect(appended.map((entry) => entry.word)).toEqual(["cat", "Cat", "dog"]);
     expect(setViewMode).toHaveBeenLastCalledWith(VIEW_MODES.DETAIL);
     expect(setSelectedThemeState).not.toHaveBeenCalled();
-    expect(hook.result.current.pickAndPrune.draft).toBeNull();
+    expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("new-theme");
   });
 
   it("returns reviewKind=existing-theme in props during existing-theme review", async () => {
@@ -155,7 +155,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
     const { hook } = setupController([]);
 
     await act(async () => {
-      await hook.result.current.handleGenerateMorePickAndPrune();
+      await hook.result.current.generateMoreModalProps.onGeneratePickAndPrune();
     });
 
     expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("existing-theme");

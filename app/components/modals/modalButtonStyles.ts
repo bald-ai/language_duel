@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { getButtonStyles, type ThemeColors } from "@/lib/theme";
+import { getButtonStyles, type ThemeColors } from "@/lib/appearance";
 
 /**
  * Primary modal CTA button with gradient background.
@@ -23,6 +23,23 @@ export const getCtaActionStyle = (colors: ThemeColors): CSSProperties => {
   borderRightColor: buttonStyles.cta.border.sides,
   color: colors.text.DEFAULT,
   textShadow: "0 2px 4px rgba(0,0,0,0.4)",
+  };
+};
+
+/**
+ * Primary gradient colors and borders to match theme.
+ */
+export const getPrimaryActionStyle = (colors: ThemeColors): CSSProperties => {
+  const buttonStyles = getButtonStyles(colors);
+
+  return {
+    backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
+    borderTopColor: buttonStyles.primary.border.top,
+    borderBottomColor: buttonStyles.primary.border.bottom,
+    borderLeftColor: buttonStyles.primary.border.sides,
+    borderRightColor: buttonStyles.primary.border.sides,
+    color: colors.text.DEFAULT,
+    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
   };
 };
 

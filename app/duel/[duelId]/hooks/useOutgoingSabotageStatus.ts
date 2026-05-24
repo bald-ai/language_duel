@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  SABOTAGE_DURATION_MS,
-  SABOTAGE_FALLBACK_DURATION_MS,
-} from "@/lib/sabotage/constants";
 import { getSabotageExpiryAt, isSabotageActive } from "@/lib/sabotage/active";
-import type { SabotageEffect } from "@/lib/sabotage/types";
+import type { SabotageState } from "@/lib/sabotage/types";
 
-type OutgoingSabotage = {
-  effect: SabotageEffect;
-  timestamp: number;
-} | undefined;
+type OutgoingSabotage = SabotageState | undefined;
 
 export function useOutgoingSabotageStatus(params: {
   outgoingSabotage: OutgoingSabotage;
@@ -25,10 +18,8 @@ export function useOutgoingSabotageStatus(params: {
     const refreshTimer = setTimeout(() => setSabotageNow(Date.now()), 0);
 
     const expiresAt = getSabotageExpiryAt({
-      sabotage: { effect: outgoingSabotageEffect, timestamp: outgoingSabotageTimestamp },
-      questionStartTime: params.questionStartTime,
-      sabotageDurationMs: SABOTAGE_DURATION_MS,
-      sabotageFallbackDurationMs: SABOTAGE_FALLBACK_DURATION_MS,
+      effect: outgoingSabotageEffect,
+      timestamp: outgoingSabotageTimestamp,
     });
 
     if (expiresAt === null) {
@@ -44,7 +35,7 @@ export function useOutgoingSabotageStatus(params: {
       clearTimeout(refreshTimer);
       clearTimeout(timer);
     };
-  }, [outgoingSabotageEffect, outgoingSabotageTimestamp, params.questionStartTime]);
+  }, [outgoingSabotageEffect, outgoingSabotageTimestamp]);
 
   return useMemo(
     () => isSabotageActive({

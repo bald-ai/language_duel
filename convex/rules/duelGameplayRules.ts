@@ -10,6 +10,7 @@ import {
   hasLivesLeft,
   isBossAttempt,
 } from "./duelScoringRules";
+import { mirrorPatchForSelfDuel } from "./selfDuelMirror";
 import type { PlayerRole } from "../helpers/auth";
 
 export function validateActiveQuestion(
@@ -53,19 +54,22 @@ export function buildAnswerPatch(params: {
     ? roleView.myScore + currentQuestion.points
     : roleView.myScore;
 
-  return isChallenger
-    ? {
-        challengerAnswered: true,
-        challengerScore: nextScore,
-        challengerLastAnswer: selectedAnswer,
-        ...(!isCorrect ? getLimitedLivesMissPatch(duel, "challenger") : {}),
-      }
-    : {
-        opponentAnswered: true,
-        opponentScore: nextScore,
-        opponentLastAnswer: selectedAnswer,
-        ...(!isCorrect ? getLimitedLivesMissPatch(duel, "opponent") : {}),
-      };
+  return mirrorPatchForSelfDuel(
+    isChallenger
+      ? {
+          challengerAnswered: true,
+          challengerScore: nextScore,
+          challengerLastAnswer: selectedAnswer,
+          ...(!isCorrect ? getLimitedLivesMissPatch(duel, "challenger") : {}),
+        }
+      : {
+          opponentAnswered: true,
+          opponentScore: nextScore,
+          opponentLastAnswer: selectedAnswer,
+          ...(!isCorrect ? getLimitedLivesMissPatch(duel, "opponent") : {}),
+        },
+    duel
+  );
 }
 
 export function buildTimeoutPatch(params: {
@@ -80,17 +84,20 @@ export function buildTimeoutPatch(params: {
     return {};
   }
 
-  return isChallenger
-    ? {
-        challengerAnswered: true,
-        challengerLastAnswer: TIMEOUT_ANSWER,
-        ...getLimitedLivesMissPatch(duel, "challenger"),
-      }
-    : {
-        opponentAnswered: true,
-        opponentLastAnswer: TIMEOUT_ANSWER,
-        ...getLimitedLivesMissPatch(duel, "opponent"),
-      };
+  return mirrorPatchForSelfDuel(
+    isChallenger
+      ? {
+          challengerAnswered: true,
+          challengerLastAnswer: TIMEOUT_ANSWER,
+          ...getLimitedLivesMissPatch(duel, "challenger"),
+        }
+      : {
+          opponentAnswered: true,
+          opponentLastAnswer: TIMEOUT_ANSWER,
+          ...getLimitedLivesMissPatch(duel, "opponent"),
+        },
+    duel
+  );
 }
 
 export function haveBothPlayersAnswered(duel: Doc<"duels">): boolean {
@@ -102,29 +109,35 @@ export function buildNextRoundPatch(
   nextWordIndex: number,
   now: number
 ): Partial<Doc<"duels">> {
-  return {
-    ...getHintProviderBonusPatch(duel),
-    currentWordIndex: nextWordIndex,
-    challengerAnswered: false,
-    opponentAnswered: false,
-    questionStartTime: now,
-    ...getHintClearFields(),
-  };
+  return mirrorPatchForSelfDuel(
+    {
+      ...getHintProviderBonusPatch(duel),
+      currentWordIndex: nextWordIndex,
+      challengerAnswered: false,
+      opponentAnswered: false,
+      questionStartTime: now,
+      ...getHintClearFields(),
+    },
+    duel
+  );
 }
 
 export function buildFinalCompletionPatch(
   duel: Doc<"duels">,
   nextWordIndex: number
 ): Partial<Doc<"duels">> {
-  return {
-    ...getHintProviderBonusPatch(duel),
-    status: "completed",
-    currentWordIndex: nextWordIndex,
-    challengerAnswered: false,
-    opponentAnswered: false,
-    questionStartTime: undefined,
-    ...getHintClearFields(),
-  };
+  return mirrorPatchForSelfDuel(
+    {
+      ...getHintProviderBonusPatch(duel),
+      status: "completed",
+      currentWordIndex: nextWordIndex,
+      challengerAnswered: false,
+      opponentAnswered: false,
+      questionStartTime: undefined,
+      ...getHintClearFields(),
+    },
+    duel
+  );
 }
 
 export function shouldCompleteWeeklyGoalBoss(duel: Doc<"duels">): boolean {

@@ -1,4 +1,4 @@
-import type { ThemeColors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/appearance";
 import type { WeeklyGoalBossStatus } from "@/lib/weeklyGoals";
 
 export function formatBossStatus(status: WeeklyGoalBossStatus): string {

@@ -1,16 +1,10 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
-import { buildChallengeInvite, buildSoloPracticeSession } from "../helpers/sessionCreation";
 import { createWeeklyGoalThemeSnapshots } from "../helpers/weeklyGoalSnapshots";
 import {
-  createChallengeInviteNotificationAndEmail,
-  dismissNotificationById,
   dismissWeeklyGoalNotificationsForParticipants,
-  isWeeklyGoalPayload,
-  requireCallerOwnedNotificationPayload,
   scheduleNotificationEmail,
   upsertWeeklyGoalNotificationForGoal,
 } from "../notificationHelpers";
@@ -27,12 +21,6 @@ import {
   validateEndDateTimestamp,
   validateGoalEndDateAtLeast24hAhead,
 } from "./readModels";
-import {
-  getEligibleThemeIdsForBoss,
-  getBossLabel,
-  validateAndPrepareBoss,
-  summarizeSessionWords,
-} from "./bossWorkflows";
 import { deleteGoalAndRelatedData } from "./cleanup";
 import { dismissGoalNotifications } from "./notifications";
 import { getGoalPartnerIdForViewer, isGoalParticipant } from "./participants";
@@ -169,96 +157,6 @@ export async function handleSetGoalEndDate(
   await ctx.db.patch(goalId, { endDate });
 }
 
-export async function handleCreateBossChallenge(
-  ctx: MutationCtx,
-  goalId: Id<"weeklyGoals">,
-  bossType: "mini" | "big",
-  duelMode: DuelMode
-) {
-  const { user, goal, isCreator, now, sessionWords } =
-    await validateAndPrepareBoss(ctx, goalId, bossType);
-
-  if (goal.mode === "solo") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Solo goals do not support boss duels" });
-  }
-
-  const existingGoalChallenges = await ctx.db
-    .query("challenges")
-    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
-    .collect();
-  const existingGoalDuels = await ctx.db
-    .query("duels")
-    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
-    .collect();
-
-  const duplicateAttempt = existingGoalChallenges.find(
-    (challenge) =>
-      challenge.bossType === bossType &&
-      challenge.status === "pending"
-  ) || existingGoalDuels.find(
-    (duel) =>
-      duel.bossType === bossType &&
-      duel.status === "active"
-  );
-  if (duplicateAttempt) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "A boss attempt is already in progress" });
-  }
-
-  const opponentId = isCreator ? goal.partnerId : goal.creatorId;
-  if (opponentId === undefined) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Shared weekly goal is missing partner data" });
-  }
-  const opponent = await ctx.db.get(opponentId);
-  if (!opponent) {
-    throw new ConvexError({ code: "NOT_FOUND", message: "This partner is no longer available. You can still practice solo." });
-  }
-  const challengeInvite = buildChallengeInvite({
-    challengerId: user._id,
-    opponentId,
-    themeIds: getEligibleThemeIdsForBoss(goal, bossType),
-    sourceType: "boss",
-    weeklyGoalId: goalId,
-    bossType,
-    duelMode,
-    createdAt: now,
-  });
-
-  const challengeId = await ctx.db.insert("challenges", {
-    ...challengeInvite,
-  });
-
-  await createChallengeInviteNotificationAndEmail(ctx, {
-    challengerId: user._id,
-    opponentId,
-    challengeId,
-    themeName: `${getBossLabel(bossType)}: ${summarizeSessionWords(sessionWords)}`,
-    duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
-    duelMode: challengeInvite.duelMode,
-    createdAt: now,
-  });
-
-  return challengeId;
-}
-
-export async function handleStartBossSoloPractice(
-  ctx: MutationCtx,
-  goalId: Id<"weeklyGoals">,
-  bossType: "mini" | "big"
-) {
-  const { user, now, sessionWords } =
-    await validateAndPrepareBoss(ctx, goalId, bossType);
-
-  return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
-    userId: user._id,
-    sessionWords,
-    sourceType: "boss",
-    weeklyGoalId: goalId,
-    bossType,
-    startsInLearning: true,
-    createdAt: now,
-  }));
-}
-
 export async function handleToggleCompletion(
   ctx: MutationCtx,
   goalId: Id<"weeklyGoals">,
@@ -331,9 +229,16 @@ export async function handleLockGoal(
 
   const otherUserId = lockPlan.otherRole === "creator" ? goal.creatorId : goal.partnerId;
 
+  // Validate + snapshot, then perform the state transition, then fan out
+  // notifications/emails last. The snapshot insert is the step most likely to
+  // throw, so it sits next to the patch it gates rather than before unrelated work.
   if (lockPlan.kind === "activate_goal") {
     await createWeeklyGoalThemeSnapshots(ctx, goal, now);
+  }
 
+  await ctx.db.patch(goalId, lockPlan.updates);
+
+  if (lockPlan.kind === "activate_goal") {
     if (goal.mode === "shared" && otherUserId !== undefined) {
       await upsertWeeklyGoalNotificationForGoal(ctx, {
         toUserId: otherUserId,
@@ -371,8 +276,6 @@ export async function handleLockGoal(
       weeklyGoalId: goalId,
     });
   }
-
-  await ctx.db.patch(goalId, lockPlan.updates);
 }
 
 export async function handleDeleteGoal(
@@ -390,136 +293,4 @@ export async function handleDeleteGoal(
 
   await dismissGoalNotifications(ctx, goalId);
   await deleteGoalAndRelatedData(ctx, goal);
-}
-
-export async function handleDismissWeeklyGoalInvitation(
-  ctx: MutationCtx,
-  notificationId: Id<"notifications">
-) {
-  const { user } = await getAuthenticatedUser(ctx);
-
-  await requireCallerOwnedNotificationPayload(ctx, {
-    notificationId,
-    userId: user._id,
-    type: "weekly_goal_invitation",
-    payloadGuard: isWeeklyGoalPayload,
-    missingPayloadMessage: "Weekly goal data is missing",
-  });
-  await dismissNotificationById(ctx, notificationId);
-
-  return { success: true };
-}
-
-export async function handleArchiveCompletedGoalThemesFromNotification(
-  ctx: MutationCtx,
-  notificationId: Id<"notifications">
-) {
-  const { user } = await getAuthenticatedUser(ctx);
-
-  const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
-    notificationId,
-    userId: user._id,
-    type: "weekly_goal_invitation",
-    payloadGuard: isWeeklyGoalPayload,
-    missingPayloadMessage: "Weekly goal data is missing",
-  });
-  if (payload.event !== "goal_completed" && payload.event !== "goal_completed_solo") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid completed goal notification" });
-  }
-
-  const goal = await ctx.db.get(payload.goalId);
-  if (!goal) {
-    await dismissNotificationById(ctx, notificationId);
-    return { archivedCount: 0 };
-  }
-
-  if (goal.mode === "solo" && payload.event !== "goal_completed_solo") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid solo completed goal notification" });
-  }
-  if (goal.mode === "shared" && payload.event !== "goal_completed") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid shared completed goal notification" });
-  }
-
-  if (goal.status !== "completed") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Weekly goal is not completed" });
-  }
-
-  const currentArchived = user.archivedThemeIds || [];
-  const archivedThemeIdSet = new Set(currentArchived.map((id) => String(id)));
-  const seenGoalThemeIds = new Set<string>();
-  const newlyArchivedThemeIds: Id<"themes">[] = [];
-
-  for (const goalTheme of goal.themes) {
-    const themeIdKey = String(goalTheme.themeId);
-    if (seenGoalThemeIds.has(themeIdKey)) continue;
-    seenGoalThemeIds.add(themeIdKey);
-
-    if (!archivedThemeIdSet.has(themeIdKey)) {
-      newlyArchivedThemeIds.push(goalTheme.themeId);
-      archivedThemeIdSet.add(themeIdKey);
-    }
-  }
-
-  if (newlyArchivedThemeIds.length > 0) {
-    await ctx.db.patch(user._id, {
-      archivedThemeIds: [...currentArchived, ...newlyArchivedThemeIds],
-    });
-  }
-
-  await dismissNotificationById(ctx, notificationId);
-
-  return { archivedCount: newlyArchivedThemeIds.length };
-}
-
-export async function handleDeclineWeeklyGoalInvitation(
-  ctx: MutationCtx,
-  notificationId: Id<"notifications">
-) {
-  const { user } = await getAuthenticatedUser(ctx);
-
-  const { payload } = await requireCallerOwnedNotificationPayload(ctx, {
-    notificationId,
-    userId: user._id,
-    type: "weekly_goal_invitation",
-    payloadGuard: isWeeklyGoalPayload,
-    missingPayloadMessage: "Weekly goal data is missing",
-  });
-
-  const goal = await ctx.db.get(payload.goalId);
-  if (!goal) {
-    await dismissNotificationById(ctx, notificationId);
-    return { success: true };
-  }
-
-  if (goal.mode === "solo") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Solo goals do not have invitations" });
-  }
-
-  if (goal.partnerId !== user._id) {
-    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Only the invited user can decline this goal" });
-  }
-
-  const now = Date.now();
-  if (getEffectiveGoalStatus(goal, now) !== "draft") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
-  }
-
-  if (goal.creatorLocked || goal.partnerLocked) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This invitation can no longer be declined" });
-  }
-
-  await dismissGoalNotifications(ctx, goal._id);
-
-  await upsertWeeklyGoalNotificationForGoal(ctx, {
-    toUserId: goal.creatorId,
-    fromUserId: user._id,
-    goalId: goal._id,
-    themeCount: goal.themes.length,
-    event: "declined",
-    createdAt: now,
-  });
-
-  await deleteGoalAndRelatedData(ctx, goal);
-
-  return { success: true };
 }

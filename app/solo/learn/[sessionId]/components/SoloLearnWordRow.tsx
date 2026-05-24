@@ -12,10 +12,11 @@ export interface HintState {
   revealedPositions: number[];
 }
 
-interface MemoizedWordCardWrapperProps {
+interface SoloLearnWordRowProps {
   originalIndex: number;
   word: { word: string; answer: string; ttsStorageId?: string; themeId?: string };
-  themeId: string | null;
+  /** Stable per-word key (`${sessionSourceKey}-${index}`) computed by the page. */
+  wordKey: string;
   hintState: HintState;
   confidence: ConfidenceLevel;
   playingWordIndex: number | null;
@@ -27,10 +28,15 @@ interface MemoizedWordCardWrapperProps {
   dataTestIdBase?: string;
 }
 
-export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
+/**
+ * One row in the Learn word list: derives `hintsRemaining` for this word and
+ * binds the shared `(wordKey, …)` mutators down to the zero-/value-arg handlers
+ * {@link WordCard} expects. Memoized so unrelated word updates don't re-render it.
+ */
+export const SoloLearnWordRow = memo(function SoloLearnWordRow({
   originalIndex,
   word,
-  themeId,
+  wordKey,
   hintState,
   confidence,
   playingWordIndex,
@@ -40,12 +46,10 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
   resetWord,
   playTTS,
   dataTestIdBase,
-}: MemoizedWordCardWrapperProps) {
-  const wordKey = `${themeId}-${originalIndex}`;
-  const state = hintState;
+}: SoloLearnWordRowProps) {
   const totalLetters = stripIrr(word.answer).split("").filter((l) => l !== " ").length;
   const maxHints = Math.ceil(totalLetters / LETTERS_PER_HINT);
-  const hintsRemaining = Math.max(0, maxHints - state.hintCount);
+  const hintsRemaining = Math.max(0, maxHints - hintState.hintCount);
 
   // Memoize callbacks for this specific word
   const handleConfidenceChange = useCallback(
@@ -78,7 +82,7 @@ export const MemoizedWordCardWrapper = memo(function MemoizedWordCardWrapper({
       word={word}
       confidence={confidence}
       onConfidenceChange={handleConfidenceChange}
-      revealedPositions={state.revealedPositions}
+      revealedPositions={hintState.revealedPositions}
       hintsRemaining={hintsRemaining}
       onRevealLetter={handleRevealLetter}
       onRevealFullWord={handleRevealFullWord}

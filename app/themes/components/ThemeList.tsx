@@ -1,14 +1,9 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { FriendWithDetails } from "@/convex/friends";
-import {
-  VariableSizeList as List,
-  type ListChildComponentProps,
-  type VariableSizeList,
-} from "react-window";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { BackButton } from "@/app/components/BackButton";
 import { WeeklyGoalThemeMarker } from "@/app/components/WeeklyGoalThemeMarker";
@@ -18,6 +13,7 @@ import { hasMissingThemeTts } from "@/lib/themes/tts";
 import { getThemeActionButtonStyle } from "./themeStyles";
 import { getWordTypeLabel } from "../constants";
 import { formatVisibleUser } from "@/lib/userDisplay";
+import type { ListFilter } from "../hooks/useThemeListController";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -28,20 +24,14 @@ interface ThemeListProps {
   onDuplicateTheme: (themeId: Id<"themes">) => void;
   onGenerateNew: () => void;
   onBack: () => void;
-  // Friend filter props
+  // Filter props
+  filter?: ListFilter;
   selectedFriend?: FriendWithDetails | null;
-  myThemesOnly?: boolean;
   onOpenFriendFilter?: () => void;
   onClearFriendFilter?: () => void;
-  showArchived?: boolean;
   onToggleShowArchived?: () => void;
   onToggleArchive?: (themeId: Id<"themes">) => void;
 }
-
-const ITEM_GAP = 8;
-const ITEM_SIZE = 72;
-const LIST_VIEWPORT_RESERVED_PX = 308;
-const LIST_CONTAINER_PADDING = 24;
 
 interface ThemeCardProps {
   theme: ThemeWithOwner;
@@ -164,71 +154,6 @@ const ThemeCard = memo(function ThemeCard({
   );
 });
 
-interface ThemeListData {
-  themes: ThemeWithOwner[];
-  deletingThemeId: Id<"themes"> | null;
-  duplicatingThemeId: Id<"themes"> | null;
-  onOpenTheme: (theme: ThemeWithOwner) => void;
-  onDeleteTheme: (themeId: Id<"themes">, themeName: string) => void;
-  onDuplicateTheme: (themeId: Id<"themes">) => void;
-  onToggleArchive?: (themeId: Id<"themes">) => void;
-  isArchived?: boolean;
-  goalThemeIds: Set<Id<"themes">>;
-  setRowSize: (index: number, size: number) => void;
-}
-
-const ThemeRow = memo(function ThemeRow({
-  index,
-  style,
-  data,
-}: ListChildComponentProps<ThemeListData>) {
-  const theme = data.themes[index];
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const rowStyle = {
-    ...style,
-    paddingBottom: ITEM_GAP,
-    paddingRight: 12,
-  };
-
-  useLayoutEffect(() => {
-    if (!theme || !contentRef.current) {
-      return;
-    }
-
-    const rect = contentRef.current.getBoundingClientRect();
-
-    if (rect.height > 0) {
-      data.setRowSize(index, Math.ceil(rect.height + ITEM_GAP));
-    }
-  }, [data, index, theme]);
-
-  if (!theme) {
-    return null;
-  }
-
-  const isDeleting = data.deletingThemeId === theme._id;
-  const isDuplicating = data.duplicatingThemeId === theme._id;
-  const isInWeeklyGoal = data.goalThemeIds.has(theme._id);
-
-  return (
-    <div style={rowStyle}>
-      <div ref={contentRef}>
-        <ThemeCard
-          theme={theme}
-          isDeleting={isDeleting}
-          isDuplicating={isDuplicating}
-          onOpenTheme={data.onOpenTheme}
-          onDeleteTheme={data.onDeleteTheme}
-          onDuplicateTheme={data.onDuplicateTheme}
-          isInWeeklyGoal={isInWeeklyGoal}
-          isArchived={data.isArchived}
-          onToggleArchive={data.onToggleArchive}
-        />
-      </div>
-    </div>
-  );
-});
-
 export function ThemeList({
   themes,
   deletingThemeId,
@@ -238,32 +163,31 @@ export function ThemeList({
   onDuplicateTheme,
   onGenerateNew,
   onBack,
+  filter = { kind: "all" },
   selectedFriend,
-  myThemesOnly,
   onOpenFriendFilter,
   onClearFriendFilter,
-  showArchived,
   onToggleShowArchived,
   onToggleArchive,
 }: ThemeListProps) {
   const colors = useAppearanceColors();
-  const listRef = useRef<VariableSizeList | null>(null);
-  const sizeMapRef = useRef<Map<number, number>>(new Map());
-  const listSpaceRef = useRef<HTMLDivElement | null>(null);
-  const listContainerRef = useRef<HTMLDivElement | null>(null);
-  const [availableHeight, setAvailableHeight] = useState(0);
-  const [listWidth, setListWidth] = useState(0);
   const goalThemeIds = useWeeklyGoalThemeIds();
 
-  const filterDisplay = showArchived
-    ? "Archived Themes"
-    : myThemesOnly
-      ? "My Themes"
-      : selectedFriend
-        ? formatVisibleUser(selectedFriend)
-        : null;
+  const showArchived = filter.kind === "archived";
+  const isFiltering = filter.kind !== "all";
+  const filterDisplay = (() => {
+    switch (filter.kind) {
+      case "archived":
+        return "Archived Themes";
+      case "mine":
+        return "My Themes";
+      case "friend":
+        return selectedFriend ? formatVisibleUser(selectedFriend) : null;
+      case "all":
+        return null;
+    }
+  })();
 
-  const isFiltering = showArchived || myThemesOnly || !!selectedFriend;
   const subtitle = filterDisplay
     ? `Filtering: ${filterDisplay} • ${themes.length} theme${themes.length !== 1 ? "s" : ""}`
     : `${themes.length} theme${themes.length !== 1 ? "s" : ""} available`;
@@ -283,114 +207,6 @@ export function ThemeList({
         },
     [colors, isFiltering]
   );
-
-  useEffect(() => {
-    sizeMapRef.current.clear();
-    listRef.current?.resetAfterIndex(0, true);
-  }, [themes]);
-
-  useEffect(() => {
-    const container = listSpaceRef.current;
-
-    if (!container || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setAvailableHeight(Math.max(0, Math.floor(entry.contentRect.height)));
-      }
-    });
-
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const container = listContainerRef.current;
-
-    if (!container || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setListWidth(Math.max(0, Math.floor(entry.contentRect.width)));
-      }
-    });
-
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  const setRowSize = useCallback((index: number, size: number) => {
-    const currentSize = sizeMapRef.current.get(index);
-
-    if (currentSize === size) {
-      return;
-    }
-
-    sizeMapRef.current.set(index, size);
-    listRef.current?.resetAfterIndex(index);
-  }, []);
-
-  const listData = useMemo<ThemeListData>(
-    () => ({
-      themes,
-      deletingThemeId,
-      duplicatingThemeId,
-      onOpenTheme,
-      onDeleteTheme,
-      onDuplicateTheme,
-      onToggleArchive,
-      isArchived: showArchived,
-      goalThemeIds,
-      setRowSize,
-    }),
-    [
-      themes,
-      deletingThemeId,
-      duplicatingThemeId,
-      onOpenTheme,
-      onDeleteTheme,
-      onDuplicateTheme,
-      onToggleArchive,
-      showArchived,
-      goalThemeIds,
-      setRowSize,
-    ]
-  );
-
-  const getItemSize = useCallback((index: number) => {
-    return sizeMapRef.current.get(index) ?? ITEM_SIZE;
-  }, []);
-
-  const itemKey = useCallback((index: number, data: ThemeListData) => {
-    return data.themes[index]?._id ?? index;
-  }, []);
-
-  const listViewportHeight = useMemo(() => {
-    const totalContentHeight = Math.max(themes.length * ITEM_SIZE, ITEM_SIZE);
-
-    // Fallback before ResizeObserver fires: estimate based on viewport height
-    // Subtract approximate space for header (~200px), footer button (~60px), and page padding (~48px)
-    const estimatedAvailableHeight =
-      typeof window !== "undefined" ? Math.max(300, window.innerHeight - LIST_VIEWPORT_RESERVED_PX) : 500;
-    const availableSpace = availableHeight > 0 ? availableHeight : estimatedAvailableHeight;
-    const listSpace = Math.max(0, availableSpace - LIST_CONTAINER_PADDING);
-
-    return Math.min(listSpace, totalContentHeight);
-  }, [availableHeight, themes.length]);
-
-  const listViewportWidth = useMemo(() => Math.max(1, listWidth), [listWidth]);
 
   return (
     <>
@@ -474,32 +290,30 @@ export function ThemeList({
         </div>
       </header>
 
-      <div ref={listSpaceRef} className="w-full flex-1 min-h-0 mb-3">
+      <div className="w-full flex-1 min-h-0 mb-3 flex flex-col">
         <div
-          className="w-full rounded-2xl border-2 p-3 overflow-hidden backdrop-blur-sm animate-slide-up delay-200"
+          className="w-full min-h-0 overflow-y-auto rounded-2xl border-2 p-3 backdrop-blur-sm animate-slide-up delay-200"
           style={{
             backgroundColor: colors.background.elevated,
             borderColor: colors.primary.dark,
             boxShadow: `0 12px 32px ${colors.primary.glow}`,
-            // Cap container height at content size to eliminate white space when few items
-            maxHeight:
-              listViewportHeight > 0 ? listViewportHeight + LIST_CONTAINER_PADDING : undefined,
           }}
         >
-          <div ref={listContainerRef} className="h-full">
-            <List
-              height={listViewportHeight}
-              itemCount={themes.length}
-              itemSize={getItemSize}
-              estimatedItemSize={ITEM_SIZE}
-              overscanCount={3}
-              width={listViewportWidth}
-              itemData={listData}
-              itemKey={itemKey}
-              ref={listRef}
-            >
-              {ThemeRow}
-            </List>
+          <div className="flex flex-col gap-2">
+            {themes.map((theme) => (
+              <ThemeCard
+                key={theme._id}
+                theme={theme}
+                isDeleting={deletingThemeId === theme._id}
+                isDuplicating={duplicatingThemeId === theme._id}
+                onOpenTheme={onOpenTheme}
+                onDeleteTheme={onDeleteTheme}
+                onDuplicateTheme={onDuplicateTheme}
+                isInWeeklyGoal={goalThemeIds.has(theme._id)}
+                isArchived={showArchived}
+                onToggleArchive={onToggleArchive}
+              />
+            ))}
           </div>
         </div>
       </div>

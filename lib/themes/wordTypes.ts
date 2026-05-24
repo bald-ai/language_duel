@@ -171,7 +171,7 @@ export const WORD_TYPE_OPTIONS = WORD_TYPE_VALUES.map((value) => ({
 }));
 
 export function isWordType(value: unknown): value is WordType {
-  return typeof value === "string" && Object.hasOwn(WORD_TYPE_CONFIG, value);
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(WORD_TYPE_CONFIG, value);
 }
 
 export function getWordTypeConfig(wordType: WordType = DEFAULT_WORD_TYPE): WordTypeConfig {
@@ -185,10 +185,6 @@ export function getWordTypeLabel(
   const label = wordType ? WORD_TYPE_CONFIG[wordType]?.label : undefined;
   const resolved = label ?? options?.fallback ?? WORD_TYPE_CONFIG[DEFAULT_WORD_TYPE].label;
   return options?.uppercase ? resolved.toUpperCase() : resolved;
-}
-
-export function getDefaultWordType(): WordType {
-  return DEFAULT_WORD_TYPE;
 }
 
 export function wordTypeAllowsCorrectAnswerMarker(wordType?: WordType): boolean {

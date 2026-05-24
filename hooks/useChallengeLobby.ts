@@ -13,12 +13,6 @@ import { useChallengeModals } from "./challengeLobby/useChallengeModals";
 import { useChallengeStatusWatcher } from "./challengeLobby/useChallengeStatusWatcher";
 import type { CreateChallengeOptions } from "./challengeLobby/types";
 
-export type { CreateChallengeOptions, ModalState } from "./challengeLobby/types";
-export { useChallengeActions } from "./challengeLobby/useChallengeActions";
-export { useChallengeData } from "./challengeLobby/useChallengeData";
-export { useChallengeModals } from "./challengeLobby/useChallengeModals";
-export { useChallengeStatusWatcher } from "./challengeLobby/useChallengeStatusWatcher";
-
 export function useChallengeLobby() {
   const router = useRouter();
   const modals = useChallengeModals();
@@ -104,7 +98,6 @@ export function useChallengeLobby() {
     users: data.users,
     themes: data.themes,
     pendingChallenges: data.pendingChallenges,
-    pendingCount: data.pendingCount,
     viewer,
 
     showSoloPracticeModal: modals.showSoloPracticeModal,

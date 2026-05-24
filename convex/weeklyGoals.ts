@@ -9,7 +9,12 @@ import {
   isWeeklyGoalPayload,
 } from "./notificationHelpers";
 import { getAuthenticatedUserOrNull } from "./helpers/auth";
-import { GRACE_PERIOD_MS, WEEKLY_GOAL_DRAFT_TTL_MS } from "./constants";
+import {
+  DRAFT_EXPIRY_REMINDER_LEAD_MS,
+  DRAFT_EXPIRY_REMINDER_WINDOW_MS,
+  GRACE_PERIOD_MS,
+  WEEKLY_GOAL_DRAFT_TTL_MS,
+} from "./constants";
 import { duelModeValidator } from "./schema";
 import type { GoalWithUsers } from "./weeklyGoals/types";
 import {
@@ -23,18 +28,22 @@ import {
 import { closeVisibleGoalsBetweenParticipants, runWeeklyGoalRetentionCleanup } from "./weeklyGoals/cleanup";
 import {
   handleAddTheme,
-  handleArchiveCompletedGoalThemesFromNotification,
-  handleCreateBossChallenge,
-  handleDeclineWeeklyGoalInvitation,
   handleDeleteGoal,
-  handleDismissWeeklyGoalInvitation,
   handleLockGoal,
   handleRemoveTheme,
   handleSetGoalEndDate,
-  handleStartBossSoloPractice,
   handleToggleCompletion,
 } from "./weeklyGoals/mutations";
-import { handleCompleteBossSoloPractice } from "./weeklyGoals/bossWorkflows";
+import {
+  handleCompleteBossSoloPractice,
+  handleCreateBossChallenge,
+  handleStartBossSoloPractice,
+} from "./weeklyGoals/bossWorkflows";
+import {
+  handleArchiveCompletedGoalThemesFromNotification,
+  handleDeclineWeeklyGoalInvitation,
+  handleDismissWeeklyGoalInvitation,
+} from "./weeklyGoals/invitationMutations";
 import {
   handleCreateSharedGoal,
   handleCreateSoloGoal,
@@ -258,9 +267,9 @@ export const getDraftGoalsExpiringSoon = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const oneHourMs = 60 * 60 * 1000;
-    const minCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 22 * oneHourMs;
-    const maxCreatedAt = now - WEEKLY_GOAL_DRAFT_TTL_MS + 24 * oneHourMs;
+    const expiryBase = now - WEEKLY_GOAL_DRAFT_TTL_MS;
+    const minCreatedAt = expiryBase + DRAFT_EXPIRY_REMINDER_LEAD_MS - DRAFT_EXPIRY_REMINDER_WINDOW_MS;
+    const maxCreatedAt = expiryBase + DRAFT_EXPIRY_REMINDER_LEAD_MS;
 
     return await ctx.db
       .query("weeklyGoals")
@@ -312,7 +321,6 @@ export const createDraftExpiryNotification = internalMutation({
       payload: {
         goalId: goal._id,
         themeCount: goal.themes.length,
-        event: "draft_expiring",
       },
       createdAt: args.now,
     });

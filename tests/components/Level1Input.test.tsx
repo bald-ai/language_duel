@@ -19,7 +19,7 @@ describe("Level1Input", () => {
     vi.useRealTimers();
   });
 
-  it("solo mode auto-completes after delay", () => {
+  it("auto-completes after delay", () => {
     vi.useFakeTimers();
     const onCorrect = vi.fn();
 
@@ -28,7 +28,6 @@ describe("Level1Input", () => {
         answer={answer}
         onCorrect={onCorrect}
         onSkip={vi.fn()}
-        mode="solo"
         dataTestIdBase="level1"
       />
     );
@@ -45,105 +44,12 @@ describe("Level1Input", () => {
     expect(onCorrect).toHaveBeenCalledWith(answer);
   });
 
-  it("duel mode requires confirm to submit", () => {
-    const onCorrect = vi.fn();
-
-    render(
-      <Level1Input
-        answer={answer}
-        onCorrect={onCorrect}
-        onSkip={vi.fn()}
-        mode="duel"
-        dataTestIdBase="level1"
-      />
-    );
-
-    const input = screen.getByRole("textbox");
-    typeAnswer(input);
-
-    expect(onCorrect).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByTestId("level1-confirm"));
-    expect(onCorrect).toHaveBeenCalledWith(answer);
-  });
-
-  it("duel mode can request hint", () => {
-    const onRequestHint = vi.fn();
-
-    render(
-      <Level1Input
-        answer={answer}
-        onCorrect={vi.fn()}
-        onSkip={vi.fn()}
-        mode="duel"
-        canRequestHint
-        hintRequested={false}
-        onRequestHint={onRequestHint}
-        dataTestIdBase="level1"
-      />
-    );
-
-    fireEvent.click(screen.getByTestId("level1-hint-request"));
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-  });
-
-  it("duel mode shows pending hint state with cancel and request again", () => {
-    const onRequestHint = vi.fn();
-    const onCancelHint = vi.fn();
-
-    render(
-      <Level1Input
-        answer={answer}
-        onCorrect={vi.fn()}
-        onSkip={vi.fn()}
-        mode="duel"
-        hintRequested
-        hintAccepted={false}
-        canRequestHint={false}
-        onRequestHint={onRequestHint}
-        onCancelHint={onCancelHint}
-        dataTestIdBase="level1"
-      />
-    );
-
-    fireEvent.click(screen.getByTestId("level1-hint-request-again"));
-    fireEvent.click(screen.getByTestId("level1-hint-cancel"));
-
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-    expect(onCancelHint).toHaveBeenCalledTimes(1);
-  });
-
-  it("duel mode shows accepted letters hint state", () => {
-    const onRequestHint = vi.fn();
-
-    render(
-      <Level1Input
-        answer={answer}
-        onCorrect={vi.fn()}
-        onSkip={vi.fn()}
-        mode="duel"
-        hintRequested
-        hintAccepted
-        hintType="letters"
-        hintRevealedPositions={[0, 2]}
-        onRequestHint={onRequestHint}
-        dataTestIdBase="level1"
-      />
-    );
-
-    expect(screen.getByText(/opponent is giving you hints/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("level1-hint-request-again"));
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-  });
-
   it("supports slot navigation with selected letter box and reverse-order backspace flow", () => {
     render(
       <Level1Input
         answer={answer}
         onCorrect={vi.fn()}
         onSkip={vi.fn()}
-        mode="solo"
         dataTestIdBase="level1"
       />
     );
@@ -190,7 +96,6 @@ describe("Level1Input", () => {
         answer={answer}
         onCorrect={vi.fn()}
         onSkip={vi.fn()}
-        mode="solo"
         dataTestIdBase="level1"
       />
     );

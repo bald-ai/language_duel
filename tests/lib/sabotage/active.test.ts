@@ -1,21 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { getSabotageExpiryAt, isSabotageActive } from "@/lib/sabotage/active";
+import { SABOTAGE_DURATION_MS } from "@/lib/sabotage/constants";
 
 describe("isSabotageActive", () => {
-  it("expires sticky sabotage by duration", () => {
+  it("expires sticky sabotage by its fixed duration", () => {
     expect(
       isSabotageActive({
         sabotage: { effect: "sticky", timestamp: 1_000 },
-        now: 7_999,
-        sabotageDurationMs: 7_000,
+        now: 1_000 + SABOTAGE_DURATION_MS - 1,
       })
     ).toBe(true);
 
     expect(
       isSabotageActive({
         sabotage: { effect: "sticky", timestamp: 1_000 },
-        now: 8_000,
-        sabotageDurationMs: 7_000,
+        now: 1_000 + SABOTAGE_DURATION_MS,
       })
     ).toBe(false);
   });
@@ -38,20 +37,11 @@ describe("isSabotageActive", () => {
     ).toBe(false);
   });
 
-  it("expires movement sabotages by fallback duration when question start is missing", () => {
+  it("treats a movement sabotage as inactive when no question is in progress", () => {
     expect(
       isSabotageActive({
         sabotage: { effect: "reverse", timestamp: 1_000 },
-        now: 25_999,
-        sabotageFallbackDurationMs: 25_000,
-      })
-    ).toBe(true);
-
-    expect(
-      isSabotageActive({
-        sabotage: { effect: "reverse", timestamp: 1_000 },
-        now: 26_000,
-        sabotageFallbackDurationMs: 25_000,
+        now: 5_000,
       })
     ).toBe(false);
   });
@@ -59,29 +49,16 @@ describe("isSabotageActive", () => {
 
 describe("getSabotageExpiryAt", () => {
   it("returns sticky expiry from its fixed duration", () => {
-    expect(
-      getSabotageExpiryAt({
-        sabotage: { effect: "sticky", timestamp: 1_000 },
-        sabotageDurationMs: 7_000,
-      })
-    ).toBe(8_000);
+    expect(getSabotageExpiryAt({ effect: "sticky", timestamp: 1_000 })).toBe(
+      1_000 + SABOTAGE_DURATION_MS
+    );
   });
 
-  it("returns no expiry for movement sabotage tied to a question start", () => {
-    expect(
-      getSabotageExpiryAt({
-        sabotage: { effect: "trampoline", timestamp: 12_000 },
-        questionStartTime: 10_000,
-      })
-    ).toBeNull();
+  it("returns no expiry for movement sabotage (question-bound, not timed)", () => {
+    expect(getSabotageExpiryAt({ effect: "trampoline", timestamp: 12_000 })).toBeNull();
   });
 
-  it("returns fallback expiry for movement sabotage without a question start", () => {
-    expect(
-      getSabotageExpiryAt({
-        sabotage: { effect: "reverse", timestamp: 1_000 },
-        sabotageFallbackDurationMs: 25_000,
-      })
-    ).toBe(26_000);
+  it("returns null when there is no sabotage", () => {
+    expect(getSabotageExpiryAt(undefined)).toBeNull();
   });
 });

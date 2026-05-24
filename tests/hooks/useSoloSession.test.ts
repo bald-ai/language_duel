@@ -1,18 +1,18 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useSoloSession } from "@/app/solo/[sessionId]/hooks/useSoloSession";
+import type { SessionWordEntry } from "@/lib/sessionWords";
+import type { Id } from "@/convex/_generated/dataModel";
 
-type TestWord = {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
-};
+type TestWord = SessionWordEntry;
 
 const singleWord: TestWord[] = [
   {
     word: "hello",
     answer: "hola",
     wrongAnswers: ["adios", "casa", "mesa"],
+    themeId: "theme_0" as Id<"themes">,
+    themeName: "Test Theme",
   },
 ];
 

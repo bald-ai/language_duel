@@ -26,7 +26,6 @@ type EmailLogDoc = Pick<
   | "duelId"
   | "soloPracticeSessionId"
   | "weeklyGoalId"
-  | "reminderOffsetMinutes"
   | "dedupeKey"
   | "status"
   | "claimedAt"

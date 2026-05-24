@@ -3,5 +3,5 @@
  */
 
 export * from "./auth";
-export * from "./gameLogic";
+export * from "./shuffle";
 export * from "./users";

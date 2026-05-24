@@ -8,10 +8,11 @@ import {
   isWeeklyGoalPayload,
   type ChallengeInvitePayload,
   type FriendRequestPayload,
+  type WeeklyGoalNotificationEvent,
   type WeeklyGoalPayload,
 } from "./notificationPayloads";
 import type { NotificationPayload } from "./schema";
-import type { NotificationTrigger } from "../lib/notificationPreferences";
+import type { NotificationEmailTrigger } from "../lib/notificationPreferences";
 import type { DuelMode } from "../lib/duelMode";
 
 type NotificationType = Doc<"notifications">["type"];
@@ -74,7 +75,7 @@ export async function createNotification(
 export async function scheduleNotificationEmail(
   ctx: MutationCtx,
   args: {
-    trigger: NotificationTrigger;
+    trigger: NotificationEmailTrigger;
     toUserId: Id<"users">;
     fromUserId?: Id<"users">;
     challengeId?: Id<"challenges">;
@@ -247,14 +248,7 @@ export async function upsertWeeklyGoalNotificationForGoal(
     fromUserId: Id<"users">;
     goalId: Id<"weeklyGoals">;
     themeCount: number;
-    event:
-      | "invite"
-      | "declined"
-      | "partner_locked"
-      | "goal_unlocked"
-      | "goal_activated"
-      | "goal_completed"
-      | "goal_completed_solo";
+    event: WeeklyGoalNotificationEvent;
     createdAt: number;
   }
 ) {
@@ -301,5 +295,6 @@ export {
   isWeeklyGoalPayload,
   type ChallengeInvitePayload,
   type FriendRequestPayload,
+  type WeeklyGoalNotificationEvent,
   type WeeklyGoalPayload,
 };

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
+  backgroundValidator,
+  colorSetValidator,
   getUserPreferences,
   updateBackground,
   updateColorSet,
@@ -91,15 +93,20 @@ describe("userPreferences", () => {
     });
   });
 
-  it("rejects invalid color sets and backgrounds", async () => {
-    const db = new InMemoryDb();
-    db.users.push(userDoc());
+  it("constrains color set and background to known values via the arg validators", () => {
+    // Validation now lives in the Convex arg validators (the in-handler checks
+    // were removed), so invalid values are rejected before the handler runs.
+    const unionLiteralValues = (validator: unknown): unknown[] =>
+      (validator as { members: Array<{ value: unknown }> }).members.map(
+        (member) => member.value
+      );
 
-    await expect(
-      callConvex(updateColorSet, createCtx(db), { colorSet: "missing-palette" })
-    ).rejects.toThrow("Invalid color set");
-    await expect(
-      callConvex(updateBackground, createCtx(db), { background: "missing.jpg" })
-    ).rejects.toThrow("Invalid background");
+    const colorSets = unionLiteralValues(colorSetValidator);
+    expect(colorSets).toContain("playful-duo");
+    expect(colorSets).not.toContain("missing-palette");
+
+    const backgrounds = unionLiteralValues(backgroundValidator);
+    expect(backgrounds).toContain("background.jpg");
+    expect(backgrounds).not.toContain("missing.jpg");
   });
 });

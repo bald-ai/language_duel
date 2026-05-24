@@ -2,6 +2,12 @@
  * Shared types for the Language Duel application.
  */
 
+// `Id` and `WordEntry` below are a deliberate hand-rolled mirror of Convex's
+// generated `Id`/`Doc` types. They let the pure logic in `lib/` stay free of
+// `convex/_generated` imports (keeping the layer boundary clean and the codegen
+// out of unit tests). The brand here (`__tableName`) is intentionally distinct
+// from Convex's generated brand, so don't "simplify" this to re-export the
+// generated types — values are bridged at the convex/UI boundary on purpose.
 export type Id<TableName extends string> = string & {
   __tableName: TableName;
 };

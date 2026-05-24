@@ -312,6 +312,84 @@ export const getButtonStyles = (themeColors: ThemeColors): ButtonStyles => ({
 // CSS VARIABLE WRITING
 // =============================================================================
 
+export type CssVarTree = { readonly [key: string]: string | CssVarTree };
+
+/**
+ * Canonical CSS custom-property names for every theme color shade emitted as a
+ * CSS variable. This is the SINGLE source consumed by both the writer below
+ * (applyThemeCssVariables) and the reader (cssVarColors in
+ * app/components/themeCssVars.ts), so the two cannot drift. Shades not listed
+ * here (primary.glow / cta.glow) are computed by the reader and intentionally
+ * have no CSS variable.
+ */
+export const THEME_COLOR_CSS_VARS = {
+  primary: {
+    DEFAULT: "--color-primary",
+    light: "--color-primary-light",
+    dark: "--color-primary-dark",
+    darkest: "--color-primary-darkest",
+  },
+  cta: {
+    DEFAULT: "--color-cta",
+    light: "--color-cta-light",
+    lighter: "--color-cta-lighter",
+    dark: "--color-cta-dark",
+    darkest: "--color-cta-darkest",
+  },
+  neutral: {
+    DEFAULT: "--color-neutral",
+    light: "--color-neutral-light",
+    dark: "--color-neutral-dark",
+  },
+  secondary: {
+    DEFAULT: "--color-secondary",
+    light: "--color-secondary-light",
+    dark: "--color-secondary-dark",
+  },
+  background: {
+    DEFAULT: "--color-background",
+    elevated: "--color-background-elevated",
+  },
+  text: {
+    DEFAULT: "--color-text",
+    muted: "--color-text-muted",
+    inverse: "--color-text-inverse",
+  },
+  status: {
+    success: {
+      DEFAULT: "--color-success",
+      light: "--color-success-light",
+      dark: "--color-success-dark",
+    },
+    warning: {
+      DEFAULT: "--color-warning",
+      light: "--color-warning-light",
+      dark: "--color-warning-dark",
+    },
+    danger: {
+      DEFAULT: "--color-danger",
+      light: "--color-danger-light",
+      dark: "--color-danger-dark",
+    },
+  },
+} as const;
+
+function writeColorCssVars(
+  style: CSSStyleDeclaration,
+  varTree: CssVarTree,
+  colorTree: Record<string, unknown>
+): void {
+  for (const key of Object.keys(varTree)) {
+    const varNode = varTree[key];
+    const colorNode = colorTree[key];
+    if (typeof varNode === "string") {
+      style.setProperty(varNode, colorNode as string);
+    } else {
+      writeColorCssVars(style, varNode, colorNode as Record<string, unknown>);
+    }
+  }
+}
+
 export const applyThemeCssVariables = (themeName: ThemeName, themeColors: ThemeColors) => {
   if (typeof document === "undefined") {
     return;
@@ -319,38 +397,7 @@ export const applyThemeCssVariables = (themeName: ThemeName, themeColors: ThemeC
 
   const root = document.documentElement;
   root.setAttribute("data-theme", themeName);
-
-  root.style.setProperty("--color-primary", themeColors.primary.DEFAULT);
-  root.style.setProperty("--color-primary-light", themeColors.primary.light);
-  root.style.setProperty("--color-primary-dark", themeColors.primary.dark);
-
-  root.style.setProperty("--color-cta", themeColors.cta.DEFAULT);
-  root.style.setProperty("--color-cta-light", themeColors.cta.light);
-  root.style.setProperty("--color-cta-dark", themeColors.cta.dark);
-
-  root.style.setProperty("--color-neutral", themeColors.neutral.DEFAULT);
-  root.style.setProperty("--color-neutral-light", themeColors.neutral.light);
-  root.style.setProperty("--color-neutral-dark", themeColors.neutral.dark);
-
-  root.style.setProperty("--color-secondary", themeColors.secondary.DEFAULT);
-  root.style.setProperty("--color-secondary-light", themeColors.secondary.light);
-  root.style.setProperty("--color-secondary-dark", themeColors.secondary.dark);
-
-  root.style.setProperty("--color-background", themeColors.background.DEFAULT);
-  root.style.setProperty("--color-background-elevated", themeColors.background.elevated);
-
-  root.style.setProperty("--color-text", themeColors.text.DEFAULT);
-  root.style.setProperty("--color-text-muted", themeColors.text.muted);
-
-  root.style.setProperty("--color-success", themeColors.status.success.DEFAULT);
-  root.style.setProperty("--color-success-light", themeColors.status.success.light);
-  root.style.setProperty("--color-success-dark", themeColors.status.success.dark);
-  root.style.setProperty("--color-warning", themeColors.status.warning.DEFAULT);
-  root.style.setProperty("--color-warning-light", themeColors.status.warning.light);
-  root.style.setProperty("--color-warning-dark", themeColors.status.warning.dark);
-  root.style.setProperty("--color-danger", themeColors.status.danger.DEFAULT);
-  root.style.setProperty("--color-danger-light", themeColors.status.danger.light);
-  root.style.setProperty("--color-danger-dark", themeColors.status.danger.dark);
+  writeColorCssVars(root.style, THEME_COLOR_CSS_VARS, themeColors as Record<string, unknown>);
 };
 
 // =============================================================================

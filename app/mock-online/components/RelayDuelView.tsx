@@ -103,9 +103,8 @@ export function RelayDuelView({ data, onLeave }: RelayDuelViewProps) {
     isShowingFeedback: showFeedback,
     eliminatedOptions: [],
     canEliminate: false,
-    opponentLastAnswer: null,
-    status: finished ? "completed" : "active",
-    frozenData: null,
+    opponentAnswer: null,
+    showOpponentPick: false,
   });
 
   const renderAnswerGrid = (interactive: boolean) =>

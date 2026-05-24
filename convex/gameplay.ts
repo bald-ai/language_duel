@@ -20,7 +20,6 @@ import {
   shouldCompleteWeeklyGoalBoss,
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
-import { mirrorPatchForSelfDuel } from "./rules/selfDuelMirror";
 import {
   planConfirmUnpauseCountdown,
   planSkipCountdown,
@@ -86,6 +85,33 @@ async function advanceDuelIfBothAnswered(
   return noLifecycleIntent;
 }
 
+/**
+ * Shared post-answer tail for `answerDuel` / `timeoutAnswer`: re-read the duel
+ * after the patch, then advance it if both players have answered, report the
+ * already-completed lifecycle intent, or no-op.
+ */
+async function finalizeAfterAnswer(
+  ctx: MutationCtx,
+  duelId: Id<"duels">
+): Promise<DuelLifecycleIntent> {
+  const updatedDuel = await ctx.db.get(duelId);
+  if (!updatedDuel) {
+    return noLifecycleIntent;
+  }
+  if (updatedDuel.status === "active") {
+    const wordCount = getSessionWords(updatedDuel).length;
+    return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
+  }
+  if (updatedDuel.status === "completed") {
+    return {
+      completed: true,
+      completeWeeklyGoalMilestone: shouldCompleteWeeklyGoalBoss(updatedDuel),
+      completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
+    };
+  }
+  return noLifecycleIntent;
+}
+
 // ===========================================
 // Duel Answer
 // ===========================================
@@ -106,35 +132,18 @@ export const answerDuel = mutation({
       "Stale answer: question has changed"
     );
 
-    const sessionWords = getSessionWords(duel);
-    const wordCount = sessionWords.length;
-    const answerPatch = mirrorPatchForSelfDuel(
-      buildAnswerPatch({
-        duel,
-        playerRole,
-        isChallenger,
-        selectedAnswer,
-        questionIndex,
-      }),
-      duel
-    );
+    const answerPatch = buildAnswerPatch({
+      duel,
+      playerRole,
+      isChallenger,
+      selectedAnswer,
+      questionIndex,
+    });
     if (Object.keys(answerPatch).length > 0) {
       await ctx.db.patch(duelId, answerPatch);
     }
 
-    // Check if both answered, then advance
-    const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel && updatedDuel.status === "active") {
-      return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
-    }
-    if (updatedDuel && updatedDuel.status === "completed") {
-      return {
-        completed: true,
-        completeWeeklyGoalMilestone: shouldCompleteWeeklyGoalBoss(updatedDuel),
-        completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
-      };
-    }
-    return noLifecycleIntent;
+    return await finalizeAfterAnswer(ctx, duelId);
   },
 });
 
@@ -153,28 +162,12 @@ export const timeoutAnswer = mutation({
       "Stale timeout: question has changed"
     );
 
-    const timeoutPatch = mirrorPatchForSelfDuel(
-      buildTimeoutPatch({ duel, playerRole, isChallenger }),
-      duel
-    );
+    const timeoutPatch = buildTimeoutPatch({ duel, playerRole, isChallenger });
     if (Object.keys(timeoutPatch).length > 0) {
       await ctx.db.patch(duelId, timeoutPatch);
     }
 
-    // Check if both answered, then advance
-    const updatedDuel = await ctx.db.get(duelId);
-    if (updatedDuel && updatedDuel.status === "active") {
-      const sessionWords = getSessionWords(updatedDuel);
-      return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, sessionWords.length);
-    }
-    if (updatedDuel && updatedDuel.status === "completed") {
-      return {
-        completed: true,
-        completeWeeklyGoalMilestone: shouldCompleteWeeklyGoalBoss(updatedDuel),
-        completeSpacedRepetition: shouldCompleteSpacedRepetitionDuel(updatedDuel),
-      };
-    }
-    return noLifecycleIntent;
+    return await finalizeAfterAnswer(ctx, duelId);
   },
 });
 

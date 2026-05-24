@@ -12,9 +12,8 @@ import {
   type ButtonStyles,
   type ThemeColors,
   type ThemeName,
-} from "@/lib/theme";
+} from "@/lib/appearance";
 import { usePersistedPreference } from "./usePersistedPreference";
-import { cssVarButtonStyles, cssVarColors } from "./themeCssVars";
 import { getErrorMessage } from "@/lib/errors";
 
 const COLOR_SET_STORAGE_KEY = "language-duel-color-set";
@@ -29,14 +28,6 @@ type ColorSetContextValue = {
 
 const ColorSetContext = createContext<ColorSetContextValue | undefined>(undefined);
 
-declare global {
-  var __LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__: boolean | undefined;
-}
-
-function normalizeThemeName(themeName: ThemeName) {
-  return isThemeName(themeName) ? themeName : DEFAULT_THEME_NAME;
-}
-
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
   const { userPreferences, isLoading, updateColorSet } = useUserPreferences();
 
@@ -46,7 +37,6 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
     serverValue: userPreferences?.selectedColorSet,
     serverValueLoaded: userPreferences !== undefined,
     isValid: isThemeName,
-    applyValue: normalizeThemeName,
     saveValue: userPreferences ? updateColorSet : undefined,
     onSaveError: (error) => {
       toast.error(getErrorMessage(error, "Failed to save color set"));
@@ -92,10 +82,6 @@ export function useAppearanceColors() {
   const context = useContext(ColorSetContext);
 
   if (!context) {
-    if (globalThis.__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__) {
-      return cssVarColors;
-    }
-
     throw new Error("useAppearanceColors must be used within AppearanceProvider");
   }
 
@@ -106,10 +92,6 @@ export function useAppearanceButtonStyles() {
   const context = useContext(ColorSetContext);
 
   if (!context) {
-    if (globalThis.__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__) {
-      return cssVarButtonStyles;
-    }
-
     throw new Error("useAppearanceButtonStyles must be used within AppearanceProvider");
   }
 

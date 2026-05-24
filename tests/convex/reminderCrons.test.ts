@@ -124,24 +124,21 @@ describe("reminder crons", () => {
     ]);
   });
 
-  it("creates in-app draft-expiry notification but no email log when email is disabled", async () => {
+  it("creates the in-app notification and delegates the email send to the send action", async () => {
+    // After the single-gate refactor the cron no longer checks email prefs: it
+    // creates the in-app notification and always calls the send action, which
+    // self-gates (modelled here as disabled_by_user — no email, no log).
     const goal = buildGoal({
       _id: "goal_draft_1" as Id<"weeklyGoals">,
       status: "draft",
       creatorId: "user_1" as Id<"users">,
     });
     const mutationCalls: string[] = [];
-    const actionCalls: string[] = [];
+    const actionResults: Array<{ sent: boolean; reason?: string }> = [];
 
     await sendDraftExpiryRemindersHandler(
       {
-        runQuery: async (_fn: unknown, args: { userId?: Id<"users">; trigger?: string }) => {
-          if (args.userId) {
-            return {
-              ...DEFAULT_NOTIFICATION_PREFS,
-              weeklyGoalDraftExpiringEmailEnabled: false,
-            };
-          }
+        runQuery: async (_fn: unknown, args: { trigger?: string }) => {
           if (args.trigger === "weekly_goal_draft_expiring") return false;
           return [goal];
         },
@@ -149,16 +146,17 @@ describe("reminder crons", () => {
           mutationCalls.push(fn.name ?? "unknownMutation");
           return { created: true };
         },
-        runAction: async (fn: { name?: string }) => {
-          actionCalls.push(fn.name ?? "unknownAction");
-          return { sent: false, reason: "disabled_by_user" };
+        runAction: async () => {
+          const result = { sent: false, reason: "disabled_by_user" };
+          actionResults.push(result);
+          return result;
         },
       } as never,
       {}
     );
 
     expect(mutationCalls).toHaveLength(1);
-    expect(actionCalls).toHaveLength(0);
+    expect(actionResults).toEqual([{ sent: false, reason: "disabled_by_user" }]);
   });
 
   it("does not write email log when recipient has no email", async () => {
@@ -193,7 +191,7 @@ describe("reminder crons", () => {
     expect(actionCalls).toHaveLength(1);
   });
 
-  it("allows one email send after re-enabling draft-expiry emails", async () => {
+  it("sends the draft-expiry email once and not again after it is recorded", async () => {
     const goal = buildGoal({
       _id: "goal_draft_3" as Id<"weeklyGoals">,
       status: "draft",
@@ -205,13 +203,17 @@ describe("reminder crons", () => {
     const runOnce = async (prefs: typeof DEFAULT_NOTIFICATION_PREFS) => {
       await sendDraftExpiryRemindersHandler(
         {
-          runQuery: async (_fn: unknown, args: { userId?: Id<"users">; trigger?: string }) => {
-            if (args.userId) return prefs;
+          runQuery: async (_fn: unknown, args: { trigger?: string }) => {
             if (args.trigger === "weekly_goal_draft_expiring") return alreadySent;
             return [goal];
           },
           runMutation: async () => ({ created: true }),
+          // Model the send-side gate: a disabled pref sends nothing and writes no
+          // log (alreadySent stays false); an enabled pref sends once and records it.
           runAction: async () => {
+            if (!prefs.weeklyGoalDraftExpiringEmailEnabled) {
+              return { sent: false, reason: "disabled_by_user" };
+            }
             emailSendCount++;
             alreadySent = true;
             return { sent: true };

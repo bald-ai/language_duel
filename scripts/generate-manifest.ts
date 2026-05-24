@@ -2,12 +2,12 @@
  * Generates public/manifest.json from the centralized theme configuration.
  * Run with: npx tsx scripts/generate-manifest.ts
  * 
- * This ensures PWA manifest colors stay in sync with lib/theme.ts.
+ * This ensures PWA manifest colors stay in sync with lib/appearance.ts.
  */
 
 import * as fs from "fs";
 import * as path from "path";
-import { themes, DEFAULT_THEME_NAME } from "../lib/theme";
+import { themes, DEFAULT_THEME_NAME } from "../lib/appearance";
 
 const defaultTheme = themes[DEFAULT_THEME_NAME].colors;
 

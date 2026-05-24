@@ -16,7 +16,6 @@ interface UseReverseAnswersProps {
 
 interface UseReverseAnswersResult {
   reverseAnimatedAnswers: string[] | null;
-  clearReverseAnimation: () => void;
 }
 
 export function useReverseAnswers({
@@ -26,35 +25,28 @@ export function useReverseAnswers({
   const [reverseAnimatedAnswers, setReverseAnimatedAnswers] = useState<string[] | null>(null);
   const timersRef = useRef<NodeJS.Timeout[]>([]);
 
-  const clearReverseAnimation = useCallback(() => {
+  // Single helper for tearing down scheduled scramble timers (previously
+  // duplicated across three branches).
+  const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => clearTimeout(timer));
     timersRef.current = [];
-    setReverseAnimatedAnswers(null);
   }, []);
 
   useEffect(() => {
-    if (activeSabotage !== "reverse") {
-      // Use setTimeout to defer state updates and avoid cascading renders
-      setTimeout(() => {
-        timersRef.current.forEach((timer) => clearTimeout(timer));
-        timersRef.current = [];
-        setReverseAnimatedAnswers(null);
-      }, 0);
-      return;
+    clearTimers();
+
+    // All state updates run inside timer callbacks, never synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    if (activeSabotage !== "reverse" || !answers.length) {
+      const reset = setTimeout(() => setReverseAnimatedAnswers(null), 0);
+      timersRef.current.push(reset);
+      return clearTimers;
     }
 
-    if (!answers.length) {
-      // Clear timers synchronously (safe), defer setState
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current = [];
-      setTimeout(() => setReverseAnimatedAnswers(null), 0);
-      return;
-    }
-
-    // Clear timers synchronously (safe), defer setState
-    timersRef.current.forEach((timer) => clearTimeout(timer));
-    timersRef.current = [];
-    setTimeout(() => setReverseAnimatedAnswers([...answers]), 0);
+    // Hold the answers as-is, then scramble for a bit, then settle on the fully
+    // reversed text.
+    const paint = setTimeout(() => setReverseAnimatedAnswers([...answers]), 0);
+    timersRef.current.push(paint);
 
     let scrambleStartedAt: number | null = null;
     const tick = () => {
@@ -73,9 +65,8 @@ export function useReverseAnswers({
     const startScramble = setTimeout(tick, REVERSE_HOLD_MS);
     timersRef.current.push(startScramble);
 
-    return () => clearReverseAnimation();
-  }, [activeSabotage, answers, clearReverseAnimation]);
+    return clearTimers;
+  }, [activeSabotage, answers, clearTimers]);
 
-  return { reverseAnimatedAnswers, clearReverseAnimation };
+  return { reverseAnimatedAnswers };
 }
-

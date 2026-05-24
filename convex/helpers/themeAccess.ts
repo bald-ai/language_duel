@@ -108,18 +108,3 @@ export async function canViewTheme(
     })),
   });
 }
-
-export async function shouldListTheme(
-  ctx: CtxWithDb,
-  userId: Id<"users">,
-  theme: Doc<"themes">,
-  archivedThemeIds: Set<Id<"themes">>,
-  archivedOnly: boolean | undefined
-): Promise<boolean> {
-  const isArchived = archivedThemeIds.has(theme._id);
-  if (archivedOnly ? !isArchived : isArchived) {
-    return false;
-  }
-
-  return await canViewTheme(ctx, userId, theme);
-}

@@ -1,16 +1,16 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { forRole } from "@/lib/duelRole";
 import { isSelfDuel } from "@/lib/duel/selfDuel";
+import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
 import type { DuelViewProps } from "../components/DuelView";
-import { buildDuelViewProps, deriveHintFlags } from "./buildDuelViewProps";
+import { deriveHintFlags, deriveScoreNames } from "./duelViewModelHelpers";
+import type { ViewerSafeDuelQuestion } from "./duelSessionTypes";
 import { useDuelActions } from "./useDuelActions";
-import { useDuelDuration } from "./useDuelDuration";
 import { useDuelPhaseState } from "./useDuelPhaseState";
 import { useDuelQuestionTimer } from "./useDuelQuestionTimer";
 import { useHintPool } from "./useHintPool";
@@ -22,11 +22,6 @@ export type DuelPlayerSummary = Pick<
   "_id" | "name" | "nickname" | "discriminator" | "imageUrl"
 >;
 
-type ViewerSafeDuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number] & {
-  correctOption?: string;
-  answerRevealedToViewer?: boolean;
-};
-
 export interface DuelSessionViewModelArgs {
   duel: Doc<"duels">;
   challenger: DuelPlayerSummary | null;
@@ -34,19 +29,20 @@ export interface DuelSessionViewModelArgs {
   viewerRole: "challenger" | "opponent";
 }
 
-export type DuelSessionViewModel =
-  | { state: "signin" }
-  | { state: "forbidden" }
-  | { state: "ready"; viewProps: DuelViewProps };
-
+/**
+ * Assembles the full `DuelViewProps` for a duel. The caller (the page) owns the
+ * sign-in / membership gating, so this hook always has a valid signed-in viewer
+ * who is a participant. It resolves the "displayed question" (the live word, or
+ * the frozen snapshot during the transition) exactly once and hands DuelView a
+ * ready-to-render set of nested prop groups — no second prop shape, no cast.
+ */
 export function useDuelSessionViewModel({
   duel,
   challenger,
   opponent,
   viewerRole,
-}: DuelSessionViewModelArgs): DuelSessionViewModel {
+}: DuelSessionViewModelArgs): DuelViewProps {
   const router = useRouter();
-  const { user } = useUser();
 
   const words = duel.sessionWords;
   const wordOrder = duel.wordOrder;
@@ -75,6 +71,7 @@ export function useDuelSessionViewModel({
     phase,
     frozenData,
     countdown,
+    duelDuration,
     isRevealing,
     typedText,
     revealComplete,
@@ -92,7 +89,6 @@ export function useDuelSessionViewModel({
     phase,
     isLocked,
   });
-  const { duelDuration } = useDuelDuration(duel.status, phase);
 
   const actions = useDuelActions({
     duelId: duel._id,
@@ -124,27 +120,51 @@ export function useDuelSessionViewModel({
     }
   }, [duel.status, router]);
 
-  const actualWordIndex = wordOrder ? wordOrder[index] : index;
+  const actualWordIndex = wordOrder[index];
   const currentQuestion = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
-  const currentWord = useMemo(
-    () =>
-      words[actualWordIndex] || { word: "done", answer: "done", wrongAnswers: [] },
-    [words, actualWordIndex]
-  );
+  const currentSessionWord = words[actualWordIndex];
+  // No current word means the server has advanced past the last question and we
+  // are waiting for the duel to flip to "completed".
+  const isRoundOver = !currentSessionWord;
+
+  const isChallenger = viewerRole === "challenger";
+  const isPve = duel.duelMode === "pve";
+
+  const hasAnswered = getHasAnsweredForIndex(index, myAnswered);
+  const eliminatedOptions = duel.eliminatedOptions || [];
+  const answerRevealedToViewer = currentQuestion.answerRevealedToViewer === true;
+  const liveCorrectAnswer = answerRevealedToViewer
+    ? currentSessionWord?.answer ?? null
+    : null;
+  const liveHasNoneOption = answerRevealedToViewer
+    ? currentQuestion.correctOption === NONE_OF_ABOVE
+    : null;
+
+  // The question currently on screen: the frozen snapshot during the transition,
+  // otherwise the live question. Resolved once, here, instead of branching at
+  // every use site in the view.
+  const displayedWord = frozenData ? frozenData.word : currentSessionWord?.word ?? "";
+  const displayedIndex = frozenData ? frozenData.wordIndex : index;
+  const displayedAnswers = frozenData ? frozenData.shuffledAnswers : currentQuestion.options;
+  const displayedSelected = frozenData ? frozenData.selectedAnswer : selectedAnswer;
+  const displayedCorrect = frozenData ? frozenData.correctAnswer : liveCorrectAnswer;
+  const displayedHasNone = frozenData ? frozenData.hasNoneOption : liveHasNoneOption;
+  const displayedDifficulty = frozenData
+    ? frozenData.difficulty
+    : { level: currentQuestion.difficulty, points: currentQuestion.points };
+  const displayedOpponentAnswer = frozenData
+    ? frozenData.opponentAnswer
+    : theirLastAnswer ?? null;
 
   const sourceThemeName = useMemo(() => {
     const hasMultipleThemes =
       new Set(words.map((sessionWord) => String(sessionWord.themeId))).size > 1;
     if (!hasMultipleThemes) return null;
-    const visibleWordIndex = frozenData
-      ? wordOrder
-        ? wordOrder[frozenData.wordIndex]
-        : frozenData.wordIndex
-      : actualWordIndex;
+    const visibleWordIndex = wordOrder[displayedIndex];
     const visibleWord = words[visibleWordIndex];
     const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
     return typeof themeName === "string" ? themeName : null;
-  }, [words, frozenData, wordOrder, actualWordIndex]);
+  }, [words, wordOrder, displayedIndex]);
 
   const isOutgoingSabotageActive = useOutgoingSabotageStatus({
     outgoingSabotage: theirSabotage,
@@ -154,26 +174,8 @@ export function useDuelSessionViewModel({
         : undefined,
   });
 
-  if (!user) {
-    return { state: "signin" };
-  }
-
-  const isChallenger = viewerRole === "challenger";
-  const isOpponent = viewerRole === "opponent";
-
-  if (!isChallenger && !isOpponent) {
-    return { state: "forbidden" };
-  }
-
-  const hasAnswered = getHasAnsweredForIndex(index, myAnswered);
-  const eliminatedOptions = duel.eliminatedOptions || [];
-  const answerRevealedToViewer = currentQuestion.answerRevealedToViewer === true;
-  const currentCorrectAnswer = answerRevealedToViewer ? currentWord.answer : null;
-  const hasNoneOption = answerRevealedToViewer
-    ? currentQuestion.correctOption === NONE_OF_ABOVE
-    : null;
-
   const hints = deriveHintFlags({
+    isPve,
     hasAnswered,
     opponentHasAnswered: theirAnswered,
     hintRequestedBy: duel.hintRequestedBy,
@@ -182,6 +184,7 @@ export function useDuelSessionViewModel({
     myRole: viewerRole,
     theirRole,
   });
+  const { myName, theirName } = deriveScoreNames(isChallenger, challenger, opponent);
 
   const handleConfirmAnswer = () => {
     if (!selectedAnswer) return;
@@ -202,70 +205,92 @@ export function useDuelSessionViewModel({
   };
 
   const handlePlayAudio = () => {
-    const activeWord = frozenData
-      ? words[wordOrder ? wordOrder[frozenData.wordIndex] : frozenData.wordIndex]
-      : currentWord;
+    const activeWord = words[wordOrder[displayedIndex]];
     actions.playWordAudio(activeWord);
   };
 
   return {
-    state: "ready",
-    viewProps: buildDuelViewProps({
-      duel,
-      viewerRole,
-      isChallenger,
-      challenger,
-      opponent,
-      index,
-      word: currentWord.word,
+    status: duel.status,
+    duelMode: duel.duelMode,
+    phase,
+    isRoundOver,
+    round: {
+      wordsCount: words.length,
+      index: displayedIndex,
+      word: displayedWord,
       sourceThemeName,
       frozenData,
-      difficulty: {
-        level: currentQuestion.difficulty,
-        points: currentQuestion.points,
-      },
+      difficulty: displayedDifficulty,
       duelDuration,
+      hintReveal: duel.currentQuestionHintReveal,
+    },
+    timer: {
       questionTimer,
-      countdownValue: countdown,
-      phase,
-      shuffledAnswers: currentQuestion.options,
-      selectedAnswer,
-      currentCorrectAnswer,
-      hasNoneOption,
+      questionTimerPausedAt: duel.questionTimerPausedAt,
+    },
+    countdown: {
+      value: countdown,
+      pausedBy: duel.countdownPausedBy,
+      unpauseRequestedBy: duel.countdownUnpauseRequestedBy,
+      skipRequestedBy: duel.countdownSkipRequestedBy || [],
+      userRole: viewerRole,
+    },
+    answers: {
+      shuffledAnswers: displayedAnswers,
+      selectedAnswer: displayedSelected,
+      correctAnswer: displayedCorrect,
+      hasNoneOption: displayedHasNone,
       eliminatedOptions,
-      opponentLastAnswer: theirLastAnswer ?? null,
+      opponentLastAnswer: displayedOpponentAnswer,
       isRevealing,
       typedText,
       revealComplete,
       hasAnswered,
       opponentHasAnswered: theirAnswered,
       isLocked,
+    },
+    hints: {
+      ...hints,
+      eliminatedOptionsCount: eliminatedOptions.length,
+      pool: {
+        usedHints: hintPool.usedHints,
+        usedCount: hintPool.usedCount,
+        totalCount: hintPool.totalCount,
+        currentQuestionHintFired: hintPool.currentQuestionHintFired,
+      },
+    },
+    sabotage: {
       activeSabotage,
       sabotagePhase,
+      sabotagesRemaining: MAX_SABOTAGES - mySabotagesUsed,
       isOutgoingSabotageActive,
+    },
+    score: {
+      myName,
+      theirName,
       myScore,
       theirScore,
-      mySabotagesUsed,
-      hints,
-      hintPool,
-      isPlayingAudio: actions.isPlayingAudio,
-      callbacks: {
-        onPauseCountdown: actions.pauseCountdown,
-        onRequestUnpause: isSelfDuel(duel)
-          ? actions.confirmUnpauseCountdown
-          : actions.requestUnpauseCountdown,
-        onConfirmUnpause: actions.confirmUnpauseCountdown,
-        onSkipCountdown: actions.skipCountdown,
-        onPlayAudio: handlePlayAudio,
-        onOptionClick: handleOptionClick,
-        onConfirmAnswer: handleConfirmAnswer,
-        onRequestHint: () => void actions.requestHint(),
-        onAcceptHint: () => void actions.acceptHint(),
-        onFireHint: (hintType) => void hintPool.fireHint(hintType),
-        onSendSabotage: (effect) => void actions.sendSabotage(effect),
-        onExit: () => void actions.stopDuelAndGoHome(),
-        onBackToHome: actions.goHome,
-      },
-    }),
+      bossType: duel.bossType,
+      livesRemaining: duel.livesRemaining,
+      livesTotal: duel.livesTotal,
+    },
+    actions: {
+      onPauseCountdown: actions.pauseCountdown,
+      onRequestUnpause: isSelfDuel(duel)
+        ? actions.confirmUnpauseCountdown
+        : actions.requestUnpauseCountdown,
+      onConfirmUnpause: actions.confirmUnpauseCountdown,
+      onSkipCountdown: actions.skipCountdown,
+      onPlayAudio: handlePlayAudio,
+      onOptionClick: handleOptionClick,
+      onConfirmAnswer: handleConfirmAnswer,
+      onRequestHint: () => void actions.requestHint(),
+      onAcceptHint: () => void actions.acceptHint(),
+      onFireHint: (hintType) => void hintPool.fireHint(hintType),
+      onSendSabotage: (effect) => void actions.sendSabotage(effect),
+      onExit: () => void actions.stopDuelAndGoHome(),
+      onBackToHome: actions.goHome,
+    },
+    audio: { isPlaying: actions.isPlayingAudio },
   };
 }

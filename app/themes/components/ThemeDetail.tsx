@@ -1,26 +1,17 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { WordEntry } from "@/lib/types";
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
 import {
-  getDuplicateWordIndices,
-  getDuplicateWrongAnswerIndices,
-  getWrongIndicesMatchingAnswer,
+  analyzeThemeIssues,
   getThemeRepairIssueForFlags,
-  getThemeRepairIssueForWords,
 } from "@/lib/themes/themeUiValidation";
-import { normalizeThemeName } from "@/lib/themes/serverValidation";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import { BackButton } from "@/app/components/BackButton";
 import type { FieldType, WordType } from "../constants";
-import {
-  THEME_NAME_MAX_LENGTH,
-  wordTypeAllowsCorrectAnswerMarker,
-} from "../constants";
-import { AddWordModal } from "./AddWordModal";
-import { GenerateMoreModal } from "./GenerateMoreModal";
-import { getThemeActionButtonStyle, getThemeOutlineButtonStyle } from "./themeStyles";
+import { wordTypeAllowsCorrectAnswerMarker } from "../constants";
+import { ThemeDetailHeader } from "./ThemeDetailHeader";
+import { ThemeWordCard, type RowIssues } from "./ThemeWordCard";
+import { ThemeActionDock } from "./ThemeActionDock";
 
 export type ThemeDetailTheme = {
   name: string;
@@ -44,30 +35,8 @@ interface ThemeDetailProps {
   onSave: () => void;
   onCancel: () => void;
   isSaving?: boolean;
-  // Add word modal
-  showAddWordModal: boolean;
-  onShowAddWordModal: (show: boolean) => void;
-  addWordState: {
-    newWordInput: string;
-    isAdding: boolean;
-    error: string | null;
-  };
-  onAddWordInputChange: (value: string) => void;
-  onAddWord: () => void;
-  onAddWordReset: () => void;
-  // Generate More modal
-  showGenerateMoreModal: boolean;
-  onShowGenerateMoreModal: (show: boolean) => void;
-  generateMoreState: {
-    count: number;
-    isGenerating: boolean;
-    pickAndPrune: boolean;
-    error: string | null;
-  };
-  onGenerateMoreCountChange: (count: number) => void;
-  onGenerateMore: () => void;
-  onGenerateMorePickAndPrune: () => void;
-  onGenerateMoreReset: () => void;
+  onOpenAddWord: () => void;
+  onOpenGenerateMore: () => void;
   // Visibility
   visibility?: "private" | "shared";
   isUpdatingVisibility?: boolean;
@@ -84,263 +53,6 @@ interface ThemeDetailProps {
   onPlayWordTTS?: (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => void;
 }
 
-const rowActionButtonClassName =
-  "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-2xl py-2.5 px-4 text-xs sm:text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
-
-const outlineButtonClassName =
-  "flex-1 border-2 rounded-2xl py-2.5 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition hover:brightness-110";
-
-const utilityButtonClassName =
-  "border-2 rounded-xl px-3 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider transition hover:brightness-110 whitespace-nowrap";
-
-const secondaryAccentStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.secondary.dark,
-  color: colors.secondary.light,
-};
-
-interface WordCardProps {
-  word: WordEntry;
-  index: number;
-  isDuplicate: boolean;
-  hasDuplicateWrongAnswers: boolean;
-  wrongMatchesAnswer: boolean;
-  duplicateWrongIndices: Set<number>;
-  wrongMatchesAnswerIndices: Set<number>;
-  canEdit: boolean;
-  playingWordKey: string | null;
-  onEditWord: (wordIndex: number, field: FieldType, wrongIndex?: number) => void;
-  onDeleteWord: (index: number) => void;
-  onPlayWordTTS?: (wordIndex: number, answer: string, storageId?: WordEntry["ttsStorageId"]) => void;
-}
-
-const WordCard = memo(function WordCard({
-  word,
-  index,
-  isDuplicate,
-  hasDuplicateWrongAnswers,
-  wrongMatchesAnswer,
-  duplicateWrongIndices,
-  wrongMatchesAnswerIndices,
-  canEdit,
-  playingWordKey,
-  onEditWord,
-  onDeleteWord,
-  onPlayWordTTS,
-}: WordCardProps) {
-  const colors = useAppearanceColors();
-  const ttsKey = `theme-word-tts-${index}`;
-  const isPlaying = playingWordKey === ttsKey;
-  const hasGeneratedTts = !!word.ttsStorageId;
-  const repairIssue = getThemeRepairIssueForFlags({
-    hasDuplicateWord: isDuplicate,
-    wrongMatchesAnswer,
-    hasDuplicateWrongAnswers,
-  });
-  const hasIssue = repairIssue !== null;
-  const issueMessage = repairIssue?.cardMessage ?? null;
-
-  const badgeStyle = hasIssue
-    ? {
-        backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-        borderColor: colors.status.danger.dark,
-        color: colors.status.danger.light,
-      }
-    : {
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-        color: colors.text.DEFAULT,
-      };
-
-  const dangerFieldStyle = {
-    backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-    borderColor: `${colors.status.danger.DEFAULT}66`,
-    color: colors.status.danger.light,
-  };
-
-  const baseWordButtonStyle = {
-    backgroundColor: `${colors.primary.DEFAULT}1A`,
-    borderColor: `${colors.primary.light}66`,
-    color: colors.text.DEFAULT,
-  };
-
-  const baseAnswerButtonStyle = {
-    backgroundColor: `${colors.secondary.DEFAULT}1A`,
-    borderColor: `${colors.secondary.light}66`,
-    color: colors.text.DEFAULT,
-  };
-
-  const baseWrongButtonStyle = {
-    backgroundColor: `${colors.cta.DEFAULT}1A`,
-    borderColor: `${colors.cta.light}66`,
-    color: colors.text.DEFAULT,
-  };
-
-  const wordButtonStyle = isDuplicate ? dangerFieldStyle : baseWordButtonStyle;
-  const answerButtonStyle = wrongMatchesAnswer ? dangerFieldStyle : baseAnswerButtonStyle;
-  const wordLabelColor = isDuplicate ? colors.status.danger.light : colors.primary.light;
-  const answerLabelColor = wrongMatchesAnswer ? colors.status.danger.light : colors.secondary.light;
-  const issuePillStyle = {
-    backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-    borderColor: `${colors.status.danger.DEFAULT}66`,
-    color: colors.status.danger.light,
-  };
-  const issueStripStyle = {
-    backgroundColor: `${colors.status.danger.DEFAULT}14`,
-    borderColor: `${colors.status.danger.DEFAULT}55`,
-    color: colors.status.danger.light,
-  };
-
-  return (
-    <div
-      className="border-2 rounded-2xl p-4"
-      style={{
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-      }}
-      data-testid={`theme-word-card-${index}`}
-    >
-      {/* Word number badge */}
-      <div className="flex items-center gap-2 mb-3">
-        <div
-          className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
-          style={badgeStyle}
-          data-testid={`theme-word-${index}-number-badge`}
-        >
-          {index + 1}
-        </div>
-        {issueMessage && (
-          <span
-            className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
-            style={issuePillStyle}
-            data-testid={`theme-word-${index}-issue-badge`}
-          >
-            Issue
-          </span>
-        )}
-        <div className="ml-auto">
-          <button
-            onClick={() => {
-              if (!onPlayWordTTS || !hasGeneratedTts) return;
-              onPlayWordTTS(index, word.answer, word.ttsStorageId);
-            }}
-            disabled={!hasGeneratedTts}
-            className="p-1.5 rounded-lg border-2 transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: `${colors.secondary.DEFAULT}1A`,
-              borderColor: `${colors.secondary.DEFAULT}66`,
-              color: colors.secondary.light,
-            }}
-            title={hasGeneratedTts ? "Play generated TTS" : "Generate TTS for this word first"}
-            data-testid={`theme-word-${index}-play-tts`}
-          >
-            {isPlaying ? (
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M4 7.5A1.5 1.5 0 015.5 6H8l3-2v12l-3-2H5.5A1.5 1.5 0 014 12.5v-5z" />
-                <path d="M13.8 6.6a1 1 0 011.4 0 4.8 4.8 0 010 6.8 1 1 0 11-1.4-1.4 2.8 2.8 0 000-4 1 1 0 010-1.4z" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Word & Answer Row */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <button
-          onClick={() => canEdit && onEditWord(index, "word")}
-          disabled={!canEdit}
-          data-invalid={isDuplicate}
-          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-          }`}
-          style={wordButtonStyle}
-          data-testid={`theme-word-${index}-word`}
-        >
-          <div className="text-xs mb-1" style={{ color: wordLabelColor }}>
-            Word
-          </div>
-          {word.word}
-        </button>
-        <button
-          onClick={() => canEdit && onEditWord(index, "answer")}
-          disabled={!canEdit}
-          data-invalid={wrongMatchesAnswer}
-          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-          }`}
-          style={answerButtonStyle}
-          data-testid={`theme-word-${index}-answer`}
-        >
-          <div className="text-xs mb-1" style={{ color: answerLabelColor }}>
-            Answer
-          </div>
-          {word.answer}
-        </button>
-      </div>
-
-      {/* Wrong Answers Grid */}
-      <div className="grid grid-cols-3 gap-2">
-        {word.wrongAnswers.map((wrongAnswer, wrongIdx) => {
-          const isInvalidWrong =
-            duplicateWrongIndices.has(wrongIdx) || wrongMatchesAnswerIndices.has(wrongIdx);
-
-          return (
-            <button
-              key={wrongIdx}
-              onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
-              disabled={!canEdit}
-              data-invalid={isInvalidWrong}
-              className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-                canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-              }`}
-              style={isInvalidWrong ? dangerFieldStyle : baseWrongButtonStyle}
-              data-testid={`theme-word-${index}-wrong-${wrongIdx}`}
-            >
-              <div
-                className="text-xs mb-1"
-                style={{ color: isInvalidWrong ? colors.status.danger.light : colors.cta.light }}
-              >
-                Wrong {wrongIdx + 1}
-              </div>
-              {wrongAnswer}
-            </button>
-          );
-        })}
-      </div>
-
-      {issueMessage && (
-        <div
-          className="mt-3 rounded-lg border px-3 py-2 text-xs font-semibold"
-          style={issueStripStyle}
-          data-testid={`theme-word-${index}-issue-message`}
-        >
-          {issueMessage}
-        </div>
-      )}
-
-      {/* Delete Word Button */}
-      {canEdit && (
-        <button
-          onClick={() => onDeleteWord(index)}
-          className="mt-3 w-full py-2 border-2 rounded-lg text-sm font-medium transition hover:brightness-110"
-          style={{
-            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-            borderColor: `${colors.status.danger.DEFAULT}66`,
-            color: colors.status.danger.light,
-          }}
-          data-testid={`theme-word-${index}-delete`}
-        >
-          Delete Word
-        </button>
-      )}
-    </div>
-  );
-});
-
 export function ThemeDetail({
   theme,
   localWords,
@@ -350,19 +62,8 @@ export function ThemeDetail({
   onSave,
   onCancel,
   isSaving = false,
-  showAddWordModal,
-  onShowAddWordModal,
-  addWordState,
-  onAddWordInputChange,
-  onAddWord,
-  onAddWordReset,
-  showGenerateMoreModal,
-  onShowGenerateMoreModal,
-  generateMoreState,
-  onGenerateMoreCountChange,
-  onGenerateMore,
-  onGenerateMorePickAndPrune,
-  onGenerateMoreReset,
+  onOpenAddWord,
+  onOpenGenerateMore,
   visibility,
   isUpdatingVisibility,
   onVisibilityChange,
@@ -376,8 +77,6 @@ export function ThemeDetail({
   onPlayWordTTS,
 }: ThemeDetailProps) {
   const colors = useAppearanceColors();
-  const [isEditingThemeName, setIsEditingThemeName] = useState(false);
-  const [editedThemeName, setEditedThemeName] = useState("");
 
   const isOwner = theme.isOwner;
   const canEdit = theme.canEdit;
@@ -385,254 +84,54 @@ export function ThemeDetail({
     ? `${theme.ownerNickname}#${theme.ownerDiscriminator}`
     : null;
 
-  // Compute duplicate word indices once, not per iteration
-  const duplicateWordIndices = useMemo(
-    () => getDuplicateWordIndices(localWords),
-    [localWords]
-  );
-  const themeRepairIssue = useMemo(
-    () => getThemeRepairIssueForWords(localWords),
-    [localWords]
-  );
+  // Scan the words once and project into the per-card slices + the theme-level
+  // repair issue. Recomputes only when the word list changes, which keeps the
+  // memoized cards from re-rendering on unrelated state updates.
+  const { perWord, themeRepairIssue } = useMemo(() => {
+    const analysis = analyzeThemeIssues(localWords);
+    const map = new Map<number, RowIssues>();
+    localWords.forEach((_word, index) => {
+      const wordIssues = analysis.wordIssues.get(index);
+      const duplicateWrongIndices = wordIssues?.duplicateWrongAnswerIndices ?? new Set<number>();
+      const wrongMatchesAnswerIndices = wordIssues?.wrongMatchingAnswerIndices ?? new Set<number>();
+      const isDuplicate = analysis.duplicateWordIndices.has(index);
+      map.set(index, {
+        isDuplicate,
+        duplicateWrongIndices,
+        wrongMatchesAnswerIndices,
+        repairIssue: getThemeRepairIssueForFlags({
+          hasDuplicateWord: isDuplicate,
+          wrongMatchesAnswer: wrongMatchesAnswerIndices.size > 0,
+          hasDuplicateWrongAnswers: duplicateWrongIndices.size > 0,
+        }),
+      });
+    });
+    return { perWord: map, themeRepairIssue: analysis.repairIssue };
+  }, [localWords]);
+
   const hasThemeIssues = themeRepairIssue !== null;
   const isSaveDisabled = hasThemeIssues || isSaving;
 
-  const visibilityButtonClassName =
-    "px-3 py-1 text-xs sm:text-sm font-medium transition hover:brightness-110 disabled:opacity-50";
-  const privateButtonStyle =
-    visibility === "private"
-      ? { backgroundColor: colors.primary.DEFAULT, color: colors.text.DEFAULT }
-      : { backgroundColor: colors.background.DEFAULT, color: colors.text.muted };
-  const sharedButtonStyle =
-    visibility === "shared"
-      ? { backgroundColor: colors.secondary.DEFAULT, color: colors.text.DEFAULT }
-      : { backgroundColor: colors.background.DEFAULT, color: colors.text.muted };
-  const lockButtonStyle = friendsCanEdit
-    ? {
-        backgroundColor: `${colors.secondary.DEFAULT}26`,
-        borderColor: `${colors.secondary.DEFAULT}66`,
-        color: colors.secondary.light,
-      }
-    : {
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-        color: colors.text.muted,
-      };
-
-  const handleThemeNameBlur = () => {
-    if (editedThemeName.trim()) {
-      const normalizedThemeName = normalizeThemeName(editedThemeName);
-      if (normalizedThemeName !== theme.name) {
-        onThemeNameChange(normalizedThemeName);
-      }
-    }
-    setIsEditingThemeName(false);
-  };
-
-  const handleThemeNameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      if (editedThemeName.trim()) {
-        const normalizedThemeName = normalizeThemeName(editedThemeName);
-        if (normalizedThemeName !== theme.name) {
-          onThemeNameChange(normalizedThemeName);
-        }
-      }
-      setIsEditingThemeName(false);
-    } else if (e.key === "Escape") {
-      setIsEditingThemeName(false);
-    }
-  };
-
-  const handleAddWordClick = () => {
-    onAddWordReset();
-    onShowAddWordModal(true);
-  };
-
-  const handleAddWordClose = () => {
-    onShowAddWordModal(false);
-    onAddWordReset();
-  };
-
-  const handleGenerateMoreClick = () => {
-    onGenerateMoreReset();
-    onShowGenerateMoreModal(true);
-  };
-
-  const handleGenerateMoreClose = () => {
-    onShowGenerateMoreModal(false);
-    onGenerateMoreReset();
-  };
-
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col">
-      {/* Header */}
-      <header className="w-full flex-shrink-0 pb-4 animate-slide-up">
-        <div
-          className="w-full rounded-2xl border-2 px-4 py-3 backdrop-blur-sm shadow-lg"
-          style={{
-            backgroundColor: colors.background.elevated,
-            borderColor: colors.primary.dark,
-            boxShadow: `0 12px 32px ${colors.primary.glow}`,
-          }}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                {isEditingThemeName && canEdit ? (
-                  <input
-                    type="text"
-                    value={editedThemeName}
-                    onChange={(e) => {
-                      if (e.target.value.length <= THEME_NAME_MAX_LENGTH) {
-                        setEditedThemeName(e.target.value);
-                      }
-                    }}
-                    onBlur={handleThemeNameBlur}
-                    onKeyDown={handleThemeNameKeyDown}
-                    maxLength={THEME_NAME_MAX_LENGTH}
-                    className="title-font w-full text-xl sm:text-2xl font-bold uppercase tracking-wider bg-transparent border-none outline-none focus:ring-0"
-                    style={{ color: colors.text.DEFAULT }}
-                    autoFocus
-                    data-testid="theme-name-input"
-                  />
-                ) : (
-                  <h1
-                    onClick={() => {
-                      if (canEdit) {
-                        setEditedThemeName(theme.name);
-                        setIsEditingThemeName(true);
-                      }
-                    }}
-                    className={`title-font text-xl sm:text-2xl uppercase tracking-wider transition-colors truncate ${canEdit ? "cursor-pointer" : ""}`}
-                    style={{
-                      background: `linear-gradient(135deg, ${colors.text.DEFAULT} 0%, ${colors.neutral.DEFAULT} 50%, ${colors.text.DEFAULT} 100%)`,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                      filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.35))",
-                    }}
-                    title={canEdit ? "Click to edit theme name" : ""}
-                  >
-                    {theme.name}
-                  </h1>
-                )}
-
-                {/* Owner info for friend's themes */}
-                {!isOwner && ownerDisplay && (
-                  <p className="text-xs sm:text-sm mt-1" style={{ color: colors.text.muted }}>
-                    by {ownerDisplay}
-                  </p>
-                )}
-              </div>
-
-              {canEdit && (
-                <div className="flex flex-wrap gap-2 justify-start sm:justify-end">
-                  <button
-                    onClick={handleAddWordClick}
-                    className={utilityButtonClassName}
-                    style={getThemeOutlineButtonStyle(colors)}
-                    data-testid="theme-add-word"
-                  >
-                    + Add Word
-                  </button>
-                  <button
-                    onClick={handleGenerateMoreClick}
-                    className={utilityButtonClassName}
-                    style={secondaryAccentStyle}
-                    data-testid="theme-generate"
-                  >
-                    + Generate
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Visibility toggle for owner */}
-              {isOwner && onVisibilityChange && (
-                <div
-                  className="inline-flex rounded-xl overflow-hidden border-2"
-                  style={{ borderColor: colors.primary.dark }}
-                >
-                  <button
-                    onClick={() => onVisibilityChange("private")}
-                    disabled={isUpdatingVisibility}
-                    className={visibilityButtonClassName}
-                    style={privateButtonStyle}
-                    data-testid="theme-visibility-private"
-                  >
-                    Private
-                  </button>
-                  <button
-                    onClick={() => onVisibilityChange("shared")}
-                    disabled={isUpdatingVisibility}
-                    className={visibilityButtonClassName}
-                    style={sharedButtonStyle}
-                    data-testid="theme-visibility-shared"
-                  >
-                    Shared
-                  </button>
-                </div>
-              )}
-
-              {/* Lock/Unlock toggle - only shown when shared */}
-              {isOwner && visibility === "shared" && onFriendsCanEditChange && (
-                <button
-                  onClick={() => onFriendsCanEditChange(!friendsCanEdit)}
-                  disabled={isUpdatingFriendsCanEdit}
-                  title={friendsCanEdit ? "Friends can edit - Click to lock" : "Friends can view only - Click to unlock"}
-                  className="p-1.5 rounded-xl border-2 transition hover:brightness-110 disabled:opacity-50"
-                  style={lockButtonStyle}
-                  data-testid="theme-friends-can-edit"
-                >
-                  {friendsCanEdit ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              )}
-
-              {canEdit && onGenerateTTS && (
-                <>
-                  <button
-                    onClick={onGenerateTTS}
-                    disabled={isGeneratingTTS}
-                    className="px-3 py-1 text-xs sm:text-sm font-medium rounded-xl border-2 transition hover:brightness-110 disabled:opacity-60"
-                    style={secondaryAccentStyle}
-                    data-testid="theme-generate-tts"
-                  >
-                    {isGeneratingTTS ? "Generating TTS..." : "Generate TTS"}
-                  </button>
-                  <span
-                    className="px-2 py-1 rounded-lg border text-[11px] sm:text-xs font-medium"
-                    style={
-                      isTTSUpToDate
-                        ? {
-                            backgroundColor: `${colors.status.success.DEFAULT}1A`,
-                            borderColor: `${colors.status.success.DEFAULT}66`,
-                            color: colors.status.success.light,
-                          }
-                        : {
-                            backgroundColor: `${colors.status.warning.DEFAULT}1A`,
-                            borderColor: `${colors.status.warning.DEFAULT}66`,
-                            color: colors.status.warning.light,
-                          }
-                    }
-                    data-testid="theme-tts-status"
-                  >
-                    {isTTSUpToDate ? "TTS up to date" : "TTS not up to date"}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <ThemeDetailHeader
+        themeName={theme.name}
+        isOwner={isOwner}
+        canEdit={canEdit}
+        ownerDisplay={ownerDisplay}
+        onThemeNameChange={onThemeNameChange}
+        onOpenAddWord={onOpenAddWord}
+        onOpenGenerateMore={onOpenGenerateMore}
+        visibility={visibility}
+        isUpdatingVisibility={isUpdatingVisibility}
+        onVisibilityChange={onVisibilityChange}
+        friendsCanEdit={friendsCanEdit}
+        isUpdatingFriendsCanEdit={isUpdatingFriendsCanEdit}
+        onFriendsCanEditChange={onFriendsCanEditChange}
+        isGeneratingTTS={isGeneratingTTS}
+        isTTSUpToDate={isTTSUpToDate}
+        onGenerateTTS={onGenerateTTS}
+      />
 
       {/* Words List - scrollable container */}
       <div className="flex-1 min-h-0 flex flex-col">
@@ -655,22 +154,15 @@ export function ThemeDetail({
 
           <div className="flex flex-col gap-4">
             {localWords.map((word, index) => {
-              const isDuplicateWord = duplicateWordIndices.has(index);
-              const duplicateWrongIndices = getDuplicateWrongAnswerIndices(word);
-              const wrongMatchesAnswerIndices = getWrongIndicesMatchingAnswer(word);
-              const hasDuplicateWrongAnswers = duplicateWrongIndices.size > 0;
-              const wrongMatchesAnswer = wrongMatchesAnswerIndices.size > 0;
+              const issues = perWord.get(index);
+              if (!issues) return null;
 
               return (
-                <WordCard
+                <ThemeWordCard
                   key={index}
                   word={word}
                   index={index}
-                  isDuplicate={isDuplicateWord}
-                  hasDuplicateWrongAnswers={hasDuplicateWrongAnswers}
-                  wrongMatchesAnswer={wrongMatchesAnswer}
-                  duplicateWrongIndices={duplicateWrongIndices}
-                  wrongMatchesAnswerIndices={wrongMatchesAnswerIndices}
+                  issues={issues}
                   canEdit={canEdit}
                   playingWordKey={playingWordKey}
                   onEditWord={onEditWord}
@@ -683,79 +175,13 @@ export function ThemeDetail({
         </div>
       </div>
 
-      {/* Action Dock - part of flex layout, not fixed */}
-      <div className="w-full flex-shrink-0 pt-4 animate-slide-up delay-200">
-        <div
-          className="rounded-2xl border-2 p-2 backdrop-blur-sm shadow-lg"
-          style={{
-            backgroundColor: `${colors.background.DEFAULT}E6`,
-            borderColor: colors.primary.dark,
-          }}
-        >
-          <div className="flex gap-2">
-            {canEdit ? (
-              <>
-                <button
-                  onClick={onSave}
-                  disabled={isSaveDisabled}
-                  className={`${rowActionButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={getThemeActionButtonStyle("cta", colors)}
-                  data-testid="theme-save"
-                >
-                  {isSaving ? "Saving..." : "Save"}
-                </button>
-                <button
-                  onClick={onCancel}
-                  disabled={isSaving}
-                  className={`${outlineButtonClassName} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={getThemeOutlineButtonStyle(colors)}
-                  data-testid="theme-cancel"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <BackButton onClick={onCancel} dataTestId="theme-back" />
-            )}
-          </div>
-          {canEdit && hasThemeIssues && (
-            <div
-              className="mt-2 rounded-xl border-2 px-3 py-1 text-[11px] font-medium"
-              style={{
-                backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                borderColor: `${colors.status.danger.DEFAULT}66`,
-                color: colors.status.danger.light,
-              }}
-            >
-              Fix highlighted words to enable saving.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Word Modal */}
-      <AddWordModal
-        isOpen={showAddWordModal}
-        newWordInput={addWordState.newWordInput}
-        isAdding={addWordState.isAdding}
-        error={addWordState.error}
-        onInputChange={onAddWordInputChange}
-        onAdd={onAddWord}
-        onClose={handleAddWordClose}
-      />
-
-      {/* Generate More Words Modal */}
-      <GenerateMoreModal
-        isOpen={showGenerateMoreModal}
-        themeName={theme.name}
-        count={generateMoreState.count}
-        isGenerating={generateMoreState.isGenerating}
-        pickAndPrune={generateMoreState.pickAndPrune}
-        error={generateMoreState.error}
-        onCountChange={onGenerateMoreCountChange}
-        onGenerate={onGenerateMore}
-        onGeneratePickAndPrune={onGenerateMorePickAndPrune}
-        onClose={handleGenerateMoreClose}
+      <ThemeActionDock
+        canEdit={canEdit}
+        isSaving={isSaving}
+        isSaveDisabled={isSaveDisabled}
+        hasThemeIssues={hasThemeIssues}
+        onSave={onSave}
+        onCancel={onCancel}
       />
     </div>
   );

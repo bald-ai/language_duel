@@ -1,6 +1,8 @@
 import type { Id, Doc } from "../_generated/dataModel";
-import type { DatabaseReader } from "../_generated/server";
+import type { DatabaseReader, MutationCtx, QueryCtx } from "../_generated/server";
 import { ConvexError } from "convex/values";
+import { canEditTheme } from "../../lib/themeAccess";
+import { loadFriendshipsBetweenUsers } from "./relationshipPolicy";
 
 type ThemeDoc = Doc<"themes">;
 
@@ -17,47 +19,30 @@ export async function requireThemeOwner(
 }
 
 export async function requireThemeEditor(
-  db: DatabaseReader,
+  ctx: QueryCtx | MutationCtx,
   themeId: Id<"themes">,
   userId: Id<"users">
 ): Promise<ThemeDoc> {
-  const theme = await db.get(themeId);
+  const theme = await ctx.db.get(themeId);
   if (!theme) throw new ConvexError({ code: "NOT_FOUND", message: "Theme not found" });
 
-  const isOwner = theme.ownerId === userId;
-  if (isOwner) {
-    return theme;
-  }
+  const friendships = theme.ownerId
+    ? await loadFriendshipsBetweenUsers(ctx, userId, theme.ownerId)
+    : [];
 
-  const sharedWithFriendEdit =
-    theme.visibility === "shared" && theme.friendsCanEdit === true && !!theme.ownerId;
-  if (sharedWithFriendEdit) {
-    const isFriend = await isFriendOfOwner(db, userId, theme.ownerId!);
-    if (isFriend) {
-      return theme;
-    }
-  }
-
-  throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
-}
-
-async function isFriendOfOwner(
-  db: DatabaseReader,
-  userId: Id<"users">,
-  ownerId: Id<"users">
-): Promise<boolean> {
-  const [forward, reverse] = await Promise.all([
-    db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect(),
-    db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", ownerId))
-      .collect(),
-  ]);
-  return (
-    forward.some((row) => row.friendId === ownerId) ||
-    reverse.some((row) => row.friendId === userId)
+  const canEdit = canEditTheme(
+    userId,
+    {
+      themeId: theme._id,
+      ownerId: theme.ownerId,
+      visibility: theme.visibility,
+      friendsCanEdit: theme.friendsCanEdit,
+    },
+    friendships
   );
+  if (!canEdit) {
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
+  }
+
+  return theme;
 }

@@ -10,9 +10,8 @@ function optionContext(overrides: Partial<OptionContext> = {}): OptionContext {
     isShowingFeedback: false,
     eliminatedOptions: [],
     canEliminate: true,
-    opponentLastAnswer: null,
-    status: "active",
-    frozenData: null,
+    opponentAnswer: null,
+    showOpponentPick: false,
     ...overrides,
   };
 }

@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Id, Doc } from "../_generated/dataModel";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { requireThemeOwner, requireThemeEditor } from "../helpers/permissions";
 import {
@@ -13,13 +13,13 @@ import {
   normalizeThemeName,
   normalizeThemeWords,
 } from "../../lib/themes/serverValidation";
-import { reconcileThemeWordTts } from "../../lib/themes/tts";
+import type { WordType } from "../../lib/themes/wordTypes";
+import { applyGeneratedTtsToWords, reconcileThemeWordTts } from "../../lib/themes/tts";
 import { buildDuplicateThemePayload } from "./archiveDuplicate";
 import { cleanupThemeTtsAfterWordUpdate } from "./cleanupHelpers";
-import { loadThemeWithViewerAccess } from "./accessPolicy";
+import { loadThemeWithViewerAccess } from "../helpers/themeAccess";
+import { loadDraftGoalsForUser } from "./listQueries";
 import type { ThemeWordWithTts, GeneratedWordTtsResult } from "./ttsPipeline";
-
-export type ThemeWordType = "nouns" | "verbs" | "adjectives" | "adverbs";
 
 export type ThemeVisibility = "private" | "shared";
 
@@ -27,7 +27,7 @@ export type CreateThemeArgs = {
   name: string;
   description: string;
   words: ThemeWordWithTts[];
-  wordType?: ThemeWordType;
+  wordType?: WordType;
   visibility?: ThemeVisibility;
   friendsCanEdit?: boolean;
   saveRequestId?: string;
@@ -92,10 +92,10 @@ export async function handleCreateTheme(
 export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs) {
   const { user } = await getAuthenticatedUser(ctx);
 
-  const theme = await requireThemeEditor(ctx.db, args.themeId, user._id);
+  const theme = await requireThemeEditor(ctx, args.themeId, user._id);
 
   const { themeId, ...updates } = args;
-  const filteredUpdates: Record<string, unknown> = {};
+  const filteredUpdates: Partial<Pick<Doc<"themes">, "name" | "description" | "words">> = {};
 
   if (updates.name !== undefined) {
     filteredUpdates.name = normalizeThemeName(updates.name);
@@ -166,23 +166,11 @@ export async function handleDeleteTheme(
     "You can only delete your own themes"
   );
 
-  const goalsAsCreator = await ctx.db
-    .query("weeklyGoals")
-    .withIndex("by_creator", (q) => q.eq("creatorId", user._id))
-    .collect();
-  const goalsAsPartner = await ctx.db
-    .query("weeklyGoals")
-    .withIndex("by_partner", (q) => q.eq("partnerId", user._id))
-    .collect();
-  const relevantDraftGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
-    (goal, index, goals) =>
-      goal.status === "draft" &&
-      goals.findIndex((candidate) => candidate._id === goal._id) === index
-  );
-  const draftGoal = relevantDraftGoals.find((goal) =>
+  const draftGoals = await loadDraftGoalsForUser(ctx, user._id);
+  const isInDraftGoal = draftGoals.some((goal) =>
     goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId)
   );
-  if (draftGoal) {
+  if (isInDraftGoal) {
     throw new ConvexError({
       code: "INVALID_STATE",
       message: "Cannot delete a theme that is part of a draft goal",
@@ -243,33 +231,13 @@ export async function handleApplyGeneratedThemeTts(
     };
   }
 
-  const nextWords = [...(theme.words as ThemeWordWithTts[])];
-  const rejectedStorageIds: Id<"_storage">[] = [];
-  let applied = 0;
-  let skipped = 0;
-
-  for (const generated of args.generated) {
-    const currentWord = nextWords[generated.wordIndex];
-    if (
-      !currentWord ||
-      currentWord.word !== generated.sourceWord ||
-      currentWord.answer !== generated.sourceAnswer ||
-      currentWord.ttsStorageId
-    ) {
-      skipped += 1;
-      rejectedStorageIds.push(generated.storageId);
-      continue;
-    }
-
-    nextWords[generated.wordIndex] = {
-      ...currentWord,
-      ttsStorageId: generated.storageId,
-    };
-    applied += 1;
-  }
+  const { words, applied, skipped, rejectedStorageIds } = applyGeneratedTtsToWords(
+    theme.words as ThemeWordWithTts[],
+    args.generated
+  );
 
   if (applied > 0) {
-    await ctx.db.patch(args.themeId, { words: nextWords });
+    await ctx.db.patch(args.themeId, { words });
   }
 
   return { applied, skipped, rejectedStorageIds };

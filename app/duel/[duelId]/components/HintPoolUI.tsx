@@ -17,6 +17,10 @@ const HINT_BUTTONS: Array<{
     testId: "duel-hint-fifty-fifty",
   },
   {
+    // Label is the user-facing total. The code is correct as +10
+    // (HINT_PLUS_TEN_BONUS_SECONDS) plus the universal +5
+    // (HINT_UNIVERSAL_TIMER_BONUS_SECONDS) every hint grants = 15s. The
+    // "plus_ten" type/testid name the base bonus, not the displayed total.
     type: "plus_ten_seconds",
     label: "+15 Seconds",
     emoji: "⏰",

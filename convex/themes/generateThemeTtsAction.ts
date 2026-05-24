@@ -3,7 +3,6 @@ import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 import { TTS_GENERATION_COST } from "../../lib/credits/constants";
-import { generateTtsAudioWithFallback, TTS_TIMEOUT_MS } from "../../lib/tts/providerAdapters";
 import {
   buildGeneratedThemeTtsResult,
   cleanupRejectedThemeTtsStorage,
@@ -57,14 +56,7 @@ async function generateAndStoreThemeTtsTarget(
   ctx: ActionCtx,
   target: ThemeTtsTarget
 ): Promise<GeneratedWordTtsResult> {
-  const audioBuffer = await generateThemeTtsAudio(
-    target,
-    async (text, signal) => {
-      const generatedAudio = await generateTtsAudioWithFallback({ text, signal });
-      return generatedAudio?.audioBuffer ?? null;
-    },
-    TTS_TIMEOUT_MS
-  );
+  const audioBuffer = await generateThemeTtsAudio(target);
   const storageId = await storeThemeTtsAudio(ctx.storage, audioBuffer);
 
   try {

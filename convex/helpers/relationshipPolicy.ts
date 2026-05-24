@@ -1,14 +1,19 @@
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { areUsersFriends } from "../../lib/relationshipPolicy";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
-export async function loadFriendshipsBetweenUsers(
+/**
+ * Load the (at most two) friendship rows between two users via the indexed pair
+ * query — O(1) per direction rather than scanning a user's whole friend list.
+ * Returns the full docs so callers that need to delete can use `_id`.
+ */
+export async function loadFriendshipDocsBetweenUsers(
   ctx: CtxWithDb,
   userId: Id<"users">,
   targetUserId: Id<"users">
-) {
+): Promise<Doc<"friends">[]> {
   const [fromUser, fromTarget] = await Promise.all([
     ctx.db
       .query("friends")
@@ -22,7 +27,16 @@ export async function loadFriendshipsBetweenUsers(
       .collect(),
   ]);
 
-  return [...fromUser, ...fromTarget].map((friendship) => ({
+  return [...fromUser, ...fromTarget];
+}
+
+export async function loadFriendshipsBetweenUsers(
+  ctx: CtxWithDb,
+  userId: Id<"users">,
+  targetUserId: Id<"users">
+) {
+  const friendships = await loadFriendshipDocsBetweenUsers(ctx, userId, targetUserId);
+  return friendships.map((friendship) => ({
     userId: friendship.userId,
     friendId: friendship.friendId,
   }));

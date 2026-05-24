@@ -27,9 +27,12 @@ export function useChallengeData(shouldLoad: boolean) {
       nickname: friend.nickname,
       discriminator: friend.discriminator,
     })),
-    themes,
+    themes: themes?.map((theme) => ({
+      _id: theme._id,
+      name: theme.name,
+      wordCount: theme.words.length,
+    })),
     pendingChallenges,
-    pendingCount: pendingChallenges?.length || 0,
     viewer,
   };
 }

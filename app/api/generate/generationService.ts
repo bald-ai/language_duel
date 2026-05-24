@@ -23,7 +23,7 @@ import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/const
 import { type GenerateRequest } from "@/lib/generate/requestValidation";
 import { ApiRouteError } from "@/lib/api/serverErrors";
 import { getAuthedConvexClient } from "@/lib/api/convexClient";
-import { getDefaultWordType } from "@/lib/themes/wordTypes";
+import type { WordType } from "@/lib/themes/wordTypes";
 import type { ThemeWordInput } from "@/lib/themes/serverValidation";
 import {
   buildMessages,
@@ -45,10 +45,29 @@ import {
   validateGeneratedWrongAnswer,
 } from "@/lib/generate/semanticValidation";
 
+type OpenAIClient = ReturnType<typeof createOpenAIClient>;
+
 type WordWithChoices = { word: string; answer: string; wrongAnswers: string[] };
 type AnswerOnly = { answer: string };
 type WrongAnswerOnly = { wrongAnswer: string };
 type FieldGeneratedData = WordWithChoices | AnswerOnly | WrongAnswerOnly;
+type AnswerAndWrongs = { answer: string; wrongAnswers: string[] };
+
+/**
+ * One generate→validate→retry-once→validate pipeline, shared by every request
+ * type. Each request `type` only builds a `GenerationSpec` describing its prompt,
+ * schema, validation, and how to shape the success payload.
+ */
+type GenerationSpec<T> = {
+  systemPrompt: string;
+  userMessage: string;
+  history?: { role: "user" | "assistant"; content: string }[];
+  schemaName: string;
+  schema: JsonSchema;
+  validate: (parsed: T) => string[];
+  toResponseData: (parsed: T) => unknown;
+  retryInstruction: string;
+};
 
 async function ensureLlmCreditsAvailable(cost: number) {
   const client = await getAuthedConvexClient();
@@ -78,144 +97,142 @@ async function consumeCreditsOrReturnFailure(client: ConvexHttpClient, cost: num
   }
 }
 
-export async function handleGenerateRequest(body: GenerateRequest) {
-  const creditCost = body.type === "theme" ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
-  let convexClient: ConvexHttpClient;
-  try {
-    convexClient = await ensureLlmCreditsAvailable(creditCost);
-  } catch (error) {
-    return creditFailureResponse(error);
-  }
+async function runGeneration<T>(
+  openai: OpenAIClient,
+  spec: GenerationSpec<T>
+): Promise<{ parsed: T; issues: string[] }> {
+  let parsed = await callOpenAIJson<T>(openai, {
+    messages: buildMessages({
+      systemPrompt: spec.systemPrompt,
+      userMessage: spec.userMessage,
+      history: spec.history,
+    }),
+    schemaName: spec.schemaName,
+    schema: spec.schema,
+  });
 
-  let addWordSystemPrompt: string | undefined;
-  if (body.type === "add-word") {
-    addWordSystemPrompt = buildAddWordPrompt(
-      body.themeName,
-      body.newWord,
-      body.existingWords,
-      body.wordType || getDefaultWordType()
-    );
-    const duplicateWordIssues = validateGeneratedWordsAgainstExisting(
-      [body.newWord],
-      body.existingWords,
-      "an existing word"
-    );
-    if (duplicateWordIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues: duplicateWordIssues,
-        prompt: addWordSystemPrompt,
-        status: 400,
-      });
-    }
-  }
-
-  const openai = createOpenAIClient();
-
-  if (body.type === "theme") {
-    const wordCount = body.wordCount;
-    const wordType = body.wordType || getDefaultWordType();
-    const systemPrompt = buildThemeSystemPrompt(
-      body.themeName,
-      wordCount,
-      body.themePrompt,
-      wordType
-    );
-    const firstUserMessage = buildGenerateThemeUserMessage(
-      body.themeName,
-      wordCount,
-      wordType
-    );
-
-    let parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
-      messages: buildMessages({
-        systemPrompt,
-        userMessage: firstUserMessage,
-        history: body.history,
+  let issues = spec.validate(parsed);
+  if (issues.length > 0) {
+    parsed = await callOpenAIJson<T>(openai, {
+      messages: buildRetryMessages({
+        systemPrompt: spec.systemPrompt,
+        userMessage: spec.userMessage,
+        history: spec.history,
+        parsed,
+        validationIssues: issues,
+        retryInstruction: spec.retryInstruction,
       }),
-      schemaName: "theme_words",
-      schema: buildThemeSchema(wordCount),
+      schemaName: spec.schemaName,
+      schema: spec.schema,
     });
-
-    let validationIssues = validateGeneratedTheme(parsed.words, wordType);
-
-    if (validationIssues.length > 0) {
-      parsed = await callOpenAIJson<{ words: ThemeWordInput[] }>(openai, {
-        messages: buildRetryMessages({
-          systemPrompt,
-          userMessage: firstUserMessage,
-          history: body.history,
-          parsed,
-          validationIssues,
-          retryInstruction:
-            "The previous result is invalid. Regenerate the full theme and fix these issues:",
-        }),
-        schemaName: "theme_words_retry",
-        schema: buildThemeSchema(wordCount),
-      });
-      validationIssues = validateGeneratedTheme(parsed.words, wordType);
-    }
-
-    if (validationIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues,
-        prompt: systemPrompt,
-        status: 502,
-      });
-    }
-
-    const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-    if (creditFailure) return creditFailure;
-    return generationSuccessResponse(parsed.words, systemPrompt);
+    issues = spec.validate(parsed);
   }
 
-  if (body.type === "field") {
-    const { fieldType, themeName, wordType, currentWord, currentAnswer, currentWrongAnswers, fieldIndex, existingWords, rejectedWords, history, customInstructions } = body;
-    const resolvedWordType = wordType || getDefaultWordType();
+  return { parsed, issues };
+}
 
-    const systemPrompt = buildFieldSystemPrompt(
-      fieldType,
-      themeName,
-      currentWord,
-      currentAnswer,
-      currentWrongAnswers,
-      fieldIndex,
-      existingWords,
-      rejectedWords,
-      resolvedWordType,
-      customInstructions
-    );
-
-    let schema: JsonSchema;
-    let schemaName: string;
-    if (fieldType === "word") {
-      schema = wordSchema;
-      schemaName = "new_word";
-    } else if (fieldType === "answer") {
-      schema = answerSchema;
-      schemaName = "new_answer";
-    } else {
-      schema = wrongAnswerSchema;
-      schemaName = "new_wrong_answer";
-    }
-
-    const userMessage = `Generate the new ${fieldType === "wrong" ? "wrong answer" : fieldType}.`;
-    const messages = buildMessages({
-      systemPrompt,
-      userMessage,
-      history,
+async function generateAndRespond<T>(
+  openai: OpenAIClient,
+  convexClient: ConvexHttpClient,
+  creditCost: number,
+  spec: GenerationSpec<T>
+) {
+  const { parsed, issues } = await runGeneration(openai, spec);
+  if (issues.length > 0) {
+    return validationFailureResponse({
+      validationIssues: issues,
+      prompt: spec.systemPrompt,
+      status: 502,
     });
+  }
 
-    let parsed = await callOpenAIJson<FieldGeneratedData>(openai, {
-      messages,
-      schemaName,
-      schema,
-    });
+  const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
+  if (creditFailure) return creditFailure;
+  return generationSuccessResponse(spec.toResponseData(parsed), spec.systemPrompt);
+}
 
-    const validateFieldOutput = (data: FieldGeneratedData) => {
+/** Shared spec for the two single-word flows (`add-word`, `regenerate-for-word`). */
+function buildWordEntrySpec(params: {
+  systemPrompt: string;
+  newWord: string;
+  wordType: WordType;
+  toResponseData: (parsed: AnswerAndWrongs) => unknown;
+}): GenerationSpec<AnswerAndWrongs> {
+  const { systemPrompt, newWord, wordType, toResponseData } = params;
+  const wordLabel = `Word "${newWord}"`;
+  return {
+    systemPrompt,
+    userMessage: `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`,
+    schemaName: "answer_and_wrongs",
+    schema: answerAndWrongsSchema,
+    validate: (parsed) =>
+      validateGeneratedWordEntry(
+        { word: newWord, answer: parsed.answer, wrongAnswers: parsed.wrongAnswers },
+        wordType,
+        wordLabel
+      ),
+    toResponseData,
+    retryInstruction:
+      "The previous result is invalid. Regenerate the answer and wrong answers and fix these issues:",
+  };
+}
+
+function buildFieldSpec(
+  body: Extract<GenerateRequest, { type: "field" }>
+): GenerationSpec<FieldGeneratedData> {
+  const {
+    fieldType,
+    themeName,
+    wordType,
+    currentWord,
+    currentAnswer,
+    currentWrongAnswers,
+    fieldIndex,
+    existingWords,
+    rejectedWords,
+    history,
+    customInstructions,
+  } = body;
+
+  const systemPrompt = buildFieldSystemPrompt(
+    fieldType,
+    themeName,
+    currentWord,
+    currentAnswer,
+    currentWrongAnswers,
+    wordType,
+    fieldIndex,
+    existingWords,
+    rejectedWords,
+    customInstructions
+  );
+
+  let schema: JsonSchema;
+  let schemaName: string;
+  if (fieldType === "word") {
+    schema = wordSchema;
+    schemaName = "new_word";
+  } else if (fieldType === "answer") {
+    schema = answerSchema;
+    schemaName = "new_answer";
+  } else {
+    schema = wrongAnswerSchema;
+    schemaName = "new_wrong_answer";
+  }
+
+  const fieldNoun = fieldType === "wrong" ? "wrong answer" : fieldType;
+
+  return {
+    systemPrompt,
+    userMessage: `Generate the new ${fieldNoun}.`,
+    history,
+    schemaName,
+    schema,
+    validate: (data) => {
       if (fieldType === "word") {
         const generatedWord = data as WordWithChoices;
         return [
-          ...validateGeneratedWordEntry(generatedWord, resolvedWordType),
+          ...validateGeneratedWordEntry(generatedWord, wordType),
           ...validateGeneratedWordsAgainstExisting(
             [generatedWord.word],
             existingWords || [],
@@ -233,7 +250,7 @@ export async function handleGenerateRequest(body: GenerateRequest) {
           currentWord,
           (data as AnswerOnly).answer,
           currentWrongAnswers,
-          resolvedWordType
+          wordType
         );
       }
       return validateGeneratedWrongAnswer(
@@ -242,250 +259,137 @@ export async function handleGenerateRequest(body: GenerateRequest) {
         currentWrongAnswers,
         fieldIndex as number,
         (data as WrongAnswerOnly).wrongAnswer,
-        resolvedWordType
+        wordType
       );
-    };
+    },
+    toResponseData: (data) => data,
+    retryInstruction: `The previous result is invalid. Regenerate the ${fieldNoun} and fix these issues:`,
+  };
+}
 
-    let validationIssues = validateFieldOutput(parsed);
-    if (validationIssues.length > 0) {
-      parsed = await callOpenAIJson<FieldGeneratedData>(openai, {
-        messages: buildRetryMessages({
-          systemPrompt,
-          userMessage,
-          history,
-          parsed,
-          validationIssues,
-          retryInstruction: `The previous result is invalid. Regenerate the ${fieldType === "wrong" ? "wrong answer" : fieldType} and fix these issues:`,
-        }),
-        schemaName,
-        schema,
-      });
-      validationIssues = validateFieldOutput(parsed);
-    }
+function buildThemeSpec(
+  body: Extract<GenerateRequest, { type: "theme" }>
+): GenerationSpec<{ words: ThemeWordInput[] }> {
+  return {
+    systemPrompt: buildThemeSystemPrompt(
+      body.themeName,
+      body.wordCount,
+      body.wordType,
+      body.themePrompt
+    ),
+    userMessage: buildGenerateThemeUserMessage(body.themeName, body.wordCount, body.wordType),
+    history: body.history,
+    schemaName: "theme_words",
+    schema: buildThemeSchema(body.wordCount),
+    validate: (parsed) => validateGeneratedTheme(parsed.words, body.wordType),
+    toResponseData: (parsed) => parsed.words,
+    retryInstruction:
+      "The previous result is invalid. Regenerate the full theme and fix these issues:",
+  };
+}
 
-    if (validationIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues,
-        prompt: systemPrompt,
-        status: 502,
-      });
-    }
-    const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-    if (creditFailure) return creditFailure;
-    return generationSuccessResponse(parsed, systemPrompt);
+function buildRegenerateForWordSpec(
+  body: Extract<GenerateRequest, { type: "regenerate-for-word" }>
+): GenerationSpec<AnswerAndWrongs> {
+  return buildWordEntrySpec({
+    systemPrompt: buildRegenerateForWordPrompt(body.themeName, body.newWord, body.wordType),
+    newWord: body.newWord,
+    wordType: body.wordType,
+    toResponseData: (parsed) => parsed,
+  });
+}
+
+function buildAddWordSpec(
+  body: Extract<GenerateRequest, { type: "add-word" }>,
+  systemPrompt: string
+): GenerationSpec<AnswerAndWrongs> {
+  return buildWordEntrySpec({
+    systemPrompt,
+    newWord: body.newWord,
+    wordType: body.wordType,
+    toResponseData: (parsed) => ({
+      word: body.newWord,
+      answer: parsed.answer,
+      wrongAnswers: parsed.wrongAnswers,
+    }),
+  });
+}
+
+function buildGenerateMoreSpec(
+  body: Extract<GenerateRequest, { type: "generate-more-words" }>
+): GenerationSpec<{ words: WordWithChoices[] }> {
+  return {
+    systemPrompt: buildGenerateMoreWordsPrompt(
+      body.themeName,
+      body.count,
+      body.existingWords,
+      body.wordType
+    ),
+    userMessage: buildGenerateMoreWordsUserMessage(body.themeName, body.count, body.wordType),
+    schemaName: "more_words",
+    schema: createGenerateMoreWordsSchema(body.count),
+    validate: (parsed) => [
+      ...validateGeneratedTheme(parsed.words, body.wordType),
+      ...validateGeneratedWordsAgainstExisting(
+        parsed.words.map((word) => word.word),
+        body.existingWords,
+        "an existing word"
+      ),
+    ],
+    toResponseData: (parsed) => parsed.words,
+    retryInstruction:
+      "The previous result is invalid. Regenerate all more-words and fix these issues:",
+  };
+}
+
+export async function handleGenerateRequest(body: GenerateRequest) {
+  const creditCost = body.type === "theme" ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
+  let convexClient: ConvexHttpClient;
+  try {
+    convexClient = await ensureLlmCreditsAvailable(creditCost);
+  } catch (error) {
+    return creditFailureResponse(error);
+  }
+
+  const openai = createOpenAIClient();
+
+  if (body.type === "theme") {
+    return generateAndRespond(openai, convexClient, creditCost, buildThemeSpec(body));
+  }
+
+  if (body.type === "field") {
+    return generateAndRespond(openai, convexClient, creditCost, buildFieldSpec(body));
   }
 
   if (body.type === "regenerate-for-word") {
-    const { themeName, wordType, newWord } = body;
-    const resolvedWordType = wordType || getDefaultWordType();
-
-    const systemPrompt = buildRegenerateForWordPrompt(
-      themeName,
-      newWord,
-      resolvedWordType
-    );
-
-    const wordLabel = `Word "${newWord}"`;
-    const userMessage = `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`;
-    const messages = buildMessages({
-      systemPrompt,
-      userMessage,
-    });
-
-    let parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
-      messages,
-      schemaName: "answer_and_wrongs",
-      schema: answerAndWrongsSchema,
-    });
-    let validationIssues = validateGeneratedWordEntry(
-      {
-        word: newWord,
-        answer: parsed.answer,
-        wrongAnswers: parsed.wrongAnswers,
-      },
-      resolvedWordType,
-      wordLabel
-    );
-
-    if (validationIssues.length > 0) {
-      parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
-        messages: buildRetryMessages({
-          systemPrompt,
-          userMessage,
-          parsed,
-          validationIssues,
-          retryInstruction:
-            "The previous result is invalid. Regenerate the answer and wrong answers and fix these issues:",
-        }),
-        schemaName: "answer_and_wrongs",
-        schema: answerAndWrongsSchema,
-      });
-      validationIssues = validateGeneratedWordEntry(
-        {
-          word: newWord,
-          answer: parsed.answer,
-          wrongAnswers: parsed.wrongAnswers,
-        },
-        resolvedWordType,
-        wordLabel
-      );
-    }
-
-    if (validationIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues,
-        prompt: systemPrompt,
-        status: 502,
-      });
-    }
-    const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-    if (creditFailure) return creditFailure;
-    return generationSuccessResponse(parsed, systemPrompt);
+    return generateAndRespond(openai, convexClient, creditCost, buildRegenerateForWordSpec(body));
   }
 
   if (body.type === "add-word") {
-    const { newWord } = body;
-    const resolvedWordType = body.wordType || getDefaultWordType();
-    const systemPrompt = addWordSystemPrompt!;
-    const wordLabel = `Word "${newWord}"`;
-    const userMessage = `Generate the Spanish translation and ${WRONG_ANSWER_COUNT} wrong answers for "${newWord}".`;
-
-    const messages = buildMessages({
-      systemPrompt,
-      userMessage,
-    });
-
-    let parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
-      messages,
-      schemaName: "answer_and_wrongs",
-      schema: answerAndWrongsSchema,
-    });
-    let validationIssues = validateGeneratedWordEntry(
-      {
-        word: newWord,
-        answer: parsed.answer,
-        wrongAnswers: parsed.wrongAnswers,
-      },
-      resolvedWordType,
-      wordLabel
+    // add-word does a pre-flight duplicate check before spending a generation.
+    const systemPrompt = buildAddWordPrompt(
+      body.themeName,
+      body.newWord,
+      body.existingWords,
+      body.wordType
     );
-
-    if (validationIssues.length > 0) {
-      parsed = await callOpenAIJson<{ answer: string; wrongAnswers: string[] }>(openai, {
-        messages: buildRetryMessages({
-          systemPrompt,
-          userMessage,
-          parsed,
-          validationIssues,
-          retryInstruction:
-            "The previous result is invalid. Regenerate the answer and wrong answers and fix these issues:",
-        }),
-        schemaName: "answer_and_wrongs",
-        schema: answerAndWrongsSchema,
-      });
-      validationIssues = validateGeneratedWordEntry(
-        {
-          word: newWord,
-          answer: parsed.answer,
-          wrongAnswers: parsed.wrongAnswers,
-        },
-        resolvedWordType,
-        wordLabel
-      );
-    }
-
-    if (validationIssues.length > 0) {
+    const duplicateWordIssues = validateGeneratedWordsAgainstExisting(
+      [body.newWord],
+      body.existingWords,
+      "an existing word"
+    );
+    if (duplicateWordIssues.length > 0) {
       return validationFailureResponse({
-        validationIssues,
+        validationIssues: duplicateWordIssues,
         prompt: systemPrompt,
-        status: 502,
+        status: 400,
       });
     }
-    const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-    if (creditFailure) return creditFailure;
-    return generationSuccessResponse(
-      {
-        word: newWord,
-        answer: parsed.answer,
-        wrongAnswers: parsed.wrongAnswers,
-      },
-      systemPrompt
-    );
+    return generateAndRespond(openai, convexClient, creditCost, buildAddWordSpec(body, systemPrompt));
   }
 
   if (body.type === "generate-more-words") {
-    const { themeName, wordType, count, existingWords } = body;
-    const resolvedWordType = wordType || getDefaultWordType();
-    const systemPrompt = buildGenerateMoreWordsPrompt(
-      themeName,
-      count,
-      existingWords,
-      resolvedWordType
-    );
-    const userMessage = buildGenerateMoreWordsUserMessage(
-      themeName,
-      count,
-      resolvedWordType
-    );
-
-    const messages = buildMessages({
-      systemPrompt,
-      userMessage,
-    });
-
-    let parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
-      openai,
-      {
-        messages,
-        schemaName: "more_words",
-        schema: createGenerateMoreWordsSchema(count),
-      }
-    );
-    let validationIssues = [
-      ...validateGeneratedTheme(parsed.words, resolvedWordType),
-      ...validateGeneratedWordsAgainstExisting(
-        parsed.words.map((word) => word.word),
-        existingWords,
-        "an existing word"
-      ),
-    ];
-
-    if (validationIssues.length > 0) {
-      parsed = await callOpenAIJson<{ words: Array<{ word: string; answer: string; wrongAnswers: string[] }> }>(
-        openai,
-        {
-          messages: buildRetryMessages({
-            systemPrompt,
-            userMessage,
-            parsed,
-            validationIssues,
-            retryInstruction:
-              "The previous result is invalid. Regenerate all more-words and fix these issues:",
-          }),
-          schemaName: "more_words",
-          schema: createGenerateMoreWordsSchema(count),
-        }
-      );
-      validationIssues = [
-        ...validateGeneratedTheme(parsed.words, resolvedWordType),
-        ...validateGeneratedWordsAgainstExisting(
-          parsed.words.map((word) => word.word),
-          existingWords,
-          "an existing word"
-        ),
-      ];
-    }
-
-    if (validationIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues,
-        prompt: systemPrompt,
-        status: 502,
-      });
-    }
-    const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-    if (creditFailure) return creditFailure;
-    return generationSuccessResponse(parsed.words, systemPrompt);
+    return generateAndRespond(openai, convexClient, creditCost, buildGenerateMoreSpec(body));
   }
 
   return NextResponse.json({ success: false, error: "Invalid request type" }, { status: 400 });

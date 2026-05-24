@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import {
   SignInButton,
@@ -64,16 +64,58 @@ const RepetitionIcon = () => (
   </svg>
 );
 
-// Left navigation buttons (Bell and Goals) - for signed-in users
+// Primary app destinations reachable from the shell nav. Prefetched in one
+// place (LeftNavButtons, which renders on the home + mock-online pages) so the
+// warm-up logic isn't scattered across LeftNavButtons/RightNavButtons/HomePageClient.
+const PRIMARY_NAV_PREFETCH_ROUTES = ["/goals", "/repetition", "/settings", "/themes"];
+
+// Shared shape for the round icon nav buttons (bell, repetition, goals). `badge`
+// renders as a sibling of the button inside the relative wrapper.
+function NavIconButton({
+  icon,
+  onClick,
+  title,
+  testId,
+  ariaLabel,
+  buttonRef,
+  badge,
+}: {
+  icon: ReactNode;
+  onClick: () => void;
+  title: string;
+  testId: string;
+  ariaLabel?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        onClick={onClick}
+        className="nav-icon-btn w-10 h-10 flex items-center justify-center"
+        title={title}
+        aria-label={ariaLabel}
+        style={{ color: "var(--color-text)" }}
+        data-testid={testId}
+      >
+        {icon}
+      </button>
+      {badge}
+    </div>
+  );
+}
+
+// Left navigation buttons (Bell, Repetition, Goals) - for signed-in users
 export function LeftNavButtons() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
 
   useEffect(() => {
     if (!isSignedIn) return;
-
-    router.prefetch("/goals");
-    router.prefetch("/repetition");
+    for (const route of PRIMARY_NAV_PREFETCH_ROUTES) {
+      router.prefetch(route);
+    }
   }, [isSignedIn, router]);
 
   // Notification system
@@ -85,72 +127,54 @@ export function LeftNavButtons() {
 
   return (
     <div className="flex items-center gap-1 sm:gap-2 relative">
-      {/* Notification bell */}
-      <div className="relative">
-        <button
-          ref={notificationTriggerRef}
-          onClick={() => {
-            if (panel.isOpen) {
-              panel.close();
-              return;
-            }
-            panel.switchTab(
-              notificationCount > 0 ? PANEL_TABS.NOTIFICATIONS : PANEL_TABS.FRIENDS
-            );
-            panel.open();
-          }}
-          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
-          title="Notifications & Friends"
-          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ""}`}
-          style={{ color: "var(--color-text)" }}
-          data-testid="nav-notifications"
-        >
-          <BellFriendsIcon />
-        </button>
+      <NavIconButton
+        buttonRef={notificationTriggerRef}
+        onClick={() => {
+          if (panel.isOpen) {
+            panel.close();
+            return;
+          }
+          panel.switchTab(
+            notificationCount > 0 ? PANEL_TABS.NOTIFICATIONS : PANEL_TABS.FRIENDS
+          );
+          panel.open();
+        }}
+        title="Notifications & Friends"
+        ariaLabel={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ""}`}
+        testId="nav-notifications"
+        icon={<BellFriendsIcon />}
+        badge={
+          notificationCount > 0 ? (
+            <span
+              className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center border-2 pointer-events-none animate-pulse"
+              style={{
+                backgroundColor: "var(--color-cta)",
+                borderColor: "var(--color-background-elevated)",
+                color: "var(--color-text)",
+                boxShadow:
+                  "0 0 6px color-mix(in srgb, var(--color-cta) 55%, transparent)",
+              }}
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          ) : undefined
+        }
+      />
 
-        {/* Notification badge */}
-        {notificationCount > 0 && (
-          <span
-            className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-xs font-bold flex items-center justify-center border-2 pointer-events-none animate-pulse"
-            style={{
-              backgroundColor: "var(--color-cta)",
-              borderColor: "var(--color-background-elevated)",
-              color: "var(--color-text)",
-              boxShadow:
-                "0 0 6px color-mix(in srgb, var(--color-cta) 55%, transparent)",
-            }}
-          >
-            {notificationCount > 9 ? "9+" : notificationCount}
-          </span>
-        )}
-      </div>
+      <NavIconButton
+        onClick={() => router.push("/repetition")}
+        title="Spaced Repetition"
+        ariaLabel="Spaced Repetition"
+        testId="nav-repetition"
+        icon={<RepetitionIcon />}
+      />
 
-      {/* Repetition button */}
-      <div className="relative">
-        <button
-          onClick={() => router.push("/repetition")}
-          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
-          title="Spaced Repetition"
-          aria-label="Spaced Repetition"
-          style={{ color: "var(--color-text)" }}
-          data-testid="nav-repetition"
-        >
-          <RepetitionIcon />
-        </button>
-      </div>
-
-      {/* Goal button */}
-      <div className="relative">
-        <button
-          onClick={() => router.push("/goals")}
-          className="nav-icon-btn w-10 h-10 flex items-center justify-center"
-          title="Weekly Goals"
-          style={{ color: "var(--color-text)" }}
-          data-testid="nav-goals"
-        >
-          <GoalIcon />
-        </button>
-      </div>
+      <NavIconButton
+        onClick={() => router.push("/goals")}
+        title="Weekly Goals"
+        testId="nav-goals"
+        icon={<GoalIcon />}
+      />
 
       {/* Notification Panel dropdown - opens from left side */}
       <NotificationPanel
@@ -174,12 +198,6 @@ export function SignedInPresenceOwner() {
 export function RightNavButtons() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
-
-  useEffect(() => {
-    if (!isSignedIn) return;
-
-    router.prefetch("/settings");
-  }, [isSignedIn, router]);
 
   if (!isSignedIn) return null;
 

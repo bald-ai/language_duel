@@ -8,7 +8,7 @@ import {
   type ThemeWordInput,
 } from "@/lib/themes/serverValidation";
 import { normalizeForComparison } from "@/lib/stringUtils";
-import { getDefaultWordType, type WordType } from "@/lib/themes/wordTypes";
+import { type WordType } from "@/lib/themes/wordTypes";
 
 type WordTypeRole = "answer" | "wrongAnswer";
 
@@ -42,13 +42,34 @@ function hasObviousPluralForm(value: string): boolean {
     .some((token) => token.endsWith("os") || token.endsWith("as"));
 }
 
+/**
+ * Shared "min 1 / max N characters" rule so the generated-field validators don't
+ * each re-spell the same length check (the entry/theme validators get it for free
+ * via `collectThemeIssues`).
+ */
+function validateValueLength(params: {
+  value: string;
+  max: number;
+  label: string;
+  fieldName: string;
+}): string[] {
+  const trimmed = params.value.trim();
+  if (trimmed.length < 1) {
+    return [`${params.label}: ${params.fieldName} must be at least 1 character`];
+  }
+  if (trimmed.length > params.max) {
+    return [`${params.label}: ${params.fieldName} must be at most ${params.max} characters`];
+  }
+  return [];
+}
+
 function validateWordTypeAnswerValue(params: {
   value: string;
   wordType: WordType;
   role: WordTypeRole;
   label: string;
 }): string[] {
-  const wordType = params.wordType || getDefaultWordType();
+  const wordType = params.wordType;
   const value = params.value.trim();
   const issues: string[] = [];
 
@@ -141,13 +162,13 @@ export function validateGeneratedAnswer(
 ): string[] {
   const issues: string[] = [];
   const label = `Word "${currentWord}"`;
-  const trimmedAnswer = generatedAnswer.trim();
 
-  if (trimmedAnswer.length < 1) {
-    issues.push(`${label}: answer must be at least 1 character`);
-  } else if (trimmedAnswer.length > THEME_ANSWER_INPUT_MAX_LENGTH) {
-    issues.push(`${label}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`);
-  }
+  issues.push(...validateValueLength({
+    value: generatedAnswer,
+    max: THEME_ANSWER_INPUT_MAX_LENGTH,
+    label,
+    fieldName: "answer",
+  }));
 
   issues.push(...validateWordTypeAnswerValue({
     value: generatedAnswer,
@@ -183,13 +204,12 @@ export function validateGeneratedWrongAnswer(
   const trimmedWrong = generatedWrong.trim();
   const label = `Word "${currentWord}"`;
 
-  if (trimmedWrong.length < 1) {
-    issues.push(`${label}: wrong answer ${fieldIndex + 1} must be at least 1 character`);
-  } else if (trimmedWrong.length > THEME_WRONG_ANSWER_INPUT_MAX_LENGTH) {
-    issues.push(
-      `${label}: wrong answer ${fieldIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`
-    );
-  }
+  issues.push(...validateValueLength({
+    value: generatedWrong,
+    max: THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
+    label,
+    fieldName: `wrong answer ${fieldIndex + 1}`,
+  }));
 
   issues.push(...validateWordTypeAnswerValue({
     value: generatedWrong,

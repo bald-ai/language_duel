@@ -17,6 +17,7 @@ import {
   THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
 } from "@/lib/themes/constants";
 import {
+  DEFAULT_WORD_TYPE,
   isWordType,
   WORD_TYPE_VALUES,
   type WordType,
@@ -37,7 +38,7 @@ export interface GenerateThemeRequest {
   themeName: string;
   themePrompt?: string;
   wordCount: number;
-  wordType?: WordType;
+  wordType: WordType;
   history?: HistoryMessage[];
 }
 
@@ -45,7 +46,7 @@ export interface RegenerateFieldRequest {
   type: "field";
   fieldType: FieldType;
   themeName: string;
-  wordType?: WordType;
+  wordType: WordType;
   currentWord: string;
   currentAnswer: string;
   currentWrongAnswers: string[];
@@ -59,14 +60,14 @@ export interface RegenerateFieldRequest {
 export interface RegenerateForWordRequest {
   type: "regenerate-for-word";
   themeName: string;
-  wordType?: WordType;
+  wordType: WordType;
   newWord: string;
 }
 
 export interface AddWordRequest {
   type: "add-word";
   themeName: string;
-  wordType?: WordType;
+  wordType: WordType;
   newWord: string;
   existingWords: string[];
 }
@@ -74,7 +75,7 @@ export interface AddWordRequest {
 export interface GenerateMoreWordsRequest {
   type: "generate-more-words";
   themeName: string;
-  wordType?: WordType;
+  wordType: WordType;
   count: number;
   existingWords: string[];
 }
@@ -111,8 +112,8 @@ function parseTrimmedString(params: {
   return normalized;
 }
 
-function parseWordType(value: unknown): WordType | undefined {
-  if (value === undefined) return undefined;
+function parseWordType(value: unknown): WordType {
+  if (value === undefined) return DEFAULT_WORD_TYPE;
   if (isWordType(value)) return value;
   throw new Error(`wordType must be one of: ${WORD_TYPE_VALUES.join(", ")}`);
 }

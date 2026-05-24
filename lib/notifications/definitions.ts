@@ -33,14 +33,12 @@ export const NOTIFICATION_DEFINITIONS = {
 
 export type NotificationType = keyof typeof NOTIFICATION_DEFINITIONS;
 
-export const NOTIFICATION_TYPES = Object.fromEntries(
-  Object.keys(NOTIFICATION_DEFINITIONS).map((type) => [type.toUpperCase(), type])
-) as {
-  FRIEND_REQUEST: "friend_request";
-  WEEKLY_GOAL_INVITATION: "weekly_goal_invitation";
-  WEEKLY_GOAL_DRAFT_EXPIRING: "weekly_goal_draft_expiring";
-  CHALLENGE_INVITE: "challenge_invite";
-};
+export const NOTIFICATION_TYPES = {
+  FRIEND_REQUEST: "friend_request",
+  WEEKLY_GOAL_INVITATION: "weekly_goal_invitation",
+  WEEKLY_GOAL_DRAFT_EXPIRING: "weekly_goal_draft_expiring",
+  CHALLENGE_INVITE: "challenge_invite",
+} as const;
 
 export const NOTIFICATION_TYPE_VALUES = Object.keys(
   NOTIFICATION_DEFINITIONS

@@ -393,7 +393,7 @@ describe("duel lifecycle handlers", () => {
 
     await expect(handler(createCtx(db, "clerk_2"), {
       challengeId: "challenge_1" as Id<"challenges">,
-    })).rejects.toThrow("Challenge is not pending");
+    })).rejects.toThrow("Challenge is no longer pending");
     expect(db.duels).toHaveLength(0);
   });
 
@@ -412,7 +412,7 @@ describe("duel lifecycle handlers", () => {
 
     await expect(handler(createCtx(db, "clerk_1"), {
       challengeId: "challenge_1" as Id<"challenges">,
-    })).rejects.toThrow("Only opponent can accept challenge");
+    })).rejects.toThrow("Only the invited opponent can respond to this challenge");
   });
 
   it("acceptChallenge blocks unrelated third-party users", async () => {
@@ -503,7 +503,7 @@ describe("duel lifecycle handlers", () => {
 
     await expect(handler(createCtx(db, "clerk_1"), {
       challengeId: "challenge_1" as Id<"challenges">,
-    })).rejects.toThrow("Only opponent can decline challenge");
+    })).rejects.toThrow("Only the invited opponent can respond to this challenge");
   });
 
   it("declineChallenge blocks unrelated third-party users", async () => {

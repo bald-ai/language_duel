@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
@@ -48,7 +48,7 @@ export function useThemesController() {
       setViewMode(VIEW_MODES.DETAIL);
       wordEdit.wordEditor.reset();
     } else if (viewMode === VIEW_MODES.PICK_AND_PRUNE_REVIEW) {
-      generation.pickAndPrune.requestDiscard();
+      generation.requestDiscardPickAndPrune();
     } else if (viewMode === VIEW_MODES.DETAIL) {
       setViewMode(VIEW_MODES.LIST);
       detail.resetSelection();
@@ -59,7 +59,7 @@ export function useThemesController() {
         router.push("/");
       }
     }
-  }, [detail, generation.pickAndPrune, router, viewMode, wordEdit.wordEditor]);
+  }, [detail, generation, router, viewMode, wordEdit.wordEditor]);
 
   const list = useThemeListController({
     deletingThemeId: themeActions.deletingThemeId,
@@ -93,74 +93,43 @@ export function useThemesController() {
     setDeleteConfirm(null);
   }, [deleteConfirm, themeActions]);
 
-  const detailProps = useMemo(
-    () => ({
-      theme: detail.selectedTheme!,
-      localWords: detail.localWords,
-      onThemeNameChange: detail.handleThemeNameChange,
-      onDeleteWord: detail.handleDeleteWord,
-      onEditWord: wordEdit.handleEditWord,
-      onSave: detail.handleSaveTheme,
-      onCancel: detail.handleCancelTheme,
-      isSaving: themeActions.isCreating || themeActions.isUpdating,
-      onToggleArchive: list.handleToggleArchive,
-      isArchived: list.showArchived,
-      showAddWordModal: generation.showAddWordModal,
-      onShowAddWordModal: generation.setShowAddWordModal,
-      addWordState: {
-        newWordInput: generation.addWordHook.newWordInput,
-        isAdding: generation.addWordHook.isAdding,
-        error: generation.addWordHook.error,
-      },
-      onAddWordInputChange: generation.addWordHook.setNewWordInput,
-      onAddWord: generation.handleAddWord,
-      onAddWordReset: generation.addWordHook.reset,
-      showGenerateMoreModal: generation.showGenerateMoreModal,
-      onShowGenerateMoreModal: generation.setShowGenerateMoreModal,
-      generateMoreState: {
-        count: generation.generateMoreHook.count,
-        isGenerating: generation.generateMoreHook.isGenerating,
-        pickAndPrune: generation.generateMoreHook.pickAndPrune,
-        error: generation.generateMoreHook.error,
-      },
-      onGenerateMoreCountChange: generation.generateMoreHook.setCount,
-      onGenerateMore: generation.handleGenerateMore,
-      onGenerateMorePickAndPrune: generation.handleGenerateMorePickAndPrune,
-      onGenerateMoreReset: generation.generateMoreHook.reset,
-      visibility: detail.selectedTheme?.visibility || "private",
-      isUpdatingVisibility: detail.isUpdatingVisibility,
-      onVisibilityChange: detail.handleVisibilityChange,
-      friendsCanEdit: detail.selectedTheme?.friendsCanEdit || false,
-      isUpdatingFriendsCanEdit: detail.isUpdatingFriendsCanEdit,
-      onFriendsCanEditChange: detail.handleFriendsCanEditChange,
-      isGeneratingTTS: tts.isGeneratingTTS,
-      isTTSUpToDate: !hasMissingThemeTts(detail.localWords),
-      onGenerateTTS: tts.handleGenerateThemeTTS,
-      playingWordKey: tts.playingWordKey,
-      onPlayWordTTS: tts.handlePlayThemeWordTTS,
-    }),
-    [detail, generation, list, themeActions.isCreating, themeActions.isUpdating, tts, wordEdit.handleEditWord]
-  );
+  const detailProps = {
+    theme: detail.selectedTheme!,
+    localWords: detail.localWords,
+    onThemeNameChange: detail.handleThemeNameChange,
+    onDeleteWord: detail.handleDeleteWord,
+    onEditWord: wordEdit.handleEditWord,
+    onSave: detail.handleSaveTheme,
+    onCancel: detail.handleCancelTheme,
+    isSaving: themeActions.isCreating || themeActions.isUpdating,
+    onOpenAddWord: generation.openAddWord,
+    onOpenGenerateMore: generation.openGenerateMore,
+    visibility: detail.selectedTheme?.visibility || "private",
+    isUpdatingVisibility: detail.isUpdatingVisibility,
+    onVisibilityChange: detail.handleVisibilityChange,
+    friendsCanEdit: detail.selectedTheme?.friendsCanEdit || false,
+    isUpdatingFriendsCanEdit: detail.isUpdatingFriendsCanEdit,
+    onFriendsCanEditChange: detail.handleFriendsCanEditChange,
+    isGeneratingTTS: tts.isGeneratingTTS,
+    isTTSUpToDate: !hasMissingThemeTts(detail.localWords),
+    onGenerateTTS: tts.handleGenerateThemeTTS,
+    playingWordKey: tts.playingWordKey,
+    onPlayWordTTS: tts.handlePlayThemeWordTTS,
+  };
 
   return {
+    // View state + the two render gates page.tsx switches on.
     viewMode,
     selectedTheme: detail.selectedTheme,
-    localWords: detail.localWords,
-    themes: list.themes,
-    showGenerateModal: generation.showGenerateModal,
-    setShowGenerateModal: generation.setShowGenerateModal,
-    deleteConfirm,
-    setDeleteConfirm,
-    goBack,
+    wordEditorState: wordEdit.wordEditor,
+    // Prop bundles, one per rendered surface.
     listProps: list.listProps,
     friendFilterModalProps: list.friendFilterModalProps,
-    generateModalProps: {
-      ...generation.generateModalProps,
-      onGenerate: generation.generateModalProps.onGenerate,
-      onGeneratePickAndPrune: generation.generateModalProps.onGeneratePickAndPrune,
-    },
+    generateModalProps: generation.generateModalProps,
     pickAndPruneReviewProps: generation.pickAndPruneReviewProps,
     detailProps,
+    addWordModalProps: generation.addWordModalProps,
+    generateMoreModalProps: generation.generateMoreModalProps,
     wordEditorProps: {
       ...wordEdit.wordEditorProps,
       onBack: goBack,
@@ -175,6 +144,5 @@ export function useThemesController() {
       onCancel: () => setDeleteConfirm(null),
     },
     discardPickAndPruneProps: generation.discardPickAndPruneProps,
-    wordEditorState: wordEdit.wordEditor,
   };
 }

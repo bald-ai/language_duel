@@ -39,15 +39,8 @@ function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {
     onEditWord: vi.fn(),
     onSave: vi.fn(),
     onCancel: vi.fn(),
-    onShowAddWordModal: vi.fn(),
-    onAddWordInputChange: vi.fn(),
-    onAddWord: vi.fn(),
-    onAddWordReset: vi.fn(),
-    onShowGenerateMoreModal: vi.fn(),
-    onGenerateMoreCountChange: vi.fn(),
-    onGenerateMore: vi.fn(),
-    onGenerateMorePickAndPrune: vi.fn(),
-    onGenerateMoreReset: vi.fn(),
+    onOpenAddWord: vi.fn(),
+    onOpenGenerateMore: vi.fn(),
     onVisibilityChange: vi.fn(),
     onFriendsCanEditChange: vi.fn(),
     onGenerateTTS: vi.fn(),
@@ -64,10 +57,6 @@ function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {
       },
     ],
     isSaving: false,
-    showAddWordModal: false,
-    addWordState: { newWordInput: "", isAdding: false, error: null },
-    showGenerateMoreModal: false,
-    generateMoreState: { count: 5, isGenerating: false, pickAndPrune: false, error: null },
     visibility: "private",
     isUpdatingVisibility: false,
     friendsCanEdit: false,
@@ -142,20 +131,13 @@ describe("ThemeDetail behavior", () => {
   });
 
   it("triggers add and generate actions from utility buttons", () => {
-    const {
-      onAddWordReset,
-      onShowAddWordModal,
-      onGenerateMoreReset,
-      onShowGenerateMoreModal,
-    } = makeProps();
+    const { onOpenAddWord, onOpenGenerateMore } = makeProps();
 
     fireEvent.click(screen.getByTestId("theme-add-word"));
     fireEvent.click(screen.getByTestId("theme-generate"));
 
-    expect(onAddWordReset).toHaveBeenCalledTimes(1);
-    expect(onShowAddWordModal).toHaveBeenCalledWith(true);
-    expect(onGenerateMoreReset).toHaveBeenCalledTimes(1);
-    expect(onShowGenerateMoreModal).toHaveBeenCalledWith(true);
+    expect(onOpenAddWord).toHaveBeenCalledTimes(1);
+    expect(onOpenGenerateMore).toHaveBeenCalledTimes(1);
   });
 
   it("shows the irregular marker legend only for verb themes", () => {
@@ -180,26 +162,6 @@ describe("ThemeDetail behavior", () => {
     });
 
     expect(screen.getByText("= Irregular verb")).toBeInTheDocument();
-  });
-
-  it("closes add/generate modals through cancel actions", () => {
-    const {
-      onAddWordReset,
-      onShowAddWordModal,
-      onGenerateMoreReset,
-      onShowGenerateMoreModal,
-    } = makeProps({
-      showAddWordModal: true,
-      showGenerateMoreModal: true,
-    });
-
-    fireEvent.click(screen.getByTestId("theme-add-word-cancel"));
-    fireEvent.click(screen.getByTestId("theme-generate-more-cancel"));
-
-    expect(onShowAddWordModal).toHaveBeenCalledWith(false);
-    expect(onAddWordReset).toHaveBeenCalled();
-    expect(onShowGenerateMoreModal).toHaveBeenCalledWith(false);
-    expect(onGenerateMoreReset).toHaveBeenCalled();
   });
 
   it("routes word card actions to callbacks", () => {

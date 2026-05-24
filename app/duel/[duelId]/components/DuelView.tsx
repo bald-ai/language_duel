@@ -1,33 +1,19 @@
 "use client";
 
-import type { CSSProperties } from "react";
-import { stripIrr } from "@/lib/stringUtils";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   TIMER_DANGER_THRESHOLD,
   TIMER_WARNING_THRESHOLD,
 } from "@/lib/duelConstants";
 import type { SabotageEffect } from "@/lib/sabotage/types";
-import {
-  BUTTON_WIDTH,
-  BUTTON_HEIGHT,
-  TRAMPOLINE_BUTTON_WIDTH,
-  TRAMPOLINE_BUTTON_HEIGHT,
-  TRAMPOLINE_FLY_SCALE,
-  BOUNCE_FLY_SCALE,
-} from "@/lib/sabotage/constants";
 import { SabotageRenderer } from "@/app/game/sabotage/SabotageRenderer";
-import { useReverseAnswers } from "@/app/game/sabotage/hooks/useReverseAnswers";
-import { useBounceOptions } from "@/app/game/sabotage/hooks/useBounceOptions";
-import { useTrampolineOptions } from "@/app/game/sabotage/hooks/useTrampolineOptions";
-import { reverseText } from "@/app/game/sabotage/utils/textTransforms";
 import { CountdownControls } from "@/app/game/components/duel/CountdownControls";
-import { FinalResultsPanel } from "@/app/game/components/duel/FinalResultsPanel";
-import { HintSystemUI } from "@/app/game/components/duel/HintSystemUI";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
-import { AnswerOptionButton, computeOptionState, type OptionContext } from "./AnswerOptionButton";
-import { HintPoolUI } from "./HintPoolUI";
-import { SabotageSystemUI } from "./SabotageSystemUI";
+import { type OptionContext } from "./AnswerOptionButton";
+import { DuelAnswerGrid } from "./DuelAnswerGrid";
+import { DuelFooter } from "./DuelFooter";
+import { DuelRoundHeader } from "./DuelRoundHeader";
+import { buildDuelViewStyles, getListenButtonStyle } from "./duelViewStyles";
 import type { SabotagePhase } from "../hooks/useSabotageEffect";
 import type { BossType } from "@/lib/limitedLives";
 import type { DuelMode } from "@/lib/duelMode";
@@ -53,6 +39,8 @@ export interface DuelViewProps {
   status: string;
   duelMode: DuelMode;
   phase: "idle" | "answering" | "transition";
+  /** True when there is no current word to play (waiting on the duel to complete). */
+  isRoundOver: boolean;
   round: {
     wordsCount: number;
     index: number;
@@ -143,6 +131,7 @@ export function DuelView({
   status,
   duelMode,
   phase,
+  isRoundOver,
   round,
   timer,
   countdown,
@@ -154,234 +143,74 @@ export function DuelView({
   audio,
 }: DuelViewProps) {
   const colors = useAppearanceColors();
-  const {
-    wordsCount,
-    index,
-    word,
-    sourceThemeName,
-    frozenData,
-    difficulty,
-    duelDuration,
-    hintReveal,
-  } = round;
-  const { questionTimer, questionTimerPausedAt } = timer;
-  const {
-    value: countdownValue,
-    pausedBy: countdownPausedBy,
-    unpauseRequestedBy: countdownUnpauseRequestedBy,
-    skipRequestedBy: countdownSkipRequestedBy,
-    userRole,
-  } = countdown;
-  const {
-    shuffledAnswers,
-    selectedAnswer,
-    correctAnswer,
-    hasNoneOption,
-    eliminatedOptions,
-    opponentLastAnswer,
-    isRevealing,
-    typedText,
-    revealComplete,
-    hasAnswered,
-    opponentHasAnswered,
-    isLocked,
-  } = answers;
-  const {
-    canRequestHint,
-    iRequestedHint,
-    theyRequestedHint,
-    hintAccepted,
-    canAcceptHint,
-    isHintProvider,
-    canEliminate,
-    eliminatedOptionsCount,
-    pool: hintPool,
-  } = hints;
-  const {
-    activeSabotage,
-    sabotagePhase,
-    sabotagesRemaining,
-    isOutgoingSabotageActive,
-  } = sabotage;
-  const {
-    myName,
-    theirName,
-    myScore,
-    theirScore,
-    bossType,
-    livesRemaining,
-    livesTotal,
-  } = score;
-  const {
-    onPauseCountdown,
-    onRequestUnpause,
-    onConfirmUnpause,
-    onSkipCountdown,
-    onPlayAudio,
-    onOptionClick,
-    onConfirmAnswer,
-    onRequestHint,
-    onAcceptHint,
-    onFireHint,
-    onSendSabotage,
-    onExit,
-    onBackToHome,
-  } = actions;
-  const isPlayingAudio = audio.isPlaying;
-  const isPve = duelMode === "pve";
-  const displayWord = frozenData ? frozenData.word : word;
-  const displayIndex = frozenData ? frozenData.wordIndex : index;
-  const displayAnswers = frozenData ? frozenData.shuffledAnswers : shuffledAnswers;
-  const displaySelectedAnswer = frozenData ? frozenData.selectedAnswer : selectedAnswer;
-  const displayCorrectAnswer = frozenData ? frozenData.correctAnswer : correctAnswer;
-  const displayHasNone = frozenData ? frozenData.hasNoneOption : hasNoneOption;
-  const canShowAnswerFeedback = displayCorrectAnswer !== null && displayHasNone !== null;
+  const styles = buildDuelViewStyles(colors);
+
+  const canShowAnswerFeedback =
+    answers.correctAnswer !== null && answers.hasNoneOption !== null;
   const isShowingFeedback =
-    canShowAnswerFeedback && (hasAnswered || isLocked || !!frozenData || status === "completed");
+    canShowAnswerFeedback &&
+    (answers.hasAnswered || answers.isLocked || !!round.frozenData || status === "completed");
+  const inTransition = phase === "transition" && !!round.frozenData;
+  // There is an answer area to show whenever a question is on screen: the live
+  // word (round not over) or the frozen snapshot during the transition.
+  const showAnswerArea = !!round.frozenData || !isRoundOver;
+  const showListenButton =
+    canShowAnswerFeedback &&
+    (answers.hasAnswered || answers.isLocked || inTransition) &&
+    showAnswerArea;
 
-  const displayAnswersForReverse = displayAnswers;
-  const { reverseAnimatedAnswers } = useReverseAnswers({
-    activeSabotage,
-    answers: displayAnswersForReverse,
-  });
-
-  const optionCount = displayAnswersForReverse.length;
-  const { bouncingOptions } = useBounceOptions({
-    activeSabotage,
-    optionCount,
-  });
-  const { trampolineOptions } = useTrampolineOptions({
-    activeSabotage,
-    optionCount,
-  });
-
-  const optionContext: OptionContext = {
-    answer: "",
-    selectedAnswer: displaySelectedAnswer,
-    correctAnswer: displayCorrectAnswer,
-    hasNoneOption: displayHasNone,
-    isShowingFeedback,
-    eliminatedOptions,
-    canEliminate,
-    opponentLastAnswer,
-    status,
-    frozenData: frozenData ? { opponentAnswer: frozenData.opponentAnswer } : null,
-  };
-
-  const timerIsDanger = questionTimer !== null && questionTimer <= TIMER_DANGER_THRESHOLD;
-  const timerIsWarning = questionTimer !== null && questionTimer <= TIMER_WARNING_THRESHOLD;
+  const timerIsDanger =
+    timer.questionTimer !== null && timer.questionTimer <= TIMER_DANGER_THRESHOLD;
+  const timerIsWarning =
+    timer.questionTimer !== null && timer.questionTimer <= TIMER_WARNING_THRESHOLD;
   const timerColor = timerIsDanger
     ? colors.status.danger.light
     : timerIsWarning
       ? colors.status.warning.light
       : colors.text.DEFAULT;
 
-  const inTransition = phase === "transition" && !!frozenData;
-  const showListenButton =
-    canShowAnswerFeedback && (hasAnswered || isLocked || inTransition) && displayWord !== "done";
-  const confirmDisabled = !selectedAnswer || isLocked;
-
-  const gameContainerStyle = {
-    "--duel-bg": `${colors.background.DEFAULT}E6`,
-    "--duel-bg-elevated": `${colors.background.elevated}80`,
-    borderColor: colors.primary.dark,
-  } as CSSProperties;
-
-  const subtleBorderStyle = { borderColor: `${colors.primary.dark}80` };
-  const mutedTextStyle = { color: colors.text.muted };
-
-  const exitButtonStyle = {
-    backgroundColor: colors.status.danger.DEFAULT,
-    color: colors.text.inverse,
+  const optionContext: OptionContext = {
+    answer: "",
+    selectedAnswer: answers.selectedAnswer,
+    correctAnswer: answers.correctAnswer,
+    hasNoneOption: answers.hasNoneOption,
+    isShowingFeedback,
+    eliminatedOptions: answers.eliminatedOptions,
+    canEliminate: hints.canEliminate,
+    opponentAnswer: answers.opponentLastAnswer,
+    showOpponentPick: !!round.frozenData || status === "completed",
   };
-
-  const listenButtonStyle = isPlayingAudio
-    ? {
-        backgroundColor: colors.status.success.DEFAULT,
-        borderColor: colors.status.success.dark,
-        color: colors.text.DEFAULT,
-      }
-    : {
-        backgroundColor: colors.secondary.DEFAULT,
-        borderColor: colors.secondary.dark,
-        color: colors.text.DEFAULT,
-      };
-
-  const confirmButtonStyle = confirmDisabled
-    ? {
-        backgroundColor: colors.background.elevated,
-        borderBottomColor: colors.neutral.dark,
-        color: colors.text.muted,
-      }
-    : {
-        backgroundColor: colors.cta.DEFAULT,
-        borderBottomColor: colors.cta.dark,
-        color: colors.text.DEFAULT,
-      };
-
-  const waitingMessageStyle = {
-    color: colors.status.warning.light,
-    backgroundColor: `${colors.background.DEFAULT}99`,
-    borderColor: `${colors.status.warning.DEFAULT}4D`,
-  };
-
-  const currentDifficulty = frozenData ? frozenData.difficulty : difficulty;
-  const levelStyles = {
-    easy: {
-      color: colors.status.success.light,
-      backgroundColor: `${colors.status.success.DEFAULT}33`,
-      borderColor: colors.status.success.DEFAULT,
-    },
-    medium: {
-      color: colors.status.warning.light,
-      backgroundColor: `${colors.status.warning.DEFAULT}33`,
-      borderColor: colors.status.warning.DEFAULT,
-    },
-    hard: {
-      color: colors.status.danger.light,
-      backgroundColor: `${colors.status.danger.DEFAULT}33`,
-      borderColor: colors.status.danger.DEFAULT,
-    },
-  };
-  const difficultyPill = (
-    <span
-      className="inline-block px-3 py-1 rounded-full border text-sm font-medium"
-      style={levelStyles[currentDifficulty.level]}
-    >
-      {currentDifficulty.level.toUpperCase()} (+{currentDifficulty.points === 1 ? "1" : currentDifficulty.points} pts)
-    </span>
-  );
 
   return (
     <main
       className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
       style={{ color: colors.text.DEFAULT }}
     >
-      <SabotageRenderer effect={activeSabotage} phase={sabotagePhase} />
+      <SabotageRenderer effect={sabotage.activeSabotage} phase={sabotage.sabotagePhase} />
 
       {/* Game Container - full screen on mobile, centered card on desktop */}
       <div
         className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
-        style={gameContainerStyle}
+        style={styles.gameContainer}
       >
         {/* Header: Scoreboard + Exit */}
         <header
           className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
-          style={subtleBorderStyle}
+          style={styles.subtleBorder}
         >
           <Scoreboard
-            myName={myName}
-            theirName={theirName}
-            myScore={myScore}
-            theirScore={theirScore}
-            livesRemaining={livesRemaining}
+            myName={score.myName}
+            theirName={score.theirName}
+            myScore={score.myScore}
+            theirScore={score.theirScore}
+            livesRemaining={score.livesRemaining}
           />
 
           {status !== "completed" && (
             <button
-              onClick={onExit}
+              onClick={actions.onExit}
               className="font-bold py-2 px-5 rounded-lg text-base flex-shrink-0 transition hover:brightness-110"
-              style={exitButtonStyle}
+              style={styles.exitButton}
               data-testid="duel-exit"
             >
               Exit Duel
@@ -391,60 +220,19 @@ export function DuelView({
 
         {/* Main game content - scrollable middle section */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
-          {/* Word progress and difficulty */}
-          <div className="text-center mb-3">
-            <div className="text-sm mb-1" style={mutedTextStyle}>
-              Word #{displayIndex + 1} of {wordsCount}
-            </div>
-            <div>{difficultyPill}</div>
-          </div>
-
-          {/* The word to translate */}
-          <div className="text-center mb-4">
-            {sourceThemeName && (
-              <div
-                className="text-xs uppercase tracking-[0.25em] mb-2"
-                style={mutedTextStyle}
-              >
-                {sourceThemeName}
-              </div>
-            )}
-            <div className="text-2xl md:text-3xl font-bold">
-              {displayWord}
-            </div>
-            {hintReveal && phase === "answering" && (
-              <div
-                className="mt-2 rounded-full border px-3 py-1 text-sm font-semibold"
-                style={{
-                  borderColor: colors.secondary.dark,
-                  backgroundColor: `${colors.secondary.DEFAULT}22`,
-                  color: colors.text.DEFAULT,
-                }}
-                data-testid="duel-hint-reveal"
-              >
-                {hintReveal.kind === "anagram" ? (
-                  `Anagram: ${hintReveal.value}`
-                ) : (
-                  <span className="inline-flex items-end gap-3 align-middle">
-                    {hintReveal.value.map((wordLength, wordIdx) => (
-                      <span key={wordIdx} className="inline-flex items-end gap-1">
-                        {Array.from({ length: wordLength }).map((_, slotIdx) => (
-                          <span
-                            key={slotIdx}
-                            className="inline-block w-3 border-b-2"
-                            style={{ borderColor: colors.secondary.dark }}
-                          />
-                        ))}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+          <DuelRoundHeader
+            wordsCount={round.wordsCount}
+            index={round.index}
+            word={round.word}
+            sourceThemeName={round.sourceThemeName}
+            difficulty={round.difficulty}
+            hintReveal={round.hintReveal}
+            phase={phase}
+            colors={colors}
+          />
 
           {/* Reversed indicator */}
-          {phase === "answering" && activeSabotage === "reverse" && (
+          {phase === "answering" && sabotage.activeSabotage === "reverse" && (
             <div
               className="mb-2 text-sm font-medium tracking-wide"
               style={{ color: colors.secondary.light }}
@@ -456,17 +244,17 @@ export function DuelView({
           {/* Timer OR Countdown controls */}
           <div className="mb-4 text-center">
             {/* Timer during answering phase */}
-            {questionTimer !== null && phase === "answering" && (
+            {timer.questionTimer !== null && phase === "answering" && (
               <div className="flex items-center justify-center gap-2">
                 <span
                   className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
                   style={{ color: timerColor }}
                 >
-                  {Math.max(0, Math.ceil(questionTimer - 1))}
+                  {Math.max(0, Math.ceil(timer.questionTimer - 1))}
                 </span>
-                <span className="text-xs" style={mutedTextStyle}>
+                <span className="text-xs" style={styles.mutedText}>
                   sec
-                  {questionTimerPausedAt && (
+                  {timer.questionTimerPausedAt && (
                     <span className="block" style={{ color: colors.secondary.light }}>
                       Paused
                     </span>
@@ -476,17 +264,17 @@ export function DuelView({
             )}
 
             {/* Countdown controls during transition */}
-            {countdownValue !== null && frozenData && (
+            {countdown.value !== null && round.frozenData && (
               <CountdownControls
-                countdown={countdownValue}
-                countdownPausedBy={countdownPausedBy}
-                countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
-                userRole={userRole}
-                onPause={onPauseCountdown}
-                onRequestUnpause={onRequestUnpause}
-                onConfirmUnpause={onConfirmUnpause}
-                countdownSkipRequestedBy={countdownSkipRequestedBy}
-                onSkip={onSkipCountdown}
+                countdown={countdown.value}
+                countdownPausedBy={countdown.pausedBy}
+                countdownUnpauseRequestedBy={countdown.unpauseRequestedBy}
+                userRole={countdown.userRole}
+                onPause={actions.onPauseCountdown}
+                onRequestUnpause={actions.onRequestUnpause}
+                onConfirmUnpause={actions.onConfirmUnpause}
+                countdownSkipRequestedBy={countdown.skipRequestedBy}
+                onSkip={actions.onSkipCountdown}
                 dataTestIdBase="duel-countdown"
               />
             )}
@@ -495,217 +283,47 @@ export function DuelView({
           {/* TTS Listen button */}
           {showListenButton && (
             <button
-              onClick={onPlayAudio}
-              disabled={isPlayingAudio}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${isPlayingAudio ? "cursor-not-allowed" : "hover:brightness-110"
+              onClick={actions.onPlayAudio}
+              disabled={audio.isPlaying}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${audio.isPlaying ? "cursor-not-allowed" : "hover:brightness-110"
                 }`}
-              style={listenButtonStyle}
+              style={getListenButtonStyle(colors, audio.isPlaying)}
               data-testid="duel-listen"
             >
-              <span className="text-lg">{isPlayingAudio ? "🔊" : "🔈"}</span>
-              <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
+              <span className="text-lg">{audio.isPlaying ? "🔊" : "🔈"}</span>
+              <span>{audio.isPlaying ? "Playing..." : "Listen"}</span>
             </button>
           )}
 
-          {/* Answer Options - always render container for stable layout */}
-          {displayWord !== "done" && (
-            <>
-              {/* Normal grid layout - use visibility instead of unmounting to prevent layout shift */}
-              <div
-                className={`grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md ${(activeSabotage === "bounce" || activeSabotage === "trampoline") ? "invisible" : ""
-                  }`}
-              >
-                {displayAnswers.map((ans, i) => {
-                  const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                  const cleanAns = stripIrr(ans);
-                  const displayedAnswer =
-                    activeSabotage === "reverse"
-                      ? reverseAnimatedAnswers?.[i] ?? reverseText(cleanAns)
-                      : cleanAns;
-
-                  return (
-                    <AnswerOptionButton
-                      key={i}
-                      answer={ans}
-                      displayText={displayedAnswer}
-                      state={state}
-                      onClick={() => onOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                      showTypeReveal={isRevealing && !!frozenData}
-                      typedText={typedText}
-                      revealComplete={revealComplete}
-                      hasNoneOption={displayHasNone === true}
-                      isShowingFeedback={isShowingFeedback}
-                      dataTestId={`duel-answer-${i}`}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Bouncing options when bounce sabotage is active */}
-              {activeSabotage === "bounce" && bouncingOptions.length > 0 && (
-                <div className="fixed inset-0 z-50 pointer-events-none">
-                  {displayAnswers.map((ans, i) => {
-                    const bouncePos = bouncingOptions[i];
-                    if (!bouncePos) return null;
-
-                    const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                    const cleanAns = stripIrr(ans);
-
-                    return (
-                      <AnswerOptionButton
-                        key={i}
-                        answer={ans}
-                        displayText={cleanAns}
-                        state={state}
-                        onClick={() => onOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                        hasNoneOption={displayHasNone === true}
-                        isShowingFeedback={isShowingFeedback}
-                        isFlying
-                        dataTestId={`duel-answer-${i}-fly`}
-                        style={{
-                          position: "absolute",
-                          left: bouncePos.x,
-                          top: bouncePos.y,
-                          width: BUTTON_WIDTH,
-                          height: BUTTON_HEIGHT,
-                          pointerEvents: "auto",
-                          transform: `scale(${BOUNCE_FLY_SCALE})`,
-                          transformOrigin: "top left",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Trampoline options when trampoline sabotage is active */}
-              {activeSabotage === "trampoline" && trampolineOptions.length > 0 && (
-                <div className="fixed inset-0 z-50 pointer-events-none">
-                  {displayAnswers.map((ans, i) => {
-                    const trampPos = trampolineOptions[i];
-                    if (!trampPos) return null;
-
-                    const state = computeOptionState(ans, { ...optionContext, answer: ans });
-                    const cleanAns = stripIrr(ans);
-
-                    return (
-                      <AnswerOptionButton
-                        key={i}
-                        answer={ans}
-                        displayText={cleanAns}
-                        state={state}
-                        onClick={() => onOptionClick(ans, state.canEliminateThis, state.isEliminated)}
-                        hasNoneOption={displayHasNone === true}
-                        isShowingFeedback={isShowingFeedback}
-                        isFlying
-                        dataTestId={`duel-answer-${i}-fly`}
-                        style={{
-                          position: "absolute",
-                          left: trampPos.x + trampPos.shakeOffset.x,
-                          top: trampPos.y + trampPos.shakeOffset.y,
-                          width: TRAMPOLINE_BUTTON_WIDTH,
-                          height: TRAMPOLINE_BUTTON_HEIGHT,
-                          pointerEvents: "auto",
-                          transform: trampPos.phase === "flying" ? `scale(${TRAMPOLINE_FLY_SCALE})` : "scale(1)",
-                          transformOrigin: "top left",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </>
+          {/* Answer Options */}
+          {showAnswerArea && (
+            <DuelAnswerGrid
+              answers={answers.shuffledAnswers}
+              optionContext={optionContext}
+              activeSabotage={sabotage.activeSabotage}
+              onOptionClick={actions.onOptionClick}
+              showTypeReveal={answers.isRevealing && !!round.frozenData}
+              typedText={answers.typedText}
+              revealComplete={answers.revealComplete}
+              hasNoneOption={answers.hasNoneOption === true}
+              isShowingFeedback={isShowingFeedback}
+            />
           )}
         </div>
 
-        {/* Footer: Confirm + Sabotage - always visible */}
-        <footer
-          className="flex-shrink-0 flex flex-col items-center gap-2 w-full px-4 py-3 pb-[max(0.75rem,var(--sab))] md:pb-4 border-t"
-          style={subtleBorderStyle}
-        >
-          {/* Confirm Button */}
-          {!hasAnswered && phase === "answering" && word !== "done" && (
-            <button
-              className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
-              style={confirmButtonStyle}
-              disabled={confirmDisabled}
-              onClick={onConfirmAnswer}
-              data-testid="duel-confirm"
-            >
-              Confirm Answer
-            </button>
-          )}
-
-          {/* Hint System UI */}
-          {!isPve && phase === "answering" && word !== "done" && (
-            <HintSystemUI
-              canRequestHint={canRequestHint}
-              iRequestedHint={iRequestedHint}
-              theyRequestedHint={theyRequestedHint}
-              hintAccepted={hintAccepted}
-              canAcceptHint={canAcceptHint}
-              isHintProvider={isHintProvider}
-              hasAnswered={hasAnswered}
-              eliminatedOptionsCount={eliminatedOptionsCount}
-              onRequestHint={onRequestHint}
-              onAcceptHint={onAcceptHint}
-              requestHintText="Begging for help!"
-              acceptHintText="Bafoon is begging"
-              dataTestIdBase="duel-hint"
-            />
-          )}
-
-          {isPve ? (
-            phase === "answering" && word !== "done" ? (
-              <HintPoolUI
-                usedHints={hintPool.usedHints}
-                usedCount={hintPool.usedCount}
-                totalCount={hintPool.totalCount}
-                currentQuestionHintFired={hintPool.currentQuestionHintFired}
-                onFireHint={onFireHint}
-              />
-            ) : null
-          ) : (
-            <SabotageSystemUI
-              status={status}
-              phase={phase}
-              word={word}
-              sabotagesRemaining={sabotagesRemaining}
-              isLocked={isLocked}
-              hasAnswered={hasAnswered}
-              isOutgoingSabotageActive={isOutgoingSabotageActive}
-              opponentHasAnswered={opponentHasAnswered}
-              onSendSabotage={onSendSabotage}
-              dataTestIdBase="duel-sabotage"
-            />
-          )}
-
-          {/* Waiting message */}
-          {hasAnswered && phase === "answering" && word !== "done" && !theyRequestedHint && (
-            <div
-              className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
-              style={waitingMessageStyle}
-            >
-              Waiting for opponent...
-            </div>
-          )}
-
-          {/* Final Results - shown at end, no separate screen */}
-          {status === "completed" && (
-            <FinalResultsPanel
-              myName={myName}
-              theirName={theirName}
-              myScore={myScore}
-              theirScore={theirScore}
-              onBackToHome={onBackToHome}
-              duelDuration={duelDuration}
-              dataTestIdBack="duel-back-home"
-              bossType={bossType}
-              livesRemaining={livesRemaining}
-              livesTotal={livesTotal}
-            />
-          )}
-        </footer>
+        <DuelFooter
+          status={status}
+          duelMode={duelMode}
+          phase={phase}
+          isRoundOver={isRoundOver}
+          answers={answers}
+          hints={hints}
+          sabotage={sabotage}
+          score={score}
+          actions={actions}
+          duelDuration={round.duelDuration}
+          colors={colors}
+        />
       </div>
     </main>
   );

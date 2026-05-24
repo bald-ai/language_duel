@@ -15,7 +15,8 @@ import {
 } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { createSaveRequestId } from "../lib/saveRequestId";
-import { useThemeGenerator, useAddWord } from "./useThemeGenerator";
+import { useThemeGenerator, type GenerationMode } from "./useThemeGenerator";
+import { useAddWord } from "./useAddWord";
 import { useGenerateMore } from "./useGenerateMore";
 import { usePickAndPrune } from "./usePickAndPrune";
 import type { NewThemeDraft, SelectedThemeState } from "./themeControllerTypes";
@@ -61,59 +62,58 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     setShowGenerateModal(true);
   }, [currentUser, pickAndPrune, themeGenerator]);
 
-  const handleGenerateNewTheme = useCallback(async () => {
-    try {
-      const words = await themeGenerator.generate({ mode: "standard" });
-      if (!words) return;
+  // One handler for both modes; `mode` selects the word count and where the
+  // generated words land (detail draft vs. Pick & Prune review).
+  const handleGenerateTheme = useCallback(
+    async (mode: GenerationMode) => {
+      const themeName = themeGenerator.themeName;
+      const wordType = themeGenerator.wordType;
 
-      const draft: NewThemeDraft = {
-        name: normalizeThemeName(themeGenerator.themeName),
-        description: `Generated theme for: ${themeGenerator.themeName}`,
-        words,
-        wordType: themeGenerator.wordType,
-        visibility: "private",
-        friendsCanEdit: false,
-        saveRequestId: createSaveRequestId(),
-      };
+      try {
+        const words = await themeGenerator.generate(
+          mode === "pick-and-prune"
+            ? { wordCountOverride: PICK_AND_PRUNE_WORD_COUNT, mode }
+            : { mode }
+        );
+        if (!words) return;
 
-      params.setSelectedThemeState({ kind: "unsaved", draft });
-      params.setLocalWords([...words]);
-      params.setViewMode(VIEW_MODES.DETAIL);
-      setShowGenerateModal(false);
-      themeGenerator.reset();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Generation failed";
-      toast.error(message);
-    }
-  }, [params, themeGenerator]);
+        if (mode === "pick-and-prune") {
+          pickAndPrune.initialize({
+            name: normalizeThemeName(themeName),
+            description: `Generated theme for: ${themeName}`,
+            wordType,
+            visibility: "private",
+            friendsCanEdit: false,
+            words,
+          });
+          setShowGenerateModal(false);
+          themeGenerator.reset();
+          params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
+          return;
+        }
 
-  const handleGeneratePickAndPruneTheme = useCallback(async () => {
-    const themeName = themeGenerator.themeName;
-    const wordType = themeGenerator.wordType;
+        const draft: NewThemeDraft = {
+          name: normalizeThemeName(themeName),
+          description: `Generated theme for: ${themeName}`,
+          words,
+          wordType,
+          visibility: "private",
+          friendsCanEdit: false,
+          saveRequestId: createSaveRequestId(),
+        };
 
-    try {
-      const words = await themeGenerator.generate({
-        wordCountOverride: PICK_AND_PRUNE_WORD_COUNT,
-        mode: "pick-and-prune",
-      });
-      if (!words) return;
-
-      pickAndPrune.initialize({
-        name: normalizeThemeName(themeName),
-        description: `Generated theme for: ${themeName}`,
-        wordType,
-        visibility: "private",
-        friendsCanEdit: false,
-        words,
-      });
-      setShowGenerateModal(false);
-      themeGenerator.reset();
-      params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Generation failed";
-      toast.error(message);
-    }
-  }, [params, pickAndPrune, themeGenerator]);
+        params.setSelectedThemeState({ kind: "unsaved", draft });
+        params.setLocalWords([...words]);
+        params.setViewMode(VIEW_MODES.DETAIL);
+        setShowGenerateModal(false);
+        themeGenerator.reset();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Generation failed";
+        toast.error(message);
+      }
+    },
+    [params, pickAndPrune, themeGenerator]
+  );
 
   const handleCloseGenerateModal = useCallback(() => {
     setShowGenerateModal(false);
@@ -162,6 +162,16 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     params.setViewMode(VIEW_MODES.LIST);
   }, [params, pickAndPrune]);
 
+  const openAddWord = useCallback(() => {
+    addWordHook.reset();
+    setShowAddWordModal(true);
+  }, [addWordHook]);
+
+  const closeAddWord = useCallback(() => {
+    setShowAddWordModal(false);
+    addWordHook.reset();
+  }, [addWordHook]);
+
   const handleAddWord = useCallback(async () => {
     if (!params.selectedTheme) return;
 
@@ -184,47 +194,55 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     }
   }, [addWordHook, params]);
 
-  const handleGenerateMore = useCallback(async () => {
-    if (!params.selectedTheme) return;
+  const openGenerateMore = useCallback(() => {
+    generateMoreHook.reset();
+    setShowGenerateMoreModal(true);
+  }, [generateMoreHook]);
 
-    const existingWords = params.localWords.map((word) => word.word);
-    const newWords = await generateMoreHook.generate(
-      params.selectedTheme.name,
-      params.selectedWordType,
-      existingWords
-    );
+  const closeGenerateMore = useCallback(() => {
+    setShowGenerateMoreModal(false);
+    generateMoreHook.reset();
+  }, [generateMoreHook]);
 
-    if (newWords) {
-      params.setLocalWords((prev) => [...prev, ...newWords]);
-      generateMoreHook.reset();
-      setShowGenerateMoreModal(false);
-    }
-  }, [generateMoreHook, params]);
+  // One handler for both modes; `mode` selects the word count and whether the
+  // new words append to the theme directly or go through Pick & Prune review.
+  const handleGenerateMore = useCallback(
+    async (mode: GenerationMode) => {
+      if (!params.selectedTheme) return;
 
-  const handleGenerateMorePickAndPrune = useCallback(async () => {
-    if (!params.selectedTheme) return;
+      const existingWords = params.localWords.map((word) => word.word);
 
-    const existingWords = params.localWords.map((word) => word.word);
-    const newWords = await generateMoreHook.generate(
-      params.selectedTheme.name,
-      params.selectedWordType,
-      existingWords,
-      {
-        countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-        pickAndPrune: true,
+      if (mode === "pick-and-prune") {
+        const newWords = await generateMoreHook.generate(
+          params.selectedTheme.name,
+          params.selectedWordType,
+          existingWords,
+          { countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT, pickAndPrune: true }
+        );
+
+        if (newWords) {
+          pickAndPrune.initialize({ kind: "existing-theme", words: newWords });
+          generateMoreHook.reset();
+          setShowGenerateMoreModal(false);
+          params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
+        }
+        return;
       }
-    );
 
-    if (newWords) {
-      pickAndPrune.initialize({
-        kind: "existing-theme",
-        words: newWords,
-      });
-      generateMoreHook.reset();
-      setShowGenerateMoreModal(false);
-      params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-    }
-  }, [generateMoreHook, params, pickAndPrune]);
+      const newWords = await generateMoreHook.generate(
+        params.selectedTheme.name,
+        params.selectedWordType,
+        existingWords
+      );
+
+      if (newWords) {
+        params.setLocalWords((prev) => [...prev, ...newWords]);
+        generateMoreHook.reset();
+        setShowGenerateMoreModal(false);
+      }
+    },
+    [generateMoreHook, params, pickAndPrune]
+  );
 
   const generateModalProps = useMemo(
     () => ({
@@ -239,11 +257,40 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,
       onWordCountChange: themeGenerator.setWordCount,
-      onGenerate: handleGenerateNewTheme,
-      onGeneratePickAndPrune: handleGeneratePickAndPruneTheme,
+      onGenerate: () => handleGenerateTheme("standard"),
+      onGeneratePickAndPrune: () => handleGenerateTheme("pick-and-prune"),
       onClose: handleCloseGenerateModal,
     }),
-    [handleCloseGenerateModal, handleGenerateNewTheme, handleGeneratePickAndPruneTheme, showGenerateModal, themeGenerator]
+    [handleCloseGenerateModal, handleGenerateTheme, showGenerateModal, themeGenerator]
+  );
+
+  const addWordModalProps = useMemo(
+    () => ({
+      isOpen: showAddWordModal,
+      newWordInput: addWordHook.newWordInput,
+      isAdding: addWordHook.isAdding,
+      error: addWordHook.error,
+      onInputChange: addWordHook.setNewWordInput,
+      onAdd: handleAddWord,
+      onClose: closeAddWord,
+    }),
+    [addWordHook, closeAddWord, handleAddWord, showAddWordModal]
+  );
+
+  const generateMoreModalProps = useMemo(
+    () => ({
+      isOpen: showGenerateMoreModal,
+      themeName: params.selectedTheme?.name ?? "",
+      count: generateMoreHook.count,
+      isGenerating: generateMoreHook.isGenerating,
+      pickAndPrune: generateMoreHook.pickAndPrune,
+      error: generateMoreHook.error,
+      onCountChange: generateMoreHook.setCount,
+      onGenerate: () => handleGenerateMore("standard"),
+      onGeneratePickAndPrune: () => handleGenerateMore("pick-and-prune"),
+      onClose: closeGenerateMore,
+    }),
+    [closeGenerateMore, generateMoreHook, handleGenerateMore, params.selectedTheme?.name, showGenerateMoreModal]
   );
 
   const reviewKind: "new-theme" | "existing-theme" =
@@ -275,20 +322,13 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
   );
 
   return {
-    showGenerateModal,
-    setShowGenerateModal,
-    showAddWordModal,
-    setShowAddWordModal,
-    showGenerateMoreModal,
-    setShowGenerateMoreModal,
-    addWordHook,
-    generateMoreHook,
-    pickAndPrune,
     handleOpenGenerateModal,
-    handleAddWord,
-    handleGenerateMore,
-    handleGenerateMorePickAndPrune,
+    requestDiscardPickAndPrune: pickAndPrune.requestDiscard,
+    openAddWord,
+    openGenerateMore,
     generateModalProps,
+    addWordModalProps,
+    generateMoreModalProps,
     pickAndPruneReviewProps,
     discardPickAndPruneProps,
   };

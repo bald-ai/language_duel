@@ -1,11 +1,11 @@
-import type { SabotageEffect } from "@/lib/sabotage/types";
+import type { SabotageEffect, SabotagePhase } from "@/lib/sabotage/types";
 import {
   SABOTAGE_DURATION_MS,
   SABOTAGE_WIND_DOWN_MS,
   SABOTAGE_WIND_UP_MS,
 } from "@/lib/sabotage/constants";
 
-export type SabotagePhase = "wind-up" | "full" | "wind-down";
+export type { SabotagePhase };
 export type DuelQuestionPhase = "idle" | "answering" | "transition";
 
 const PERSISTENT_UNTIL_QUESTION_END = new Set<SabotageEffect>([

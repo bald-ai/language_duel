@@ -4,8 +4,8 @@ import { formatDuration } from "@/lib/displayFormat";
 import { calculateAccuracy } from "@/lib/scoring";
 import { ACCURACY_THRESHOLDS } from "../constants";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { actionButtonClassName, getPrimaryActionStyle } from "@/app/components/modals/modalButtonStyles";
 
-import { cssVarColors as colors, cssVarButtonStyles as buttonStyles } from "@/app/components/themeCssVars";
 interface CompletionScreenProps {
   questionsAnswered: number;
   correctAnswers: number;
@@ -14,19 +14,6 @@ interface CompletionScreenProps {
   onExit: () => void;
   exitLabel?: string;
 }
-
-const actionButtonClassName =
-  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
-
-const primaryActionStyle = {
-  backgroundImage: `linear-gradient(to bottom, ${buttonStyles.primary.gradient.from}, ${buttonStyles.primary.gradient.to})`,
-  borderTopColor: buttonStyles.primary.border.top,
-  borderBottomColor: buttonStyles.primary.border.bottom,
-  borderLeftColor: buttonStyles.primary.border.sides,
-  borderRightColor: buttonStyles.primary.border.sides,
-  color: colors.text.DEFAULT,
-  textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-};
 
 /**
  * Displays the solo practice completion summary with stats and exit option.
@@ -40,6 +27,7 @@ export function CompletionScreen({
   exitLabel = "Back to Home",
 }: CompletionScreenProps) {
   const colors = useAppearanceColors();
+  const primaryActionStyle = getPrimaryActionStyle(colors);
   const accuracy = calculateAccuracy(correctAnswers, questionsAnswered);
 
   const getAccuracyStyle = () => {

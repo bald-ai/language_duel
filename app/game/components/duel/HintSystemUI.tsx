@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import { PVP_HINT_ELIMINATION_PICKS } from "@/lib/hints/constants";
+import { PVP_HINT_ELIMINATION_PICKS } from "@/lib/hintPool/constants";
 
 interface HintSystemUIProps {
   canRequestHint: boolean;

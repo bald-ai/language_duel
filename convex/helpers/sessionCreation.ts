@@ -1,7 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { SEED_XOR_MASK } from "../constants";
-import { createShuffledWordOrder } from "./gameLogic";
+import { createShuffledWordOrder } from "./shuffle";
 import { buildDuelQuestionSet, type DuelQuestionSnapshot } from "../../lib/answerShuffle";
 import {
   getUniqueThemeIds,
@@ -128,12 +128,6 @@ function resolveDuelDifficultyPreset(preset?: DuelDifficultyPreset): DuelDifficu
   return preset ?? "easy";
 }
 
-function validateDuelMode(mode: DuelMode) {
-  if (mode !== "pvp" && mode !== "pve") {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid duel mode" });
-  }
-}
-
 function validateDuelSourceFields(args: DuelSourceFields) {
   if (args.sourceType === "normal") {
     if (args.weeklyGoalId || args.bossType || args.spacedRepetitionStep !== undefined) {
@@ -156,6 +150,42 @@ function validateDuelSourceFields(args: DuelSourceFields) {
   if (args.bossType || typeof args.spacedRepetitionStep !== "number") {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition duel sessions require spacedRepetitionStep and cannot include bossType" });
   }
+}
+
+/**
+ * Narrow a challenge's loosely-typed source columns (independent optionals on
+ * the `challenges` doc) into a typed discriminated `DuelSourceFields` once, so
+ * `buildDuelSession` callers don't each re-check the per-source invariants.
+ */
+export function challengeToDuelSourceFields(source: {
+  sourceType: DuelSourceType;
+  weeklyGoalId?: Id<"weeklyGoals">;
+  bossType?: BossType;
+  spacedRepetitionStep?: number;
+}): DuelSourceFields {
+  if (source.sourceType === "boss") {
+    if (!source.weeklyGoalId || !source.bossType) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss challenge is missing source fields" });
+    }
+    return {
+      sourceType: "boss",
+      weeklyGoalId: source.weeklyGoalId,
+      bossType: source.bossType,
+    };
+  }
+
+  if (source.sourceType === "spaced_repetition") {
+    if (!source.weeklyGoalId || typeof source.spacedRepetitionStep !== "number") {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Spaced-repetition challenge is missing source fields" });
+    }
+    return {
+      sourceType: "spaced_repetition",
+      weeklyGoalId: source.weeklyGoalId,
+      spacedRepetitionStep: source.spacedRepetitionStep,
+    };
+  }
+
+  return { sourceType: "normal" };
 }
 
 function validateSoloPracticeSourceFields(args: SoloPracticeSourceFields) {
@@ -195,7 +225,6 @@ export function buildChallengeInvite(args: {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge requires at least one theme" });
   }
   validateDuelSourceFields(args);
-  validateDuelMode(args.duelMode);
 
   return {
     challengerId: args.challengerId,
@@ -228,7 +257,6 @@ export function buildDuelSession(args: {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
   validateDuelSourceFields(args);
-  validateDuelMode(args.duelMode);
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
   const wordOrder = createShuffledWordOrder(sessionWords.length);

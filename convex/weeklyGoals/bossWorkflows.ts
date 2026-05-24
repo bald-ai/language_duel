@@ -1,14 +1,17 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
-import { shuffleArray } from "../helpers/gameLogic";
+import { shuffleArray } from "../helpers/shuffle";
 import { loadThemesByIds, summarizeSessionWords } from "../helpers/sessionWords";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
+import { buildChallengeInvite, buildSoloPracticeSession } from "../helpers/sessionCreation";
 import {
   dismissChallengeNotifications,
 } from "./notifications";
 import {
+  createChallengeInviteNotificationAndEmail,
   upsertWeeklyGoalNotificationForGoal,
 } from "../notificationHelpers";
 import { buildSessionWords } from "../../lib/sessionWords";
@@ -16,6 +19,7 @@ import {
   getEffectiveBigBossStatus,
   getEffectiveMiniBossStatus,
   isGoalPlayable,
+  isGoalThemeCompleted,
 } from "../../lib/weeklyGoals";
 import { ensureRepetitionRecordsForCompletedGoal } from "../weeklyGoalRepetitions";
 import type { BossType } from "./types";
@@ -30,11 +34,7 @@ export function getEligibleThemeIdsForBoss(
 ): Id<"themes">[] {
   if (bossType === "mini") {
     return goal.themes
-      .filter((t) =>
-        goal.mode === "solo"
-          ? t.creatorCompleted
-          : t.creatorCompleted && t.partnerCompleted
-      )
+      .filter((t) => isGoalThemeCompleted(t, goal.mode))
       .map((t) => t.themeId);
   }
   return goal.themes.map((t) => t.themeId);
@@ -90,6 +90,96 @@ export async function validateAndPrepareBoss(
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
   const sessionWords = buildBossSessionWords(themes);
   return { user, goal, isCreator, now, sessionWords };
+}
+
+export async function handleCreateBossChallenge(
+  ctx: MutationCtx,
+  goalId: Id<"weeklyGoals">,
+  bossType: "mini" | "big",
+  duelMode: DuelMode
+) {
+  const { user, goal, isCreator, now, sessionWords } =
+    await validateAndPrepareBoss(ctx, goalId, bossType);
+
+  if (goal.mode === "solo") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Solo goals do not support boss duels" });
+  }
+
+  const existingGoalChallenges = await ctx.db
+    .query("challenges")
+    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
+    .collect();
+  const existingGoalDuels = await ctx.db
+    .query("duels")
+    .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goalId))
+    .collect();
+
+  const duplicateAttempt = existingGoalChallenges.find(
+    (challenge) =>
+      challenge.bossType === bossType &&
+      challenge.status === "pending"
+  ) || existingGoalDuels.find(
+    (duel) =>
+      duel.bossType === bossType &&
+      duel.status === "active"
+  );
+  if (duplicateAttempt) {
+    throw new ConvexError({ code: "INVALID_STATE", message: "A boss attempt is already in progress" });
+  }
+
+  const opponentId = isCreator ? goal.partnerId : goal.creatorId;
+  if (opponentId === undefined) {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Shared weekly goal is missing partner data" });
+  }
+  const opponent = await ctx.db.get(opponentId);
+  if (!opponent) {
+    throw new ConvexError({ code: "NOT_FOUND", message: "This partner is no longer available. You can still practice solo." });
+  }
+  const challengeInvite = buildChallengeInvite({
+    challengerId: user._id,
+    opponentId,
+    themeIds: getEligibleThemeIdsForBoss(goal, bossType),
+    sourceType: "boss",
+    weeklyGoalId: goalId,
+    bossType,
+    duelMode,
+    createdAt: now,
+  });
+
+  const challengeId = await ctx.db.insert("challenges", {
+    ...challengeInvite,
+  });
+
+  await createChallengeInviteNotificationAndEmail(ctx, {
+    challengerId: user._id,
+    opponentId,
+    challengeId,
+    themeName: `${getBossLabel(bossType)}: ${summarizeSessionWords(sessionWords)}`,
+    duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
+    duelMode: challengeInvite.duelMode,
+    createdAt: now,
+  });
+
+  return challengeId;
+}
+
+export async function handleStartBossSoloPractice(
+  ctx: MutationCtx,
+  goalId: Id<"weeklyGoals">,
+  bossType: "mini" | "big"
+) {
+  const { user, now, sessionWords } =
+    await validateAndPrepareBoss(ctx, goalId, bossType);
+
+  return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
+    userId: user._id,
+    sessionWords,
+    sourceType: "boss",
+    weeklyGoalId: goalId,
+    bossType,
+    startsInLearning: true,
+    createdAt: now,
+  }));
 }
 
 export async function completeMiniBoss(

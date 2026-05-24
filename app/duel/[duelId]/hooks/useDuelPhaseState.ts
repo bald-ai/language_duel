@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
+import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 import { useDuelCountdown } from "./useDuelCountdown";
 import { useDuelTypeReveal } from "./useDuelTypeReveal";
 import { useIndexedAnswerLock } from "./useIndexedAnswerLock";
+import type { ViewerSafeDuelQuestion } from "./duelSessionTypes";
 import type { FrozenData } from "../components/DuelView";
-
-type ViewerSafeDuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number] & {
-  correctOption?: string;
-  answerRevealedToViewer?: boolean;
-};
 
 export type DuelPhase = "idle" | "answering" | "transition";
 
@@ -25,6 +22,7 @@ export type DuelPhaseState = {
   phase: DuelPhase;
   frozenData: FrozenData | null;
   countdown: number | null;
+  duelDuration: number;
   isRevealing: boolean;
   typedText: string;
   revealComplete: boolean;
@@ -50,8 +48,10 @@ export function useDuelPhaseState({
 }: DuelPhaseStateArgs): DuelPhaseState {
   const [phase, setPhase] = useState<DuelPhase>("idle");
   const [frozenData, setFrozenData] = useState<FrozenData | null>(null);
+  const [duelDuration, setDuelDuration] = useState(0);
 
   const hasTimedOutRef = useRef(false);
+  const duelStartTimeRef = useRef<number | null>(null);
   const activeQuestionIndexRef = useRef<number | null>(null);
   const lockedAnswerRef = useRef<string | null>(null);
 
@@ -107,7 +107,7 @@ export function useDuelPhaseState({
       isLocked || lockedAnswerRef.current || hasTimedOutRef.current;
 
     if (shouldShowTransition) {
-      const prevActualIndex = wordOrder ? wordOrder[prevIndex] : prevIndex;
+      const prevActualIndex = wordOrder[prevIndex];
       const prevWord = words[prevActualIndex] || {
         word: "",
         answer: "",
@@ -137,7 +137,7 @@ export function useDuelPhaseState({
 
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
-        setCountdown(5);
+        setCountdown(TRANSITION_COUNTDOWN_SECONDS);
       }
     } else {
       setPhase("answering");
@@ -159,6 +159,9 @@ export function useDuelPhaseState({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedAnswer is a stable useCallback ref
   }, [duel.eliminatedOptions, selectedAnswer]);
 
+  // Single phase-edge detector for the feature: the first transition into the
+  // "answering" phase both clears the timeout guard and stamps the duel start
+  // time used to report the total play duration when the duel completes.
   const prevPhaseRef = useRef<DuelPhase | null>(null);
   useEffect(() => {
     const wasNotAnswering = prevPhaseRef.current !== "answering";
@@ -167,13 +170,23 @@ export function useDuelPhaseState({
 
     if (wasNotAnswering && isNowAnswering) {
       hasTimedOutRef.current = false;
+      if (duelStartTimeRef.current === null) {
+        duelStartTimeRef.current = Date.now();
+      }
     }
   }, [phase]);
+
+  useEffect(() => {
+    if (duel.status === "completed" && duelStartTimeRef.current !== null) {
+      setDuelDuration(Math.floor((Date.now() - duelStartTimeRef.current) / 1000));
+    }
+  }, [duel.status]);
 
   return {
     phase,
     frozenData,
     countdown,
+    duelDuration,
     isRevealing,
     typedText,
     revealComplete,

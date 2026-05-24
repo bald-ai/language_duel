@@ -9,16 +9,12 @@ import { forRole } from "../lib/duelRole";
 import { isSabotageActive } from "../lib/sabotage/active";
 import { MAX_SABOTAGES } from "../lib/sabotage/constants";
 import { assertDuelMode } from "./rules/duelModeGuards";
+import { sabotageEffectValidator } from "./schema";
 
 export const sendSabotage = mutation({
   args: {
     duelId: v.id("duels"),
-    effect: v.union(
-      v.literal("sticky"),
-      v.literal("bounce"),
-      v.literal("trampoline"),
-      v.literal("reverse")
-    ),
+    effect: sabotageEffectValidator,
   },
   handler: async (ctx, { duelId, effect }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
@@ -26,6 +22,15 @@ export const sendSabotage = mutation({
 
     if (!isDuelActive(duel)) {
       throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
+    }
+
+    // A sabotage only has meaning against a live question. Movement effects are
+    // bound to the in-flight question (see isSabotageActive), so with no question
+    // started there is nothing to target and the "already active" guard below
+    // cannot evaluate a movement effect. Enforce the contract explicitly instead
+    // of silently allowing a no-op send that could overwrite an existing effect.
+    if (typeof duel.questionStartTime !== "number") {
+      throw new ConvexError({ code: "INVALID_STATE", message: "No active question to sabotage" });
     }
 
     const roleView = forRole(duel, playerRole);
@@ -46,10 +51,7 @@ export const sendSabotage = mutation({
       isSabotageActive({
         sabotage: roleView.theirSabotage,
         now,
-        questionStartTime:
-          typeof duel.questionStartTime === "number"
-            ? duel.questionStartTime
-            : undefined,
+        questionStartTime: duel.questionStartTime,
       })
     ) {
       throw new ConvexError({ code: "SABOTAGE_ACTIVE", message: "A sabotage is already active" });

@@ -1,6 +1,5 @@
 import type { Id } from "../_generated/dataModel";
 import {
-  isNotificationEnabled,
   shouldSendWeeklyGoalReminder,
   type NotificationPreferences,
 } from "../../lib/notificationPreferences";
@@ -45,7 +44,6 @@ export function planFixedReminderEmails(args: {
   const sends: ReminderEmailSend[] = [];
 
   if (
-    isNotificationEnabled("weekly_goal_reminder_1", args.prefs) &&
     shouldSendWeeklyGoalReminder(
       args.goal,
       args.now,
@@ -61,7 +59,6 @@ export function planFixedReminderEmails(args: {
   }
 
   if (
-    isNotificationEnabled("weekly_goal_reminder_2", args.prefs) &&
     shouldSendWeeklyGoalReminder(
       args.goal,
       args.now,
@@ -83,12 +80,7 @@ export function planDailyReminderEmail(args: {
   goal: WeeklyGoalReminderGoal;
   toUserId: Id<"users">;
   dedupeKey: string;
-  prefs: NotificationPreferences;
-}): DailyEmailSend | null {
-  if (!isNotificationEnabled("weekly_goal_daily_reminder", args.prefs)) {
-    return null;
-  }
-
+}): DailyEmailSend {
   return {
     trigger: "weekly_goal_daily_reminder",
     toUserId: args.toUserId,
@@ -101,12 +93,7 @@ export function planGracePeriodReminderEmail(args: {
   goal: WeeklyGoalReminderGoal;
   toUserId: Id<"users">;
   dedupeKey: string;
-  prefs: NotificationPreferences;
-}): GracePeriodEmailSend | null {
-  if (!isNotificationEnabled("weekly_goal_grace_period_reminder", args.prefs)) {
-    return null;
-  }
-
+}): GracePeriodEmailSend {
   return {
     trigger: "weekly_goal_grace_period_reminder",
     toUserId: args.toUserId,
@@ -117,7 +104,6 @@ export function planGracePeriodReminderEmail(args: {
 
 export function planDraftExpiryDecision(args: {
   alreadySent: boolean;
-  prefs: NotificationPreferences;
 }): {
   shouldCreateInAppNotification: boolean;
   shouldSendEmail: boolean;
@@ -131,6 +117,6 @@ export function planDraftExpiryDecision(args: {
 
   return {
     shouldCreateInAppNotification: true,
-    shouldSendEmail: isNotificationEnabled("weekly_goal_draft_expiring", args.prefs),
+    shouldSendEmail: true,
   };
 }

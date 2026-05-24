@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useCountdown } from "@/app/notifications/hooks/useCountdown";
+import { useCountdown } from "@/app/goals/hooks/useCountdown";
 
 describe("useCountdown", () => {
   beforeEach(() => {

@@ -48,7 +48,7 @@ function hideQuestionAnswer(question: DuelQuestion): Omit<DuelQuestion, "correct
 
 function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opponent") {
   const wordIndexBySessionIndex = new Map<number, number>();
-  (duel.wordOrder ?? []).forEach((sessionWordIndex, questionIndex) => {
+  duel.wordOrder.forEach((sessionWordIndex, questionIndex) => {
     wordIndexBySessionIndex.set(sessionWordIndex, questionIndex);
   });
 
@@ -59,7 +59,12 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
       : hideQuestionAnswer(question);
   });
   const safeSessionWords = duel.sessionWords.map((word, sessionWordIndex): SessionWord => {
-    const questionIndex = wordIndexBySessionIndex.get(sessionWordIndex) ?? sessionWordIndex;
+    const questionIndex = wordIndexBySessionIndex.get(sessionWordIndex);
+    if (questionIndex === undefined) {
+      throw new Error(
+        `duel ${duel._id} sessionWord index ${sessionWordIndex} missing from wordOrder`
+      );
+    }
     if (canRevealQuestionAnswer({ duel, questionIndex, viewerRole })) {
       return word;
     }

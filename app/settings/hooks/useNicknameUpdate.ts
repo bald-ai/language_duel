@@ -64,6 +64,5 @@ export function useNicknameUpdate() {
     isUpdating,
     error,
     clearError,
-    validateNickname,
   };
 }

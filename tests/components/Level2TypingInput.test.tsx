@@ -3,12 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { Level2TypingInput } from "@/app/game/levels/Level2TypingInput";
 
-const generateAnagramLettersMock = vi.fn();
-
-vi.mock("@/lib/prng", () => ({
-  generateAnagramLetters: (...args: unknown[]) => generateAnagramLettersMock(...args),
-}));
-
 type Props = ComponentProps<typeof Level2TypingInput>;
 
 function renderLevel2TypingInput(overrides: Partial<Props> = {}) {
@@ -17,7 +11,6 @@ function renderLevel2TypingInput(overrides: Partial<Props> = {}) {
     onCorrect: vi.fn(),
     onWrong: vi.fn(),
     onSkip: vi.fn(),
-    mode: "duel",
     dataTestIdBase: "l2",
     ...overrides,
   };
@@ -28,10 +21,7 @@ function renderLevel2TypingInput(overrides: Partial<Props> = {}) {
 
 describe("Level2TypingInput", () => {
   beforeEach(() => {
-    generateAnagramLettersMock.mockReset();
-    generateAnagramLettersMock.mockImplementation((answer: string) =>
-      answer.replace(/\s+/g, "").split("").reverse()
-    );
+    vi.clearAllMocks();
   });
 
   it("submits correct answer in standard mode", () => {
@@ -95,98 +85,5 @@ describe("Level2TypingInput", () => {
 
     expect(props.onCorrect).not.toHaveBeenCalled();
     expect(props.onWrong).not.toHaveBeenCalled();
-  });
-
-  it("shows hint request button in duel mode and calls onRequestHint", () => {
-    const onRequestHint = vi.fn();
-    renderLevel2TypingInput({
-      mode: "duel",
-      canRequestHint: true,
-      hintRequested: false,
-      onRequestHint,
-    });
-
-    fireEvent.click(screen.getByTestId("l2-hint-request"));
-
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows waiting hint state with request-again and cancel actions", () => {
-    const onRequestHint = vi.fn();
-    const onCancelHint = vi.fn();
-
-    renderLevel2TypingInput({
-      mode: "duel",
-      hintRequested: true,
-      hintAccepted: false,
-      onRequestHint,
-      onCancelHint,
-    });
-
-    expect(screen.getByText("Waiting for opponent to help...")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("l2-hint-request-again"));
-    fireEvent.click(screen.getByTestId("l2-hint-cancel"));
-
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-    expect(onCancelHint).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows accepted-hint request-again button when hint accepted", () => {
-    const onRequestHint = vi.fn();
-
-    renderLevel2TypingInput({
-      mode: "duel",
-      hintRequested: true,
-      hintAccepted: true,
-      hintType: "letter",
-      onRequestHint,
-    });
-
-    fireEvent.click(screen.getByTestId("l2-hint-request-again"));
-
-    expect(onRequestHint).toHaveBeenCalledTimes(1);
-  });
-
-  it("anagram mode can submit a correct answer", () => {
-    const onCorrect = vi.fn();
-    generateAnagramLettersMock.mockImplementation(() => ["e", "l", "g", "a", "t", "o"]);
-
-    renderLevel2TypingInput({
-      answer: "el gato",
-      mode: "duel",
-      hintRequested: true,
-      hintAccepted: true,
-      hintType: "anagram",
-      onCorrect,
-    });
-
-    expect(screen.getByText("Preparing anagram...")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("l2-anagram-shuffle"));
-    fireEvent.click(screen.getByTestId("l2-anagram-submit"));
-
-    expect(onCorrect).toHaveBeenCalledWith("el gato");
-  });
-
-  it("anagram mode can submit a wrong answer and show feedback", () => {
-    const onWrong = vi.fn();
-    generateAnagramLettersMock.mockImplementation(() => ["o", "t", "a", "g", "l", "e"]);
-
-    renderLevel2TypingInput({
-      answer: "el gato",
-      mode: "duel",
-      hintRequested: true,
-      hintAccepted: true,
-      hintType: "anagram",
-      onWrong,
-    });
-
-    fireEvent.click(screen.getByTestId("l2-anagram-shuffle"));
-    fireEvent.click(screen.getByTestId("l2-anagram-submit"));
-
-    expect(onWrong).toHaveBeenCalled();
-    expect(screen.getByText(/Wrong! The answer was:/)).toBeInTheDocument();
   });
 });

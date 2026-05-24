@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import type { ThemeColors } from "@/lib/theme";
+import type { ThemeColors } from "@/lib/appearance";
 import {
   getThemeActionButtonStyle,
   themeActionButtonClassName,

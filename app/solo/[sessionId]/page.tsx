@@ -1,152 +1,52 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Id } from "@/convex/_generated/dataModel";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo } from "react";
 import { formatDuration } from "@/lib/displayFormat";
-import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
-import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
+import { decodeConfidenceParam } from "@/lib/soloConfidenceParam";
 
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
 // Feature-local imports
 import { useSoloSession } from "./hooks/useSoloSession";
+import { useSoloCompletionReporting } from "./hooks/useSoloCompletionReporting";
 import { CompletionScreen } from "./components/CompletionScreen";
+import { SoloQuestion } from "./components/SoloQuestion";
 import { getDirectionalCopy } from "./translationDirection";
-import { ThemedPage } from "@/app/components/ThemedPage";
+
+// Shared solo chrome
+import { useSoloSessionSource } from "@/app/solo/hooks/useSoloSessionSource";
+import { SoloStatusScreen } from "@/app/solo/components/SoloStatusScreen";
 import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
+import { SoloPageShell } from "@/app/solo/components/SoloPageShell";
+import { SoloExitButton } from "@/app/solo/components/SoloExitButton";
+import { SoloHeader } from "@/app/solo/components/SoloHeader";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-
-// Shared Level components
-import {
-  Level0Input,
-  Level1Input,
-  Level2TypingInput,
-  Level2MultipleChoice,
-  Level3Input,
-} from "@/app/game/levels";
-
-// Fixed grey for level 0 to remain consistent across all palettes
-const LEVEL_0_GREY = "#9CA3AF";
-const LEVEL_0_GREY_DARK = "#6B7280";
-
-const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: string; backgroundColor: string }> = {
-  0: {
-    color: LEVEL_0_GREY,
-    borderColor: LEVEL_0_GREY_DARK,
-    backgroundColor: `${LEVEL_0_GREY_DARK}26`,
-  },
-  1: {
-    color: colors.status.success.DEFAULT,
-    borderColor: colors.status.success.DEFAULT,
-    backgroundColor: `${colors.status.success.DEFAULT}26`,
-  },
-  2: {
-    color: colors.status.warning.DEFAULT,
-    borderColor: colors.status.warning.DEFAULT,
-    backgroundColor: `${colors.status.warning.DEFAULT}26`,
-  },
-  3: {
-    color: colors.status.danger.DEFAULT,
-    borderColor: colors.status.danger.DEFAULT,
-    backgroundColor: `${colors.status.danger.DEFAULT}26`,
-  },
-};
 
 /**
  * Solo Practice Page - Controller component
- * Orchestrates the solo learning experience by connecting:
- * - Theme data from Convex
- * - Session state from useSoloSession hook
- * - Level input components
+ * Wires the shared session-source resolution to the session state machine, the
+ * server progress reporting, and the question dispatch. Pre-session states are
+ * delegated to {@link SoloStatusScreen}.
  */
 export default function SoloPracticePage() {
   const colors = useAppearanceColors();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const themeId = searchParams.get("themeId");
-  const themeIdsParam = searchParams.get("themeIds");
-  const soloPracticeSessionId = searchParams.get("soloPracticeSessionId");
-  const weeklyGoalId = searchParams.get("weeklyGoalId");
-  const confidenceParam = searchParams.get("confidence");
-  const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
-  const returnLabel = searchParams.get("returnLabel") || "Back to Home";
-  const completeSpacedRepetitionSoloPractice = useMutation(api.weeklyGoalRepetitions.completeRepetitionSoloPractice);
-  const recordRepetitionSoloMastery = useMutation(api.weeklyGoalRepetitions.recordRepetitionSoloMastery);
-  const completeBossSoloPractice = useMutation(api.weeklyGoals.completeBossSoloPractice);
-  const spacedRepetitionReportStatusRef = useRef<"idle" | "pending" | "done">("idle");
-  const bossCompletionStatusRef = useRef<"idle" | "pending" | "done">("idle");
-  const reportedMasteryIndicesRef = useRef<Set<number>>(new Set());
-  const requestedThemeIds = useMemo(() => {
-    if (themeIdsParam) {
-      return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
-    }
-    return themeId ? [themeId as Id<"themes">] : [];
-  }, [themeId, themeIdsParam]);
+  const source = useSoloSessionSource({ loadingMessage: "Loading practice..." });
+  const {
+    status,
+    statusMessage,
+    sessionWords,
+    themeSummary,
+    soloPracticeSessionId,
+    returnTo,
+    returnLabel,
+    spacedRepetitionStep,
+    isBossPractice,
+    confidenceParam,
+  } = source;
 
-  // Parse initial confidence levels from URL
-  const initialConfidenceByWordIndex = useMemo(() => {
-    if (!confidenceParam) return null;
-    try {
-      const parsed = JSON.parse(confidenceParam) as unknown;
-      if (!parsed || typeof parsed !== "object") return null;
-
-      const record = parsed as Record<string, unknown>;
-      const levels: Record<number, 0 | 1 | 2 | 3> = {};
-      for (const [key, value] of Object.entries(record)) {
-        const wordIndex = Number(key);
-        if (!Number.isFinite(wordIndex)) continue;
-        if (typeof value !== "number") continue;
-        if (![0, 1, 2, 3].includes(value)) continue;
-        levels[wordIndex] = value as 0 | 1 | 2 | 3;
-      }
-      return levels;
-    } catch {
-      return null;
-    }
-  }, [confidenceParam]);
-
-  const practiceSession = useQuery(
-    api.weeklyGoals.getBossPracticeSession,
-    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
-  );
-  const weeklyGoalPractice = useQuery(
-    api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    !soloPracticeSessionId && weeklyGoalId
-      ? {
-          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
-          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
-        }
-      : "skip"
-  );
-  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
-  const selectedThemes = useMemo(() => {
-    if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
-    if (!allThemes) return [];
-    const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
-    return requestedThemeIds
-      .flatMap((requestedThemeId) => {
-        const theme = themeMap.get(requestedThemeId);
-        return theme ? [theme] : [];
-      });
-  }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
-  const sessionWords = useMemo(
-    () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
-    [practiceSession?.sessionWords, selectedThemes]
-  );
-  const themeSummary = useMemo(
-    () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
-    [practiceSession?.themeSummary, selectedThemes]
-  );
-  const spacedRepetitionStep =
-    practiceSession?.sourceType === "spaced_repetition" &&
-    typeof practiceSession.spacedRepetitionStep === "number"
-    ? practiceSession.spacedRepetitionStep
-    : null;
-  const hasMultipleThemes = useMemo(
-    () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
-    [sessionWords]
+  const initialConfidenceByWordIndex = useMemo(
+    () => decodeConfidenceParam(confidenceParam),
+    [confidenceParam]
   );
 
   // Session state management (extracted hook)
@@ -167,6 +67,14 @@ export default function SoloPracticePage() {
     initialConfidenceByWordIndex,
   });
 
+  const { handleCorrectWithProgress } = useSoloCompletionReporting({
+    soloPracticeSessionId,
+    spacedRepetitionStep,
+    isBossPractice,
+    session,
+    handleCorrect,
+  });
+
   // Navigation
   const handleExit = useCallback(() => {
     if (document.activeElement instanceof HTMLElement) {
@@ -175,212 +83,26 @@ export default function SoloPracticePage() {
     router.push(returnTo);
   }, [router, returnTo]);
 
-  const pendingMasteryWritesRef = useRef(0);
-  const [masteryWritesPending, setMasteryWritesPending] = useState(0);
+  const hasMultipleThemes = useMemo(
+    () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
+    [sessionWords]
+  );
 
-  const handleCorrectWithProgress = useCallback(() => {
-    const completedWordIndex =
-      session.questionLevel === 3 ? session.currentWordIndex : null;
-
-    handleCorrect();
-
-    if (
-      soloPracticeSessionId &&
-      spacedRepetitionStep !== null &&
-      completedWordIndex !== null &&
-      !reportedMasteryIndicesRef.current.has(completedWordIndex)
-    ) {
-      reportedMasteryIndicesRef.current.add(completedWordIndex);
-      pendingMasteryWritesRef.current += 1;
-      setMasteryWritesPending(pendingMasteryWritesRef.current);
-      void recordRepetitionSoloMastery({
-        soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
-        wordIndex: completedWordIndex,
-      })
-        .catch(() => {
-          reportedMasteryIndicesRef.current.delete(completedWordIndex);
-        })
-        .finally(() => {
-          pendingMasteryWritesRef.current = Math.max(
-            0,
-            pendingMasteryWritesRef.current - 1
-          );
-          setMasteryWritesPending(pendingMasteryWritesRef.current);
-        });
-    }
-  }, [
-    handleCorrect,
-    recordRepetitionSoloMastery,
-    session.currentWordIndex,
-    session.questionLevel,
-    soloPracticeSessionId,
-    spacedRepetitionStep,
-  ]);
-
-  const baseCardStyle = {
-    backgroundColor: colors.background.elevated,
-    borderColor: colors.primary.dark,
-    boxShadow: `0 18px 45px ${colors.primary.glow}`,
-  };
-
-  useEffect(() => {
-    if (
-      !soloPracticeSessionId ||
-      spacedRepetitionStep === null ||
-      !session.completed ||
-      spacedRepetitionReportStatusRef.current !== "idle" ||
-      masteryWritesPending > 0
-    ) {
-      return;
-    }
-
-    spacedRepetitionReportStatusRef.current = "pending";
-    void completeSpacedRepetitionSoloPractice({
-      soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
-      completedStep: spacedRepetitionStep,
-    })
-      .then((result) => {
-        spacedRepetitionReportStatusRef.current = result.advanced ? "done" : "idle";
-      })
-      .catch(() => {
-        spacedRepetitionReportStatusRef.current = "idle";
-      });
-  }, [
-    soloPracticeSessionId,
-    completeSpacedRepetitionSoloPractice,
-    session.completed,
-    spacedRepetitionStep,
-    masteryWritesPending,
-  ]);
-
-  const isBossPractice = practiceSession?.sourceType === "boss";
-
-  useEffect(() => {
-    if (
-      !soloPracticeSessionId ||
-      !isBossPractice ||
-      !session.completed ||
-      bossCompletionStatusRef.current !== "idle"
-    ) {
-      return;
-    }
-
-    bossCompletionStatusRef.current = "pending";
-    void completeBossSoloPractice({
-      soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
-    })
-      .then(() => {
-        bossCompletionStatusRef.current = "done";
-      })
-      .catch(() => {
-        bossCompletionStatusRef.current = "idle";
-      });
-  }, [
-    soloPracticeSessionId,
-    isBossPractice,
-    session.completed,
-    completeBossSoloPractice,
-  ]);
-
-  // Loading states
-  if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {
+  if (status !== "ready") {
     return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="No theme selected"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-practice-back-home"
-          />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if (
-    (soloPracticeSessionId && practiceSession === undefined) ||
-    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === undefined) ||
-    (!soloPracticeSessionId && !weeklyGoalId && allThemes === undefined)
-  ) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard message="Loading practice..." variant="loading" />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if ((soloPracticeSessionId && practiceSession === null) || (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === null)) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="This practice session is no longer available"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-          />
-        </div>
-      </ThemedPage>
-    );
-  }
-
-  if (!soloPracticeSessionId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message={weeklyGoalPractice.message}
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-practice-back-home"
-          />
-        </div>
-      </ThemedPage>
-    );
-  }
-
-  if (!soloPracticeSessionId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="Theme not found"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-practice-back-home"
-          />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
+      <SoloStatusScreen
+        status={status}
+        message={statusMessage}
+        returnLabel={returnLabel}
+        onExit={handleExit}
+        testIdBase="solo-practice"
+      />
     );
   }
 
   if (sessionWords.length === 0) {
     return (
-      <ThemedPage>
+      <SoloPageShell>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
           <SoloStatusCard
             message="This theme has no words to practice"
@@ -390,29 +112,17 @@ export default function SoloPracticePage() {
             dataTestId="solo-practice-back-home"
           />
         </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
+      </SoloPageShell>
     );
   }
 
   if (!session.initialized || !currentWord) {
     return (
-      <ThemedPage>
+      <SoloPageShell>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
           <SoloStatusCard message="Preparing your next question..." variant="loading" />
         </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
+      </SoloPageShell>
     );
   }
 
@@ -421,68 +131,28 @@ export default function SoloPracticePage() {
     session.translationDirection
   );
 
-  const header = (
-    <header className="w-full flex flex-col items-center text-center pb-4 animate-slide-up">
-      <div
-        className="w-16 h-0.5 bg-gradient-to-r from-transparent via-current to-transparent mb-3 rounded-full"
-        style={{ color: colors.neutral.DEFAULT }}
-      />
-
-      <h1 className="title-font text-3xl sm:text-4xl md:text-5xl tracking-tight leading-none text-center">
-        <span
-          className="title-text-outline"
-          data-text="Solo"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primary.dark} 0%, ${colors.primary.light} 50%, ${colors.primary.dark} 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Solo
-        </span>{" "}
-        <span
-          className="title-text-outline-accent"
-          data-text="Practice"
-          style={{
-            background: `linear-gradient(135deg, ${colors.cta.dark} 0%, ${colors.cta.light} 50%, ${colors.cta.dark} 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          Practice
-        </span>
-      </h1>
-
-      <div
-        className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 text-xs uppercase tracking-widest max-w-full"
-        style={{
-          backgroundColor: colors.background.elevated,
-          borderColor: colors.primary.dark,
-          color: colors.text.muted,
-        }}
-      >
-        <span className="truncate max-w-[240px]">{themeSummary}</span>
-      </div>
-
-      <div className="flex items-center gap-2 mt-3">
-        <div
-          className="w-8 h-px bg-gradient-to-r from-transparent to-current"
-          style={{ color: colors.primary.DEFAULT }}
-        />
-        <div className="w-1.5 h-1.5 rotate-45" style={{ backgroundColor: colors.primary.DEFAULT }} />
-        <div
-          className="w-8 h-px bg-gradient-to-l from-transparent to-current"
-          style={{ color: colors.primary.DEFAULT }}
-        />
-      </div>
-    </header>
-  );
+  const baseCardStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    boxShadow: `0 18px 45px ${colors.primary.glow}`,
+  };
 
   const progressPercentage = sessionWords.length
     ? Math.min(100, (masteredCount / sessionWords.length) * 100)
     : 0;
+
+  const themePill = (
+    <div
+      className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 text-xs uppercase tracking-widest max-w-full"
+      style={{
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.primary.dark,
+        color: colors.text.muted,
+      }}
+    >
+      <span className="truncate max-w-[240px]">{themeSummary}</span>
+    </div>
+  );
 
   const content = session.completed ? (
     <CompletionScreen
@@ -502,25 +172,10 @@ export default function SoloPracticePage() {
           paddingRight: "max(0px, var(--sar))",
         }}
       >
-        <button
-          onClick={handleExit}
-          className="px-5 py-3 rounded-xl border-2 border-b-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"
-          style={{
-            backgroundColor: colors.status.danger.DEFAULT,
-            borderTopColor: colors.status.danger.light,
-            borderBottomColor: colors.status.danger.dark,
-            borderLeftColor: colors.status.danger.DEFAULT,
-            borderRightColor: colors.status.danger.DEFAULT,
-            color: "#FFFFFF",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-          }}
-          data-testid="solo-practice-exit"
-        >
-          Exit
-        </button>
+        <SoloExitButton onExit={handleExit} dataTestId="solo-practice-exit" />
       </div>
 
-      {header}
+      <SoloHeader variant="outline" subtitle={themePill} />
 
       <section
         className="w-full rounded-3xl border-2 p-4 sm:p-5 mb-4 backdrop-blur-sm animate-slide-up delay-200"
@@ -562,151 +217,21 @@ export default function SoloPracticePage() {
         </div>
       </section>
 
-      <section
-        className="w-full rounded-3xl border-2 p-6 backdrop-blur-sm animate-slide-up delay-300"
-        style={baseCardStyle}
-      >
-        <div className="flex justify-center mb-4">
-          <span
-            className="inline-block px-3 py-1 rounded-full border-2 text-xs font-bold uppercase tracking-widest"
-            style={levelBadgeStyles[session.questionLevel]}
-          >
-            Level {session.questionLevel}
-          </span>
-        </div>
-
-        {session.questionLevel !== 0 && (
-          <div className="text-center mb-6">
-            {hasMultipleThemes && "themeName" in currentWord && (
-              <div
-                className="text-xs uppercase tracking-[0.25em] mb-2"
-                style={{ color: colors.text.muted }}
-              >
-                {typeof currentWord.themeName === "string" ? currentWord.themeName : null}
-              </div>
-            )}
-            <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
-              {cueText}
-            </div>
-            <div className="text-xs uppercase tracking-widest mt-2" style={{ color: colors.text.muted }}>
-              {helperText}
-            </div>
-          </div>
-        )}
-
-        {showFeedback && (
-          <div
-            className="text-center py-4 mb-4 rounded-2xl border-2"
-            style={
-              feedbackCorrect
-                ? {
-                    borderColor: colors.status.success.DEFAULT,
-                    backgroundColor: `${colors.status.success.DEFAULT}26`,
-                    color: colors.status.success.light,
-                  }
-                : {
-                    borderColor: colors.status.danger.DEFAULT,
-                    backgroundColor: `${colors.status.danger.DEFAULT}26`,
-                    color: colors.status.danger.light,
-                  }
-            }
-          >
-            <div className="text-2xl font-bold mb-2">
-              {feedbackCorrect ? "Correct" : "Wrong"}
-            </div>
-            {feedbackAnswer && (
-              <div className="text-base" style={{ color: colors.text.DEFAULT }}>
-                Answer: <span className="font-bold">{feedbackAnswer}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!showFeedback && (
-          <>
-            {session.questionLevel === 0 && (
-              <>
-                {hasMultipleThemes && "themeName" in currentWord && typeof currentWord.themeName === "string" && (
-                  <div
-                    className="text-xs uppercase tracking-[0.25em] mb-2 text-center"
-                    style={{ color: colors.text.muted }}
-                  >
-                    {currentWord.themeName}
-                  </div>
-                )}
-                <Level0Input
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                word={currentWord.word}
-                answer={currentWord.answer}
-                onGotIt={handleLevel0GotIt}
-                onNotYet={handleLevel0NotYet}
-                dataTestIdBase="solo-practice-level0"
-              />
-              </>
-            )}
-
-            {session.questionLevel === 1 && session.translationDirection === "forward" && (
-              <Level1Input
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={expectedAnswer}
-                onCorrect={handleCorrectWithProgress}
-                onSkip={handleIncorrect}
-                mode="solo"
-                dataTestIdBase="solo-practice-level1"
-              />
-            )}
-
-            {session.questionLevel === 1 && session.translationDirection === "reverse" && (
-              <Level2TypingInput
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={expectedAnswer}
-                onCorrect={handleCorrectWithProgress}
-                onWrong={handleIncorrect}
-                onSkip={handleIncorrect}
-                mode="solo"
-                dataTestIdBase="solo-practice-level1-reverse"
-              />
-            )}
-
-            {session.questionLevel === 2 && session.level2Mode === "typing" && (
-              <Level2TypingInput
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={expectedAnswer}
-                onCorrect={handleCorrectWithProgress}
-                onWrong={handleIncorrect}
-                onSkip={handleIncorrect}
-                mode="solo"
-                dataTestIdBase="solo-practice-level2-typing"
-              />
-            )}
-
-            {session.questionLevel === 2 && session.level2Mode === "multiple_choice" && (
-              <Level2MultipleChoice
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={expectedAnswer}
-                wrongAnswers={currentWord.wrongAnswers}
-                onCorrect={handleCorrectWithProgress}
-                onWrong={handleIncorrect}
-                onSkip={handleIncorrect}
-                mode="solo"
-                dataTestIdBase="solo-practice-level2-mc"
-              />
-            )}
-
-            {session.questionLevel === 3 && (
-              <Level3Input
-                key={`${session.currentWordIndex}-${session.questionsAnswered}`}
-                answer={expectedAnswer}
-                onCorrect={handleCorrectWithProgress}
-                onWrong={handleIncorrect}
-                onSkip={handleIncorrect}
-                mode="solo"
-                dataTestIdBase="solo-practice-level3"
-              />
-            )}
-          </>
-        )}
-      </section>
+      <SoloQuestion
+        session={session}
+        currentWord={currentWord}
+        cueText={cueText}
+        helperText={helperText}
+        expectedAnswer={expectedAnswer}
+        hasMultipleThemes={hasMultipleThemes}
+        showFeedback={showFeedback}
+        feedbackCorrect={feedbackCorrect}
+        feedbackAnswer={feedbackAnswer}
+        onCorrect={handleCorrectWithProgress}
+        onIncorrect={handleIncorrect}
+        onLevel0GotIt={handleLevel0GotIt}
+        onLevel0NotYet={handleLevel0NotYet}
+      />
 
       <div
         className="mt-4 text-xs uppercase tracking-widest"
@@ -722,14 +247,8 @@ export default function SoloPracticePage() {
   }`;
 
   return (
-    <ThemedPage>
+    <SoloPageShell>
       <div className={containerClassName}>{content}</div>
-      <div
-        className="relative z-10 h-1"
-        style={{
-          background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-        }}
-      />
-    </ThemedPage>
+    </SoloPageShell>
   );
 }

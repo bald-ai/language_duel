@@ -3,7 +3,7 @@ import { useAction, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { WordEntry } from "@/lib/types";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
-import { useTTS } from "@/app/game/hooks/useTTS";
+import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 import type { SelectedThemeState } from "./themeControllerTypes";

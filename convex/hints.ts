@@ -3,6 +3,7 @@
  */
 
 import { mutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import {
   getDuelParticipant,
@@ -12,7 +13,7 @@ import {
 import {
   HINT_TIME_BONUS_MS,
 } from "./constants";
-import { PVP_HINT_ELIMINATION_PICKS } from "../lib/hints/constants";
+import { PVP_HINT_ELIMINATION_PICKS } from "../lib/hintPool/constants";
 import { assertDuelMode } from "./rules/duelModeGuards";
 
 // ===========================================
@@ -119,7 +120,7 @@ export const eliminateOption = mutation({
     }
 
     const nextEliminated = [...currentEliminated, option];
-    const update: Record<string, unknown> = {
+    const update: Partial<Doc<"duels">> = {
       eliminatedOptions: nextEliminated,
     };
 

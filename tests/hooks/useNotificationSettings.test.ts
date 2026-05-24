@@ -34,7 +34,7 @@ describe("useNotificationSettings", () => {
     toastErrorMock.mockClear();
   });
 
-  it("shows save failures with a toast and keeps the error state", async () => {
+  it("surfaces save failures with a toast", async () => {
     useQueryMock.mockReturnValue(DEFAULT_NOTIFICATION_PREFS);
     updatePreferencesMutationMock.mockRejectedValue(new Error("Invalid reminder offset"));
 
@@ -45,7 +45,6 @@ describe("useNotificationSettings", () => {
     });
 
     expect(toastErrorMock).toHaveBeenCalledWith("Invalid reminder offset");
-    expect(result.current.error).toBe("Invalid reminder offset");
   });
 
   it("fills missing preference fields from defaults", () => {

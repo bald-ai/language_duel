@@ -12,13 +12,35 @@ export type WeeklyGoalBossStatus = "unavailable" | "ready" | "defeated";
 export type WeeklyGoalMode = "solo" | "shared";
 export type WeeklyGoalParticipantRole = "creator" | "partner";
 
+/**
+ * The lock situation from the viewer's perspective. This is the single
+ * representation of "I locked / they locked / both / neither" so that no read
+ * path has to re-derive it from the raw creatorLocked/partnerLocked booleans.
+ */
+export type WeeklyGoalLockState =
+  | "none"
+  | "viewer_locked"
+  | "partner_locked"
+  | "both_locked";
+
+/** Expand a WeeklyGoalLockState back into the two viewer-relative booleans. */
+export function getWeeklyGoalLockFlags(lockState: WeeklyGoalLockState): {
+  viewerLocked: boolean;
+  partnerLocked: boolean;
+} {
+  return {
+    viewerLocked: lockState === "viewer_locked" || lockState === "both_locked",
+    partnerLocked: lockState === "partner_locked" || lockState === "both_locked",
+  };
+}
+
 export interface WeeklyGoalThemeProgress {
   creatorCompleted: boolean;
   partnerCompleted?: boolean;
 }
 
 export interface WeeklyGoalState {
-  mode?: WeeklyGoalMode;
+  mode: WeeklyGoalMode;
   themes: WeeklyGoalThemeProgress[];
   status: WeeklyGoalLifecycleStatus;
   lockedAt?: number;
@@ -94,10 +116,10 @@ export type WeeklyGoalLockPlan =
 export function normalizeWeeklyGoal<T extends WeeklyGoalState>(
   goal: T
 ): NormalizedWeeklyGoal<T> {
-  const effectiveMode: WeeklyGoalMode = goal.mode ?? "shared";
-  if (effectiveMode === "shared") {
-    const partnerId = (goal as T & { partnerId?: unknown }).partnerId;
-    const partnerLocked = (goal as T & { partnerLocked?: boolean }).partnerLocked;
+  const partnerId = (goal as T & { partnerId?: unknown }).partnerId;
+  const partnerLocked = (goal as T & { partnerLocked?: boolean }).partnerLocked;
+
+  if (goal.mode === "shared") {
     if (partnerId === undefined || partnerLocked === undefined) {
       throw new WeeklyGoalRuleViolation(
         "INVALID_STATE",
@@ -113,44 +135,41 @@ export function normalizeWeeklyGoal<T extends WeeklyGoalState>(
     return goal as SharedGoal<T>;
   }
 
-  if (effectiveMode === "solo") {
-    const partnerId = (goal as T & { partnerId?: unknown }).partnerId;
-    const partnerLocked = (goal as T & { partnerLocked?: boolean }).partnerLocked;
-    if (partnerId !== undefined || partnerLocked !== undefined) {
-      throw new WeeklyGoalRuleViolation(
-        "INVALID_STATE",
-        "Solo weekly goal cannot have partner data"
-      );
-    }
-    if (goal.themes.some((theme) => theme.partnerCompleted !== undefined)) {
-      throw new WeeklyGoalRuleViolation(
-        "INVALID_STATE",
-        "Solo weekly goal cannot have partner theme progress"
-      );
-    }
-    return goal as SoloGoal<T>;
+  // mode === "solo"
+  if (partnerId !== undefined || partnerLocked !== undefined) {
+    throw new WeeklyGoalRuleViolation(
+      "INVALID_STATE",
+      "Solo weekly goal cannot have partner data"
+    );
   }
+  if (goal.themes.some((theme) => theme.partnerCompleted !== undefined)) {
+    throw new WeeklyGoalRuleViolation(
+      "INVALID_STATE",
+      "Solo weekly goal cannot have partner theme progress"
+    );
+  }
+  return goal as SoloGoal<T>;
+}
 
-  throw new WeeklyGoalRuleViolation(
-    "INVALID_STATE",
-    "Weekly goal mode is missing"
-  );
+export function isGoalThemeCompleted(
+  theme: WeeklyGoalThemeProgress,
+  mode: WeeklyGoalMode
+): boolean {
+  return mode === "solo"
+    ? theme.creatorCompleted
+    : theme.creatorCompleted && theme.partnerCompleted === true;
 }
 
 export function countCompletedThemes(
   themes: WeeklyGoalThemeProgress[],
-  mode: WeeklyGoalMode | undefined
+  mode: WeeklyGoalMode
 ): number {
-  return themes.filter((theme) =>
-    mode === "solo"
-      ? theme.creatorCompleted
-      : theme.creatorCompleted && theme.partnerCompleted === true
-  ).length;
+  return themes.filter((theme) => isGoalThemeCompleted(theme, mode)).length;
 }
 
 export function areAllThemesCompleted(
   themes: WeeklyGoalThemeProgress[],
-  mode: WeeklyGoalMode | undefined
+  mode: WeeklyGoalMode
 ): boolean {
   return themes.length > 0 && countCompletedThemes(themes, mode) === themes.length;
 }
@@ -179,36 +198,24 @@ export function getGoalDraftExpiresAt(
   return createdAt + WEEKLY_GOAL_DRAFT_TTL_MS;
 }
 
-export function isGoalInGracePeriod(
-  goal: Pick<WeeklyGoalState, "endDate" | "status" | "bigBossStatus">,
-  now: number
-): boolean {
-  if (goal.status === "completed" || goal.bigBossStatus === "defeated") {
-    return false;
-  }
-
-  const deleteAt = getGoalDeleteAt(goal.endDate);
-  if (deleteAt === null) {
-    return false;
-  }
-
-  return now > goal.endDate! && now < deleteAt;
-}
-
 export function isGoalPlayable(
   goal: WeeklyGoalState,
   now: number
 ): boolean {
   const effectiveStatus = getEffectiveGoalStatus(goal, now);
-
-  if (effectiveStatus === "draft" || effectiveStatus === "completed") {
-    return false;
+  if (effectiveStatus === "locked") {
+    return true;
   }
-
-  return effectiveStatus === "locked" || isGoalInGracePeriod(goal, now);
+  if (effectiveStatus === "grace_period") {
+    // Playable only until the permanent-deletion deadline; a goal past deleteAt
+    // but not yet swept by the cleanup cron must not be boss-playable.
+    const deleteAt = getGoalDeleteAt(goal.endDate);
+    return deleteAt !== null && now < deleteAt;
+  }
+  return false;
 }
 
-export function formatGoalGraceCountdown(timeRemainingMs: number): string {
+export function formatGoalCountdown(timeRemainingMs: number): string {
   const clampedMs = Math.max(0, timeRemainingMs);
   const totalSeconds = Math.floor(clampedMs / 1000);
   const totalHours = Math.floor(totalSeconds / 3600);
@@ -406,18 +413,4 @@ function validateLockRequirements(goal: WeeklyGoalLockableState, now: number): v
       "End date must be at least 24 hours from now"
     );
   }
-}
-
-export function canTriggerGoalBoss(
-  goal: WeeklyGoalState,
-  which: "mini" | "big",
-  now: number
-): boolean {
-  if (!isGoalPlayable(goal, now)) {
-    return false;
-  }
-
-  return which === "mini"
-    ? getEffectiveMiniBossStatus(goal, now) === "ready"
-    : getEffectiveBigBossStatus(goal, now) === "ready";
 }

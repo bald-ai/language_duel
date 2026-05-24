@@ -10,7 +10,7 @@ import {
 
 describe("generate prompt word type rules", () => {
   it("requires definite articles for noun themes", () => {
-    const prompt = buildThemeSystemPrompt("Kitchen", 5, undefined, "nouns");
+    const prompt = buildThemeSystemPrompt("Kitchen", 5, "nouns");
 
     expect(prompt).toContain("ANSWER AND MULTIPLE CHOICES MUST CONTAIN DEFINITE ARTICLE");
     expect(prompt).toContain("English noun");
@@ -18,7 +18,7 @@ describe("generate prompt word type rules", () => {
   });
 
   it("requires infinitive verbs without articles and limits Irr markers to correct answers", () => {
-    const prompt = buildThemeSystemPrompt("Movement", 5, undefined, "verbs");
+    const prompt = buildThemeSystemPrompt("Movement", 5, "verbs");
 
     expect(prompt).toContain("Spanish INFINITIVE form");
     expect(prompt).toContain("NO articles (el/la)");
@@ -27,7 +27,7 @@ describe("generate prompt word type rules", () => {
   });
 
   it("requires masculine singular/base-form adjectives without articles or Irr markers", () => {
-    const prompt = buildThemeSystemPrompt("Feelings", 5, undefined, "adjectives");
+    const prompt = buildThemeSystemPrompt("Feelings", 5, "adjectives");
 
     expect(prompt).toContain(
       "Generate English adjectives with Spanish adjective translations in masculine singular/base form."
@@ -42,7 +42,7 @@ describe("generate prompt word type rules", () => {
   });
 
   it("requires canonical adverbs with -mente preference and bare-adjective distractor limit", () => {
-    const prompt = buildThemeSystemPrompt("Daily Routine", 5, undefined, "adverbs");
+    const prompt = buildThemeSystemPrompt("Daily Routine", 5, "adverbs");
 
     expect(prompt).toContain("Generate English adverbs with their Spanish adverb translations.");
     expect(prompt).toContain("prefer the -mente form");
@@ -67,10 +67,8 @@ describe("generate prompt word type rules", () => {
       "go",
       "ir(Irr)",
       ["venir", "andar", "correr"],
-      0,
-      undefined,
-      undefined,
-      "verbs"
+      "verbs",
+      0
     );
 
     expect(prompt).toContain("Must be a Spanish infinitive");
@@ -85,10 +83,8 @@ describe("generate prompt word type rules", () => {
       "quickly",
       "rápidamente",
       ["lentamente", "frecuentemente", "siempre"],
-      0,
-      undefined,
-      undefined,
-      "adverbs"
+      "adverbs",
+      0
     );
     const regeneratePrompt = buildRegenerateForWordPrompt("Daily Routine", "quickly", "adverbs");
 

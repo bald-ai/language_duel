@@ -1,5 +1,5 @@
 import type { Doc, Id } from "../_generated/dataModel";
-import { canGenerateStoredThemeTts } from "../../lib/themeAccess";
+import { canEditTheme } from "../../lib/themeAccess";
 
 export type ThemeWithOwner = Doc<"themes"> & {
   ownerNickname?: string;
@@ -21,7 +21,7 @@ export function buildThemeWithOwner(args: {
     ownerNickname: owner?.nickname,
     ownerDiscriminator: owner?.discriminator,
     isOwner: theme.ownerId === currentUserId,
-    canEdit: canGenerateStoredThemeTts(
+    canEdit: canEditTheme(
       currentUserId,
       {
         themeId: theme._id,

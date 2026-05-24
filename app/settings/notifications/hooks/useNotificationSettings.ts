@@ -14,7 +14,6 @@ export function useNotificationSettings() {
   const prefs = useQuery(api.notificationPreferences.getMyNotificationPreferences);
   const setPrefs = useMutation(api.notificationPreferences.updateNotificationPreferences);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const currentPrefs: NotificationPreferences = useMemo(
     () => normalizeNotificationPreferences(prefs),
     [prefs]
@@ -25,14 +24,11 @@ export function useNotificationSettings() {
       if (!prefs) return;
 
       setIsUpdating(true);
-      setError(null);
 
       try {
         await setPrefs(updates);
       } catch (err) {
-        const message = getErrorMessage(err, "Failed to update preferences");
-        setError(message);
-        toast.error(message);
+        toast.error(getErrorMessage(err, "Failed to update preferences"));
       } finally {
         setIsUpdating(false);
       }
@@ -44,8 +40,6 @@ export function useNotificationSettings() {
     prefs: currentPrefs,
     isLoading: prefs === undefined,
     isUpdating,
-    error,
     updatePrefs,
-    clearError: () => setError(null),
   };
 }

@@ -25,6 +25,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
+    wordOrder: [0],
     duelQuestions: [
       {
         options: ["gato", "perro"],

@@ -78,16 +78,17 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
   }, [params, wordEditor]);
 
   const handleAcceptGenerated = useCallback(() => {
-    if (wordEditor.editingWordIndex === null || !wordEditor.editingField) return;
+    const { editingWordIndex, editingField } = wordEditor;
+    if (editingWordIndex === null || !editingField) return;
 
     params.setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const previousWord = updatedWords[editingWordIndex];
       if (!previousWord) return prev;
 
-      updatedWords[wordEditor.editingWordIndex!] = applyGeneratedWordEdit({
+      updatedWords[editingWordIndex] = applyGeneratedWordEdit({
         previousWord,
-        field: wordEditor.editingField!,
+        field: editingField,
         generatedValue: wordEditor.generatedValue,
         generatedWordData: wordEditor.generatedWordData,
         wrongIndex: wordEditor.editingWrongIndex,
@@ -100,10 +101,11 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
   }, [params, wordEditor]);
 
   const handleSaveManual = useCallback(() => {
-    if (wordEditor.editingWordIndex === null || !wordEditor.editingField) return;
+    const { editingWordIndex, editingField } = wordEditor;
+    if (editingWordIndex === null || !editingField) return;
 
     if (
-      wordEditor.editingField === FIELD_TYPES.WORD &&
+      editingField === FIELD_TYPES.WORD &&
       wordEditor.manualValue.trim() !== wordEditor.oldValue.trim()
     ) {
       wordEditor.showRegenerateConfirm(wordEditor.manualValue);
@@ -112,12 +114,12 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
 
     params.setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const previousWord = updatedWords[editingWordIndex];
       if (!previousWord) return prev;
 
-      updatedWords[wordEditor.editingWordIndex!] = applyManualWordEdit({
+      updatedWords[editingWordIndex] = applyManualWordEdit({
         previousWord,
-        field: wordEditor.editingField!,
+        field: editingField,
         manualValue: wordEditor.manualValue,
         wrongIndex: wordEditor.editingWrongIndex,
       });
@@ -129,14 +131,15 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
   }, [params, wordEditor]);
 
   const handleRegenerateSkip = useCallback(() => {
-    if (wordEditor.editingWordIndex === null) return;
+    const { editingWordIndex } = wordEditor;
+    if (editingWordIndex === null) return;
 
     params.setLocalWords((prev) => {
       const updatedWords = [...prev];
-      const previousWord = updatedWords[wordEditor.editingWordIndex!];
+      const previousWord = updatedWords[editingWordIndex];
       if (!previousWord) return prev;
 
-      updatedWords[wordEditor.editingWordIndex!] = applyManualWordEdit({
+      updatedWords[editingWordIndex] = applyManualWordEdit({
         previousWord,
         field: FIELD_TYPES.WORD,
         manualValue: wordEditor.pendingManualWord,
@@ -151,7 +154,8 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
   }, [params, wordEditor]);
 
   const handleRegenerateConfirm = useCallback(async () => {
-    if (wordEditor.editingWordIndex === null || !params.selectedTheme) return;
+    const { editingWordIndex } = wordEditor;
+    if (editingWordIndex === null || !params.selectedTheme) return;
 
     try {
       const result = await wordEditor.regenerateAnswersForWord(
@@ -162,10 +166,10 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
       if (result) {
         params.setLocalWords((prev) => {
           const updatedWords = [...prev];
-          const previousWord = updatedWords[wordEditor.editingWordIndex!];
+          const previousWord = updatedWords[editingWordIndex];
           if (!previousWord) return prev;
 
-          updatedWords[wordEditor.editingWordIndex!] = applyRegeneratedManualWord({
+          updatedWords[editingWordIndex] = applyRegeneratedManualWord({
             previousWord,
             pendingWord: wordEditor.pendingManualWord,
             answer: result.answer,

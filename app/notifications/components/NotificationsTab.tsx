@@ -6,24 +6,18 @@ import { useNotifications } from "../hooks/useNotifications";
 import { NotificationItem } from "./NotificationItem";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel";
-import { isRecord } from "@/lib/typeGuards";
+import { themeCountLabel, type NotificationCardActions } from "./notificationCardModel";
 
 interface NotificationsTabProps {
     onClose: () => void;
 }
 
-const hasGoalId = (
-    payload: unknown
-): payload is { goalId: Id<"weeklyGoals"> } =>
-    isRecord(payload) && "goalId" in payload;
-
 /**
  * NotificationsTab - Display all notification types with actions
- * 
- * Features:
- * - Friend requests with accept/reject actions
- * - Weekly goal invitations with view/decline actions
- * - Challenge invites with accept/decline actions
+ *
+ * Wraps the raw notification mutations with toast/routing side-effects, bundles
+ * them into one action bag, and renders each notification through the per-type
+ * dispatch in NotificationItem.
  */
 export function NotificationsTab({ onClose }: NotificationsTabProps) {
   const colors = useAppearanceColors();
@@ -70,7 +64,7 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         }
     };
 
-    const handleViewWeeklyGoal = (_goalId?: Id<"weeklyGoals">) => {
+    const handleViewWeeklyGoal = () => {
         onClose();
         router.push("/goals");
     };
@@ -88,10 +82,8 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
             const result = await actions.archiveCompletedGoalThemes(notificationId);
             if (result.archivedCount === 0) {
                 toast.success("Themes already archived");
-            } else if (result.archivedCount === 1) {
-                toast.success("Archived 1 theme");
             } else {
-                toast.success(`Archived ${result.archivedCount} themes`);
+                toast.success(`Archived ${themeCountLabel(result.archivedCount)}`);
             }
         } catch (error) {
             toast.error(getErrorMessage(error, "Failed to archive themes"));
@@ -113,6 +105,18 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
         } catch (error) {
             toast.error(getErrorMessage(error, "Failed to dismiss notification"));
         }
+    };
+
+    const cardActions: NotificationCardActions = {
+        acceptFriendRequest: handleAcceptFriendRequest,
+        rejectFriendRequest: handleRejectFriendRequest,
+        acceptChallenge: handleAcceptChallenge,
+        declineChallenge: handleDeclineChallenge,
+        viewWeeklyGoal: handleViewWeeklyGoal,
+        declineWeeklyGoal: handleDeclineWeeklyGoalInvitation,
+        dismissWeeklyGoal: handleDismissWeeklyGoal,
+        archiveCompletedGoalThemes: handleArchiveCompletedGoalThemes,
+        dismiss: handleDismissNotification,
     };
 
     if (isLoading) {
@@ -142,26 +146,13 @@ export function NotificationsTab({ onClose }: NotificationsTabProps) {
 
     return (
         <div className="py-2" data-testid="notifications-tab">
-            {notifications.map((notification) => {
-                const payload = notification.payload;
-                const goalId = hasGoalId(payload) ? payload.goalId : undefined;
-
-                return (
-                    <NotificationItem
-                        key={notification._id}
-                        notification={notification}
-                        onAcceptFriendRequest={() => handleAcceptFriendRequest(notification._id)}
-                        onRejectFriendRequest={() => handleRejectFriendRequest(notification._id)}
-                        onAcceptChallenge={() => handleAcceptChallenge(notification._id)}
-                        onDeclineChallenge={() => handleDeclineChallenge(notification._id)}
-                        onViewWeeklyGoal={() => handleViewWeeklyGoal(goalId)}
-                        onDismissWeeklyGoal={() => handleDismissWeeklyGoal(notification._id)}
-                        onArchiveCompletedGoalThemes={() => handleArchiveCompletedGoalThemes(notification._id)}
-                        onDeclineWeeklyGoal={() => handleDeclineWeeklyGoalInvitation(notification._id)}
-                        onDismiss={() => handleDismissNotification(notification._id)}
-                    />
-                );
-            })}
+            {notifications.map((notification) => (
+                <NotificationItem
+                    key={notification._id}
+                    notification={notification}
+                    actions={cardActions}
+                />
+            ))}
         </div>
     );
 }

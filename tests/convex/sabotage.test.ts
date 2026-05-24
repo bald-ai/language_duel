@@ -177,6 +177,19 @@ describe("sendSabotage", () => {
     expect(db.duels[0].opponentSabotage).toBeUndefined();
   });
 
+  it("blocks sabotage when no question is in progress", async () => {
+    const db = seedDb({ questionStartTime: undefined });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "bounce",
+      })
+    ).rejects.toThrow("No active question to sabotage");
+
+    expect(db.duels[0].opponentSabotage).toBeUndefined();
+  });
+
   it("blocks sabotage in PvE duels", async () => {
     const db = seedDb({ duelMode: "pve" });
 

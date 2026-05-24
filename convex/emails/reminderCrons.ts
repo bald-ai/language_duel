@@ -16,6 +16,8 @@ import {
 } from "./reminderPlanners";
 import { getGoalParticipantIds } from "../weeklyGoals/participants";
 
+// Best-effort fan-out: a single failing recipient must not abort the batch, so
+// we log and continue. This is intentional batch isolation, not a silent fallback.
 async function runEmailSend(send: () => Promise<unknown>, context: string) {
   try {
     await send();
@@ -90,19 +92,11 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
       const participants = getGoalParticipantIds(goal);
 
       for (const userId of participants) {
-        const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
-          userId,
-        });
-
         const plannedSend = planDailyReminderEmail({
           goal,
           toUserId: userId,
           dedupeKey: dailyKey,
-          prefs,
         });
-        if (!plannedSend) {
-          continue;
-        }
 
         await runEmailSend(
           () =>
@@ -121,19 +115,11 @@ export const sendDailyWeeklyGoalReminderEmails = internalAction({
       const participants = getGoalParticipantIds(goal);
 
       for (const userId of participants) {
-        const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
-          userId,
-        });
-
         const plannedSend = planGracePeriodReminderEmail({
           goal,
           toUserId: userId,
           dedupeKey: dailyKey,
-          prefs,
         });
-        if (!plannedSend) {
-          continue;
-        }
 
         await runEmailSend(
           () =>
@@ -169,13 +155,8 @@ export const sendDraftExpiryReminders = internalAction({
         }
       );
 
-      const prefs = await ctx.runQuery(internal.notificationPreferences.getByUserId, {
-        userId: goal.creatorId,
-      });
-
       const draftDecision = planDraftExpiryDecision({
         alreadySent,
-        prefs,
       });
       if (!draftDecision.shouldCreateInAppNotification) {
         continue;

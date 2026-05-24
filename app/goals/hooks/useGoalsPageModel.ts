@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useCountdown } from "@/app/notifications/hooks/useCountdown";
+import { useCountdown } from "@/app/goals/hooks/useCountdown";
 import { buildSoloUrl, type SoloMode } from "@/lib/soloNavigation";
 import { getErrorMessage } from "@/lib/errors";
 import {
+  areAllThemesCompleted,
   canToggleGoalThemeCompletion,
-  formatGoalGraceCountdown,
+  formatGoalCountdown,
   getGoalDeleteAt,
   getGoalDraftExpiresAt,
+  getWeeklyGoalLockFlags,
 } from "@/lib/weeklyGoals";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { formatDateInputValue } from "@/lib/displayFormat";
@@ -92,10 +94,10 @@ export function useGoalsPageModel() {
 
   const deleteAt = getGoalDeleteAt(selectedGoal?.goal?.endDate);
   const graceCountdown = useCountdown(deleteAt ?? 0);
-  const formattedGraceCountdown = formatGoalGraceCountdown(graceCountdown.timeRemaining);
+  const formattedGraceCountdown = formatGoalCountdown(graceCountdown.timeRemaining);
   const draftExpiresAt = getGoalDraftExpiresAt(selectedGoal?.goal?.createdAt);
   const draftCountdown = useCountdown(draftExpiresAt ?? 0);
-  const formattedDraftCountdown = formatGoalGraceCountdown(draftCountdown.timeRemaining);
+  const formattedDraftCountdown = formatGoalCountdown(draftCountdown.timeRemaining);
 
   const handleCreateGoal = async () => {
     if (creationMode === "shared" && !selectedPartnerId) return;
@@ -147,8 +149,7 @@ export function useGoalsPageModel() {
   const handleRemoveTheme = async (themeId: Id<"themes">) => {
     if (!selectedGoal?.goal) return;
 
-    const { goal, viewerRole, creator, partner } = selectedGoal;
-    const lockedRole = goal.creatorLocked ? "creator" : goal.partnerLocked ? "partner" : null;
+    const { goal, viewerRole, creator, partner, lockState } = selectedGoal;
     const partnerName =
       viewerRole === "creator"
         ? formatVisibleUser(partner, "Your partner")
@@ -156,13 +157,9 @@ export function useGoalsPageModel() {
 
     try {
       await removeTheme({ goalId: goal._id, themeId });
-      if (goal.mode === "solo") {
-        if (lockedRole) {
-          toast.success("You removed a theme, so your lock was cleared.");
-        }
-      } else if (lockedRole === viewerRole) {
+      if (lockState === "viewer_locked" || lockState === "both_locked") {
         toast.success("You removed a theme, so your lock was cleared.");
-      } else if (lockedRole) {
+      } else if (lockState === "partner_locked") {
         toast.success(`You removed a theme, so ${partnerName}'s lock was cleared.`);
       }
     } catch (error) {
@@ -276,28 +273,18 @@ export function useGoalsPageModel() {
     isDraft &&
     hasGoalSelected &&
     selectedGoal.goal.themes.length < MAX_THEMES_PER_GOAL;
-  const viewerLocked =
-    hasGoalSelected &&
-    (selectedGoal.mode === "solo"
-      ? selectedGoal.goal.creatorLocked
-      : (selectedGoal.viewerRole === "creator" && selectedGoal.goal.creatorLocked) ||
-      (selectedGoal.viewerRole === "partner" && selectedGoal.goal.partnerLocked));
-  const partnerLocked =
-    hasGoalSelected &&
-    selectedGoal.mode === "shared" &&
-    ((selectedGoal.viewerRole === "creator" && selectedGoal.goal.partnerLocked === true) ||
-      (selectedGoal.viewerRole === "partner" && selectedGoal.goal.creatorLocked));
+  const { viewerLocked, partnerLocked } = getWeeklyGoalLockFlags(
+    selectedGoal?.lockState ?? "none"
+  );
   const canToggleThemeCompletion = canToggleGoalThemeCompletion({ effectiveStatus });
   const hasEnoughThemesToLock =
     hasGoalSelected && selectedGoal.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
   const canPracticeGoalThemes = Boolean(hasEnoughThemesToLock);
   const hasEndDate = hasGoalSelected && typeof selectedGoal.goal.endDate === "number";
   const canEditEndDate = Boolean(selectedGoal?.canEditEndDate);
-  const allSelectedThemesCompleted = Boolean(
-    selectedGoal &&
-    selectedGoal.goal.themes.length > 0 &&
-    selectedGoal.completedThemeCount === selectedGoal.goal.themes.length
-  );
+  const allSelectedThemesCompleted = selectedGoal
+    ? areAllThemesCompleted(selectedGoal.goal.themes, selectedGoal.mode)
+    : false;
   const miniBossDisplayStatus = allSelectedThemesCompleted
     ? "unavailable"
     : selectedGoal?.miniBossStatus ?? "unavailable";

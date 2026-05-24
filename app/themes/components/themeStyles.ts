@@ -1,4 +1,4 @@
-import { getButtonStyles, type ThemeColors } from "@/lib/theme";
+import { getButtonStyles, type ThemeColors } from "@/lib/appearance";
 
 export const themeActionButtonClassName =
   "flex-1 bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed";

@@ -7,6 +7,11 @@ type DuelPatch = Partial<Doc<"duels">>;
  * Mirror the challenger half of a gameplay patch onto the opponent half
  * when the duel is a self-duel. For non-self-duels this is a pass-through.
  *
+ * Applied inside every duel patch builder in `duelGameplayRules.ts`
+ * (answer, timeout, next-round, completion) so the "one human fills both
+ * roles" invariant is structural — it no longer depends on the coincidence
+ * that score-bearing fields only ever appear in the answer/timeout patches.
+ *
  * Field-overwrite only: never re-invokes `getLimitedLivesMissPatch` (which
  * is a no-op for `sourceType: "normal"` today and would risk
  * double-decrementing once self-duels widen to boss/SR).

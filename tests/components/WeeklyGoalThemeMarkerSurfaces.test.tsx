@@ -25,7 +25,7 @@ function pickerTheme(id: string, name: string) {
   return {
     _id: id as Id<"themes">,
     name,
-    words: [{ word: "cat" }],
+    wordCount: 1,
   };
 }
 

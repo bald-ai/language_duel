@@ -9,10 +9,7 @@ import {
   isTtsProvider,
   type TtsProvider,
 } from "@/lib/tts/providers";
-import {
-  generateTtsAudioWithFallback,
-  TTS_TIMEOUT_MS,
-} from "@/lib/tts/providerAdapters";
+import { generateTtsAudioWithFallback } from "@/lib/tts/providerAdapters";
 
 async function getUserAndCredits(): Promise<{
   client: ConvexHttpClient;
@@ -65,27 +62,21 @@ export async function generateLiveTtsResponse(text: string) {
     return creditsFailureResponse(error, "Credit check failed");
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
-
   let generatedAudio;
   try {
     generatedAudio = await generateTtsAudioWithFallback({
       text,
       preferredProvider: ttsProvider,
-      signal: controller.signal,
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.error("[TTS] Request timed out after", TTS_TIMEOUT_MS, "ms");
+      console.error("[TTS] Request timed out");
       return NextResponse.json(
         { error: "TTS request timed out" },
         { status: 504 }
       );
     }
     throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!generatedAudio) {

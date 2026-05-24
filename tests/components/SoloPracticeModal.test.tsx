@@ -20,12 +20,12 @@ const themes = [
   {
     _id: "theme_1" as Id<"themes">,
     name: "Food",
-    words: [{ word: "bread" }],
+    wordCount: 1,
   },
   {
     _id: "theme_2" as Id<"themes">,
     name: "Travel",
-    words: [{ word: "train" }],
+    wordCount: 1,
   },
 ];
 

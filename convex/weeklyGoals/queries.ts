@@ -194,15 +194,16 @@ export async function getEligibleThemesForViewer(
 
   if (!isGoalParticipant(goal, userId)) return [];
 
+  const partnerId = goal.partnerId;
   const creatorThemes = await ctx.db
     .query("themes")
     .withIndex("by_owner", (q) => q.eq("ownerId", goal.creatorId))
     .collect();
-  const partnerThemes = goal.partnerId === undefined
+  const partnerThemes = partnerId === undefined
     ? []
     : await ctx.db
         .query("themes")
-        .withIndex("by_owner", (q) => q.eq("ownerId", goal.partnerId!))
+        .withIndex("by_owner", (q) => q.eq("ownerId", partnerId))
         .collect();
 
   const existingThemeIds = new Set(goal.themes.map((theme) => theme.themeId));

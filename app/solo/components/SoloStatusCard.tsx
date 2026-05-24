@@ -2,7 +2,7 @@
 
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
-import { cssVarColors as colors } from "@/app/components/themeCssVars";
+import { cssVarColors as cssColors } from "@/app/components/themeCssVars";
 type SoloStatusCardProps = {
   message: string;
   variant: "error" | "loading";
@@ -12,15 +12,15 @@ type SoloStatusCardProps = {
 };
 
 const loadingCardStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.primary.dark,
-  boxShadow: `0 18px 45px ${colors.primary.glow}`,
+  backgroundColor: cssColors.background.elevated,
+  borderColor: cssColors.primary.dark,
+  boxShadow: `0 18px 45px ${cssColors.primary.glow}`,
 } as const;
 
 const errorCardStyle = {
-  backgroundColor: colors.background.elevated,
-  borderColor: colors.status.danger.DEFAULT,
-  boxShadow: `0 18px 45px ${colors.status.danger.DEFAULT}33`,
+  backgroundColor: cssColors.background.elevated,
+  borderColor: cssColors.status.danger.DEFAULT,
+  boxShadow: `0 18px 45px ${cssColors.status.danger.DEFAULT}33`,
 } as const;
 
 export function SoloStatusCard({

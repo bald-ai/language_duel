@@ -6,7 +6,7 @@ import { action, internalMutation, internalQuery, mutation, query } from "./_gen
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull } from "./helpers/auth";
-import { loadThemeWithViewerAccess } from "./themes/accessPolicy";
+import { loadThemeWithViewerAccess } from "./helpers/themeAccess";
 import type { ThemeWithOwner } from "./themes/readModels";
 import { getThemeListForViewer } from "./themes/listQueries";
 import {

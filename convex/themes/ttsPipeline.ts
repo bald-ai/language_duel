@@ -1,11 +1,12 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { stripIrr } from "../../lib/stringUtils";
+import { generateTtsAudioWithFallback } from "../../lib/tts/providerAdapters";
+import type { ThemeWordWithTts as ThemeWordWithTtsBase } from "../../lib/themes/tts";
 
-export type ThemeWordWithTts = {
-  word: string;
-  answer: string;
-  wrongAnswers: string[];
+// Convex specialization of the canonical word shape (lib/themes/tts.ts), with the
+// storage-ID brand narrowed from string to Id<"_storage">.
+export type ThemeWordWithTts = Omit<ThemeWordWithTtsBase, "ttsStorageId"> & {
   ttsStorageId?: Id<"_storage">;
 };
 
@@ -70,24 +71,13 @@ export function prepareThemeTtsProviderText(answer: string): string {
   return cleanText;
 }
 
-export async function generateThemeTtsAudio(
-  target: ThemeTtsTarget,
-  generateAudio: (text: string, signal: AbortSignal) => Promise<ArrayBuffer | null>,
-  timeoutMs: number
-): Promise<ArrayBuffer> {
+export async function generateThemeTtsAudio(target: ThemeTtsTarget): Promise<ArrayBuffer> {
   const cleanText = prepareThemeTtsProviderText(target.answer);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const audioBuffer = await generateAudio(cleanText, controller.signal);
-    if (!audioBuffer) {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "TTS generation failed" });
-    }
-    return audioBuffer;
-  } finally {
-    clearTimeout(timeoutId);
+  const generatedAudio = await generateTtsAudioWithFallback({ text: cleanText });
+  if (!generatedAudio) {
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "TTS generation failed" });
   }
+  return generatedAudio.audioBuffer;
 }
 
 export async function storeThemeTtsAudio(

@@ -3,7 +3,6 @@
 
 import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import {
-  DEFAULT_WORD_TYPE,
   getWordTypeConfig,
   type WordType,
   type WordTypeConfig,
@@ -67,7 +66,7 @@ function buildThemeUserMessage(themeName: string, count: number, wordType: WordT
 export function buildGenerateThemeUserMessage(
   themeName: string,
   wordCount: number,
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType
 ): string {
   return buildThemeUserMessage(themeName, wordCount, wordType);
 }
@@ -75,7 +74,7 @@ export function buildGenerateThemeUserMessage(
 export function buildGenerateMoreWordsUserMessage(
   themeName: string,
   count: number,
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType
 ): string {
   const config = getWordTypeConfig(wordType);
   return `Generate ${count} new ${config.themeSubject} for the theme "${themeName}".`;
@@ -88,8 +87,8 @@ export function buildGenerateMoreWordsUserMessage(
 export function buildThemeSystemPrompt(
   themeName: string,
   wordCount: number,
-  themePrompt?: string,
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType,
+  themePrompt?: string
 ): string {
   const config = getWordTypeConfig(wordType);
   const promptSpecification = themePrompt ? `\n- Focus specifically on: ${themePrompt}` : "";
@@ -119,10 +118,10 @@ export function buildFieldSystemPrompt(
   currentWord: string,
   currentAnswer: string,
   currentWrongAnswers: string[],
+  wordType: WordType,
   fieldIndex?: number,
   existingWords?: string[],
   rejectedWords?: string[],
-  wordType: WordType = DEFAULT_WORD_TYPE,
   customInstructions?: string
 ): string {
   const config = getWordTypeConfig(wordType);
@@ -226,7 +225,7 @@ ${buildWrongOutputFormat(config)}`;
 export function buildRegenerateForWordPrompt(
   themeName: string,
   newWord: string,
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType
 ): string {
   const config = getWordTypeConfig(wordType);
 
@@ -250,7 +249,7 @@ export function buildAddWordPrompt(
   themeName: string,
   newWord: string,
   existingWords: string[],
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType
 ): string {
   const config = getWordTypeConfig(wordType);
   const existingWordsList = existingWords.length > 0 ? existingWords.join(", ") : "(none)";
@@ -275,7 +274,7 @@ ${buildAnswerAndWrongsOutputFormat(config)}`;
 
 export function buildWordFieldSummary(themeName: string, wordType: WordType): string {
   const config = getWordTypeConfig(wordType);
-  return `Generate a new ${config.englishWordLabel} for your theme "${themeName}" with its ${config.answerLabel} and 6 challenging wrong answers.`;
+  return `Generate a new ${config.englishWordLabel} for your theme "${themeName}" with its ${config.answerLabel} and ${WRONG_ANSWER_COUNT} challenging wrong answers.`;
 }
 
 export function buildAnswerFieldSummary(currentWord: string, wordType: WordType): string {
@@ -312,7 +311,7 @@ export function buildGenerateMoreWordsPrompt(
   themeName: string,
   count: number,
   existingWords: string[],
-  wordType: WordType = DEFAULT_WORD_TYPE
+  wordType: WordType
 ): string {
   const config = getWordTypeConfig(wordType);
   const existingWordsList = existingWords.length > 0 ? existingWords.join(", ") : "(none)";

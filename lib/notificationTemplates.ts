@@ -1,4 +1,4 @@
-import { type NotificationTrigger } from "./notificationPreferences";
+import { type NotificationEmailTrigger } from "./notificationPreferences";
 
 type SenderPalette = {
   bg: string;
@@ -50,7 +50,7 @@ export type EmailData = {
 };
 
 export function getSubjectForTrigger(
-  trigger: NotificationTrigger,
+  trigger: NotificationEmailTrigger,
   data: EmailData
 ): string {
   const sender = data.senderName ?? "Someone mysterious";
@@ -81,7 +81,7 @@ export function getSubjectForTrigger(
 }
 
 export function getBodyForTrigger(
-  trigger: NotificationTrigger,
+  trigger: NotificationEmailTrigger,
   data: EmailData
 ): { heading: string; body: string; cta: string } {
   const sender = data.senderName ?? "Someone";
@@ -183,7 +183,7 @@ export function getBodyForTrigger(
 }
 
 export function renderNotificationEmail(
-  trigger: NotificationTrigger,
+  trigger: NotificationEmailTrigger,
   data: EmailData,
   options: { appUrl: string }
 ): { subject: string; html: string } {

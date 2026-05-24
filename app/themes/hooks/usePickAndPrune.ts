@@ -60,12 +60,12 @@ const INITIAL_STATE: PickAndPruneState = {
   showDiscardConfirm: false,
 };
 
-function createPickAndPruneWordId(originalIndex: number, word: WordEntry): string {
+function createPickAndPruneWordId(): string {
   if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
     return globalThis.crypto.randomUUID();
   }
 
-  return `pick-prune-${originalIndex}-${word.word}-${word.answer}-${Math.random().toString(36).slice(2, 10)}`;
+  return `pick-and-prune-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function sortByOriginalIndex(words: PickAndPruneWord[]): PickAndPruneWord[] {
@@ -131,7 +131,7 @@ export function usePickAndPrune() {
           };
 
     const words = params.words.map((word, originalIndex) => ({
-      id: createPickAndPruneWordId(originalIndex, word),
+      id: createPickAndPruneWordId(),
       originalIndex,
       word,
     }));

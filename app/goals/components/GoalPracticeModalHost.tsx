@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { FunctionReturnType } from "convex/server";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { SoloMode } from "@/lib/soloNavigation";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
@@ -10,27 +12,10 @@ const SoloPracticeModal = dynamic(
   { loading: () => null }
 );
 
+// Derived from the query so this host never drifts from the real shape.
+// `undefined` covers the not-yet-loaded state from useQuery.
 type WeeklyGoalPracticeThemes =
-  | {
-      ok: true;
-      source: "live" | "snapshot";
-      themes: Array<{
-        _id: Id<"themes">;
-        name: string;
-        description?: string;
-        words: Array<{
-          word: string;
-          answer: string;
-          wrongAnswers: string[];
-          ttsStorageId?: Id<"_storage">;
-        }>;
-      }>;
-    }
-  | {
-      ok: false;
-      message: string;
-    }
-  | null
+  | FunctionReturnType<typeof api.weeklyGoals.getWeeklyGoalPracticeThemes>
   | undefined;
 
 interface GoalPracticeModalHostProps {
@@ -51,7 +36,11 @@ export function GoalPracticeModalHost({
     return (
       <SoloPracticeModal
         key={`${goalId}:${weeklyGoalPracticeThemes.source}`}
-        themes={weeklyGoalPracticeThemes.themes}
+        themes={weeklyGoalPracticeThemes.themes.map((theme) => ({
+          _id: theme._id,
+          name: theme.name,
+          wordCount: theme.words.length,
+        }))}
         onContinue={onContinue}
         onClose={onClose}
         onNavigateToThemes={() => {}}

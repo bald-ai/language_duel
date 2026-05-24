@@ -3,7 +3,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   getSessionWords,
   summarizeSessionWords,
-  getThemeIdsFromSessionWords,
 } from "@/convex/helpers/sessionWords";
 import type { SessionWordEntry } from "@/lib/sessionWords";
 
@@ -46,18 +45,5 @@ describe("summarizeSessionWords", () => {
 
   it("returns 'Theme' for empty array", () => {
     expect(summarizeSessionWords([])).toBe("Theme");
-  });
-});
-
-describe("getThemeIdsFromSessionWords", () => {
-  it("returns unique theme ids in order", () => {
-    expect(getThemeIdsFromSessionWords(sampleWords)).toEqual([
-      themeId("t1"),
-      themeId("t2"),
-    ]);
-  });
-
-  it("returns empty array for no words", () => {
-    expect(getThemeIdsFromSessionWords([])).toEqual([]);
   });
 });

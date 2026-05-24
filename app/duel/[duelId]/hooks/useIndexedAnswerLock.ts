@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 
+/**
+ * Invariant: a selection/lock is only honored for the question index it was made
+ * on. The setters stamp the current index onto the value; the `getXForIndex`
+ * readers return the empty value (null / false) for any other index, so a stale
+ * selection is discarded the moment the server advances to the next question.
+ */
 export function useIndexedAnswerLock(getCurrentIndex: () => number | null) {
   const [selectedAnswerRaw, setSelectedAnswerRaw] = useState<string | null>(null);
   const selectedAnswerIndexRef = useRef<number | null>(null);
@@ -32,8 +38,6 @@ export function useIndexedAnswerLock(getCurrentIndex: () => number | null) {
   );
 
   return {
-    isLockedIndexRef,
-    selectedAnswerIndexRef,
     setSelectedAnswer,
     setIsLocked,
     getSelectedAnswerForIndex,

@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   internalQuery,
   type ActionCtx,
@@ -7,16 +7,18 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   formatScheduledTimeForEmail,
-  type NotificationTrigger,
+  type NotificationEmailTrigger,
 } from "../../lib/notificationPreferences";
 import { type EmailData } from "../../lib/notificationTemplates";
 import { formatVisibleUser } from "../../lib/userDisplay";
-import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/theme";
+import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/appearance";
 import { summarizeThemeNames } from "../../lib/sessionWords";
 import { getGoalDeleteAt } from "../../lib/weeklyGoals";
 import { WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE } from "../../lib/weeklyGoalTiming";
 import { getGoalPartnerIdForViewer } from "../weeklyGoals/participants";
 
+// Pure plumbing: get-by-id wrappers so buildEmailData (an action) can read docs
+// through queries. Not domain queries — keep them thin.
 export const getUserById = internalQuery({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
@@ -46,7 +48,7 @@ export const getThemeById = internalQuery({
 });
 
 export type BuildEmailArgs = {
-  trigger: NotificationTrigger;
+  trigger: NotificationEmailTrigger;
   toUser: Doc<"users">;
   fromUserId?: Id<"users">;
   challengeId?: Id<"challenges">;
@@ -110,7 +112,10 @@ export async function buildEmailData(
           args.trigger === "weekly_goal_locked" ||
           args.trigger === "weekly_goal_accepted")
       ) {
-        throw new Error(`INVALID_STATE: solo goal hit shared-only email trigger '${args.trigger}'`);
+        throw new ConvexError({
+          code: "INVALID_STATE",
+          message: `solo goal hit shared-only email trigger '${args.trigger}'`,
+        });
       }
 
       if (
@@ -121,7 +126,10 @@ export async function buildEmailData(
           args.trigger === "weekly_goal_grace_period_reminder") &&
         args.fromUserId !== undefined
       ) {
-        throw new Error(`INVALID_STATE: solo goal reminder '${args.trigger}' cannot have fromUserId`);
+        throw new ConvexError({
+          code: "INVALID_STATE",
+          message: `solo goal reminder '${args.trigger}' cannot have fromUserId`,
+        });
       }
 
       const partnerId = getGoalPartnerIdForViewer(goal, args.toUser._id);

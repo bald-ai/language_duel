@@ -1,11 +1,6 @@
-import type { SabotageEffect } from "./sabotage/types";
+import type { SabotageState } from "./sabotage/types";
 
 export type DuelRole = "challenger" | "opponent";
-
-type DuelSabotage = {
-  effect: SabotageEffect;
-  timestamp: number;
-};
 
 type DuelDoc = {
   challengerScore: number;
@@ -14,8 +9,8 @@ type DuelDoc = {
   opponentAnswered: boolean;
   challengerLastAnswer?: string;
   opponentLastAnswer?: string;
-  challengerSabotage?: DuelSabotage;
-  opponentSabotage?: DuelSabotage;
+  challengerSabotage?: SabotageState;
+  opponentSabotage?: SabotageState;
   challengerSabotagesUsed?: number;
   opponentSabotagesUsed?: number;
 };
@@ -27,8 +22,8 @@ export type DuelRoleView = {
   theirAnswered: boolean;
   myLastAnswer?: string;
   theirLastAnswer?: string;
-  mySabotage?: DuelSabotage;
-  theirSabotage?: DuelSabotage;
+  mySabotage?: SabotageState;
+  theirSabotage?: SabotageState;
   mySabotagesUsed: number;
   theirSabotagesUsed: number;
   theirRole: DuelRole;

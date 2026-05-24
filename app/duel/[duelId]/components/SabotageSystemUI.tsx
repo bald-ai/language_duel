@@ -7,7 +7,7 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 interface SabotageSystemUIProps {
   status: string;
   phase: string;
-  word: string;
+  isRoundOver: boolean;
   sabotagesRemaining: number;
   isLocked: boolean;
   hasAnswered: boolean;
@@ -18,16 +18,14 @@ interface SabotageSystemUIProps {
 }
 
 /**
- * SabotageSystemUI component displays the sabotage controls.
- * It is extracted from the main DuelSession to adhere to the "Skinny Page" rule.
- * 
- * Principle: No magic numbers in component code. (Uses MAX_SABOTAGES from constants)
- * Principle: Co-locate feature-specific components.
+ * The sabotage controls shown in the duel footer (PvP only): one button per
+ * sabotage effect, with a remaining-uses counter. Renders nothing once the
+ * round is over or the duel is no longer in the answering phase.
  */
 export const SabotageSystemUI = memo(function SabotageSystemUI({
   status,
   phase,
-  word,
+  isRoundOver,
   sabotagesRemaining,
   isLocked,
   hasAnswered,
@@ -37,9 +35,17 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   dataTestIdBase,
 }: SabotageSystemUIProps) {
   const colors = useAppearanceColors();
-  if (status !== "active" || phase !== "answering" || word === "done") {
+  if (status !== "active" || phase !== "answering" || isRoundOver) {
     return null;
   }
+
+  // Loop-invariant: the same gate applies to every sabotage button, so compute
+  // it once. (Sabotage can't be sent once the opponent has answered.)
+  const disabled =
+    sabotagesRemaining <= 0 ||
+    (!hasAnswered && isLocked) ||
+    isOutgoingSabotageActive ||
+    opponentHasAnswered;
 
   const containerStyle = {
     borderColor: colors.primary.dark,
@@ -72,33 +78,23 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
         className="flex items-center justify-center gap-2 px-3 py-2 rounded-2xl border backdrop-blur-md shadow-xl"
         style={containerStyle}
       >
-        {SABOTAGE_OPTIONS.map((option) => {
-          // Rule: Sabotage can't be sent if the opponent has already answered
-          const disabled =
-            sabotagesRemaining <= 0 ||
-            phase !== "answering" ||
-            (!hasAnswered && isLocked) ||
-            isOutgoingSabotageActive ||
-            opponentHasAnswered;
-
-          return (
-            <button
-              key={option.effect}
-              onClick={() => onSendSabotage(option.effect)}
-              disabled={disabled}
-              className={`h-11 w-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
-                disabled
-                  ? "cursor-not-allowed opacity-60"
-                  : "hover:brightness-110 active:scale-95"
-              }`}
-              style={disabled ? disabledButtonStyle : enabledButtonStyle}
-              title={option.label}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-${option.effect}` : undefined}
-            >
-              {option.emoji}
-            </button>
-          );
-        })}
+        {SABOTAGE_OPTIONS.map((option) => (
+          <button
+            key={option.effect}
+            onClick={() => onSendSabotage(option.effect)}
+            disabled={disabled}
+            className={`h-11 w-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
+              disabled
+                ? "cursor-not-allowed opacity-60"
+                : "hover:brightness-110 active:scale-95"
+            }`}
+            style={disabled ? disabledButtonStyle : enabledButtonStyle}
+            title={option.label}
+            data-testid={dataTestIdBase ? `${dataTestIdBase}-${option.effect}` : undefined}
+          >
+            {option.emoji}
+          </button>
+        ))}
       </div>
     </div>
   );

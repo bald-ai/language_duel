@@ -8,7 +8,6 @@ type PersistedPreferenceOptions<T extends string> = {
   serverValue: string | null | undefined;
   serverValueLoaded: boolean;
   isValid: (value: string) => value is T;
-  applyValue?: (value: T) => void;
   saveValue?: (value: T) => Promise<unknown>;
   onSaveError?: (error: unknown) => void;
 };
@@ -19,7 +18,6 @@ export function usePersistedPreference<T extends string>({
   serverValue,
   serverValueLoaded,
   isValid,
-  applyValue,
   saveValue,
   onSaveError,
 }: PersistedPreferenceOptions<T>) {
@@ -29,11 +27,10 @@ export function usePersistedPreference<T extends string>({
 
   const applyAndStore = useCallback(
     (nextValue: T) => {
-      applyValue?.(nextValue);
       window.localStorage.setItem(storageKey, nextValue);
       setValueState(nextValue);
     },
-    [applyValue, storageKey]
+    [storageKey]
   );
 
   useEffect(() => {
@@ -74,5 +71,5 @@ export function usePersistedPreference<T extends string>({
     [applyAndStore, isValid, onSaveError, saveValue, serverValueLoaded]
   );
 
-  return { value, setValue, hasHydrated };
+  return { value, setValue };
 }

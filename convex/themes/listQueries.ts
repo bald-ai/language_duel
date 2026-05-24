@@ -1,8 +1,7 @@
-import type { QueryCtx } from "../_generated/server";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { loadUsersById } from "../helpers/users";
 import { loadFriendshipsBetweenUsers } from "../helpers/relationshipPolicy";
-import { shouldListTheme } from "./accessPolicy";
 import { buildThemeWithOwner, type ThemeWithOwner } from "./readModels";
 
 const FRIEND_SHARED_THEME_BATCH_SIZE = 10;
@@ -37,21 +36,39 @@ async function loadFriendSharedThemes(
   return friendSharedThemes;
 }
 
+/**
+ * All draft weekly goals the user participates in (as creator or partner), deduped.
+ * Shared by the theme-list access path and `handleDeleteTheme`'s draft-goal guard.
+ */
+export async function loadDraftGoalsForUser(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<Doc<"weeklyGoals">[]> {
+  const [goalsAsCreator, goalsAsPartner] = await Promise.all([
+    ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_creator", (q) => q.eq("creatorId", userId))
+      .collect(),
+    ctx.db
+      .query("weeklyGoals")
+      .withIndex("by_partner", (q) => q.eq("partnerId", userId))
+      .collect(),
+  ]);
+
+  const draftGoalsById = new Map<string, Doc<"weeklyGoals">>();
+  for (const goal of [...goalsAsCreator, ...goalsAsPartner]) {
+    if (goal.status === "draft") {
+      draftGoalsById.set(String(goal._id), goal);
+    }
+  }
+  return Array.from(draftGoalsById.values());
+}
+
 async function loadDraftGoalAccessThemes(
   ctx: QueryCtx,
   currentUserId: Id<"users">
 ): Promise<Doc<"themes">[]> {
-  const goalsAsCreator = await ctx.db
-    .query("weeklyGoals")
-    .withIndex("by_creator", (q) => q.eq("creatorId", currentUserId))
-    .collect();
-  const goalsAsPartner = await ctx.db
-    .query("weeklyGoals")
-    .withIndex("by_partner", (q) => q.eq("partnerId", currentUserId))
-    .collect();
-  const draftGoals = [...goalsAsCreator, ...goalsAsPartner].filter(
-    (goal) => goal.status === "draft"
-  );
+  const draftGoals = await loadDraftGoalsForUser(ctx, currentUserId);
   const accessThemeIds = [
     ...new Set(draftGoals.flatMap((goal) => goal.themes.map((theme) => theme.themeId))),
   ];
@@ -113,32 +130,6 @@ async function loadRawThemeList(
   return dedupeThemes([...ownedThemes, ...friendSharedThemes, ...accessThemes]);
 }
 
-async function filterListableThemes(args: {
-  ctx: QueryCtx;
-  currentUserId: Id<"users">;
-  archivedIds: Set<Id<"themes">>;
-  archivedOnly?: boolean;
-  themes: Doc<"themes">[];
-}): Promise<Doc<"themes">[]> {
-  const listableThemes: Doc<"themes">[] = [];
-
-  for (const theme of args.themes) {
-    if (
-      await shouldListTheme(
-        args.ctx,
-        args.currentUserId,
-        theme,
-        args.archivedIds,
-        args.archivedOnly
-      )
-    ) {
-      listableThemes.push(theme);
-    }
-  }
-
-  return listableThemes;
-}
-
 async function enrichThemesWithOwners(args: {
   ctx: QueryCtx;
   currentUserId: Id<"users">;
@@ -179,14 +170,14 @@ export async function getThemeListForViewer(
   args: ThemeListArgs,
   archivedThemeIds: Id<"themes">[] = []
 ): Promise<ThemeWithOwner[]> {
+  // The raw-list loaders (owned / friend-shared / draft-goal) already encode the
+  // view-access rule by construction, so every theme here is accessible. The only
+  // remaining gate is the archived filter, which is pure set membership.
   const rawThemes = await loadRawThemeList(ctx, currentUserId, args);
-  const themes = await filterListableThemes({
-    ctx,
-    currentUserId,
-    archivedIds: new Set(archivedThemeIds),
-    archivedOnly: args.archivedOnly,
-    themes: rawThemes,
-  });
+  const archivedIds = new Set(archivedThemeIds);
+  const themes = rawThemes.filter((theme) =>
+    args.archivedOnly ? archivedIds.has(theme._id) : !archivedIds.has(theme._id)
+  );
 
   return await enrichThemesWithOwners({ ctx, currentUserId, themes });
 }

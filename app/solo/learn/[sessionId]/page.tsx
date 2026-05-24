@@ -1,54 +1,30 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Id } from "@/convex/_generated/dataModel";
-import { SOLO_TIMER_OPTIONS } from "./constants";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo } from "react";
+import { SOLO_TIMER_OPTIONS, DEFAULT_DURATION } from "./constants";
 import {
   getSoloLearnTimerLabel,
-  isSoloStudyTimerInfinite,
   shouldShowSoloLearnTimer,
 } from "@/lib/soloLearnTimer";
-import { stripIrr } from "@/lib/stringUtils";
-import { MemoizedWordCardWrapper, type HintState } from "./components/MemoizedWordCardWrapper";
-import { LearnHeader } from "./components/LearnHeader";
+import { SoloLearnWordRow } from "./components/SoloLearnWordRow";
 import { SetAllDropdown } from "./components/SetAllDropdown";
-import { CONFIDENCE_COLORS, type ConfidenceLevel } from "./components/ConfidenceSlider";
-import { DEFAULT_DURATION, TIMER_THRESHOLDS } from "./constants";
-import { ThemedPage } from "@/app/components/ThemedPage";
-import { SoloStatusCard } from "@/app/solo/components/SoloStatusCard";
-import { useAppearanceButtonStyles, useAppearanceColors } from "@/app/components/AppearanceProvider";
-import type { ButtonStyles, ThemeColors } from "@/lib/theme";
-import { useTTS } from "@/app/game/hooks/useTTS";
-import { buildSessionWords, summarizeThemes } from "@/lib/sessionWords";
-import { buildSoloSearchParams, sanitizeSoloReturnTo } from "@/lib/soloNavigation";
+import { CONFIDENCE_COLORS } from "./components/ConfidenceSlider";
+import { useSoloLearnState, DEFAULT_HINT_STATE } from "./hooks/useSoloLearnState";
+import { useSoloLearnTimer } from "./hooks/useSoloLearnTimer";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import type { ThemeColors } from "@/lib/appearance";
+import { useTTS } from "@/hooks/useTTS";
+import { buildSoloSearchParams } from "@/lib/soloNavigation";
+import { encodeConfidenceParam } from "@/lib/soloConfidenceParam";
+import { actionButtonClassName, getCtaActionStyle } from "@/app/components/modals/modalButtonStyles";
 
-const DEFAULT_HINT_STATE = Object.freeze({
-  hintCount: 0,
-  revealedPositions: Object.freeze([] as number[]),
-}) as HintState;
-
-const actionButtonClassName =
-  "w-full bg-gradient-to-b border-t-2 border-b-4 border-x-2 rounded-xl py-3 px-4 text-sm sm:text-base font-bold uppercase tracking-widest hover:translate-y-0.5 hover:brightness-110 active:translate-y-1 transition-all duration-200 shadow-lg";
-
-const buildActionStyle = (
-  variant: "primary" | "cta",
-  colors: ThemeColors,
-  buttonStyles: ButtonStyles
-) => {
-  const styles = buttonStyles[variant];
-  return {
-    backgroundImage: `linear-gradient(to bottom, ${styles.gradient.from}, ${styles.gradient.to})`,
-    borderTopColor: styles.border.top,
-    borderBottomColor: styles.border.bottom,
-    borderLeftColor: styles.border.sides,
-    borderRightColor: styles.border.sides,
-    color: colors.text.DEFAULT,
-    textShadow: "0 2px 4px rgba(0,0,0,0.4)",
-  };
-};
+// Shared solo chrome
+import { useSoloSessionSource } from "@/app/solo/hooks/useSoloSessionSource";
+import { SoloStatusScreen } from "@/app/solo/components/SoloStatusScreen";
+import { SoloPageShell } from "@/app/solo/components/SoloPageShell";
+import { SoloExitButton } from "@/app/solo/components/SoloExitButton";
+import { SoloHeader } from "@/app/solo/components/SoloHeader";
 
 const toggleButtonClassName =
   "px-4 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
@@ -82,37 +58,41 @@ const listItemStyle = {
   containIntrinsicSize: "220px 420px",
 } as const;
 
-
 export default function LearnPhasePage() {
   const colors = useAppearanceColors();
-  const buttonStyles = useAppearanceButtonStyles();
-  const ctaActionStyle = buildActionStyle("cta", colors, buttonStyles);
+  const ctaActionStyle = getCtaActionStyle(colors);
   const toggleActiveStyle = getToggleActiveStyle(colors);
   const toggleInactiveStyle = getToggleInactiveStyle(colors);
   const cardStyle = getCardStyle(colors);
   const listCardStyle = getListCardStyle(colors);
+
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
-  const themeId = searchParams.get("themeId");
-  const themeIdsParam = searchParams.get("themeIds");
-  const soloPracticeSessionId = searchParams.get("soloPracticeSessionId");
-  const weeklyGoalId = searchParams.get("weeklyGoalId");
-  const returnTo = sanitizeSoloReturnTo(searchParams.get("returnTo"));
-  const returnLabel = searchParams.get("returnLabel") || "Back to Home";
-  const durationParam = searchParams.get("duration");
-  const parsedDuration = Number.parseInt(durationParam ?? "", 10);
-  const presetDuration = SOLO_TIMER_OPTIONS.includes(parsedDuration as (typeof SOLO_TIMER_OPTIONS)[number])
-    ? parsedDuration
-    : null;
-  const initialDuration = presetDuration ?? DEFAULT_DURATION;
-  const requestedThemeIds = useMemo(() => {
-    if (themeIdsParam) {
-      return themeIdsParam.split(",").filter(Boolean) as Id<"themes">[];
-    }
-    return themeId ? [themeId as Id<"themes">] : [];
-  }, [themeId, themeIdsParam]);
+
+  const source = useSoloSessionSource({ loadingMessage: "Loading study session..." });
+  const {
+    status,
+    statusMessage,
+    sessionWords,
+    themeSummary,
+    requestedThemeIds,
+    soloPracticeSessionId,
+    weeklyGoalId,
+    returnTo,
+    returnLabel,
+    isSessionReady,
+    durationParam,
+  } = source;
+
+  const initialDuration = useMemo(() => {
+    const parsed = Number.parseInt(durationParam ?? "", 10);
+    const presetDuration = SOLO_TIMER_OPTIONS.includes(parsed as (typeof SOLO_TIMER_OPTIONS)[number])
+      ? parsed
+      : null;
+    return presetDuration ?? DEFAULT_DURATION;
+  }, [durationParam]);
+
   const themeIdsKey = useMemo(() => requestedThemeIds.join(","), [requestedThemeIds]);
   const sessionSourceKey = soloPracticeSessionId
     ? `solo-practice:${soloPracticeSessionId}`
@@ -120,153 +100,26 @@ export default function LearnPhasePage() {
       ? `weeklyGoal:${weeklyGoalId}:${themeIdsKey}`
       : themeIdsKey || "no-theme";
 
-  const practiceSession = useQuery(
-    api.weeklyGoals.getBossPracticeSession,
-    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
-  );
-  const weeklyGoalPractice = useQuery(
-    api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    !soloPracticeSessionId && weeklyGoalId
-      ? {
-          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
-          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
-        }
-      : "skip"
-  );
-  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
-  const selectedThemes = useMemo(() => {
-    if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
-    if (!allThemes) return [];
-    const themeMap = new Map(allThemes.map((theme) => [theme._id, theme]));
-    return requestedThemeIds
-      .flatMap((requestedThemeId) => {
-        const theme = themeMap.get(requestedThemeId);
-        return theme ? [theme] : [];
-      });
-  }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
-  const sessionWords = useMemo(
-    () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
-    [practiceSession?.sessionWords, selectedThemes]
-  );
-  const themeSummary = useMemo(
-    () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
-    [practiceSession?.themeSummary, selectedThemes]
-  );
-  const isSessionReady = soloPracticeSessionId
-    ? practiceSession !== undefined && practiceSession !== null
-    : weeklyGoalId
-      ? Boolean(weeklyGoalPractice?.ok && selectedThemes.length > 0)
-      : allThemes !== undefined && requestedThemeIds.length > 0 && selectedThemes.length === requestedThemeIds.length;
+  const {
+    hintStates,
+    isAllRevealed,
+    confidenceLevels,
+    isConfidenceLegendDismissed,
+    isSetAllOpen,
+    setIsSetAllOpen,
+    dismissConfidenceLegend,
+    getConfidence,
+    setConfidence,
+    revealLetter,
+    revealFullWord,
+    resetWord,
+    toggleRevealAll,
+    setAllConfidence,
+  } = useSoloLearnState({ sessionWords, sessionSourceKey, sessionId });
 
-  // Timer state
-  const duration = initialDuration;
-  const [timeRemaining, setTimeRemaining] = useState(initialDuration);
-
-  // Hint states
-  const [hintStates, setHintStates] = useState<Record<string, HintState>>({});
-  const [isAllRevealed, setIsAllRevealed] = useState(false);
+  const { timeRemaining, timerStyle } = useSoloLearnTimer(initialDuration, isSessionReady);
 
   const { playingWordKey, playTTS } = useTTS();
-
-  // Confidence level per word
-  const [confidenceLevels, setConfidenceLevels] = useState<Record<string, ConfidenceLevel>>({});
-  const [isConfidenceLegendDismissed, setIsConfidenceLegendDismissed] = useState(false);
-  const [isSetAllOpen, setIsSetAllOpen] = useState(false);
-
-  const confidenceLegendStorageKey = `soloLearnConfidenceLegendDismissed:${sessionId}:${sessionSourceKey}`;
-
-  useEffect(() => {
-    try {
-      setIsConfidenceLegendDismissed(sessionStorage.getItem(confidenceLegendStorageKey) === "1");
-    } catch {
-      // ignore
-    }
-  }, [confidenceLegendStorageKey]);
-
-  // --- Helper functions (memoized) ---
-  const getConfidence = useCallback((wordKey: string): ConfidenceLevel => confidenceLevels[wordKey] ?? 0, [confidenceLevels]);
-
-  const setConfidence = useCallback((wordKey: string, level: ConfidenceLevel) => {
-    setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
-  }, []);
-
-  const revealLetter = useCallback((wordKey: string, position: number) => {
-    setHintStates((prev) => {
-      const current = prev[wordKey] || DEFAULT_HINT_STATE;
-      if (current.revealedPositions.includes(position)) return prev;
-      return {
-        ...prev,
-        [wordKey]: {
-          hintCount: current.hintCount + 1,
-          revealedPositions: [...current.revealedPositions, position],
-        },
-      };
-    });
-  }, []);
-
-  const revealFullWord = useCallback((wordKey: string, answer: string) => {
-    const strippedAnswer = stripIrr(answer);
-    const allPositions = strippedAnswer
-      .split("")
-      .map((char, idx) => (char !== " " ? idx : -1))
-      .filter((idx) => idx !== -1);
-    setHintStates((prev) => ({
-      ...prev,
-      [wordKey]: {
-        hintCount: allPositions.length,
-        revealedPositions: allPositions,
-      },
-    }));
-  }, []);
-
-  const resetWord = useCallback((wordKey: string) => {
-    setHintStates((prev) => {
-      const newState = { ...prev };
-      delete newState[wordKey];
-      return newState;
-    });
-    setIsAllRevealed(false);
-  }, []);
-
-  const toggleRevealAll = useCallback(() => {
-    if (isAllRevealed) {
-      setHintStates({});
-      setIsAllRevealed(false);
-      return;
-    }
-
-    const nextHintStates: Record<string, HintState> = {};
-    sessionWords.forEach((word, index) => {
-      const allPositions = stripIrr(word.answer)
-        .split("")
-        .map((char, idx) => (char !== " " ? idx : -1))
-        .filter((idx) => idx !== -1);
-
-      nextHintStates[`${sessionSourceKey}-${index}`] = {
-        hintCount: allPositions.length,
-        revealedPositions: allPositions,
-      };
-    });
-
-    setHintStates(nextHintStates);
-    setIsAllRevealed(true);
-  }, [isAllRevealed, sessionSourceKey, sessionWords]);
-
-  const setAllConfidence = useCallback((level: ConfidenceLevel) => {
-    if (sessionWords.length === 0) {
-      setIsSetAllOpen(false);
-      return;
-    }
-
-    setConfidenceLevels((prev) => {
-      const next = { ...prev };
-      sessionWords.forEach((_, index) => {
-        next[`${sessionSourceKey}-${index}`] = level;
-      });
-      return next;
-    });
-    setIsSetAllOpen(false);
-  }, [sessionSourceKey, sessionWords]);
 
   const playingWordIndex = useMemo(() => {
     if (!playingWordKey || !playingWordKey.startsWith("solo-learn-")) {
@@ -276,35 +129,20 @@ export default function LearnPhasePage() {
     return Number.isNaN(parsed) ? null : parsed;
   }, [playingWordKey]);
 
-  // --- Timer logic ---
-  useEffect(() => {
-    if (!isSessionReady) return;
-    const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isSessionReady]);
-
+  // Auto-advance to practice when the study timer runs out.
   useEffect(() => {
     if (timeRemaining === 0 && isSessionReady) {
-      const params = buildSoloSearchParams({
+      const urlParams = buildSoloSearchParams({
         soloPracticeSessionId,
         weeklyGoalId,
         themeIds: requestedThemeIds,
         returnTo,
         returnLabel,
       });
-      router.push(`/solo/${sessionId}?${params.toString()}`);
+      router.push(`/solo/${sessionId}?${urlParams.toString()}`);
     }
   }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
 
-  // --- TTS ---
   const playWordTTS = useCallback(
     (wordIndex: number, spanishWord: string, storageId?: string, themeId?: string) => {
       void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId, themeId });
@@ -312,7 +150,6 @@ export default function LearnPhasePage() {
     [playTTS]
   );
 
-  // --- Navigation ---
   const handleSkip = useCallback(() => {
     const confidenceByWordIndex: Record<number, number> = {};
     sessionWords.forEach((_, wordIndex) => {
@@ -327,144 +164,44 @@ export default function LearnPhasePage() {
       returnTo,
       returnLabel,
     });
-    urlParams.set("confidence", JSON.stringify(confidenceByWordIndex));
+    urlParams.set("confidence", encodeConfidenceParam(confidenceByWordIndex));
 
     router.push(`/solo/${sessionId}?${urlParams.toString()}`);
   }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
 
   const handleExit = useCallback(() => router.push(returnTo), [router, returnTo]);
 
-  // --- Timer display (memoized) ---
-  const timerStyle = useMemo(() => {
-    if (isSoloStudyTimerInfinite(duration)) {
-      return { color: colors.status.success.DEFAULT };
-    }
-    const percentage = timeRemaining / duration;
-    if (percentage > TIMER_THRESHOLDS.GREEN) return { color: colors.status.success.DEFAULT };
-    if (percentage > TIMER_THRESHOLDS.YELLOW) return { color: colors.status.warning.DEFAULT };
-    return { color: colors.status.danger.DEFAULT };
-  }, [colors, timeRemaining, duration]);
-
-  // --- Loading states ---
-  if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {
+  if (status !== "ready") {
     return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="No theme selected"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-learn-back-home"
-          />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if (
-    (soloPracticeSessionId && practiceSession === undefined) ||
-    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === undefined) ||
-    (!soloPracticeSessionId && !weeklyGoalId && allThemes === undefined)
-  ) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard message="Loading study session..." variant="loading" />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if ((soloPracticeSessionId && practiceSession === null) || (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === null)) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="This practice session is no longer available"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-          />
-        </div>
-      </ThemedPage>
-    );
-  }
-
-  if (!soloPracticeSessionId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message={weeklyGoalPractice.message}
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-learn-back-home"
-          />
-        </div>
-      </ThemedPage>
-    );
-  }
-
-  if (!soloPracticeSessionId && !weeklyGoalId && selectedThemes.length !== requestedThemeIds.length) {
-    return (
-      <ThemedPage>
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
-          <SoloStatusCard
-            message="Theme not found"
-            variant="error"
-            buttonLabel={returnLabel}
-            onButtonClick={handleExit}
-            dataTestId="solo-learn-back-home"
-          />
-        </div>
-        <div
-          className="relative z-10 h-1"
-          style={{
-            background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-          }}
-        />
-      </ThemedPage>
+      <SoloStatusScreen
+        status={status}
+        message={statusMessage}
+        returnLabel={returnLabel}
+        onExit={handleExit}
+        testIdBase="solo-learn"
+      />
     );
   }
 
   // --- Main learning UI ---
   return (
-    <ThemedPage>
+    <SoloPageShell>
       <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center w-full max-w-xl mx-auto px-6 pt-6 pb-0">
         <div className="absolute top-4 right-4 z-20 animate-slide-up delay-100">
-          <button
-            onClick={handleExit}
-            className="px-5 py-3 rounded-xl border-2 border-b-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 hover:translate-y-0.5 active:translate-y-1 shadow-lg"
-            style={{
-              backgroundColor: colors.status.danger.DEFAULT,
-              borderTopColor: colors.status.danger.light,
-              borderBottomColor: colors.status.danger.dark,
-              borderLeftColor: colors.status.danger.DEFAULT,
-              borderRightColor: colors.status.danger.DEFAULT,
-              color: "#FFFFFF",
-              textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-            }}
-            data-testid="solo-learn-exit"
-          >
-            Exit
-          </button>
+          <SoloExitButton onExit={handleExit} dataTestId="solo-learn-exit" />
         </div>
 
-        <LearnHeader />
+        <SoloHeader
+          variant="shadow"
+          subtitle={
+            <p
+              className="mt-2 text-xs sm:text-sm font-light tracking-wide"
+              style={{ color: colors.text.muted }}
+            >
+              Study first, then jump into practice
+            </p>
+          }
+        />
 
         <section
           className="relative z-30 w-full overflow-visible rounded-3xl border-2 p-5 text-center backdrop-blur-sm animate-slide-up delay-200"
@@ -552,14 +289,7 @@ export default function LearnPhasePage() {
                     <button
                       type="button"
                       aria-label="Dismiss confidence legend"
-                      onClick={() => {
-                        setIsConfidenceLegendDismissed(true);
-                        try {
-                          sessionStorage.setItem(confidenceLegendStorageKey, "1");
-                        } catch {
-                          // ignore
-                        }
-                      }}
+                      onClick={dismissConfidenceLegend}
                       className="ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition hover:brightness-110"
                       style={{ color: colors.text.muted }}
                       data-testid="solo-learn-confidence-dismiss"
@@ -573,16 +303,16 @@ export default function LearnPhasePage() {
 
             {sessionWords.map((word, originalIndex) => {
               const wordKey = `${sessionSourceKey}-${originalIndex}`;
-              const state = hintStates[wordKey] || DEFAULT_HINT_STATE;
+              const hintState = hintStates[wordKey] || DEFAULT_HINT_STATE;
               const confidence = confidenceLevels[wordKey] ?? 0;
 
               return (
                 <div key={originalIndex} style={listItemStyle}>
-                  <MemoizedWordCardWrapper
+                  <SoloLearnWordRow
                     originalIndex={originalIndex}
                     word={word}
-                    themeId={sessionSourceKey}
-                    hintState={state}
+                    wordKey={wordKey}
+                    hintState={hintState}
                     confidence={confidence}
                     playingWordIndex={playingWordIndex}
                     setConfidence={setConfidence}
@@ -609,13 +339,6 @@ export default function LearnPhasePage() {
           </button>
         </div>
       </div>
-
-      <div
-        className="relative z-10 h-1"
-        style={{
-          background: `linear-gradient(to right, ${colors.primary.DEFAULT}, ${colors.cta.DEFAULT}, ${colors.secondary.DEFAULT})`,
-        }}
-      />
-    </ThemedPage>
+    </SoloPageShell>
   );
 }

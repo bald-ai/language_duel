@@ -1,7 +1,6 @@
 "use client";
 
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
-import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 import { cssVarColors as colors } from "@/app/components/themeCssVars";
 /**
@@ -10,7 +9,7 @@ import { cssVarColors as colors } from "@/app/components/themeCssVars";
 export interface OptionContext {
   /** The answer text for this option */
   answer: string;
-  /** Currently selected answer (if any) */
+  /** Currently selected answer (if any), already resolved to the displayed question */
   selectedAnswer: string | null;
   /** The correct answer for this question, once the backend has revealed it */
   correctAnswer: string | null;
@@ -22,12 +21,10 @@ export interface OptionContext {
   eliminatedOptions: string[];
   /** Whether this user can eliminate options (hint provider) */
   canEliminate: boolean;
-  /** Opponent's last answer (for showing their pick) */
-  opponentLastAnswer: string | null;
-  /** Current game status */
-  status: string;
-  /** Frozen data for transition phase */
-  frozenData: { opponentAnswer: string | null } | null;
+  /** The opponent's answer for the displayed question (frozen-or-live), if known */
+  opponentAnswer: string | null;
+  /** Whether the opponent's pick should be surfaced (transition or completed) */
+  showOpponentPick: boolean;
 }
 
 /**
@@ -58,9 +55,8 @@ export function computeOptionState(
     isShowingFeedback,
     eliminatedOptions,
     canEliminate,
-    opponentLastAnswer,
-    status,
-    frozenData,
+    opponentAnswer,
+    showOpponentPick,
   } = context;
 
   const isNoneOfAbove = answer === NONE_OF_ABOVE;
@@ -77,9 +73,7 @@ export function computeOptionState(
     : false;
   const isSelected = selectedAnswer === answer;
 
-  const opponentPickedThis = frozenData
-    ? frozenData.opponentAnswer === answer
-    : status === "completed" && opponentLastAnswer === answer;
+  const opponentPickedThis = showOpponentPick && opponentAnswer === answer;
 
   // Compute disabled state with proper precedence
   const disabled = (isShowingFeedback && !canEliminateThis) || isEliminated;
@@ -196,7 +190,6 @@ export function AnswerOptionButton({
   isFlying = false,
   dataTestId,
 }: AnswerOptionButtonProps) {
-  const colors = useAppearanceColors();
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
     : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative";

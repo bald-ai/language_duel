@@ -107,10 +107,11 @@ vi.mock("@/convex/_generated/api", () => ({
   },
 }));
 
-vi.mock("@/app/duel/[duelId]/hooks/useDuelAudio", () => ({
-  useDuelAudio: () => ({
-    isPlayingAudio: false,
-    playAudio: vi.fn(),
+vi.mock("@/hooks/useTTS", () => ({
+  useTTS: () => ({
+    playingWordKey: null,
+    isPlaying: false,
+    playTTS: vi.fn(),
   }),
 }));
 

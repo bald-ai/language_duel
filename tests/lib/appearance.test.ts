@@ -7,7 +7,7 @@ import {
   isThemeName,
   colorPalettes,
   themeOptions,
-} from "@/lib/theme";
+} from "@/lib/appearance";
 
 describe("theme", () => {
   it("isThemeName returns true for known palettes and false for unknown", () => {

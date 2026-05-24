@@ -1,6 +1,5 @@
 // Sabotage durations and limits
 export const SABOTAGE_DURATION_MS = 7000; // 7s total (2s wind-up, 3s full, 2s wind-down)
-export const SABOTAGE_FALLBACK_DURATION_MS = 25000;
 export const SABOTAGE_WIND_UP_MS = 2000;
 export const SABOTAGE_WIND_DOWN_MS = 5000; // Time until wind-down starts (2s wind-up + 3s full)
 export const MAX_SABOTAGES = 5;

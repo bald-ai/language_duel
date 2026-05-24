@@ -83,10 +83,6 @@ export function useWordEditor() {
     setState(initialState);
   }, []);
 
-  const setEditMode = useCallback((mode: EditMode) => {
-    setState((prev) => ({ ...prev, editMode: mode }));
-  }, []);
-
   const setManualValue = useCallback((value: string) => {
     setState((prev) => {
       const maxLength =
@@ -282,7 +278,6 @@ export function useWordEditor() {
     ...state,
     startEdit,
     reset,
-    setEditMode,
     setManualValue,
     setUserFeedback,
     setCustomInstructions,

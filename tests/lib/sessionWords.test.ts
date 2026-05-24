@@ -3,7 +3,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   buildSessionWords,
   getUniqueThemeIds,
-  getUniqueThemeNames,
   summarizeThemeNames,
   summarizeThemes,
   type SessionThemeInput,
@@ -91,22 +90,6 @@ describe("getUniqueThemeIds", () => {
   it("returns ids in first-seen order and deduplicates", () => {
     const words = buildSessionWords([themeA, themeB, themeA]);
     expect(getUniqueThemeIds(words)).toEqual([themeId("theme_a"), themeId("theme_b")]);
-  });
-});
-
-describe("getUniqueThemeNames", () => {
-  it("returns empty array for no words", () => {
-    expect(getUniqueThemeNames([])).toEqual([]);
-  });
-
-  it("returns unique names in first-seen order", () => {
-    const words = buildSessionWords([themeA, themeB]);
-    expect(getUniqueThemeNames(words)).toEqual(["Animals", "Food"]);
-  });
-
-  it("deduplicates by themeId + themeName", () => {
-    const words = buildSessionWords([themeA, themeA]);
-    expect(getUniqueThemeNames(words)).toEqual(["Animals"]);
   });
 });
 

@@ -4,7 +4,7 @@ import { internal } from "../_generated/api";
 import { emailNotificationTriggerValidator } from "../schema";
 import {
   isNotificationEnabled,
-  type NotificationTrigger,
+  type NotificationEmailTrigger,
 } from "../../lib/notificationPreferences";
 import { renderNotificationEmail } from "../../lib/notificationTemplates";
 import { buildEmailData } from "./notificationEmailData";
@@ -18,7 +18,7 @@ function getNotificationAppUrl(): string {
 }
 
 function assertRequiredEmailContext(args: {
-  trigger: NotificationTrigger;
+  trigger: NotificationEmailTrigger;
   challengeId?: unknown;
   weeklyGoalId?: unknown;
   dedupeKey?: unknown;
@@ -62,7 +62,7 @@ export const sendNotificationEmail = internalAction({
     dedupeKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const trigger = args.trigger as NotificationTrigger;
+    const trigger = args.trigger;
     assertRequiredEmailContext({
       trigger,
       challengeId: args.challengeId,
@@ -106,7 +106,6 @@ export const sendNotificationEmail = internalAction({
       duelId: args.duelId,
       soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
-      reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
     });
     if (!claim.claimed) return { sent: false, reason: "already_sent" as const };

@@ -50,14 +50,6 @@ export type ThemeValidationIssue =
       secondWord: string;
     };
 
-function normalizeValue(value: string): string {
-  return value.trim();
-}
-
-function normalizeComparableValue(value: string): string {
-  return normalizeForComparison(value);
-}
-
 export function formatThemeValidationIssue(
   issue: ThemeValidationIssue,
   options?: { wordLabel?: string }
@@ -105,7 +97,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
 
   words.forEach((word, wordIndex) => {
     const rawWord = typeof word.word === "string" ? word.word : "";
-    const trimmedWord = normalizeValue(rawWord);
+    const trimmedWord = rawWord.trim();
     if (trimmedWord.length < 1) {
       issues.push({ type: "word_empty", wordIndex });
     } else if (trimmedWord.length > THEME_WORD_INPUT_MAX_LENGTH) {
@@ -113,7 +105,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
     }
 
     const rawAnswer = typeof word.answer === "string" ? word.answer : "";
-    const trimmedAnswer = normalizeValue(rawAnswer);
+    const trimmedAnswer = rawAnswer.trim();
     if (trimmedAnswer.length < 1) {
       issues.push({ type: "answer_empty", wordIndex });
     } else if (trimmedAnswer.length > THEME_ANSWER_INPUT_MAX_LENGTH) {
@@ -130,7 +122,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
 
     wrongAnswers.forEach((wrongAnswer, wrongIndex) => {
       const rawWrong = typeof wrongAnswer === "string" ? wrongAnswer : "";
-      const trimmedWrong = normalizeValue(rawWrong);
+      const trimmedWrong = rawWrong.trim();
       if (trimmedWrong.length < 1) {
         issues.push({ type: "wrong_answer_empty", wordIndex, wrongIndex });
       } else if (trimmedWrong.length > THEME_WRONG_ANSWER_INPUT_MAX_LENGTH) {
@@ -138,13 +130,13 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
       }
     });
 
-    const comparableAnswer = normalizeComparableValue(trimmedAnswer);
+    const comparableAnswer = normalizeForComparison(trimmedAnswer);
     const seenWrongAnswers = new Map<string, { index: number; value: string }>();
 
     wrongAnswers.forEach((wrongAnswer, wrongIndex) => {
       const wrongStr = typeof wrongAnswer === "string" ? wrongAnswer : "";
-      const trimmedWrong = normalizeValue(wrongStr);
-      const comparableWrongAnswer = normalizeComparableValue(wrongStr);
+      const trimmedWrong = wrongStr.trim();
+      const comparableWrongAnswer = normalizeForComparison(wrongStr);
 
       if (trimmedWrong !== "") {
         const existingWrongAnswer = seenWrongAnswers.get(comparableWrongAnswer);
@@ -175,7 +167,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
     });
 
     if (trimmedWord !== "") {
-      const comparableWord = normalizeComparableValue(rawWord);
+      const comparableWord = normalizeForComparison(rawWord);
       const existingWord = seenWords.get(comparableWord);
       if (existingWord) {
         issues.push({
@@ -204,7 +196,7 @@ function ensureLength(params: {
   min?: number;
   max: number;
 }): string {
-  const normalized = normalizeValue(params.value);
+  const normalized = params.value.trim();
   const { min = 0, max, field } = params;
   if (normalized.length < min) {
     throw new Error(`${field} must be at least ${min} character${min === 1 ? "" : "s"}`);
@@ -248,9 +240,9 @@ export function normalizeThemeWords(words: ThemeWordInput[]): ThemeWordInput[] {
 
   return words.map((word) => ({
     ...word,
-    word: normalizeValue(word.word),
-    answer: normalizeValue(word.answer),
-    wrongAnswers: word.wrongAnswers.map((w) => normalizeValue(typeof w === "string" ? w : "")),
+    word: word.word.trim(),
+    answer: word.answer.trim(),
+    wrongAnswers: word.wrongAnswers.map((w) => (typeof w === "string" ? w : "").trim()),
   }));
 }
 

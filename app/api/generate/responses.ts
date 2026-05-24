@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { resolveApiError } from "@/lib/api/serverErrors";
 
+/**
+ * Debug toggle: set the env var `GENERATE_API_INCLUDE_DEBUG_PROMPT=true` to have
+ * `/api/generate` echo the system prompt back in success/validation responses
+ * (under `prompt`). Off by default; intended for local prompt debugging only.
+ */
 function shouldIncludeDebugPrompt(): boolean {
   return process.env.GENERATE_API_INCLUDE_DEBUG_PROMPT === "true";
 }
 
-export function buildGenerationValidationError(validationIssues: string[]): string {
-  if (validationIssues.length === 0) {
-    return "Failed to generate valid content. Please try again.";
-  }
-
-  return `Failed to generate valid content. ${validationIssues[0]}`;
+// The specific issues are returned in the `validationIssues` array of the body;
+// the user-facing message stays generic.
+export function buildGenerationValidationError(): string {
+  return "Failed to generate valid content. Please try again.";
 }
 
 export function creditFailureResponse(error: unknown) {
@@ -34,7 +37,7 @@ export function validationFailureResponse(params: {
   return NextResponse.json(
     {
       success: false,
-      error: buildGenerationValidationError(params.validationIssues),
+      error: buildGenerationValidationError(),
       validationIssues: params.validationIssues,
       ...(shouldIncludeDebugPrompt() ? { prompt: params.prompt } : {}),
     },

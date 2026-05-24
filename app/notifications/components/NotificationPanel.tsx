@@ -75,7 +75,7 @@ export function NotificationPanel({
             {/* Panel - positioned absolutely relative to parent container */}
             <div
                 ref={panelRef}
-                className="fixed top-14 left-2 right-2 sm:fixed sm:top-14 sm:left-2 sm:right-auto z-50 animate-slide-down max-h-[70vh] sm:max-h-[500px] sm:w-[380px] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+                className="fixed top-14 left-2 right-2 sm:right-auto z-50 animate-slide-down max-h-[70vh] sm:max-h-[500px] sm:w-[380px] rounded-xl shadow-2xl overflow-hidden flex flex-col"
                 style={{
                     backgroundColor: colors.background.elevated,
                     border: `1px solid ${colors.neutral.light}30`,

@@ -9,6 +9,9 @@ export type WeeklyGoalPayload = Extract<
   NotificationPayload,
   { goalId: Id<"weeklyGoals"> }
 >;
+// Single source of truth for the weekly-goal notification events, derived from
+// the schema payload union so the helper and renderer can't drift from it.
+export type WeeklyGoalNotificationEvent = NonNullable<WeeklyGoalPayload["event"]>;
 export type ChallengeInvitePayload = Extract<
   NotificationPayload,
   { challengeId: Id<"challenges"> }

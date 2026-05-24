@@ -29,7 +29,6 @@ describe("TTS provider adapters", () => {
     const result = await generateTtsAudioWithFallback({
       text: "hola",
       preferredProvider: TTS_PROVIDER_IDS.RESEMBLE,
-      signal: new AbortController().signal,
     });
 
     expect(result?.provider).toBe(TTS_PROVIDER_IDS.ELEVENLABS);
@@ -58,7 +57,6 @@ describe("TTS provider adapters", () => {
     const result = await generateTtsAudioWithFallback({
       text: "hola",
       preferredProvider: TTS_PROVIDER_IDS.RESEMBLE,
-      signal: new AbortController().signal,
     });
 
     expect(result?.provider).toBe(TTS_PROVIDER_IDS.RESEMBLE);

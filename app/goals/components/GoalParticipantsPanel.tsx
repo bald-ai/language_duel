@@ -3,6 +3,7 @@
 import type { GoalWithUsers } from "@/convex/weeklyGoals";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
+import { getWeeklyGoalLockFlags } from "@/lib/weeklyGoals";
 
 function formatGoalStatus(status: "draft" | "locked" | "grace_period" | "completed"): string {
   switch (status) {
@@ -30,6 +31,11 @@ export function GoalParticipantsPanel({
 }: GoalParticipantsPanelProps) {
   const colors = useAppearanceColors();
   const solo = selectedGoal.mode === "solo";
+  // Map the viewer-relative lock state back to the two participants so each
+  // avatar shows the correct ✓, without re-reading the raw lock booleans.
+  const { viewerLocked, partnerLocked } = getWeeklyGoalLockFlags(selectedGoal.lockState);
+  const creatorLocked = selectedGoal.viewerRole === "creator" ? viewerLocked : partnerLocked;
+  const partnerLockedDisplay = selectedGoal.viewerRole === "creator" ? partnerLocked : viewerLocked;
   return (
     <section
       className="rounded-2xl border-2 p-4"
@@ -56,7 +62,7 @@ export function GoalParticipantsPanel({
             >
               {formatVisibleUser(selectedGoal.creator)}
             </p>
-            {selectedGoal.goal.creatorLocked && (
+            {creatorLocked && (
               <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
             )}
             {solo && (
@@ -107,7 +113,7 @@ export function GoalParticipantsPanel({
             >
               {formatVisibleUser(selectedGoal.partner)}
             </p>
-            {selectedGoal.goal.partnerLocked === true && (
+            {partnerLockedDisplay && (
               <span style={{ color: colors.status.success.DEFAULT }}>✓</span>
             )}
           </div>

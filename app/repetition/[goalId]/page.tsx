@@ -16,6 +16,7 @@ import {
   SPACED_REPETITION_TOTAL_STEPS,
 } from "@/lib/spacedRepetition";
 import { RepetitionProgress } from "../components/RepetitionProgress";
+import { boardItemTitle, currentStepOf } from "../components/boardItemDisplay";
 import { getErrorMessage } from "@/lib/errors";
 import type { DuelMode } from "@/lib/duelMode";
 import { DuelModePicker } from "@/app/components/modals/DuelModePicker";
@@ -98,17 +99,12 @@ export default function RepetitionLaunchPage() {
     );
   }
 
-  const currentStep = preview.step ?? preview.totalSteps;
+  const currentStep = currentStepOf(preview);
   const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
   const canStart = preview.canStart;
   const duelAvailable = preview.duelAvailable;
   const wordCountLabel = canStart ? preview.wordCount : "-";
-  const [firstThemeName] = preview.themeNames;
-  const title = firstThemeName
-    ? preview.themeNames.length === 1
-      ? firstThemeName
-      : `${firstThemeName} + ${preview.themeNames.length - 1} more`
-    : "Completed goal";
+  const title = boardItemTitle(preview);
 
   return (
     <ThemedPage className="px-4 py-6">

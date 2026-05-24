@@ -1,7 +1,8 @@
 "use client";
 
 import { ReactNode } from "react";
-import type { ButtonVariant } from "@/lib/theme";
+import { getButtonStyles, type ButtonVariant } from "@/lib/appearance";
+import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface MenuButtonProps {
   onClick: () => void;
@@ -15,20 +16,13 @@ interface MenuButtonProps {
  * Design System:
  * - primary: Standard menu buttons - used for most actions
  * - cta: Call-to-action for the MOST important action - use sparingly, ideally only once per screen
- * 
- * Colors are defined in lib/theme.ts - change them there to update everywhere.
+ *
+ * Gradient/border colors come from the canonical getButtonStyles (lib/appearance.ts),
+ * the same source the modal CTA buttons use, so a palette change reaches every button.
  */
 export function MenuButton({ onClick, children, badge, variant = "primary", dataTestId }: MenuButtonProps) {
-  const isCta = variant === "cta";
-  const varPrefix = isCta ? "cta" : "primary";
-  const fromVar = `var(--color-${varPrefix})`;
-  const toVar = `var(--color-${varPrefix}-dark)`;
-  const hoverFromVar = `var(--color-${varPrefix}-light)`;
-  const hoverToVar = `var(--color-${varPrefix})`;
-  const borderTopVar = `var(--color-${varPrefix}-light)`;
-  const borderBottomVar = `var(--color-${varPrefix}-dark)`;
-  const borderSidesVar = `var(--color-${varPrefix})`;
-  const glowVar = `color-mix(in srgb, var(--color-${varPrefix}) 45%, transparent)`;
+  const colors = useAppearanceColors();
+  const buttonStyle = getButtonStyles(colors)[variant];
 
   return (
     <div className="relative group">
@@ -40,33 +34,21 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
           border-t-2 border-b-4 border-x-2
           rounded-xl py-2 px-4
           text-sm font-bold uppercase tracking-widest
-          hover:translate-y-0.5 hover:border-b-2 
-          active:translate-y-1 active:border-b-0 
-          transition-all duration-200 
+          hover:translate-y-0.5 hover:border-b-2 hover:brightness-110
+          active:translate-y-1 active:border-b-0
+          transition-all duration-200
           shadow-lg
           backdrop-blur-sm
         "
-        style={{ 
-          // Gradient background
-          backgroundImage: `linear-gradient(to bottom, ${fromVar}, ${toVar})`,
-          // Border colors
-          borderTopColor: borderTopVar,
-          borderBottomColor: borderBottomVar,
-          borderLeftColor: borderSidesVar,
-          borderRightColor: borderSidesVar,
-          // Text color - white
+        style={{
+          backgroundImage: `linear-gradient(to bottom, ${buttonStyle.gradient.from}, ${buttonStyle.gradient.to})`,
+          borderTopColor: buttonStyle.border.top,
+          borderBottomColor: buttonStyle.border.bottom,
+          borderLeftColor: buttonStyle.border.sides,
+          borderRightColor: buttonStyle.border.sides,
           color: "white",
-          // Text shadow
           textShadow: "0 2px 4px rgba(0,0,0,0.4)",
           letterSpacing: "0.15em",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${hoverFromVar}, ${hoverToVar})`;
-          e.currentTarget.style.boxShadow = `0 0 30px ${glowVar}`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundImage = `linear-gradient(to bottom, ${fromVar}, ${toVar})`;
-          e.currentTarget.style.boxShadow = "";
         }}
       >
         <span className="relative z-10 flex items-center justify-start gap-3 pl-1">
@@ -74,11 +56,11 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
         </span>
       </button>
       {badge !== undefined && badge > 0 && (
-        <div 
+        <div
           className="absolute -top-2 -right-2 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold leading-none shadow-lg border-2"
           style={{
-            backgroundColor: "var(--color-cta)",
-            borderColor: "var(--color-cta-light)",
+            backgroundColor: colors.cta.DEFAULT,
+            borderColor: colors.cta.light,
           }}
         >
           {badge}

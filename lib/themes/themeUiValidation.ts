@@ -1,5 +1,6 @@
 import type { WordEntry } from "@/lib/types";
-import { collectThemeIssues, type ThemeValidationIssue } from "./serverValidation";
+import { normalizeForComparison } from "@/lib/stringUtils";
+import { collectThemeIssues } from "./serverValidation";
 
 export type ThemeRepairIssueType =
   | "duplicate_word"
@@ -43,23 +44,71 @@ const THEME_REPAIR_ISSUE_PRIORITY: readonly ThemeRepairIssueDefinition[] = [
   },
 ] as const;
 
-function getThemeRepairIssues(words: WordEntry[]): ThemeValidationIssue[] {
-  return collectThemeIssues(words).filter((issue) =>
-    issue.type === "duplicate_word" ||
-    issue.type === "wrong_answer_matches_correct" ||
-    issue.type === "duplicate_wrong_answer"
-  );
+export interface ThemeWordIssueIndices {
+  duplicateWrongAnswerIndices: Set<number>;
+  wrongMatchingAnswerIndices: Set<number>;
+}
+
+export interface ThemeIssueAnalysis {
+  duplicateWordIndices: Set<number>;
+  wordIssues: Map<number, ThemeWordIssueIndices>;
+  repairIssue: ThemeRepairIssue | null;
+}
+
+/**
+ * Single source of truth for theme repair UI: scans the words **once** with
+ * `collectThemeIssues` and projects the result into the shapes the UI needs —
+ * the duplicate-word index set, a per-word map of wrong-answer issue indices,
+ * and the highest-priority repair issue. All other helpers select from this.
+ */
+export function analyzeThemeIssues(words: WordEntry[]): ThemeIssueAnalysis {
+  const duplicateWordIndices = new Set<number>();
+  const wordIssues = new Map<number, ThemeWordIssueIndices>();
+  let hasDuplicateWord = false;
+  let wrongMatchesAnswer = false;
+  let hasDuplicateWrongAnswers = false;
+
+  const wordIssuesAt = (wordIndex: number): ThemeWordIssueIndices => {
+    let entry = wordIssues.get(wordIndex);
+    if (!entry) {
+      entry = {
+        duplicateWrongAnswerIndices: new Set<number>(),
+        wrongMatchingAnswerIndices: new Set<number>(),
+      };
+      wordIssues.set(wordIndex, entry);
+    }
+    return entry;
+  };
+
+  for (const issue of collectThemeIssues(words)) {
+    if (issue.type === "duplicate_word") {
+      duplicateWordIndices.add(issue.firstWordIndex);
+      duplicateWordIndices.add(issue.secondWordIndex);
+      hasDuplicateWord = true;
+    } else if (issue.type === "duplicate_wrong_answer") {
+      const entry = wordIssuesAt(issue.wordIndex);
+      entry.duplicateWrongAnswerIndices.add(issue.firstWrongIndex);
+      entry.duplicateWrongAnswerIndices.add(issue.secondWrongIndex);
+      hasDuplicateWrongAnswers = true;
+    } else if (issue.type === "wrong_answer_matches_correct") {
+      wordIssuesAt(issue.wordIndex).wrongMatchingAnswerIndices.add(issue.wrongIndex);
+      wrongMatchesAnswer = true;
+    }
+  }
+
+  return {
+    duplicateWordIndices,
+    wordIssues,
+    repairIssue: getThemeRepairIssueForFlags({
+      hasDuplicateWord,
+      wrongMatchesAnswer,
+      hasDuplicateWrongAnswers,
+    }),
+  };
 }
 
 export function getDuplicateWrongAnswerIndices(word: WordEntry): Set<number> {
-  const duplicateIndices = new Set<number>();
-  collectThemeIssues([word]).forEach((issue) => {
-    if (issue.type === "duplicate_wrong_answer") {
-      duplicateIndices.add(issue.firstWrongIndex);
-      duplicateIndices.add(issue.secondWrongIndex);
-    }
-  });
-  return duplicateIndices;
+  return analyzeThemeIssues([word]).wordIssues.get(0)?.duplicateWrongAnswerIndices ?? new Set();
 }
 
 /**
@@ -73,13 +122,7 @@ export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
  * Get indices of wrong answers that match the correct answer.
  */
 export function getWrongIndicesMatchingAnswer(word: WordEntry): Set<number> {
-  const matchingIndices = new Set<number>();
-  collectThemeIssues([word]).forEach((issue) => {
-    if (issue.type === "wrong_answer_matches_correct") {
-      matchingIndices.add(issue.wrongIndex);
-    }
-  });
-  return matchingIndices;
+  return analyzeThemeIssues([word]).wordIssues.get(0)?.wrongMatchingAnswerIndices ?? new Set();
 }
 
 /**
@@ -93,14 +136,18 @@ export function doesWrongAnswerMatchCorrect(word: WordEntry): boolean {
  * Check if a theme has duplicate wrong answers within any word.
  */
 export function checkThemeForDuplicateWrongAnswers(words: WordEntry[]): boolean {
-  return getThemeRepairIssues(words).some((issue) => issue.type === "duplicate_wrong_answer");
+  return [...analyzeThemeIssues(words).wordIssues.values()].some(
+    (issues) => issues.duplicateWrongAnswerIndices.size > 0
+  );
 }
 
 /**
  * Check if a theme has any wrong answers that match the correct answer.
  */
 export function checkThemeForWrongMatchingAnswer(words: WordEntry[]): boolean {
-  return getThemeRepairIssues(words).some((issue) => issue.type === "wrong_answer_matches_correct");
+  return [...analyzeThemeIssues(words).wordIssues.values()].some(
+    (issues) => issues.wrongMatchingAnswerIndices.size > 0
+  );
 }
 
 export function getThemeRepairIssueForFlags(flags: {
@@ -123,11 +170,7 @@ export function getThemeRepairIssueForFlags(flags: {
 }
 
 export function getThemeRepairIssueForWords(words: WordEntry[]): ThemeRepairIssue | null {
-  return getThemeRepairIssueForFlags({
-    hasDuplicateWord: checkThemeForDuplicateWords(words),
-    wrongMatchesAnswer: checkThemeForWrongMatchingAnswer(words),
-    hasDuplicateWrongAnswers: checkThemeForDuplicateWrongAnswers(words),
-  });
+  return analyzeThemeIssues(words).repairIssue;
 }
 
 export function getThemeSaveErrorMessage(words: WordEntry[]): string | null {
@@ -142,38 +185,23 @@ export function getThemeSaveErrorMessage(words: WordEntry[]): string | null {
  * Check if a theme has duplicate words.
  */
 export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
-  return getThemeRepairIssues(words).some((issue) => issue.type === "duplicate_word");
+  return analyzeThemeIssues(words).duplicateWordIndices.size > 0;
 }
 
 /**
  * Get indices of duplicate words in theme.
  */
 export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
-  const duplicateIndices = new Set<number>();
-  collectThemeIssues(words).forEach((issue) => {
-    if (issue.type === "duplicate_word") {
-      duplicateIndices.add(issue.firstWordIndex);
-      duplicateIndices.add(issue.secondWordIndex);
-    }
-  });
-  return duplicateIndices;
+  return analyzeThemeIssues(words).duplicateWordIndices;
 }
 
 /**
- * Check if a word already exists in the list.
+ * Check if a word already exists in the list (accent/case/whitespace-insensitive).
  */
 export function isWordDuplicate(word: string, existingWords: WordEntry[]): boolean {
-  // The extra fields only make the temporary word valid for collectThemeIssues;
-  // duplicate-word detection only reads the word value.
-  const candidate: WordEntry = {
-    word,
-    answer: "candidate",
-    wrongAnswers: ["first", "second", "third"],
-  };
-  return collectThemeIssues([candidate, ...existingWords]).some(
-    (issue) =>
-      issue.type === "duplicate_word" &&
-      issue.firstWordIndex === 0 &&
-      issue.secondWordIndex > 0
+  const normalized = normalizeForComparison(word);
+  if (normalized === "") return false;
+  return existingWords.some(
+    (existing) => normalizeForComparison(existing.word) === normalized
   );
 }

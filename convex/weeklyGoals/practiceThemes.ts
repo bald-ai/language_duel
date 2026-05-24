@@ -23,22 +23,20 @@ export function resolveWeeklyGoalPracticeThemeIds(
 
   const goalThemeIdSet = new Set(goalThemeIds.map(String));
   const seen = new Set<string>();
-  const selectedThemeIds: Id<"themes">[] = [];
 
   for (const themeId of themeIds) {
     const key = String(themeId);
     if (!goalThemeIdSet.has(key)) {
       return { ok: false, message: "One selected theme is not part of this weekly goal." };
     }
-    if (seen.has(key)) continue;
     seen.add(key);
-    selectedThemeIds.push(themeId);
   }
 
-  if (selectedThemeIds.length === 0) {
+  if (seen.size === 0) {
     return { ok: false, message: "Select at least one theme to practice." };
   }
 
+  // Return the requested themes in the goal's own order.
   return {
     ok: true,
     themeIds: goalThemeIds.filter((themeId) => seen.has(String(themeId))),

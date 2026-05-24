@@ -15,6 +15,8 @@ interface ModalShellProps {
   maxHeight?: boolean;
   infoTooltip?: string;
   panelClassName?: string;
+  /** Optional data-testid placed on the modal root, for feature-specific modals. */
+  dataTestId?: string;
 }
 
 export function ModalShell({
@@ -23,6 +25,7 @@ export function ModalShell({
   maxHeight = false,
   infoTooltip,
   panelClassName,
+  dataTestId,
 }: ModalShellProps) {
   const colors = useAppearanceColors();
   const [showTooltip, setShowTooltip] = useState(false);
@@ -36,6 +39,7 @@ export function ModalShell({
     <div
       className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto"
       data-modal-shell="true"
+      data-testid={dataTestId}
     >
       <div className="min-h-full flex items-center justify-center p-4">
         <div

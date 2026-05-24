@@ -388,7 +388,7 @@ describe("challenge backend", () => {
       acceptChallengeHandler(createCtx(db, "clerk_1"), {
         challengeId: "challenge_1" as Id<"challenges">,
       })
-    ).rejects.toThrow("Only opponent can accept challenge");
+    ).rejects.toThrow("Only the invited opponent can respond to this challenge");
 
     await expect(
       acceptChallengeHandler(createCtx(db, "clerk_3"), {
@@ -418,7 +418,7 @@ describe("challenge backend", () => {
       declineChallengeHandler(createCtx(db, "clerk_1"), {
         challengeId: "challenge_1" as Id<"challenges">,
       })
-    ).rejects.toThrow("Only opponent can decline challenge");
+    ).rejects.toThrow("Only the invited opponent can respond to this challenge");
 
     await expect(
       declineChallengeHandler(createCtx(db, "clerk_3"), {

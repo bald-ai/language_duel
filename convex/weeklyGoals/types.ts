@@ -3,6 +3,7 @@ import type {
   WeeklyGoalMode,
   WeeklyGoalBossStatus,
   WeeklyGoalLifecycleStatus,
+  WeeklyGoalLockState,
 } from "../../lib/weeklyGoals";
 import type { BossType } from "../../lib/limitedLives";
 import type { UserSummary } from "../helpers/userSummary";
@@ -18,6 +19,7 @@ export interface GoalWithUsers {
   creator: UserSummary | null;
   partner: UserSummary | null;
   viewerRole: GoalRole;
+  lockState: WeeklyGoalLockState;
   effectiveStatus: WeeklyGoalLifecycleStatus;
   miniBossStatus: WeeklyGoalBossStatus;
   bigBossStatus: WeeklyGoalBossStatus;

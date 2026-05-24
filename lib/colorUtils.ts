@@ -170,6 +170,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+// The HSL/RGBA offsets in the derive* functions below (e.g. l + 10, l - 25,
+// s + 5, the 0.4/0.5 glow alphas, the dark/light text hexes) are hand-tuned
+// values chosen for visual feel, not derived from a formula.
+
 /**
  * Derive primary color shades from a base color
  * Creates: DEFAULT, light, dark, darkest, glow
@@ -227,7 +231,7 @@ export function deriveNeutralShades(baseColor: string): NeutralShades {
  */
 export function deriveSecondaryShades(primaryColor: string): SecondaryShades {
   const { h, s, l } = hexToHsl(primaryColor);
-  // Shift hue by ~60 degrees for complementary feel
+  // Shift hue by 180 degrees (complementary) for contrast against the primary.
   const secondaryH = (h + 180) % 360;
 
   return {

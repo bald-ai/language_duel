@@ -15,18 +15,33 @@ type UseThemeListControllerParams = {
   onBack: () => void;
 };
 
+/**
+ * The list shows exactly one view at a time. Modeling it as a discriminated
+ * union makes the mutual exclusion structural instead of something each setter
+ * has to enforce by hand-clearing the other flags.
+ */
+export type ListFilter =
+  | { kind: "all" }
+  | { kind: "mine" }
+  | { kind: "friend"; friendId: Id<"users"> }
+  | { kind: "archived" };
+
 export function useThemeListController(params: UseThemeListControllerParams) {
-  const [selectedFriendFilter, setSelectedFriendFilter] = useState<Id<"users"> | null>(null);
-  const [myThemesOnly, setMyThemesOnly] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<ListFilter>({ kind: "all" });
   const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
 
   const queryArgs = useMemo(() => {
-    if (showArchived) return { archivedOnly: true };
-    if (myThemesOnly) return { myThemesOnly: true };
-    if (selectedFriendFilter) return { filterByFriendId: selectedFriendFilter };
-    return {};
-  }, [myThemesOnly, selectedFriendFilter, showArchived]);
+    switch (filter.kind) {
+      case "archived":
+        return { archivedOnly: true };
+      case "mine":
+        return { myThemesOnly: true };
+      case "friend":
+        return { filterByFriendId: filter.friendId };
+      case "all":
+        return {};
+    }
+  }, [filter]);
 
   const rawThemesQuery = useQuery(api.themes.getThemes, queryArgs);
   const friends = useQuery(api.friends.getFriends);
@@ -34,27 +49,27 @@ export function useThemeListController(params: UseThemeListControllerParams) {
 
   const themes = useMemo(() => rawThemesQuery ?? [], [rawThemesQuery]);
   const selectedFriend = useMemo(() => {
-    if (!selectedFriendFilter || !friends) return null;
-    return friends.find((friend) => friend.friendId === selectedFriendFilter) ?? null;
-  }, [selectedFriendFilter, friends]);
+    if (filter.kind !== "friend" || !friends) return null;
+    return friends.find((friend) => friend.friendId === filter.friendId) ?? null;
+  }, [filter, friends]);
 
   const handleSetFriendFilter = useCallback((friendId: Id<"users">) => {
-    setSelectedFriendFilter(friendId);
-    setMyThemesOnly(false);
+    setFilter({ kind: "friend", friendId });
     setShowFriendFilterModal(false);
   }, []);
 
   const handleClearFriendFilter = useCallback(() => {
-    setSelectedFriendFilter(null);
-    setMyThemesOnly(false);
-    setShowArchived(false);
+    setFilter({ kind: "all" });
     setShowFriendFilterModal(false);
   }, []);
 
   const handleShowMyThemes = useCallback(() => {
-    setSelectedFriendFilter(null);
-    setMyThemesOnly(true);
+    setFilter({ kind: "mine" });
     setShowFriendFilterModal(false);
+  }, []);
+
+  const handleToggleShowArchived = useCallback(() => {
+    setFilter((prev) => (prev.kind === "archived" ? { kind: "all" } : { kind: "archived" }));
   }, []);
 
   const handleToggleArchive = useCallback(
@@ -79,12 +94,11 @@ export function useThemeListController(params: UseThemeListControllerParams) {
       onDuplicateTheme: params.onDuplicateTheme,
       onGenerateNew: params.onGenerateNew,
       onBack: params.onBack,
+      filter,
       selectedFriend,
-      myThemesOnly,
       onOpenFriendFilter: () => setShowFriendFilterModal(true),
       onClearFriendFilter: handleClearFriendFilter,
-      showArchived,
-      onToggleShowArchived: () => setShowArchived((prev) => !prev),
+      onToggleShowArchived: handleToggleShowArchived,
       onToggleArchive: handleToggleArchive,
     }),
     [
@@ -96,10 +110,10 @@ export function useThemeListController(params: UseThemeListControllerParams) {
       params.onDuplicateTheme,
       params.onGenerateNew,
       params.onBack,
+      filter,
       selectedFriend,
-      myThemesOnly,
       handleClearFriendFilter,
-      showArchived,
+      handleToggleShowArchived,
       handleToggleArchive,
     ]
   );
@@ -118,10 +132,7 @@ export function useThemeListController(params: UseThemeListControllerParams) {
 
   return {
     themes,
-    friends,
-    showArchived,
     listProps,
     friendFilterModalProps,
-    handleToggleArchive,
   };
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_EMAIL_TRIGGERS,
-  NOTIFICATION_EMAIL_TRIGGER_CONTRACT,
+  NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS,
   WEEKLY_GOAL_REMINDER_1_DEFAULT_OFFSET_MINUTES,
   WEEKLY_GOAL_REMINDER_2_DEFAULT_OFFSET_MINUTES,
   WEEKLY_GOAL_REMINDER_MAX_OFFSET_MINUTES,
@@ -111,7 +111,7 @@ describe("notificationPreferences", () => {
 
     const specificTriggerTestCases = NOTIFICATION_EMAIL_TRIGGERS.map((trigger) => ({
       trigger,
-      pref: NOTIFICATION_EMAIL_TRIGGER_CONTRACT[trigger].trigger,
+      pref: NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS[trigger].trigger,
     }));
 
     it.each(specificTriggerTestCases)(

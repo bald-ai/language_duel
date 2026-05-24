@@ -10,15 +10,15 @@ import {
 } from "./notificationPreferencesDefaults";
 import {
   NOTIFICATION_EMAIL_TRIGGERS,
-  NOTIFICATION_EMAIL_TRIGGER_CONTRACT,
-  type NotificationTrigger,
-} from "./notificationEmailTriggerContract";
+  NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS,
+  type NotificationEmailTrigger,
+} from "./notifications/definitions";
 
 export function isNotificationEnabled(
-  trigger: NotificationTrigger,
+  trigger: NotificationEmailTrigger,
   prefs: NotificationPreferences
 ): boolean {
-  const config = NOTIFICATION_EMAIL_TRIGGER_CONTRACT[trigger];
+  const config = NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS[trigger];
   if (!config) return false;
 
   return prefs[config.category] === true && prefs[config.trigger] === true;
@@ -51,8 +51,8 @@ export {
 };
 export {
   NOTIFICATION_EMAIL_TRIGGERS,
-  NOTIFICATION_EMAIL_TRIGGER_CONTRACT,
-  type NotificationTrigger,
+  NOTIFICATION_EMAIL_TRIGGER_DEFINITIONS,
+  type NotificationEmailTrigger,
 };
 export {
   formatScheduledTimeForEmail,

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
+import { TTS_PROVIDER_IDS } from "@/lib/tts/providers";
+import { generateTtsAudioWithFallback } from "@/lib/tts/providerAdapters";
 import {
   buildGeneratedThemeTtsResult,
   cleanupRejectedThemeTtsStorage,
@@ -9,6 +11,10 @@ import {
   storeThemeTtsAudio,
   type ThemeTtsTarget,
 } from "@/convex/themes/ttsPipeline";
+
+vi.mock("@/lib/tts/providerAdapters", () => ({
+  generateTtsAudioWithFallback: vi.fn(),
+}));
 
 const target: ThemeTtsTarget = {
   wordIndex: 1,
@@ -48,10 +54,14 @@ describe("theme TTS pipeline", () => {
 
   it("generates provider audio with the prepared text", async () => {
     const audio = new Uint8Array([1, 2, 3]).buffer;
-    const generateAudio = vi.fn(async () => audio);
+    vi.mocked(generateTtsAudioWithFallback).mockResolvedValue({
+      audioBuffer: audio,
+      provider: TTS_PROVIDER_IDS.RESEMBLE,
+      contentType: "audio/wav",
+    });
 
-    await expect(generateThemeTtsAudio(target, generateAudio, 1_000)).resolves.toBe(audio);
-    expect(generateAudio).toHaveBeenCalledWith("la gata", expect.any(AbortSignal));
+    await expect(generateThemeTtsAudio(target)).resolves.toBe(audio);
+    expect(generateTtsAudioWithFallback).toHaveBeenCalledWith({ text: "la gata" });
   });
 
   it("stores generated audio and builds an apply payload", async () => {

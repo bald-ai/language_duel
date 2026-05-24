@@ -3,7 +3,12 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
 import { getRelationshipMapForUser } from "./friends";
-import { MAX_USERS_QUERY, DISCRIMINATOR_MIN, DISCRIMINATOR_MAX } from "./constants";
+import {
+  MAX_USERS_QUERY,
+  MAX_USER_SEARCH_RESULTS,
+  DISCRIMINATOR_MIN,
+  DISCRIMINATOR_MAX,
+} from "./constants";
 import { getCurrentMonthKey, normalizeCreditState } from "./credits";
 import {
   DEFAULT_NICKNAME,
@@ -200,7 +205,7 @@ export const searchUsers = query({
           nicknamePrefix && u.nickname?.toLowerCase().startsWith(nicknamePrefix)
         );
       })
-      .slice(0, 20)
+      .slice(0, MAX_USER_SEARCH_RESULTS)
       .map((u) => ({
         _id: u._id,
         name: u.name,

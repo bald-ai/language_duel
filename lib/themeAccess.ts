@@ -53,8 +53,6 @@ export type ThemeAccessParams = {
     friendships: FriendshipData[];
 };
 
-const WEEKLY_GOAL_ACCESS_STATUSES = ["draft"] as const;
-
 export function hasFriendshipWithOwner(
     userId: Id<"users">,
     ownerId: Id<"users"> | undefined,
@@ -127,7 +125,7 @@ function isOwner(userId: Id<"users">, theme: ThemeAccessData): boolean {
     return theme.ownerId === userId;
 }
 
-export function canGenerateStoredThemeTts(
+export function canEditTheme(
     userId: Id<"users">,
     theme: ThemeAccessData,
     friendships: FriendshipData[] = []
@@ -162,7 +160,7 @@ function hasAccessViaWeeklyGoal(
 ): boolean {
     return weeklyGoals.some(
         (goal) =>
-            WEEKLY_GOAL_ACCESS_STATUSES.includes(goal.status as typeof WEEKLY_GOAL_ACCESS_STATUSES[number]) &&
+            goal.status === "draft" &&
             (goal.creatorId === userId || goal.partnerId === userId) &&
             goal.themeIds.includes(themeId)
     );

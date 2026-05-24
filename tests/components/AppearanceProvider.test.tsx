@@ -1,12 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-  AppearanceProvider,
-  useAppearanceColors,
-  useColorSet,
-} from "@/app/components/AppearanceProvider";
-import { DEFAULT_THEME_NAME } from "@/lib/theme";
+import { DEFAULT_THEME_NAME } from "@/lib/appearance";
 
 vi.mock("@/app/components/UserPreferencesProvider", () => ({
   useUserPreferences: () => ({
@@ -16,18 +11,18 @@ vi.mock("@/app/components/UserPreferencesProvider", () => ({
   }),
 }));
 
+// This suite exercises the real provider + hooks, so opt out of the global
+// appearance-hook mock in tests/setup.ts and use the actual implementation.
+const { AppearanceProvider, useAppearanceColors, useColorSet } =
+  await vi.importActual<typeof import("@/app/components/AppearanceProvider")>(
+    "@/app/components/AppearanceProvider"
+  );
+
 describe("AppearanceProvider", () => {
   it("fails loudly when appearance hooks are used outside the provider", () => {
-    const originalFallback = globalThis.__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__;
-    globalThis.__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__ = false;
-
-    try {
-      expect(() => renderHook(() => useAppearanceColors())).toThrow(
-        "useAppearanceColors must be used within AppearanceProvider"
-      );
-    } finally {
-      globalThis.__LANGUAGE_DUEL_ALLOW_THEME_TEST_FALLBACK__ = originalFallback;
-    }
+    expect(() => renderHook(() => useAppearanceColors())).toThrow(
+      "useAppearanceColors must be used within AppearanceProvider"
+    );
   });
 
   it("provides selected theme state and derived colors", async () => {

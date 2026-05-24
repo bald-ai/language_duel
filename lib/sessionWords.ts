@@ -46,22 +46,6 @@ export function getUniqueThemeIds(
   return themeIds;
 }
 
-export function getUniqueThemeNames(
-  sessionWords: Array<Pick<SessionWordEntry, "themeName" | "themeId">>
-): string[] {
-  const seen = new Set<string>();
-  const themeNames: string[] = [];
-
-  for (const word of sessionWords) {
-    const key = `${String(word.themeId)}:${word.themeName}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    themeNames.push(word.themeName);
-  }
-
-  return themeNames;
-}
-
 export function summarizeThemeNames(themeNames: string[]): string {
   if (themeNames.length === 0) return "Theme";
   if (themeNames.length === 1) return themeNames[0];
