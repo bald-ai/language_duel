@@ -458,6 +458,26 @@ describe("weekly goal spaced repetition", () => {
     expect(schedulerRunAfter).toHaveBeenCalledOnce();
   });
 
+  it("createRepetitionChallenge rejects relay mode", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+
+    const handler = (createRepetitionChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals">; duelMode: "pvp" | "pve" | "relay" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        duelMode: "relay",
+      })
+    ).rejects.toThrow("Relay is not available for spaced repetition duels");
+  });
+
   it("createRepetitionChallenge ignores accepted invite history when no duel is active", async () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();

@@ -475,6 +475,8 @@ describe("createSelfDuel", () => {
       duelDifficultyPreset: "medium",
       createdAt: 40_000,
     });
+    // Self-duels force PvE, so they never carry relay turn state.
+    expect(db.duels[0].relayPicker).toBeUndefined();
   });
 
   it("rejects empty themeIds with INVALID_INPUT", async () => {

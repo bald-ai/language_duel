@@ -27,12 +27,13 @@ export default function DuelPage() {
 
   const duelData = useQuery(api.duels.getDuel, duelId ? { duelId: duelId as Id<"duels"> } : "skip");
 
-  const { 
-    duel, 
-    challenger, 
-    opponent, 
-    viewerRole = "challenger"
-  } = duelData || {};
+  // The relay branch of the safe DTO omits `duelQuestions` and adds computed
+  // fields; the union is assignable to Doc, so cast once here for the shared
+  // gating below. The relay session recovers its computed fields downstream.
+  const duel = duelData?.duel as Doc<"duels"> | undefined;
+  const challenger = duelData?.challenger ?? null;
+  const opponent = duelData?.opponent ?? null;
+  const viewerRole = (duelData?.viewerRole ?? "challenger") as "challenger" | "opponent";
 
   useEffect(() => {
     if (!duel) return;
@@ -56,17 +57,17 @@ export default function DuelPage() {
     content = <FullScreenMessage>Duel not found</FullScreenMessage>;
   } else if (duel.sessionWords.length === 0) {
     content = <FullScreenMessage>Duel data is incomplete. Missing session words.</FullScreenMessage>;
-  } else if (!duel.duelQuestions?.length) {
+  } else if (duel.duelMode !== "relay" && !duel.duelQuestions?.length) {
     content = <FullScreenMessage>Duel data is incomplete. Missing duel questions.</FullScreenMessage>;
   } else if (duel.status === "stopped") {
     content = <FullScreenMessage>Redirecting...</FullScreenMessage>;
   } else {
     content = (
       <DuelSession
-        duel={duel as Doc<"duels">}
-        challenger={challenger ?? null}
-        opponent={opponent ?? null}
-        viewerRole={viewerRole as "challenger" | "opponent"}
+        duel={duel}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole={viewerRole}
       />
     );
   }

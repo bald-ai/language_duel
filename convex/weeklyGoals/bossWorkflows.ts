@@ -7,6 +7,7 @@ import { shuffleArray } from "../helpers/shuffle";
 import { loadThemesByIds, summarizeSessionWords } from "../helpers/sessionWords";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
 import { buildChallengeInvite, buildSoloPracticeSession } from "../helpers/sessionCreation";
+import { assertRelayUnavailable } from "../rules/duelModeGuards";
 import {
   dismissChallengeNotifications,
 } from "./notifications";
@@ -98,6 +99,8 @@ export async function handleCreateBossChallenge(
   bossType: "mini" | "big",
   duelMode: DuelMode
 ) {
+  assertRelayUnavailable(duelMode, "boss duels");
+
   const { user, goal, isCreator, now, sessionWords } =
     await validateAndPrepareBoss(ctx, goalId, bossType);
 

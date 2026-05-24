@@ -55,7 +55,7 @@ describe("difficultyUtils", () => {
 
     expect(getDifficultyForIndex(0, distribution).optionCount).toBe(4);
     expect(getDifficultyForIndex(1, distribution).optionCount).toBe(6);
-    expect(getDifficultyForIndex(2, distribution).optionCount).toBe(5);
+    expect(getDifficultyForIndex(2, distribution).optionCount).toBe(6);
   });
 
   it("handles empty word count", () => {

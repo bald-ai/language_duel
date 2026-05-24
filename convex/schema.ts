@@ -102,8 +102,27 @@ const duelDifficultyPresetValidator = difficultyLevelValidator;
 
 export const duelModeValidator = v.union(
   v.literal(DUEL_MODES[0]),
-  v.literal(DUEL_MODES[1])
+  v.literal(DUEL_MODES[1]),
+  v.literal(DUEL_MODES[2])
 );
+
+const relayPhaseValidator = v.union(
+  v.literal("pick"),
+  v.literal("answer"),
+  v.literal("feedback")
+);
+
+const relayLastResultValidator = v.object({
+  wordIndex: v.number(),
+  chosen: v.string(),
+  correct: v.boolean(),
+  scorer: v.union(playerRoleValidator, v.null()),
+});
+
+const relayHardBudgetValidator = v.object({
+  challenger: v.number(),
+  opponent: v.number(),
+});
 
 export const hintTypeValidator = v.union(
   v.literal(HINT_TYPES[0]),
@@ -391,6 +410,21 @@ export default defineSchema({
     opponentSabotage: v.optional(sabotageValidator),
     challengerSabotagesUsed: v.optional(v.number()),
     opponentSabotagesUsed: v.optional(v.number()),
+
+    // Relay-mode state. Only set when duelMode === "relay"; absent otherwise.
+    // Indices below are positions into wordOrder (same basis as duelQuestions).
+    relayPicker: v.optional(playerRoleValidator),
+    relayPhase: v.optional(relayPhaseValidator),
+    relayAssignedIndex: v.optional(v.number()),
+    relayResolvedIndices: v.optional(v.array(v.number())),
+    relayHardUpgradeIndices: v.optional(v.array(v.number())),
+    relayHardBudget: v.optional(relayHardBudgetValidator),
+    relayAnswerStartedAt: v.optional(v.number()),
+    relayTimeoutScheduledFunctionId: v.optional(v.id("_scheduled_functions")),
+    relayLastResult: v.optional(relayLastResultValidator),
+    // Parallel to duelQuestions: the hard-upgrade variant per position.
+    // Server-only — never shipped to clients.
+    relayHardQuestions: v.optional(v.array(duelQuestionValidator)),
 
     seed: v.number(),
   })

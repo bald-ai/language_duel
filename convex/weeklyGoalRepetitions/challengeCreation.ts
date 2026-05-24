@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { buildChallengeInvite } from "../helpers/sessionCreation";
+import { assertRelayUnavailable } from "../rules/duelModeGuards";
 import { createChallengeInviteNotificationAndEmail } from "../notificationHelpers";
 import { SPACED_REPETITION_TOTAL_STEPS } from "../../lib/spacedRepetition";
 import { loadReadyRepetitionContext } from "./attemptMutations";
@@ -14,6 +15,8 @@ export async function createRepetitionChallengeForCurrentUser(
   weeklyGoalId: Id<"weeklyGoals">,
   duelMode: DuelMode
 ): Promise<Id<"challenges">> {
+  assertRelayUnavailable(duelMode, "spaced repetition duels");
+
   const { user } = await getAuthenticatedUser(ctx);
   const now = Date.now();
   const { goal, content, step } = await loadReadyRepetitionContext({

@@ -23,14 +23,14 @@ export const DIFFICULTY_POINTS = {
 export const DIFFICULTY_WRONG_COUNT = {
   easy: 3,
   medium: 5,
-  hard: 4,
+  hard: 5,
 } as const;
 
 /** Total number of answer options (correct + wrong) per difficulty level */
 export const DIFFICULTY_OPTION_COUNT = {
   easy: 4,
   medium: 6,
-  hard: 5,
+  hard: 6,
 } as const;
 
 /** Progressive distribution ratios (40/30/30 split) */

@@ -47,4 +47,10 @@ export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
     description: "Hints · cooperate",
     selectedTone: "secondary",
   },
+  {
+    mode: "relay",
+    label: "Relay",
+    description: "Take turns · hand off words",
+    selectedTone: "primary",
+  },
 ];

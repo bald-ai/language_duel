@@ -13,6 +13,10 @@ import {
   loadThemesByIds,
   summarizeSessionWords,
 } from "./helpers/sessionWords";
+import {
+  relayRemainingPositions,
+  relayServedQuestion,
+} from "../lib/duel/relayEngine";
 
 type DuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
 type SessionWord = Doc<"duels">["sessionWords"][number];
@@ -46,7 +50,48 @@ function hideQuestionAnswer(question: DuelQuestion): Omit<DuelQuestion, "correct
   return { ...safeQuestion, answerRevealedToViewer: false };
 }
 
+/**
+ * Relay-safe DTO. The answer key (`duelQuestions`, `relayHardQuestions`) is
+ * never shipped; the client only ever sees the phase-masked served question.
+ * Per change (B), `sessionWords[i].answer`/`ttsStorageId` are also blanked while
+ * the duel is active, since the client otherwise reads the answer from there.
+ */
+function buildRelaySafeDuel(duel: Doc<"duels">) {
+  const isActive = duel.status === "active";
+
+  const safeSessionWords = duel.sessionWords.map((word): SessionWord =>
+    isActive ? { ...word, answer: "", ttsStorageId: undefined } : word
+  );
+
+  const served = relayServedQuestion(duel);
+  let relayServed:
+    | (DuelQuestion & { answerRevealedToViewer: true })
+    | (Omit<DuelQuestion, "correctOption"> & { answerRevealedToViewer: false })
+    | null = null;
+  if (served && duel.relayPhase && duel.relayPhase !== "pick") {
+    // Reveal in feedback (or once the duel is over); mask during the answer
+    // phase so neither the answerer nor the watching picker sees the key.
+    const revealed = duel.relayPhase === "feedback" || !isActive;
+    relayServed = revealed
+      ? { ...served, answerRevealedToViewer: true }
+      : hideQuestionAnswer(served);
+  }
+
+  const { duelQuestions: _duelQuestions, relayHardQuestions: _relayHardQuestions, ...rest } = duel;
+
+  return {
+    ...rest,
+    sessionWords: safeSessionWords,
+    relayServedQuestion: relayServed,
+    relayRemainingPositions: relayRemainingPositions(duel),
+  };
+}
+
 function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opponent") {
+  if (duel.duelMode === "relay") {
+    return buildRelaySafeDuel(duel);
+  }
+
   const wordIndexBySessionIndex = new Map<number, number>();
   duel.wordOrder.forEach((sessionWordIndex, questionIndex) => {
     wordIndexBySessionIndex.set(sessionWordIndex, questionIndex);

@@ -18,7 +18,7 @@ import {
 import { RepetitionProgress } from "../components/RepetitionProgress";
 import { boardItemTitle, currentStepOf } from "../components/boardItemDisplay";
 import { getErrorMessage } from "@/lib/errors";
-import type { DuelMode } from "@/lib/duelMode";
+import { type DuelMode, NON_RELAY_DUEL_MODES } from "@/lib/duelMode";
 import { DuelModePicker } from "@/app/components/modals/DuelModePicker";
 
 export default function RepetitionLaunchPage() {
@@ -177,6 +177,7 @@ export default function RepetitionLaunchPage() {
               selectedMode={selectedMode}
               onSelectMode={setSelectedMode}
               dataTestIdPrefix="repetition-mode"
+              allowedModes={NON_RELAY_DUEL_MODES}
             />
           )}
 

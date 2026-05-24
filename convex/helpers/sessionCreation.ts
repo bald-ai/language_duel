@@ -2,7 +2,15 @@ import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { SEED_XOR_MASK } from "../constants";
 import { createShuffledWordOrder } from "./shuffle";
-import { buildDuelQuestionSet, type DuelQuestionSnapshot } from "../../lib/answerShuffle";
+import {
+  buildDuelQuestionSet,
+  buildRelayQuestionSet,
+  type DuelQuestionSnapshot,
+} from "../../lib/answerShuffle";
+import {
+  buildInitialRelayState,
+  type RelayInitialState,
+} from "../../lib/duel/relayEngine";
 import {
   getUniqueThemeIds,
   type SessionWordEntry,
@@ -81,7 +89,7 @@ export interface ChallengeInviteFields {
   createdAt: number;
 }
 
-export interface DuelSessionFields {
+export interface DuelSessionFields extends Partial<RelayInitialState> {
   challengeId?: Id<"challenges">;
   challengerId: Id<"users">;
   opponentId: Id<"users">;
@@ -261,7 +269,16 @@ export function buildDuelSession(args: {
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
   const wordOrder = createShuffledWordOrder(sessionWords.length);
 
+  // Relay serves a flat-point medium snapshot per position (decision #11) and
+  // carries its own turn/budget state; other modes use the progressive set.
+  const isRelay = args.duelMode === "relay";
+  const duelQuestions = isRelay
+    ? buildRelayQuestionSet(sessionWords, wordOrder, "medium")
+    : buildDuelQuestionSet(sessionWords, wordOrder, duelDifficultyPreset);
+  const relayState = isRelay ? buildInitialRelayState(sessionWords, wordOrder) : {};
+
   return {
+    ...relayState,
     challengeId: args.challengeId,
     challengerId: args.challengerId,
     opponentId: args.opponentId,
@@ -277,7 +294,7 @@ export function buildDuelSession(args: {
     createdAt: args.createdAt,
     currentWordIndex: 0,
     wordOrder,
-    duelQuestions: buildDuelQuestionSet(sessionWords, wordOrder, duelDifficultyPreset),
+    duelQuestions,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,

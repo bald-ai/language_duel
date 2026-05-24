@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { getDuel } from "@/convex/duels";
+import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { createIndexedQuery } from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<
@@ -158,5 +159,93 @@ describe("duels.getDuel viewer-safe DTO", () => {
     expect(result?.duel.sessionWords[0].answer).toBe("gato");
     expect(result?.duel.duelQuestions?.[0].correctOption).toBe("gato");
     expect((result?.duel.duelQuestions?.[0] as ViewerSafeQuestion | undefined)?.answerRevealedToViewer).toBe(true);
+  });
+});
+
+type RelaySafeResult = {
+  duel: Record<string, unknown> & {
+    sessionWords: Array<{ answer: string; ttsStorageId?: unknown }>;
+    relayServedQuestion: (ViewerSafeQuestion & { correctOption?: string }) | null;
+    relayRemainingPositions: number[];
+    duelQuestions?: unknown;
+    relayHardQuestions?: unknown;
+  };
+};
+
+function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+  return duelDoc({
+    duelMode: "relay",
+    duelQuestions: [
+      { options: ["gato", "perro", "pez", "ave", "casa", "mesa"], correctOption: "gato", difficulty: "medium", points: 1 },
+    ],
+    relayHardQuestions: [
+      { options: ["gato", "perro", "pez", "ave", "casa", NONE_OF_ABOVE], correctOption: NONE_OF_ABOVE, difficulty: "hard", points: 1 },
+    ],
+    relayPicker: "challenger",
+    relayPhase: "answer",
+    relayAssignedIndex: 0,
+    relayResolvedIndices: [],
+    relayHardUpgradeIndices: [],
+    relayHardBudget: { challenger: 1, opponent: 1 },
+    relayAnswerStartedAt: 1000,
+    ...overrides,
+  });
+}
+
+async function getRelayDuel(duel: DuelDoc): Promise<RelaySafeResult | null> {
+  const db = new InMemoryDb(
+    [
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+    ],
+    [themeDoc()],
+    [duel]
+  );
+  return (await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> })) as RelaySafeResult | null;
+}
+
+describe("duels.getDuel relay viewer-safe DTO", () => {
+  it("never ships the relay answer keys", async () => {
+    const result = await getRelayDuel(relayDuelDoc());
+    expect(result?.duel.duelQuestions).toBeUndefined();
+    expect(result?.duel.relayHardQuestions).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("secret-answer-from-theme");
+  });
+
+  it("masks the served question during the answer phase and blanks session answers", async () => {
+    const result = await getRelayDuel(relayDuelDoc({ relayPhase: "answer" }));
+    expect(result?.duel.relayServedQuestion).not.toBeNull();
+    expect(result?.duel.relayServedQuestion).not.toHaveProperty("correctOption");
+    expect(result?.duel.relayServedQuestion?.answerRevealedToViewer).toBe(false);
+    expect(result?.duel.sessionWords[0].answer).toBe("");
+    expect(result?.duel.sessionWords[0].ttsStorageId).toBeUndefined();
+  });
+
+  it("returns no served question during the pick phase, only the remaining pool", async () => {
+    const result = await getRelayDuel(
+      relayDuelDoc({ relayPhase: "pick", relayAssignedIndex: undefined })
+    );
+    expect(result?.duel.relayServedQuestion).toBeNull();
+    expect(result?.duel.relayRemainingPositions).toEqual([0]);
+  });
+
+  it("reveals the served question during feedback", async () => {
+    const result = await getRelayDuel(relayDuelDoc({ relayPhase: "feedback" }));
+    expect(result?.duel.relayServedQuestion?.answerRevealedToViewer).toBe(true);
+    expect(result?.duel.relayServedQuestion?.correctOption).toBe("gato");
+  });
+
+  it("serves the hard variant for an upgraded position", async () => {
+    const result = await getRelayDuel(
+      relayDuelDoc({ relayPhase: "feedback", relayHardUpgradeIndices: [0] })
+    );
+    expect(result?.duel.relayServedQuestion?.correctOption).toBe(NONE_OF_ABOVE);
+  });
+
+  it("restores real session answers once the duel is over", async () => {
+    const result = await getRelayDuel(
+      relayDuelDoc({ status: "completed", relayPhase: "pick", relayAssignedIndex: undefined })
+    );
+    expect(result?.duel.sessionWords[0].answer).toBe("gato");
   });
 });

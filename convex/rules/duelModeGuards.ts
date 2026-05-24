@@ -16,3 +16,17 @@ export function assertDuelMode(
     actual: duel.duelMode,
   });
 }
+
+/**
+ * Relay is only offered from the regular challenge flow (decision #2). Boss and
+ * spaced-repetition creation accept any `duelModeValidator` value, so they need
+ * this explicit guard to reject relay at creation time.
+ */
+export function assertRelayUnavailable(duelMode: DuelMode, surfaceLabel: string) {
+  if (duelMode !== "relay") return;
+
+  throw new ConvexError({
+    code: "WRONG_MODE",
+    message: `Relay is not available for ${surfaceLabel}`,
+  });
+}

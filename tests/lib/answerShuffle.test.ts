@@ -32,11 +32,11 @@ describe("answerShuffle", () => {
     expect(first.correctOption).toBe(word.answer);
   });
 
-  it("hard mode includes None of the above and sets hasNoneOption consistently", () => {
-    const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 4 };
+  it("hard mode emits 6 options including None of the above", () => {
+    const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 5 };
     const result = buildDuelQuestionSnapshot(word, 2, difficulty);
 
-    expect(result.options.length).toBe(5);
+    expect(result.options.length).toBe(6);
     expect(result.options).toContain(NONE_OF_ABOVE);
     expect(result.points).toBe(2);
     expect(result.difficulty).toBe("hard");
@@ -48,19 +48,30 @@ describe("answerShuffle", () => {
     }
   });
 
-  it("hard mode can produce both none-correct and normal outcomes", () => {
-    const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 4 };
+  it("hard mode composition: None-correct = 5 wrong + None, None-decoy = 1 correct + 4 wrong + None", () => {
+    const difficulty: ShuffleDifficultyInfo = { level: "hard", wrongCount: 5 };
     let foundNoneCorrect = false;
     let foundNormal = false;
 
     for (let i = 0; i < 50; i++) {
       const result = buildDuelQuestionSnapshot(word, i, difficulty);
+      expect(result.options.length).toBe(6);
+      expect(result.options).toContain(NONE_OF_ABOVE);
+
+      const wrongCount = result.options.filter((option) =>
+        word.wrongAnswers.includes(option)
+      ).length;
+
       if (result.correctOption === NONE_OF_ABOVE) {
         foundNoneCorrect = true;
+        // 5 wrong decoys + "None of the above" (correct), no real answer.
         expect(result.options).not.toContain(word.answer);
+        expect(wrongCount).toBe(5);
       } else {
         foundNormal = true;
+        // 1 correct + 4 wrong decoys + "None of the above" (wrong).
         expect(result.options).toContain(word.answer);
+        expect(wrongCount).toBe(4);
       }
 
       if (foundNoneCorrect && foundNormal) break;

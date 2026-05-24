@@ -42,6 +42,7 @@ import type * as notificationPayloads from "../notificationPayloads.js";
 import type * as notificationPreferences from "../notificationPreferences.js";
 import type * as notifications from "../notifications.js";
 import type * as prototypeRooms from "../prototypeRooms.js";
+import type * as relayDuel from "../relayDuel.js";
 import type * as rules_countdownPlanners from "../rules/countdownPlanners.js";
 import type * as rules_duelGameplayRules from "../rules/duelGameplayRules.js";
 import type * as rules_duelModeGuards from "../rules/duelModeGuards.js";
@@ -124,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   notificationPreferences: typeof notificationPreferences;
   notifications: typeof notifications;
   prototypeRooms: typeof prototypeRooms;
+  relayDuel: typeof relayDuel;
   "rules/countdownPlanners": typeof rules_countdownPlanners;
   "rules/duelGameplayRules": typeof rules_duelGameplayRules;
   "rules/duelModeGuards": typeof rules_duelModeGuards;

@@ -131,6 +131,83 @@ describe("duel mode picker surfaces", () => {
     );
   });
 
+  it("offers relay and hides the difficulty selector when relay is chosen", () => {
+    const onCreateChallenge = vi.fn();
+    render(
+      <ChallengeModal
+        users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
+        viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
+        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", wordCount: 1 }]}
+        pendingChallenges={[]}
+        isJoiningDuel={false}
+        isCreatingChallenge={false}
+        onAcceptChallenge={vi.fn()}
+        onDeclineChallenge={vi.fn()}
+        onCreateChallenge={onCreateChallenge}
+        onClose={vi.fn()}
+        onNavigateToThemes={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));
+    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+
+    // Difficulty preset selector visible before relay is chosen.
+    expect(screen.getByTestId("duel-modal-difficulty-easy")).toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-mode-relay")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
+
+    // Difficulty selector is replaced by the picker-controlled note.
+    expect(screen.queryByTestId("duel-modal-difficulty-easy")).not.toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("duel-modal-create"));
+    expect(onCreateChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({ duelMode: "relay", duelDifficultyPreset: undefined })
+    );
+  });
+
+  it("offers no relay (or any mode picker) for a self-duel selection", () => {
+    render(
+      <ChallengeModal
+        users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
+        viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
+        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", wordCount: 1 }]}
+        pendingChallenges={[]}
+        isJoiningDuel={false}
+        isCreatingChallenge={false}
+        onAcceptChallenge={vi.fn()}
+        onDeclineChallenge={vi.fn()}
+        onCreateChallenge={vi.fn()}
+        onClose={vi.fn()}
+        onNavigateToThemes={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("duel-modal-opponent-me"));
+
+    expect(screen.queryByTestId("duel-modal-mode-relay")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("duel-modal-mode-pvp")).not.toBeInTheDocument();
+  });
+
+  it("does not offer relay on the boss launch page", () => {
+    paramsMock.mockReturnValue({ goalId: "goal_1", bossType: "mini" });
+    render(<BossLaunchPage />);
+
+    expect(screen.getByTestId("boss-mode-pvp")).toBeInTheDocument();
+    expect(screen.getByTestId("boss-mode-pve")).toBeInTheDocument();
+    expect(screen.queryByTestId("boss-mode-relay")).not.toBeInTheDocument();
+  });
+
+  it("does not offer relay on the repetition launch page", () => {
+    paramsMock.mockReturnValue({ goalId: "goal_1" });
+    render(<RepetitionLaunchPage />);
+
+    expect(screen.getByTestId("repetition-mode-pvp")).toBeInTheDocument();
+    expect(screen.queryByTestId("repetition-mode-relay")).not.toBeInTheDocument();
+  });
+
   it("passes the selected mode from the boss launch page", async () => {
     paramsMock.mockReturnValue({ goalId: "goal_1", bossType: "mini" });
 

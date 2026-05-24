@@ -91,6 +91,51 @@ describe("session creation helpers", () => {
     expect(typeof result.seed).toBe("number");
   });
 
+  it("builds relay duel sessions with turn state and flat-point 6-option questions", () => {
+    const relayWords: SessionWordEntry[] = [
+      { word: "cat", answer: "gato", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+      { word: "dog", answer: "perro", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+    ];
+
+    const result = buildDuelSession({
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      sessionWords: relayWords,
+      sourceType: "normal",
+      duelMode: "relay",
+      createdAt: 1,
+    });
+
+    expect(result.duelMode).toBe("relay");
+    expect(result.relayPicker).toBe("challenger");
+    expect(result.relayPhase).toBe("pick");
+    expect(result.relayResolvedIndices).toEqual([]);
+    expect(result.relayHardUpgradeIndices).toEqual([]);
+    expect(result.relayHardBudget).toEqual({ challenger: 1, opponent: 1 });
+    expect(result.relayHardQuestions).toHaveLength(2);
+    // Base and hard relay snapshots are both 6 options, worth a flat point.
+    expect(result.duelQuestions[0].options).toHaveLength(6);
+    expect(result.duelQuestions[0].points).toBe(1);
+    expect(result.relayHardQuestions?.[0].options).toHaveLength(6);
+    expect(result.relayHardQuestions?.[0].points).toBe(1);
+  });
+
+  it("omits relay state for non-relay duels", () => {
+    const result = buildDuelSession({
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      sessionWords,
+      sourceType: "normal",
+      duelMode: "pvp",
+      createdAt: 1,
+    });
+
+    expect(result.relayPicker).toBeUndefined();
+    expect(result.relayPhase).toBeUndefined();
+    expect(result.relayHardQuestions).toBeUndefined();
+    expect(result.relayHardBudget).toBeUndefined();
+  });
+
   it("builds persisted solo-practice sessions without challenge or duel fields", () => {
     const result = buildSoloPracticeSession({
       userId: "user_1" as Id<"users">,

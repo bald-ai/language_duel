@@ -67,6 +67,8 @@ export function ChallengeModal({
   const selectedOpponent = isSelfSelected
     ? viewer ?? null
     : (users?.find((user) => user._id === selectedOpponentId) ?? null);
+  // Relay difficulty is imposed per-turn by the picker, so no preset is sent.
+  const isRelaySelected = !isSelfSelected && selectedMode === "relay";
 
   const canCreate = selectedOpponentId && selectedThemeIds.length > 0;
 
@@ -75,7 +77,7 @@ export function ChallengeModal({
     onCreateChallenge({
       opponentId: selectedOpponentId,
       themeIds: selectedThemeIds,
-      duelDifficultyPreset: selectedDifficulty,
+      duelDifficultyPreset: isRelaySelected ? undefined : selectedDifficulty,
       duelMode: selectedMode,
     });
   };
@@ -172,6 +174,10 @@ function ChallengeCreateSurface({
   onNavigateToThemes,
 }: ChallengeCreateSurfaceProps) {
   const colors = useAppearanceColors();
+  // Relay difficulty is imposed per-turn by the picker, so the preset selector
+  // is hidden when Relay is chosen (decision #14). Self-duels force PvE, never
+  // relay, so they always show the selector.
+  const isRelaySelected = !isSelfSelected && selectedMode === "relay";
   return (
     <>
       <div>
@@ -208,10 +214,20 @@ function ChallengeCreateSurface({
         <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
           Difficulty
         </p>
-        <DifficultySelector
-          selectedDifficulty={selectedDifficulty}
-          onSelect={onSelectDifficulty}
-        />
+        {isRelaySelected ? (
+          <p
+            className="text-sm"
+            style={{ color: colors.text.muted }}
+            data-testid="duel-modal-difficulty-relay-note"
+          >
+            Controlled by the picker
+          </p>
+        ) : (
+          <DifficultySelector
+            selectedDifficulty={selectedDifficulty}
+            onSelect={onSelectDifficulty}
+          />
+        )}
       </div>
 
       {!isSelfSelected && (
