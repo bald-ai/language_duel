@@ -90,6 +90,7 @@ export const SoloLearnWordRow = memo(function SoloLearnWordRow({
       isTTSPlaying={playingWordIndex === originalIndex}
       isTTSDisabled={playingWordIndex !== null}
       onPlayTTS={handlePlayTTS}
+      position={originalIndex + 1}
       dataTestIdBase={dataTestIdBase}
     />
   );

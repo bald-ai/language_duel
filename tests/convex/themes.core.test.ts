@@ -165,7 +165,7 @@ function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
       {
         word: "cat",
         answer: "kocka",
-        wrongAnswers: ["strom", "auto", "more"],
+        wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
       },
     ],
     createdAt: Date.now(),
@@ -211,7 +211,7 @@ function snapshotDoc(
       {
         word: "cat",
         answer: "kocka",
-        wrongAnswers: ["strom", "auto", "more"],
+        wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
         ttsStorageId: "storage_1" as Id<"_storage">,
       },
     ],
@@ -372,12 +372,12 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
           },
           {
             word: " CAT ",
             answer: "macka",
-            wrongAnswers: ["dom", "most", "pole"],
+            wrongAnswers: ["dom", "most", "pole", "decoy1", "decoy2", "decoy3"],
           },
         ],
       })
@@ -393,7 +393,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_1" as Id<"_storage">,
           },
         ],
@@ -411,7 +411,7 @@ describe("themes core handlers", () => {
         {
           word: "cat",
           answer: "kocka",
-          wrongAnswers: ["strom", "dom", "most"],
+          wrongAnswers: ["strom", "dom", "most", "decoy1", "decoy2", "decoy3"],
         },
       ],
     });
@@ -429,13 +429,13 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_1" as Id<"_storage">,
           },
           {
             word: "dog",
             answer: "pes",
-            wrongAnswers: ["mesto", "kniha", "pole"],
+            wrongAnswers: ["mesto", "kniha", "pole", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_2" as Id<"_storage">,
           },
         ],
@@ -453,7 +453,7 @@ describe("themes core handlers", () => {
         {
           word: "bird",
           answer: "vtak",
-          wrongAnswers: ["rieka", "hora", "cesta"],
+          wrongAnswers: ["rieka", "hora", "cesta", "decoy1", "decoy2", "decoy3"],
         },
       ],
     });
@@ -471,7 +471,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_1" as Id<"_storage">,
           },
         ],
@@ -490,7 +490,7 @@ describe("themes core handlers", () => {
         {
           word: "bird",
           answer: "vtak",
-          wrongAnswers: ["rieka", "hora", "cesta"],
+          wrongAnswers: ["rieka", "hora", "cesta", "decoy1", "decoy2", "decoy3"],
         },
       ],
     });
@@ -507,7 +507,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_1" as Id<"_storage">,
           },
         ],
@@ -526,7 +526,7 @@ describe("themes core handlers", () => {
         {
           word: "bird",
           answer: "vtak",
-          wrongAnswers: ["rieka", "hora", "cesta"],
+          wrongAnswers: ["rieka", "hora", "cesta", "decoy1", "decoy2", "decoy3"],
         },
       ],
     });
@@ -652,7 +652,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_live" as Id<"_storage">,
           },
         ],
@@ -681,7 +681,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_1" as Id<"_storage">,
           },
         ],
@@ -709,12 +709,12 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
           },
           {
             word: "dog",
             answer: "pes",
-            wrongAnswers: ["mesto", "kniha", "pole"],
+            wrongAnswers: ["mesto", "kniha", "pole", "decoy1", "decoy2", "decoy3"],
           },
         ],
       })
@@ -767,7 +767,7 @@ describe("themes core handlers", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
             ttsStorageId: "storage_first" as Id<"_storage">,
           },
         ],

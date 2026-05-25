@@ -92,7 +92,7 @@ describe("themes.duplicateTheme TTS behavior", () => {
       {
         word: "father",
         answer: "el padre",
-        wrongAnswers: ["el padrino", "el patrón", "el papá"],
+        wrongAnswers: ["el padrino", "el patrón", "el papá", "el tío", "el abuelo", "el hijo"],
         ttsStorageId: "kg27g8aq7p579pedtb4zdm9zw980wmq1" as Id<"_storage">,
       },
     ];
@@ -124,7 +124,7 @@ describe("themes.duplicateTheme TTS behavior", () => {
     expect(words[0]?.word).toBe("father");
     expect(words[0]?.answer).toBe("el padre");
     expect(words[0]?.ttsStorageId).toBeUndefined();
-    expect(words[0]?.wrongAnswers).toEqual(["el padrino", "el patrón", "el papá"]);
+    expect(words[0]?.wrongAnswers).toEqual(["el padrino", "el patrón", "el papá", "el tío", "el abuelo", "el hijo"]);
 
     // Ensure wrong answers are copied, not shared by reference.
     originalWords[0]!.wrongAnswers[0] = "MUTATED";

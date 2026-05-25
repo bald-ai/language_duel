@@ -42,13 +42,13 @@ const getToggleInactiveStyle = (colors: ThemeColors) => ({
 });
 
 const getCardStyle = (colors: ThemeColors) => ({
-  backgroundColor: colors.background.elevated,
+  backgroundColor: colors.background.DEFAULT,
   borderColor: colors.primary.dark,
   boxShadow: `0 18px 50px ${colors.primary.glow}`,
 });
 
 const getListCardStyle = (colors: ThemeColors) => ({
-  backgroundColor: colors.background.elevated,
+  backgroundColor: colors.background.DEFAULT,
   borderColor: colors.primary.dark,
   boxShadow: `0 20px 55px ${colors.primary.glow}`,
 });

@@ -31,6 +31,7 @@ interface DuelModeOption {
   mode: DuelMode;
   label: string;
   description: string;
+  icon: string;
   selectedTone: "primary" | "secondary";
 }
 
@@ -39,18 +40,21 @@ export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
     mode: "pvp",
     label: "PvP",
     description: "Sabotages · compete",
+    icon: "⚔️",
     selectedTone: "primary",
   },
   {
     mode: "pve",
     label: "PvE",
     description: "Hints · cooperate",
+    icon: "🤝",
     selectedTone: "secondary",
   },
   {
     mode: "relay",
     label: "Relay",
     description: "Take turns · hand off words",
+    icon: "🏃",
     selectedTone: "primary",
   },
 ];

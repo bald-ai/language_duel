@@ -14,7 +14,9 @@ export const THEME_WRONG_ANSWER_INPUT_MAX_LENGTH = 96;
 export const THEME_MIN_WORD_COUNT = 1;
 export const THEME_MAX_WORD_COUNT = 200;
 
-export const THEME_MIN_WRONG_ANSWER_COUNT = 3;
+// Every word must carry the full set of wrong answers — no fewer, no more — so
+// each duel question can render the full 6-option grid in all modes.
+export const THEME_MIN_WRONG_ANSWER_COUNT = WRONG_ANSWER_COUNT;
 export const THEME_MAX_WRONG_ANSWER_COUNT = WRONG_ANSWER_COUNT;
 
 export const THEME_SAVE_REQUEST_ID_MAX_LENGTH = 128;

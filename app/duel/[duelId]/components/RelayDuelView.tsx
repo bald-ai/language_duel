@@ -246,11 +246,12 @@ interface RelayPickListProps {
 // unmounts between turns and the toggle resets without an effect.
 function RelayPickList({ remaining, promptAt, theirName, budget, onPick, colors }: RelayPickListProps) {
   const [hardPosition, setHardPosition] = useState<number | null>(null);
+  const [pickingPosition, setPickingPosition] = useState<number | null>(null);
 
-  const rowStyle: CSSProperties = {
-    borderColor: colors.primary.dark,
-    backgroundColor: colors.background.elevated,
-    color: colors.text.DEFAULT,
+  const handlePick = (position: number) => {
+    if (pickingPosition !== null) return;
+    setPickingPosition(position);
+    onPick(position, hardPosition === position);
   };
 
   return (
@@ -267,46 +268,79 @@ function RelayPickList({ remaining, promptAt, theirName, budget, onPick, colors 
           🔥 {budget} left
         </span>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {remaining.map((position) => {
           const isHard = hardPosition === position;
-          const toggleDisabled = budget <= 0 && !isHard;
+          const isPicking = pickingPosition === position;
+          const pickInFlight = pickingPosition !== null;
+          const toggleDisabled = (budget <= 0 && !isHard) || pickInFlight;
+          const rowStyle: CSSProperties = isPicking
+            ? {
+                borderColor: colors.secondary.DEFAULT,
+                backgroundColor: `${colors.secondary.DEFAULT}26`,
+                color: colors.secondary.dark,
+              }
+            : isHard
+              ? {
+                  borderColor: colors.status.danger.DEFAULT,
+                  backgroundColor: `${colors.status.danger.DEFAULT}14`,
+                  color: colors.text.DEFAULT,
+                }
+              : {
+                  borderColor: colors.primary.dark,
+                  backgroundColor: colors.background.elevated,
+                  color: colors.text.DEFAULT,
+                };
           return (
-            <div
-              key={position}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border-2"
-              style={rowStyle}
-            >
+            <div key={position} className="relative">
               <button
                 type="button"
-                onClick={() => onPick(position, isHard)}
-                className="flex-1 text-left text-base font-semibold transition hover:brightness-110"
+                onClick={() => handlePick(position)}
+                disabled={pickInFlight && !isPicking}
+                className="w-full text-left rounded-xl border-2 px-4 py-3 pr-24 text-base font-semibold transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                style={rowStyle}
                 data-testid={`relay-pick-${position}`}
               >
-                {promptAt(position)}
+                <span className="block truncate">{promptAt(position)}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setHardPosition((current) => (current === position ? null : position))}
                 disabled={toggleDisabled}
                 aria-pressed={isHard}
-                className="rounded-lg border-2 px-3 py-1.5 text-xs font-bold transition hover:brightness-110 disabled:opacity-40"
+                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-bold uppercase tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
                 style={
                   isHard
                     ? {
                         borderColor: colors.status.danger.DEFAULT,
-                        backgroundColor: `${colors.status.danger.DEFAULT}26`,
-                        color: colors.status.danger.dark,
+                        backgroundColor: colors.status.danger.DEFAULT,
+                        color: colors.text.inverse,
                       }
                     : {
                         borderColor: colors.primary.dark,
-                        backgroundColor: colors.background.DEFAULT,
+                        backgroundColor: "transparent",
                         color: colors.text.muted,
                       }
                 }
                 data-testid={`relay-hard-toggle-${position}`}
               >
-                🔥 Hard
+                <span
+                  className="inline-flex h-3 w-3 items-center justify-center rounded-sm border"
+                  style={{
+                    borderColor: isHard ? colors.text.inverse : colors.text.muted,
+                    backgroundColor: isHard ? colors.text.inverse : "transparent",
+                  }}
+                >
+                  {isHard && (
+                    <span
+                      style={{ color: colors.status.danger.DEFAULT }}
+                      className="text-[9px] leading-none"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </span>
+                Hard
               </button>
             </div>
           );

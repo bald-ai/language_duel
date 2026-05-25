@@ -58,7 +58,7 @@ const validWords = [
   {
     word: "cat",
     answer: "kocka",
-    wrongAnswers: ["strom", "auto", "more"],
+    wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
   },
 ];
 
@@ -169,12 +169,12 @@ describe("themes.createTheme idempotency", () => {
           {
             word: "cat",
             answer: "kocka",
-            wrongAnswers: ["strom", "auto", "more"],
+            wrongAnswers: ["strom", "auto", "more", "decoy1", "decoy2", "decoy3"],
           },
           {
             word: " cat ",
             answer: "macka",
-            wrongAnswers: ["dom", "most", "pole"],
+            wrongAnswers: ["dom", "most", "pole", "decoy1", "decoy2", "decoy3"],
           },
         ],
         wordType: "nouns" as const,
@@ -204,7 +204,7 @@ describe("themes.createTheme idempotency", () => {
           {
             word: "go",
             answer: "ir(Irr)",
-            wrongAnswers: ["ir", "venir", "hablar"],
+            wrongAnswers: ["ir", "venir", "hablar", "decoy1", "decoy2", "decoy3"],
           },
         ],
         wordType: "verbs" as const,
@@ -233,7 +233,7 @@ describe("themes.createTheme idempotency", () => {
         {
           word: "red",
           answer: "rojo",
-          wrongAnswers: ["azul", "verde", "cansado"],
+          wrongAnswers: ["azul", "verde", "cansado", "decoy1", "decoy2", "decoy3"],
         },
       ],
       wordType: "adjectives" as const,

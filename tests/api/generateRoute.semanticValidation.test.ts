@@ -612,8 +612,8 @@ describe("/api/generate semantic validation", () => {
     const response = await postGenerate({
       ...fieldBase,
       fieldType: "wrong",
-      currentWrongAnswers: sharedWrongAnswers.slice(0, 3),
-      fieldIndex: 3,
+      currentWrongAnswers: sharedWrongAnswers,
+      fieldIndex: sharedWrongAnswers.length,
     });
     const payload = (await response.json()) as { success: boolean; error: string };
 

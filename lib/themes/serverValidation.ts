@@ -76,7 +76,9 @@ export function formatThemeValidationIssue(
     return `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`;
   }
   if (issue.type === "wrong_answer_count") {
-    return `${labelFor(issue.wordIndex)}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`;
+    return THEME_MIN_WRONG_ANSWER_COUNT === THEME_MAX_WRONG_ANSWER_COUNT
+      ? `${labelFor(issue.wordIndex)}: wrong answers must contain exactly ${THEME_MAX_WRONG_ANSWER_COUNT} items`
+      : `${labelFor(issue.wordIndex)}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`;
   }
   if (issue.type === "wrong_answer_matches_correct") {
     return `${labelFor(issue.wordIndex)}: wrong answer "${issue.wrongAnswer}" matches the correct answer "${issue.answer}" after normalization.`;

@@ -22,7 +22,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Generate themes: A user can generate a normal theme directly, or use Pick & Prune to over-generate words first and then keep only the useful entries.
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
-- Duel modes: New challenges choose `PvP` or `PvE`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool.
+- Duel modes: New challenges choose `PvP`, `PvE`, or `Relay`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks a word from the remaining pool and the other player answers it, then roles swap.
 - Weekly goals: A user can create a solo goal, or two users can create a shared goal. Goals collect themes, lock in a snapshot, and track completion toward boss-style milestone moments.
 
 ## System Map
@@ -73,6 +73,20 @@ Duel mode lifecycle:
 - A PvE hint is shared team state: either player can fire it, it affects both players, there is no consent step, and only one hint can be fired per question.
 - Every PvE hint gives a universal timer bump; `+15 Seconds` is the bigger timer hint because it includes the universal bump plus its own extra time.
 - PvE is designed around two players sitting together and talking in real life. Do not add request pings, consent prompts, or extra notification noise unless that product assumption changes.
+- `Relay` is the third mode: turn-based, no sabotages, no shared hint pool, no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
+
+Relay duel lifecycle:
+
+- Relay has three phases tracked on the duel record: `pick`, `answer`, and `feedback`. Only `answer` is timed.
+- The challenger always picks first. After every answered word (correct, wrong, or timed out) the answerer becomes the next picker, so turns alternate by outcome of play rather than by a fixed schedule.
+- The pick phase shows the picker the remaining word pool (resolved and currently-assigned positions are excluded) plus a per-player hard-upgrade budget. The non-picker sees a waiting screen.
+- Each player gets `ceil(poolSize / 10)` hard-upgrade tokens at duel creation (`RELAY_HARD_BUDGET_DIVISOR = 10`). Using a token swaps the served question for the pre-built "hard" variant of that word. Tokens are independent per player and do not refund on wrong answers or timeouts.
+- Relay questions are six-option, uniform-medium-difficulty by default; the difficulty preset selector is hidden on Relay and the backend ignores any preset that gets sent. The hard upgrade is the only per-turn difficulty lever.
+- The answer phase has a fixed `RELAY_ANSWER_TIMEOUT_SECONDS = 21` countdown. A Convex scheduled function is the source of truth for timeouts; the client timer is just display.
+- Timeout counts the word as wrong (no score) and resolves + hands off in a single step — Relay never parks in `feedback` after a timeout, because the answerer is likely gone.
+- Scoring is a flat `RELAY_QUESTION_POINTS = 1` per correct answer credited to the answerer. There is no per-word point variation and no streak bonus.
+- The duel completes when every position in `wordOrder` has been resolved and no word is currently assigned (`isRelayFinished`). The final-results panel then replaces the picker/answer UI.
+- Server enforcement lives in `convex/relayDuel.ts` (`relayPick`, `relayAnswer`, `relayAdvance`, `relayTimeout`) and the pure rules in `lib/duel/relayEngine.ts`. UI lives in `app/duel/[duelId]/components/RelayDuelView.tsx`.
 
 Weekly goal lifecycle:
 
@@ -105,6 +119,8 @@ Weekly goal lifecycle:
 - Challenge: a proposal sent to another person to start a duel.
 - PvP: competitive duel mode with sabotages and request-hint mechanics.
 - PvE: cooperative duel mode with a shared hint pool and no sabotage/request-help mechanics.
+- Relay: turn-based duel mode. The picker hands a single word from the remaining pool to the rival, the rival answers it, then the rival becomes the next picker. Six-option questions, uniform medium difficulty, with a per-player hard-upgrade token budget.
+- Hard upgrade (Relay): a token the picker can spend when handing over a word to swap the served question for the pre-built hard variant of that word. Per-player budget is `ceil(poolSize / 10)`.
 - Shared hint pool: the PvE team hint budget. It belongs to the duel, not to one player.
 - Solo practice: a single-player learning flow without another player.
 - Weekly goal: a solo or shared study plan, built from selected themes and tracked toward completion.
@@ -118,6 +134,7 @@ Weekly goal lifecycle:
 - Challenge invites, accepted duels, and solo-practice sessions are separate records with separate state shapes.
 - Mode-specific duel actions are enforced at the Convex mutation boundary through `assertDuelMode`; UI hiding is only for clarity.
 - PvE mode is not just PvP with sabotages hidden. PvE has different interaction rules, a shared hint pool, and a co-located-player product assumption.
+- Relay mode is not a PvP/PvE variant. It has its own phase machine (`pick`/`answer`/`feedback`), its own server mutations in `convex/relayDuel.ts`, and ignores the difficulty preset because difficulty is controlled per-turn via the hard-upgrade token instead.
 - Pick & Prune review state is temporary client-side state. Saved theme data only receives the words the user keeps.
 - Weekly goals, boss challenges, notifications, and reminders are connected. Changes in one area can affect behavior in the others.
 - Themes are reused across study, solo practice, duels, and weekly goals, so content changes can have effects in multiple surfaces.

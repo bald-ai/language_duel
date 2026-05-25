@@ -25,6 +25,8 @@ interface WordCardProps {
   isTTSPlaying: boolean;
   isTTSDisabled: boolean;
   onPlayTTS: () => void;
+  /** 1-based position in the word list, shown as a corner badge. */
+  position?: number;
   dataTestIdBase?: string;
 }
 
@@ -77,6 +79,7 @@ export const WordCard = memo(function WordCard({
   isTTSPlaying,
   isTTSDisabled,
   onPlayTTS,
+  position,
   dataTestIdBase,
 }: WordCardProps) {
   const colors = useAppearanceColors();
@@ -91,7 +94,7 @@ export const WordCard = memo(function WordCard({
     ? disabledButtonStyleConst
     : iconButtonStyleConst;
 
-  const baseClasses = "rounded-2xl border-2 p-4 transition";
+  const baseClasses = "relative rounded-2xl border-2 p-4 transition";
 
   return (
     <div
@@ -99,6 +102,20 @@ export const WordCard = memo(function WordCard({
       className={baseClasses}
       data-testid={dataTestIdBase}
     >
+      {typeof position === "number" ? (
+        <div
+          className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold tabular-nums"
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
+          aria-hidden="true"
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-position` : undefined}
+        >
+          {position}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-3">
         <div className="flex-1 min-w-0">
           <div

@@ -188,7 +188,7 @@ describe("/api/generate request validation", () => {
         themeName: "Animals",
         currentWord: "cat",
         currentAnswer: "el gato",
-        currentWrongAnswers: ["el perro", "el pajaro", "el pez"],
+        currentWrongAnswers: ["el perro", "el pajaro", "el pez", "el raton", "el caballo", "el conejo"],
         fieldIndex: THEME_MAX_WRONG_ANSWER_COUNT,
       })
     );
