@@ -14,6 +14,12 @@ import { getThemeActionButtonStyle } from "./themeStyles";
 import { getWordTypeLabel } from "../constants";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import type { ListFilter } from "../hooks/useThemeListController";
+import {
+  getThemeItemCount,
+  isSentenceTheme,
+} from "@/lib/themes/themeContent";
+
+export type ContentTypeTab = "all" | "word" | "sentence";
 
 interface ThemeListProps {
   themes: ThemeWithOwner[];
@@ -31,6 +37,9 @@ interface ThemeListProps {
   onClearFriendFilter?: () => void;
   onToggleShowArchived?: () => void;
   onToggleArchive?: (themeId: Id<"themes">) => void;
+  // Content-type tabs (sentence-themes addition)
+  contentTypeTab?: ContentTypeTab;
+  onContentTypeTabChange?: (tab: ContentTypeTab) => void;
 }
 
 interface ThemeCardProps {
@@ -58,23 +67,43 @@ const ThemeCard = memo(function ThemeCard({
 }: ThemeCardProps) {
   const colors = useAppearanceColors();
   const isMutating = isDeleting || isDuplicating;
+  const isSentence = isSentenceTheme(theme);
+  const itemCount = getThemeItemCount(theme);
 
-  const categoryLabel = getWordTypeLabel(theme.wordType, {
-    fallback: "No category",
-    uppercase: true,
-  });
+  const categoryLabel = isSentence
+    ? "SENTENCES"
+    : getWordTypeLabel(theme.wordType, {
+        fallback: "No category",
+        uppercase: true,
+      });
 
   const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
+  const itemLabel = isSentence
+    ? `${itemCount} ${itemCount === 1 ? "round" : "rounds"}`
+    : `${itemCount} words`;
 
   const ownerInfo =
     !theme.isOwner && theme.ownerNickname
       ? ` • by ${theme.ownerNickname}`
       : "";
-  const hasMissingTts = hasMissingThemeTts(theme.words);
+  // Sentence themes don't carry TTS in v1 — skip the pill entirely (no reserved
+  // placeholder, per plan decision: theme behavior).
+  const hasMissingTts = !isSentence && hasMissingThemeTts(theme.words ?? []);
   const ttsStatusLabel = hasMissingTts ? "TTS missing" : "TTS up to date";
   const ttsStatusTitle = hasMissingTts
     ? "Some words are missing pre-generated TTS"
     : "All words have pre-generated TTS";
+
+  const sentenceBadgeStyle = {
+    backgroundColor: `${colors.secondary.DEFAULT}1A`,
+    borderColor: `${colors.secondary.DEFAULT}66`,
+    color: colors.secondary.light,
+  };
+  const wordBadgeStyle = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
+    color: colors.text.muted,
+  };
 
   return (
     <div
@@ -106,37 +135,46 @@ const ThemeCard = memo(function ThemeCard({
             className="text-xs tracking-wide mt-0.5"
             style={{ color: colors.text.muted }}
           >
-            {theme.words.length} words • {categoryLabel} • {visibilityLabel}{ownerInfo}
+            {itemLabel} • {categoryLabel} • {visibilityLabel}{ownerInfo}
           </div>
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-1.5">
           <span
-            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
-            style={{
-              backgroundColor: hasMissingTts
-                ? `${colors.status.warning.DEFAULT}1A`
-                : `${colors.status.success.DEFAULT}1A`,
-              borderColor: hasMissingTts
-                ? colors.status.warning.dark
-                : colors.status.success.dark,
-              color: hasMissingTts
-                ? colors.status.warning.light
-                : colors.status.success.light,
-            }}
-            title={ttsStatusTitle}
-            data-testid={`theme-tts-status-${theme._id}`}
+            className="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            style={isSentence ? sentenceBadgeStyle : wordBadgeStyle}
+            data-testid={`theme-content-type-badge-${theme._id}`}
           >
+            {isSentence ? "Sentence" : "Word"}
+          </span>
+          {!isSentence && (
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
+              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
               style={{
                 backgroundColor: hasMissingTts
-                  ? colors.status.warning.DEFAULT
-                  : colors.status.success.DEFAULT,
+                  ? `${colors.status.warning.DEFAULT}1A`
+                  : `${colors.status.success.DEFAULT}1A`,
+                borderColor: hasMissingTts
+                  ? colors.status.warning.dark
+                  : colors.status.success.dark,
+                color: hasMissingTts
+                  ? colors.status.warning.light
+                  : colors.status.success.light,
               }}
-              aria-hidden="true"
-            />
-            {ttsStatusLabel}
-          </span>
+              title={ttsStatusTitle}
+              data-testid={`theme-tts-status-${theme._id}`}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{
+                  backgroundColor: hasMissingTts
+                    ? colors.status.warning.DEFAULT
+                    : colors.status.success.DEFAULT,
+                }}
+                aria-hidden="true"
+              />
+              {ttsStatusLabel}
+            </span>
+          )}
           <ThemeCardMenu
             themeId={theme._id}
             themeName={theme.name}
@@ -169,6 +207,8 @@ export function ThemeList({
   onClearFriendFilter,
   onToggleShowArchived,
   onToggleArchive,
+  contentTypeTab = "all",
+  onContentTypeTabChange,
 }: ThemeListProps) {
   const colors = useAppearanceColors();
   const goalThemeIds = useWeeklyGoalThemeIds();
@@ -188,9 +228,20 @@ export function ThemeList({
     }
   })();
 
+  // Apply the content-type tab as a second-tier filter on top of the list-level
+  // filter (mine / friend / archived / all). The tab simply narrows the visible
+  // set; it never changes which raw themes are loaded.
+  const tabbedThemes = useMemo(() => {
+    if (contentTypeTab === "all") return themes;
+    if (contentTypeTab === "sentence") {
+      return themes.filter((theme) => isSentenceTheme(theme));
+    }
+    return themes.filter((theme) => !isSentenceTheme(theme));
+  }, [contentTypeTab, themes]);
+
   const subtitle = filterDisplay
-    ? `Filtering: ${filterDisplay} • ${themes.length} theme${themes.length !== 1 ? "s" : ""}`
-    : `${themes.length} theme${themes.length !== 1 ? "s" : ""} available`;
+    ? `Filtering: ${filterDisplay} • ${tabbedThemes.length} theme${tabbedThemes.length !== 1 ? "s" : ""}`
+    : `${tabbedThemes.length} theme${tabbedThemes.length !== 1 ? "s" : ""} available`;
 
   const filterButtonStyle = useMemo(
     () =>
@@ -288,6 +339,14 @@ export function ThemeList({
             Generate New
           </button>
         </div>
+
+        {onContentTypeTabChange && (
+          <ContentTypeTabBar
+            value={contentTypeTab}
+            onChange={onContentTypeTabChange}
+            colors={colors}
+          />
+        )}
       </header>
 
       <div className="w-full flex-1 min-h-0 mb-3 flex flex-col">
@@ -300,7 +359,7 @@ export function ThemeList({
           }}
         >
           <div className="flex flex-col gap-2">
-            {themes.map((theme) => (
+            {tabbedThemes.map((theme) => (
               <ThemeCard
                 key={theme._id}
                 theme={theme}
@@ -324,5 +383,57 @@ export function ThemeList({
         dataTestId="themes-back"
       />
     </>
+  );
+}
+
+function ContentTypeTabBar({
+  value,
+  onChange,
+  colors,
+}: {
+  value: ContentTypeTab;
+  onChange: (next: ContentTypeTab) => void;
+  colors: ReturnType<typeof useAppearanceColors>;
+}) {
+  const TABS: { value: ContentTypeTab; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "word", label: "Words" },
+    { value: "sentence", label: "Sentences" },
+  ];
+
+  return (
+    <div
+      className="mt-3 flex gap-2 rounded-xl border-2 p-1"
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
+      data-testid="themes-content-type-tabs"
+    >
+      {TABS.map((tab) => {
+        const isActive = value === tab.value;
+        return (
+          <button
+            key={tab.value}
+            onClick={() => onChange(tab.value)}
+            className="flex-1 rounded-lg px-2 py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider transition"
+            style={
+              isActive
+                ? {
+                    backgroundColor: `${colors.secondary.DEFAULT}26`,
+                    color: colors.cta.lighter,
+                  }
+                : {
+                    backgroundColor: "transparent",
+                    color: colors.text.muted,
+                  }
+            }
+            data-testid={`themes-content-type-tab-${tab.value}`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

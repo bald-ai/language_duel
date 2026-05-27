@@ -2,6 +2,7 @@ import type { WordEntry } from "@/lib/types";
 import { getResponseErrorMessage } from "@/lib/api/errors";
 import { isRecord } from "@/lib/typeGuards";
 import type { GenerateRequest } from "@/lib/generate/requestValidation";
+import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 export type { WordType } from "@/lib/themes/wordTypes";
 
 export type FieldType = "word" | "answer" | "wrong";
@@ -256,6 +257,82 @@ export async function generateMoreWords(params: GenerateMoreWordsParams): Promis
     isWordEntryArray,
     "WordEntry[]",
     "Failed to generate words"
+  );
+
+  if (!result.success) return result;
+  return { success: true, data: result.data };
+}
+
+// ============================================================================
+// Sentence Theme Generation API
+// ============================================================================
+
+function isSentenceRoundInput(value: unknown): value is SentenceRoundInput {
+  if (!isRecord(value)) return false;
+  if (typeof value.englishPrompt !== "string") return false;
+  if (typeof value.spanishSentence !== "string") return false;
+  if (!Array.isArray(value.distractors)) return false;
+  return value.distractors.every((entry) => typeof entry === "string");
+}
+
+function isSentenceRoundInputArray(value: unknown): value is SentenceRoundInput[] {
+  return Array.isArray(value) && value.every(isSentenceRoundInput);
+}
+
+export type GenerateSentenceThemeParams = Omit<
+  Extract<GenerateRequest, { type: "sentence-theme" }>,
+  "type"
+>;
+
+export interface GenerateSentenceThemeResult {
+  success: boolean;
+  data?: SentenceRoundInput[];
+  error?: string;
+}
+
+export async function generateSentenceTheme(
+  params: GenerateSentenceThemeParams
+): Promise<GenerateSentenceThemeResult> {
+  const result = await callGenerateApi(
+    {
+      type: "sentence-theme",
+      themeName: params.themeName,
+      themePrompt: params.themePrompt || undefined,
+      roundCount: params.roundCount,
+    },
+    isSentenceRoundInputArray,
+    "SentenceRoundInput[]",
+    "Sentence generation failed"
+  );
+
+  if (!result.success) return result;
+  return { success: true, data: result.data };
+}
+
+export type GenerateMoreSentenceRoundsParams = Omit<
+  Extract<GenerateRequest, { type: "generate-more-sentence-rounds" }>,
+  "type"
+>;
+
+export interface GenerateMoreSentenceRoundsResult {
+  success: boolean;
+  data?: SentenceRoundInput[];
+  error?: string;
+}
+
+export async function generateMoreSentenceRounds(
+  params: GenerateMoreSentenceRoundsParams
+): Promise<GenerateMoreSentenceRoundsResult> {
+  const result = await callGenerateApi(
+    {
+      type: "generate-more-sentence-rounds",
+      themeName: params.themeName,
+      roundCount: params.roundCount,
+      existingSpanishSentences: params.existingSpanishSentences,
+    },
+    isSentenceRoundInputArray,
+    "SentenceRoundInput[]",
+    "Failed to generate sentence rounds"
   );
 
   if (!result.success) return result;

@@ -28,7 +28,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     wordOrder: [0],
     duelQuestions: [
       {
-        options: ["gato", "perro"],
+        kind: "word" as const, options: ["gato", "perro"],
         correctOption: "gato",
         difficulty: "easy",
         points: 1,

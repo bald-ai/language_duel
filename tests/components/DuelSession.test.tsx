@@ -145,14 +145,14 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "cat",
+        kind: "word" as const, word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "mesa", "casa"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Animals",
       },
       {
-        word: "dog",
+        kind: "word" as const, word: "dog",
         answer: "perro",
         wrongAnswers: ["gato", "mesa", "casa"],
         themeId: "theme_1" as Id<"themes">,
@@ -161,13 +161,13 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     ],
     duelQuestions: [
       {
-        options: ["gato", "perro", "mesa", "casa"],
+        kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
         correctOption: "gato",
         difficulty: "easy",
         points: 1,
       },
       {
-        options: ["perro", "gato", "mesa", "casa"],
+        kind: "word" as const, options: ["perro", "gato", "mesa", "casa"],
         correctOption: "perro",
         difficulty: "medium",
         points: 1.5,
@@ -258,6 +258,7 @@ describe("DuelSession", () => {
           opponentLastAnswer: "perro",
           duelQuestions: [
             {
+              kind: "word" as const,
               options: ["gato", "perro", "mesa", "casa"],
               correctOption: "gato",
               difficulty: "easy",
@@ -265,6 +266,7 @@ describe("DuelSession", () => {
               answerRevealedToViewer: true,
             },
             {
+              kind: "word" as const,
               options: ["perro", "gato", "mesa", "casa"],
               difficulty: "medium",
               points: 1.5,
@@ -297,7 +299,7 @@ describe("DuelSession", () => {
         duel={createDuel({
           sessionWords: [
             {
-              word: "cat",
+              kind: "word" as const, word: "cat",
               answer: "",
               wrongAnswers: ["perro", "mesa", "casa"],
               themeId: "theme_1" as Id<"themes">,
@@ -306,6 +308,7 @@ describe("DuelSession", () => {
           ],
           duelQuestions: [
             {
+              kind: "word" as const,
               options: ["gato", "perro", "mesa", "casa"],
               difficulty: "easy",
               points: 1,
@@ -332,6 +335,7 @@ describe("DuelSession", () => {
           challengerAnswered: true,
           duelQuestions: [
             {
+              kind: "word" as const,
               options: ["gato", "perro", "mesa", "casa"],
               correctOption: "gato",
               difficulty: "easy",
@@ -339,6 +343,7 @@ describe("DuelSession", () => {
               answerRevealedToViewer: true,
             },
             {
+              kind: "word" as const,
               options: ["perro", "gato", "mesa", "casa"],
               correctOption: "perro",
               difficulty: "medium",

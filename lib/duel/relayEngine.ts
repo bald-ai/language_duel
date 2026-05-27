@@ -11,9 +11,9 @@
 
 import type { Doc } from "../../convex/_generated/dataModel";
 import type { DuelRole } from "../duelRole";
-import type { WordEntry } from "../types";
 import { buildRelayQuestionSet, type DuelQuestionSnapshot } from "../answerShuffle";
 import { RELAY_HARD_BUDGET_DIVISOR } from "../duelConstants";
+import type { SessionItem } from "../sessionWords";
 
 type RelayQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
 
@@ -33,7 +33,7 @@ export function relayHardBudgetForPool(poolSize: number): number {
 
 /** Relay-specific fields set once at duel creation. The challenger picks first. */
 export function buildInitialRelayState(
-  words: WordEntry[],
+  items: SessionItem[],
   wordOrder: number[]
 ): RelayInitialState {
   const budget = relayHardBudgetForPool(wordOrder.length);
@@ -43,7 +43,7 @@ export function buildInitialRelayState(
     relayResolvedIndices: [],
     relayHardUpgradeIndices: [],
     relayHardBudget: { challenger: budget, opponent: budget },
-    relayHardQuestions: buildRelayQuestionSet(words, wordOrder, "hard"),
+    relayHardQuestions: buildRelayQuestionSet(items, wordOrder, "hard"),
   };
 }
 
@@ -127,6 +127,8 @@ export function buildRelayAnswerPatch(params: {
   const question = relayServedQuestion(duel);
   const assignedIndex = duel.relayAssignedIndex;
   if (!question || assignedIndex === undefined) return {};
+  // Relay sentence positions answer through `relayAnswerSentence` instead.
+  if (question.kind !== "word") return {};
 
   const answerer = relayAnswerer(duel);
   const correct = value === question.correctOption;
@@ -143,6 +145,49 @@ export function buildRelayAnswerPatch(params: {
     patch.challengerScore = duel.challengerScore + question.points;
   } else if (scorer === "opponent") {
     patch.opponentScore = duel.opponentScore + question.points;
+  }
+
+  return patch;
+}
+
+/**
+ * Relay sentence answer: the answerer alone submits their final result for the
+ * assigned sentence position (decision: Relay sentence behavior). Scoring uses
+ * the same clean/messy/timeout tier as other modes; lives mirror word behavior.
+ */
+export function buildRelaySentenceAnswerPatch(params: {
+  duel: Doc<"duels">;
+  completed: boolean;
+  mistakes: number;
+  points: number;
+  /** Optional lives deduction to apply (computed by the caller). */
+  livesPatch?: Partial<Doc<"duels">>;
+}): Partial<Doc<"duels">> {
+  const { duel, completed, mistakes, points, livesPatch } = params;
+  const assignedIndex = duel.relayAssignedIndex;
+  if (assignedIndex === undefined) return {};
+
+  const answerer = relayAnswerer(duel);
+  const scorer: DuelRole | null = completed ? answerer : null;
+  const lastChosen = completed ? `sentence:${mistakes}` : "TIMEOUT";
+
+  const patch: Partial<Doc<"duels">> = {
+    relayPhase: "feedback",
+    relayAnswerStartedAt: undefined,
+    relayTimeoutScheduledFunctionId: undefined,
+    relayLastResult: {
+      wordIndex: assignedIndex,
+      chosen: lastChosen,
+      correct: completed,
+      scorer,
+    },
+    ...(livesPatch ?? {}),
+  };
+
+  if (scorer === "challenger") {
+    patch.challengerScore = duel.challengerScore + points;
+  } else if (scorer === "opponent") {
+    patch.opponentScore = duel.opponentScore + points;
   }
 
   return patch;

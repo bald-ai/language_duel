@@ -19,7 +19,7 @@ import {
 } from "../lib/duel/relayEngine";
 
 type DuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
-type SessionWord = Doc<"duels">["sessionWords"][number];
+type SessionItem = Doc<"duels">["sessionWords"][number];
 
 function canRevealQuestionAnswer(args: {
   duel: Doc<"duels">;
@@ -43,11 +43,43 @@ function canRevealQuestionAnswer(args: {
     : args.duel.opponentAnswered;
 }
 
-function hideQuestionAnswer(question: DuelQuestion): Omit<DuelQuestion, "correctOption"> & {
+/**
+ * Mask the answer key on a question snapshot before shipping to the client.
+ * Word questions hide `correctOption` (the per-position answer key). Sentence
+ * questions ship `spanishSentence` even during active play in v1 — the client
+ * uses it to validate tile taps locally so the player can build the sentence
+ * without a per-tap server round-trip. The tile pool is pre-shuffled and the
+ * server still re-scores from the final submission, so this is a leak of the
+ * round answer text, not a leak of the play position. See HANDOFF for the
+ * follow-up plan to move to per-tap server validation.
+ */
+type MaskedWordQuestion = Omit<Extract<DuelQuestion, { kind: "word" }>, "correctOption"> & {
   answerRevealedToViewer: false;
-} {
-  const { correctOption: _correctOption, ...safeQuestion } = question;
-  return { ...safeQuestion, answerRevealedToViewer: false };
+};
+type MaskedDuelQuestion =
+  | MaskedWordQuestion
+  | (Extract<DuelQuestion, { kind: "sentence" }> & { answerRevealedToViewer: false });
+
+type RevealedDuelQuestion = DuelQuestion & { answerRevealedToViewer: true };
+
+function hideQuestionAnswer(question: DuelQuestion): MaskedDuelQuestion {
+  if (question.kind === "sentence") {
+    // v1 loosening: ship the spanish sentence so the client can validate taps.
+    return { ...question, answerRevealedToViewer: false };
+  }
+  const { correctOption: _correctOption, ...safe } = question;
+  return { ...safe, answerRevealedToViewer: false };
+}
+
+/**
+ * Blank the answer/TTS on the session item snapshot the client sees. Word
+ * items lose `answer` + `ttsStorageId`. Sentence items are passed through —
+ * the client needs the prompt and theme name to render the round, and the
+ * tap-time answer key lives on the question snapshot above.
+ */
+function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
+  if (item.kind === "sentence") return item;
+  return { ...item, answer: "", ttsStorageId: undefined };
 }
 
 /**
@@ -59,15 +91,12 @@ function hideQuestionAnswer(question: DuelQuestion): Omit<DuelQuestion, "correct
 function buildRelaySafeDuel(duel: Doc<"duels">) {
   const isActive = duel.status === "active";
 
-  const safeSessionWords = duel.sessionWords.map((word): SessionWord =>
-    isActive ? { ...word, answer: "", ttsStorageId: undefined } : word
+  const safeSessionWords = duel.sessionWords.map((item): SessionItem =>
+    isActive ? maskSessionItemForActivePlay(item) : item
   );
 
   const served = relayServedQuestion(duel);
-  let relayServed:
-    | (DuelQuestion & { answerRevealedToViewer: true })
-    | (Omit<DuelQuestion, "correctOption"> & { answerRevealedToViewer: false })
-    | null = null;
+  let relayServed: RevealedDuelQuestion | MaskedDuelQuestion | null = null;
   if (served && duel.relayPhase && duel.relayPhase !== "pick") {
     // Reveal in feedback (or once the duel is over); mask during the answer
     // phase so neither the answerer nor the watching picker sees the key.
@@ -93,32 +122,27 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
   }
 
   const wordIndexBySessionIndex = new Map<number, number>();
-  duel.wordOrder.forEach((sessionWordIndex, questionIndex) => {
-    wordIndexBySessionIndex.set(sessionWordIndex, questionIndex);
+  duel.wordOrder.forEach((sessionItemIndex, questionIndex) => {
+    wordIndexBySessionIndex.set(sessionItemIndex, questionIndex);
   });
 
   const safeQuestions = duel.duelQuestions?.map((question, questionIndex) => {
     const canReveal = canRevealQuestionAnswer({ duel, questionIndex, viewerRole });
     return canReveal
-      ? { ...question, answerRevealedToViewer: true }
+      ? { ...question, answerRevealedToViewer: true as const }
       : hideQuestionAnswer(question);
   });
-  const safeSessionWords = duel.sessionWords.map((word, sessionWordIndex): SessionWord => {
-    const questionIndex = wordIndexBySessionIndex.get(sessionWordIndex);
+  const safeSessionWords = duel.sessionWords.map((item, sessionItemIndex): SessionItem => {
+    const questionIndex = wordIndexBySessionIndex.get(sessionItemIndex);
     if (questionIndex === undefined) {
       throw new Error(
-        `duel ${duel._id} sessionWord index ${sessionWordIndex} missing from wordOrder`
+        `duel ${duel._id} sessionItem index ${sessionItemIndex} missing from wordOrder`
       );
     }
     if (canRevealQuestionAnswer({ duel, questionIndex, viewerRole })) {
-      return word;
+      return item;
     }
-
-    return {
-      ...word,
-      answer: "",
-      ttsStorageId: undefined,
-    };
+    return maskSessionItemForActivePlay(item);
   });
 
   return {

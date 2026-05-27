@@ -350,7 +350,7 @@ function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {})
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "cat",
+        kind: "word" as const, word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "pez", "pajaro"],
         themeId: "theme_1" as Id<"themes">,
@@ -375,7 +375,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "cat",
+        kind: "word" as const, word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "pez", "pajaro"],
         themeId: "theme_1" as Id<"themes">,
@@ -651,14 +651,14 @@ describe("weekly goal spaced repetition", () => {
     db.soloPracticeSessions.push(soloPracticeSessionDoc({
       sessionWords: [
         {
-          word: "cat",
+          kind: "word" as const, word: "cat",
           answer: "gato",
           wrongAnswers: ["perro", "pez", "pajaro"],
           themeId: "theme_1" as Id<"themes">,
           themeName: "Animals",
         },
         {
-          word: "dog",
+          kind: "word" as const, word: "dog",
           answer: "perro",
           wrongAnswers: ["gato", "pez", "pajaro"],
           themeId: "theme_1" as Id<"themes">,

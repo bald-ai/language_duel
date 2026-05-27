@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Id } from "@/convex/_generated/dataModel";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
+import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { VIEW_MODES, type ViewMode } from "../constants";
 import { useThemeActions } from "./useThemeActions";
 import { useThemeDetailController } from "./useThemeDetailController";
@@ -11,14 +12,22 @@ import { useThemeGenerationController } from "./useThemeGenerationController";
 import { useThemeListController } from "./useThemeListController";
 import { useThemeTtsController } from "./useThemeTtsController";
 import { useThemeWordEditController } from "./useThemeWordEditController";
+import { useSentenceThemeController } from "./useSentenceThemeController";
 import type { DeleteConfirmState } from "./themeControllerTypes";
+import type { ThemeWithOwner } from "@/convex/themes";
 import { toast } from "sonner";
 
 export function useThemesController() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.LIST);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+  const [showContentTypeModal, setShowContentTypeModal] = useState(false);
   const themeActions = useThemeActions();
+
+  const sentenceController = useSentenceThemeController({
+    onAfterSave: () => setViewMode(VIEW_MODES.LIST),
+    onAfterCancel: () => setViewMode(VIEW_MODES.LIST),
+  });
 
   const detail = useThemeDetailController({
     setDeleteConfirm,
@@ -44,6 +53,15 @@ export function useThemesController() {
   });
 
   const goBack = useCallback(() => {
+    if (sentenceController.editField) {
+      sentenceController.handleEditFieldCancel();
+      return;
+    }
+    if (sentenceController.selectedState !== null) {
+      sentenceController.reset();
+      setViewMode(VIEW_MODES.LIST);
+      return;
+    }
     if (viewMode === VIEW_MODES.EDIT_WORD) {
       setViewMode(VIEW_MODES.DETAIL);
       wordEdit.wordEditor.reset();
@@ -59,12 +77,41 @@ export function useThemesController() {
         router.push("/");
       }
     }
-  }, [detail, generation, router, viewMode, wordEdit.wordEditor]);
+  }, [detail, generation, router, sentenceController, viewMode, wordEdit.wordEditor]);
+
+  // Route theme opens by content type: sentence themes go to the sentence
+  // detail flow, word themes stay on the existing detail controller.
+  const handleOpenTheme = useCallback(
+    (theme: ThemeWithOwner) => {
+      if (isSentenceTheme(theme)) {
+        sentenceController.openSavedTheme(theme);
+        setViewMode(VIEW_MODES.DETAIL);
+        return;
+      }
+      detail.openTheme(theme);
+    },
+    [detail, sentenceController]
+  );
+
+  const handleGenerateNew = useCallback(() => {
+    setShowContentTypeModal(true);
+  }, []);
+
+  const handlePickWordContentType = useCallback(() => {
+    setShowContentTypeModal(false);
+    generation.handleOpenGenerateModal();
+  }, [generation]);
+
+  const handlePickSentenceContentType = useCallback(() => {
+    setShowContentTypeModal(false);
+    sentenceController.openGenerateModal();
+    setViewMode(VIEW_MODES.DETAIL);
+  }, [sentenceController]);
 
   const list = useThemeListController({
     deletingThemeId: themeActions.deletingThemeId,
     duplicatingThemeId: themeActions.duplicatingThemeId,
-    onOpenTheme: detail.openTheme,
+    onOpenTheme: handleOpenTheme,
     onDeleteTheme: detail.handleDeleteTheme,
     onDuplicateTheme: async (themeId: Id<"themes">) => {
       const result = await themeActions.duplicate(themeId);
@@ -72,7 +119,7 @@ export function useThemesController() {
         toast.error(result.error || "Failed to duplicate theme");
       }
     },
-    onGenerateNew: generation.handleOpenGenerateModal,
+    onGenerateNew: handleGenerateNew,
     onBack: goBack,
   });
 
@@ -117,12 +164,69 @@ export function useThemesController() {
     onPlayWordTTS: tts.handlePlayThemeWordTTS,
   };
 
+  // Sentence-theme prop bundles consumed by page.tsx
+  const sentenceDetailProps = sentenceController.selectedTheme
+    ? {
+        theme: sentenceController.selectedTheme,
+        localRounds: sentenceController.localRounds,
+        onThemeNameChange: sentenceController.handleThemeNameChange,
+        onDeleteRound: sentenceController.handleDeleteRound,
+        onEditField: sentenceController.handleEditField,
+        onSave: sentenceController.handleSave,
+        onCancel: sentenceController.handleCancel,
+        isSaving: sentenceController.isSaving,
+        onOpenAddRound: sentenceController.handleAddManualRound,
+        onOpenGenerateMore: sentenceController.openGenerateMoreModal,
+        visibility: sentenceController.selectedTheme.visibility || "private",
+        onVisibilityChange: sentenceController.handleVisibilityChange,
+        friendsCanEdit: sentenceController.selectedTheme.friendsCanEdit ?? false,
+        onFriendsCanEditChange: sentenceController.handleFriendsCanEditChange,
+      }
+    : null;
+
+  const sentenceEditorProps = sentenceController.editField
+    ? {
+        themeName: sentenceController.selectedTheme?.name ?? "",
+        roundIndex: sentenceController.editField.roundIndex,
+        field: sentenceController.editField.field,
+        distractorIndex: sentenceController.editField.distractorIndex,
+        initialValue: sentenceController.editField.initialValue,
+        onSave: sentenceController.handleEditFieldSave,
+        onBack: sentenceController.handleEditFieldCancel,
+      }
+    : null;
+
+  const sentenceGenerateModalProps = {
+    isOpen: sentenceController.isGenerateModalOpen,
+    isGenerating: sentenceController.isGenerating,
+    error: sentenceController.generationError,
+    onClose: sentenceController.closeGenerateModal,
+    onGenerate: (input: { themeName: string; themePrompt: string }) =>
+      sentenceController.generateAndOpenDraft(input),
+  };
+
+  const sentenceGenerateMoreModalProps = {
+    isOpen: sentenceController.isGenerateMoreModalOpen,
+    themeName: sentenceController.selectedTheme?.name ?? "",
+    isGenerating: sentenceController.isGenerating,
+    error: sentenceController.generationError,
+    onClose: sentenceController.closeGenerateMoreModal,
+    onGenerate: () => sentenceController.generateMoreAndAppend(),
+  };
+
+  const contentTypeModalProps = {
+    isOpen: showContentTypeModal,
+    onPickWord: handlePickWordContentType,
+    onPickSentence: handlePickSentenceContentType,
+    onClose: () => setShowContentTypeModal(false),
+  };
+
   return {
     // View state + the two render gates page.tsx switches on.
     viewMode,
     selectedTheme: detail.selectedTheme,
     wordEditorState: wordEdit.wordEditor,
-    // Prop bundles, one per rendered surface.
+    // Word-theme prop bundles
     listProps: list.listProps,
     friendFilterModalProps: list.friendFilterModalProps,
     generateModalProps: generation.generateModalProps,
@@ -144,5 +248,13 @@ export function useThemesController() {
       onCancel: () => setDeleteConfirm(null),
     },
     discardPickAndPruneProps: generation.discardPickAndPruneProps,
+    // Sentence-theme prop bundles
+    isSentenceFlowActive: sentenceController.selectedTheme !== null,
+    sentenceEditField: sentenceController.editField,
+    sentenceDetailProps,
+    sentenceEditorProps,
+    sentenceGenerateModalProps,
+    sentenceGenerateMoreModalProps,
+    contentTypeModalProps,
   };
 }

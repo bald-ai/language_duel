@@ -48,7 +48,11 @@ export async function deleteWeeklyGoalThemeSnapshots(
   for (const snapshot of snapshots) {
     const existingStorageIds =
       storageIdsByThemeId.get(snapshot.originalThemeId) ?? new Set<Id<"_storage">>();
-    const snapshotStorageIds = collectTtsStorageIds(snapshot.words);
+    // Sentence snapshots don't carry TTS in v1 (plan: no TTS for sentence themes).
+    // Use the optional `words` field directly — sentence snapshots leave it undefined.
+    const snapshotStorageIds = snapshot.words
+      ? collectTtsStorageIds(snapshot.words)
+      : new Set<Id<"_storage">>();
     for (const storageId of snapshotStorageIds) {
       existingStorageIds.add(storageId);
     }
@@ -95,8 +99,10 @@ export async function createWeeklyGoalThemeSnapshots(
       order: index,
       name: theme.name,
       description: theme.description,
+      contentType: theme.contentType,
       wordType: theme.wordType,
       words: theme.words,
+      sentenceRounds: theme.sentenceRounds,
       lockedAt,
       createdAt: lockedAt,
     });
@@ -109,7 +115,9 @@ function toSessionThemeInput(
   return {
     _id: snapshot.originalThemeId,
     name: snapshot.name,
+    contentType: snapshot.contentType,
     words: snapshot.words,
+    sentenceRounds: snapshot.sentenceRounds,
   };
 }
 

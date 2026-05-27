@@ -5,6 +5,8 @@ import { DUEL_MODES } from "../lib/duelMode";
 import { HINT_TYPES } from "../lib/hintPool/types";
 import { SABOTAGE_EFFECTS } from "../lib/sabotage/types";
 import type { WordType } from "../lib/themes/wordTypes";
+import { THEME_CONTENT_TYPES } from "../lib/themes/sentenceTypes";
+import type { ThemeContentType } from "../lib/themes/sentenceTypes";
 import type { NotificationEmailTrigger } from "../lib/notifications/definitions";
 import {
   gameStateValidator,
@@ -22,6 +24,31 @@ const wordValidator = v.object({
   wrongAnswers: v.array(v.string()),
   ttsStorageId: v.optional(v.id("_storage")),
 });
+
+// Sentence themes store the editable source: an English prompt, the canonical
+// Spanish sentence, and 3 single-word distractors (decisions: round shape).
+// Gameplay tokenizes the Spanish sentence on whitespace at play time.
+const sentenceRoundValidator = v.object({
+  englishPrompt: v.string(),
+  spanishSentence: v.string(),
+  distractors: v.array(v.string()),
+});
+
+export const themeContentTypeValidator = v.union(
+  v.literal(THEME_CONTENT_TYPES[0]),
+  v.literal(THEME_CONTENT_TYPES[1])
+);
+
+// Drift guard: the contentType validator must match the canonical
+// ThemeContentType (lib/themes/sentenceTypes.ts). If they diverge, this
+// assignment fails typecheck.
+type AssertContentTypeMatches = [Infer<typeof themeContentTypeValidator>] extends [ThemeContentType]
+  ? [ThemeContentType] extends [Infer<typeof themeContentTypeValidator>]
+    ? true
+    : never
+  : never;
+const _contentTypeValidatorMatches: AssertContentTypeMatches = true;
+void _contentTypeValidatorMatches;
 
 export const wordTypeValidator = v.union(
   v.literal("nouns"),
@@ -46,7 +73,14 @@ export const ttsProviderValidator = v.union(
 
 export const optionalWordTypeValidator = v.optional(wordTypeValidator);
 
-const sessionWordValidator = v.object({
+// Each session item carries a `kind` discriminator so mixed word+sentence
+// decks can flow through the same `sessionItems` array. The word variant
+// preserves the historical word fields (so existing consumers can narrow once
+// and keep the same property access). The sentence variant carries the
+// editable sentence source verbatim — the gameplay tile pool is derived at
+// play time from `spanishSentence`.
+const sessionWordItemValidator = v.object({
+  kind: v.literal("word"),
   word: v.string(),
   answer: v.string(),
   wrongAnswers: v.array(v.string()),
@@ -54,6 +88,20 @@ const sessionWordValidator = v.object({
   themeId: v.id("themes"),
   themeName: v.string(),
 });
+
+const sessionSentenceItemValidator = v.object({
+  kind: v.literal("sentence"),
+  englishPrompt: v.string(),
+  spanishSentence: v.string(),
+  distractors: v.array(v.string()),
+  themeId: v.id("themes"),
+  themeName: v.string(),
+});
+
+const sessionItemValidator = v.union(
+  sessionWordItemValidator,
+  sessionSentenceItemValidator
+);
 
 const playerRoleValidator = v.union(v.literal("challenger"), v.literal("opponent"));
 const difficultyLevelValidator = v.union(
@@ -142,12 +190,29 @@ const hintRevealValidator = v.union(
   })
 );
 
-const duelQuestionValidator = v.object({
+// duelQuestions is parallel to wordOrder: one snapshot per position in the
+// deck. Word positions store the shuffled multiple-choice snapshot;
+// sentence positions store the pre-shuffled tile pool plus the canonical
+// solution (server-only — masked at the DTO boundary in convex/duels.ts).
+const duelWordQuestionValidator = v.object({
+  kind: v.literal("word"),
   options: v.array(v.string()),
   correctOption: v.string(),
   difficulty: difficultyLevelValidator,
   points: v.number(),
 });
+
+const duelSentenceQuestionValidator = v.object({
+  kind: v.literal("sentence"),
+  englishPrompt: v.string(),
+  spanishSentence: v.string(),
+  tilePool: v.array(v.string()),
+});
+
+const duelQuestionValidator = v.union(
+  duelWordQuestionValidator,
+  duelSentenceQuestionValidator
+);
 
 const playerStatsValidator = v.object({
   questionsAnswered: v.number(),
@@ -296,12 +361,20 @@ export default defineSchema({
 
   // -------------------------------------------
   // Themes Table
+  //
+  // Two content types share this table: word themes carry `words`, sentence
+  // themes carry `sentenceRounds`. `contentType` is the discriminator. Both
+  // fields are optional so each variant only persists what it needs — readers
+  // narrow on `contentType` and treat the absent field as empty/disallowed.
+  // `wordType` only applies to word themes; sentence themes leave it unset.
   // -------------------------------------------
   themes: defineTable({
     name: v.string(),
     description: v.string(),
+    contentType: v.optional(themeContentTypeValidator),
     wordType: optionalWordTypeValidator,
-    words: v.array(wordValidator),
+    words: v.optional(v.array(wordValidator)),
+    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
     createdAt: v.number(),
     ownerId: v.optional(v.id("users")),
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
@@ -368,7 +441,7 @@ export default defineSchema({
     challengerId: v.id("users"),
     opponentId: v.id("users"),
     ...sessionSourceFields,
-    sessionWords: v.array(sessionWordValidator),
+    sessionWords: v.array(sessionItemValidator),
     sourceType: duelSourceTypeValidator,
     livesTotal: v.optional(v.number()),
     livesRemaining: v.optional(v.number()),
@@ -442,7 +515,7 @@ export default defineSchema({
     ...sessionSourceFields,
     // Solo practice always belongs to a weekly goal, so weeklyGoalId is required here.
     weeklyGoalId: v.id("weeklyGoals"),
-    sessionWords: v.array(sessionWordValidator),
+    sessionWords: v.array(sessionItemValidator),
     sourceType: soloPracticeSourceTypeValidator,
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),
@@ -516,8 +589,10 @@ export default defineSchema({
     order: v.number(),
     name: v.string(),
     description: v.string(),
+    contentType: v.optional(themeContentTypeValidator),
     wordType: optionalWordTypeValidator,
-    words: v.array(wordValidator),
+    words: v.optional(v.array(wordValidator)),
+    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
     lockedAt: v.number(),
     createdAt: v.number(),
   })

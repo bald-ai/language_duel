@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Doc } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   buildInitialRelayState,
   buildRelayAdvancePatch,
@@ -17,6 +17,7 @@ type DuelDoc = Doc<"duels">;
 
 function question(correctOption: string): NonNullable<DuelDoc["duelQuestions"]>[number] {
   return {
+    kind: "word" as const,
     options: ["a", "b", "c", "d", "e", correctOption],
     correctOption,
     difficulty: "medium",
@@ -32,8 +33,8 @@ function relayDuel(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentId: "user_2" as DuelDoc["opponentId"],
     themeIds: [],
     sessionWords: [
-      { word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
-      { word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
+      { kind: "word" as const, word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
+      { kind: "word" as const, word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
     ],
     sourceType: "normal",
     status: "active",
@@ -73,11 +74,25 @@ describe("relayEngine", () => {
 
   describe("buildInitialRelayState", () => {
     it("starts with the challenger picking and equal hard budgets", () => {
-      const words = [
-        { word: "cat", answer: "gato", wrongAnswers: ["a", "b", "c", "d", "e"] },
-        { word: "dog", answer: "perro", wrongAnswers: ["a", "b", "c", "d", "e"] },
+      const items = [
+        {
+          kind: "word" as const,
+          word: "cat",
+          answer: "gato",
+          wrongAnswers: ["a", "b", "c", "d", "e"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Animals",
+        },
+        {
+          kind: "word" as const,
+          word: "dog",
+          answer: "perro",
+          wrongAnswers: ["a", "b", "c", "d", "e"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Animals",
+        },
       ];
-      const state = buildInitialRelayState(words, [1, 0]);
+      const state = buildInitialRelayState(items, [1, 0]);
 
       expect(state.relayPicker).toBe("challenger");
       expect(state.relayPhase).toBe("pick");
@@ -87,6 +102,7 @@ describe("relayEngine", () => {
       expect(state.relayHardQuestions).toHaveLength(2);
       // Hard relay snapshots are 6 options, same as the base set.
       for (const snapshot of state.relayHardQuestions) {
+        if (snapshot.kind !== "word") throw new Error("expected word question");
         expect(snapshot.options).toHaveLength(6);
         expect(snapshot.points).toBe(1);
       }
@@ -124,12 +140,14 @@ describe("relayEngine", () => {
   describe("relayServedQuestion (index semantics)", () => {
     it("serves the base snapshot for a normal position", () => {
       const duel = relayDuel({ relayAssignedIndex: 1, relayHardUpgradeIndices: [] });
-      expect(relayServedQuestion(duel)?.correctOption).toBe("base1");
+      const served = relayServedQuestion(duel);
+      expect(served?.kind === "word" ? served.correctOption : null).toBe("base1");
     });
 
     it("serves the hard snapshot for an upgraded position", () => {
       const duel = relayDuel({ relayAssignedIndex: 1, relayHardUpgradeIndices: [1] });
-      expect(relayServedQuestion(duel)?.correctOption).toBe("hard1");
+      const served = relayServedQuestion(duel);
+      expect(served?.kind === "word" ? served.correctOption : null).toBe("hard1");
     });
 
     it("is undefined when nothing is assigned", () => {

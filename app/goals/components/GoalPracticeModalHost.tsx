@@ -39,7 +39,7 @@ export function GoalPracticeModalHost({
         themes={weeklyGoalPracticeThemes.themes.map((theme) => ({
           _id: theme._id,
           name: theme.name,
-          wordCount: theme.words.length,
+          wordCount: theme.words?.length ?? theme.sentenceRounds?.length ?? 0,
         }))}
         onContinue={onContinue}
         onClose={onClose}

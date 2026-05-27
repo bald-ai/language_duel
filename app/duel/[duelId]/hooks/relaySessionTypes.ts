@@ -1,15 +1,21 @@
 import type { Doc } from "@/convex/_generated/dataModel";
 
 type BaseQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
+type WordBaseQuestion = Extract<BaseQuestion, { kind: "word" }>;
+type SentenceBaseQuestion = Extract<BaseQuestion, { kind: "sentence" }>;
 
 /**
- * The relay served question as shipped by `getDuel`: revealed (with
- * `correctOption`) during feedback / after the duel ends, masked during the
- * answer phase. Mirrors `buildRelaySafeDuel` in `convex/duels.ts`.
+ * The relay served question as shipped by `getDuel`: revealed (with answer key)
+ * during feedback / after the duel ends, masked during the answer phase.
+ * Distributes over the word / sentence discriminator so consumers can narrow on
+ * `served.kind === "word"` and still see `options` / `correctOption`.
+ * Mirrors `buildRelaySafeDuel` in `convex/duels.ts`.
  */
 export type RelayServedQuestion =
-  | (BaseQuestion & { answerRevealedToViewer: true })
-  | (Omit<BaseQuestion, "correctOption"> & { answerRevealedToViewer: false });
+  | (WordBaseQuestion & { answerRevealedToViewer: true })
+  | (Omit<WordBaseQuestion, "correctOption"> & { answerRevealedToViewer: false })
+  | (SentenceBaseQuestion & { answerRevealedToViewer: true })
+  | (Omit<SentenceBaseQuestion, "spanishSentence"> & { answerRevealedToViewer: false });
 
 /**
  * A relay duel as seen through the viewer-safe DTO: the stored doc minus the

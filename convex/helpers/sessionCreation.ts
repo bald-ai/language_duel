@@ -13,7 +13,8 @@ import {
 } from "../../lib/duel/relayEngine";
 import {
   getUniqueThemeIds,
-  type SessionWordEntry,
+  isSessionSentenceItem,
+  type SessionItem,
 } from "../../lib/sessionWords";
 import type { BossType } from "../../lib/limitedLives";
 import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
@@ -94,7 +95,7 @@ export interface DuelSessionFields extends Partial<RelayInitialState> {
   challengerId: Id<"users">;
   opponentId: Id<"users">;
   themeIds: Id<"themes">[];
-  sessionWords: SessionWordEntry[];
+  sessionWords: SessionItem[];
   sourceType: DuelSourceType;
   weeklyGoalId?: Id<"weeklyGoals">;
   bossType?: BossType;
@@ -123,7 +124,7 @@ export interface DuelSessionFields extends Partial<RelayInitialState> {
 export interface SoloPracticeSessionFields {
   userId: Id<"users">;
   themeIds: Id<"themes">[];
-  sessionWords: SessionWordEntry[];
+  sessionWords: SessionItem[];
   sourceType: SoloPracticeSourceType;
   weeklyGoalId: Id<"weeklyGoals">;
   bossType?: BossType;
@@ -253,7 +254,7 @@ export function buildDuelSession(args: {
   challengeId?: Id<"challenges">;
   challengerId: Id<"users">;
   opponentId: Id<"users">;
-  sessionWords: SessionWordEntry[];
+  sessionWords: SessionItem[];
   livesTotal?: number;
   livesRemaining?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
@@ -312,13 +313,23 @@ export function buildDuelSession(args: {
 
 export function buildSoloPracticeSession(args: {
   userId: Id<"users">;
-  sessionWords: SessionWordEntry[];
+  sessionWords: SessionItem[];
   startsInLearning: boolean;
   createdAt: number;
 } & SoloPracticeSourceFields): SoloPracticeSessionFields {
   const sessionWords = [...args.sessionWords];
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });
+  }
+  // Solo practice is word-only in v1 (plan decision: modes — only duel-style
+  // modes support sentence rounds). Sentence themes must be played via duel /
+  // self-duel paths instead. Catch this here so the gameplay code below can
+  // safely treat session items as word entries.
+  if (sessionWords.some(isSessionSentenceItem)) {
+    throw new ConvexError({
+      code: "INVALID_INPUT",
+      message: "Solo practice does not support sentence themes yet. Use a duel instead.",
+    });
   }
   validateSoloPracticeSourceFields(args);
 

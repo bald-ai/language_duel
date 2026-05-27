@@ -304,6 +304,91 @@ export function buildFieldSummary(
 }
 
 // ============================================================================
+// Sentence Theme Generation Prompts
+// ============================================================================
+
+import {
+  SENTENCE_DISTRACTOR_COUNT,
+  SENTENCE_FORBIDDEN_PUNCTUATION,
+  SENTENCE_MAX_TOKENS,
+  SENTENCE_MIN_TOKENS,
+} from "@/lib/themes/sentenceConstants";
+
+const SENTENCE_PUNCTUATION_RULE = `Do NOT use any of these characters in the Spanish sentence: ${SENTENCE_FORBIDDEN_PUNCTUATION.join(" ")}`;
+
+function buildSentenceRoundRules(): string {
+  return [
+    "- Each \"englishPrompt\" must be a short natural English sentence or phrase.",
+    `- Each "spanishSentence" must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} space-separated Spanish words. Periods, exclamation points, and question marks may attach to words.`,
+    `- ${SENTENCE_PUNCTUATION_RULE}`,
+    `- Provide exactly ${SENTENCE_DISTRACTOR_COUNT} single-word Spanish "distractors" per round. Each distractor is one word with no spaces.`,
+    "- Distractors must be unique and must not match (after accent/case normalization) any word in the Spanish sentence.",
+    "- All Spanish sentences across the theme must be unique after normalization.",
+    "- Default reading level: beginner / lower-intermediate Spanish unless the user prompt specifies otherwise.",
+  ].join("\n");
+}
+
+export function buildSentenceThemeSystemPrompt(
+  themeName: string,
+  roundCount: number,
+  themePrompt?: string
+): string {
+  const promptSpecification = themePrompt
+    ? `\n- Focus specifically on: ${themePrompt}`
+    : "";
+
+  return `You are a Spanish language tutor creating sentence-building rounds for English speakers learning Spanish.
+
+TASK: Generate exactly ${roundCount} sentence rounds for the theme "${themeName}".
+
+Each round teaches one short Spanish sentence the learner builds from word tiles.
+
+REQUIREMENTS:
+${buildSentenceRoundRules()}${promptSpecification}
+
+OUTPUT FORMAT: JSON object with a "rounds" array of exactly ${roundCount} objects. Each round object has:
+- englishPrompt: short English sentence / phrase
+- spanishSentence: the ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS}-word Spanish sentence (space-separated)
+- distractors: array of exactly ${SENTENCE_DISTRACTOR_COUNT} single Spanish words used as wrong tiles`;
+}
+
+export function buildSentenceThemeUserMessage(themeName: string, roundCount: number): string {
+  return `Generate ${roundCount} short Spanish sentence rounds for the theme "${themeName}".`;
+}
+
+export function buildGenerateMoreSentenceRoundsPrompt(
+  themeName: string,
+  roundCount: number,
+  existingSpanishSentences: string[]
+): string {
+  const existingList =
+    existingSpanishSentences.length > 0
+      ? existingSpanishSentences.join(" | ")
+      : "(none)";
+  return `You are a Spanish language tutor creating sentence-building rounds for English speakers learning Spanish.
+
+TASK: Generate exactly ${roundCount} NEW sentence rounds for the theme "${themeName}".
+
+EXISTING SPANISH SENTENCES IN THE THEME (DO NOT DUPLICATE): ${existingList}
+
+REQUIREMENTS:
+${buildSentenceRoundRules()}
+- None of the new Spanish sentences may duplicate (after normalization) any existing sentence above.
+
+OUTPUT FORMAT: JSON object with a "rounds" array of exactly ${roundCount} objects. Each round object has:
+- englishPrompt: short English sentence / phrase
+- spanishSentence: the ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS}-word Spanish sentence (space-separated)
+- distractors: array of exactly ${SENTENCE_DISTRACTOR_COUNT} single Spanish words used as wrong tiles`;
+}
+
+export function buildGenerateMoreSentenceRoundsUserMessage(
+  themeName: string,
+  roundCount: number
+): string {
+  return `Generate ${roundCount} more Spanish sentence rounds for the theme "${themeName}".`;
+}
+
+// ============================================================================
 // Generate More Words Prompt
 // ============================================================================
 

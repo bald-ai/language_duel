@@ -22,6 +22,14 @@ import {
   WORD_TYPE_VALUES,
   type WordType,
 } from "@/lib/themes/wordTypes";
+import {
+  DEFAULT_SENTENCE_GENERATION_ROUND_COUNT,
+  SENTENCE_ENGLISH_PROMPT_MAX_LENGTH,
+  SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
+  SENTENCE_MAX_GENERATION_ROUND_COUNT,
+  SENTENCE_MIN_GENERATION_ROUND_COUNT,
+  SENTENCE_SPANISH_TOKEN_MAX_LENGTH,
+} from "@/lib/themes/sentenceConstants";
 import type { FieldType } from "@/lib/themes/api";
 import { isRecord } from "@/lib/typeGuards";
 
@@ -80,12 +88,29 @@ export interface GenerateMoreWordsRequest {
   existingWords: string[];
 }
 
+export interface GenerateSentenceThemeRequest {
+  type: "sentence-theme";
+  themeName: string;
+  themePrompt?: string;
+  roundCount: number;
+  history?: HistoryMessage[];
+}
+
+export interface GenerateMoreSentenceRoundsRequest {
+  type: "generate-more-sentence-rounds";
+  themeName: string;
+  roundCount: number;
+  existingSpanishSentences: string[];
+}
+
 export type GenerateRequest =
   | GenerateThemeRequest
   | RegenerateFieldRequest
   | RegenerateForWordRequest
   | AddWordRequest
-  | GenerateMoreWordsRequest;
+  | GenerateMoreWordsRequest
+  | GenerateSentenceThemeRequest
+  | GenerateMoreSentenceRoundsRequest;
 
 type ParseResult =
   | { ok: true; data: GenerateRequest }
@@ -388,6 +413,104 @@ function parseGenerateMoreWordsRequest(
   };
 }
 
+function parseSentenceRoundCount(value: unknown): number {
+  if (value === undefined) return DEFAULT_SENTENCE_GENERATION_ROUND_COUNT;
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value)
+  ) {
+    throw new Error("roundCount must be an integer");
+  }
+  if (
+    value < SENTENCE_MIN_GENERATION_ROUND_COUNT ||
+    value > SENTENCE_MAX_GENERATION_ROUND_COUNT
+  ) {
+    throw new Error(
+      `roundCount must be between ${SENTENCE_MIN_GENERATION_ROUND_COUNT} and ${SENTENCE_MAX_GENERATION_ROUND_COUNT}`
+    );
+  }
+  return value;
+}
+
+// Allow Pick & Prune to over-generate beyond the user-facing cap. The plan
+// over-generates by 100% so the upper bound is 2x the user max.
+const SENTENCE_OVERGENERATION_MAX =
+  SENTENCE_MAX_GENERATION_ROUND_COUNT * 2;
+
+function parseSentenceOverGenerationCount(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value)
+  ) {
+    throw new Error("roundCount must be an integer");
+  }
+  if (
+    value < SENTENCE_MIN_GENERATION_ROUND_COUNT ||
+    value > SENTENCE_OVERGENERATION_MAX
+  ) {
+    throw new Error(
+      `roundCount must be between ${SENTENCE_MIN_GENERATION_ROUND_COUNT} and ${SENTENCE_OVERGENERATION_MAX}`
+    );
+  }
+  return value;
+}
+
+function parseGenerateMoreRoundCount(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value)
+  ) {
+    throw new Error("roundCount must be an integer");
+  }
+  if (
+    value < 1 ||
+    value > SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT
+  ) {
+    throw new Error(
+      `roundCount must be between 1 and ${SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT}`
+    );
+  }
+  return value;
+}
+
+function parseExistingSpanishSentences(value: unknown): string[] {
+  return parseStringArray({
+    value,
+    field: "existingSpanishSentences",
+    maxItemLength: SENTENCE_ENGLISH_PROMPT_MAX_LENGTH + SENTENCE_SPANISH_TOKEN_MAX_LENGTH * 4,
+  });
+}
+
+function parseSentenceThemeRequest(body: Record<string, unknown>): GenerateSentenceThemeRequest {
+  return {
+    type: "sentence-theme",
+    themeName: parseThemeName(body.themeName),
+    themePrompt: parseThemePrompt(body.themePrompt),
+    roundCount: body.roundCount === undefined
+      ? DEFAULT_SENTENCE_GENERATION_ROUND_COUNT
+      : parseSentenceOverGenerationCount(body.roundCount),
+    history: parseHistory(body.history),
+  };
+}
+
+function parseGenerateMoreSentenceRoundsRequest(
+  body: Record<string, unknown>
+): GenerateMoreSentenceRoundsRequest {
+  return {
+    type: "generate-more-sentence-rounds",
+    themeName: parseThemeName(body.themeName),
+    roundCount: parseGenerateMoreRoundCount(body.roundCount),
+    existingSpanishSentences: parseExistingSpanishSentences(body.existingSpanishSentences),
+  };
+}
+
+// Quiet TS6133 by ensuring parseSentenceRoundCount remains a referenced helper
+// (kept for callers that want the user-facing cap rather than Pick & Prune).
+void parseSentenceRoundCount;
+
 export function parseGenerateRequest(payload: unknown): ParseResult {
   if (!isRecord(payload)) {
     return { ok: false, error: "Request body must be an object" };
@@ -412,6 +535,12 @@ export function parseGenerateRequest(payload: unknown): ParseResult {
     }
     if (payload.type === "generate-more-words") {
       return { ok: true, data: parseGenerateMoreWordsRequest(payload) };
+    }
+    if (payload.type === "sentence-theme") {
+      return { ok: true, data: parseSentenceThemeRequest(payload) };
+    }
+    if (payload.type === "generate-more-sentence-rounds") {
+      return { ok: true, data: parseGenerateMoreSentenceRoundsRequest(payload) };
     }
     return { ok: false, error: "Invalid request type" };
   } catch (error) {

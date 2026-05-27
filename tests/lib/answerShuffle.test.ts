@@ -4,7 +4,7 @@ import {
   buildDuelQuestionSnapshot,
   NONE_OF_ABOVE,
 } from "@/lib/answerShuffle";
-import type { WordEntry, ShuffleDifficultyInfo } from "@/lib/types";
+import type { WordEntry, ShuffleDifficultyInfo, Id } from "@/lib/types";
 
 describe("answerShuffle", () => {
   const word: WordEntry = {
@@ -82,34 +82,44 @@ describe("answerShuffle", () => {
   });
 
   it("builds a complete question set covering all input words with matching difficulty metadata", () => {
-    const words: WordEntry[] = [
+    const items = [
       {
+        kind: "word" as const,
         word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "casa", "mesa", "silla", "libro"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
       },
       {
+        kind: "word" as const,
         word: "dog",
         answer: "perro",
         wrongAnswers: ["gato", "casa", "mesa", "silla", "libro"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
       },
     ];
 
-    const result = buildDuelQuestionSet(words, [1, 0], "hard");
+    const result = buildDuelQuestionSet(items, [1, 0], "hard");
 
     expect(result).toHaveLength(2);
     for (const snapshot of result) {
+      if (snapshot.kind !== "word") throw new Error("expected word question");
       expect(snapshot.difficulty).toBe("hard");
       expect(snapshot.points).toBe(2);
     }
 
     // Each word's answer is covered either as an option or as the correctOption
-    const coveredAnswers = result.map(
-      (s) => s.options.find((o) => o === s.correctOption) ?? s.correctOption
-    );
+    const coveredAnswers = result.map((snapshot) => {
+      if (snapshot.kind !== "word") throw new Error("expected word question");
+      return snapshot.options.find((o: string) => o === snapshot.correctOption) ?? snapshot.correctOption;
+    });
     expect(coveredAnswers).toEqual(expect.arrayContaining(["gato", "perro"]));
 
     // At least one hard-mode snapshot includes the "None of the above" option
-    expect(result.some((s) => s.options.includes(NONE_OF_ABOVE))).toBe(true);
+    expect(
+      result.some((s) => s.kind === "word" && s.options.includes(NONE_OF_ABOVE))
+    ).toBe(true);
   });
 });

@@ -99,7 +99,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "cat",
+        kind: "word" as const, word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "mesa", "casa", "libro", "silla", "tren"],
         themeId: "theme_1" as Id<"themes">,
@@ -108,7 +108,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     ],
     duelQuestions: [
       {
-        options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
+        kind: "word" as const, options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
         correctOption: "gato",
         difficulty: "hard",
         points: 2,
@@ -141,7 +141,7 @@ describe("duel gameplay", () => {
       duelDoc({
         duelQuestions: [
           {
-            options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
+            kind: "word" as const, options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
             correctOption: NONE_OF_ABOVE,
             difficulty: "hard",
             points: 2,
@@ -184,7 +184,7 @@ describe("duel gameplay", () => {
         eliminatedOptions: ["mesa"],
         duelQuestions: [
           {
-            options: ["gato", "perro", "mesa", "casa"],
+            kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
             difficulty: "easy",
             points: 1,
@@ -226,7 +226,7 @@ describe("duel gameplay", () => {
         hintAccepted: true,
         duelQuestions: [
           {
-            options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
+            kind: "word" as const, options: ["perro", "mesa", "casa", "libro", NONE_OF_ABOVE],
             correctOption: NONE_OF_ABOVE,
             difficulty: "hard",
             points: 2,
@@ -267,7 +267,7 @@ describe("duel gameplay", () => {
         opponentPerfectRun: true,
         duelQuestions: [
           {
-            options: ["gato", "perro", "mesa", "casa"],
+            kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
             difficulty: "easy",
             points: 1,
@@ -367,14 +367,14 @@ describe("duel gameplay", () => {
         currentWordIndex: 1,
         sessionWords: [
           {
-            word: "cat",
+            kind: "word" as const, word: "cat",
             answer: "gato",
             wrongAnswers: ["perro", "mesa", "casa"],
             themeId: "theme_1" as Id<"themes">,
             themeName: "Animals",
           },
           {
-            word: "dog",
+            kind: "word" as const, word: "dog",
             answer: "perro",
             wrongAnswers: ["gato", "mesa", "casa"],
             themeId: "theme_1" as Id<"themes">,
@@ -383,13 +383,13 @@ describe("duel gameplay", () => {
         ],
         duelQuestions: [
           {
-            options: ["gato", "perro", "mesa", "casa"],
+            kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
             difficulty: "easy",
             points: 1,
           },
           {
-            options: ["perro", "gato", "mesa", "casa"],
+            kind: "word" as const, options: ["perro", "gato", "mesa", "casa"],
             correctOption: "perro",
             difficulty: "medium",
             points: 1.5,
@@ -626,7 +626,7 @@ describe("self-duel gameplay", () => {
       selfDuelDoc({
         sessionWords: [
           {
-            word: "cat",
+            kind: "word" as const, word: "cat",
             answer: "gato",
             wrongAnswers: ["perro", "mesa", "casa"],
             themeId: "theme_1" as Id<"themes">,
@@ -635,7 +635,7 @@ describe("self-duel gameplay", () => {
         ],
         duelQuestions: [
           {
-            options: ["gato", "perro", "mesa", "casa"],
+            kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
             correctOption: "gato",
             difficulty: "easy",
             points: 1,

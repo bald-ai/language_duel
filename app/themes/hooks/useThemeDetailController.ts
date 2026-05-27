@@ -32,7 +32,19 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
 
   const selectedTheme = useMemo<ThemeDetailTheme | null>(() => {
     if (!selectedThemeState) return null;
-    if (selectedThemeState.kind === "saved") return selectedThemeState.theme;
+    if (selectedThemeState.kind === "saved") {
+      const saved = selectedThemeState.theme;
+      // Saved themes can be sentence themes too — those flow through a
+      // separate controller (`useSentenceThemeController`). When a word-theme
+      // path lands here for a sentence theme (which shouldn't happen because
+      // `useThemesController.handleOpenTheme` routes sentence themes
+      // elsewhere), surface an empty `words` array rather than letting
+      // `undefined` leak into the editor.
+      return {
+        ...saved,
+        words: (saved.words ?? []) as ThemeDetailTheme["words"],
+      };
+    }
     const draft = selectedThemeState.draft;
     return {
       name: draft.name,
@@ -66,7 +78,7 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
 
   const openTheme = useCallback((theme: ThemeWithOwner) => {
     setSelectedThemeState({ kind: "saved", theme });
-    setLocalWords([...theme.words]);
+    setLocalWords([...(theme.words ?? [])]);
     params.setViewMode(VIEW_MODES.DETAIL);
   }, [params]);
 

@@ -102,6 +102,12 @@ export const eliminateOption = mutation({
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }
+    if (currentQuestion.kind !== "word") {
+      throw new ConvexError({
+        code: "HINT_NOT_AVAILABLE",
+        message: "Eliminate-option hints don't apply to sentence rounds",
+      });
+    }
 
     if (!currentQuestion.options.includes(option)) {
       throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid option" });

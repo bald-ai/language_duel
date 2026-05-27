@@ -9,9 +9,9 @@ import type { SessionWordEntry } from "@/lib/sessionWords";
 const themeId = (id: string) => id as Id<"themes">;
 
 const sampleWords: SessionWordEntry[] = [
-  { word: "cat", answer: "gato", wrongAnswers: ["perro"], themeId: themeId("t1"), themeName: "Animals" },
-  { word: "bread", answer: "pan", wrongAnswers: ["agua"], themeId: themeId("t2"), themeName: "Food" },
-  { word: "dog", answer: "perro", wrongAnswers: ["gato"], themeId: themeId("t1"), themeName: "Animals" },
+  { kind: "word" as const, word: "cat", answer: "gato", wrongAnswers: ["perro"], themeId: themeId("t1"), themeName: "Animals" },
+  { kind: "word" as const, word: "bread", answer: "pan", wrongAnswers: ["agua"], themeId: themeId("t2"), themeName: "Food" },
+  { kind: "word" as const, word: "dog", answer: "perro", wrongAnswers: ["gato"], themeId: themeId("t1"), themeName: "Animals" },
 ];
 
 describe("getSessionWords", () => {

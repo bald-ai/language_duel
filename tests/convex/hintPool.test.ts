@@ -58,7 +58,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "gato",
+        kind: "word" as const, word: "gato",
         answer: "cat",
         wrongAnswers: ["dog", "bird", "fish", "horse", "mouse"],
         themeId: "theme_1" as Id<"themes">,
@@ -73,7 +73,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     wordOrder: [0],
     duelQuestions: [
       {
-        options: ["cat", "dog", "bird", "fish", "horse", "mouse"],
+        kind: "word" as const, options: ["cat", "dog", "bird", "fish", "horse", "mouse"],
         correctOption: "cat",
         difficulty: "medium",
         points: 1.5,

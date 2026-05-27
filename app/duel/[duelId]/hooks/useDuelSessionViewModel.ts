@@ -9,7 +9,11 @@ import { isSelfDuel } from "@/lib/duel/selfDuel";
 import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
 import type { DuelViewProps } from "../components/DuelView";
 import { deriveHintFlags, deriveScoreNames } from "./duelViewModelHelpers";
-import type { ViewerSafeDuelQuestion } from "./duelSessionTypes";
+import {
+  requireWordQuestion,
+  requireWordSessionItem,
+  type ViewerSafeDuelQuestion,
+} from "./duelSessionTypes";
 import { useDuelActions } from "./useDuelActions";
 import { useDuelPhaseState } from "./useDuelPhaseState";
 import { useDuelQuestionTimer } from "./useDuelQuestionTimer";
@@ -121,8 +125,16 @@ export function useDuelSessionViewModel({
   }, [duel.status, router]);
 
   const actualWordIndex = wordOrder[index];
-  const currentQuestion = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
-  const currentSessionWord = words[actualWordIndex];
+  // The standard view-model is word-only; the page already routes sentence
+  // positions to a dedicated SentenceRoundView, so this narrow is the place we
+  // assert "we should only be here for word positions".
+  const currentQuestion = requireWordQuestion(
+    duel.duelQuestions![index] as ViewerSafeDuelQuestion
+  );
+  const rawCurrentSessionItem = words[actualWordIndex];
+  const currentSessionWord = rawCurrentSessionItem
+    ? requireWordSessionItem(rawCurrentSessionItem)
+    : null;
   // No current word means the server has advanced past the last question and we
   // are waiting for the duel to flip to "completed".
   const isRoundOver = !currentSessionWord;

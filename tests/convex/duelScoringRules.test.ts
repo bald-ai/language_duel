@@ -24,7 +24,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     ],
     duelQuestions: [
       {
-        options: ["gato", "perro", "mesa", "casa"],
+        kind: "word" as const, options: ["gato", "perro", "mesa", "casa"],
         correctOption: "gato",
         difficulty: "easy",
         points: 1,

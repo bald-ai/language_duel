@@ -31,6 +31,14 @@ export const fireHint = mutation({
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }
+    // PvE hints don't apply to sentence rounds in v1 (plan: mixed session
+    // behavior). Bail out cleanly rather than fight a missing `options` field.
+    if (currentQuestion.kind !== "word") {
+      throw new ConvexError({
+        code: "HINT_NOT_AVAILABLE",
+        message: "Hints are not available on sentence rounds",
+      });
+    }
 
     const existingEliminated = duel.eliminatedOptions ?? [];
     const visibleOptions = currentQuestion.options.filter(

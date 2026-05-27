@@ -152,7 +152,8 @@ export function GoalThemeSelector({
                             className="text-xs"
                             style={{ color: colors.text.muted }}
                           >
-                            {theme.words.length} words
+                            {theme.words?.length ?? theme.sentenceRounds?.length ?? 0}{" "}
+                            {theme.sentenceRounds ? "rounds" : "words"}
                           </span>
                           {theme.description && (
                             <>

@@ -105,6 +105,7 @@ type HookReturnMock = {
   handleLevel0GotIt: ReturnType<typeof vi.fn>;
   handleLevel0NotYet: ReturnType<typeof vi.fn>;
   currentWord: {
+    kind: "word";
     word: string;
     answer: string;
     wrongAnswers: string[];
@@ -157,7 +158,7 @@ function createBaseHookReturn(): HookReturnMock {
     handleLevel0GotIt: vi.fn(),
     handleLevel0NotYet: vi.fn(),
     currentWord: {
-      word: "cat",
+      kind: "word" as const, word: "cat",
       answer: "gato",
       wrongAnswers: ["perro", "casa", "mesa"],
       themeId: "theme_1",
@@ -188,7 +189,7 @@ describe("SoloPracticePage", () => {
           translationDirection: "reverse",
         }),
         currentWord: {
-          word: "to speak",
+          kind: "word" as const, word: "to speak",
           answer: "hablar (Irr)",
           wrongAnswers: ["comer", "beber", "vivir"],
           themeId: "theme_1",
@@ -265,7 +266,7 @@ describe("SoloPracticePage", () => {
         showFeedback: true,
         feedbackAnswer: "to speak",
         currentWord: {
-          word: "to speak",
+          kind: "word" as const, word: "to speak",
           answer: "hablar (Irr)",
           wrongAnswers: ["comer", "beber", "vivir"],
           themeId: "theme_1",

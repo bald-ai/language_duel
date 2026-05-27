@@ -3,10 +3,16 @@
 import type { Doc } from "@/convex/_generated/dataModel";
 import { DuelView } from "./components/DuelView";
 import { RelayDuelView } from "./components/RelayDuelView";
+import { SentenceRoundView } from "./components/SentenceRoundView";
 import {
   useDuelSessionViewModel,
   type DuelPlayerSummary,
 } from "./hooks/useDuelSessionViewModel";
+import {
+  isSentenceQuestion,
+  type ViewerSafeDuelQuestion,
+  type ViewerSafeSentenceSessionItem,
+} from "./hooks/duelSessionTypes";
 import type { RelaySafeDuel } from "./hooks/relaySessionTypes";
 
 interface DuelSessionProps {
@@ -17,7 +23,8 @@ interface DuelSessionProps {
 }
 
 // Branch before any view-model hook so neither hook is conditional: relay runs
-// its own session, every other mode runs the standard view-model session.
+// its own session, sentence positions render the tile-builder, and every
+// other word position runs the standard view-model session.
 export default function DuelSession(props: DuelSessionProps) {
   if (props.duel.duelMode === "relay") {
     return (
@@ -29,6 +36,31 @@ export default function DuelSession(props: DuelSessionProps) {
       />
     );
   }
+
+  const currentQuestion = props.duel.duelQuestions?.[props.duel.currentWordIndex] as
+    | ViewerSafeDuelQuestion
+    | undefined;
+  const currentItem = props.duel.sessionWords[
+    props.duel.wordOrder[props.duel.currentWordIndex]
+  ];
+
+  if (
+    isSentenceQuestion(currentQuestion) &&
+    currentItem &&
+    currentItem.kind === "sentence"
+  ) {
+    return (
+      <SentenceRoundView
+        duel={props.duel}
+        challenger={props.challenger}
+        opponent={props.opponent}
+        viewerRole={props.viewerRole}
+        sessionItem={currentItem as ViewerSafeSentenceSessionItem}
+        question={currentQuestion}
+      />
+    );
+  }
+
   return <StandardDuelSession {...props} />;
 }
 

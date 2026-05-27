@@ -5,8 +5,21 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { buildSessionWords, summarizeThemes, type SessionWordEntry } from "@/lib/sessionWords";
+import {
+  buildSessionWords,
+  isSessionWordItem,
+  summarizeThemes,
+  type SessionWordItem,
+} from "@/lib/sessionWords";
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
+
+/**
+ * Solo practice is word-only in v1 (plan decision: modes — only duel-style
+ * modes support sentence rounds). The hook strips any sentence items so
+ * downstream solo code keeps its word-only invariants; sentence content surfaces
+ * via the duel paths instead.
+ */
+export type SessionWordEntry = SessionWordItem;
 
 /**
  * Gate state shared by the Solo Practice and Solo Learn pages. `ready` means all
@@ -91,10 +104,10 @@ export function useSoloSessionSource({
     });
   }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
 
-  const sessionWords = useMemo(
-    () => practiceSession?.sessionWords ?? buildSessionWords(selectedThemes),
-    [practiceSession?.sessionWords, selectedThemes]
-  );
+  const sessionWords: SessionWordEntry[] = useMemo(() => {
+    const raw = practiceSession?.sessionWords ?? buildSessionWords(selectedThemes);
+    return raw.filter(isSessionWordItem);
+  }, [practiceSession?.sessionWords, selectedThemes]);
   const themeSummary = useMemo(
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]

@@ -67,7 +67,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
       {
-        word: "cat",
+        kind: "word" as const, word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "pez", "ave"],
         themeId: "theme_1" as Id<"themes">,
@@ -82,7 +82,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     wordOrder: [0],
     duelQuestions: [
       {
-        options: ["gato", "perro", "pez", "ave"],
+        kind: "word" as const, options: ["gato", "perro", "pez", "ave"],
         correctOption: "gato",
         difficulty: "easy",
         points: 1,
@@ -136,7 +136,8 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
     const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
 
-    expect(result?.duel.sessionWords[0].answer).toBe("");
+    const firstItem = result?.duel.sessionWords[0];
+    expect(firstItem && firstItem.kind === "word" ? firstItem.answer : undefined).toBe("");
     expect(result?.duel.duelQuestions?.[0]).not.toHaveProperty("correctOption");
     expect((result?.duel.duelQuestions?.[0] as ViewerSafeQuestion | undefined)?.answerRevealedToViewer).toBe(false);
     expect(result).not.toHaveProperty("theme");
@@ -156,9 +157,11 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
     const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
 
-    expect(result?.duel.sessionWords[0].answer).toBe("gato");
-    expect(result?.duel.duelQuestions?.[0].correctOption).toBe("gato");
-    expect((result?.duel.duelQuestions?.[0] as ViewerSafeQuestion | undefined)?.answerRevealedToViewer).toBe(true);
+    const firstItemRevealed = result?.duel.sessionWords[0];
+    expect(firstItemRevealed && firstItemRevealed.kind === "word" ? firstItemRevealed.answer : undefined).toBe("gato");
+    const firstQuestion = result?.duel.duelQuestions?.[0];
+    expect(firstQuestion && firstQuestion.kind === "word" ? firstQuestion.correctOption : undefined).toBe("gato");
+    expect((firstQuestion as ViewerSafeQuestion | undefined)?.answerRevealedToViewer).toBe(true);
   });
 });
 
@@ -176,10 +179,10 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
   return duelDoc({
     duelMode: "relay",
     duelQuestions: [
-      { options: ["gato", "perro", "pez", "ave", "casa", "mesa"], correctOption: "gato", difficulty: "medium", points: 1 },
+      { kind: "word" as const, options: ["gato", "perro", "pez", "ave", "casa", "mesa"], correctOption: "gato", difficulty: "medium", points: 1 },
     ],
     relayHardQuestions: [
-      { options: ["gato", "perro", "pez", "ave", "casa", NONE_OF_ABOVE], correctOption: NONE_OF_ABOVE, difficulty: "hard", points: 1 },
+      { kind: "word" as const, options: ["gato", "perro", "pez", "ave", "casa", NONE_OF_ABOVE], correctOption: NONE_OF_ABOVE, difficulty: "hard", points: 1 },
     ],
     relayPicker: "challenger",
     relayPhase: "answer",

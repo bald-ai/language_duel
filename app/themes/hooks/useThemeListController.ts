@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
+import type { ContentTypeTab } from "../components/ThemeList";
 import { toast } from "sonner";
 
 type UseThemeListControllerParams = {
@@ -29,6 +30,7 @@ export type ListFilter =
 export function useThemeListController(params: UseThemeListControllerParams) {
   const [filter, setFilter] = useState<ListFilter>({ kind: "all" });
   const [showFriendFilterModal, setShowFriendFilterModal] = useState(false);
+  const [contentTypeTab, setContentTypeTab] = useState<ContentTypeTab>("all");
 
   const queryArgs = useMemo(() => {
     switch (filter.kind) {
@@ -100,6 +102,8 @@ export function useThemeListController(params: UseThemeListControllerParams) {
       onClearFriendFilter: handleClearFriendFilter,
       onToggleShowArchived: handleToggleShowArchived,
       onToggleArchive: handleToggleArchive,
+      contentTypeTab,
+      onContentTypeTabChange: setContentTypeTab,
     }),
     [
       themes,
@@ -115,6 +119,7 @@ export function useThemeListController(params: UseThemeListControllerParams) {
       handleClearFriendFilter,
       handleToggleShowArchived,
       handleToggleArchive,
+      contentTypeTab,
     ]
   );
 

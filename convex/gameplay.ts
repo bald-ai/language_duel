@@ -21,6 +21,11 @@ import {
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
 import {
+  buildSentenceAnswerPatch,
+  validateSentenceSubmission,
+} from "./rules/sentenceGameplayRules";
+import { getDuelQuestionOrThrow } from "./rules/duelScoringRules";
+import {
   planConfirmUnpauseCountdown,
   planSkipCountdown,
 } from "./rules/countdownPlanners";
@@ -165,6 +170,53 @@ export const timeoutAnswer = mutation({
     const timeoutPatch = buildTimeoutPatch({ duel, playerRole, isChallenger });
     if (Object.keys(timeoutPatch).length > 0) {
       await ctx.db.patch(duelId, timeoutPatch);
+    }
+
+    return await finalizeAfterAnswer(ctx, duelId);
+  },
+});
+
+/**
+ * Submit a sentence-round result. The client builds the sentence locally and
+ * reports the completion status and wrong-tile count; the server scores per
+ * the clean/messy/timeout tier (`sentenceConstants.ts`) and advances the round
+ * once both players have submitted (mirrors `answerDuel`).
+ */
+export const answerSentenceRound = mutation({
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+    completed: v.boolean(),
+    mistakes: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex, completed, mistakes }) => {
+    const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
+
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_ANSWER",
+      "Stale submission: question has changed"
+    );
+
+    const question = getDuelQuestionOrThrow(duel, questionIndex);
+    if (question.kind !== "sentence") {
+      throw new ConvexError({
+        code: "WRONG_QUESTION_KIND",
+        message: "This duel position is a word round. Use answerDuel instead.",
+      });
+    }
+
+    validateSentenceSubmission({ completed, mistakes });
+
+    const answerPatch = buildSentenceAnswerPatch({
+      duel,
+      playerRole,
+      isChallenger,
+      submission: { completed, mistakes },
+    });
+    if (Object.keys(answerPatch).length > 0) {
+      await ctx.db.patch(duelId, answerPatch);
     }
 
     return await finalizeAfterAnswer(ctx, duelId);

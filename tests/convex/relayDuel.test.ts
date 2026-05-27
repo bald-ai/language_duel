@@ -47,6 +47,7 @@ function makeScheduler(scheduledId = "sched_1") {
 
 function question(correctOption: string): NonNullable<DuelDoc["duelQuestions"]>[number] {
   return {
+    kind: "word" as const,
     options: ["a", "b", "c", "d", "e", correctOption],
     correctOption,
     difficulty: "medium",
@@ -62,8 +63,8 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentId: "user_2" as DuelDoc["opponentId"],
     themeIds: [],
     sessionWords: [
-      { word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
-      { word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
+      { kind: "word" as const, word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
+      { kind: "word" as const, word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
     ],
     sourceType: "normal",
     status: "active",

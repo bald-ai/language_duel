@@ -49,7 +49,7 @@ describe("buildSessionWords", () => {
     const result = buildSessionWords([themeB]);
     expect(result).toEqual([
       {
-        word: "bread",
+        kind: "word" as const, word: "bread",
         answer: "pan",
         wrongAnswers: ["agua", "leche"],
         themeId: themeId("theme_b"),
@@ -68,12 +68,16 @@ describe("buildSessionWords", () => {
 
   it("preserves ttsStorageId when present", () => {
     const result = buildSessionWords([themeWithTts]);
-    expect(result[0].ttsStorageId).toBe("storage_1");
+    const first = result[0];
+    if (first.kind !== "word") throw new Error("expected word session item");
+    expect(first.ttsStorageId).toBe("storage_1");
   });
 
   it("omits ttsStorageId when absent", () => {
     const result = buildSessionWords([themeA]);
-    expect(result[0].ttsStorageId).toBeUndefined();
+    const first = result[0];
+    if (first.kind !== "word") throw new Error("expected word session item");
+    expect(first.ttsStorageId).toBeUndefined();
   });
 });
 

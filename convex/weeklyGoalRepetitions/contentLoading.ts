@@ -41,7 +41,10 @@ export async function assertSnapshotContentReady(
         message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
       };
     }
-    if (snapshot.words.length === 0) {
+    // Spaced repetition is word-only today (plan: solo / weekly goals don't
+    // run sentence themes in v1). Sentence snapshots have an empty `words`
+    // array — surface a clear error rather than launching an empty SR session.
+    if (!snapshot.words || snapshot.words.length === 0) {
       return {
         ok: false,
         message: `"${theme.themeName}" snapshot has no words. Spaced repetition cannot start.`,
@@ -76,7 +79,7 @@ export async function loadSpacedRepetitionSnapshotContent(
         message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
       };
     }
-    if (snapshot.words.length === 0) {
+    if (!snapshot.words || snapshot.words.length === 0) {
       return {
         ok: false,
         message: `"${theme.themeName}" snapshot has no words. Spaced repetition cannot start.`,
@@ -92,7 +95,9 @@ export async function loadSpacedRepetitionSnapshotContent(
     return {
       _id: snapshot.originalThemeId,
       name: snapshot.name,
+      contentType: snapshot.contentType,
       words: snapshot.words,
+      sentenceRounds: snapshot.sentenceRounds,
     };
   });
   const sessionWords = buildSessionWords(sessionThemes);

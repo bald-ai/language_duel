@@ -43,15 +43,46 @@ const FriendFilterModal = dynamic(
   () => import("./components/FriendFilterModal").then((mod) => mod.FriendFilterModal),
   { loading: () => null }
 );
+const SentenceThemeDetail = dynamic(
+  () => import("./components/SentenceThemeDetail").then((mod) => mod.SentenceThemeDetail),
+  { loading: () => null }
+);
+const SentenceRoundEditor = dynamic(
+  () => import("./components/SentenceRoundEditor").then((mod) => mod.SentenceRoundEditor),
+  { loading: () => null }
+);
+const GenerateSentenceThemeModal = dynamic(
+  () =>
+    import("./components/GenerateSentenceThemeModal").then(
+      (mod) => mod.GenerateSentenceThemeModal
+    ),
+  { loading: () => null }
+);
+const GenerateMoreSentenceRoundsModal = dynamic(
+  () =>
+    import("./components/GenerateMoreSentenceRoundsModal").then(
+      (mod) => mod.GenerateMoreSentenceRoundsModal
+    ),
+  { loading: () => null }
+);
+const ThemeContentTypeModal = dynamic(
+  () => import("./components/ThemeContentTypeModal").then((mod) => mod.ThemeContentTypeModal),
+  { loading: () => null }
+);
 
 export default function ThemesPage() {
   const colors = useAppearanceColors();
   const controller = useThemesController();
 
+  // Sentence editor takes the whole content surface when active so the page
+  // body collapses into its own dedicated layout. Same shape as the word
+  // editor — one field at a time, parent shows nothing else.
+  const sentenceEditorActive = controller.sentenceEditField !== null;
+
   return (
     <ThemedPage className="h-dvh overflow-hidden">
       <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-4">
-        {controller.viewMode === VIEW_MODES.LIST && (
+        {controller.viewMode === VIEW_MODES.LIST && !controller.isSentenceFlowActive && (
           <>
             <ThemeList {...controller.listProps} />
             <GenerateThemeModal {...controller.generateModalProps} />
@@ -59,16 +90,30 @@ export default function ThemesPage() {
           </>
         )}
 
-        {controller.viewMode === VIEW_MODES.DETAIL && controller.selectedTheme && (
-          <ThemeDetail {...controller.detailProps} />
-        )}
+        {controller.viewMode === VIEW_MODES.DETAIL &&
+          !controller.isSentenceFlowActive &&
+          controller.selectedTheme && (
+            <ThemeDetail {...controller.detailProps} />
+          )}
 
-        {controller.viewMode === VIEW_MODES.EDIT_WORD && controller.wordEditorState.editingField && (
-          <WordEditor {...controller.wordEditorProps} />
-        )}
+        {controller.viewMode === VIEW_MODES.EDIT_WORD &&
+          controller.wordEditorState.editingField && (
+            <WordEditor {...controller.wordEditorProps} />
+          )}
 
         {controller.viewMode === VIEW_MODES.PICK_AND_PRUNE_REVIEW && (
           <PickAndPruneReview {...controller.pickAndPruneReviewProps} />
+        )}
+
+        {/* Sentence-theme flow */}
+        {controller.isSentenceFlowActive &&
+          !sentenceEditorActive &&
+          controller.sentenceDetailProps && (
+            <SentenceThemeDetail {...controller.sentenceDetailProps} />
+          )}
+
+        {sentenceEditorActive && controller.sentenceEditorProps && (
+          <SentenceRoundEditor {...controller.sentenceEditorProps} />
         )}
       </div>
 
@@ -83,6 +128,9 @@ export default function ThemesPage() {
       <DiscardPickAndPruneModal {...controller.discardPickAndPruneProps} />
       <AddWordModal {...controller.addWordModalProps} />
       <GenerateMoreModal {...controller.generateMoreModalProps} />
+      <ThemeContentTypeModal {...controller.contentTypeModalProps} />
+      <GenerateSentenceThemeModal {...controller.sentenceGenerateModalProps} />
+      <GenerateMoreSentenceRoundsModal {...controller.sentenceGenerateMoreModalProps} />
     </ThemedPage>
   );
 }

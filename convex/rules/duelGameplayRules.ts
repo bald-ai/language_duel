@@ -4,11 +4,11 @@ import { TIMEOUT_ANSWER } from "../constants";
 import { forRole } from "../../lib/duelRole";
 import {
   getLimitedLivesMissPatch,
-  getDuelQuestionOrThrow,
   getHintClearFields,
   getHintProviderBonusPatch,
   hasLivesLeft,
   isBossAttempt,
+  requireWordDuelQuestion,
 } from "./duelScoringRules";
 import { mirrorPatchForSelfDuel } from "./selfDuelMirror";
 import type { PlayerRole } from "../helpers/auth";
@@ -42,7 +42,7 @@ export function buildAnswerPatch(params: {
   questionIndex: number;
 }): Partial<Doc<"duels">> {
   const { duel, playerRole, isChallenger, selectedAnswer, questionIndex } = params;
-  const currentQuestion = getDuelQuestionOrThrow(duel, questionIndex);
+  const currentQuestion = requireWordDuelQuestion(duel, questionIndex);
   const isCorrect = selectedAnswer === currentQuestion.correctOption;
   const roleView = forRole(duel, playerRole);
 

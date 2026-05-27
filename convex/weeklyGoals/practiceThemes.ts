@@ -67,7 +67,9 @@ export async function loadLiveWeeklyGoalPracticeThemes(
             {
               _id: theme._id,
               name: theme.name,
+              contentType: theme.contentType,
               words: theme.words,
+              sentenceRounds: theme.sentenceRounds,
             },
           ]
         : []
@@ -104,7 +106,9 @@ export async function loadSnapshotWeeklyGoalPracticeThemes(
       return {
         _id: snapshot.originalThemeId,
         name: snapshot.name,
+        contentType: snapshot.contentType,
         words: snapshot.words,
+        sentenceRounds: snapshot.sentenceRounds,
       };
     }),
   };

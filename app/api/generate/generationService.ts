@@ -4,15 +4,21 @@ import { api } from "@/convex/_generated/api";
 import {
   buildAddWordPrompt,
   buildFieldSystemPrompt,
+  buildGenerateMoreSentenceRoundsPrompt,
+  buildGenerateMoreSentenceRoundsUserMessage,
   buildGenerateMoreWordsPrompt,
   buildGenerateMoreWordsUserMessage,
   buildGenerateThemeUserMessage,
   buildRegenerateForWordPrompt,
+  buildSentenceThemeSystemPrompt,
+  buildSentenceThemeUserMessage,
   buildThemeSystemPrompt,
 } from "@/lib/generate/prompts";
 import {
   answerAndWrongsSchema,
   answerSchema,
+  buildGenerateMoreSentenceRoundsSchema,
+  buildSentenceThemeSchema,
   buildThemeSchema,
   createGenerateMoreWordsSchema,
   wordSchema,
@@ -25,6 +31,12 @@ import { ApiRouteError } from "@/lib/api/serverErrors";
 import { getAuthedConvexClient } from "@/lib/api/convexClient";
 import type { WordType } from "@/lib/themes/wordTypes";
 import type { ThemeWordInput } from "@/lib/themes/serverValidation";
+import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
+import {
+  collectSentenceRoundIssues,
+  formatSentenceRoundIssue,
+  validateGeneratedSentenceRoundsAgainstExisting,
+} from "@/lib/themes/sentenceValidation";
 import {
   buildMessages,
   buildRetryMessages,
@@ -315,6 +327,52 @@ function buildAddWordSpec(
   });
 }
 
+function buildSentenceThemeSpec(
+  body: Extract<GenerateRequest, { type: "sentence-theme" }>
+): GenerationSpec<{ rounds: SentenceRoundInput[] }> {
+  return {
+    systemPrompt: buildSentenceThemeSystemPrompt(body.themeName, body.roundCount, body.themePrompt),
+    userMessage: buildSentenceThemeUserMessage(body.themeName, body.roundCount),
+    history: body.history,
+    schemaName: "sentence_theme_rounds",
+    schema: buildSentenceThemeSchema(body.roundCount),
+    validate: (parsed) =>
+      collectSentenceRoundIssues(parsed.rounds).map(formatSentenceRoundIssue),
+    toResponseData: (parsed) => parsed.rounds,
+    retryInstruction:
+      "The previous result is invalid. Regenerate all sentence rounds and fix these issues:",
+  };
+}
+
+function buildGenerateMoreSentenceRoundsSpec(
+  body: Extract<GenerateRequest, { type: "generate-more-sentence-rounds" }>
+): GenerationSpec<{ rounds: SentenceRoundInput[] }> {
+  return {
+    systemPrompt: buildGenerateMoreSentenceRoundsPrompt(
+      body.themeName,
+      body.roundCount,
+      body.existingSpanishSentences
+    ),
+    userMessage: buildGenerateMoreSentenceRoundsUserMessage(body.themeName, body.roundCount),
+    schemaName: "more_sentence_rounds",
+    schema: buildGenerateMoreSentenceRoundsSchema(body.roundCount),
+    validate: (parsed) => {
+      const existingRounds = body.existingSpanishSentences.map((sentence) => ({
+        englishPrompt: "(existing)",
+        spanishSentence: sentence,
+        distractors: ["x", "y", "z"],
+      }));
+      return [
+        ...collectSentenceRoundIssues(parsed.rounds).map(formatSentenceRoundIssue),
+        ...validateGeneratedSentenceRoundsAgainstExisting(parsed.rounds, existingRounds),
+      ];
+    },
+    toResponseData: (parsed) => parsed.rounds,
+    retryInstruction:
+      "The previous result is invalid. Regenerate all sentence rounds and fix these issues:",
+  };
+}
+
 function buildGenerateMoreSpec(
   body: Extract<GenerateRequest, { type: "generate-more-words" }>
 ): GenerationSpec<{ words: WordWithChoices[] }> {
@@ -343,7 +401,11 @@ function buildGenerateMoreSpec(
 }
 
 export async function handleGenerateRequest(body: GenerateRequest) {
-  const creditCost = body.type === "theme" ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
+  const isThemeScaleRequest =
+    body.type === "theme" ||
+    body.type === "sentence-theme" ||
+    body.type === "generate-more-sentence-rounds";
+  const creditCost = isThemeScaleRequest ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
   let convexClient: ConvexHttpClient;
   try {
     convexClient = await ensureLlmCreditsAvailable(creditCost);
@@ -355,6 +417,19 @@ export async function handleGenerateRequest(body: GenerateRequest) {
 
   if (body.type === "theme") {
     return generateAndRespond(openai, convexClient, creditCost, buildThemeSpec(body));
+  }
+
+  if (body.type === "sentence-theme") {
+    return generateAndRespond(openai, convexClient, creditCost, buildSentenceThemeSpec(body));
+  }
+
+  if (body.type === "generate-more-sentence-rounds") {
+    return generateAndRespond(
+      openai,
+      convexClient,
+      creditCost,
+      buildGenerateMoreSentenceRoundsSpec(body)
+    );
   }
 
   if (body.type === "field") {

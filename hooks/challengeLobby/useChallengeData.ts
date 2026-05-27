@@ -30,7 +30,9 @@ export function useChallengeData(shouldLoad: boolean) {
     themes: themes?.map((theme) => ({
       _id: theme._id,
       name: theme.name,
-      wordCount: theme.words.length,
+      // Sentence themes have no `words`; fall through to round count so the
+      // challenge lobby summary still shows a meaningful number.
+      wordCount: theme.words?.length ?? theme.sentenceRounds?.length ?? 0,
     })),
     pendingChallenges,
     viewer,

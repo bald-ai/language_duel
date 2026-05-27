@@ -16,12 +16,18 @@ import {
   buildRelayAdvancePatch,
   buildRelayAnswerPatch,
   buildRelayPickPatch,
+  buildRelaySentenceAnswerPatch,
   buildRelayTimeoutPatch,
   isRelayFinished,
   relayAnswerer,
   relayRemainingPositions,
   relayServedQuestion,
 } from "../lib/duel/relayEngine";
+import {
+  scoreSentenceSubmission,
+  validateSentenceSubmission,
+} from "./rules/sentenceGameplayRules";
+import { isLivesAttempt } from "./rules/duelScoringRules";
 
 function assertActive(duel: Doc<"duels">) {
   if (duel.status !== "active") {
@@ -143,8 +149,15 @@ export const relayAnswer = mutation({
         message: "Only the assigned answerer can answer",
       });
     }
-    if (relayServedQuestion(duel) === undefined) {
+    const served = relayServedQuestion(duel);
+    if (served === undefined) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
+    }
+    if (served.kind !== "word") {
+      throw new ConvexError({
+        code: "WRONG_QUESTION_KIND",
+        message: "Use relayAnswerSentence for sentence positions",
+      });
     }
 
     if (duel.relayTimeoutScheduledFunctionId) {
@@ -154,6 +167,68 @@ export const relayAnswer = mutation({
     await ctx.db.patch(duelId, buildRelayAnswerPatch({ duel, value }));
   },
 });
+
+export const relayAnswerSentence = mutation({
+  args: {
+    duelId: v.id("duels"),
+    completed: v.boolean(),
+    mistakes: v.number(),
+  },
+  handler: async (ctx, { duelId, completed, mistakes }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    assertDuelMode(duel, "relay", "relayAnswerSentence");
+    assertActive(duel);
+
+    if (duel.relayPhase !== "answer") {
+      throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the answer phase" });
+    }
+    if (playerRole !== relayAnswerer(duel)) {
+      throw new ConvexError({
+        code: "NOT_AUTHORIZED",
+        message: "Only the assigned answerer can answer",
+      });
+    }
+    const served = relayServedQuestion(duel);
+    if (served === undefined) {
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
+    }
+    if (served.kind !== "sentence") {
+      throw new ConvexError({
+        code: "WRONG_QUESTION_KIND",
+        message: "Use relayAnswer for word positions",
+      });
+    }
+    validateSentenceSubmission({ completed, mistakes });
+
+    if (duel.relayTimeoutScheduledFunctionId) {
+      await ctx.scheduler.cancel(duel.relayTimeoutScheduledFunctionId);
+    }
+
+    const points = scoreSentenceSubmission({ completed, mistakes });
+    const livesPatch = computeRelaySentenceLivesPatch(duel, { completed, mistakes });
+    await ctx.db.patch(
+      duelId,
+      buildRelaySentenceAnswerPatch({ duel, completed, mistakes, points, livesPatch })
+    );
+  },
+});
+
+function computeRelaySentenceLivesPatch(
+  duel: Doc<"duels">,
+  submission: { completed: boolean; mistakes: number }
+): Partial<Doc<"duels">> {
+  if (!isLivesAttempt(duel)) return {};
+  // Relay is normal-source-only today (see relayDuel.ts comment), so this path
+  // is effectively dormant. Still implemented for parity with non-relay sentence
+  // scoring so future SR/boss relay support doesn't silently skip HP.
+  const livesLost = Math.max(0, submission.mistakes) + (submission.completed ? 0 : 1);
+  if (livesLost === 0) return {};
+  const startingLives = typeof duel.livesRemaining === "number"
+    ? duel.livesRemaining
+    : undefined;
+  if (startingLives === undefined) return {};
+  return { livesRemaining: Math.max(0, startingLives - livesLost) };
+}
 
 export const relayAdvance = mutation({
   args: { duelId: v.id("duels") },

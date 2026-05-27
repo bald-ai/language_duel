@@ -9,21 +9,21 @@ import type { SessionWordEntry } from "@/lib/sessionWords";
 
 const sessionWords: SessionWordEntry[] = [
   {
-    word: "cat",
+    kind: "word" as const, word: "cat",
     answer: "gato",
     wrongAnswers: ["perro", "pez", "pajaro"],
     themeId: "theme_1" as Id<"themes">,
     themeName: "Animals",
   },
   {
-    word: "dog",
+    kind: "word" as const, word: "dog",
     answer: "perro",
     wrongAnswers: ["gato", "pez", "pajaro"],
     themeId: "theme_1" as Id<"themes">,
     themeName: "Animals",
   },
   {
-    word: "bread",
+    kind: "word" as const, word: "bread",
     answer: "pan",
     wrongAnswers: ["agua", "carne", "leche"],
     themeId: "theme_2" as Id<"themes">,
@@ -78,7 +78,9 @@ describe("session creation helpers", () => {
     expect(result.wordOrder).toHaveLength(3);
     expect([...result.wordOrder].sort((a, b) => a - b)).toEqual([0, 1, 2]);
     expect(result.duelQuestions).toHaveLength(3);
-    expect(result.duelQuestions[0].options).toHaveLength(4);
+    const firstQuestion = result.duelQuestions[0];
+    if (firstQuestion.kind !== "word") throw new Error("expected word question");
+    expect(firstQuestion.options).toHaveLength(4);
     expect(result.duelDifficultyPreset).toBe("medium");
     expect(result.duelMode).toBe("pve");
     expect(result.hintPoolUsed).toEqual([]);
@@ -93,8 +95,8 @@ describe("session creation helpers", () => {
 
   it("builds relay duel sessions with turn state and flat-point 6-option questions", () => {
     const relayWords: SessionWordEntry[] = [
-      { word: "cat", answer: "gato", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
-      { word: "dog", answer: "perro", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+      { kind: "word" as const, word: "cat", answer: "gato", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+      { kind: "word" as const, word: "dog", answer: "perro", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
     ];
 
     const result = buildDuelSession({
@@ -114,10 +116,14 @@ describe("session creation helpers", () => {
     expect(result.relayHardBudget).toEqual({ challenger: 1, opponent: 1 });
     expect(result.relayHardQuestions).toHaveLength(2);
     // Base and hard relay snapshots are both 6 options, worth a flat point.
-    expect(result.duelQuestions[0].options).toHaveLength(6);
-    expect(result.duelQuestions[0].points).toBe(1);
-    expect(result.relayHardQuestions?.[0].options).toHaveLength(6);
-    expect(result.relayHardQuestions?.[0].points).toBe(1);
+    const baseQ = result.duelQuestions[0];
+    const hardQ = result.relayHardQuestions?.[0];
+    if (baseQ.kind !== "word") throw new Error("expected word question");
+    if (!hardQ || hardQ.kind !== "word") throw new Error("expected word question");
+    expect(baseQ.options).toHaveLength(6);
+    expect(baseQ.points).toBe(1);
+    expect(hardQ.options).toHaveLength(6);
+    expect(hardQ.points).toBe(1);
   });
 
   it("omits relay state for non-relay duels", () => {

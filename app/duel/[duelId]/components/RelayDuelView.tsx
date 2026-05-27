@@ -66,8 +66,11 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
   const resolvedCount = duel.relayResolvedIndices?.length ?? 0;
   const remaining = duel.relayRemainingPositions ?? [];
 
-  const promptAt = (position: number) =>
-    duel.sessionWords[duel.wordOrder[position]]?.word ?? "";
+  const promptAt = (position: number) => {
+    const item = duel.sessionWords[duel.wordOrder[position]];
+    if (!item) return "";
+    return item.kind === "word" ? item.word : item.englishPrompt;
+  };
 
   const handleTimeout = useCallback(() => {
     // The server scheduler is the backstop; ignore client-side races here.
@@ -416,9 +419,9 @@ function RelayAnswerArea({
         </div>
       )}
 
-      {served && (
+      {served && served.kind === "word" && (
         <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md">
-          {served.options.map((option, index) => {
+          {served.options.map((option: string, index: number) => {
             const state = computeOptionState(option, { ...optionContext, answer: option });
             return (
               <AnswerOptionButton
@@ -435,6 +438,18 @@ function RelayAnswerArea({
               />
             );
           })}
+        </div>
+      )}
+
+      {served && served.kind === "sentence" && (
+        <div
+          className="w-full max-w-md text-center text-sm"
+          style={{ color: colors.text.muted }}
+          data-testid="relay-sentence-placeholder"
+        >
+          Sentence rounds in Relay aren&apos;t playable in this view yet. The
+          assigned answerer should switch to a self-duel session to build the
+          sentence.
         </div>
       )}
 

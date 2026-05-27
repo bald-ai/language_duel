@@ -7,7 +7,11 @@ import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 import { useDuelCountdown } from "./useDuelCountdown";
 import { useDuelTypeReveal } from "./useDuelTypeReveal";
 import { useIndexedAnswerLock } from "./useIndexedAnswerLock";
-import type { ViewerSafeDuelQuestion } from "./duelSessionTypes";
+import {
+  requireWordQuestion,
+  requireWordSessionItem,
+  type ViewerSafeDuelQuestion,
+} from "./duelSessionTypes";
 import type { FrozenData } from "../components/DuelView";
 
 export type DuelPhase = "idle" | "answering" | "transition";
@@ -108,12 +112,13 @@ export function useDuelPhaseState({
 
     if (shouldShowTransition) {
       const prevActualIndex = wordOrder[prevIndex];
-      const prevWord = words[prevActualIndex] || {
-        word: "",
-        answer: "",
-        wrongAnswers: [],
-      };
-      const prevQuestion = duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion;
+      const rawPrev = words[prevActualIndex];
+      const prevWord = rawPrev
+        ? requireWordSessionItem(rawPrev)
+        : { word: "", answer: "", wrongAnswers: [] };
+      const prevQuestion = requireWordQuestion(
+        duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion
+      );
       const prevCorrectOption = prevQuestion.correctOption ?? null;
 
       setPhase("transition");

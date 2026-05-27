@@ -18,7 +18,8 @@ vi.mock("convex/react", () => ({
 
 import { useThemeGenerationController } from "@/app/themes/hooks/useThemeGenerationController";
 
-type ThemeDetailTheme = Doc<"themes"> & {
+type ThemeDetailTheme = Omit<Doc<"themes">, "words"> & {
+  words: NonNullable<Doc<"themes">["words"]>;
   ownerNickname?: string;
   ownerDiscriminator?: number;
   isOwner: boolean;

@@ -63,8 +63,8 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
     sessionWords: [
-      { word: "cat", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
-      { word: "dog", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+      { kind: "word" as const, word: "cat", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
+      { kind: "word" as const, word: "dog", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
     ],
     sourceType: "normal",
     status: "active",
@@ -93,6 +93,7 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
 
 function maskedQuestion(): ServedQuestion {
   return {
+    kind: "word",
     options: ["gato", "perro", "pez", "ave", "casa", "mesa"],
     difficulty: "medium",
     points: 1,
@@ -102,6 +103,7 @@ function maskedQuestion(): ServedQuestion {
 
 function revealedQuestion(): ServedQuestion {
   return {
+    kind: "word",
     options: ["gato", "perro", "pez", "ave", "casa", "mesa"],
     correctOption: "gato",
     difficulty: "medium",

@@ -8,7 +8,7 @@ type TestWord = SessionWordEntry;
 
 const singleWord: TestWord[] = [
   {
-    word: "hello",
+    kind: "word" as const, word: "hello",
     answer: "hola",
     wrongAnswers: ["adios", "casa", "mesa"],
     themeId: "theme_0" as Id<"themes">,

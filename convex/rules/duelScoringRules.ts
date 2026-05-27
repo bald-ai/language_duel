@@ -81,6 +81,26 @@ export function getDuelQuestionOrThrow(
   return question;
 }
 
+/**
+ * Narrow a duel question to its word variant or reject. Use in word-only
+ * gameplay paths (answerDuel, hint-provider bonus, etc.) so a sentence position
+ * surfaces as an explicit "wrong mutation" error rather than crashing on
+ * `correctOption` being undefined.
+ */
+export function requireWordDuelQuestion(
+  duel: Doc<"duels">,
+  questionIndex = duel.currentWordIndex
+) {
+  const question = getDuelQuestionOrThrow(duel, questionIndex);
+  if (question.kind !== "word") {
+    throw new ConvexError({
+      code: "WRONG_QUESTION_KIND",
+      message: "This duel position is a sentence round. Use answerSentenceRound instead.",
+    });
+  }
+  return question;
+}
+
 export function getHintProviderBonusPatch(
   duel: Doc<"duels">
 ): Partial<Doc<"duels">> {
@@ -92,7 +112,13 @@ export function getHintProviderBonusPatch(
     return {};
   }
 
+  // Hint provider bonus is a word-only mechanic; the hint pool itself doesn't
+  // mount on sentence rounds (plan decision: mixed session behavior). If we
+  // somehow get called on a sentence position, no bonus.
   const currentQuestion = getDuelQuestionOrThrow(duel);
+  if (currentQuestion.kind !== "word") {
+    return {};
+  }
   const requesterLastAnswer = duel.hintRequestedBy === "challenger"
     ? duel.challengerLastAnswer
     : duel.opponentLastAnswer;

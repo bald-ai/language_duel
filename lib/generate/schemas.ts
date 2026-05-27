@@ -111,3 +111,47 @@ export function createGenerateMoreWordsSchema(count: number) {
     additionalProperties: false,
   };
 }
+
+// ============================================================================
+// Sentence Theme Generation Schemas
+// ============================================================================
+
+import { SENTENCE_DISTRACTOR_COUNT } from "@/lib/themes/sentenceConstants";
+
+function sentenceRoundItemSchema() {
+  return {
+    type: "object" as const,
+    properties: {
+      englishPrompt: { type: "string" as const },
+      spanishSentence: { type: "string" as const },
+      distractors: {
+        type: "array" as const,
+        items: { type: "string" as const },
+        minItems: SENTENCE_DISTRACTOR_COUNT,
+        maxItems: SENTENCE_DISTRACTOR_COUNT,
+      },
+    },
+    required: ["englishPrompt", "spanishSentence", "distractors"],
+    additionalProperties: false,
+  };
+}
+
+export function buildSentenceThemeSchema(roundCount: number) {
+  return {
+    type: "object" as const,
+    properties: {
+      rounds: {
+        type: "array" as const,
+        items: sentenceRoundItemSchema(),
+        minItems: roundCount,
+        maxItems: roundCount,
+      },
+    },
+    required: ["rounds"],
+    additionalProperties: false,
+  };
+}
+
+export function buildGenerateMoreSentenceRoundsSchema(roundCount: number) {
+  return buildSentenceThemeSchema(roundCount);
+}

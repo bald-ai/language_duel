@@ -1,4 +1,4 @@
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 type CtxWithDb = QueryCtx | MutationCtx;
@@ -38,9 +38,8 @@ export async function getSnapshotReferencedStorageIdsForTheme(
   const referencedStorageIds = new Set<Id<"_storage">>();
 
   for (const snapshot of snapshots) {
-    const snapshotStorageIds = collectTtsStorageIds(
-      snapshot.words as Doc<"themes">["words"]
-    );
+    if (!snapshot.words) continue;
+    const snapshotStorageIds = collectTtsStorageIds(snapshot.words);
     for (const storageId of snapshotStorageIds) {
       referencedStorageIds.add(storageId);
     }
@@ -59,10 +58,8 @@ async function getActiveReferencedStorageIdsForTheme(
   );
   const liveTheme = await ctx.db.get(themeId);
 
-  if (liveTheme) {
-    const liveStorageIds = collectTtsStorageIds(
-      liveTheme.words as Doc<"themes">["words"]
-    );
+  if (liveTheme?.words) {
+    const liveStorageIds = collectTtsStorageIds(liveTheme.words);
     for (const storageId of liveStorageIds) {
       referencedStorageIds.add(storageId);
     }

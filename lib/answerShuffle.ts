@@ -13,31 +13,46 @@ import {
   getDifficultyForIndex,
   type DuelDifficultyPreset,
 } from "./difficultyUtils";
+import { buildSentenceQuestionSnapshot } from "./sentenceGameplay/engine";
+import type { SentenceQuestionSnapshot } from "./sentenceGameplay/types";
+import {
+  isSessionSentenceItem,
+  isSessionWordItem,
+  type SessionItem,
+} from "./sessionWords";
 import type { DifficultyInfo, DifficultyLevel, WordEntry, ShuffleDifficultyInfo } from "./types";
 
 export const NONE_OF_ABOVE = "None of the above" as const;
 
-export interface DuelQuestionSnapshot {
+export interface WordQuestionSnapshot {
+  kind: "word";
   options: string[];
   correctOption: string;
   difficulty: DifficultyLevel;
   points: number;
 }
 
+/**
+ * Mixed-content question snapshot. Word positions render multiple-choice grids;
+ * sentence positions render the tile-builder board. Parallel to `wordOrder`.
+ */
+export type DuelQuestionSnapshot = WordQuestionSnapshot | SentenceQuestionSnapshot;
+
 function getPointsForDifficulty(difficulty: ShuffleDifficultyInfo | DifficultyInfo): number {
   return "points" in difficulty ? difficulty.points : DIFFICULTY_POINTS[difficulty.level];
 }
 
 /**
- * Builds the authoritative answer snapshot for a duel question.
+ * Builds the authoritative answer snapshot for a word duel question.
  */
 export function buildDuelQuestionSnapshot(
   word: WordEntry,
   questionIndex: number,
   difficulty: ShuffleDifficultyInfo
-): DuelQuestionSnapshot {
+): WordQuestionSnapshot {
   if (!word.wrongAnswers?.length) {
     return {
+      kind: "word",
       options: [],
       correctOption: word.answer,
       difficulty: difficulty.level,
@@ -79,6 +94,7 @@ export function buildDuelQuestionSnapshot(
   // Final shuffle of all options using a new seed offset
   const shuffleSeed = hashSeed(`${seedString}::final`);
   return {
+    kind: "word",
     options: seededShuffle(answers, shuffleSeed),
     correctOption,
     difficulty: difficulty.level,
@@ -86,34 +102,81 @@ export function buildDuelQuestionSnapshot(
   };
 }
 
+/**
+ * Mixed-content question set. Word items get the progressive-difficulty
+ * snapshot; sentence items get the deterministic tile-pool snapshot. The two
+ * snapshots share the same `wordOrder`-indexed array shape so consumers walk
+ * positions uniformly and branch on `snapshot.kind`.
+ */
 export function buildDuelQuestionSet(
-  words: WordEntry[],
+  items: SessionItem[],
   wordOrder: number[],
   preset: DuelDifficultyPreset = "easy"
 ): DuelQuestionSnapshot[] {
-  const distribution = calculateDuelDifficultyDistribution(wordOrder.length, preset);
+  // Word-only positions drive the progressive difficulty distribution; sentence
+  // positions don't participate (they have a single difficulty tier in v1).
+  const wordPositionCount = wordOrder.reduce((count, sessionIndex) => {
+    return isSessionWordItem(items[sessionIndex]) ? count + 1 : count;
+  }, 0);
+  const distribution = calculateDuelDifficultyDistribution(wordPositionCount, preset);
 
-  return wordOrder.map((wordIndex, questionIndex) => {
-    const difficulty = getDifficultyForIndex(questionIndex, distribution);
-    return buildDuelQuestionSnapshot(words[wordIndex], questionIndex, difficulty);
+  let wordPositionIndex = 0;
+  return wordOrder.map((sessionIndex, questionIndex) => {
+    const item = items[sessionIndex];
+    if (isSessionSentenceItem(item)) {
+      return buildSentenceQuestionSnapshot({
+        englishPrompt: item.englishPrompt,
+        spanishSentence: item.spanishSentence,
+        distractors: item.distractors,
+        questionIndex,
+      });
+    }
+    const difficulty = getDifficultyForIndex(wordPositionIndex, distribution);
+    wordPositionIndex += 1;
+    return buildDuelQuestionSnapshot(item, questionIndex, difficulty);
   });
 }
 
 // Relay served questions are a single fixed difficulty worth a flat point
 // (decisions #10/#11). "medium" is the base snapshot; "hard" is the upgrade
-// variant. Both emit 6 options, so the grid stays visually stable.
+// variant. Both emit 6 options, so the grid stays visually stable. Sentence
+// positions still build their tile pool — relay just hands a sentence to the
+// answerer with the same snapshot shape used in other modes.
 export type RelayQuestionLevel = "medium" | "hard";
 
 export function buildRelayQuestionSet(
-  words: WordEntry[],
+  items: SessionItem[],
   wordOrder: number[],
   level: RelayQuestionLevel
 ): DuelQuestionSnapshot[] {
-  return wordOrder.map((wordIndex, questionIndex) => ({
-    ...buildDuelQuestionSnapshot(words[wordIndex], questionIndex, {
-      level,
-      wrongCount: DIFFICULTY_WRONG_COUNT[level],
-    }),
-    points: RELAY_QUESTION_POINTS,
-  }));
+  return wordOrder.map((sessionIndex, questionIndex) => {
+    const item = items[sessionIndex];
+    if (isSessionSentenceItem(item)) {
+      return buildSentenceQuestionSnapshot({
+        englishPrompt: item.englishPrompt,
+        spanishSentence: item.spanishSentence,
+        distractors: item.distractors,
+        questionIndex,
+      });
+    }
+    return {
+      ...buildDuelQuestionSnapshot(item, questionIndex, {
+        level,
+        wrongCount: DIFFICULTY_WRONG_COUNT[level],
+      }),
+      points: RELAY_QUESTION_POINTS,
+    };
+  });
+}
+
+export function isWordQuestionSnapshot(
+  snapshot: DuelQuestionSnapshot | undefined
+): snapshot is WordQuestionSnapshot {
+  return snapshot?.kind === "word";
+}
+
+export function isSentenceQuestionSnapshot(
+  snapshot: DuelQuestionSnapshot | undefined
+): snapshot is SentenceQuestionSnapshot {
+  return snapshot?.kind === "sentence";
 }

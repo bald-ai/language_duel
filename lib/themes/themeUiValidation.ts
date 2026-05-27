@@ -1,6 +1,8 @@
 import type { WordEntry } from "@/lib/types";
 import { normalizeForComparison } from "@/lib/stringUtils";
 import { collectThemeIssues } from "./serverValidation";
+import { collectSentenceRoundIssues, formatSentenceRoundIssue } from "./sentenceValidation";
+import type { SentenceRoundInput } from "./sentenceTypes";
 
 export type ThemeRepairIssueType =
   | "duplicate_word"
@@ -204,4 +206,154 @@ export function isWordDuplicate(word: string, existingWords: WordEntry[]): boole
   return existingWords.some(
     (existing) => normalizeForComparison(existing.word) === normalized
   );
+}
+
+// ============================================================================
+// Sentence Theme Repair Analysis
+// ============================================================================
+
+export interface SentenceRoundIssueIndices {
+  englishHasIssue: boolean;
+  spanishHasIssue: boolean;
+  distractorHasIssue: Set<number>;
+  /** First issue message for this round, short form for the card. */
+  issueMessage: string | null;
+  isDuplicate: boolean;
+}
+
+export interface SentenceThemeIssueAnalysis {
+  perRound: Map<number, SentenceRoundIssueIndices>;
+  hasAnyIssues: boolean;
+  themeIssueMessage: string | null;
+}
+
+const SENTENCE_THEME_REPAIR_PRIORITY = [
+  {
+    matcher: (type: string) => type === "duplicate_round",
+    cardMessage: "Duplicate sentence",
+  },
+  {
+    matcher: (type: string) =>
+      type === "distractor_matches_correct" || type === "distractor_duplicate",
+    cardMessage: "Distractor issue",
+  },
+  {
+    matcher: (type: string) =>
+      type === "spanish_forbidden_punctuation" ||
+      type === "spanish_too_few_tokens" ||
+      type === "spanish_too_many_tokens" ||
+      type === "spanish_token_too_long",
+    cardMessage: "Spanish sentence issue",
+  },
+  {
+    matcher: (type: string) =>
+      type === "english_empty" || type === "english_too_long",
+    cardMessage: "English prompt issue",
+  },
+  {
+    matcher: (type: string) =>
+      type === "distractor_count" ||
+      type === "distractor_empty" ||
+      type === "distractor_too_long" ||
+      type === "distractor_has_space",
+    cardMessage: "Distractor field issue",
+  },
+  {
+    matcher: (type: string) => type === "spanish_empty",
+    cardMessage: "Spanish sentence missing",
+  },
+] as const;
+
+function cardMessageForIssueType(type: string): string {
+  const entry = SENTENCE_THEME_REPAIR_PRIORITY.find((definition) => definition.matcher(type));
+  return entry?.cardMessage ?? "Issue";
+}
+
+export function analyzeSentenceThemeIssues(
+  rounds: SentenceRoundInput[]
+): SentenceThemeIssueAnalysis {
+  const perRound = new Map<number, SentenceRoundIssueIndices>();
+  const ensureSlot = (roundIndex: number): SentenceRoundIssueIndices => {
+    let slot = perRound.get(roundIndex);
+    if (!slot) {
+      slot = {
+        englishHasIssue: false,
+        spanishHasIssue: false,
+        distractorHasIssue: new Set<number>(),
+        issueMessage: null,
+        isDuplicate: false,
+      };
+      perRound.set(roundIndex, slot);
+    }
+    return slot;
+  };
+
+  const issues = collectSentenceRoundIssues(rounds);
+  for (const issue of issues) {
+    const setIssueMessage = (roundIndex: number) => {
+      const slot = ensureSlot(roundIndex);
+      if (slot.issueMessage === null) {
+        slot.issueMessage = cardMessageForIssueType(issue.type);
+      }
+    };
+
+    if (issue.type === "english_empty" || issue.type === "english_too_long") {
+      ensureSlot(issue.roundIndex).englishHasIssue = true;
+      setIssueMessage(issue.roundIndex);
+    } else if (
+      issue.type === "spanish_empty" ||
+      issue.type === "spanish_too_few_tokens" ||
+      issue.type === "spanish_too_many_tokens" ||
+      issue.type === "spanish_forbidden_punctuation" ||
+      issue.type === "spanish_token_too_long"
+    ) {
+      ensureSlot(issue.roundIndex).spanishHasIssue = true;
+      setIssueMessage(issue.roundIndex);
+    } else if (
+      issue.type === "distractor_empty" ||
+      issue.type === "distractor_too_long" ||
+      issue.type === "distractor_has_space"
+    ) {
+      ensureSlot(issue.roundIndex).distractorHasIssue.add(issue.distractorIndex);
+      setIssueMessage(issue.roundIndex);
+    } else if (issue.type === "distractor_duplicate") {
+      const slot = ensureSlot(issue.roundIndex);
+      slot.distractorHasIssue.add(issue.firstDistractorIndex);
+      slot.distractorHasIssue.add(issue.secondDistractorIndex);
+      setIssueMessage(issue.roundIndex);
+    } else if (issue.type === "distractor_matches_correct") {
+      ensureSlot(issue.roundIndex).distractorHasIssue.add(issue.distractorIndex);
+      setIssueMessage(issue.roundIndex);
+    } else if (issue.type === "distractor_count") {
+      const slot = ensureSlot(issue.roundIndex);
+      // Highlight every present distractor on count issues so the user sees
+      // exactly which slots need fixing (3 expected, may be 0-2 or 4+ in error).
+      for (let i = 0; i < issue.actualCount; i++) {
+        slot.distractorHasIssue.add(i);
+      }
+      setIssueMessage(issue.roundIndex);
+    } else if (issue.type === "duplicate_round") {
+      ensureSlot(issue.firstRoundIndex).isDuplicate = true;
+      ensureSlot(issue.secondRoundIndex).isDuplicate = true;
+      ensureSlot(issue.firstRoundIndex).spanishHasIssue = true;
+      ensureSlot(issue.secondRoundIndex).spanishHasIssue = true;
+      setIssueMessage(issue.firstRoundIndex);
+      setIssueMessage(issue.secondRoundIndex);
+    }
+  }
+
+  return {
+    perRound,
+    hasAnyIssues: issues.length > 0,
+    themeIssueMessage: issues.length > 0 ? formatSentenceRoundIssue(issues[0]) : null,
+  };
+}
+
+export function getSentenceThemeSaveErrorMessage(
+  rounds: SentenceRoundInput[]
+): string | null {
+  if (rounds.length === 0) {
+    return "Add at least one sentence before saving this theme.";
+  }
+  return analyzeSentenceThemeIssues(rounds).themeIssueMessage;
 }

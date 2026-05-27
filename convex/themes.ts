@@ -27,7 +27,7 @@ import {
   generateThemeTtsForCurrentUser,
   type GenerateThemeTtsResult,
 } from "./themes/generateThemeTtsAction";
-import { optionalWordTypeValidator } from "./schema";
+import { optionalWordTypeValidator, themeContentTypeValidator } from "./schema";
 
 export type { ThemeWithOwner } from "./themes/readModels";
 
@@ -36,6 +36,12 @@ const wordValidator = v.object({
   answer: v.string(),
   wrongAnswers: v.array(v.string()),
   ttsStorageId: v.optional(v.id("_storage")),
+});
+
+const sentenceRoundValidator = v.object({
+  englishPrompt: v.string(),
+  spanishSentence: v.string(),
+  distractors: v.array(v.string()),
 });
 
 export const getThemes = query({
@@ -108,7 +114,9 @@ export const createTheme = mutation({
   args: {
     name: v.string(),
     description: v.string(),
-    words: v.array(wordValidator),
+    contentType: v.optional(themeContentTypeValidator),
+    words: v.optional(v.array(wordValidator)),
+    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
     wordType: optionalWordTypeValidator,
     visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
     friendsCanEdit: v.optional(v.boolean()),
@@ -125,6 +133,7 @@ export const updateTheme = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     words: v.optional(v.array(wordValidator)),
+    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
   },
   handler: async (ctx, args) => {
     return await handleUpdateTheme(ctx, args);

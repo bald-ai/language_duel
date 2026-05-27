@@ -4,6 +4,8 @@ import {
   normalizeThemeName,
   normalizeThemeWords,
 } from "../../lib/themes/serverValidation";
+import { normalizeSentenceRounds } from "../../lib/themes/sentenceValidation";
+import type { SentenceRoundInput } from "../../lib/themes/sentenceTypes";
 import type { ThemeWordWithTts } from "./ttsPipeline";
 
 const DUPLICATE_THEME_SUFFIX = "(DUPLICATE)";
@@ -24,11 +26,13 @@ export function buildDuplicateThemeName(originalName: string): string {
   return `${normalizedBaseName.slice(0, maxBaseLength)}${DUPLICATE_THEME_SUFFIX}`;
 }
 
-export function buildDuplicateThemePayload(theme: {
+export function buildDuplicateWordThemePayload(theme: {
   name: string;
   description: string;
   words: ThemeWordWithTts[];
 }) {
+  // Word duplicates drop the source TTS storage IDs — duplicates are a new
+  // theme and should re-record (or skip) their own audio.
   const duplicatedWords = theme.words.map((word) => ({
     word: word.word,
     answer: word.answer,
@@ -42,3 +46,23 @@ export function buildDuplicateThemePayload(theme: {
   };
 }
 
+export function buildDuplicateSentenceThemePayload(theme: {
+  name: string;
+  description: string;
+  sentenceRounds: SentenceRoundInput[];
+}) {
+  const duplicatedRounds = theme.sentenceRounds.map((round) => ({
+    englishPrompt: round.englishPrompt,
+    spanishSentence: round.spanishSentence,
+    distractors: [...round.distractors],
+  }));
+
+  return {
+    name: normalizeThemeName(buildDuplicateThemeName(theme.name)),
+    description: normalizeThemeDescription(theme.description),
+    sentenceRounds: normalizeSentenceRounds(duplicatedRounds),
+  };
+}
+
+// Legacy alias kept for direct word-theme call sites.
+export const buildDuplicateThemePayload = buildDuplicateWordThemePayload;

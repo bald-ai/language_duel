@@ -10,10 +10,9 @@ import type { SabotageEffect } from "@/lib/sabotage/types";
 import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage, isExpectedDuelRaceError } from "./useDuelRaceErrors";
 
-type SessionWord = Doc<"duels">["sessionWords"][number] & {
-  ttsStorageId?: Id<"_storage">;
-  themeId: Id<"themes">;
-};
+type SessionItem = Doc<"duels">["sessionWords"][number];
+/** TTS only meaningfully applies to word items today (no TTS for sentences in v1). */
+type SessionWord = Extract<SessionItem, { kind: "word" }>;
 
 export type DuelActionsArgs = {
   duelId: Id<"duels">;
@@ -35,7 +34,7 @@ export type DuelActions = {
   acceptHint: () => Promise<void>;
   eliminateOption: (option: string) => Promise<void>;
   sendSabotage: (effect: SabotageEffect) => Promise<void>;
-  playWordAudio: (word: SessionWord | undefined) => void;
+  playWordAudio: (item: SessionItem | undefined) => void;
 };
 
 /**
@@ -179,9 +178,14 @@ export function useDuelActions({
   }, [skipCountdownMutation, duelId]);
 
   const playWordAudio = useCallback(
-    (word: SessionWord | undefined) => {
-      const correctAnswer = word?.answer;
-      if (!word || !correctAnswer || correctAnswer === "done") return;
+    (item: SessionItem | undefined) => {
+      // Sentence rounds don't carry TTS (plan: no TTS for sentence themes in
+      // v1). Skip silently so the listen button on accidentally-mounted
+      // sentence positions is a no-op rather than a runtime crash.
+      if (!item || item.kind !== "word") return;
+      const word: SessionWord = item;
+      const correctAnswer = word.answer;
+      if (!correctAnswer || correctAnswer === "done") return;
       void playTTS(`duel-answer-${correctAnswer}`, correctAnswer, {
         storageId: word.ttsStorageId,
         themeId: String(word.themeId),

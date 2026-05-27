@@ -46,7 +46,7 @@ export function useThemeTtsController(params: UseThemeTtsControllerParams) {
           if (!prev || prev.kind !== "saved") return prev;
           return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
         });
-        params.setLocalWords([...refreshedTheme.words]);
+        params.setLocalWords([...(refreshedTheme.words ?? [])]);
       }
 
       if (result.alreadyUpToDate) {
