@@ -1,9 +1,8 @@
 /**
  * Pure relay-duel rules: index-into-`wordOrder` engine that returns
  * `Partial<Doc<"duels">>` patches, mirroring the style of
- * `convex/rules/duelGameplayRules.ts`. A rewrite of `lib/mockOnline/relay.ts`
- * (which used array-removal + host/guest and had no hard-upgrade / budget /
- * timeout); this version uses challenger/opponent and the real mechanics.
+ * `convex/rules/duelGameplayRules.ts`. Uses challenger/opponent roles plus
+ * hard-upgrade / budget / answer-timeout — the real-duel mechanics.
  *
  * All indices below are positions into `wordOrder` — the same basis as
  * `duelQuestions` / `relayHardQuestions`, so the snapshot for an assigned

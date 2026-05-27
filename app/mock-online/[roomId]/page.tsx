@@ -10,7 +10,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
 import { RoomView } from "../components/RoomView";
-import { RelayDuelView } from "../components/RelayDuelView";
 
 function Message({ children }: { children: ReactNode }) {
   return (
@@ -40,15 +39,6 @@ export default function MockOnlineRoomPage() {
     }
     router.push("/mock-online");
   }, [leaveRoom, roomId, router]);
-
-  // Relay Duel renders full-bleed in the real duel's style — no lobby chrome.
-  if (data && data.room.state.kind === "relay") {
-    return (
-      <ThemedPage>
-        <RelayDuelView data={data} onLeave={handleLeave} />
-      </ThemedPage>
-    );
-  }
 
   let content: ReactNode;
   if (!roomId) {

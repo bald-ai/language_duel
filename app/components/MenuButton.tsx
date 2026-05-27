@@ -35,7 +35,7 @@ export function MenuButton({ onClick, children, badge, variant = "primary", data
           rounded-xl py-2 px-4
           text-sm font-bold uppercase tracking-widest
           hover:translate-y-0.5 hover:border-b-2 hover:brightness-110
-          active:translate-y-1 active:border-b-0
+          active:translate-y-1 active:border-b-0 active:scale-[0.98]
           transition-all duration-200
           shadow-lg
           backdrop-blur-sm

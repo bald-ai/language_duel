@@ -202,11 +202,12 @@ describe("sentence dispatch", () => {
     expect(createGameState("sentence_duel", fixedRng)).toMatchObject({ kind: "sentence", mode: "duel" });
   });
 
-  it("routes tap moves and ignores unknown moves", () => {
+  it("ignores taps on tiles that are not the next solution word", () => {
     const coop = createGameState("sentence_coop", fixedRng);
-    expect(applyGameMove(coop, "host", { kind: "answer", value: "x" })).toEqual(coop);
+    // Tile index out of range leaves the state untouched.
+    expect(applyGameMove(coop, "host", { kind: "tap", tile: -1 })).toEqual(coop);
     const duel = createGameState("sentence_duel", fixedRng);
-    expect(applyGameMove(duel, "host", { kind: "order", order: [0] })).toEqual(duel);
+    expect(applyGameMove(duel, "host", { kind: "tap", tile: 999 })).toEqual(duel);
   });
 
   it("reports a duel winner from mistakes (lower wins)", () => {
