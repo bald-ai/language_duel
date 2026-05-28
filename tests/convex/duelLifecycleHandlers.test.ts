@@ -29,7 +29,7 @@ type ThemeWord = {
 
 type ThemeDoc = Pick<
   Doc<"themes">,
-  "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId"
+  "_id" | "_creationTime" | "name" | "description" | "contentType" | "createdAt" | "ownerId"
 > & {
   words: ThemeWord[];
 };
@@ -199,6 +199,7 @@ function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     _creationTime: 1,
     name: "Animals",
     description: "Words about animals",
+    contentType: "word",
     createdAt: 1,
     ownerId: "user_1" as Id<"users">,
     words: [

@@ -4,9 +4,12 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { createAuthCtx, createIndexedQuery } from "./testUtils/inMemoryDb";
 
 type UserDoc = Doc<"users">;
-type ThemeDoc = Doc<"themes">;
+type ThemeDoc = Extract<Doc<"themes">, { contentType: "word" }>;
 type WeeklyGoalDoc = Doc<"weeklyGoals">;
-type SnapshotDoc = Doc<"weeklyGoalThemeSnapshots">;
+type SnapshotDoc = Extract<
+  Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
 
 class InMemoryDb {
   constructor(
@@ -56,6 +59,7 @@ function buildTheme(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     _creationTime: 1,
     name: "Live Theme 1",
     description: "Live theme",
+    contentType: "word",
     wordType: "nouns",
     words: [{ word: "cat", answer: "kocka", wrongAnswers: ["pes", "dum", "les"] }],
     createdAt: 1,
@@ -106,6 +110,7 @@ function buildSnapshot(overrides: Partial<SnapshotDoc> = {}): SnapshotDoc {
     order: 0,
     name: "Snapshot Theme 1",
     description: "Snapshot theme",
+    contentType: "word",
     wordType: "nouns",
     words: [{ word: "snapshot-cat", answer: "snapshot-kocka", wrongAnswers: ["pes", "dum", "les"] }],
     lockedAt: 2,

@@ -12,13 +12,6 @@ import { formatVisibleUser } from "@/lib/userDisplay";
 import { getErrorMessage } from "@/lib/errors";
 import { isSelfDuel } from "@/lib/duel/selfDuel";
 import {
-  buildAssembledSentence,
-  createInitialSentenceRoundState,
-  tapSentenceTile,
-  type SentenceRoundState,
-} from "@/lib/sentenceGameplay/engine";
-import type { SentenceQuestionSnapshot } from "@/lib/sentenceGameplay/types";
-import {
   SENTENCE_PVE_TIMER_SECONDS,
   SENTENCE_PVP_TIMER_SECONDS,
   SENTENCE_SELF_DUEL_TIMER_SECONDS,
@@ -34,8 +27,8 @@ interface SentenceRoundViewProps {
   sessionItem: ViewerSafeSentenceSessionItem;
   /**
    * Server-shipped sentence question for the current position. Tile pool is
-   * pre-shuffled; `spanishSentence` is included even during active play (v1
-   * loosening) so the client can validate taps locally.
+   * pre-shuffled. The `spanishSentence` answer key is masked during active
+   * play and only present in the post-round reveal (`answerRevealedToViewer`).
    */
   question: {
     kind: "sentence";
@@ -129,6 +122,7 @@ export function SentenceRoundView({
           duel={duel}
           question={question}
           sessionItem={sessionItem}
+          viewerRole={viewerRole}
         />
       </div>
     </main>
@@ -139,59 +133,71 @@ interface SentenceRoundBoardProps {
   duel: Doc<"duels">;
   sessionItem: ViewerSafeSentenceSessionItem;
   question: SentenceRoundViewProps["question"];
+  viewerRole: "challenger" | "opponent";
 }
 
 /**
  * Inner per-round board. Re-mounted via `key={duel.currentWordIndex}` whenever
- * the duel advances so its local play state and timer reset cleanly without
- * imperative effects.
+ * the duel advances. Server-authoritative: every tap is a `tapSentenceTile`
+ * mutation; the UI mirrors `duel.sentenceProgress` for this player/position.
  */
-function SentenceRoundBoard({ duel, sessionItem, question }: SentenceRoundBoardProps) {
+function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: SentenceRoundBoardProps) {
   const colors = useAppearanceColors();
   const submit = useMutation(api.gameplay.answerSentenceRound);
+  const tap = useMutation(api.gameplay.tapSentenceTile);
 
-  // Local play state — keep it on the client so taps are responsive. Server
-  // only sees the final result. This matches the plan's v1 shortcut and skips
-  // shared PvE tap state for now.
-  const [state, setState] = useState<SentenceRoundState>(createInitialSentenceRoundState);
   const submittedRef = useRef(false);
 
-  const localSnapshot: SentenceQuestionSnapshot = useMemo(
-    () => ({
-      kind: "sentence",
-      englishPrompt: question.englishPrompt,
-      spanishSentence: question.spanishSentence ?? "",
-      tilePool: question.tilePool,
-    }),
-    [question.englishPrompt, question.spanishSentence, question.tilePool]
+  // Server-tracked progress (placed indices, mistakes, completed) for this
+  // (questionIndex, viewerRole). Undefined until the player has tapped once.
+  const progress = useMemo(() => {
+    return (duel.sentenceProgress ?? []).find(
+      (entry) =>
+        entry.questionIndex === duel.currentWordIndex && entry.role === viewerRole
+    );
+  }, [duel.sentenceProgress, duel.currentWordIndex, viewerRole]);
+
+  // `placedTileIndices` is derived from a fresh array literal on every render
+  // when `progress` is undefined, which would invalidate `useCallback` deps
+  // (handleTap) every render. Stabilize via useMemo.
+  const placedTileIndices = useMemo(
+    () => progress?.placedTileIndices ?? [],
+    [progress]
   );
+  const mistakes = progress?.mistakes ?? 0;
+  const completed = progress?.completed ?? false;
 
   const timerSeconds = pickTimerSeconds(duel);
-  // `Date.now` is impure — capture it inside the mount effect (which runs in
-  // the commit phase) rather than during render so React's strict-mode double
-  // renders can't shift the start.
-  const startedAtRef = useRef<number>(0);
-  const [secondsLeft, setSecondsLeft] = useState(timerSeconds);
+  // Both players must see the same countdown — subtract from the server-set
+  // `duel.questionStartTime` anchor (mirrors `useDuelQuestionTimer`).
+  const questionStartTime = duel.questionStartTime;
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (!questionStartTime) return timerSeconds;
+    const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
+    return Math.max(0, timerSeconds - elapsed);
+  });
   useEffect(() => {
-    startedAtRef.current = Date.now();
+    // No anchor yet → the useState initializer already returned the full
+    // `timerSeconds`, so there is nothing to do until the server sends one.
+    if (!questionStartTime) return;
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
       setSecondsLeft(Math.max(0, timerSeconds - elapsed));
     };
+    tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerSeconds]);
+  }, [timerSeconds, questionStartTime]);
 
   const handleSubmitFinal = useCallback(
-    async (params: { completed: boolean; mistakes: number }) => {
+    async (timedOut: boolean) => {
       if (submittedRef.current) return;
       submittedRef.current = true;
       try {
         await submit({
           duelId: duel._id,
           questionIndex: duel.currentWordIndex,
-          completed: params.completed,
-          mistakes: params.mistakes,
+          timedOut,
         });
       } catch (error) {
         submittedRef.current = false;
@@ -201,32 +207,39 @@ function SentenceRoundBoard({ duel, sessionItem, question }: SentenceRoundBoardP
     [submit, duel._id, duel.currentWordIndex]
   );
 
-  // Auto-submit when the sentence completes locally.
+  // Auto-submit when the sentence completes (server confirmed via subscription).
   useEffect(() => {
-    if (state.completed) {
-      void handleSubmitFinal({ completed: true, mistakes: state.mistakes });
+    if (completed && !submittedRef.current) {
+      void handleSubmitFinal(false);
     }
-  }, [state.completed, state.mistakes, handleSubmitFinal]);
+  }, [completed, handleSubmitFinal]);
 
   // Auto-submit on timeout.
   useEffect(() => {
-    if (secondsLeft === 0 && !state.completed && !submittedRef.current) {
-      void handleSubmitFinal({ completed: false, mistakes: state.mistakes });
+    if (secondsLeft === 0 && !completed && !submittedRef.current) {
+      void handleSubmitFinal(true);
     }
-  }, [handleSubmitFinal, secondsLeft, state.completed, state.mistakes]);
+  }, [handleSubmitFinal, secondsLeft, completed]);
 
   const handleTap = useCallback(
     (tileIndex: number) => {
-      if (state.completed) return;
+      if (completed) return;
       if (secondsLeft === 0) return;
-      const outcome = tapSentenceTile(state, localSnapshot, tileIndex);
-      setState(outcome.state);
+      if (placedTileIndices.includes(tileIndex)) return;
+      void tap({
+        duelId: duel._id,
+        questionIndex: duel.currentWordIndex,
+        tileIndex,
+      }).catch((error) => toast.error(getErrorMessage(error, "Could not place tile")));
     },
-    [localSnapshot, secondsLeft, state]
+    [completed, duel._id, duel.currentWordIndex, placedTileIndices, secondsLeft, tap]
   );
 
-  const assembled = buildAssembledSentence(localSnapshot, state.placedTileIndices);
-  const placedSet = new Set(state.placedTileIndices);
+  const assembled = placedTileIndices
+    .map((index) => question.tilePool[index])
+    .filter((tile): tile is string => tile !== undefined)
+    .join(" ");
+  const placedSet = new Set(placedTileIndices);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
@@ -278,7 +291,7 @@ function SentenceRoundBoard({ duel, sessionItem, question }: SentenceRoundBoardP
             <button
               key={`${tile}-${index}`}
               onClick={() => handleTap(index)}
-              disabled={isPlaced || state.completed || secondsLeft === 0}
+              disabled={isPlaced || completed || secondsLeft === 0}
               className="rounded-xl border-2 px-3 py-2 text-sm sm:text-base font-bold transition hover:brightness-110 disabled:opacity-30"
               style={{
                 backgroundColor: colors.background.DEFAULT,
@@ -307,7 +320,7 @@ function SentenceRoundBoard({ duel, sessionItem, question }: SentenceRoundBoardP
         </div>
       )}
 
-      {state.completed && (
+      {completed && (
         <div
           className="mt-3 text-sm font-semibold"
           style={{ color: colors.status.success.light }}
@@ -317,15 +330,16 @@ function SentenceRoundBoard({ duel, sessionItem, question }: SentenceRoundBoardP
         </div>
       )}
 
-      {state.mistakes > 0 && (
+      {mistakes > 0 && (
         <div
           className="mt-2 text-xs"
           style={{ color: colors.text.muted }}
           data-testid="sentence-mistakes"
         >
-          Wrong taps so far: {state.mistakes}
+          Wrong taps so far: {mistakes}
         </div>
       )}
     </div>
   );
 }
+

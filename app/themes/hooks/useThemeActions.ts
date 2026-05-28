@@ -53,7 +53,7 @@ export function useThemeActions() {
       createInFlightRef.current = true;
       setState((prev) => ({ ...prev, isCreating: true, error: null }));
       try {
-        const themeId = await createTheme({ name, description, words, wordType, saveRequestId, visibility, friendsCanEdit });
+        const themeId = await createTheme({ name, description, contentType: "word", words, wordType, saveRequestId, visibility, friendsCanEdit });
         setState((prev) => ({ ...prev, isCreating: false }));
         return { ok: true, themeId };
       } catch (e) {

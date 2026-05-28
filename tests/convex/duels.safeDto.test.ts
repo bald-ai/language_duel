@@ -8,7 +8,8 @@ type UserDoc = Pick<
   Doc<"users">,
   "_id" | "_creationTime" | "clerkId" | "email" | "name" | "nickname" | "discriminator" | "imageUrl"
 >;
-type ThemeDoc = Pick<Doc<"themes">, "_id" | "_creationTime" | "name" | "words">;
+type WordThemeDoc = Extract<Doc<"themes">, { contentType: "word" }>;
+type ThemeDoc = Pick<WordThemeDoc, "_id" | "_creationTime" | "name" | "words">;
 type DuelDoc = Doc<"duels">;
 type ViewerSafeQuestion = NonNullable<DuelDoc["duelQuestions"]>[number] & {
   answerRevealedToViewer?: boolean;
@@ -250,5 +251,86 @@ describe("duels.getDuel relay viewer-safe DTO", () => {
       relayDuelDoc({ status: "completed", relayPhase: "pick", relayAssignedIndex: undefined })
     );
     expect(result?.duel.sessionWords[0].answer).toBe("gato");
+  });
+});
+
+describe("duels.getDuel sentence masking (Task 21)", () => {
+  function sentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+    return duelDoc({
+      sessionWords: [
+        {
+          kind: "sentence",
+          englishPrompt: "I want coffee",
+          spanishSentence: "secret-spanish-sentence",
+          distractors: ["leak1", "leak2", "leak3"],
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Cafe",
+        },
+      ],
+      wordOrder: [0],
+      currentWordIndex: 0,
+      duelQuestions: [
+        {
+          kind: "sentence",
+          englishPrompt: "I want coffee",
+          spanishSentence: "secret-spanish-sentence",
+          tilePool: ["Quiero", "cafe", "leak1", "leak2", "leak3"],
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  it("strips spanishSentence and distractors from session items during active play", async () => {
+    const db = new InMemoryDb(
+      [
+        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+      ],
+      [themeDoc()],
+      [sentenceDuelDoc()]
+    );
+    const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
+    const item = result?.duel.sessionWords[0];
+    expect(item?.kind).toBe("sentence");
+    if (item?.kind === "sentence") {
+      expect(item.spanishSentence).toBe("");
+      expect(item.distractors).toEqual([]);
+    }
+    // The tile pool still ships — players need it to render. The answer key
+    // itself (the canonical sentence) must not appear anywhere in the payload
+    // while the duel is active.
+    expect(JSON.stringify(result)).not.toContain("secret-spanish-sentence");
+  });
+
+  it("strips spanishSentence from the question snapshot until the round reveals", async () => {
+    const db = new InMemoryDb(
+      [
+        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+      ],
+      [themeDoc()],
+      [sentenceDuelDoc()]
+    );
+    const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
+    const q = result?.duel.duelQuestions?.[0];
+    expect(q?.kind).toBe("sentence");
+    expect(q).not.toHaveProperty("spanishSentence");
+  });
+
+  it("restores the spanish sentence once the viewer has answered", async () => {
+    const db = new InMemoryDb(
+      [
+        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+      ],
+      [themeDoc()],
+      [sentenceDuelDoc({ challengerAnswered: true })]
+    );
+    const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
+    const q = result?.duel.duelQuestions?.[0];
+    expect(q?.kind === "sentence" ? q.spanishSentence : undefined).toBe(
+      "secret-spanish-sentence"
+    );
   });
 });

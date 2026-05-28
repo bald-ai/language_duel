@@ -26,6 +26,7 @@ type ThemeDoc = {
   _creationTime: number;
   name: string;
   description: string;
+  contentType: "word";
   words: ThemeWord[];
   wordType: "nouns";
   createdAt: number;
@@ -42,6 +43,7 @@ type SnapshotDoc = {
   order: number;
   name: string;
   description: string;
+  contentType: "word";
   wordType: "nouns";
   words: ThemeWord[];
   lockedAt: number;
@@ -129,6 +131,7 @@ function seedOwnedTheme(db: InMemoryDb, ownerId: Id<"users">): void {
     _creationTime: Date.now(),
     name: "T",
     description: "d",
+    contentType: "word",
     wordType: "nouns",
     words: [
       { word: "a", answer: "b", wrongAnswers: ["1", "2", "3"], ttsStorageId: STORAGE_ID },
@@ -212,6 +215,7 @@ describe("themes.getTtsStorageUrl authorization", () => {
       _creationTime: Date.now(),
       name: "T",
       description: "d",
+      contentType: "word",
       wordType: "nouns",
       words: [{ word: "a", answer: "b", wrongAnswers: ["1", "2", "3"] }],
       createdAt: Date.now(),
@@ -226,6 +230,7 @@ describe("themes.getTtsStorageUrl authorization", () => {
       order: 0,
       name: "T",
       description: "d",
+      contentType: "word",
       wordType: "nouns",
       words: [
         { word: "a", answer: "b", wrongAnswers: ["1", "2", "3"], ttsStorageId: STORAGE_ID },

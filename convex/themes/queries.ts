@@ -45,7 +45,12 @@ export async function loadTtsStorageUrlForViewer(
   const theme = await loadThemeWithViewerAccess(ctx, args.viewerId, args.themeId);
   if (!theme) return null;
 
-  const liveStorageIds = collectTtsStorageIds(theme.words as ThemeWordWithTts[]);
+  // Sentence themes don't carry per-round TTS in v1, so their live storage
+  // set is empty. Only word themes contribute live TTS references.
+  const liveStorageIds =
+    theme.contentType === "word"
+      ? collectTtsStorageIds(theme.words as ThemeWordWithTts[])
+      : new Set<Id<"_storage">>();
   if (!liveStorageIds.has(args.storageId)) {
     const snapshotStorageIds = await getSnapshotReferencedStorageIdsForTheme(
       ctx,

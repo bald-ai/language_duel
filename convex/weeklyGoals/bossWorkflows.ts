@@ -63,7 +63,8 @@ export async function loadGoalThemesForBoss(
 export async function validateAndPrepareBoss(
   ctx: MutationCtx,
   goalId: Id<"weeklyGoals">,
-  bossType: BossType
+  bossType: BossType,
+  options?: { excludeSentenceThemes?: boolean }
 ) {
   const { user } = await getAuthenticatedUser(ctx);
   const goal = await ctx.db.get(goalId);
@@ -89,7 +90,18 @@ export async function validateAndPrepareBoss(
   }
 
   const themes = await loadGoalThemesForBoss(ctx, goal, bossType);
-  const sessionWords = buildBossSessionWords(themes);
+  // Solo flows can't run sentence themes (see Task 3). Filter at the boundary
+  // so the user sees a clear error instead of the solo loader throwing.
+  const playableThemes = options?.excludeSentenceThemes
+    ? themes.filter((theme) => theme.contentType !== "sentence")
+    : themes;
+  if (playableThemes.length === 0) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "This goal has no word themes to practice. Sentence themes aren't supported in solo yet.",
+    });
+  }
+  const sessionWords = buildBossSessionWords(playableThemes);
   return { user, goal, isCreator, now, sessionWords };
 }
 
@@ -172,7 +184,9 @@ export async function handleStartBossSoloPractice(
   bossType: "mini" | "big"
 ) {
   const { user, now, sessionWords } =
-    await validateAndPrepareBoss(ctx, goalId, bossType);
+    await validateAndPrepareBoss(ctx, goalId, bossType, {
+      excludeSentenceThemes: true,
+    });
 
   return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
     userId: user._id,

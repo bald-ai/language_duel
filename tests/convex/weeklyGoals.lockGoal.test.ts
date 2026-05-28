@@ -31,8 +31,9 @@ type WeeklyGoalDoc = Pick<
   | "lockedAt"
 >;
 
+type WordThemeBranch = Extract<Doc<"themes">, { contentType: "word" }>;
 type ThemeDoc = Pick<
-  Doc<"themes">,
+  WordThemeBranch,
   "_id" | "_creationTime" | "name" | "description" | "wordType" | "words" | "createdAt" | "ownerId"
 >;
 
@@ -48,8 +49,12 @@ type NotificationDoc = Pick<
   | "createdAt"
 >;
 
-type WeeklyGoalThemeSnapshotDoc = Pick<
+type WordSnapshotBranch = Extract<
   Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  WordSnapshotBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"

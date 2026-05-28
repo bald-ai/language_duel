@@ -103,8 +103,12 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     "_id" | "_creationTime" | "type" | "fromUserId" | "toUserId" | "status" | "createdAt"
   >;
 
-type SnapshotDoc = Pick<
+type WordSnapshotBranch = Extract<
   Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type SnapshotDoc = Pick<
+  WordSnapshotBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"
@@ -112,6 +116,7 @@ type SnapshotDoc = Pick<
   | "order"
   | "name"
   | "description"
+  | "contentType"
   | "words"
   | "lockedAt"
   | "createdAt"
@@ -332,6 +337,7 @@ function snapshotDoc(overrides: Partial<SnapshotDoc> = {}): SnapshotDoc {
     order: 0,
     name: "Animals",
     description: "Words about animals",
+    contentType: "word",
     words: [
       { word: "cat", answer: "gato", wrongAnswers: ["perro", "pez", "pajaro"] },
       { word: "dog", answer: "perro", wrongAnswers: ["gato", "pez", "pajaro"] },

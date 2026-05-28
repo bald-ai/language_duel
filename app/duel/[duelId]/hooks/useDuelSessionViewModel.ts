@@ -10,9 +10,11 @@ import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
 import type { DuelViewProps } from "../components/DuelView";
 import { deriveHintFlags, deriveScoreNames } from "./duelViewModelHelpers";
 import {
+  isWordQuestion,
   requireWordQuestion,
   requireWordSessionItem,
   type ViewerSafeDuelQuestion,
+  type ViewerSafeWordQuestion,
 } from "./duelSessionTypes";
 import { useDuelActions } from "./useDuelActions";
 import { useDuelPhaseState } from "./useDuelPhaseState";
@@ -25,6 +27,20 @@ export type DuelPlayerSummary = Pick<
   Doc<"users">,
   "_id" | "name" | "nickname" | "discriminator" | "imageUrl"
 >;
+
+/**
+ * Placeholder used only when a completed duel's last position is a sentence —
+ * the standard view owns the final-results card and ignores per-question fields
+ * in that state, so this value is never rendered. Word-only narrowing during
+ * active play still goes through `requireWordQuestion`.
+ */
+const COMPLETED_PLACEHOLDER_WORD_QUESTION: ViewerSafeWordQuestion = {
+  kind: "word",
+  options: [],
+  correctOption: "",
+  difficulty: "medium",
+  points: 0,
+};
 
 export interface DuelSessionViewModelArgs {
   duel: Doc<"duels">;
@@ -127,14 +143,21 @@ export function useDuelSessionViewModel({
   const actualWordIndex = wordOrder[index];
   // The standard view-model is word-only; the page already routes sentence
   // positions to a dedicated SentenceRoundView, so this narrow is the place we
-  // assert "we should only be here for word positions".
-  const currentQuestion = requireWordQuestion(
-    duel.duelQuestions![index] as ViewerSafeDuelQuestion
-  );
+  // assert "we should only be here for word positions". Exception: a completed
+  // duel whose last position is a sentence still lands here (the page routes
+  // completion to the standard final-results card, not to SentenceRoundView).
+  // In that case we provide a safe placeholder — the completed view renders
+  // final results, not per-question UI, so these values are not displayed.
+  const rawCurrentQuestion = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
+  const currentQuestion: ViewerSafeWordQuestion =
+    isCompleted && !isWordQuestion(rawCurrentQuestion)
+      ? COMPLETED_PLACEHOLDER_WORD_QUESTION
+      : requireWordQuestion(rawCurrentQuestion);
   const rawCurrentSessionItem = words[actualWordIndex];
-  const currentSessionWord = rawCurrentSessionItem
-    ? requireWordSessionItem(rawCurrentSessionItem)
-    : null;
+  const currentSessionWord =
+    !rawCurrentSessionItem || (isCompleted && rawCurrentSessionItem.kind !== "word")
+      ? null
+      : requireWordSessionItem(rawCurrentSessionItem);
   // No current word means the server has advanced past the last question and we
   // are waiting for the duel to flip to "completed".
   const isRoundOver = !currentSessionWord;

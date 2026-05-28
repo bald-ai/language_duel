@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
 import { VIEW_MODES } from "@/app/themes/constants";
+import type { ThemeDetailTheme } from "@/app/themes/components/ThemeDetail";
 
 const generateMoreWordsMock = vi.fn();
 
@@ -18,26 +18,16 @@ vi.mock("convex/react", () => ({
 
 import { useThemeGenerationController } from "@/app/themes/hooks/useThemeGenerationController";
 
-type ThemeDetailTheme = Omit<Doc<"themes">, "words"> & {
-  words: NonNullable<Doc<"themes">["words"]>;
-  ownerNickname?: string;
-  ownerDiscriminator?: number;
-  isOwner: boolean;
-  canEdit: boolean;
-};
-
 const existingTheme: ThemeDetailTheme = {
-  _id: "theme_1" as Id<"themes">,
-  _creationTime: Date.now(),
   name: "ANIMALS",
   description: "Generated theme for animals",
   wordType: "nouns",
   words: [],
-  createdAt: Date.now(),
   visibility: "private",
   isOwner: true,
   canEdit: true,
 };
+
 
 function setupController(initialLocalWords: WordEntry[]) {
   const setLocalWords = vi.fn();

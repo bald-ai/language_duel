@@ -67,10 +67,9 @@ const ThemeCard = memo(function ThemeCard({
 }: ThemeCardProps) {
   const colors = useAppearanceColors();
   const isMutating = isDeleting || isDuplicating;
-  const isSentence = isSentenceTheme(theme);
   const itemCount = getThemeItemCount(theme);
 
-  const categoryLabel = isSentence
+  const categoryLabel = isSentenceTheme(theme)
     ? "SENTENCES"
     : getWordTypeLabel(theme.wordType, {
         fallback: "No category",
@@ -78,6 +77,7 @@ const ThemeCard = memo(function ThemeCard({
       });
 
   const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
+  const isSentence = isSentenceTheme(theme);
   const itemLabel = isSentence
     ? `${itemCount} ${itemCount === 1 ? "round" : "rounds"}`
     : `${itemCount} words`;
@@ -88,7 +88,7 @@ const ThemeCard = memo(function ThemeCard({
       : "";
   // Sentence themes don't carry TTS in v1 — skip the pill entirely (no reserved
   // placeholder, per plan decision: theme behavior).
-  const hasMissingTts = !isSentence && hasMissingThemeTts(theme.words ?? []);
+  const hasMissingTts = !isSentenceTheme(theme) && hasMissingThemeTts(theme.words ?? []);
   const ttsStatusLabel = hasMissingTts ? "TTS missing" : "TTS up to date";
   const ttsStatusTitle = hasMissingTts
     ? "Some words are missing pre-generated TTS"

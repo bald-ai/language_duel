@@ -179,10 +179,15 @@ export function useDuelActions({
 
   const playWordAudio = useCallback(
     (item: SessionItem | undefined) => {
-      // Sentence rounds don't carry TTS (plan: no TTS for sentence themes in
-      // v1). Skip silently so the listen button on accidentally-mounted
-      // sentence positions is a no-op rather than a runtime crash.
-      if (!item || item.kind !== "word") return;
+      if (!item) return;
+      // Sentence rounds don't carry TTS in v1, and the listen button only mounts
+      // on word positions. Throw so any future routing bug that calls this on a
+      // sentence position surfaces loudly instead of being a silent no-op.
+      if (item.kind !== "word") {
+        throw new Error(
+          "playWordAudio called on a sentence session item — the listen button should not mount on sentence rounds."
+        );
+      }
       const word: SessionWord = item;
       const correctAnswer = word.answer;
       if (!correctAnswer || correctAnswer === "done") return;

@@ -8,8 +8,9 @@ type UserDoc = Pick<
   "_id" | "_creationTime" | "clerkId" | "email" | "name" | "imageUrl"
 >;
 
+type WordThemeBranch = Extract<Doc<"themes">, { contentType: "word" }>;
 type ThemeDoc = Pick<
-  Doc<"themes">,
+  WordThemeBranch,
   "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId" | "words"
 >;
 

@@ -7,7 +7,7 @@
 
 import type { Id } from "./types";
 import type { SentenceRoundInput, ThemeContentType } from "./themes/sentenceTypes";
-import { resolveThemeContentType } from "./themes/themeContent";
+import { isSentenceTheme } from "./themes/themeContent";
 
 export interface SessionWordItem {
   kind: "word";
@@ -40,7 +40,7 @@ export type SessionWordEntry = SessionWordItem;
 export interface SessionThemeInput {
   _id: Id<"themes">;
   name: string;
-  contentType?: ThemeContentType;
+  contentType: ThemeContentType;
   words?: Array<{
     word: string;
     answer: string;
@@ -52,7 +52,7 @@ export interface SessionThemeInput {
 
 /** Flatten one theme into its session items. Word and sentence themes diverge here. */
 export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem[] {
-  if (resolveThemeContentType(theme) === "sentence") {
+  if (isSentenceTheme(theme)) {
     const rounds = theme.sentenceRounds ?? [];
     return rounds.map((round): SessionSentenceItem => ({
       kind: "sentence",

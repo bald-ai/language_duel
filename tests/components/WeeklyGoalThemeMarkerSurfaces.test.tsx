@@ -25,16 +25,20 @@ function pickerTheme(id: string, name: string) {
   return {
     _id: id as Id<"themes">,
     name,
-    wordCount: 1,
+    contentType: "word" as const,
+    itemCount: 1,
   };
 }
 
-function themeWithOwner(id: string, name: string, wordType: ThemeWithOwner["wordType"] = "nouns"): ThemeWithOwner {
+type WordType = "nouns" | "verbs" | "adjectives" | "adverbs";
+
+function themeWithOwner(id: string, name: string, wordType: WordType = "nouns"): ThemeWithOwner {
   return {
     _id: id as Id<"themes">,
     _creationTime: 1,
     name,
     description: `${name} description`,
+    contentType: "word",
     wordType,
     words: [{ word: "cat", answer: "kocka", wrongAnswers: ["strom", "auto", "more"] }],
     createdAt: 1,

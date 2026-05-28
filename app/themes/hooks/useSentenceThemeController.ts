@@ -4,12 +4,12 @@ import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
-import type { Doc } from "@/convex/_generated/dataModel";
+import type { ThemeWithOwner } from "@/convex/themes";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
 import { getSentenceThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
-import { resolveThemeContentType } from "@/lib/themes/themeContent";
+import { isSentenceTheme } from "@/lib/themes/themeContent";
 import {
   generateMoreSentenceRounds,
   generateSentenceTheme,
@@ -18,15 +18,16 @@ import {
 import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
 import {
   DEFAULT_SENTENCE_GENERATION_ROUND_COUNT,
-  SENTENCE_GENERATE_MORE_ROUND_COUNT,
-  SENTENCE_PICK_AND_PRUNE_ROUND_COUNT,
+  SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
+  SENTENCE_MAX_GENERATION_ROUND_COUNT,
+  SENTENCE_MIN_GENERATION_ROUND_COUNT,
 } from "@/lib/themes/sentenceConstants";
 import type { SentenceThemeDetailTheme } from "../components/SentenceThemeDetail";
 import type { SentenceRoundField } from "../components/SentenceRoundCard";
 import { createSaveRequestId } from "../lib/saveRequestId";
 
 export type SentenceSelectedState =
-  | { kind: "saved"; theme: Doc<"themes"> }
+  | { kind: "saved"; theme: ThemeWithOwner }
   | {
       kind: "unsaved";
       draft: {
@@ -59,13 +60,18 @@ interface UseSentenceThemeControllerReturn {
   isGenerateModalOpen: boolean;
   isGenerateMoreModalOpen: boolean;
   generationError: string | null;
+  /** True when the cancel-confirm modal is open. */
+  showDiscardConfirm: boolean;
+  /** "new-theme" for unsaved drafts, "existing-theme" for saved edits. */
+  discardReviewKind: "new-theme" | "existing-theme";
 
-  openSavedTheme: (theme: Doc<"themes">) => void;
+  openSavedTheme: (theme: ThemeWithOwner) => void;
   openGenerateModal: () => void;
   closeGenerateModal: () => void;
   generateAndOpenDraft: (params: {
     themeName: string;
     themePrompt: string;
+    targetRoundCount: number;
   }) => Promise<void>;
 
   openGenerateMoreModal: () => void;
@@ -84,6 +90,10 @@ interface UseSentenceThemeControllerReturn {
   handleThemeNameChange: (name: string) => void;
   handleSave: () => Promise<void>;
   handleCancel: () => void;
+  /** Confirm the discard — actually wipes the draft/edits and exits. */
+  confirmDiscard: () => void;
+  /** Close the discard-confirm modal without discarding. */
+  cancelDiscard: () => void;
   handleVisibilityChange: (visibility: "private" | "shared") => Promise<void>;
   handleFriendsCanEditChange: (canEdit: boolean) => Promise<void>;
 
@@ -102,6 +112,7 @@ export function useSentenceThemeController(params: {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const createTheme = useMutation(api.themes.createTheme);
@@ -113,16 +124,17 @@ export function useSentenceThemeController(params: {
     if (!selectedState) return null;
     if (selectedState.kind === "saved") {
       const theme = selectedState.theme;
+      const rounds = isSentenceTheme(theme) ? theme.sentenceRounds : [];
       return {
         name: theme.name,
         description: theme.description,
-        rounds: (theme.sentenceRounds ?? []) as SentenceRoundInput[],
+        rounds: rounds as SentenceRoundInput[],
         visibility: theme.visibility,
         friendsCanEdit: theme.friendsCanEdit,
-        ownerNickname: undefined,
-        ownerDiscriminator: undefined,
-        isOwner: true,
-        canEdit: true,
+        ownerNickname: theme.ownerNickname,
+        ownerDiscriminator: theme.ownerDiscriminator,
+        isOwner: theme.isOwner,
+        canEdit: theme.canEdit,
       };
     }
     const draft = selectedState.draft;
@@ -143,10 +155,10 @@ export function useSentenceThemeController(params: {
     setEditField(null);
   }, []);
 
-  const openSavedTheme = useCallback((theme: Doc<"themes">) => {
-    if (resolveThemeContentType(theme) !== "sentence") return;
+  const openSavedTheme = useCallback((theme: ThemeWithOwner) => {
+    if (!isSentenceTheme(theme)) return;
     setSelectedState({ kind: "saved", theme });
-    setLocalRounds(((theme.sentenceRounds ?? []) as SentenceRoundInput[]).map((round) => ({
+    setLocalRounds((theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
       englishPrompt: round.englishPrompt,
       spanishSentence: round.spanishSentence,
       distractors: [...round.distractors],
@@ -178,16 +190,26 @@ export function useSentenceThemeController(params: {
   }, [isGenerating]);
 
   const generateAndOpenDraft = useCallback(
-    async (input: { themeName: string; themePrompt: string }) => {
+    async (input: {
+      themeName: string;
+      themePrompt: string;
+      targetRoundCount: number;
+    }) => {
       if (!input.themeName.trim()) return;
+      // Clamp the user-chosen target into the supported 5-15 range so a
+      // tampered client can't request an absurd generation size.
+      const safeTarget = Math.min(
+        SENTENCE_MAX_GENERATION_ROUND_COUNT,
+        Math.max(SENTENCE_MIN_GENERATION_ROUND_COUNT, input.targetRoundCount)
+      );
       setIsGenerating(true);
       setGenerationError(null);
       try {
         const params: GenerateSentenceThemeParams = {
           themeName: input.themeName.trim(),
           themePrompt: input.themePrompt.trim() || undefined,
-          // Always over-generate so the user can review and prune.
-          roundCount: SENTENCE_PICK_AND_PRUNE_ROUND_COUNT,
+          // Always over-generate 2× so the user can review and prune.
+          roundCount: safeTarget * 2,
         };
         const result = await generateSentenceTheme(params);
         if (!result.success || !result.data) {
@@ -252,7 +274,10 @@ export function useSentenceThemeController(params: {
     try {
       const result = await generateMoreSentenceRounds({
         themeName: selectedTheme.name,
-        roundCount: SENTENCE_GENERATE_MORE_ROUND_COUNT,
+        // Match the initial generation's over-generation pattern: ask for the
+        // pick-and-prune count, then let the user prune the appended rounds in
+        // the editor (no separate review screen — same as the initial flow).
+        roundCount: SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
         existingSpanishSentences: localRounds.map((round) => round.spanishSentence),
       });
       if (!result.success || !result.data) {
@@ -382,9 +407,24 @@ export function useSentenceThemeController(params: {
   }, [createTheme, localRounds, params, reset, selectedState, updateTheme]);
 
   const handleCancel = useCallback(() => {
+    // Mirror the word-theme pick-and-prune confirm: bail through a modal so a
+    // ~20-round draft (or a saved-theme edit) is never wiped on a stray tap.
+    if (!selectedState) return;
+    setShowDiscardConfirm(true);
+  }, [selectedState]);
+
+  const confirmDiscard = useCallback(() => {
+    setShowDiscardConfirm(false);
     reset();
     params.onAfterCancel();
   }, [params, reset]);
+
+  const cancelDiscard = useCallback(() => {
+    setShowDiscardConfirm(false);
+  }, []);
+
+  const discardReviewKind: "new-theme" | "existing-theme" =
+    selectedState?.kind === "unsaved" ? "new-theme" : "existing-theme";
 
   const handleVisibilityChange = useCallback(
     async (visibility: "private" | "shared") => {
@@ -440,6 +480,8 @@ export function useSentenceThemeController(params: {
     isGenerateModalOpen,
     isGenerateMoreModalOpen,
     generationError,
+    showDiscardConfirm,
+    discardReviewKind,
 
     openSavedTheme,
     openGenerateModal,
@@ -457,6 +499,8 @@ export function useSentenceThemeController(params: {
     handleThemeNameChange,
     handleSave,
     handleCancel,
+    confirmDiscard,
+    cancelDiscard,
     handleVisibilityChange,
     handleFriendsCanEditChange,
 

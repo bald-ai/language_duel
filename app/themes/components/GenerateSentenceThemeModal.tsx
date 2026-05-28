@@ -16,7 +16,8 @@ import {
 } from "./themeStyles";
 import {
   DEFAULT_SENTENCE_GENERATION_ROUND_COUNT,
-  SENTENCE_PICK_AND_PRUNE_ROUND_COUNT,
+  SENTENCE_MAX_GENERATION_ROUND_COUNT,
+  SENTENCE_MIN_GENERATION_ROUND_COUNT,
 } from "@/lib/themes/sentenceConstants";
 
 interface GenerateSentenceThemeModalProps {
@@ -24,7 +25,11 @@ interface GenerateSentenceThemeModalProps {
   isGenerating: boolean;
   error: string | null;
   onClose: () => void;
-  onGenerate: (params: { themeName: string; themePrompt: string }) => void;
+  onGenerate: (params: {
+    themeName: string;
+    themePrompt: string;
+    targetRoundCount: number;
+  }) => void;
 }
 
 /**
@@ -43,6 +48,13 @@ export function GenerateSentenceThemeModal({
   const colors = useAppearanceColors();
   const [themeName, setThemeName] = useState("");
   const [themePrompt, setThemePrompt] = useState("");
+  const [targetRoundCount, setTargetRoundCount] = useState(
+    DEFAULT_SENTENCE_GENERATION_ROUND_COUNT
+  );
+
+  // Over-generation: always 2× the user's target so the editor has a buffer to
+  // prune from (mirrors the word Pick & Prune 100% over-generation).
+  const generationRoundCount = targetRoundCount * 2;
 
   if (!isOpen) return null;
 
@@ -99,8 +111,40 @@ export function GenerateSentenceThemeModal({
           </p>
         </div>
 
+        <div>
+          <label
+            htmlFor="sentence-theme-generate-round-count"
+            className="block text-sm font-medium mb-2"
+            style={{ color: colors.text.DEFAULT }}
+          >
+            Target rounds ({SENTENCE_MIN_GENERATION_ROUND_COUNT}-{SENTENCE_MAX_GENERATION_ROUND_COUNT})
+          </label>
+          <div className="flex items-center gap-4">
+            <input
+              id="sentence-theme-generate-round-count"
+              type="range"
+              min={SENTENCE_MIN_GENERATION_ROUND_COUNT}
+              max={SENTENCE_MAX_GENERATION_ROUND_COUNT}
+              value={targetRoundCount}
+              onChange={(event) =>
+                setTargetRoundCount(Number.parseInt(event.target.value, 10))
+              }
+              className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+              style={{ backgroundColor: colors.primary.dark }}
+              disabled={isGenerating}
+              data-testid="sentence-theme-generate-round-count"
+            />
+            <span
+              className="w-8 text-center text-xl font-bold shrink-0"
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {targetRoundCount}
+            </span>
+          </div>
+        </div>
+
         <div className="text-xs" style={{ color: colors.text.muted }}>
-          We&apos;ll generate {SENTENCE_PICK_AND_PRUNE_ROUND_COUNT} short Spanish sentences (target {DEFAULT_SENTENCE_GENERATION_ROUND_COUNT} kept). Edit any field before saving.
+          We&apos;ll generate {generationRoundCount} short Spanish sentences (target {targetRoundCount} kept). Edit any field before saving.
         </div>
       </div>
 
@@ -111,7 +155,7 @@ export function GenerateSentenceThemeModal({
             style={{ borderColor: colors.cta.light }}
           />
           <p className="text-sm" style={{ color: colors.text.muted }}>
-            Generating {SENTENCE_PICK_AND_PRUNE_ROUND_COUNT} sentences. This may take a moment.
+            Generating {generationRoundCount} sentences. This may take a moment.
           </p>
         </div>
       )}
@@ -122,7 +166,7 @@ export function GenerateSentenceThemeModal({
 
       <div className="flex gap-3">
         <button
-          onClick={() => onGenerate({ themeName, themePrompt })}
+          onClick={() => onGenerate({ themeName, themePrompt, targetRoundCount })}
           disabled={!themeName.trim() || isGenerating}
           className={themeActionButtonClassName}
           style={getThemeActionButtonStyle("cta", colors)}

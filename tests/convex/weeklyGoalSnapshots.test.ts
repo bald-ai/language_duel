@@ -5,10 +5,15 @@ import {
 } from "@/convex/helpers/weeklyGoalSnapshots";
 import { createIndexedQuery } from "./testUtils/inMemoryDb";
 
-type ThemeDoc = Pick<Doc<"themes">, "_id" | "name" | "words">;
+type WordThemeBranch = Extract<Doc<"themes">, { contentType: "word" }>;
+type WordSnapshotBranch = Extract<
+  Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type ThemeDoc = Pick<WordThemeBranch, "_id" | "name" | "words">;
 type GoalDoc = Pick<Doc<"weeklyGoals">, "_id" | "status">;
 type SnapshotDoc = Pick<
-  Doc<"weeklyGoalThemeSnapshots">,
+  WordSnapshotBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"

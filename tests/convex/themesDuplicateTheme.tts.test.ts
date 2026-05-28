@@ -27,6 +27,7 @@ type ThemeDoc = {
   _creationTime: number;
   name: string;
   description: string;
+  contentType: "word" | "sentence";
   words: ThemeWord[];
   wordType: "nouns" | "verbs" | "adjectives" | "adverbs";
   createdAt: number;
@@ -102,6 +103,7 @@ describe("themes.duplicateTheme TTS behavior", () => {
       _creationTime: Date.now(),
       name: "FAMILY MEMBERS",
       description: "Core family terms",
+      contentType: "word",
       words: originalWords,
       wordType: "nouns",
       createdAt: Date.now(),
@@ -155,6 +157,7 @@ describe("themes.duplicateTheme TTS behavior", () => {
       _creationTime: Date.now(),
       name: "PRIVATE",
       description: "Only owner can see",
+      contentType: "word",
       words: [
         {
           word: "secret",

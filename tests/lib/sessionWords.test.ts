@@ -13,6 +13,7 @@ const themeId = (id: string) => id as Id<"themes">;
 const themeA: SessionThemeInput = {
   _id: themeId("theme_a"),
   name: "Animals",
+  contentType: "word",
   words: [
     { word: "cat", answer: "gato", wrongAnswers: ["perro", "pez"] },
     { word: "dog", answer: "perro", wrongAnswers: ["gato", "pez"] },
@@ -22,6 +23,7 @@ const themeA: SessionThemeInput = {
 const themeB: SessionThemeInput = {
   _id: themeId("theme_b"),
   name: "Food",
+  contentType: "word",
   words: [
     { word: "bread", answer: "pan", wrongAnswers: ["agua", "leche"] },
   ],
@@ -30,6 +32,7 @@ const themeB: SessionThemeInput = {
 const themeWithTts: SessionThemeInput = {
   _id: themeId("theme_tts"),
   name: "TTS Theme",
+  contentType: "word",
   words: [
     {
       word: "hello",

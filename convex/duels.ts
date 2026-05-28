@@ -45,27 +45,27 @@ function canRevealQuestionAnswer(args: {
 
 /**
  * Mask the answer key on a question snapshot before shipping to the client.
- * Word questions hide `correctOption` (the per-position answer key). Sentence
- * questions ship `spanishSentence` even during active play in v1 — the client
- * uses it to validate tile taps locally so the player can build the sentence
- * without a per-tap server round-trip. The tile pool is pre-shuffled and the
- * server still re-scores from the final submission, so this is a leak of the
- * round answer text, not a leak of the play position. See HANDOFF for the
- * follow-up plan to move to per-tap server validation.
+ * Word questions hide `correctOption`. Sentence questions hide
+ * `spanishSentence` — taps are server-validated via `tapSentenceTile`, so the
+ * client never needs the canonical answer until the round reveals.
  */
 type MaskedWordQuestion = Omit<Extract<DuelQuestion, { kind: "word" }>, "correctOption"> & {
   answerRevealedToViewer: false;
 };
-type MaskedDuelQuestion =
-  | MaskedWordQuestion
-  | (Extract<DuelQuestion, { kind: "sentence" }> & { answerRevealedToViewer: false });
+type MaskedSentenceQuestion = Omit<
+  Extract<DuelQuestion, { kind: "sentence" }>,
+  "spanishSentence"
+> & {
+  answerRevealedToViewer: false;
+};
+type MaskedDuelQuestion = MaskedWordQuestion | MaskedSentenceQuestion;
 
 type RevealedDuelQuestion = DuelQuestion & { answerRevealedToViewer: true };
 
 function hideQuestionAnswer(question: DuelQuestion): MaskedDuelQuestion {
   if (question.kind === "sentence") {
-    // v1 loosening: ship the spanish sentence so the client can validate taps.
-    return { ...question, answerRevealedToViewer: false };
+    const { spanishSentence: _spanishSentence, ...safe } = question;
+    return { ...safe, answerRevealedToViewer: false };
   }
   const { correctOption: _correctOption, ...safe } = question;
   return { ...safe, answerRevealedToViewer: false };
@@ -73,12 +73,14 @@ function hideQuestionAnswer(question: DuelQuestion): MaskedDuelQuestion {
 
 /**
  * Blank the answer/TTS on the session item snapshot the client sees. Word
- * items lose `answer` + `ttsStorageId`. Sentence items are passed through —
- * the client needs the prompt and theme name to render the round, and the
- * tap-time answer key lives on the question snapshot above.
+ * items lose `answer` + `ttsStorageId`. Sentence items lose `spanishSentence`
+ * + `distractors` (the answer key) — the client only needs the prompt and
+ * theme name to render the round; tap validation is server-side.
  */
 function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
-  if (item.kind === "sentence") return item;
+  if (item.kind === "sentence") {
+    return { ...item, spanishSentence: "", distractors: [] };
+  }
   return { ...item, answer: "", ttsStorageId: undefined };
 }
 

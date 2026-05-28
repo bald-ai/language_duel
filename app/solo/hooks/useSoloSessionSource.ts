@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   buildSessionWords,
-  isSessionWordItem,
+  isSessionSentenceItem,
   summarizeThemes,
   type SessionWordItem,
 } from "@/lib/sessionWords";
@@ -15,9 +15,9 @@ import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 /**
  * Solo practice is word-only in v1 (plan decision: modes — only duel-style
- * modes support sentence rounds). The hook strips any sentence items so
- * downstream solo code keeps its word-only invariants; sentence content surfaces
- * via the duel paths instead.
+ * modes support sentence rounds). The hook throws if any sentence item slips
+ * through so an upstream routing bug surfaces loudly rather than silently
+ * dropping content.
  */
 export type SessionWordEntry = SessionWordItem;
 
@@ -106,7 +106,12 @@ export function useSoloSessionSource({
 
   const sessionWords: SessionWordEntry[] = useMemo(() => {
     const raw = practiceSession?.sessionWords ?? buildSessionWords(selectedThemes);
-    return raw.filter(isSessionWordItem);
+    if (raw.some(isSessionSentenceItem)) {
+      throw new Error(
+        "Solo practice cannot run sentence items — sentence themes must be filtered out before reaching the solo session loader."
+      );
+    }
+    return raw as SessionWordEntry[];
   }, [practiceSession?.sessionWords, selectedThemes]);
   const themeSummary = useMemo(
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),

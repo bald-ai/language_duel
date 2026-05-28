@@ -9,7 +9,6 @@ import {
   type SessionThemeInput,
   type SessionWordItem,
 } from "../../lib/sessionWords";
-import { resolveThemeContentType } from "../../lib/themes/themeContent";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
@@ -32,19 +31,29 @@ export async function loadThemesByIds(
   });
 
   const themes = await Promise.all(orderedIds.map((themeId) => ctx.db.get(themeId)));
-  return themes.flatMap((theme) =>
-    theme
-      ? [
-          {
-            _id: theme._id,
-            name: theme.name,
-            contentType: resolveThemeContentType(theme),
-            words: theme.words,
-            sentenceRounds: theme.sentenceRounds,
-          },
-        ]
-      : []
-  );
+  return themes.flatMap<SessionThemeInput>((theme) => {
+    if (!theme) return [];
+    if (theme.contentType === "word") {
+      return [
+        {
+          _id: theme._id,
+          name: theme.name,
+          contentType: theme.contentType,
+          words: theme.words,
+          sentenceRounds: undefined,
+        },
+      ];
+    }
+    return [
+      {
+        _id: theme._id,
+        name: theme.name,
+        contentType: theme.contentType,
+        words: undefined,
+        sentenceRounds: theme.sentenceRounds,
+      },
+    ];
+  });
 }
 
 export function getSessionWords(

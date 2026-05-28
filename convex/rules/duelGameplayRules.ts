@@ -16,7 +16,7 @@ import type { PlayerRole } from "../helpers/auth";
 export function validateActiveQuestion(
   duel: Doc<"duels">,
   questionIndex: number,
-  staleCode: "STALE_ANSWER" | "STALE_TIMEOUT",
+  staleCode: "STALE_ANSWER" | "STALE_TIMEOUT" | "STALE_TAP",
   staleMessage: string
 ) {
   if (duel.status !== "active") {
@@ -126,11 +126,17 @@ export function buildFinalCompletionPatch(
   duel: Doc<"duels">,
   nextWordIndex: number
 ): Partial<Doc<"duels">> {
+  // Clamp the post-completion index to the last real position. Callers pass
+  // `nextWordIndex` one past the end (the would-be next round); leaving it that
+  // way puts `currentWordIndex` out of `duelQuestions`/`wordOrder` and the
+  // client narrowing on the completed-state final-results screen then crashes
+  // when the last position is a sentence (no word question to narrow to).
+  const lastRealIndex = Math.max(0, nextWordIndex - 1);
   return mirrorPatchForSelfDuel(
     {
       ...getHintProviderBonusPatch(duel),
       status: "completed",
-      currentWordIndex: nextWordIndex,
+      currentWordIndex: lastRealIndex,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: undefined,

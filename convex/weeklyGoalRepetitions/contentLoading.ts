@@ -43,7 +43,14 @@ export async function assertSnapshotContentReady(
     }
     // Spaced repetition is word-only today (plan: solo / weekly goals don't
     // run sentence themes in v1). Sentence snapshots have an empty `words`
-    // array — surface a clear error rather than launching an empty SR session.
+    // array — name the real reason so the user knows it's a feature gap, not
+    // a corrupt snapshot.
+    if (snapshot.contentType === "sentence") {
+      return {
+        ok: false,
+        message: `"${theme.themeName}" is a sentence theme. Spaced repetition does not support sentence themes yet.`,
+      };
+    }
     if (!snapshot.words || snapshot.words.length === 0) {
       return {
         ok: false,
@@ -79,6 +86,12 @@ export async function loadSpacedRepetitionSnapshotContent(
         message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
       };
     }
+    if (snapshot.contentType === "sentence") {
+      return {
+        ok: false,
+        message: `"${theme.themeName}" is a sentence theme. Spaced repetition does not support sentence themes yet.`,
+      };
+    }
     if (!snapshot.words || snapshot.words.length === 0) {
       return {
         ok: false,
@@ -92,12 +105,21 @@ export async function loadSpacedRepetitionSnapshotContent(
     if (!snapshot) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
     }
+    // Sentence snapshots are rejected by the contentType check above, so by
+    // here every snapshot is the word variant. Narrow explicitly so TypeScript
+    // sees `words` on the discriminated union.
+    if (snapshot.contentType !== "word") {
+      throw new ConvexError({
+        code: "INTERNAL_ERROR",
+        message: "Unexpected sentence snapshot reached word-only loader",
+      });
+    }
     return {
       _id: snapshot.originalThemeId,
       name: snapshot.name,
       contentType: snapshot.contentType,
       words: snapshot.words,
-      sentenceRounds: snapshot.sentenceRounds,
+      sentenceRounds: undefined,
     };
   });
   const sessionWords = buildSessionWords(sessionThemes);

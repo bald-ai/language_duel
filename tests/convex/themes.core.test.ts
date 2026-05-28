@@ -28,9 +28,10 @@ type ThemeWord = {
   ttsStorageId?: Id<"_storage">;
 };
 
+type WordThemeDocBranch = Extract<Doc<"themes">, { contentType: "word" }>;
 type ThemeDoc = Pick<
-  Doc<"themes">,
-  "_id" | "_creationTime" | "name" | "description" | "wordType" | "createdAt" | "ownerId" | "visibility" | "friendsCanEdit"
+  WordThemeDocBranch,
+  "_id" | "_creationTime" | "name" | "description" | "contentType" | "wordType" | "createdAt" | "ownerId" | "visibility" | "friendsCanEdit"
 > & {
   words: ThemeWord[];
 };
@@ -40,8 +41,12 @@ type WeeklyGoalDoc = Pick<
   "_id" | "_creationTime" | "creatorId" | "partnerId" | "themes" | "status"
 >;
 
-type WeeklyGoalThemeSnapshotDoc = Pick<
+type WordSnapshotDocBranch = Extract<
   Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  WordSnapshotDocBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"
@@ -49,6 +54,7 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
   | "order"
   | "name"
   | "description"
+  | "contentType"
   | "wordType"
   | "words"
   | "lockedAt"
@@ -160,6 +166,7 @@ function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     _creationTime: Date.now(),
     name: "ANIMALS",
     description: "Animals",
+    contentType: "word",
     wordType: "nouns",
     words: [
       {
@@ -206,6 +213,7 @@ function snapshotDoc(
     order: 0,
     name: "ANIMALS",
     description: "Animals",
+    contentType: "word",
     wordType: "nouns",
     words: [
       {
@@ -232,8 +240,9 @@ describe("themes core handlers", () => {
         args: {
           name: string;
           description: string;
+          contentType: "word" | "sentence";
           words: ThemeWord[];
-          wordType?: Doc<"themes">["wordType"];
+          wordType?: WordThemeDocBranch["wordType"];
         }
       ) => Promise<Id<"themes">>;
     })._handler;
@@ -242,6 +251,7 @@ describe("themes core handlers", () => {
       handler(createCtx(db), {
         name: "Empty",
         description: "No words",
+        contentType: "word",
         words: [],
       })
     ).rejects.toThrow("Theme must contain 1-200 words");

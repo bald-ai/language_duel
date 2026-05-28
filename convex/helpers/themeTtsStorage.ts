@@ -38,7 +38,9 @@ export async function getSnapshotReferencedStorageIdsForTheme(
   const referencedStorageIds = new Set<Id<"_storage">>();
 
   for (const snapshot of snapshots) {
-    if (!snapshot.words) continue;
+    // Only word-content snapshots carry TTS storage references; sentence
+    // themes don't have per-round TTS in v1.
+    if (snapshot.contentType !== "word") continue;
     const snapshotStorageIds = collectTtsStorageIds(snapshot.words);
     for (const storageId of snapshotStorageIds) {
       referencedStorageIds.add(storageId);
@@ -58,7 +60,7 @@ async function getActiveReferencedStorageIdsForTheme(
   );
   const liveTheme = await ctx.db.get(themeId);
 
-  if (liveTheme?.words) {
+  if (liveTheme?.contentType === "word") {
     const liveStorageIds = collectTtsStorageIds(liveTheme.words);
     for (const storageId of liveStorageIds) {
       referencedStorageIds.add(storageId);

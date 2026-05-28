@@ -5,6 +5,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { WordEntry } from "@/lib/types";
 import { getThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
+import { isWordTheme } from "@/lib/themes/themeContent";
 import { areThemeWordsEqual } from "@/lib/themes/wordEditing";
 import { DEFAULT_WORD_TYPE, VIEW_MODES, type ViewMode } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
@@ -40,9 +41,10 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
       // `useThemesController.handleOpenTheme` routes sentence themes
       // elsewhere), surface an empty `words` array rather than letting
       // `undefined` leak into the editor.
+      const savedWords = isWordTheme(saved) ? saved.words : [];
       return {
         ...saved,
-        words: (saved.words ?? []) as ThemeDetailTheme["words"],
+        words: (savedWords ?? []) as ThemeDetailTheme["words"],
       };
     }
     const draft = selectedThemeState.draft;
@@ -73,12 +75,16 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
       return true;
     }
 
-    return !areThemeWordsEqual(localWords, persistedSelectedTheme.words as WordEntry[]);
+    const persistedWords = isWordTheme(persistedSelectedTheme)
+      ? persistedSelectedTheme.words
+      : [];
+    return !areThemeWordsEqual(localWords, persistedWords as WordEntry[]);
   }, [localWords, persistedSelectedTheme, selectedThemeState]);
 
   const openTheme = useCallback((theme: ThemeWithOwner) => {
     setSelectedThemeState({ kind: "saved", theme });
-    setLocalWords([...(theme.words ?? [])]);
+    const themeWords = isWordTheme(theme) ? theme.words : [];
+    setLocalWords([...(themeWords ?? [])]);
     params.setViewMode(VIEW_MODES.DETAIL);
   }, [params]);
 

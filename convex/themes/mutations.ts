@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import type { Id, Doc } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { requireThemeOwner, requireThemeEditor } from "../helpers/permissions";
 import {
@@ -16,7 +16,6 @@ import {
 import { normalizeSentenceRounds } from "../../lib/themes/sentenceValidation";
 import type { WordType } from "../../lib/themes/wordTypes";
 import type { SentenceRoundInput, ThemeContentType } from "../../lib/themes/sentenceTypes";
-import { resolveThemeContentType } from "../../lib/themes/themeContent";
 import { applyGeneratedTtsToWords, reconcileThemeWordTts } from "../../lib/themes/tts";
 import {
   buildDuplicateSentenceThemePayload,
@@ -32,7 +31,7 @@ export type ThemeVisibility = "private" | "shared";
 export type CreateThemeArgs = {
   name: string;
   description: string;
-  contentType?: ThemeContentType;
+  contentType: ThemeContentType;
   words?: ThemeWordWithTts[];
   sentenceRounds?: SentenceRoundInput[];
   wordType?: WordType;
@@ -100,7 +99,7 @@ export async function handleCreateTheme(
   const { user } = await getAuthenticatedUser(ctx);
   const normalizedName = normalizeThemeName(args.name);
   const normalizedDescription = normalizeThemeDescription(args.description);
-  const contentType: ThemeContentType = args.contentType ?? "word";
+  const contentType: ThemeContentType = args.contentType;
   assertCreateContentMatches(contentType, args);
 
   const normalizedSaveRequestId = args.saveRequestId
@@ -155,12 +154,18 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
   const { user } = await getAuthenticatedUser(ctx);
 
   const theme = await requireThemeEditor(ctx, args.themeId, user._id);
-  const themeContentType = resolveThemeContentType(theme);
+  const themeContentType = theme.contentType;
 
   const { themeId, ...updates } = args;
-  const filteredUpdates: Partial<
-    Pick<Doc<"themes">, "name" | "description" | "words" | "sentenceRounds">
-  > = {};
+  // The themes table is a discriminated union, so `Partial<Pick<Doc<"themes">, ...>>`
+  // can't carry both branches' fields at once. The mutation routes by
+  // `themeContentType` below, so a plain shape is safe here.
+  const filteredUpdates: {
+    name?: string;
+    description?: string;
+    words?: ThemeWordWithTts[];
+    sentenceRounds?: ReturnType<typeof normalizeSentenceRounds>;
+  } = {};
 
   if (updates.name !== undefined) {
     filteredUpdates.name = normalizeThemeName(updates.name);
@@ -262,7 +267,7 @@ export async function handleDeleteTheme(
   }
 
   // Sentence themes don't have TTS in v1, so only word themes need TTS cleanup.
-  const themeStorageIds = resolveThemeContentType(theme) === "word"
+  const themeStorageIds = theme.contentType === "word"
     ? collectTtsStorageIds((theme.words ?? []) as ThemeWordWithTts[])
     : new Set<Id<"_storage">>();
   await ctx.db.delete(args.themeId);
@@ -288,7 +293,7 @@ export async function handleDuplicateTheme(
     });
   }
 
-  const themeContentType = resolveThemeContentType(theme);
+  const themeContentType = theme.contentType;
 
   if (themeContentType === "sentence") {
     const duplicatePayload = buildDuplicateSentenceThemePayload({
@@ -338,7 +343,7 @@ export async function handleApplyGeneratedThemeTts(
   }
 
   // Sentence themes don't have TTS in v1; reject any generated audio targeting one.
-  if (resolveThemeContentType(theme) === "sentence") {
+  if (theme.contentType === "sentence") {
     return {
       applied: 0,
       skipped: args.generated.length,

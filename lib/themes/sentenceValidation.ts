@@ -74,6 +74,16 @@ function findForbiddenPunctuation(value: string): string | null {
 }
 
 /**
+ * Compare a distractor against a correct token ignoring trailing/internal
+ * punctuation — tiles render with punctuation attached but the comparison
+ * shouldn't let "cafe" sneak in as a distractor when the sentence ends with
+ * "cafe." Keeps tile rendering unchanged; only used for the equality check.
+ */
+function normalizeForDistractorComparison(token: string): string {
+  return normalizeForComparison(token).replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+/**
  * Non-throwing scan of a sentence round list. Returns one issue per problem so
  * the editor can highlight specific fields (mirrors `collectThemeIssues`).
  */
@@ -142,8 +152,10 @@ export function collectSentenceRoundIssues(
       });
     }
 
-    const correctWordsByNormalized = new Set<string>(
-      tokenizeSpanishSentence(trimmedSpanish).map((token) => normalizeForComparison(token))
+    const correctWordsByPunctuationless = new Set<string>(
+      tokenizeSpanishSentence(trimmedSpanish).map((token) =>
+        normalizeForDistractorComparison(token)
+      )
     );
     const seenDistractors = new Map<string, { index: number; value: string }>();
 
@@ -164,9 +176,13 @@ export function collectSentenceRoundIssues(
       const normalized = normalizeForComparison(trimmedDistractor);
       if (normalized === "") return;
 
-      if (correctWordsByNormalized.has(normalized)) {
+      const normalizedPunctuationless = normalizeForDistractorComparison(trimmedDistractor);
+      if (
+        normalizedPunctuationless !== "" &&
+        correctWordsByPunctuationless.has(normalizedPunctuationless)
+      ) {
         const matchedToken = tokenizeSpanishSentence(trimmedSpanish).find(
-          (token) => normalizeForComparison(token) === normalized
+          (token) => normalizeForDistractorComparison(token) === normalizedPunctuationless
         );
         issues.push({
           type: "distractor_matches_correct",

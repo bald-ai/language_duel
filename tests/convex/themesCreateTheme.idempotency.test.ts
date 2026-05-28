@@ -82,6 +82,7 @@ describe("themes.createTheme idempotency", () => {
       description: "Generated theme for animals",
       words: validWords,
       wordType: "nouns" as const,
+      contentType: "word" as const,
       visibility: "private" as const,
       saveRequestId: "save-req-1",
     };
@@ -114,6 +115,7 @@ describe("themes.createTheme idempotency", () => {
       description: "Generated theme for animals",
       words: validWords,
       wordType: "nouns" as const,
+      contentType: "word" as const,
       visibility: "private" as const,
     };
 
@@ -142,6 +144,7 @@ describe("themes.createTheme idempotency", () => {
       description: "Generated theme for animals",
       words: validWords,
       wordType: "nouns" as const,
+      contentType: "word" as const,
       visibility: "private" as const,
     });
 
@@ -178,6 +181,7 @@ describe("themes.createTheme idempotency", () => {
           },
         ],
         wordType: "nouns" as const,
+        contentType: "word" as const,
         visibility: "private" as const,
       })
     ).rejects.toThrow(/duplicates after normalization/);
@@ -208,6 +212,7 @@ describe("themes.createTheme idempotency", () => {
           },
         ],
         wordType: "verbs" as const,
+        contentType: "word" as const,
         visibility: "private" as const,
       })
     ).rejects.toThrow(/matches the correct answer/);
@@ -237,6 +242,7 @@ describe("themes.createTheme idempotency", () => {
         },
       ],
       wordType: "adjectives" as const,
+      contentType: "word" as const,
       visibility: "private" as const,
     });
 
@@ -261,6 +267,7 @@ describe("themes.createTheme idempotency", () => {
       description: "Generated theme for animals",
       words: validWords,
       wordType: "nouns" as const,
+      contentType: "word" as const,
       visibility: "shared" as const,
       friendsCanEdit: true,
     });
@@ -287,6 +294,7 @@ describe("themes.createTheme idempotency", () => {
       description: "Generated theme for animals",
       words: validWords,
       wordType: "nouns" as const,
+      contentType: "word" as const,
       visibility: "shared" as const,
     });
 

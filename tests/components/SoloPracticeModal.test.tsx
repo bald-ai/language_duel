@@ -20,12 +20,14 @@ const themes = [
   {
     _id: "theme_1" as Id<"themes">,
     name: "Food",
-    wordCount: 1,
+    contentType: "word" as const,
+    itemCount: 1,
   },
   {
     _id: "theme_2" as Id<"themes">,
     name: "Travel",
-    wordCount: 1,
+    contentType: "word" as const,
+    itemCount: 1,
   },
 ];
 

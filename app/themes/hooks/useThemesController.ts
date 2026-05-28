@@ -58,8 +58,9 @@ export function useThemesController() {
       return;
     }
     if (sentenceController.selectedState !== null) {
-      sentenceController.reset();
-      setViewMode(VIEW_MODES.LIST);
+      // Mirror the word-theme back behaviour: go through the discard confirm so
+      // a draft (~20 rounds) or saved-theme edit isn't wiped on a stray tap.
+      sentenceController.handleCancel();
       return;
     }
     if (viewMode === VIEW_MODES.EDIT_WORD) {
@@ -104,8 +105,10 @@ export function useThemesController() {
 
   const handlePickSentenceContentType = useCallback(() => {
     setShowContentTypeModal(false);
+    // Stay on the list until the generation actually returns a draft (the
+    // sentence controller flips view mode via the unsaved draft callback).
+    // Switching to DETAIL up front leaves a blank page when the user cancels.
     sentenceController.openGenerateModal();
-    setViewMode(VIEW_MODES.DETAIL);
   }, [sentenceController]);
 
   const list = useThemeListController({
@@ -201,8 +204,11 @@ export function useThemesController() {
     isGenerating: sentenceController.isGenerating,
     error: sentenceController.generationError,
     onClose: sentenceController.closeGenerateModal,
-    onGenerate: (input: { themeName: string; themePrompt: string }) =>
-      sentenceController.generateAndOpenDraft(input),
+    onGenerate: (input: {
+      themeName: string;
+      themePrompt: string;
+      targetRoundCount: number;
+    }) => sentenceController.generateAndOpenDraft(input),
   };
 
   const sentenceGenerateMoreModalProps = {
@@ -219,6 +225,13 @@ export function useThemesController() {
     onPickWord: handlePickWordContentType,
     onPickSentence: handlePickSentenceContentType,
     onClose: () => setShowContentTypeModal(false),
+  };
+
+  const sentenceDiscardConfirmProps = {
+    isOpen: sentenceController.showDiscardConfirm,
+    reviewKind: sentenceController.discardReviewKind,
+    onConfirm: sentenceController.confirmDiscard,
+    onCancel: sentenceController.cancelDiscard,
   };
 
   return {
@@ -255,6 +268,7 @@ export function useThemesController() {
     sentenceEditorProps,
     sentenceGenerateModalProps,
     sentenceGenerateMoreModalProps,
+    sentenceDiscardConfirmProps,
     contentTypeModalProps,
   };
 }

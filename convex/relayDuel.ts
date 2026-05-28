@@ -23,10 +23,7 @@ import {
   relayRemainingPositions,
   relayServedQuestion,
 } from "../lib/duel/relayEngine";
-import {
-  scoreSentenceSubmission,
-  validateSentenceSubmission,
-} from "./rules/sentenceGameplayRules";
+import { scoreSentenceSubmission } from "./rules/sentenceGameplayRules";
 import { isLivesAttempt } from "./rules/duelScoringRules";
 
 function assertActive(duel: Doc<"duels">) {
@@ -108,8 +105,19 @@ export const relayPick = mutation({
     if (!relayRemainingPositions(duel).includes(wordIndex)) {
       throw new ConvexError({ code: "INVALID_STATE", message: "That word is no longer available" });
     }
-    if (hardUpgrade && (duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "No hard-upgrade budget left" });
+    if (hardUpgrade) {
+      // Hard upgrade is word-only — sentence positions don't have a pre-built
+      // hard variant. Reject here so a stale client can't sneak it through.
+      const pickedQuestion = duel.duelQuestions?.[wordIndex];
+      if (pickedQuestion?.kind !== "word") {
+        throw new ConvexError({
+          code: "INVALID_STATE",
+          message: "Hard upgrade is only available for word rounds",
+        });
+      }
+      if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
+        throw new ConvexError({ code: "INVALID_STATE", message: "No hard-upgrade budget left" });
+      }
     }
 
     const now = Date.now();
@@ -198,7 +206,26 @@ export const relayAnswerSentence = mutation({
         message: "Use relayAnswer for word positions",
       });
     }
-    validateSentenceSubmission({ completed, mistakes });
+    // Relay sentence positions are pre-resolved (Task 20) and therefore
+    // unreachable in v1. The per-tap validation pattern used by
+    // `answerSentenceRound` will be wired here when the relay sentence UI
+    // ships. Until then, validate the inputs inline as a defensive guard.
+    if (typeof completed !== "boolean") {
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: "relayAnswerSentence requires a boolean `completed`",
+      });
+    }
+    if (
+      typeof mistakes !== "number" ||
+      !Number.isInteger(mistakes) ||
+      mistakes < 0
+    ) {
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: "relayAnswerSentence requires non-negative integer `mistakes`",
+      });
+    }
 
     if (duel.relayTimeoutScheduledFunctionId) {
       await ctx.scheduler.cancel(duel.relayTimeoutScheduledFunctionId);

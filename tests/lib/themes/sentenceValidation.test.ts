@@ -136,6 +136,36 @@ describe("collectSentenceRoundIssues", () => {
     );
   });
 
+  it("flags duplicates that differ only in case", () => {
+    const issues = collectSentenceRoundIssues([
+      { englishPrompt: "Hi", spanishSentence: "Hola amigo", distractors: ["a", "b", "c"] },
+      { englishPrompt: "Hi", spanishSentence: "HOLA AMIGO", distractors: ["a", "b", "c"] },
+    ]);
+    expect(issues).toContainEqual(
+      expect.objectContaining({ type: "duplicate_round", firstRoundIndex: 0, secondRoundIndex: 1 })
+    );
+  });
+
+  it("flags duplicates that differ only in accents", () => {
+    const issues = collectSentenceRoundIssues([
+      { englishPrompt: "I want coffee", spanishSentence: "Quiero café", distractors: ["a", "b", "c"] },
+      { englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", distractors: ["a", "b", "c"] },
+    ]);
+    expect(issues).toContainEqual(
+      expect.objectContaining({ type: "duplicate_round", firstRoundIndex: 0, secondRoundIndex: 1 })
+    );
+  });
+
+  it("flags duplicates that differ only in collapsed whitespace", () => {
+    const issues = collectSentenceRoundIssues([
+      { englishPrompt: "Hi", spanishSentence: "Hola  amigo", distractors: ["a", "b", "c"] },
+      { englishPrompt: "Hi", spanishSentence: "Hola amigo  ", distractors: ["a", "b", "c"] },
+    ]);
+    expect(issues).toContainEqual(
+      expect.objectContaining({ type: "duplicate_round", firstRoundIndex: 0, secondRoundIndex: 1 })
+    );
+  });
+
   it("allows the correct sentence to repeat a word inside itself", () => {
     expect(
       collectSentenceRoundIssues([

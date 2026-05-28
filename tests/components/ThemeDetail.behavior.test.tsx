@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { WordEntry } from "@/lib/types";
-import { ThemeDetail } from "@/app/themes/components/ThemeDetail";
+import { ThemeDetail, type ThemeDetailTheme } from "@/app/themes/components/ThemeDetail";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -17,20 +17,13 @@ const baseTheme = {
   _creationTime: Date.now(),
   name: "ANIMALS",
   description: "Generated theme for animals",
+  contentType: "word" as const,
   wordType: "nouns" as const,
   words: [],
   createdAt: Date.now(),
   visibility: "private" as const,
   isOwner: true,
   canEdit: true,
-};
-
-type ThemeDetailTheme = Omit<Doc<"themes">, "words"> & {
-  words: NonNullable<Doc<"themes">["words"]>;
-  ownerNickname?: string;
-  ownerDiscriminator?: number;
-  isOwner: boolean;
-  canEdit: boolean;
 };
 
 function makeProps(overrides?: Partial<ComponentProps<typeof ThemeDetail>>) {

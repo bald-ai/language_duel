@@ -20,7 +20,7 @@ type UserDoc = Pick<Doc<"users">, "_id" | "_creationTime" | "clerkId" | "email" 
 type FriendDoc = Pick<Doc<"friends">, "_id" | "_creationTime" | "userId" | "friendId">;
 type ThemeDoc = Pick<
   Doc<"themes">,
-  "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId"
+  "_id" | "_creationTime" | "name" | "description" | "contentType" | "createdAt" | "ownerId"
 > & {
   words: Array<{ word: string; answer: string; wrongAnswers: string[] }>;
 };
@@ -203,6 +203,7 @@ function themeDoc(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     _creationTime: 1,
     name: "Animals",
     description: "Animals",
+    contentType: "word",
     createdAt: 1,
     ownerId: "user_1" as Id<"users">,
     words: [

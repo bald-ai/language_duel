@@ -131,6 +131,7 @@ export default function ThemesPage() {
       <ThemeContentTypeModal {...controller.contentTypeModalProps} />
       <GenerateSentenceThemeModal {...controller.sentenceGenerateModalProps} />
       <GenerateMoreSentenceRoundsModal {...controller.sentenceGenerateMoreModalProps} />
+      <DiscardPickAndPruneModal {...controller.sentenceDiscardConfirmProps} />
     </ThemedPage>
   );
 }

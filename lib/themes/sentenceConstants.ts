@@ -19,8 +19,11 @@ export const DEFAULT_SENTENCE_GENERATION_ROUND_COUNT = 10;
 export const SENTENCE_PICK_AND_PRUNE_ROUND_COUNT =
   DEFAULT_SENTENCE_GENERATION_ROUND_COUNT * 2;
 
-/** Generate-more for an existing sentence theme. */
-export const SENTENCE_GENERATE_MORE_ROUND_COUNT = 5;
+/**
+ * Generate-more for an existing sentence theme. Always over-generates so the
+ * user can prune the appended rounds in the editor (same pattern as the
+ * initial generation — no separate review screen).
+ */
 export const SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT = 10;
 
 /** Max round count per sentence theme (mirrors `THEME_MAX_WORD_COUNT`). */

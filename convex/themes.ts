@@ -114,7 +114,7 @@ export const createTheme = mutation({
   args: {
     name: v.string(),
     description: v.string(),
-    contentType: v.optional(themeContentTypeValidator),
+    contentType: themeContentTypeValidator,
     words: v.optional(v.array(wordValidator)),
     sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
     wordType: optionalWordTypeValidator,

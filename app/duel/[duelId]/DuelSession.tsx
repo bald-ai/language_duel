@@ -44,7 +44,11 @@ export default function DuelSession(props: DuelSessionProps) {
     props.duel.wordOrder[props.duel.currentWordIndex]
   ];
 
+  // Completed duels always go to the standard view — it owns the final-results
+  // card. Routing a completed sentence-last duel to SentenceRoundView would
+  // mount a fresh round timer over a finished game.
   if (
+    props.duel.status !== "completed" &&
     isSentenceQuestion(currentQuestion) &&
     currentItem &&
     currentItem.kind === "sentence"

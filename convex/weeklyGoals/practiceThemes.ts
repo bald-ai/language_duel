@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { listWeeklyGoalThemeSnapshots } from "../helpers/weeklyGoalSnapshots";
+import type { SessionThemeInput } from "../../lib/sessionWords";
 import type { WeeklyGoalPracticeSource } from "./types";
 
 export function getWeeklyGoalPracticeSource(goal: Doc<"weeklyGoals">): WeeklyGoalPracticeSource {
@@ -61,19 +62,29 @@ export async function loadLiveWeeklyGoalPracticeThemes(
 
   return {
     ok: true as const,
-    themes: liveThemes.flatMap((theme) =>
-      theme
-        ? [
-            {
-              _id: theme._id,
-              name: theme.name,
-              contentType: theme.contentType,
-              words: theme.words,
-              sentenceRounds: theme.sentenceRounds,
-            },
-          ]
-        : []
-    ),
+    themes: liveThemes.flatMap<SessionThemeInput>((theme) => {
+      if (!theme) return [];
+      if (theme.contentType === "word") {
+        return [
+          {
+            _id: theme._id,
+            name: theme.name,
+            contentType: theme.contentType,
+            words: theme.words,
+            sentenceRounds: undefined,
+          },
+        ];
+      }
+      return [
+        {
+          _id: theme._id,
+          name: theme.name,
+          contentType: theme.contentType,
+          words: undefined,
+          sentenceRounds: theme.sentenceRounds,
+        },
+      ];
+    }),
   };
 }
 
@@ -103,11 +114,20 @@ export async function loadSnapshotWeeklyGoalPracticeThemes(
       if (!snapshot) {
         throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
       }
+      if (snapshot.contentType === "word") {
+        return {
+          _id: snapshot.originalThemeId,
+          name: snapshot.name,
+          contentType: snapshot.contentType,
+          words: snapshot.words,
+          sentenceRounds: undefined,
+        };
+      }
       return {
         _id: snapshot.originalThemeId,
         name: snapshot.name,
         contentType: snapshot.contentType,
-        words: snapshot.words,
+        words: undefined,
         sentenceRounds: snapshot.sentenceRounds,
       };
     }),

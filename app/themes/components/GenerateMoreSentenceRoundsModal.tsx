@@ -9,7 +9,7 @@ import {
   getThemeActionButtonStyle,
   getThemeOutlineButtonStyle,
 } from "./themeStyles";
-import { SENTENCE_GENERATE_MORE_ROUND_COUNT } from "@/lib/themes/sentenceConstants";
+import { SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT } from "@/lib/themes/sentenceConstants";
 
 interface GenerateMoreSentenceRoundsModalProps {
   isOpen: boolean;
@@ -22,8 +22,9 @@ interface GenerateMoreSentenceRoundsModalProps {
 
 /**
  * "Generate more sentence rounds" modal for an existing sentence theme.
- * Mirrors the word "Generate more" modal, but the round count is fixed in v1
- * (defer count picker to a later pass).
+ * Mirrors the word "Generate more" modal. Always over-generates so the user
+ * can prune the appended rounds in the editor (same pattern as the initial
+ * generation — no separate review screen).
  */
 export function GenerateMoreSentenceRoundsModal({
   isOpen,
@@ -42,8 +43,8 @@ export function GenerateMoreSentenceRoundsModal({
       dataTestId="sentence-generate-more-modal"
     >
       <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
-        Generate {SENTENCE_GENERATE_MORE_ROUND_COUNT} new sentence rounds for &quot;{themeName}&quot;. New rounds avoid
-        duplicating existing kept sentences.
+        Generate {SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT} new sentence rounds for &quot;{themeName}&quot;.
+        Review and prune them in the editor afterward. New rounds avoid duplicating existing kept sentences.
       </p>
 
       {isGenerating && (
@@ -53,7 +54,7 @@ export function GenerateMoreSentenceRoundsModal({
             style={{ borderColor: colors.cta.light }}
           />
           <p className="text-sm" style={{ color: colors.text.muted }}>
-            Generating {SENTENCE_GENERATE_MORE_ROUND_COUNT} more sentences...
+            Generating {SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT} more sentences...
           </p>
         </div>
       )}

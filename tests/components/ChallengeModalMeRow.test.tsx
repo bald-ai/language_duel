@@ -22,7 +22,8 @@ describe("ChallengeModal Me row", () => {
           {
             _id: "theme_1" as Id<"themes">,
             name: "Animals",
-            wordCount: 1,
+            contentType: "word",
+            itemCount: 1,
           },
         ]}
         pendingChallenges={[]}

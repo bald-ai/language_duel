@@ -133,6 +133,13 @@ export async function generateThemeTtsForCurrentUser(
   if (!theme) {
     throw new ConvexError({ code: "NOT_AUTHORIZED", message: "You don't have permission to edit this theme" });
   }
+  // TTS is word-only in v1 (plan: no TTS for sentence themes).
+  if (theme.contentType !== "word") {
+    throw new ConvexError({
+      code: "WRONG_CONTENT_TYPE",
+      message: "Theme TTS generation only applies to word themes",
+    });
+  }
 
   const plan = planThemeTtsGeneration(
     theme.words as ThemeWordWithTts[],

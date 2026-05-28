@@ -72,6 +72,11 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
     return item.kind === "word" ? item.word : item.englishPrompt;
   };
 
+  const isSentenceAt = (position: number) => {
+    const item = duel.sessionWords[duel.wordOrder[position]];
+    return item?.kind === "sentence";
+  };
+
   const handleTimeout = useCallback(() => {
     // The server scheduler is the backstop; ignore client-side races here.
     void timeout({ duelId: duel._id }).catch(() => {});
@@ -144,6 +149,7 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
               <RelayPickList
                 remaining={remaining}
                 promptAt={promptAt}
+                isSentenceAt={isSentenceAt}
                 theirName={theirName}
                 budget={budget}
                 onPick={handlePick}
@@ -239,6 +245,8 @@ function RelayWordHeader({
 interface RelayPickListProps {
   remaining: number[];
   promptAt: (position: number) => string;
+  /** Whether the position at `index` is a sentence round (hard-upgrade is word-only). */
+  isSentenceAt: (position: number) => boolean;
   theirName: string;
   budget: number;
   onPick: (position: number, hardUpgrade: boolean) => void;
@@ -247,7 +255,7 @@ interface RelayPickListProps {
 
 // Owns the hard-upgrade toggle. Rendered only on the picker's pick turn, so it
 // unmounts between turns and the toggle resets without an effect.
-function RelayPickList({ remaining, promptAt, theirName, budget, onPick, colors }: RelayPickListProps) {
+function RelayPickList({ remaining, promptAt, isSentenceAt, theirName, budget, onPick, colors }: RelayPickListProps) {
   const [hardPosition, setHardPosition] = useState<number | null>(null);
   const [pickingPosition, setPickingPosition] = useState<number | null>(null);
 
@@ -276,7 +284,11 @@ function RelayPickList({ remaining, promptAt, theirName, budget, onPick, colors 
           const isHard = hardPosition === position;
           const isPicking = pickingPosition === position;
           const pickInFlight = pickingPosition !== null;
-          const toggleDisabled = (budget <= 0 && !isHard) || pickInFlight;
+          const isSentencePosition = isSentenceAt(position);
+          // Hard upgrade is word-only — sentence positions don't have a
+          // pre-built hard variant. Defense in depth: server also rejects.
+          const toggleDisabled =
+            isSentencePosition || (budget <= 0 && !isHard) || pickInFlight;
           const rowStyle: CSSProperties = isPicking
             ? {
                 borderColor: colors.secondary.DEFAULT,

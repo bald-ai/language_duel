@@ -10,9 +10,10 @@ type ThemeWord = {
   wrongAnswers: string[];
   ttsStorageId?: Id<"_storage">;
 };
+type WordThemeBranch = Extract<Doc<"themes">, { contentType: "word" }>;
 type ThemeDoc = Pick<
-  Doc<"themes">,
-  "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId"
+  WordThemeBranch,
+  "_id" | "_creationTime" | "name" | "description" | "contentType" | "createdAt" | "ownerId"
 > & {
   words: ThemeWord[];
 };
@@ -42,8 +43,12 @@ type SoloPracticeSessionDoc = Pick<
   Doc<"soloPracticeSessions">,
   "_id" | "_creationTime" | "weeklyGoalId" | "status"
 >;
-type WeeklyGoalThemeSnapshotDoc = Pick<
+type WordSnapshotBranch = Extract<
   Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type WeeklyGoalThemeSnapshotDoc = Pick<
+  WordSnapshotBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"
@@ -51,6 +56,7 @@ type WeeklyGoalThemeSnapshotDoc = Pick<
   | "order"
   | "name"
   | "description"
+  | "contentType"
   | "wordType"
   | "words"
   | "lockedAt"
@@ -158,6 +164,7 @@ function buildTheme(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
     _creationTime: Date.now(),
     name: "ANIMALS",
     description: "Animals",
+    contentType: "word",
     createdAt: Date.now(),
     ownerId: "user_1" as Id<"users">,
     words: [
@@ -208,6 +215,7 @@ function buildSnapshot(
     order: 0,
     name: "ANIMALS",
     description: "Animals",
+    contentType: "word",
     wordType: "nouns",
     words: [
       {

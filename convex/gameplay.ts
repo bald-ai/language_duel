@@ -21,10 +21,11 @@ import {
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
 import {
+  applySentenceTap,
   buildSentenceAnswerPatch,
-  validateSentenceSubmission,
+  validateTimedOutFlag,
 } from "./rules/sentenceGameplayRules";
-import { getDuelQuestionOrThrow } from "./rules/duelScoringRules";
+import { getDuelQuestionOrThrow, requireWordDuelQuestion } from "./rules/duelScoringRules";
 import {
   planConfirmUnpauseCountdown,
   planSkipCountdown,
@@ -167,6 +168,12 @@ export const timeoutAnswer = mutation({
       "Stale timeout: question has changed"
     );
 
+    // The word-style timeout patch only applies to word positions. Sentence
+    // rounds handle their own timeout via `answerSentenceRound` with
+    // `completed: false` — guard so a stale tab can't apply word HP rules to a
+    // sentence position.
+    requireWordDuelQuestion(duel, questionIndex);
+
     const timeoutPatch = buildTimeoutPatch({ duel, playerRole, isChallenger });
     if (Object.keys(timeoutPatch).length > 0) {
       await ctx.db.patch(duelId, timeoutPatch);
@@ -177,19 +184,47 @@ export const timeoutAnswer = mutation({
 });
 
 /**
- * Submit a sentence-round result. The client builds the sentence locally and
- * reports the completion status and wrong-tile count; the server scores per
- * the clean/messy/timeout tier (`sentenceConstants.ts`) and advances the round
- * once both players have submitted (mirrors `answerDuel`).
+ * Apply a single tile tap on a sentence position. The server alone tracks the
+ * tile sequence and mistake count in `duel.sentenceProgress` — clients can't
+ * lie about completion or mistakes because `answerSentenceRound` reads only
+ * this state. Out-of-bounds / re-taps / wrong-kind questions are rejected.
+ */
+export const tapSentenceTile = mutation({
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+    tileIndex: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex, tileIndex }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_TAP",
+      "Stale tap: question has changed"
+    );
+
+    const { patch } = applySentenceTap({ duel, questionIndex, role: playerRole, tileIndex });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+/**
+ * Finalize a sentence round for the calling player. Reads `completed` and
+ * `mistakes` from `duel.sentenceProgress` (server-authoritative) — the client
+ * only signals whether this is a normal submit or a timeout. Advances the
+ * round once both players have submitted (mirrors `answerDuel`).
  */
 export const answerSentenceRound = mutation({
   args: {
     duelId: v.id("duels"),
     questionIndex: v.number(),
-    completed: v.boolean(),
-    mistakes: v.number(),
+    timedOut: v.boolean(),
   },
-  handler: async (ctx, { duelId, questionIndex, completed, mistakes }) => {
+  handler: async (ctx, { duelId, questionIndex, timedOut }) => {
     const { duel, playerRole, isChallenger } = await getDuelParticipant(ctx, duelId);
 
     validateActiveQuestion(
@@ -207,13 +242,14 @@ export const answerSentenceRound = mutation({
       });
     }
 
-    validateSentenceSubmission({ completed, mistakes });
+    validateTimedOutFlag(timedOut);
 
     const answerPatch = buildSentenceAnswerPatch({
       duel,
       playerRole,
       isChallenger,
-      submission: { completed, mistakes },
+      timedOut,
+      questionIndex,
     });
     if (Object.keys(answerPatch).length > 0) {
       await ctx.db.patch(duelId, answerPatch);

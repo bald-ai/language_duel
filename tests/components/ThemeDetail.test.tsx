@@ -1,27 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { ThemeDetail } from "@/app/themes/components/ThemeDetail";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { ThemeDetail, type ThemeDetailTheme } from "@/app/themes/components/ThemeDetail";
+import type { Id } from "@/convex/_generated/dataModel";
 
 const baseTheme = {
   _id: "theme_1" as Id<"themes">,
   _creationTime: Date.now(),
   name: "ANIMALS",
   description: "Generated theme for: animals",
+  contentType: "word" as const,
   wordType: "nouns" as const,
   words: [],
   createdAt: Date.now(),
   visibility: "private" as const,
   isOwner: true,
   canEdit: true,
-};
-
-type ThemeDetailTheme = Omit<Doc<"themes">, "words"> & {
-  words: NonNullable<Doc<"themes">["words"]>;
-  ownerNickname?: string;
-  ownerDiscriminator?: number;
-  isOwner: boolean;
-  canEdit: boolean;
 };
 
 const baseWord = {

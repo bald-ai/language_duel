@@ -107,7 +107,8 @@ describe("duel mode picker surfaces", () => {
           {
             _id: "theme_1" as Id<"themes">,
             name: "Animals",
-            wordCount: 1,
+            contentType: "word",
+            itemCount: 1,
           },
         ]}
         pendingChallenges={[]}
@@ -137,7 +138,7 @@ describe("duel mode picker surfaces", () => {
       <ChallengeModal
         users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
         viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
-        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", wordCount: 1 }]}
+        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", contentType: "word", itemCount: 1 }]}
         pendingChallenges={[]}
         isJoiningDuel={false}
         isCreatingChallenge={false}
@@ -173,7 +174,7 @@ describe("duel mode picker surfaces", () => {
       <ChallengeModal
         users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
         viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
-        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", wordCount: 1 }]}
+        themes={[{ _id: "theme_1" as Id<"themes">, name: "Animals", contentType: "word", itemCount: 1 }]}
         pendingChallenges={[]}
         isJoiningDuel={false}
         isCreatingChallenge={false}

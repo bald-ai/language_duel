@@ -37,10 +37,19 @@ export function buildInitialRelayState(
   wordOrder: number[]
 ): RelayInitialState {
   const budget = relayHardBudgetForPool(wordOrder.length);
+  // The relay sentence flow isn't playable yet (UI is a placeholder). Pre-mark
+  // sentence positions as resolved so the picker never offers them and the duel
+  // can still finish on the word positions alone. Backend (server scoring +
+  // 30s timer) stays in place for the future playable flow.
+  const preResolved: number[] = [];
+  for (let position = 0; position < wordOrder.length; position++) {
+    const item = items[wordOrder[position]];
+    if (item?.kind === "sentence") preResolved.push(position);
+  }
   return {
     relayPicker: "challenger",
     relayPhase: "pick",
-    relayResolvedIndices: [],
+    relayResolvedIndices: preResolved,
     relayHardUpgradeIndices: [],
     relayHardBudget: { challenger: budget, opponent: budget },
     relayHardQuestions: buildRelayQuestionSet(items, wordOrder, "hard"),

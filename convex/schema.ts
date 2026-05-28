@@ -172,6 +172,20 @@ const relayHardBudgetValidator = v.object({
   opponent: v.number(),
 });
 
+// Per-player sentence-round progress. The server is the only authority for
+// `placedTileIndices` / `mistakes` / `completed`: each tap is its own mutation
+// (`tapSentenceTile`), and `answerSentenceRound` reads this state — it doesn't
+// trust client-reported completion or mistakes. One row per (questionIndex,
+// role); rows are appended lazily on first tap.
+const sentenceProgressEntryValidator = v.object({
+  questionIndex: v.number(),
+  role: playerRoleValidator,
+  placedTileIndices: v.array(v.number()),
+  mistakes: v.number(),
+  completed: v.boolean(),
+  finalized: v.boolean(),
+});
+
 export const hintTypeValidator = v.union(
   v.literal(HINT_TYPES[0]),
   v.literal(HINT_TYPES[1]),
@@ -363,24 +377,38 @@ export default defineSchema({
   // Themes Table
   //
   // Two content types share this table: word themes carry `words`, sentence
-  // themes carry `sentenceRounds`. `contentType` is the discriminator. Both
-  // fields are optional so each variant only persists what it needs — readers
-  // narrow on `contentType` and treat the absent field as empty/disallowed.
-  // `wordType` only applies to word themes; sentence themes leave it unset.
+  // themes carry `sentenceRounds`. `contentType` is the discriminator and the
+  // table is a discriminated union: word themes require `words` and reject
+  // `sentenceRounds`, sentence themes require `sentenceRounds` and reject
+  // `words`. `wordType` only applies to word themes.
   // -------------------------------------------
-  themes: defineTable({
-    name: v.string(),
-    description: v.string(),
-    contentType: v.optional(themeContentTypeValidator),
-    wordType: optionalWordTypeValidator,
-    words: v.optional(v.array(wordValidator)),
-    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
-    createdAt: v.number(),
-    ownerId: v.optional(v.id("users")),
-    visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
-    friendsCanEdit: v.optional(v.boolean()),
-    saveRequestId: v.optional(v.string()),
-  })
+  themes: defineTable(
+    v.union(
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        contentType: v.literal("word"),
+        wordType: optionalWordTypeValidator,
+        words: v.array(wordValidator),
+        createdAt: v.number(),
+        ownerId: v.optional(v.id("users")),
+        visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+        friendsCanEdit: v.optional(v.boolean()),
+        saveRequestId: v.optional(v.string()),
+      }),
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        contentType: v.literal("sentence"),
+        sentenceRounds: v.array(sentenceRoundValidator),
+        createdAt: v.number(),
+        ownerId: v.optional(v.id("users")),
+        visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+        friendsCanEdit: v.optional(v.boolean()),
+        saveRequestId: v.optional(v.string()),
+      })
+    )
+  )
     .index("by_owner", ["ownerId"])
     .index("by_visibility", ["visibility"])
     .index("by_visibility_owner", ["visibility", "ownerId"])
@@ -499,6 +527,10 @@ export default defineSchema({
     // Server-only — never shipped to clients.
     relayHardQuestions: v.optional(v.array(duelQuestionValidator)),
 
+    // Per-(questionIndex, role) sentence-round progress. The server is the only
+    // authority — see `sentenceProgressEntryValidator` above.
+    sentenceProgress: v.optional(v.array(sentenceProgressEntryValidator)),
+
     seed: v.number(),
   })
     .index("by_challenger", ["challengerId"])
@@ -583,19 +615,33 @@ export default defineSchema({
   // -------------------------------------------
   // Weekly Goal Theme Snapshots Table
   // -------------------------------------------
-  weeklyGoalThemeSnapshots: defineTable({
-    weeklyGoalId: v.id("weeklyGoals"),
-    originalThemeId: v.id("themes"),
-    order: v.number(),
-    name: v.string(),
-    description: v.string(),
-    contentType: v.optional(themeContentTypeValidator),
-    wordType: optionalWordTypeValidator,
-    words: v.optional(v.array(wordValidator)),
-    sentenceRounds: v.optional(v.array(sentenceRoundValidator)),
-    lockedAt: v.number(),
-    createdAt: v.number(),
-  })
+  weeklyGoalThemeSnapshots: defineTable(
+    v.union(
+      v.object({
+        weeklyGoalId: v.id("weeklyGoals"),
+        originalThemeId: v.id("themes"),
+        order: v.number(),
+        name: v.string(),
+        description: v.string(),
+        contentType: v.literal("word"),
+        wordType: optionalWordTypeValidator,
+        words: v.array(wordValidator),
+        lockedAt: v.number(),
+        createdAt: v.number(),
+      }),
+      v.object({
+        weeklyGoalId: v.id("weeklyGoals"),
+        originalThemeId: v.id("themes"),
+        order: v.number(),
+        name: v.string(),
+        description: v.string(),
+        contentType: v.literal("sentence"),
+        sentenceRounds: v.array(sentenceRoundValidator),
+        lockedAt: v.number(),
+        createdAt: v.number(),
+      })
+    )
+  )
     .index("by_weeklyGoal", ["weeklyGoalId"])
     .index("by_weeklyGoal_order", ["weeklyGoalId", "order"])
     .index("by_weeklyGoal_originalTheme", ["weeklyGoalId", "originalThemeId"])

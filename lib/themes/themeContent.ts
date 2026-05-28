@@ -1,33 +1,29 @@
 /**
  * Helpers for narrowing a theme document by its `contentType` discriminator.
  * Themes can carry word content (`words`) or sentence content (`sentenceRounds`)
- * but not both. `contentType` is the source of truth; the unused content field
- * is omitted on persist.
+ * but not both. `contentType` is the source of truth and is required everywhere;
+ * the unused content field is omitted on persist.
  */
 
 import type { SentenceRoundInput, ThemeContentType } from "./sentenceTypes";
-import { DEFAULT_THEME_CONTENT_TYPE } from "./sentenceTypes";
 import type { WordEntry } from "../types";
 
 export interface ThemeContentShape {
-  contentType?: ThemeContentType;
+  contentType: ThemeContentType;
   words?: WordEntry[];
   sentenceRounds?: SentenceRoundInput[];
 }
 
-/** Returns the resolved content type, defaulting to "word" when absent. */
-export function resolveThemeContentType(
-  theme: { contentType?: ThemeContentType | null }
-): ThemeContentType {
-  return theme.contentType ?? DEFAULT_THEME_CONTENT_TYPE;
+export function isSentenceTheme<T extends { contentType: ThemeContentType }>(
+  theme: T
+): theme is T & { contentType: "sentence" } {
+  return theme.contentType === "sentence";
 }
 
-export function isSentenceTheme(theme: { contentType?: ThemeContentType | null }): boolean {
-  return resolveThemeContentType(theme) === "sentence";
-}
-
-export function isWordTheme(theme: { contentType?: ThemeContentType | null }): boolean {
-  return resolveThemeContentType(theme) === "word";
+export function isWordTheme<T extends { contentType: ThemeContentType }>(
+  theme: T
+): theme is T & { contentType: "word" } {
+  return theme.contentType === "word";
 }
 
 /** Total play item count for a theme (words or sentence rounds). */

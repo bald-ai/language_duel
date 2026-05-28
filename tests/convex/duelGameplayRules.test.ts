@@ -95,9 +95,11 @@ describe("duel gameplay rules", () => {
     });
     const spacedRepetitionDuel = duelDoc({ sourceType: "spaced_repetition" });
 
+    // Final completion clamps `currentWordIndex` to the last real position so
+    // the completed-state UI doesn't crash narrowing past the last question.
     expect(buildFinalCompletionPatch(bossDuel, 1)).toMatchObject({
       status: "completed",
-      currentWordIndex: 1,
+      currentWordIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: undefined,

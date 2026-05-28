@@ -18,6 +18,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Stable UI selectors for key controls (`data-testid`/IDs).
 - No new dependencies or tooling changes without approval.
 - File size guideline: aim to keep files under ~700 LOC; split/refactor when it improves clarity or testability.
+- Production data exists from the maintainer and one other user (a few months of usage). Treat that data as **disposable** — it is not pristine and can be wiped. Always prefer cleaner schemas, required discriminators, and tighter contracts over migration code or "support old shape" fallbacks. There is no real user base to migrate.
 
 ## Testing
 - Coverage bar: Thresholds at 70% for lines/branches/functions/statements.
@@ -25,6 +26,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - If a test becomes a false positive/negative or no longer validates intent, update it to assert the correct behavior.
 - Prefer adding tests over loosening assertions.
 - Never delete/disable tests just to get green; any test change requires a short rationale in handoff.
+- Flag test-only code. If a helper, branch, constant, or whole file has no real caller in the running app and exists only to be exercised by tests (or kept alive with `void` suppressions, "for future use" comments, or "for parity" stubs), surface it to the user instead of shipping it. The rule mirrors "no fallback code" above — code with no real caller is dead code, regardless of whether a test touches it.
 
 ## Handoff
 - Update docs when behavior changes (short note in existing docs).

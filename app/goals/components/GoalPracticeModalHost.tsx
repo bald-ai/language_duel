@@ -33,18 +33,25 @@ export function GoalPracticeModalHost({
 }: GoalPracticeModalHostProps) {
   const colors = useAppearanceColors();
   if (weeklyGoalPracticeThemes?.ok) {
+    // Solo is word-only today (plan: solo / weekly-goal practice doesn't run
+    // sentence themes in v1). Filter at the picker so the user never selects
+    // a theme the solo loader would reject.
+    const wordOnlyThemes = weeklyGoalPracticeThemes.themes.filter(
+      (theme) => theme.contentType !== "sentence"
+    );
     return (
       <SoloPracticeModal
         key={`${goalId}:${weeklyGoalPracticeThemes.source}`}
-        themes={weeklyGoalPracticeThemes.themes.map((theme) => ({
+        themes={wordOnlyThemes.map((theme) => ({
           _id: theme._id,
           name: theme.name,
-          wordCount: theme.words?.length ?? theme.sentenceRounds?.length ?? 0,
+          contentType: theme.contentType,
+          itemCount: theme.words?.length ?? 0,
         }))}
         onContinue={onContinue}
         onClose={onClose}
         onNavigateToThemes={() => {}}
-        initialDraftThemeIds={weeklyGoalPracticeThemes.themes.map((theme) => theme._id)}
+        initialDraftThemeIds={wordOnlyThemes.map((theme) => theme._id)}
         forceThemeSelectorFirst
         hideCreateThemeButton
         themeSelectorNotice={

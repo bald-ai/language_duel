@@ -26,7 +26,7 @@ type ThemeWord = {
 
 type ThemeDoc = Pick<
   Doc<"themes">,
-  "_id" | "_creationTime" | "name" | "description" | "createdAt" | "ownerId"
+  "_id" | "_creationTime" | "name" | "description" | "contentType" | "createdAt" | "ownerId"
 > & {
   words: ThemeWord[];
 };
@@ -105,8 +105,12 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     "_id" | "_creationTime" | "type" | "fromUserId" | "toUserId" | "status" | "createdAt"
   >;
 
-type SnapshotDoc = Pick<
+type WordSnapshotBranch = Extract<
   Doc<"weeklyGoalThemeSnapshots">,
+  { contentType: "word" }
+>;
+type SnapshotDoc = Pick<
+  WordSnapshotBranch,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"
@@ -114,6 +118,7 @@ type SnapshotDoc = Pick<
   | "order"
   | "name"
   | "description"
+  | "contentType"
   | "words"
   | "lockedAt"
   | "createdAt"
@@ -293,6 +298,7 @@ function themeDoc(id: string, name: string): ThemeDoc {
     _creationTime: 1,
     name,
     description: `${name} words`,
+    contentType: "word",
     createdAt: 1,
     ownerId: "user_1" as Id<"users">,
     words: [
@@ -311,6 +317,7 @@ function snapshotDoc(id: string, themeId: string, name: string): SnapshotDoc {
     order: themeId === "theme_1" ? 0 : 1,
     name,
     description: `${name} snapshot words`,
+    contentType: "word",
     words: [
       { word: `${name} 1`, answer: `${name} answer 1`, wrongAnswers: ["a", "b", "c"] },
       { word: `${name} 2`, answer: `${name} answer 2`, wrongAnswers: ["d", "e", "f"] },

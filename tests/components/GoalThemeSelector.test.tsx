@@ -25,24 +25,28 @@ describe("GoalThemeSelector", () => {
         _id: "theme_1",
         name: "Animals",
         description: "Words about animals",
+        contentType: "word",
         words: [{ word: "cat" }],
       },
       {
         _id: "theme_2",
         name: "Food",
         description: "Words about food",
+        contentType: "word",
         words: [{ word: "bread" }],
       },
       {
         _id: "theme_3",
         name: "Travel",
         description: "Words about travel",
+        contentType: "word",
         words: [{ word: "plane" }],
       },
       {
         _id: "theme_4",
         name: "Sports",
         description: "Words about sports",
+        contentType: "word",
         words: [{ word: "ball" }],
       },
     ]);

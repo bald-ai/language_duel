@@ -49,10 +49,10 @@ export async function deleteWeeklyGoalThemeSnapshots(
     const existingStorageIds =
       storageIdsByThemeId.get(snapshot.originalThemeId) ?? new Set<Id<"_storage">>();
     // Sentence snapshots don't carry TTS in v1 (plan: no TTS for sentence themes).
-    // Use the optional `words` field directly — sentence snapshots leave it undefined.
-    const snapshotStorageIds = snapshot.words
-      ? collectTtsStorageIds(snapshot.words)
-      : new Set<Id<"_storage">>();
+    const snapshotStorageIds =
+      snapshot.contentType === "word"
+        ? collectTtsStorageIds(snapshot.words)
+        : new Set<Id<"_storage">>();
     for (const storageId of snapshotStorageIds) {
       existingStorageIds.add(storageId);
     }
@@ -93,30 +93,52 @@ export async function createWeeklyGoalThemeSnapshots(
       continue;
     }
 
-    await ctx.db.insert("weeklyGoalThemeSnapshots", {
-      weeklyGoalId: goal._id,
-      originalThemeId: theme._id,
-      order: index,
-      name: theme.name,
-      description: theme.description,
-      contentType: theme.contentType,
-      wordType: theme.wordType,
-      words: theme.words,
-      sentenceRounds: theme.sentenceRounds,
-      lockedAt,
-      createdAt: lockedAt,
-    });
+    if (theme.contentType === "word") {
+      await ctx.db.insert("weeklyGoalThemeSnapshots", {
+        weeklyGoalId: goal._id,
+        originalThemeId: theme._id,
+        order: index,
+        name: theme.name,
+        description: theme.description,
+        contentType: theme.contentType,
+        wordType: theme.wordType,
+        words: theme.words,
+        lockedAt,
+        createdAt: lockedAt,
+      });
+    } else {
+      await ctx.db.insert("weeklyGoalThemeSnapshots", {
+        weeklyGoalId: goal._id,
+        originalThemeId: theme._id,
+        order: index,
+        name: theme.name,
+        description: theme.description,
+        contentType: theme.contentType,
+        sentenceRounds: theme.sentenceRounds,
+        lockedAt,
+        createdAt: lockedAt,
+      });
+    }
   }
 }
 
 function toSessionThemeInput(
   snapshot: WeeklyGoalThemeSnapshot
 ): SessionThemeInput {
+  if (snapshot.contentType === "word") {
+    return {
+      _id: snapshot.originalThemeId,
+      name: snapshot.name,
+      contentType: snapshot.contentType,
+      words: snapshot.words,
+      sentenceRounds: undefined,
+    };
+  }
   return {
     _id: snapshot.originalThemeId,
     name: snapshot.name,
     contentType: snapshot.contentType,
-    words: snapshot.words,
+    words: undefined,
     sentenceRounds: snapshot.sentenceRounds,
   };
 }

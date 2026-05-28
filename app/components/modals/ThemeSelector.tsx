@@ -148,7 +148,7 @@ export function ThemeSelector({
                     {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
                   </div>
                   <div className="text-xs" style={{ color: colors.text.muted }}>
-                    {theme.wordCount} words
+                    {theme.itemCount} {theme.contentType === "sentence" ? "rounds" : "words"}
                   </div>
                 </div>
                 {isSelected && (
@@ -211,7 +211,7 @@ export function ThemeSelector({
               {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
             </div>
             <div className="text-sm" style={{ color: colors.text.muted }}>
-              {theme.wordCount} words
+              {theme.itemCount} {theme.contentType === "sentence" ? "rounds" : "words"}
             </div>
           </div>
           <div

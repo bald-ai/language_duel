@@ -14,6 +14,8 @@ interface GoalThemeSelectorProps {
   onClose: () => void;
 }
 
+type ContentTab = "word" | "sentence";
+
 export function GoalThemeSelector({
   goalId,
   currentThemeCount,
@@ -22,10 +24,15 @@ export function GoalThemeSelector({
 }: GoalThemeSelectorProps) {
   const colors = useAppearanceColors();
   const [selectedIds, setSelectedIds] = useState<Set<Id<"themes">>>(new Set());
+  const [activeTab, setActiveTab] = useState<ContentTab>("word");
   const eligibleThemes = useQuery(api.weeklyGoals.getEligibleThemes, { goalId });
 
   const maxCanAdd = MAX_THEMES_PER_GOAL - currentThemeCount;
   const canAddMore = selectedIds.size < maxCanAdd;
+
+  const visibleThemes = eligibleThemes?.filter(
+    (theme) => theme.contentType === activeTab
+  );
 
   const toggleTheme = (themeId: Id<"themes">) => {
     setSelectedIds((prev) => {
@@ -98,16 +105,53 @@ export function GoalThemeSelector({
           </button>
         </div>
 
+        {/* Tabs */}
+        <div
+          className="flex border-b-2"
+          style={{ borderColor: colors.primary.dark }}
+          role="tablist"
+        >
+          {(["word", "sentence"] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            const label = tab === "word" ? "Words" : "Sentences";
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab)}
+                className="flex-1 py-3 text-sm font-bold uppercase tracking-wide transition-all"
+                style={{
+                  color: isActive ? colors.cta.light : colors.text.muted,
+                  backgroundColor: isActive
+                    ? `${colors.cta.DEFAULT}1A`
+                    : "transparent",
+                  borderBottom: isActive
+                    ? `2px solid ${colors.cta.DEFAULT}`
+                    : "2px solid transparent",
+                  marginBottom: "-2px",
+                }}
+                data-testid={`goals-theme-tab-${tab}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {eligibleThemes === undefined ? (
+          {visibleThemes === undefined ? (
             <div className="text-center py-8">
               <p style={{ color: colors.text.muted }}>Loading themes...</p>
             </div>
-          ) : eligibleThemes.length === 0 ? (
+          ) : visibleThemes.length === 0 ? (
             <div className="text-center py-8 space-y-2">
               <p style={{ color: colors.text.muted }}>
-                No eligible themes available
+                {activeTab === "sentence"
+                  ? "No eligible sentence themes available"
+                  : "No eligible word themes available"}
               </p>
               <p className="text-sm" style={{ color: colors.text.muted }}>
                 Themes must be owned by you or your partner
@@ -115,7 +159,7 @@ export function GoalThemeSelector({
             </div>
           ) : (
             <div className="space-y-2">
-              {eligibleThemes.map((theme) => {
+              {visibleThemes.map((theme) => {
                 const isSelected = selectedIds.has(theme._id);
                 const isDisabled = !isSelected && !canAddMore;
 
@@ -152,8 +196,9 @@ export function GoalThemeSelector({
                             className="text-xs"
                             style={{ color: colors.text.muted }}
                           >
-                            {theme.words?.length ?? theme.sentenceRounds?.length ?? 0}{" "}
-                            {theme.sentenceRounds ? "rounds" : "words"}
+                            {theme.contentType === "sentence"
+                              ? `${theme.sentenceRounds?.length ?? 0} rounds`
+                              : `${theme.words?.length ?? 0} words`}
                           </span>
                           {theme.description && (
                             <>
