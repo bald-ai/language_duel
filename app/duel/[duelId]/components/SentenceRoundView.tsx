@@ -16,6 +16,7 @@ import {
   SENTENCE_PVP_TIMER_SECONDS,
   SENTENCE_SELF_DUEL_TIMER_SECONDS,
 } from "@/lib/themes/sentenceConstants";
+import { formatSentenceTileForDisplay } from "@/lib/sentenceGameplay/displayTile";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 
@@ -238,6 +239,7 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
   const assembled = placedTileIndices
     .map((index) => question.tilePool[index])
     .filter((tile): tile is string => tile !== undefined)
+    .map(formatSentenceTileForDisplay)
     .join(" ");
   const placedSet = new Set(placedTileIndices);
 
@@ -284,7 +286,7 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
         {assembled || "Tap the words in order…"}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 w-full">
         {question.tilePool.map((tile, index) => {
           const isPlaced = placedSet.has(index);
           return (
@@ -292,15 +294,15 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
               key={`${tile}-${index}`}
               onClick={() => handleTap(index)}
               disabled={isPlaced || completed || secondsLeft === 0}
-              className="rounded-xl border-2 px-3 py-2 text-sm sm:text-base font-bold transition hover:brightness-110 disabled:opacity-30"
+              className="p-4 rounded-lg border-2 text-lg font-medium transition-all hover:brightness-110 active:scale-95 disabled:opacity-30"
               style={{
-                backgroundColor: colors.background.DEFAULT,
+                backgroundColor: colors.background.elevated,
                 borderColor: colors.primary.dark,
                 color: colors.text.DEFAULT,
               }}
               data-testid={`sentence-tile-${index}`}
             >
-              {tile}
+              {formatSentenceTileForDisplay(tile)}
             </button>
           );
         })}

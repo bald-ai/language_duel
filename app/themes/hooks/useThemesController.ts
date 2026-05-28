@@ -57,6 +57,12 @@ export function useThemesController() {
       sentenceController.handleEditFieldCancel();
       return;
     }
+    if (sentenceController.isReviewActive) {
+      // Mirror the word pick-and-prune back behaviour: confirm before dropping
+      // the freshly generated rounds.
+      sentenceController.reviewProps.onCancel();
+      return;
+    }
     if (sentenceController.selectedState !== null) {
       // Mirror the word-theme back behaviour: go through the discard confirm so
       // a draft (~20 rounds) or saved-theme edit isn't wiped on a stray tap.
@@ -208,7 +214,16 @@ export function useThemesController() {
       themeName: string;
       themePrompt: string;
       targetRoundCount: number;
-    }) => sentenceController.generateAndOpenDraft(input),
+    }) => sentenceController.generateAndReview(input),
+  };
+
+  const sentencePickAndPruneReviewProps = sentenceController.reviewProps;
+
+  const sentenceReviewDiscardProps = {
+    isOpen: sentenceController.reviewDiscardConfirm,
+    reviewKind: "new-theme" as const,
+    onConfirm: sentenceController.confirmDiscardReview,
+    onCancel: sentenceController.cancelDiscardReview,
   };
 
   const sentenceGenerateMoreModalProps = {
@@ -263,11 +278,14 @@ export function useThemesController() {
     discardPickAndPruneProps: generation.discardPickAndPruneProps,
     // Sentence-theme prop bundles
     isSentenceFlowActive: sentenceController.selectedTheme !== null,
+    isSentenceReviewActive: sentenceController.isReviewActive,
     sentenceEditField: sentenceController.editField,
     sentenceDetailProps,
     sentenceEditorProps,
     sentenceGenerateModalProps,
     sentenceGenerateMoreModalProps,
+    sentencePickAndPruneReviewProps,
+    sentenceReviewDiscardProps,
     sentenceDiscardConfirmProps,
     contentTypeModalProps,
   };

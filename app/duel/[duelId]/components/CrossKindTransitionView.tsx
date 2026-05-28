@@ -96,24 +96,30 @@ export function CrossKindTransitionView({
             Round {transition.prevIndex + 1} of {duel.sessionWords.length}
           </div>
 
-          <h1
-            className="mt-3 text-center text-2xl sm:text-3xl font-bold leading-tight"
-            style={{ color: colors.text.DEFAULT }}
-            data-testid="cross-kind-transition-prompt"
-          >
-            {prompt}
-          </h1>
-
-          <div
-            className="mt-5 w-full rounded-xl border-2 p-3 text-center text-lg sm:text-xl font-bold"
-            style={{
-              borderColor: colors.status.success.dark,
-              backgroundColor: `${colors.status.success.DEFAULT}1A`,
-              color: colors.status.success.light,
-            }}
-            data-testid="cross-kind-transition-answer"
-          >
-            {correctAnswer ?? ""}
+          {/* Prompt and answer share one typographic scale and stack directly
+              on top of each other so the learner can line the languages up
+              word-for-word. Colour is the only differentiator: default for the
+              prompt, success-green for the revealed answer. */}
+          <div className="mt-6 w-full flex flex-col items-center gap-3 text-center">
+            <h1
+              className="text-2xl sm:text-3xl font-bold leading-snug"
+              style={{ color: colors.text.DEFAULT }}
+              data-testid="cross-kind-transition-prompt"
+            >
+              {prompt}
+            </h1>
+            <div
+              className="h-px w-16"
+              style={{ backgroundColor: `${colors.text.muted}55` }}
+              aria-hidden
+            />
+            <p
+              className="text-2xl sm:text-3xl font-bold leading-snug"
+              style={{ color: colors.status.success.light }}
+              data-testid="cross-kind-transition-answer"
+            >
+              {correctAnswer ?? ""}
+            </p>
           </div>
 
           {duel.status !== "completed" && (
