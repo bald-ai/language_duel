@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDuelQuestionSet,
   buildDuelQuestionSnapshot,
+  buildRelayQuestionSet,
   NONE_OF_ABOVE,
 } from "@/lib/answerShuffle";
 import type { WordEntry, ShuffleDifficultyInfo, Id } from "@/lib/types";
@@ -121,5 +122,22 @@ describe("answerShuffle", () => {
     expect(
       result.some((s) => s.kind === "word" && s.options.includes(NONE_OF_ABOVE))
     ).toBe(true);
+  });
+
+  it("rejects sentence items in relay question sets", () => {
+    const items = [
+      {
+        kind: "sentence" as const,
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        distractors: ["tú", "bebes"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Sentences",
+      },
+    ];
+
+    expect(() => buildRelayQuestionSet(items, [0], "medium")).toThrow(
+      "Relay question sets require word-only session items"
+    );
   });
 });

@@ -65,7 +65,7 @@ Theme generation lifecycle:
 Duel mode lifecycle:
 
 - `duelMode` is required on challenge creation and is copied from the pending `challenges` record into the accepted `duels` record.
-- The mode is shown on challenge notifications so the accepting player can see whether the invite is `PvP` or `PvE`.
+- The mode is shown on challenge notifications so the accepting player can see whether the invite is `PvP`, `PvE`, or `Relay`.
 - The mode picker appears on normal challenge creation, weekly-goal boss duel creation, and spaced-repetition duel creation.
 - `PvP` keeps the competitive tools: sabotages, request-hint, accept-hint, and option elimination. Those actions are allowed only in `PvP`.
 - `PvE` removes sabotages and request-help UI. Instead, both players see the same hint pool during the answering phase.
@@ -73,10 +73,12 @@ Duel mode lifecycle:
 - A PvE hint is shared team state: either player can fire it, it affects both players, there is no consent step, and only one hint can be fired per question.
 - Every PvE hint gives a universal timer bump; `+15 Seconds` is the bigger timer hint because it includes the universal bump plus its own extra time.
 - PvE is designed around two players sitting together and talking in real life. Do not add request pings, consent prompts, or extra notification noise unless that product assumption changes.
+- Sentence rounds in PvE are per-player boards in v1, not a shared cooperative tile board. Players share the duel/timer context, but each player submits their own sentence result.
 - `Relay` is the third mode: turn-based, no sabotages, no shared hint pool, no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
 
 Relay duel lifecycle:
 
+- Relay is word-only in v1. The challenge modal disables Relay when any selected theme is a sentence theme, `createChallenge` rejects Relay + sentence themes, and duel session creation rejects any old pending Relay invite that would build sentence items.
 - Relay has three phases tracked on the duel record: `pick`, `answer`, and `feedback`. Only `answer` is timed.
 - The challenger always picks first. After every answered word (correct, wrong, or timed out) the answerer becomes the next picker, so turns alternate by outcome of play rather than by a fixed schedule.
 - The pick phase shows the picker the remaining word pool (resolved and currently-assigned positions are excluded) plus a per-player hard-upgrade budget. The non-picker sees a waiting screen.

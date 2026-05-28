@@ -63,8 +63,7 @@ Test suite: **953 / 953 passing**. Lint clean, typecheck clean (both root and
   the word patch builder. Lives deduct **per wrong tile** (plus an extra
   HP on timeout) and the boss-end fields fire when lives hit zero — same
   inline shape as `getLimitedLivesMissPatch`.
-- New mutation `gameplay.answerSentenceRound` and relay variant
-  `relayDuel.relayAnswerSentence`. Sentence rounds use the existing
+- Mutation `gameplay.answerSentenceRound`. Sentence rounds use the existing
   `finalizeAfterAnswer` advance loop (both players submit, round advances).
 
 ### Phase 5 — Duel UI integration
@@ -82,8 +81,9 @@ Test suite: **953 / 953 passing**. Lint clean, typecheck clean (both root and
   `requireWordQuestion` / `requireWordSessionItem` narrowing helpers so they
   crash loudly (rather than silently rendering an empty MC grid) if a
   sentence position ever leaks into the word flow.
-- `RelayDuelView`: sentence positions render a placeholder that explains the
-  v1 limitation (see "Known v1 limitations" below).
+- Relay is word-only in v1: the challenge modal disables Relay for sentence
+  themes, challenge/session creation reject Relay + sentence content, and
+  `RelayDuelView` renders only word positions.
 
 ### Phase 6 — Weekly goals / limited lives
 - `weeklyGoalThemeSnapshots` carries `contentType` + `sentenceRounds`, so a
@@ -131,13 +131,10 @@ Per "loose up some things to make the sentences work from get go":
    needs to graduate from "submit final result" to "submit each tap" — a
    noticeable refactor of `gameplay.answerSentenceRound`.
 
-3. **Relay sentence positions show a placeholder, not a playable board.**
-   `relayAnswerSentence` mutation works end-to-end, but the picker / answerer
-   UI in `RelayDuelView` for sentence positions just tells the answerer to
-   "switch to a self-duel session". Wiring the full picker → tile-board →
-   advance flow inside `RelayDuelView` is the remaining work. The picker
-   row already shows the English prompt (wraps to two lines for long
-   prompts, per plan).
+3. **Relay is word-only in v1.** Sentence themes are disabled in the Relay
+   picker and rejected at challenge/session creation. The old dormant
+   `relayAnswerSentence` path and placeholder UI were removed; full sentence
+   Relay would need a new picker → tile-board → advance design.
 
 4. **Sentence theme generation always uses Pick & Prune.** There's no
    "standard direct generate" path for sentence themes in v1 — every
@@ -174,8 +171,8 @@ Per "loose up some things to make the sentences work from get go":
   users, so I haven't written a backfill — let me know if you want one.
 - **`soloPracticeSessions.sessionWords`** has the same union shape.
 - New mutations exposed by the public API:
-  - `gameplay.answerSentenceRound({ duelId, questionIndex, completed, mistakes })`
-  - `relayDuel.relayAnswerSentence({ duelId, completed, mistakes })`
+  - `gameplay.answerSentenceRound({ duelId, questionIndex, timedOut })`
+  - `gameplay.tapSentenceTile({ duelId, questionIndex, tileIndex })`
   - `themes.createTheme` / `themes.updateTheme` accept the new optional
     `contentType` / `sentenceRounds` args.
 - New generation API request types: `sentence-theme` and
@@ -190,7 +187,8 @@ Per "loose up some things to make the sentences work from get go":
   `words` arrays. Sentence-only goals therefore can't run spaced repetition.
   The plan defers full SR sentence support; the error message points users
   back to duels.
-- **PvP / PvE shared-board sentences not wired**, see loosenings 2/3.
+- **PvE shared-board sentences not wired**, see loosening 2.
+- **Relay sentence themes are intentionally blocked in v1.**
 - **Sentence-theme TTS**: plan says no TTS in v1. The cards in the list
   intentionally don't render a placeholder, but if you start generating TTS
   for sentence themes later, the apply-mutation already skips them with all

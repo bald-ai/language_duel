@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
 import type { DuelMode } from "@/lib/duelMode";
@@ -61,12 +61,28 @@ export function ChallengeModal({
   const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
   // Intentionally unread when isSelfSelected; backend forces SELF_DUEL_FORCED_MODE.
-  const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
+  const [requestedMode, setRequestedMode] = useState<DuelMode>("pvp");
 
   const isSelfSelected = isSelfDuelSelection(viewer, selectedOpponentId);
   const selectedOpponent = isSelfSelected
     ? viewer ?? null
     : (users?.find((user) => user._id === selectedOpponentId) ?? null);
+  // Relay is word-only in v1: sentence themes are not playable through the
+  // Relay flow yet (no playable sentence UI on the answerer side). Detect
+  // sentence themes in the current selection and disable Relay accordingly.
+  const hasSentenceTheme = useMemo(() => {
+    if (!themes) return false;
+    const selected = new Set(selectedThemeIds);
+    return themes.some((theme) => selected.has(theme._id) && theme.contentType === "sentence");
+  }, [themes, selectedThemeIds]);
+
+  // Clamp Relay -> PvP whenever sentence themes are present so the create
+  // call always carries a playable mode. Self-duels never expose Relay so
+  // the clamp only applies to PvP/PvE flows.
+  const relayLocked = !isSelfSelected && hasSentenceTheme;
+  const selectedMode: DuelMode =
+    relayLocked && requestedMode === "relay" ? "pvp" : requestedMode;
+
   // Relay difficulty is imposed per-turn by the picker, so no preset is sent.
   const isRelaySelected = !isSelfSelected && selectedMode === "relay";
 
@@ -106,10 +122,11 @@ export function ChallengeModal({
           selectedThemeIds={selectedThemeIds}
           selectedDifficulty={selectedDifficulty}
           selectedMode={selectedMode}
+          hasSentenceTheme={hasSentenceTheme}
           onSelectOpponent={setSelectedOpponentId}
           onThemeIdsChange={setSelectedThemeIds}
           onSelectDifficulty={setSelectedDifficulty}
-          onSelectMode={setSelectedMode}
+          onSelectMode={setRequestedMode}
           onNavigateToThemes={onNavigateToThemes}
         />
       </div>
@@ -150,12 +167,16 @@ interface ChallengeCreateSurfaceProps {
   selectedThemeIds: Id<"themes">[];
   selectedDifficulty: DuelDifficultyPreset;
   selectedMode: DuelMode;
+  hasSentenceTheme: boolean;
   onSelectOpponent: (id: Id<"users">) => void;
   onThemeIdsChange: (themeIds: Id<"themes">[]) => void;
   onSelectDifficulty: (preset: DuelDifficultyPreset) => void;
   onSelectMode: (mode: DuelMode) => void;
   onNavigateToThemes: () => void;
 }
+
+const RELAY_SENTENCE_DISABLED_REASON =
+  "Relay is word-only — remove sentence themes to pick Relay.";
 
 function ChallengeCreateSurface({
   users,
@@ -167,6 +188,7 @@ function ChallengeCreateSurface({
   selectedThemeIds,
   selectedDifficulty,
   selectedMode,
+  hasSentenceTheme,
   onSelectOpponent,
   onThemeIdsChange,
   onSelectDifficulty,
@@ -178,6 +200,9 @@ function ChallengeCreateSurface({
   // is hidden when Relay is chosen (decision #14). Self-duels force PvE, never
   // relay, so they always show the selector.
   const isRelaySelected = !isSelfSelected && selectedMode === "relay";
+  const disabledModes = hasSentenceTheme
+    ? { relay: RELAY_SENTENCE_DISABLED_REASON }
+    : undefined;
   return (
     <>
       <div>
@@ -239,6 +264,7 @@ function ChallengeCreateSurface({
             selectedMode={selectedMode}
             onSelectMode={onSelectMode}
             dataTestIdPrefix="duel-modal-mode"
+            disabledModes={disabledModes}
           />
         </div>
       )}

@@ -1,4 +1,4 @@
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { DuelViewProps } from "@/app/duel/[duelId]/components/DuelView";
@@ -191,6 +191,53 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
   } as Doc<"duels">;
 }
 
+function wordItem(overrides: Partial<Extract<Doc<"duels">["sessionWords"][number], { kind: "word" }>> = {}) {
+  return {
+    kind: "word" as const,
+    word: "cat",
+    answer: "gato",
+    wrongAnswers: ["perro", "mesa", "casa"],
+    themeId: "theme_1" as Id<"themes">,
+    themeName: "Animals",
+    ...overrides,
+  };
+}
+
+function sentenceItem(
+  overrides: Partial<Extract<Doc<"duels">["sessionWords"][number], { kind: "sentence" }>> = {}
+) {
+  return {
+    kind: "sentence" as const,
+    englishPrompt: "I eat bread",
+    spanishSentence: "Yo como pan",
+    distractors: ["Tú", "bebes"],
+    themeId: "theme_2" as Id<"themes">,
+    themeName: "Sentences",
+    ...overrides,
+  };
+}
+
+function wordQuestion(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: "word" as const,
+    options: ["gato", "perro", "mesa", "casa"],
+    correctOption: "gato",
+    difficulty: "easy" as const,
+    points: 1,
+    ...overrides,
+  };
+}
+
+function sentenceQuestion(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: "sentence" as const,
+    englishPrompt: "I eat bread",
+    spanishSentence: "Yo como pan",
+    tilePool: ["Yo", "como", "pan", "Tú", "bebes"],
+    ...overrides,
+  };
+}
+
 const challenger = {
   _id: "user_1" as Id<"users">,
   name: "Challenger",
@@ -238,7 +285,7 @@ describe("DuelSession", () => {
       />
     );
 
-    await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
+    expect(getDuelViewProps().phase).toBe("answering");
 
     act(() => {
       getDuelViewProps().actions.onOptionClick("gato", false, false);
@@ -291,6 +338,203 @@ describe("DuelSession", () => {
       wordIndex: 0,
       difficulty: { level: "easy", points: 1 },
     });
+  });
+
+  it("shows the previous word reveal before advancing into a sentence round", async () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [wordItem(), sentenceItem()],
+          duelQuestions: [
+            wordQuestion(),
+            sentenceQuestion({ answerRevealedToViewer: false }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    expect(getDuelViewProps().phase).toBe("answering");
+
+    rerender(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [wordItem(), sentenceItem()],
+          duelQuestions: [
+            wordQuestion({ answerRevealedToViewer: true }),
+            sentenceQuestion({ answerRevealedToViewer: false }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+          currentWordIndex: 1,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId("cross-kind-transition-prompt")).toHaveTextContent("cat");
+    expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("gato");
+  });
+
+  it("shows the completed sentence reveal before advancing into a word round", async () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: false }),
+            wordQuestion({ correctOption: "perro" }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    rerender(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: true }),
+            wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+          currentWordIndex: 1,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId("cross-kind-transition-prompt")).toHaveTextContent("I eat bread");
+    expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("Yo como pan");
+  });
+
+  it("keeps sentence feedback visible between consecutive sentence rounds", async () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [
+            sentenceItem(),
+            sentenceItem({ englishPrompt: "You drink water", spanishSentence: "Tú bebes agua" }),
+          ],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: false }),
+            sentenceQuestion({
+              englishPrompt: "You drink water",
+              spanishSentence: "Tú bebes agua",
+              tilePool: ["Tú", "bebes", "agua"],
+              answerRevealedToViewer: false,
+            }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    rerender(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [
+            sentenceItem(),
+            sentenceItem({ englishPrompt: "You drink water", spanishSentence: "Tú bebes agua" }),
+          ],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: true }),
+            sentenceQuestion({
+              englishPrompt: "You drink water",
+              spanishSentence: "Tú bebes agua",
+              tilePool: ["Tú", "bebes", "agua"],
+              answerRevealedToViewer: false,
+            }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0, 1],
+          currentWordIndex: 1,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId("cross-kind-transition-prompt")).toHaveTextContent("I eat bread");
+    expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("Yo como pan");
+  });
+
+  it("shows sentence feedback before the final-results handoff", async () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <DuelSession
+        duel={createDuel({
+          sessionWords: [sentenceItem()],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: false }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    rerender(
+      <DuelSession
+        duel={createDuel({
+          status: "completed",
+          sessionWords: [sentenceItem()],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: true }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0],
+          currentWordIndex: 0,
+          challengerAnswered: false,
+          opponentAnswered: false,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("Yo como pan");
+    expect(screen.getByTestId("cross-kind-transition-final")).toHaveTextContent("Wrapping up");
   });
 
   it("treats hidden safe DTO answers as unrevealed before the viewer answers", async () => {

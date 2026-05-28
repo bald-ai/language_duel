@@ -23,6 +23,11 @@ type ThemeDoc = Pick<
   "_id" | "_creationTime" | "name" | "description" | "contentType" | "createdAt" | "ownerId"
 > & {
   words: Array<{ word: string; answer: string; wrongAnswers: string[] }>;
+  sentenceRounds?: Array<{
+    englishPrompt: string;
+    spanishSentence: string;
+    distractors: string[];
+  }>;
 };
 type ChallengeDoc = Partial<Doc<"challenges">> &
   Pick<
@@ -258,7 +263,7 @@ const createChallengeHandler = (createChallenge as unknown as {
       opponentId: Id<"users">;
       themeIds: Id<"themes">[];
       duelDifficultyPreset?: "easy" | "medium" | "hard";
-      duelMode: "pvp" | "pve";
+      duelMode: "pvp" | "pve" | "relay";
     }
   ) => Promise<Id<"challenges">>;
 })._handler;
@@ -318,6 +323,33 @@ describe("challenge backend", () => {
     });
   });
 
+  it("rejects relay challenge creation with sentence themes", async () => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.friends.push(friendDoc());
+    db.themes[0] = themeDoc({
+      contentType: "sentence",
+      words: [],
+      sentenceRounds: [
+        {
+          englishPrompt: "I eat bread",
+          spanishSentence: "Yo como pan",
+          distractors: ["tú", "bebes"],
+        },
+      ],
+    });
+
+    await expect(
+      createChallengeHandler(createCtx(db, "clerk_1"), {
+        opponentId: "user_2" as Id<"users">,
+        themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "relay",
+      })
+    ).rejects.toThrow("Relay duels cannot include sentence themes");
+    expect(db.challenges).toHaveLength(0);
+    expect(db.duels).toHaveLength(0);
+  });
+
   it("rejects challenge creation when opponent is missing, not a friend, or self", async () => {
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
@@ -375,6 +407,35 @@ describe("challenge backend", () => {
       currentQuestionHintFired: false,
     });
     expect(db.notifications[0].status).toBe("dismissed");
+  });
+
+  it("rejects old pending relay challenges if their themes now build sentence rounds", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(20_000);
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.themes[0] = themeDoc({
+      contentType: "sentence",
+      words: [],
+      sentenceRounds: [
+        {
+          englishPrompt: "I eat bread",
+          spanishSentence: "Yo como pan",
+          distractors: ["tú", "bebes"],
+        },
+      ],
+    });
+    db.challenges.push(challengeDoc({ duelMode: "relay" }));
+    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "relay" } }));
+
+    await expect(
+      acceptChallengeHandler(createCtx(db, "clerk_2"), {
+        challengeId: "challenge_1" as Id<"challenges">,
+      })
+    ).rejects.toThrow("Relay duels cannot include sentence themes");
+
+    expect(db.challenges[0]).toMatchObject({ status: "pending" });
+    expect(db.duels).toHaveLength(0);
+    expect(db.notifications[0].status).toBe("pending");
   });
 
   it("rejects expired and wrong-recipient accept attempts", async () => {

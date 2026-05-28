@@ -129,17 +129,17 @@ Plan wireframe shows tabs. Today it's a single combined list. Add the tabs to `G
 
 **Files:** `app/goals/components/GoalThemeSelector.tsx`.
 
-## 20 — Hide sentence positions from the relay picker
+## 20 — Relay sentence support (blocked in v1)
 
-The relay sentence flow isn't playable yet (UI is a placeholder). For now, filter sentence positions out of the picker so users never select an unplayable round. The relay sentence backend + 30s timer constant stay in place for the future playable flow.
+Relay is word-only in v1. The challenge modal disables Relay for sentence themes, backend challenge/session creation rejects Relay + sentence content, and the old placeholder/mutation path was removed. Future sentence Relay support needs a fresh picker → tile-board → advance design.
 
-**Files:** `app/duel/[duelId]/components/RelayDuelView.tsx` (picker), `lib/duel/relayEngine.ts` (initial-state builder if the filtering belongs there).
+**Files:** `app/components/modals/ChallengeModal.tsx`, `convex/challenges.ts`, `convex/helpers/sessionCreation.ts`, `app/duel/[duelId]/components/RelayDuelView.tsx`, `lib/duel/relayEngine.ts`.
 
 ## 21 — Server scores sentences from the tile sequence
 
-Today `answerSentenceRound` and `relayAnswerSentence` take `{completed, mistakes}` from the client at face value. The handoff's claim "server re-scores from final submission" is false. Wire per-tap server validation: each tap is a small mutation that updates server-side sentence state; the server alone decides completed/mistakes/score. Once this lands, also mask the answer key out of `hideQuestionAnswer` and `maskSessionItemForActivePlay` — both leak `spanishSentence` today.
+`answerSentenceRound` now reads server-tracked tile progress instead of trusting client-reported completion/mistakes. Keep/expand tests around DTO masking and per-tap validation so future regressions surface quickly.
 
-**Files:** `convex/gameplay.ts:185-224`, `convex/relayDuel.ts:171-214`, `convex/rules/sentenceGameplayRules.ts:117-133`, `convex/duels.ts:65-83`.
+**Files:** `convex/gameplay.ts`, `convex/rules/sentenceGameplayRules.ts`, `convex/duels.ts`.
 
 ## 22 — Tests
 

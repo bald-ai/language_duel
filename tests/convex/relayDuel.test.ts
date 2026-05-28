@@ -178,6 +178,39 @@ describe("relayDuel mutations", () => {
         answerHandler(createCtx(db, "clerk_1", makeScheduler()), { duelId, value: "base0" })
       ).rejects.toThrow(/answerer/i);
     });
+
+    it("rejects corrupt relay duels that somehow serve a sentence position", async () => {
+      const db = seedDb(
+        relayDuelDoc({
+          relayPhase: "answer",
+          relayPicker: "challenger",
+          relayAssignedIndex: 0,
+          sessionWords: [
+            {
+              kind: "sentence",
+              englishPrompt: "I eat bread",
+              spanishSentence: "Yo como pan",
+              distractors: ["tú", "bebes"],
+              themeId: "t" as never,
+              themeName: "Sentences",
+            },
+          ],
+          duelQuestions: [
+            {
+              kind: "sentence",
+              englishPrompt: "I eat bread",
+              spanishSentence: "Yo como pan",
+              tilePool: ["Yo", "como", "pan"],
+            },
+          ],
+          wordOrder: [0],
+        })
+      );
+
+      await expect(
+        answerHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId, value: "Yo como pan" })
+      ).rejects.toThrow("Relay duels cannot contain sentence positions");
+    });
   });
 
   describe("relayAdvance", () => {

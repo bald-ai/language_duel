@@ -12,6 +12,12 @@ interface DuelModePickerProps {
   dataTestIdPrefix: string;
   /** When set, only these modes are offered (e.g. boss/SR exclude relay). */
   allowedModes?: readonly DuelMode[];
+  /**
+   * Modes the user cannot pick right now, paired with the reason shown to
+   * explain why. Visible but disabled — distinct from `allowedModes`, which
+   * removes the chip entirely.
+   */
+  disabledModes?: Partial<Record<DuelMode, string>>;
 }
 
 export const DuelModePicker = memo(function DuelModePicker({
@@ -19,6 +25,7 @@ export const DuelModePicker = memo(function DuelModePicker({
   onSelectMode,
   dataTestIdPrefix,
   allowedModes,
+  disabledModes,
 }: DuelModePickerProps) {
   const colors = useAppearanceColors();
   const options = allowedModes
@@ -26,15 +33,27 @@ export const DuelModePicker = memo(function DuelModePicker({
     : DUEL_MODE_OPTIONS;
   const selectedOption =
     options.find((option) => option.mode === selectedMode) ?? options[0];
+  const selectedDisabledReason = selectedOption
+    ? disabledModes?.[selectedOption.mode]
+    : undefined;
 
   return (
     <div>
       <div className="flex flex-wrap justify-center gap-2">
         {options.map((option) => {
           const selected = option.mode === selectedMode;
+          const disabledReason = disabledModes?.[option.mode];
+          const isDisabled = Boolean(disabledReason);
           const tone =
             option.selectedTone === "secondary" ? colors.secondary : colors.primary;
-          const chipStyle: CSSProperties = selected
+          const chipStyle: CSSProperties = isDisabled
+            ? {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: colors.primary.dark,
+                color: colors.text.muted,
+                opacity: 0.5,
+              }
+            : selected
             ? {
                 backgroundImage: `linear-gradient(to bottom, ${tone.DEFAULT}, ${tone.dark})`,
                 borderColor: tone.dark,
@@ -51,10 +70,17 @@ export const DuelModePicker = memo(function DuelModePicker({
             <button
               key={option.mode}
               type="button"
-              onClick={() => onSelectMode(option.mode)}
+              onClick={() => {
+                if (isDisabled) return;
+                onSelectMode(option.mode);
+              }}
+              disabled={isDisabled}
               data-testid={`${dataTestIdPrefix}-${option.mode}`}
+              data-mode-disabled={isDisabled ? "true" : undefined}
               aria-pressed={selected}
-              className="flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-bold transition hover:brightness-110"
+              aria-disabled={isDisabled || undefined}
+              title={disabledReason}
+              className="flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-bold transition hover:brightness-110 disabled:cursor-not-allowed disabled:hover:brightness-100"
               style={chipStyle}
             >
               <span aria-hidden="true">{option.icon}</span>
@@ -68,11 +94,12 @@ export const DuelModePicker = memo(function DuelModePicker({
         <div
           className="mt-3 rounded-xl p-3 text-sm text-center"
           style={{ backgroundColor: colors.background.DEFAULT, color: colors.text.muted }}
+          data-testid={`${dataTestIdPrefix}-description`}
         >
           <span className="font-bold" style={{ color: colors.text.DEFAULT }}>
             {selectedOption.label}
           </span>{" "}
-          — {selectedOption.description}
+          — {selectedDisabledReason ?? selectedOption.description}
         </div>
       ) : null}
     </div>

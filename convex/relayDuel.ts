@@ -16,15 +16,12 @@ import {
   buildRelayAdvancePatch,
   buildRelayAnswerPatch,
   buildRelayPickPatch,
-  buildRelaySentenceAnswerPatch,
   buildRelayTimeoutPatch,
   isRelayFinished,
   relayAnswerer,
   relayRemainingPositions,
   relayServedQuestion,
 } from "../lib/duel/relayEngine";
-import { scoreSentenceSubmission } from "./rules/sentenceGameplayRules";
-import { isLivesAttempt } from "./rules/duelScoringRules";
 
 function assertActive(duel: Doc<"duels">) {
   if (duel.status !== "active") {
@@ -106,15 +103,6 @@ export const relayPick = mutation({
       throw new ConvexError({ code: "INVALID_STATE", message: "That word is no longer available" });
     }
     if (hardUpgrade) {
-      // Hard upgrade is word-only — sentence positions don't have a pre-built
-      // hard variant. Reject here so a stale client can't sneak it through.
-      const pickedQuestion = duel.duelQuestions?.[wordIndex];
-      if (pickedQuestion?.kind !== "word") {
-        throw new ConvexError({
-          code: "INVALID_STATE",
-          message: "Hard upgrade is only available for word rounds",
-        });
-      }
       if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
         throw new ConvexError({ code: "INVALID_STATE", message: "No hard-upgrade budget left" });
       }
@@ -161,10 +149,13 @@ export const relayAnswer = mutation({
     if (served === undefined) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
     }
+    // Relay is word-only in v1. `buildDuelSession` rejects sentence items in
+    // relay decks, so this is structurally unreachable; if it ever fires the
+    // duel itself is corrupt.
     if (served.kind !== "word") {
       throw new ConvexError({
-        code: "WRONG_QUESTION_KIND",
-        message: "Use relayAnswerSentence for sentence positions",
+        code: "INTERNAL_ERROR",
+        message: "Relay duels cannot contain sentence positions",
       });
     }
 
@@ -175,87 +166,6 @@ export const relayAnswer = mutation({
     await ctx.db.patch(duelId, buildRelayAnswerPatch({ duel, value }));
   },
 });
-
-export const relayAnswerSentence = mutation({
-  args: {
-    duelId: v.id("duels"),
-    completed: v.boolean(),
-    mistakes: v.number(),
-  },
-  handler: async (ctx, { duelId, completed, mistakes }) => {
-    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    assertDuelMode(duel, "relay", "relayAnswerSentence");
-    assertActive(duel);
-
-    if (duel.relayPhase !== "answer") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the answer phase" });
-    }
-    if (playerRole !== relayAnswerer(duel)) {
-      throw new ConvexError({
-        code: "NOT_AUTHORIZED",
-        message: "Only the assigned answerer can answer",
-      });
-    }
-    const served = relayServedQuestion(duel);
-    if (served === undefined) {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
-    }
-    if (served.kind !== "sentence") {
-      throw new ConvexError({
-        code: "WRONG_QUESTION_KIND",
-        message: "Use relayAnswer for word positions",
-      });
-    }
-    // Relay sentence positions are pre-resolved (Task 20) and therefore
-    // unreachable in v1. The per-tap validation pattern used by
-    // `answerSentenceRound` will be wired here when the relay sentence UI
-    // ships. Until then, validate the inputs inline as a defensive guard.
-    if (typeof completed !== "boolean") {
-      throw new ConvexError({
-        code: "INVALID_INPUT",
-        message: "relayAnswerSentence requires a boolean `completed`",
-      });
-    }
-    if (
-      typeof mistakes !== "number" ||
-      !Number.isInteger(mistakes) ||
-      mistakes < 0
-    ) {
-      throw new ConvexError({
-        code: "INVALID_INPUT",
-        message: "relayAnswerSentence requires non-negative integer `mistakes`",
-      });
-    }
-
-    if (duel.relayTimeoutScheduledFunctionId) {
-      await ctx.scheduler.cancel(duel.relayTimeoutScheduledFunctionId);
-    }
-
-    const points = scoreSentenceSubmission({ completed, mistakes });
-    const livesPatch = computeRelaySentenceLivesPatch(duel, { completed, mistakes });
-    await ctx.db.patch(
-      duelId,
-      buildRelaySentenceAnswerPatch({ duel, completed, mistakes, points, livesPatch })
-    );
-  },
-});
-
-function computeRelaySentenceLivesPatch(
-  duel: Doc<"duels">,
-  submission: { completed: boolean; mistakes: number }
-): Partial<Doc<"duels">> {
-  if (!isLivesAttempt(duel)) return {};
-  // Relay is normal-source-only today (see relayDuel.ts comment), so this path
-  // is effectively dormant. Still implemented for parity with non-relay sentence
-  // scoring so future SR/boss relay support doesn't silently skip HP.
-  const livesLost = Math.max(0, submission.mistakes) + (submission.completed ? 0 : 1);
-  if (livesLost === 0) return {};
-  const startingLives = typeof duel.livesRemaining === "number"
-    ? duel.livesRemaining
-    : undefined;
-  if (startingLives === undefined) return {};
-  return { livesRemaining: Math.max(0, startingLives - livesLost) };
-}
 
 export const relayAdvance = mutation({
   args: { duelId: v.id("duels") },

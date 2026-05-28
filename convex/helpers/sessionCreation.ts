@@ -265,6 +265,15 @@ export function buildDuelSession(args: {
   if (sessionWords.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
+  // Relay is word-only in v1. Reject sentence items here so old pending
+  // Relay challenges that pre-date the createChallenge guard can never
+  // accept into a broken duel (the picker has no playable sentence UI).
+  if (args.duelMode === "relay" && sessionWords.some(isSessionSentenceItem)) {
+    throw new ConvexError({
+      code: "INVALID_INPUT",
+      message: "Relay duels cannot include sentence themes",
+    });
+  }
   validateDuelSourceFields(args);
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);

@@ -37,19 +37,13 @@ export function buildInitialRelayState(
   wordOrder: number[]
 ): RelayInitialState {
   const budget = relayHardBudgetForPool(wordOrder.length);
-  // The relay sentence flow isn't playable yet (UI is a placeholder). Pre-mark
-  // sentence positions as resolved so the picker never offers them and the duel
-  // can still finish on the word positions alone. Backend (server scoring +
-  // 30s timer) stays in place for the future playable flow.
-  const preResolved: number[] = [];
-  for (let position = 0; position < wordOrder.length; position++) {
-    const item = items[wordOrder[position]];
-    if (item?.kind === "sentence") preResolved.push(position);
-  }
+  // Relay is word-only in v1 (sentence items are rejected by
+  // `buildDuelSession` before reaching this builder). No pre-resolution is
+  // needed because every position is playable.
   return {
     relayPicker: "challenger",
     relayPhase: "pick",
-    relayResolvedIndices: preResolved,
+    relayResolvedIndices: [],
     relayHardUpgradeIndices: [],
     relayHardBudget: { challenger: budget, opponent: budget },
     relayHardQuestions: buildRelayQuestionSet(items, wordOrder, "hard"),
@@ -136,7 +130,8 @@ export function buildRelayAnswerPatch(params: {
   const question = relayServedQuestion(duel);
   const assignedIndex = duel.relayAssignedIndex;
   if (!question || assignedIndex === undefined) return {};
-  // Relay sentence positions answer through `relayAnswerSentence` instead.
+  // Relay is word-only in v1; the mutation layer rejects sentence served
+  // questions with INTERNAL_ERROR before reaching this builder.
   if (question.kind !== "word") return {};
 
   const answerer = relayAnswerer(duel);
@@ -154,49 +149,6 @@ export function buildRelayAnswerPatch(params: {
     patch.challengerScore = duel.challengerScore + question.points;
   } else if (scorer === "opponent") {
     patch.opponentScore = duel.opponentScore + question.points;
-  }
-
-  return patch;
-}
-
-/**
- * Relay sentence answer: the answerer alone submits their final result for the
- * assigned sentence position (decision: Relay sentence behavior). Scoring uses
- * the same clean/messy/timeout tier as other modes; lives mirror word behavior.
- */
-export function buildRelaySentenceAnswerPatch(params: {
-  duel: Doc<"duels">;
-  completed: boolean;
-  mistakes: number;
-  points: number;
-  /** Optional lives deduction to apply (computed by the caller). */
-  livesPatch?: Partial<Doc<"duels">>;
-}): Partial<Doc<"duels">> {
-  const { duel, completed, mistakes, points, livesPatch } = params;
-  const assignedIndex = duel.relayAssignedIndex;
-  if (assignedIndex === undefined) return {};
-
-  const answerer = relayAnswerer(duel);
-  const scorer: DuelRole | null = completed ? answerer : null;
-  const lastChosen = completed ? `sentence:${mistakes}` : "TIMEOUT";
-
-  const patch: Partial<Doc<"duels">> = {
-    relayPhase: "feedback",
-    relayAnswerStartedAt: undefined,
-    relayTimeoutScheduledFunctionId: undefined,
-    relayLastResult: {
-      wordIndex: assignedIndex,
-      chosen: lastChosen,
-      correct: completed,
-      scorer,
-    },
-    ...(livesPatch ?? {}),
-  };
-
-  if (scorer === "challenger") {
-    patch.challengerScore = duel.challengerScore + points;
-  } else if (scorer === "opponent") {
-    patch.opponentScore = duel.opponentScore + points;
   }
 
   return patch;

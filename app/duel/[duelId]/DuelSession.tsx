@@ -4,6 +4,7 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import { DuelView } from "./components/DuelView";
 import { RelayDuelView } from "./components/RelayDuelView";
 import { SentenceRoundView } from "./components/SentenceRoundView";
+import { CrossKindTransitionView } from "./components/CrossKindTransitionView";
 import {
   useDuelSessionViewModel,
   type DuelPlayerSummary,
@@ -14,6 +15,7 @@ import {
   type ViewerSafeSentenceSessionItem,
 } from "./hooks/duelSessionTypes";
 import type { RelaySafeDuel } from "./hooks/relaySessionTypes";
+import { useCrossKindRoundTransition } from "./hooks/useCrossKindRoundTransition";
 
 interface DuelSessionProps {
   duel: Doc<"duels">;
@@ -33,6 +35,27 @@ export default function DuelSession(props: DuelSessionProps) {
         viewerRole={props.viewerRole}
         challenger={props.challenger}
         opponent={props.opponent}
+      />
+    );
+  }
+
+  return <NonRelayDuelSession {...props} />;
+}
+
+function NonRelayDuelSession(props: DuelSessionProps) {
+  // Word vs sentence routing unmounts the prior view, so cross-kind
+  // transitions need their own reveal surface. Word -> word transitions stay
+  // on the existing `useDuelPhaseState` machine inside StandardDuelSession.
+  const crossKindTransition = useCrossKindRoundTransition(props.duel);
+
+  if (crossKindTransition) {
+    return (
+      <CrossKindTransitionView
+        duel={props.duel}
+        challenger={props.challenger}
+        opponent={props.opponent}
+        viewerRole={props.viewerRole}
+        transition={crossKindTransition}
       />
     );
   }

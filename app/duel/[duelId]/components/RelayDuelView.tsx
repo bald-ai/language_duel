@@ -66,15 +66,12 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
   const resolvedCount = duel.relayResolvedIndices?.length ?? 0;
   const remaining = duel.relayRemainingPositions ?? [];
 
+  // Relay is word-only in v1; sentence items are rejected at duel creation,
+  // so every position in `sessionWords` is a word item by contract.
   const promptAt = (position: number) => {
     const item = duel.sessionWords[duel.wordOrder[position]];
-    if (!item) return "";
-    return item.kind === "word" ? item.word : item.englishPrompt;
-  };
-
-  const isSentenceAt = (position: number) => {
-    const item = duel.sessionWords[duel.wordOrder[position]];
-    return item?.kind === "sentence";
+    if (!item || item.kind !== "word") return "";
+    return item.word;
   };
 
   const handleTimeout = useCallback(() => {
@@ -149,7 +146,6 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
               <RelayPickList
                 remaining={remaining}
                 promptAt={promptAt}
-                isSentenceAt={isSentenceAt}
                 theirName={theirName}
                 budget={budget}
                 onPick={handlePick}
@@ -245,8 +241,6 @@ function RelayWordHeader({
 interface RelayPickListProps {
   remaining: number[];
   promptAt: (position: number) => string;
-  /** Whether the position at `index` is a sentence round (hard-upgrade is word-only). */
-  isSentenceAt: (position: number) => boolean;
   theirName: string;
   budget: number;
   onPick: (position: number, hardUpgrade: boolean) => void;
@@ -255,7 +249,7 @@ interface RelayPickListProps {
 
 // Owns the hard-upgrade toggle. Rendered only on the picker's pick turn, so it
 // unmounts between turns and the toggle resets without an effect.
-function RelayPickList({ remaining, promptAt, isSentenceAt, theirName, budget, onPick, colors }: RelayPickListProps) {
+function RelayPickList({ remaining, promptAt, theirName, budget, onPick, colors }: RelayPickListProps) {
   const [hardPosition, setHardPosition] = useState<number | null>(null);
   const [pickingPosition, setPickingPosition] = useState<number | null>(null);
 
@@ -284,11 +278,7 @@ function RelayPickList({ remaining, promptAt, isSentenceAt, theirName, budget, o
           const isHard = hardPosition === position;
           const isPicking = pickingPosition === position;
           const pickInFlight = pickingPosition !== null;
-          const isSentencePosition = isSentenceAt(position);
-          // Hard upgrade is word-only — sentence positions don't have a
-          // pre-built hard variant. Defense in depth: server also rejects.
-          const toggleDisabled =
-            isSentencePosition || (budget <= 0 && !isHard) || pickInFlight;
+          const toggleDisabled = (budget <= 0 && !isHard) || pickInFlight;
           const rowStyle: CSSProperties = isPicking
             ? {
                 borderColor: colors.secondary.DEFAULT,
@@ -450,18 +440,6 @@ function RelayAnswerArea({
               />
             );
           })}
-        </div>
-      )}
-
-      {served && served.kind === "sentence" && (
-        <div
-          className="w-full max-w-md text-center text-sm"
-          style={{ color: colors.text.muted }}
-          data-testid="relay-sentence-placeholder"
-        >
-          Sentence rounds in Relay aren&apos;t playable in this view yet. The
-          assigned answerer should switch to a self-duel session to build the
-          sentence.
         </div>
       )}
 

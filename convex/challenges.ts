@@ -23,6 +23,7 @@ import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnaps
 import { resolveAccessibleThemes } from "./helpers/resolveAccessibleThemes";
 import { areUsersFriendsInDb } from "./helpers/relationshipPolicy";
 import { SELF_DUEL_FORCED_MODE } from "../lib/duel/selfDuel";
+import { isSentenceTheme } from "../lib/themes/themeContent";
 import type { DuelDifficultyPreset } from "../lib/difficultyUtils";
 import {
   createChallengeInviteNotificationAndEmail,
@@ -201,6 +202,15 @@ export const createChallenge = mutation({
     }
 
     const resolvedThemes = await resolveAccessibleThemes(ctx, challenger._id, themeIds);
+    // Relay is word-only in v1: there is no playable answerer-side sentence UI
+    // yet. Reject sentence themes here so a stale client cannot smuggle them in
+    // (the challenge modal also disables the Relay chip in this case).
+    if (duelMode === "relay" && resolvedThemes.some(isSentenceTheme)) {
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: "Relay duels cannot include sentence themes",
+      });
+    }
     const orderedThemeIds = resolvedThemes.map((theme) => theme._id);
 
     const now = Date.now();

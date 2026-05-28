@@ -169,6 +169,47 @@ describe("duel mode picker surfaces", () => {
     );
   });
 
+  it("disables relay for sentence themes and clamps a prior relay pick back to pvp", () => {
+    const onCreateChallenge = vi.fn();
+    render(
+      <ChallengeModal
+        users={[{ _id: "user_2" as Id<"users">, nickname: "Misha" }]}
+        viewer={{ _id: "user_1" as Id<"users">, nickname: "Me" }}
+        themes={[
+          { _id: "theme_1" as Id<"themes">, name: "Animals", contentType: "word", itemCount: 1 },
+          { _id: "theme_2" as Id<"themes">, name: "Sentences", contentType: "sentence", itemCount: 1 },
+        ]}
+        pendingChallenges={[]}
+        isJoiningDuel={false}
+        isCreatingChallenge={false}
+        onAcceptChallenge={vi.fn()}
+        onDeclineChallenge={vi.fn()}
+        onCreateChallenge={onCreateChallenge}
+        onClose={vi.fn()}
+        onNavigateToThemes={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));
+    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
+    expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_2"));
+
+    expect(screen.getByTestId("duel-modal-mode-relay")).toBeDisabled();
+    expect(screen.getByTestId("duel-modal-mode-relay")).toHaveAttribute(
+      "title",
+      "Relay is word-only — remove sentence themes to pick Relay."
+    );
+    expect(screen.getByTestId("duel-modal-difficulty-easy")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("duel-modal-create"));
+    expect(onCreateChallenge).toHaveBeenCalledWith(
+      expect.objectContaining({ duelMode: "pvp" })
+    );
+  });
+
   it("offers no relay (or any mode picker) for a self-duel selection", () => {
     render(
       <ChallengeModal

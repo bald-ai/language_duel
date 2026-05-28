@@ -139,9 +139,9 @@ export function buildDuelQuestionSet(
 
 // Relay served questions are a single fixed difficulty worth a flat point
 // (decisions #10/#11). "medium" is the base snapshot; "hard" is the upgrade
-// variant. Both emit 6 options, so the grid stays visually stable. Sentence
-// positions still build their tile pool — relay just hands a sentence to the
-// answerer with the same snapshot shape used in other modes.
+// variant. Both emit 6 options, so the grid stays visually stable. Relay is
+// word-only in v1; callers must reject sentence items before reaching this
+// builder.
 export type RelayQuestionLevel = "medium" | "hard";
 
 export function buildRelayQuestionSet(
@@ -151,13 +151,8 @@ export function buildRelayQuestionSet(
 ): DuelQuestionSnapshot[] {
   return wordOrder.map((sessionIndex, questionIndex) => {
     const item = items[sessionIndex];
-    if (isSessionSentenceItem(item)) {
-      return buildSentenceQuestionSnapshot({
-        englishPrompt: item.englishPrompt,
-        spanishSentence: item.spanishSentence,
-        distractors: item.distractors,
-        questionIndex,
-      });
+    if (!isSessionWordItem(item)) {
+      throw new Error("Relay question sets require word-only session items");
     }
     return {
       ...buildDuelQuestionSnapshot(item, questionIndex, {

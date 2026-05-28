@@ -5,7 +5,7 @@ import {
   buildDuelSession,
   buildSoloPracticeSession,
 } from "@/convex/helpers/sessionCreation";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+import type { SessionItem, SessionWordEntry } from "@/lib/sessionWords";
 
 const sessionWords: SessionWordEntry[] = [
   {
@@ -124,6 +124,31 @@ describe("session creation helpers", () => {
     expect(baseQ.points).toBe(1);
     expect(hardQ.options).toHaveLength(6);
     expect(hardQ.points).toBe(1);
+  });
+
+  it("rejects relay duel sessions that contain sentence items", () => {
+    const mixedItems: SessionItem[] = [
+      sessionWords[0],
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        distractors: ["tú", "bebes"],
+        themeId: "theme_2" as Id<"themes">,
+        themeName: "Sentences",
+      },
+    ];
+
+    expect(() =>
+      buildDuelSession({
+        challengerId: "user_1" as Id<"users">,
+        opponentId: "user_2" as Id<"users">,
+        sessionWords: mixedItems,
+        sourceType: "normal",
+        duelMode: "relay",
+        createdAt: 1,
+      })
+    ).toThrow("Relay duels cannot include sentence themes");
   });
 
   it("omits relay state for non-relay duels", () => {
