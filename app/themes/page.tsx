@@ -39,6 +39,13 @@ const PickAndPruneReview = dynamic(
   () => import("./components/PickAndPruneReview").then((mod) => mod.PickAndPruneReview),
   { loading: () => null }
 );
+const PickAndPruneSentenceReview = dynamic(
+  () =>
+    import("./components/PickAndPruneSentenceReview").then(
+      (mod) => mod.PickAndPruneSentenceReview
+    ),
+  { loading: () => null }
+);
 const FriendFilterModal = dynamic(
   () => import("./components/FriendFilterModal").then((mod) => mod.FriendFilterModal),
   { loading: () => null }
@@ -82,12 +89,18 @@ export default function ThemesPage() {
   return (
     <ThemedPage className="h-dvh overflow-hidden">
       <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-start w-full max-w-xl mx-auto px-6 pt-6 pb-4">
-        {controller.viewMode === VIEW_MODES.LIST && !controller.isSentenceFlowActive && (
-          <>
-            <ThemeList {...controller.listProps} />
-            <GenerateThemeModal {...controller.generateModalProps} />
-            <FriendFilterModal {...controller.friendFilterModalProps} />
-          </>
+        {controller.viewMode === VIEW_MODES.LIST &&
+          !controller.isSentenceFlowActive &&
+          !controller.isSentenceReviewActive && (
+            <>
+              <ThemeList {...controller.listProps} />
+              <GenerateThemeModal {...controller.generateModalProps} />
+              <FriendFilterModal {...controller.friendFilterModalProps} />
+            </>
+          )}
+
+        {controller.isSentenceReviewActive && (
+          <PickAndPruneSentenceReview {...controller.sentencePickAndPruneReviewProps} />
         )}
 
         {controller.viewMode === VIEW_MODES.DETAIL &&
@@ -131,6 +144,7 @@ export default function ThemesPage() {
       <ThemeContentTypeModal {...controller.contentTypeModalProps} />
       <GenerateSentenceThemeModal {...controller.sentenceGenerateModalProps} />
       <GenerateMoreSentenceRoundsModal {...controller.sentenceGenerateMoreModalProps} />
+      <DiscardPickAndPruneModal {...controller.sentenceReviewDiscardProps} />
       <DiscardPickAndPruneModal {...controller.sentenceDiscardConfirmProps} />
     </ThemedPage>
   );

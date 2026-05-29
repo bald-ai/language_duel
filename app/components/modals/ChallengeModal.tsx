@@ -76,6 +76,15 @@ export function ChallengeModal({
     return themes.some((theme) => selected.has(theme._id) && theme.contentType === "sentence");
   }, [themes, selectedThemeIds]);
 
+  // Difficulty presets only shape word-position questions; sentence rounds run a
+  // single tier (see `buildDuelQuestionSet`). Track whether any word theme is in
+  // the selection so a sentence-only challenge can hide the difficulty picker.
+  const hasWordTheme = useMemo(() => {
+    if (!themes) return false;
+    const selected = new Set(selectedThemeIds);
+    return themes.some((theme) => selected.has(theme._id) && theme.contentType === "word");
+  }, [themes, selectedThemeIds]);
+
   // Clamp Relay -> PvP whenever sentence themes are present so the create
   // call always carries a playable mode. Self-duels never expose Relay so
   // the clamp only applies to PvP/PvE flows.
@@ -123,6 +132,7 @@ export function ChallengeModal({
           selectedDifficulty={selectedDifficulty}
           selectedMode={selectedMode}
           hasSentenceTheme={hasSentenceTheme}
+          hasWordTheme={hasWordTheme}
           onSelectOpponent={setSelectedOpponentId}
           onThemeIdsChange={setSelectedThemeIds}
           onSelectDifficulty={setSelectedDifficulty}
@@ -168,6 +178,7 @@ interface ChallengeCreateSurfaceProps {
   selectedDifficulty: DuelDifficultyPreset;
   selectedMode: DuelMode;
   hasSentenceTheme: boolean;
+  hasWordTheme: boolean;
   onSelectOpponent: (id: Id<"users">) => void;
   onThemeIdsChange: (themeIds: Id<"themes">[]) => void;
   onSelectDifficulty: (preset: DuelDifficultyPreset) => void;
@@ -189,6 +200,7 @@ function ChallengeCreateSurface({
   selectedDifficulty,
   selectedMode,
   hasSentenceTheme,
+  hasWordTheme,
   onSelectOpponent,
   onThemeIdsChange,
   onSelectDifficulty,
@@ -200,6 +212,10 @@ function ChallengeCreateSurface({
   // is hidden when Relay is chosen (decision #14). Self-duels force PvE, never
   // relay, so they always show the selector.
   const isRelaySelected = !isSelfSelected && selectedMode === "relay";
+  // Difficulty presets don't apply to sentence rounds, so a sentence-only
+  // selection hides the whole section. A mixed (word + sentence) selection still
+  // shows it because the word positions honour the preset.
+  const showDifficulty = hasWordTheme || !hasSentenceTheme;
   const disabledModes = hasSentenceTheme
     ? { relay: RELAY_SENTENCE_DISABLED_REASON }
     : undefined;
@@ -235,25 +251,27 @@ function ChallengeCreateSurface({
         />
       </div>
 
-      <div>
-        <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
-          Difficulty
-        </p>
-        {isRelaySelected ? (
-          <p
-            className="text-sm"
-            style={{ color: colors.text.muted }}
-            data-testid="duel-modal-difficulty-relay-note"
-          >
-            Controlled by the picker
+      {showDifficulty && (
+        <div>
+          <p className={sectionLabelClassName} style={{ color: colors.text.DEFAULT }}>
+            Difficulty
           </p>
-        ) : (
-          <DifficultySelector
-            selectedDifficulty={selectedDifficulty}
-            onSelect={onSelectDifficulty}
-          />
-        )}
-      </div>
+          {isRelaySelected ? (
+            <p
+              className="text-sm"
+              style={{ color: colors.text.muted }}
+              data-testid="duel-modal-difficulty-relay-note"
+            >
+              Controlled by the picker
+            </p>
+          ) : (
+            <DifficultySelector
+              selectedDifficulty={selectedDifficulty}
+              onSelect={onSelectDifficulty}
+            />
+          )}
+        </div>
+      )}
 
       {!isSelfSelected && (
         <div>

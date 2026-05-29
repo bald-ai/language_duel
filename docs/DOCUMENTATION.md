@@ -60,6 +60,7 @@ Theme generation lifecycle:
 - Pick & Prune also exists when adding generated words to an existing theme. In that case it over-generates using the existing random-generation maximum, opens the same review screen, and appends only the kept words to the current local theme words.
 - Removed Pick & Prune words are not deleted from a saved theme because the review happens before the new generated words are saved. The removed list is just a temporary review bucket.
 - Continuing Pick & Prune requires at least one kept word. Discarding a new-theme Pick & Prune review drops the generated list and returns to the theme list; discarding an existing-theme review returns to the theme detail without appending anything.
+- Sentence themes use the same review-first flow. Generating a sentence theme over-generates rounds (2× the requested count) and opens a sentence Pick & Prune review (each row shows the English prompt and Spanish answer with remove/restore) before the kept rounds open in the sentence editor.
 - Generated content is validated through the shared theme-generation API and semantic validation rules before it reaches the review or draft flow.
 
 Duel mode lifecycle:
@@ -74,6 +75,8 @@ Duel mode lifecycle:
 - Every PvE hint gives a universal timer bump; `+15 Seconds` is the bigger timer hint because it includes the universal bump plus its own extra time.
 - PvE is designed around two players sitting together and talking in real life. Do not add request pings, consent prompts, or extra notification noise unless that product assumption changes.
 - Sentence rounds in PvE are per-player boards in v1, not a shared cooperative tile board. Players share the duel/timer context, but each player submits their own sentence result.
+- The challenge difficulty preset (Easy/Medium/Hard) only shapes word-position questions; sentence rounds run a single tier. The difficulty picker is therefore hidden when the selection contains only sentence themes — a mixed word+sentence selection still shows it because the word positions honour the preset.
+- Sentence tiles render with their leading capital and trailing sentence punctuation stripped so the first and last tiles do not reveal their position. Matching still uses the raw token, and the post-round reveal shows the canonical Spanish sentence with the English prompt stacked above it in the same type so the two languages line up.
 - `Relay` is the third mode: turn-based, no sabotages, no shared hint pool, no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
 
 Relay duel lifecycle:

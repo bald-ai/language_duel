@@ -24,6 +24,8 @@ import {
 } from "@/lib/themes/sentenceConstants";
 import type { SentenceThemeDetailTheme } from "../components/SentenceThemeDetail";
 import type { SentenceRoundField } from "../components/SentenceRoundCard";
+import type { PickAndPruneSentenceReviewProps } from "../components/PickAndPruneSentenceReview";
+import { usePickAndPruneSentence } from "./usePickAndPruneSentence";
 import { createSaveRequestId } from "../lib/saveRequestId";
 
 export type SentenceSelectedState =
@@ -48,6 +50,19 @@ export type SentenceEditField = {
   initialValue: string;
 };
 
+/**
+ * Theme metadata held during the Pick & Prune review, before the kept rounds
+ * become the unsaved draft. Mirrors the `unsaved` draft minus `rounds` (those
+ * live in the prune hook while the user reviews them).
+ */
+type SentenceReviewDraft = {
+  name: string;
+  description: string;
+  visibility: "private" | "shared";
+  friendsCanEdit: boolean;
+  saveRequestId: string;
+};
+
 interface UseSentenceThemeControllerReturn {
   /** True when sentence-theme UI should be visible (selected or editing). */
   isActive: boolean;
@@ -65,10 +80,19 @@ interface UseSentenceThemeControllerReturn {
   /** "new-theme" for unsaved drafts, "existing-theme" for saved edits. */
   discardReviewKind: "new-theme" | "existing-theme";
 
+  /** True while the post-generation Pick & Prune review is on screen. */
+  isReviewActive: boolean;
+  /** Props for the sentence Pick & Prune review screen. */
+  reviewProps: PickAndPruneSentenceReviewProps;
+  /** True when the review's discard-confirm modal is open. */
+  reviewDiscardConfirm: boolean;
+  confirmDiscardReview: () => void;
+  cancelDiscardReview: () => void;
+
   openSavedTheme: (theme: ThemeWithOwner) => void;
   openGenerateModal: () => void;
   closeGenerateModal: () => void;
-  generateAndOpenDraft: (params: {
+  generateAndReview: (params: {
     themeName: string;
     themePrompt: string;
     targetRoundCount: number;
@@ -113,6 +137,10 @@ export function useSentenceThemeController(params: {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Post-generation Pick & Prune review: `reviewDraft` carries the theme
+  // metadata while the generated rounds sit in the prune hook for review.
+  const [reviewDraft, setReviewDraft] = useState<SentenceReviewDraft | null>(null);
+  const pickAndPrune = usePickAndPruneSentence();
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const createTheme = useMutation(api.themes.createTheme);
@@ -189,7 +217,7 @@ export function useSentenceThemeController(params: {
     setGenerationError(null);
   }, [isGenerating]);
 
-  const generateAndOpenDraft = useCallback(
+  const generateAndReview = useCallback(
     async (input: {
       themeName: string;
       themePrompt: string;
@@ -217,31 +245,64 @@ export function useSentenceThemeController(params: {
           return;
         }
         setIsGenerateModalOpen(false);
-        const normalizedName = normalizeThemeName(input.themeName);
-        setSelectedState({
-          kind: "unsaved",
-          draft: {
-            name: normalizedName,
-            description: `Generated sentence theme for: ${input.themeName.trim()}`,
-            rounds: result.data,
-            visibility: "private",
-            friendsCanEdit: false,
-            saveRequestId: createSaveRequestId(),
-          },
+        // Hand the over-generated rounds to the Pick & Prune review; the kept
+        // rounds become the unsaved draft once the user clicks Continue.
+        setReviewDraft({
+          name: normalizeThemeName(input.themeName),
+          description: `Generated sentence theme for: ${input.themeName.trim()}`,
+          visibility: "private",
+          friendsCanEdit: false,
+          saveRequestId: createSaveRequestId(),
         });
-        setLocalRounds(result.data.map((round) => ({
-          englishPrompt: round.englishPrompt,
-          spanishSentence: round.spanishSentence,
-          distractors: [...round.distractors],
-        })));
+        pickAndPrune.initialize(result.data);
       } catch (error) {
         setGenerationError(error instanceof Error ? error.message : "Generation failed");
       } finally {
         setIsGenerating(false);
       }
     },
-    []
+    [pickAndPrune]
   );
+
+  const handleContinueReview = useCallback(() => {
+    if (!reviewDraft) return;
+    const keptRounds = pickAndPrune.getActiveRounds();
+    if (keptRounds.length === 0) return;
+    setSelectedState({
+      kind: "unsaved",
+      draft: {
+        name: reviewDraft.name,
+        description: reviewDraft.description,
+        rounds: keptRounds,
+        visibility: reviewDraft.visibility,
+        friendsCanEdit: reviewDraft.friendsCanEdit,
+        saveRequestId: reviewDraft.saveRequestId,
+      },
+    });
+    setLocalRounds(
+      keptRounds.map((round) => ({
+        englishPrompt: round.englishPrompt,
+        spanishSentence: round.spanishSentence,
+        distractors: [...round.distractors],
+      }))
+    );
+    pickAndPrune.clear();
+    setReviewDraft(null);
+  }, [pickAndPrune, reviewDraft]);
+
+  const requestDiscardReview = useCallback(() => {
+    pickAndPrune.requestDiscard();
+  }, [pickAndPrune]);
+
+  const confirmDiscardReview = useCallback(() => {
+    pickAndPrune.clear();
+    setReviewDraft(null);
+    params.onAfterCancel();
+  }, [params, pickAndPrune]);
+
+  const cancelDiscardReview = useCallback(() => {
+    pickAndPrune.cancelDiscard();
+  }, [pickAndPrune]);
 
   const openGenerateMoreModal = useCallback(() => {
     if (!selectedTheme) return;
@@ -467,7 +528,19 @@ export function useSentenceThemeController(params: {
     [selectedState, updateFriendsCanEdit]
   );
 
-  const isActive = selectedState !== null || isGenerateModalOpen;
+  const isReviewActive = reviewDraft !== null;
+  const reviewProps: PickAndPruneSentenceReviewProps = {
+    activeRounds: pickAndPrune.activeRounds,
+    removedRounds: pickAndPrune.removedRounds,
+    removedOpen: pickAndPrune.removedOpen,
+    onRemovedOpenChange: pickAndPrune.setRemovedOpen,
+    onRemove: pickAndPrune.removeRound,
+    onRestore: pickAndPrune.restoreRound,
+    onContinue: handleContinueReview,
+    onCancel: requestDiscardReview,
+  };
+
+  const isActive = selectedState !== null || isGenerateModalOpen || isReviewActive;
 
   return {
     isActive,
@@ -483,10 +556,16 @@ export function useSentenceThemeController(params: {
     showDiscardConfirm,
     discardReviewKind,
 
+    isReviewActive,
+    reviewProps,
+    reviewDiscardConfirm: pickAndPrune.showDiscardConfirm,
+    confirmDiscardReview,
+    cancelDiscardReview,
+
     openSavedTheme,
     openGenerateModal,
     closeGenerateModal,
-    generateAndOpenDraft,
+    generateAndReview,
     openGenerateMoreModal,
     closeGenerateMoreModal,
     generateMoreAndAppend,

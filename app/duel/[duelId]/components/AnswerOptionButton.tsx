@@ -192,7 +192,7 @@ export function AnswerOptionButton({
 }: AnswerOptionButtonProps) {
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
-    : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative";
+    : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative active:scale-95";
   const mutedFeedback =
     state.disabled &&
     !state.isEliminated &&

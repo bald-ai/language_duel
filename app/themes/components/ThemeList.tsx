@@ -107,14 +107,14 @@ const ThemeCard = memo(function ThemeCard({
 
   return (
     <div
-      className="relative w-full px-4 py-3 border-2 rounded-2xl transition hover:brightness-105 overflow-hidden"
+      className="relative w-full px-3.5 py-2.5 border-2 rounded-xl transition hover:brightness-105 overflow-hidden"
       style={{
         backgroundColor: colors.background.DEFAULT,
         borderColor: colors.primary.dark,
       }}
       data-testid={`theme-card-${theme._id}`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => onOpenTheme(theme)}
           disabled={isMutating}
@@ -131,50 +131,40 @@ const ThemeCard = memo(function ThemeCard({
             </h3>
             {isInWeeklyGoal && <WeeklyGoalThemeMarker />}
           </div>
+          {/* Meta + TTS status share one line. The TTS pill used to stack on the
+              right edge and bloat every card; folding it into the meta as
+              colour-coded text keeps the row two lines tall. */}
           <div
             className="text-xs tracking-wide mt-0.5"
             style={{ color: colors.text.muted }}
           >
             {itemLabel} • {categoryLabel} • {visibilityLabel}{ownerInfo}
+            {!isSentence && (
+              <>
+                {" • "}
+                <span
+                  style={{
+                    color: hasMissingTts
+                      ? colors.status.warning.light
+                      : colors.status.success.light,
+                  }}
+                  title={ttsStatusTitle}
+                  data-testid={`theme-tts-status-${theme._id}`}
+                >
+                  {ttsStatusLabel}
+                </span>
+              </>
+            )}
           </div>
         </button>
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span
-            className="inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
             style={isSentence ? sentenceBadgeStyle : wordBadgeStyle}
             data-testid={`theme-content-type-badge-${theme._id}`}
           >
             {isSentence ? "Sentence" : "Word"}
           </span>
-          {!isSentence && (
-            <span
-              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
-              style={{
-                backgroundColor: hasMissingTts
-                  ? `${colors.status.warning.DEFAULT}1A`
-                  : `${colors.status.success.DEFAULT}1A`,
-                borderColor: hasMissingTts
-                  ? colors.status.warning.dark
-                  : colors.status.success.dark,
-                color: hasMissingTts
-                  ? colors.status.warning.light
-                  : colors.status.success.light,
-              }}
-              title={ttsStatusTitle}
-              data-testid={`theme-tts-status-${theme._id}`}
-            >
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{
-                  backgroundColor: hasMissingTts
-                    ? colors.status.warning.DEFAULT
-                    : colors.status.success.DEFAULT,
-                }}
-                aria-hidden="true"
-              />
-              {ttsStatusLabel}
-            </span>
-          )}
           <ThemeCardMenu
             themeId={theme._id}
             themeName={theme.name}

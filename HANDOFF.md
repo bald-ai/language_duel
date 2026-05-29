@@ -136,19 +136,22 @@ Per "loose up some things to make the sentences work from get go":
    `relayAnswerSentence` path and placeholder UI were removed; full sentence
    Relay would need a new picker → tile-board → advance design.
 
-4. **Sentence theme generation always uses Pick & Prune.** There's no
-   "standard direct generate" path for sentence themes in v1 — every
-   generation over-generates by 100% so the user reviews/edits before
-   saving. The plan describes a Pick & Prune review screen with active /
-   removed columns; I shipped the simpler "open the draft directly in the
-   editor and let the user delete unwanted rounds" path. The full
-   `PickAndPruneReview`-style screen for sentences is deferred.
+4. **Sentence theme generation now has a Pick & Prune review (RESOLVED).**
+   Generating a sentence theme over-generates by 100% and opens
+   `PickAndPruneSentenceReview` (active/removed lists, English prompt +
+   Spanish answer per row) before the kept rounds open in the editor —
+   instead of dumping every generated round straight into the per-field
+   editor. There is still no "standard direct generate" path for sentence
+   themes; generation always reviews first. State lives in
+   `usePickAndPruneSentence` + the `reviewDraft`/review handlers on
+   `useSentenceThemeController`.
 
-5. **No sentence Pick & Prune review screen reuse.** Word themes have a
-   dedicated `PickAndPruneReview` with active/removed lists. Sentence themes
-   currently land the generated rounds straight into the editor and rely on
-   per-card "Delete Sentence" for pruning. Reusing the review-screen pattern
-   for sentence themes is a follow-up.
+5. **Sentence Pick & Prune review reuses the word screen pattern (RESOLVED).**
+   `PickAndPruneSentenceReview` shares the panel/row/pill styling with the
+   word `PickAndPruneReview` via `pickAndPruneReviewStyles.ts`. The per-card
+   "Delete Sentence" in the editor remains for later fine-tuning. The
+   generate-more (append-to-existing-theme) path still appends straight into
+   the editor without a separate review.
 
 6. **`useDuelActions.playWordAudio` was renamed in spirit but kept its
    public name.** The function is now a no-op on sentence items rather
