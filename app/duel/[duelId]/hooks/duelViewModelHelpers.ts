@@ -1,6 +1,14 @@
+import type { Doc } from "@/convex/_generated/dataModel";
+import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { PVP_HINT_ELIMINATION_PICKS } from "@/lib/hintPool/constants";
+import {
+  requireWordQuestion,
+  requireWordSessionItem,
+  type ViewerSafeDuelQuestion,
+} from "./duelSessionTypes";
 import type { DuelPlayerSummary } from "./useDuelSessionViewModel";
+import type { FrozenData } from "../components/DuelView";
 
 type DuelRole = "challenger" | "opponent";
 
@@ -69,5 +77,47 @@ export function deriveScoreNames(
   return {
     myName: formatVisibleUser(isChallenger ? challenger : opponent, "You"),
     theirName: formatVisibleUser(isChallenger ? opponent : challenger, "Opponent"),
+  };
+}
+
+/**
+ * Reconstruct the "frozen" snapshot of the just-answered word question shown
+ * during the reveal/transition phase. Pure on purpose: the phase machine
+ * (`useDuelPhaseState`) owns *when* to freeze; this owns *what* the frozen card
+ * contains. Word-only — `prevIndex` landing on a sentence position throws via
+ * the narrowing helpers rather than silently rendering an empty grid.
+ */
+export function buildFrozenData(args: {
+  duel: Doc<"duels">;
+  prevIndex: number;
+  lockedAnswer: string | null;
+  theirLastAnswer: string | null | undefined;
+}): FrozenData {
+  const { duel, prevIndex, lockedAnswer, theirLastAnswer } = args;
+
+  const prevActualIndex = duel.wordOrder[prevIndex];
+  const rawPrev = duel.sessionWords[prevActualIndex];
+  const prevWord = rawPrev
+    ? requireWordSessionItem(rawPrev)
+    : { word: "", answer: "", wrongAnswers: [] };
+  const prevQuestion = requireWordQuestion(
+    duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion
+  );
+  const prevCorrectOption = prevQuestion.correctOption ?? null;
+
+  return {
+    word: prevWord.word,
+    correctAnswer:
+      prevQuestion.answerRevealedToViewer === true ? prevWord.answer : null,
+    shuffledAnswers: prevQuestion.options,
+    selectedAnswer: lockedAnswer,
+    opponentAnswer: theirLastAnswer || null,
+    wordIndex: prevIndex,
+    hasNoneOption:
+      prevCorrectOption === null ? null : prevCorrectOption === NONE_OF_ABOVE,
+    difficulty: {
+      level: prevQuestion.difficulty,
+      points: prevQuestion.points,
+    },
   };
 }

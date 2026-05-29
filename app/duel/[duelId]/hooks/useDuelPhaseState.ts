@@ -2,16 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 import { useDuelCountdown } from "./useDuelCountdown";
 import { useDuelTypeReveal } from "./useDuelTypeReveal";
 import { useIndexedAnswerLock } from "./useIndexedAnswerLock";
-import {
-  requireWordQuestion,
-  requireWordSessionItem,
-  type ViewerSafeDuelQuestion,
-} from "./duelSessionTypes";
+import { buildFrozenData } from "./duelViewModelHelpers";
 import type { FrozenData } from "../components/DuelView";
 
 export type DuelPhase = "idle" | "answering" | "transition";
@@ -71,7 +66,6 @@ export function useDuelPhaseState({
   const isLocked = getIsLockedForIndex(index);
 
   const words = duel.sessionWords;
-  const wordOrder = duel.wordOrder;
   const currentWordIndex = duel.currentWordIndex;
 
   const { isRevealing, typedText, revealComplete, resetTypeReveal } =
@@ -111,34 +105,15 @@ export function useDuelPhaseState({
       isLocked || lockedAnswerRef.current || hasTimedOutRef.current;
 
     if (shouldShowTransition) {
-      const prevActualIndex = wordOrder[prevIndex];
-      const rawPrev = words[prevActualIndex];
-      const prevWord = rawPrev
-        ? requireWordSessionItem(rawPrev)
-        : { word: "", answer: "", wrongAnswers: [] };
-      const prevQuestion = requireWordQuestion(
-        duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion
-      );
-      const prevCorrectOption = prevQuestion.correctOption ?? null;
-
       setPhase("transition");
-      setFrozenData({
-        word: prevWord.word,
-        correctAnswer:
-          prevQuestion.answerRevealedToViewer === true ? prevWord.answer : null,
-        shuffledAnswers: prevQuestion.options,
-        selectedAnswer: lockedAnswerRef.current,
-        opponentAnswer: theirLastAnswer || null,
-        wordIndex: prevIndex,
-        hasNoneOption:
-          prevCorrectOption === null
-            ? null
-            : prevCorrectOption === NONE_OF_ABOVE,
-        difficulty: {
-          level: prevQuestion.difficulty,
-          points: prevQuestion.points,
-        },
-      });
+      setFrozenData(
+        buildFrozenData({
+          duel,
+          prevIndex,
+          lockedAnswer: lockedAnswerRef.current,
+          theirLastAnswer,
+        })
+      );
 
       const isLastQuestion = prevIndex >= words.length - 1;
       if (!isLastQuestion) {
@@ -154,7 +129,7 @@ export function useDuelPhaseState({
 
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, wordOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
+  }, [currentWordIndex, words, duel.wordOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
 
   useEffect(() => {
     const eliminated = duel.eliminatedOptions || [];
