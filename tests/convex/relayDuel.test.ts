@@ -84,6 +84,7 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     duelDifficultyPreset: "medium",
     duelMode: "relay",
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 1,
     relayPicker: "challenger",

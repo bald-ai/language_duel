@@ -39,6 +39,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerScore: 0,
     opponentScore: 0,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 123,
     ...overrides,

@@ -7,17 +7,14 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { getErrorMessage } from "@/lib/errors";
-import { isSelfDuel } from "@/lib/duel/selfDuel";
-import {
-  SENTENCE_PVE_TIMER_SECONDS,
-  SENTENCE_PVP_TIMER_SECONDS,
-  SENTENCE_SELF_DUEL_TIMER_SECONDS,
-} from "@/lib/themes/sentenceConstants";
+import { SENTENCE_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
 import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
+import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
+import { useSentenceHintPool } from "../hooks/useSentenceHintPool";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
 
-interface SentencePvpBoardProps {
+interface SentenceBoardProps {
   duel: Doc<"duels">;
   sessionItem: ViewerSafeSentenceSessionItem;
   question: {
@@ -30,29 +27,24 @@ interface SentencePvpBoardProps {
   viewerRole: "challenger" | "opponent";
 }
 
-function pickTimerSeconds(duel: Doc<"duels">): number {
-  if (isSelfDuel(duel)) return SENTENCE_SELF_DUEL_TIMER_SECONDS;
-  if (duel.duelMode === "pve") return SENTENCE_PVE_TIMER_SECONDS;
-  return SENTENCE_PVP_TIMER_SECONDS;
-}
-
 /**
- * PvP build-and-confirm sentence board (Variant 1). The player taps tiles in
- * any order — each gets an order badge — peels back from the end, and verifies
- * the whole sentence on Confirm. The server holds the placed sequence; the only
- * client-only state is the last Confirm's correctness mask, which colors tiles
- * green/red and clears the instant the player edits (decision 7).
+ * The unified build-and-confirm sentence board (every mode: PvE / PvP / self).
+ * The player taps tiles in any order — each gets an order badge — peels back
+ * from the end, and verifies the whole sentence on Confirm. The server holds the
+ * placed sequence; the only client-only state is the last Confirm's correctness
+ * mask (green/red), which clears the instant the player edits.
  *
- * Re-mounted via `key={duel.currentWordIndex}` so per-round state resets on
- * advance. Auto-submits via `answerSentenceRound` on a correct Confirm
- * (server-confirmed `completed`) or on timeout — mirrors the word duel.
+ * Tools differ by mode, like word rounds: PvE mounts the cooperative hint pool
+ * in the footer (the effects ride on shared duel fields, so both co-op boards
+ * stay in sync). PvP sabotages are handled separately. Re-mounted via
+ * `key={duel.currentWordIndex}` so per-round state resets on advance.
  */
-export function SentencePvpBoard({
+export function SentenceBoard({
   duel,
   sessionItem,
   question,
   viewerRole,
-}: SentencePvpBoardProps) {
+}: SentenceBoardProps) {
   const colors = useAppearanceColors();
   const submit = useMutation(api.gameplay.answerSentenceRound);
   const tap = useMutation(api.gameplay.tapSentenceTile);
@@ -80,16 +72,37 @@ export function SentencePvpBoard({
   );
   const completed = progress?.completed ?? false;
 
-  const timerSeconds = pickTimerSeconds(duel);
+  // PvE cooperative hint pool (self-duels are pve mode, so they get it too). The
+  // per-question effect fields are shared on the duel doc, so both boards mark
+  // the same tiles. PvP gets sabotages instead (handled separately).
+  const isPve = duel.duelMode === "pve";
+  const hintPool = useSentenceHintPool({
+    duelId: duel._id,
+    usedHints: duel.sentenceHintPoolUsed,
+    currentQuestionHintFired: duel.currentQuestionHintFired,
+  });
+  const eliminatedTileIndices = useMemo(
+    () => duel.currentQuestionEliminatedTileIndices ?? [],
+    [duel.currentQuestionEliminatedTileIndices]
+  );
+  const revealedTiles = useMemo(
+    () => duel.currentQuestionRevealedTiles ?? [],
+    [duel.currentQuestionRevealedTiles]
+  );
+
+  // Timer: base + accumulated hint bonus is the single source of truth, used as
+  // BOTH the value and the clamp ceiling so a freeze hint's seconds aren't eaten
+  // (the mutation does not push questionStartTime, so there's no double count).
+  const totalTimer = SENTENCE_TIMER_SECONDS + (duel.currentQuestionTimerBonusSeconds ?? 0);
   const questionStartTime = duel.questionStartTime;
   const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (!questionStartTime) return timerSeconds;
+    if (!questionStartTime) return totalTimer;
     const effectiveStartTime = getEffectiveQuestionStartTime(
       questionStartTime,
       duel.currentWordIndex
     );
     const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
-    return clampTimerSeconds(timerSeconds - elapsed, timerSeconds);
+    return clampTimerSeconds(totalTimer - elapsed, totalTimer);
   });
   useEffect(() => {
     if (!questionStartTime) return;
@@ -99,12 +112,12 @@ export function SentencePvpBoard({
         duel.currentWordIndex
       );
       const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
-      setSecondsLeft(clampTimerSeconds(timerSeconds - elapsed, timerSeconds));
+      setSecondsLeft(clampTimerSeconds(totalTimer - elapsed, totalTimer));
     };
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerSeconds, questionStartTime, duel.currentWordIndex]);
+  }, [totalTimer, questionStartTime, duel.currentWordIndex]);
 
   const handleSubmitFinal = useCallback(
     async (timedOut: boolean) => {
@@ -131,7 +144,7 @@ export function SentencePvpBoard({
     }
   }, [completed, handleSubmitFinal]);
 
-  // Auto-submit on timeout (Confirm never auto-fires — decision 5).
+  // Auto-submit on timeout (Confirm never auto-fires).
   useEffect(() => {
     if (secondsLeft === 0 && !completed && !submittedRef.current) {
       void handleSubmitFinal(true);
@@ -143,7 +156,9 @@ export function SentencePvpBoard({
   const handleTileClick = useCallback(
     (tileIndex: number) => {
       if (locked) return;
-      // Touching any tile clears the previous Confirm's colors (decision 7).
+      // A removed distractor is inert — skip it in the place/peel handler.
+      if (eliminatedTileIndices.includes(tileIndex)) return;
+      // Touching any tile clears the previous Confirm's colors.
       if (checked) setCorrectnessMask(null);
 
       const order = placedTileIndices.indexOf(tileIndex);
@@ -161,15 +176,13 @@ export function SentencePvpBoard({
           questionIndex: duel.currentWordIndex,
         }).catch((error) => toast.error(getErrorMessage(error, "Could not remove tile")));
       }
-      // A placed-but-not-last tile is not removable — the mask clear above is
-      // the only effect (peel back from the end to reach it).
+      // A placed-but-not-last tile is not removable — peel back from the end.
     },
-    [locked, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentWordIndex]
+    [locked, eliminatedTileIndices, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentWordIndex]
   );
 
   // After a Confirm, the button stays disabled until the player edits the board
-  // (any tap/peel/reset clears `correctnessMask`). Stops repeated clicks on the
-  // same wrong sentence from stacking penalties.
+  // (any tap/peel/reset clears `correctnessMask`).
   const confirmDisabled = locked || placedTileIndices.length === 0 || checked;
 
   const handleConfirm = useCallback(() => {
@@ -199,6 +212,8 @@ export function SentencePvpBoard({
       tilePool={question.tilePool}
       placedTileIndices={placedTileIndices}
       correctnessMask={correctnessMask}
+      eliminatedTileIndices={eliminatedTileIndices}
+      revealedTiles={revealedTiles}
       secondsLeft={secondsLeft}
       locked={locked}
       showActions
@@ -208,6 +223,18 @@ export function SentencePvpBoard({
       onReset={handleReset}
       belowActions={
         <>
+          {isPve && !locked && (
+            <div className="mt-4">
+              <SentenceHintPoolUI
+                usedHints={hintPool.usedHints}
+                usedCount={hintPool.usedCount}
+                totalCount={hintPool.totalCount}
+                currentQuestionHintFired={hintPool.currentQuestionHintFired}
+                onFireHint={(type) => void hintPool.fireHint(type)}
+              />
+            </div>
+          )}
+
           {question.answerRevealedToViewer === true && question.spanishSentence && (
             <div
               className="mt-5 w-full max-w-md rounded-xl border-2 p-3 text-center text-sm font-semibold shadow"

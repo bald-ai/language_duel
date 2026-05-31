@@ -3,29 +3,27 @@
  * shape: pure functions return `Partial<Doc<"duels">>` patches that the mutation
  * layer applies.
  *
- * Authority model (v2): the server alone tracks tile sequence + mistakes per
- * (questionIndex, role) in `duel.sentenceProgress`. Each tap is its own
- * mutation (`tapSentenceTile`); `answerSentenceRound` only finalizes — it
- * derives `completed`/`mistakes` from server state, never from client input.
- * PvE shared-board taps and PvP sabotages remain out of scope.
+ * Authority model: the server alone tracks the placed tile sequence per
+ * (questionIndex, role) in `duel.sentenceProgress`. Every non-TbT sentence duel
+ * uses the build-and-confirm model — tiles are appended in any order and the
+ * whole sentence is verified on Confirm; `answerSentenceRound` finalizes off the
+ * server-tracked `completed` / `failedConfirms`, never client input.
+ *
+ * `applySentenceTap` (per-tap validation) is retained ONLY for the cooperative
+ * turn-by-turn (TbT) shared-board mode (`convex/tbtDuel.ts`); the SentenceRoundView
+ * path (PvE / PvP / self-duel) is build-and-confirm exclusively.
  */
 
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import {
-  SENTENCE_CLEAN_COMPLETION_POINTS,
-  SENTENCE_MESSY_COMPLETION_POINTS,
-  SENTENCE_TIMEOUT_POINTS,
   SENTENCE_PVP_CLEAN_CONFIRM_POINTS,
   SENTENCE_PVP_SINGLE_FAIL_POINTS,
   SENTENCE_PVP_FLOOR_POINTS,
 } from "../../lib/themes/sentenceConstants";
-import { isBuildConfirmSentenceMode } from "../../lib/sentenceGameplay/mode";
 import {
-  getBossAttemptEndFields,
   getLimitedLivesMissPatch,
   isBossAttempt,
-  isLivesAttempt,
 } from "./duelScoringRules";
 import { mirrorPatchForSelfDuel } from "./selfDuelMirror";
 import type { PlayerRole } from "../helpers/auth";
@@ -356,25 +354,6 @@ export function confirmSentenceRound(params: {
   };
 }
 
-/**
- * Read the server-tracked submission for finalization. Returns the
- * `{completed, mistakes}` the scorer should use. If the player has no progress
- * row yet (never tapped), treats it as a timeout with 0 mistakes.
- */
-export function readServerSubmission(
-  duel: Pick<Doc<"duels">, "sentenceProgress">,
-  questionIndex: number,
-  role: PlayerRole,
-  timedOut: boolean
-): SentenceRoundSubmission {
-  const entry = findSentenceProgress(duel, questionIndex, role);
-  if (!entry) return { completed: false, mistakes: 0 };
-  if (timedOut && !entry.completed) {
-    return { completed: false, mistakes: entry.mistakes };
-  }
-  return { completed: entry.completed, mistakes: entry.mistakes };
-}
-
 /** Mark a progress row finalized so further taps are rejected. */
 export function finalizeSentenceProgress(
   duel: Pick<Doc<"duels">, "sentenceProgress">,
@@ -394,19 +373,6 @@ export function finalizeSentenceProgress(
   return {
     sentenceProgress: replaceSentenceProgress(duel, { ...base, finalized: true }),
   };
-}
-
-export interface SentenceRoundSubmission {
-  completed: boolean;
-  /** Wrong tile taps the player accumulated this round. Must be >= 0. */
-  mistakes: number;
-}
-
-export function scoreSentenceSubmission(submission: SentenceRoundSubmission): number {
-  if (!submission.completed) return SENTENCE_TIMEOUT_POINTS;
-  return submission.mistakes === 0
-    ? SENTENCE_CLEAN_COMPLETION_POINTS
-    : SENTENCE_MESSY_COMPLETION_POINTS;
 }
 
 export interface PvpSentenceSubmission {
@@ -436,52 +402,22 @@ export function scorePvpSentenceSubmission(submission: PvpSentenceSubmission): n
 }
 
 /**
- * Deduct one HP per wrong tile on lives-tracked attempts (boss / SR), and end
- * the boss attempt inline when lives hit 0 — mirrors `getLimitedLivesMissPatch`
- * for word rounds (1 HP per wrong tap, no extra HP on timeout). A timeout with
- * zero wrong taps costs zero HP, matching the word rule that a timeout is at
- * most one HP loss (not additive on top of wrong-answer HP).
- */
-function getSentenceLivesPatch(
-  duel: Doc<"duels">,
-  playerRole: PlayerRole,
-  submission: SentenceRoundSubmission
-): Partial<Doc<"duels">> {
-  if (!isLivesAttempt(duel)) return {};
-  const livesLost = Math.max(0, submission.mistakes);
-  if (livesLost === 0) return {};
-
-  const startingLives = typeof duel.livesRemaining === "number" ? duel.livesRemaining : undefined;
-  const nextLives = startingLives === undefined
-    ? undefined
-    : Math.max(0, startingLives - livesLost);
-
-  const flagPatch: Partial<Doc<"duels">> = playerRole === "challenger"
-    ? { challengerPerfectRun: false }
-    : { opponentPerfectRun: false };
-
-  if (nextLives === undefined) return flagPatch;
-
-  return {
-    ...flagPatch,
-    livesRemaining: nextLives,
-    ...(nextLives === 0 ? getBossAttemptEndFields() : {}),
-  };
-}
-
-/**
- * Build the patch that records a player's sentence-round submission. Reads
- * server-tracked tile sequence + mistakes — client input is not trusted. The
- * progress row is marked `finalized` so further taps are rejected.
+ * Build the patch that records a player's sentence-round submission. Reads the
+ * server-tracked `completed` / `failedConfirms` — client input is not trusted.
+ * The progress row is marked `finalized` so further taps are rejected.
  */
 export function buildSentenceAnswerPatch(params: {
   duel: Doc<"duels">;
   playerRole: PlayerRole;
   isChallenger: boolean;
+  // Part of the mutation contract (the client distinguishes a timeout submit
+  // from a completion submit), but unused for scoring: build-and-confirm derives
+  // completion from the server-tracked `completed` flag, which a timeout never
+  // sets. Kept so `answerSentenceRound` can validate the client's input.
   timedOut: boolean;
   questionIndex: number;
 }): Partial<Doc<"duels">> {
-  const { duel, playerRole, isChallenger, timedOut, questionIndex } = params;
+  const { duel, playerRole, isChallenger, questionIndex } = params;
   const alreadyAnswered = isChallenger
     ? duel.challengerAnswered
     : duel.opponentAnswered;
@@ -489,37 +425,19 @@ export function buildSentenceAnswerPatch(params: {
 
   const finalizePatch = finalizeSentenceProgress(duel, questionIndex, playerRole);
 
-  let earned: number;
-  let livesPatch: Partial<Doc<"duels">>;
-  let lastAnswerMarker: string;
-
-  if (isBuildConfirmSentenceMode(duel)) {
-    // PvP build-and-confirm: score off the failed-Confirm ladder. `completed`
-    // is set only by a correct Confirm, so a timeout naturally lands on the
-    // not-completed rows.
-    const entry = findSentenceProgress(duel, questionIndex, playerRole);
-    const completed = entry?.completed ?? false;
-    const failedConfirms = entry?.failedConfirms ?? 0;
-    earned = scorePvpSentenceSubmission({ completed, failedConfirms });
-    // A boss can launch as PvP (build-and-confirm) and still include sentence
-    // rounds, and a boss is lives-tracked. Mirror the word-round rule: an
-    // unsolved round costs one life (a correct Confirm costs none) so a
-    // sentence-heavy boss can't be "defeated" without clearing the sentences.
-    // Plain PvP (sourceType "normal") is not a lives attempt, so this stays a
-    // no-op there.
-    livesPatch = completed ? {} : getLimitedLivesMissPatch(duel, playerRole);
-    lastAnswerMarker = completed
-      ? `sentence:confirms=${failedConfirms}`
-      : TIMEOUT_ANSWER;
-  } else {
-    // PvE / Solo per-tap model: legacy clean/messy/timeout scale.
-    const submission = readServerSubmission(duel, questionIndex, playerRole, timedOut);
-    earned = scoreSentenceSubmission(submission);
-    livesPatch = getSentenceLivesPatch(duel, playerRole, submission);
-    lastAnswerMarker = submission.completed
-      ? `sentence:${submission.mistakes}`
-      : TIMEOUT_ANSWER;
-  }
+  // Build-and-confirm is the only sentence model (PvE / PvP / self unified).
+  // Score off the failed-Confirm ladder: `completed` is set only by a correct
+  // Confirm, so a timeout naturally lands on the not-completed rows. A boss / SR
+  // attempt is lives-tracked, so an unsolved round costs one life (a correct
+  // Confirm costs none); plain duels are not lives attempts, so that is a no-op.
+  const entry = findSentenceProgress(duel, questionIndex, playerRole);
+  const completed = entry?.completed ?? false;
+  const failedConfirms = entry?.failedConfirms ?? 0;
+  const earned = scorePvpSentenceSubmission({ completed, failedConfirms });
+  const livesPatch = completed ? {} : getLimitedLivesMissPatch(duel, playerRole);
+  const lastAnswerMarker = completed
+    ? `sentence:confirms=${failedConfirms}`
+    : TIMEOUT_ANSWER;
 
   return mirrorPatchForSelfDuel(
     {

@@ -1,11 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   formatSentenceTileForDisplay,
   getSentenceTilePoolFontSizeClass,
 } from "@/lib/sentenceGameplay/displayTile";
+import { computeRevealBadgeView } from "@/lib/sentenceGameplay/reveal";
+import type { SentenceTileReveal } from "@/lib/sentenceGameplay/hints";
 import {
   TIMER_DANGER_THRESHOLD,
   TIMER_WARNING_THRESHOLD,
@@ -28,6 +30,17 @@ interface SentenceBuildBoardProps {
    * `null` (decision #2 — no per-tile hints to brute-force against).
    */
   correctnessMask: boolean[] | null;
+  /**
+   * remove_distractor hint (PvE): pool indices to grey out + disable. The board
+   * also skips them in the tap handler. Defaults to none.
+   */
+  eliminatedTileIndices?: number[];
+  /**
+   * reveal_tiles hint (PvE): the marked slots (shared across both boards). Each
+   * carries the pool indices that validly fill it; the per-tile badge + pulse is
+   * derived per-player from the placed sequence. Defaults to none.
+   */
+  revealedTiles?: SentenceTileReveal[];
   /**
    * An unplaced tile to flag subtly because it was the previous player's WRONG
    * pick (placed nothing). `null` → nothing flagged. Used by Tag Team so the
@@ -64,6 +77,8 @@ export function SentenceBuildBoard({
   tilePool,
   placedTileIndices,
   correctnessMask,
+  eliminatedTileIndices = [],
+  revealedTiles = [],
   lastWrongTileIndex = null,
   secondsLeft,
   locked,
@@ -78,6 +93,16 @@ export function SentenceBuildBoard({
   const colors = useAppearanceColors();
   const styles = buildDuelViewStyles(colors);
   const checked = correctnessMask !== null;
+  const eliminatedSet = useMemo(
+    () => new Set(eliminatedTileIndices),
+    [eliminatedTileIndices]
+  );
+  // Per-player reveal badges + the next-due pulse, derived from this client's own
+  // placed sequence (the revealed *slots* are the shared duel field).
+  const revealView = useMemo(
+    () => computeRevealBadgeView(revealedTiles, placedTileIndices),
+    [revealedTiles, placedTileIndices]
+  );
 
   const timerIsDanger = secondsLeft <= TIMER_DANGER_THRESHOLD;
   const timerIsWarning = secondsLeft <= TIMER_WARNING_THRESHOLD;
@@ -152,6 +177,13 @@ export function SentenceBuildBoard({
           const isWrong = checked && isPlaced ? correctnessMask?.[order] === false : false;
           // Subtle flag for the partner's previous WRONG pick (unplaced).
           const isLastWrong = !isPlaced && lastWrongTileIndex === index;
+          // PvE hint effects (reveal + eliminate never coexist on one round).
+          const isEliminated = eliminatedSet.has(index);
+          const revealBadge = isEliminated
+            ? undefined
+            : revealView.badgeByTileIndex.get(index);
+          const isPulsing =
+            !isEliminated && !isPlaced && revealView.pulseTileIndex === index;
 
           let badge: string | null = null;
           if (isPlaced) {
@@ -159,7 +191,13 @@ export function SentenceBuildBoard({
           }
 
           let tileStyle: React.CSSProperties;
-          if (isCorrect) {
+          if (isEliminated) {
+            tileStyle = {
+              borderColor: colors.neutral.dark,
+              backgroundColor: colors.background.DEFAULT,
+              color: colors.text.muted,
+            };
+          } else if (isCorrect) {
             tileStyle = {
               borderColor: colors.status.success.DEFAULT,
               backgroundColor: `${colors.status.success.DEFAULT}24`,
@@ -201,10 +239,16 @@ export function SentenceBuildBoard({
             <button
               key={`${tile}-${index}`}
               onClick={() => onTileClick(index)}
-              disabled={locked}
+              disabled={locked || isEliminated}
               className={`p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
                 isLastWrong ? "border-dashed" : ""
-              } ${isPlaced && !checked ? "opacity-70" : "hover:brightness-110"}`}
+              } ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${
+                isEliminated
+                  ? "opacity-40 line-through cursor-not-allowed"
+                  : isPlaced && !checked
+                    ? "opacity-70"
+                    : "hover:brightness-110"
+              }`}
               style={tileStyle}
               data-testid={`sentence-tile-${index}`}
             >
@@ -216,6 +260,19 @@ export function SentenceBuildBoard({
                   data-testid={`sentence-badge-${index}`}
                 >
                   {badge}
+                </span>
+              )}
+              {revealBadge && (
+                <span
+                  className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow"
+                  style={{
+                    backgroundColor: revealBadge.correct
+                      ? colors.status.success.DEFAULT
+                      : "#f59e0b",
+                  }}
+                  data-testid={`sentence-reveal-badge-${index}`}
+                >
+                  {revealBadge.correct ? "✓" : revealBadge.slot}
                 </span>
               )}
             </button>

@@ -57,12 +57,15 @@ export const SENTENCE_DISTRACTOR_MAX_LENGTH = SENTENCE_SPANISH_TOKEN_MAX_LENGTH;
  */
 export const SENTENCE_FORBIDDEN_PUNCTUATION = [",", ";", '"', "'", "(", ")", "/"] as const;
 
-/** Per-mode sentence timers (decision: timers and feedback). Doubled from the
- * original 30/30/30/45 — sentences need noticeably more time than word rounds. */
-export const SENTENCE_PVP_TIMER_SECONDS = 60;
+/**
+ * Single sentence-round timer for the unified build-and-confirm board, used by
+ * every non-relay mode (PvE / PvP / self-duel). 60s — the +30s freeze hint plus
+ * build-and-confirm's free reset/peel make a longer base unnecessary (decision
+ * Q3: the old per-tap PvE value of 90s is retired with the per-tap model).
+ */
+export const SENTENCE_TIMER_SECONDS = 60;
+/** Relay serves sentence positions on its own turn clock (separate budget). */
 export const SENTENCE_RELAY_TIMER_SECONDS = 60;
-export const SENTENCE_SELF_DUEL_TIMER_SECONDS = 60;
-export const SENTENCE_PVE_TIMER_SECONDS = 90;
 
 /**
  * Relay answer window for a sentence position, in ms. Lives here (next to the

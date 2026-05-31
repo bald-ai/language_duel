@@ -21,6 +21,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     challengerScore: 0,
     opponentScore: 0,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 123,
     duelDifficultyPreset: "easy",

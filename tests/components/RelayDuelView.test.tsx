@@ -78,6 +78,7 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
     duelDifficultyPreset: "medium",
     duelMode: "relay",
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 1,
     relayPicker: "challenger",

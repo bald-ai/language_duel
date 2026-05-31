@@ -89,6 +89,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     createdAt: 1,
     questionStartTime: 1_000,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     ...overrides,
   };

@@ -78,6 +78,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     duelDifficultyPreset: "easy",
     questionStartTime: 1_000,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 123,
     ...overrides,

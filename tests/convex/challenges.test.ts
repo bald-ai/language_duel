@@ -410,6 +410,7 @@ describe("challenge backend", () => {
       sourceType: "normal",
       duelMode: "pve",
       hintPoolUsed: [],
+      sentenceHintPoolUsed: [],
       currentQuestionHintFired: false,
     });
     expect(db.notifications[0].status).toBe("dismissed");
