@@ -28,6 +28,12 @@ interface SentenceBuildBoardProps {
    * `null` (decision #2 — no per-tile hints to brute-force against).
    */
   correctnessMask: boolean[] | null;
+  /**
+   * An unplaced tile to flag subtly because it was the previous player's WRONG
+   * pick (placed nothing). `null` → nothing flagged. Used by Tag Team so the
+   * partner can see what was just tried; ignored by PvP/Relay.
+   */
+  lastWrongTileIndex?: number | null;
   secondsLeft: number;
   /** Disables every tile (round completed / timed out / not your turn). */
   locked: boolean;
@@ -58,6 +64,7 @@ export function SentenceBuildBoard({
   tilePool,
   placedTileIndices,
   correctnessMask,
+  lastWrongTileIndex = null,
   secondsLeft,
   locked,
   showActions,
@@ -143,10 +150,12 @@ export function SentenceBuildBoard({
           const isLast = isPlaced && order === placedTileIndices.length - 1;
           const isCorrect = checked && isPlaced ? correctnessMask?.[order] === true : false;
           const isWrong = checked && isPlaced ? correctnessMask?.[order] === false : false;
+          // Subtle flag for the partner's previous WRONG pick (unplaced).
+          const isLastWrong = !isPlaced && lastWrongTileIndex === index;
 
           let badge: string | null = null;
           if (isPlaced) {
-            badge = isLast && !checked ? "✕" : String(order + 1);
+            badge = String(order + 1);
           }
 
           let tileStyle: React.CSSProperties;
@@ -168,6 +177,12 @@ export function SentenceBuildBoard({
               backgroundColor: colors.background.DEFAULT,
               color: colors.text.muted,
             };
+          } else if (isLastWrong) {
+            tileStyle = {
+              borderColor: colors.status.danger.DEFAULT,
+              backgroundColor: `${colors.status.danger.DEFAULT}14`,
+              color: colors.text.DEFAULT,
+            };
           } else {
             tileStyle = {
               borderColor: colors.primary.dark,
@@ -188,8 +203,8 @@ export function SentenceBuildBoard({
               onClick={() => onTileClick(index)}
               disabled={locked}
               className={`p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
-                isPlaced && !checked ? "opacity-70" : "hover:brightness-110"
-              }`}
+                isLastWrong ? "border-dashed" : ""
+              } ${isPlaced && !checked ? "opacity-70" : "hover:brightness-110"}`}
               style={tileStyle}
               data-testid={`sentence-tile-${index}`}
             >

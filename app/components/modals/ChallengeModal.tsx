@@ -14,6 +14,7 @@ import { DifficultySelector } from "./DifficultySelector";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 import { formatVisibleUser } from "@/lib/userDisplay";
+import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { DUEL_DIFFICULTY_OPTIONS, DUEL_MODE_OPTIONS } from "./challengeOptions";
 import type { ThemeColors } from "@/lib/appearance";
 import type { ModalTheme } from "./types";
@@ -119,6 +120,17 @@ export function ChallengeModal({
   const hasOpponent = selectedOpponentId != null;
   const hasTheme = selectedThemeIds.length > 0;
 
+  // TbT ("Tag Team") shares one sentence tile board, so it is sentence-only.
+  // Disable it in the picker unless EVERY selected theme is a sentence theme —
+  // matching the server guard, which rejects a deck with any non-sentence theme.
+  const allSentenceThemes =
+    hasTheme &&
+    selectedThemeIds.every((id) =>
+      themes?.some((theme) => theme._id === id && isSentenceTheme(theme))
+    );
+  const disabledModes: Partial<Record<DuelMode, string>> | undefined =
+    allSentenceThemes ? undefined : { tbt: "Needs an all-sentence deck" };
+
   const steps = useMemo<WizardStep[]>(() => {
     const list: WizardStep[] = ["opponent"];
     if (!hasOpponent) return list;
@@ -206,6 +218,7 @@ export function ChallengeModal({
     isSelfSelected,
     isRelaySelected,
     showDifficulty,
+    disabledModes,
     onSelectOpponent: handleSelectOpponent,
     onThemeIdsChange: setSelectedThemeIds,
     onSelectMode: handleSelectMode,
@@ -375,6 +388,7 @@ interface StepBodyArgs {
   isSelfSelected: boolean;
   isRelaySelected: boolean;
   showDifficulty: boolean;
+  disabledModes?: Partial<Record<DuelMode, string>>;
   onSelectOpponent: (id: Id<"users">) => void;
   onThemeIdsChange: (themeIds: Id<"themes">[]) => void;
   onSelectMode: (mode: DuelMode) => void;
@@ -395,6 +409,7 @@ function renderStepBody(args: StepBodyArgs): ReactNode {
     selectedDifficulty,
     selectedMode,
     isRelaySelected,
+    disabledModes,
     onSelectOpponent,
     onThemeIdsChange,
     onSelectMode,
@@ -433,6 +448,7 @@ function renderStepBody(args: StepBodyArgs): ReactNode {
           selectedMode={selectedMode}
           onSelectMode={onSelectMode}
           dataTestIdPrefix="duel-modal-mode"
+          disabledModes={disabledModes}
           layout="rows"
         />
       );

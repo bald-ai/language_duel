@@ -50,6 +50,7 @@ import type * as rules_duelScoringRules from "../rules/duelScoringRules.js";
 import type * as rules_selfDuelMirror from "../rules/selfDuelMirror.js";
 import type * as rules_sentenceGameplayRules from "../rules/sentenceGameplayRules.js";
 import type * as sabotage from "../sabotage.js";
+import type * as tbtDuel from "../tbtDuel.js";
 import type * as themes from "../themes.js";
 import type * as themes_archiveDuplicate from "../themes/archiveDuplicate.js";
 import type * as themes_cleanupHelpers from "../themes/cleanupHelpers.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "rules/selfDuelMirror": typeof rules_selfDuelMirror;
   "rules/sentenceGameplayRules": typeof rules_sentenceGameplayRules;
   sabotage: typeof sabotage;
+  tbtDuel: typeof tbtDuel;
   themes: typeof themes;
   "themes/archiveDuplicate": typeof themes_archiveDuplicate;
   "themes/cleanupHelpers": typeof themes_cleanupHelpers;

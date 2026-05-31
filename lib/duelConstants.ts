@@ -31,3 +31,14 @@ export const RELAY_ANSWER_TIMEOUT_MS = RELAY_ANSWER_TIMEOUT_SECONDS * 1000;
 /** Each player's hard-upgrade tokens = ceil(poolSize / divisor) (decision #13). */
 export const RELAY_HARD_BUDGET_DIVISOR = 10;
 
+// ===========================================
+// PvE Turn-by-Turn (TbT) Duel
+// ===========================================
+
+/** Single shared budget for building one sentence together. The pair takes
+ * turns inside this one countdown (it does NOT reset per tap); when it runs out
+ * the sentence ends with no point and the duel advances. Anchored on
+ * `questionStartTime`, so it reuses the word-duel pause/transition timing. */
+export const TBT_QUESTION_TIMEOUT_SECONDS = 90;
+export const TBT_QUESTION_TIMEOUT_MS = TBT_QUESTION_TIMEOUT_SECONDS * 1000;
+

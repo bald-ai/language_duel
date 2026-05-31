@@ -156,7 +156,8 @@ const duelDifficultyPresetValidator = difficultyLevelValidator;
 export const duelModeValidator = v.union(
   v.literal(DUEL_MODES[0]),
   v.literal(DUEL_MODES[1]),
-  v.literal(DUEL_MODES[2])
+  v.literal(DUEL_MODES[2]),
+  v.literal(DUEL_MODES[3])
 );
 
 const relayPhaseValidator = v.union(
@@ -539,6 +540,22 @@ export default defineSchema({
     // Parallel to duelQuestions: the hard-upgrade variant per position.
     // Server-only — never shipped to clients.
     relayHardQuestions: v.optional(v.array(duelQuestionValidator)),
+
+    // PvE turn-by-turn (TbT) state. Only set when duelMode === "tbt". Both
+    // players share ONE sentence board (keyed by TBT_BOARD_ROLE) and alternate
+    // turns; `tbtTurn` is whose tap is next. Timing rides on the shared
+    // `questionStartTime` (one 90s budget per sentence), same as the
+    // word/sentence duels — there is no per-turn clock or scheduler.
+    tbtTurn: v.optional(playerRoleValidator),
+    // The tile the previous player just tapped that was WRONG (placed nothing).
+    // Lingers as a subtle marker so the next player can see what their partner
+    // tried; cleared on any correct placement and on sentence advance.
+    tbtLastWrongTileIndex: v.optional(v.number()),
+    // Legacy per-turn AFK fields, no longer written (kept optional so any
+    // in-flight duel doc still validates). Safe to drop once no live TbT duels
+    // carry them.
+    tbtTurnStartedAt: v.optional(v.number()),
+    tbtTimeoutScheduledFunctionId: v.optional(v.id("_scheduled_functions")),
 
     // Per-(questionIndex, role) sentence-round progress. The server is the only
     // authority — see `sentenceProgressEntryValidator` above.

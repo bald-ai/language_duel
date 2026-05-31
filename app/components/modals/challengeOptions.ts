@@ -57,4 +57,11 @@ export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
     icon: "🏃",
     selectedTone: "primary",
   },
+  {
+    mode: "tbt",
+    label: "Tag Team",
+    description: "Take turns · build sentences together",
+    icon: "👥",
+    selectedTone: "secondary",
+  },
 ];

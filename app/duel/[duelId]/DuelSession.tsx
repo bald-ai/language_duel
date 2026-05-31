@@ -3,6 +3,7 @@
 import type { Doc } from "@/convex/_generated/dataModel";
 import { DuelView } from "./components/DuelView";
 import { RelayDuelView } from "./components/RelayDuelView";
+import { TurnByTurnView } from "./components/TurnByTurnView";
 import { SentenceRoundView } from "./components/SentenceRoundView";
 import { CrossKindTransitionView } from "./components/CrossKindTransitionView";
 import {
@@ -39,7 +40,46 @@ export default function DuelSession(props: DuelSessionProps) {
     );
   }
 
+  if (props.duel.duelMode === "tbt") {
+    return <TbtSession {...props} />;
+  }
   return <NonRelayDuelSession {...props} />;
+}
+
+// Tag Team reuses the exact between-sentence reveal every other sentence duel
+// gets: the server advances inline on the finishing tap, and
+// `useCrossKindRoundTransition` holds the finished sentence on screen for the
+// shared 5s countdown (pause/skip coordinated through the server) before the
+// next board mounts. Same hook, same view, same countdown mutations as the
+// non-relay sentence path.
+function TbtSession(props: DuelSessionProps) {
+  const crossKindTransition = useCrossKindRoundTransition(props.duel);
+
+  if (crossKindTransition) {
+    return (
+      <CrossKindTransitionView
+        duel={props.duel}
+        challenger={props.challenger}
+        opponent={props.opponent}
+        viewerRole={props.viewerRole}
+        transition={crossKindTransition.transition}
+        secondsLeft={crossKindTransition.secondsLeft}
+        localPaused={crossKindTransition.localPaused}
+        onLocalPause={crossKindTransition.onLocalPause}
+        onLocalUnpause={crossKindTransition.onLocalUnpause}
+        onLocalSkip={crossKindTransition.onLocalSkip}
+      />
+    );
+  }
+
+  return (
+    <TurnByTurnView
+      duel={props.duel}
+      viewerRole={props.viewerRole}
+      challenger={props.challenger}
+      opponent={props.opponent}
+    />
+  );
 }
 
 function NonRelayDuelSession(props: DuelSessionProps) {

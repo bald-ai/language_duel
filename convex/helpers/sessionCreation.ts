@@ -12,6 +12,10 @@ import {
   type RelayInitialState,
 } from "../../lib/duel/relayEngine";
 import {
+  buildInitialTbtState,
+  type TbtInitialState,
+} from "../../lib/duel/tbtEngine";
+import {
   getUniqueThemeIds,
   isSessionSentenceItem,
   type SessionItem,
@@ -90,7 +94,9 @@ export interface ChallengeInviteFields {
   createdAt: number;
 }
 
-export interface DuelSessionFields extends Partial<RelayInitialState> {
+export interface DuelSessionFields
+  extends Partial<RelayInitialState>,
+    Partial<TbtInitialState> {
   challengeId?: Id<"challenges">;
   challengerId: Id<"users">;
   opponentId: Id<"users">;
@@ -273,13 +279,28 @@ export function buildDuelSession(args: {
   // Relay serves a flat-point medium snapshot per position (decision #11) and
   // carries its own turn/budget state; other modes use the progressive set.
   const isRelay = args.duelMode === "relay";
+  const isTbt = args.duelMode === "tbt";
+
+  // TbT shares one sentence board, so the whole deck must be sentence items.
+  // Reject a mixed/word deck at creation rather than failing mid-duel.
+  if (isTbt && sessionWords.some((item) => !isSessionSentenceItem(item))) {
+    throw new ConvexError({
+      code: "TBT_REQUIRES_SENTENCES",
+      message: "Turn-by-turn duels require an all-sentence deck",
+    });
+  }
+
   const duelQuestions = isRelay
     ? buildRelayQuestionSet(sessionWords, wordOrder, "medium")
     : buildDuelQuestionSet(sessionWords, wordOrder, duelDifficultyPreset);
   const relayState = isRelay ? buildInitialRelayState(sessionWords, wordOrder) : {};
+  // TbT tracks whose turn it is on the shared board; the opener of sentence 0
+  // goes first. Empty for every other mode.
+  const tbtState = isTbt ? buildInitialTbtState() : {};
 
   return {
     ...relayState,
+    ...tbtState,
     challengeId: args.challengeId,
     challengerId: args.challengerId,
     opponentId: args.opponentId,

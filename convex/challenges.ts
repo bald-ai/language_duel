@@ -32,6 +32,7 @@ import {
 } from "./notificationHelpers";
 import { CHALLENGE_INVITE_TTL_MS } from "./constants";
 import { duelModeValidator } from "./schema";
+import { isSentenceTheme } from "../lib/themes/themeContent";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
 import { calculateStartingLives } from "../lib/limitedLives";
@@ -201,6 +202,16 @@ export const createChallenge = mutation({
     }
 
     const resolvedThemes = await resolveAccessibleThemes(ctx, challenger._id, themeIds);
+
+    // TbT is a sentence-only mode (one shared tile board). Reject non-sentence
+    // themes at challenge creation for a fast, clear error.
+    if (duelMode === "tbt" && resolvedThemes.some((theme) => !isSentenceTheme(theme))) {
+      throw new ConvexError({
+        code: "TBT_REQUIRES_SENTENCES",
+        message: "Turn-by-turn duels require sentence themes",
+      });
+    }
+
     const orderedThemeIds = resolvedThemes.map((theme) => theme._id);
 
     const now = Date.now();

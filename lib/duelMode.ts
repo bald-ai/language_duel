@@ -1,4 +1,4 @@
-export const DUEL_MODES = ["pvp", "pve", "relay"] as const;
+export const DUEL_MODES = ["pvp", "pve", "relay", "tbt"] as const;
 
 export type DuelMode = (typeof DUEL_MODES)[number];
 
@@ -6,6 +6,7 @@ export const DUEL_MODE_LABELS: Record<DuelMode, string> = {
   pvp: "PvP",
   pve: "PvE",
   relay: "Relay",
+  tbt: "PvE TbT",
 };
 
 // Relay is only offered from the regular challenge flow (decision #2). Boss and
