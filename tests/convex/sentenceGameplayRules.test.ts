@@ -2,14 +2,22 @@ import { describe, expect, it } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   applySentenceTap,
+  appendSentenceTile,
+  removeLastSentenceTile,
+  clearSentenceBoard,
+  confirmSentenceRound,
   buildSentenceAnswerPatch,
   scoreSentenceSubmission,
+  scorePvpSentenceSubmission,
   validateTimedOutFlag,
 } from "@/convex/rules/sentenceGameplayRules";
 import {
   SENTENCE_CLEAN_COMPLETION_POINTS,
   SENTENCE_MESSY_COMPLETION_POINTS,
   SENTENCE_TIMEOUT_POINTS,
+  SENTENCE_PVP_CLEAN_CONFIRM_POINTS,
+  SENTENCE_PVP_SINGLE_FAIL_POINTS,
+  SENTENCE_PVP_FLOOR_POINTS,
 } from "@/lib/themes/sentenceConstants";
 
 function baseDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
@@ -42,7 +50,10 @@ function baseDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
  * for the correct sequence are [0, 1]; index 2 is a distractor that should be
  * counted as a mistake.
  */
-function sentenceDuel(progress?: Partial<Doc<"duels">>["sentenceProgress"]): Doc<"duels"> {
+function sentenceDuel(
+  progress?: Partial<Doc<"duels">>["sentenceProgress"],
+  overrides: Partial<Doc<"duels">> = {}
+): Doc<"duels"> {
   return baseDuel({
     duelQuestions: [
       {
@@ -53,6 +64,76 @@ function sentenceDuel(progress?: Partial<Doc<"duels">>["sentenceProgress"]): Doc
       },
     ],
     sentenceProgress: progress,
+    ...overrides,
+  });
+}
+
+/**
+ * A PvP build-and-confirm duel with a repeated word so positional coloring can
+ * be exercised. Spanish "el gato el perro" (the cat the dog). Tile pool:
+ *   [0]=el  [1]=gato  [2]=el  [3]=perro  [4]=raton (distractor)
+ * Indices [0,1,2,3] build the correct sentence in order.
+ */
+function duplicateWordPvpDuel(
+  progress?: Partial<Doc<"duels">>["sentenceProgress"]
+): Doc<"duels"> {
+  return baseDuel({
+    duelMode: "pvp",
+    duelQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "the cat the dog",
+        spanishSentence: "el gato el perro",
+        tilePool: ["el", "gato", "el", "perro", "raton"],
+      },
+    ],
+    sentenceProgress: progress,
+  });
+}
+
+function pvpProgress(
+  entry: Partial<NonNullable<Doc<"duels">["sentenceProgress"]>[number]>
+): Doc<"duels">["sentenceProgress"] {
+  return [
+    {
+      questionIndex: 0,
+      role: "challenger",
+      placedTileIndices: [],
+      mistakes: 0,
+      completed: false,
+      finalized: false,
+      failedConfirms: 0,
+      ...entry,
+    },
+  ];
+}
+
+/**
+ * A boss can be launched as PvP, which puts it on the build-and-confirm model
+ * AND makes it lives-tracked. This duel exercises that overlap.
+ */
+function pvpBossDuel(
+  progress: Doc<"duels">["sentenceProgress"],
+  overrides: Partial<Doc<"duels">> = {}
+): Doc<"duels"> {
+  return baseDuel({
+    duelMode: "pvp",
+    sourceType: "boss",
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    bossType: "mini",
+    livesRemaining: 3,
+    challengerPerfectRun: true,
+    opponentPerfectRun: true,
+    duelQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "the cat the dog",
+        spanishSentence: "el gato el perro",
+        tilePool: ["el", "gato", "el", "perro", "raton"],
+      },
+    ],
+    sentenceProgress: progress,
+    ...overrides,
   });
 }
 
@@ -203,9 +284,15 @@ describe("applySentenceTap (Task 21 server validation)", () => {
   });
 });
 
-describe("buildSentenceAnswerPatch (reads server state)", () => {
+describe("buildSentenceAnswerPatch — legacy per-tap scoring (PvE / Solo)", () => {
+  // These exercise the non-build-confirm path: clean/messy/timeout scale plus
+  // boss HP. Pinned to `pve` mode so they don't take the PvP ladder branch.
+  const pveSentenceDuel = (
+    progress?: Partial<Doc<"duels">>["sentenceProgress"]
+  ): Doc<"duels"> => sentenceDuel(progress, { duelMode: "pve" });
+
   it("awards clean points when server-tracked progress shows completed + 0 mistakes", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "challenger",
@@ -228,7 +315,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("uses the server-tracked mistakes count, ignoring client-side claims", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "opponent",
@@ -250,7 +337,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("scores 0 on timeout and marks the player answered", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "opponent",
@@ -273,7 +360,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("treats a player who never tapped as a 0-mistake timeout", () => {
-    const duel = sentenceDuel();
+    const duel = pveSentenceDuel();
     const patch = buildSentenceAnswerPatch({
       duel,
       playerRole: "challenger",
@@ -286,7 +373,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("is a no-op once the player has already answered", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "challenger",
@@ -308,7 +395,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("deducts lives equal to mistakes on a boss attempt", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "challenger",
@@ -337,7 +424,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("does not deduct extra HP on timeout (HP mirrors word: wrong taps only)", () => {
-    const duel = sentenceDuel([
+    const duel = pveSentenceDuel([
       {
         questionIndex: 0,
         role: "challenger",
@@ -364,7 +451,7 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
   });
 
   it("deducts zero HP on a timeout with zero wrong taps", () => {
-    const duel = sentenceDuel();
+    const duel = pveSentenceDuel();
     duel.sourceType = "boss";
     duel.weeklyGoalId = "goal_1" as Id<"weeklyGoals">;
     duel.bossType = "mini";
@@ -379,6 +466,316 @@ describe("buildSentenceAnswerPatch (reads server state)", () => {
       questionIndex: 0,
     });
     expect(patch.livesRemaining).toBeUndefined();
+  });
+});
+
+describe("scorePvpSentenceSubmission (build-and-confirm ladder)", () => {
+  it("clean first-try Confirm = +1", () => {
+    expect(scorePvpSentenceSubmission({ completed: true, failedConfirms: 0 })).toBe(
+      SENTENCE_PVP_CLEAN_CONFIRM_POINTS
+    );
+  });
+
+  it("one failed Confirm then correct = 0", () => {
+    expect(scorePvpSentenceSubmission({ completed: true, failedConfirms: 1 })).toBe(
+      SENTENCE_PVP_SINGLE_FAIL_POINTS
+    );
+  });
+
+  it("two or more failed Confirms then correct = −1 floor", () => {
+    expect(scorePvpSentenceSubmission({ completed: true, failedConfirms: 2 })).toBe(
+      SENTENCE_PVP_FLOOR_POINTS
+    );
+    expect(scorePvpSentenceSubmission({ completed: true, failedConfirms: 9 })).toBe(
+      SENTENCE_PVP_FLOOR_POINTS
+    );
+  });
+
+  it("timeout with zero failed Confirms = 0", () => {
+    expect(scorePvpSentenceSubmission({ completed: false, failedConfirms: 0 })).toBe(0);
+  });
+
+  it("timeout after at least one failed Confirm = −1 floor", () => {
+    expect(scorePvpSentenceSubmission({ completed: false, failedConfirms: 1 })).toBe(
+      SENTENCE_PVP_FLOOR_POINTS
+    );
+    expect(scorePvpSentenceSubmission({ completed: false, failedConfirms: 5 })).toBe(
+      SENTENCE_PVP_FLOOR_POINTS
+    );
+  });
+});
+
+describe("appendSentenceTile (build-and-confirm placement, no validation)", () => {
+  it("appends any tile without validating, never touching mistakes", () => {
+    const duel = duplicateWordPvpDuel();
+    // index 4 is the distractor "raton" — in per-tap mode this would be a
+    // mistake, but build-confirm placement accepts it.
+    const { patch, accepted } = appendSentenceTile({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+      tileIndex: 4,
+    });
+    expect(accepted).toBe(true);
+    expect(patch.sentenceProgress?.[0]).toEqual(
+      expect.objectContaining({ placedTileIndices: [4], mistakes: 0, completed: false })
+    );
+  });
+
+  it("rejects a re-tap of an already-placed index", () => {
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0] }));
+    const { patch, accepted } = appendSentenceTile({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+      tileIndex: 0,
+    });
+    expect(accepted).toBe(false);
+    expect(patch).toEqual({});
+  });
+
+  it("rejects out-of-bounds indices", () => {
+    const duel = duplicateWordPvpDuel();
+    const { accepted } = appendSentenceTile({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+      tileIndex: 99,
+    });
+    expect(accepted).toBe(false);
+  });
+
+  it("caps the board at the target sentence length", () => {
+    // "el gato el perro" has 4 tokens; placing a 5th tile is rejected.
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0, 1, 2, 3] }));
+    const { patch, accepted } = appendSentenceTile({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+      tileIndex: 4,
+    });
+    expect(accepted).toBe(false);
+    expect(patch).toEqual({});
+  });
+});
+
+describe("removeLastSentenceTile / clearSentenceBoard (free edits)", () => {
+  it("peels only the most recently placed tile", () => {
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0, 1, 2] }));
+    const { patch } = removeLastSentenceTile({ duel, questionIndex: 0, role: "challenger" });
+    expect(patch.sentenceProgress?.[0]).toEqual(
+      expect.objectContaining({ placedTileIndices: [0, 1] })
+    );
+  });
+
+  it("is a no-op on an empty board", () => {
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [] }));
+    const { patch } = removeLastSentenceTile({ duel, questionIndex: 0, role: "challenger" });
+    expect(patch).toEqual({});
+  });
+
+  it("clears the whole board but keeps the failed-Confirm count", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2], failedConfirms: 2 })
+    );
+    const { patch } = clearSentenceBoard({ duel, questionIndex: 0, role: "challenger" });
+    expect(patch.sentenceProgress?.[0]).toEqual(
+      expect.objectContaining({ placedTileIndices: [], failedConfirms: 2 })
+    );
+  });
+
+  it("does not edit a completed round", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true })
+    );
+    expect(
+      removeLastSentenceTile({ duel, questionIndex: 0, role: "challenger" }).patch
+    ).toEqual({});
+    expect(
+      clearSentenceBoard({ duel, questionIndex: 0, role: "challenger" }).patch
+    ).toEqual({});
+  });
+});
+
+describe("confirmSentenceRound (whole-sentence validation point)", () => {
+  it("correct build → completed, all-true mask, no failed Confirm", () => {
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0, 1, 2, 3] }));
+    const { patch, result } = confirmSentenceRound({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+    });
+    expect(result.completed).toBe(true);
+    expect(result.correctnessMask).toEqual([true, true, true, true]);
+    expect(result.failedConfirms).toBe(0);
+    expect(patch.sentenceProgress?.[0]).toEqual(
+      expect.objectContaining({ completed: true })
+    );
+  });
+
+  it("wrong build → positional mask + failedConfirms++, not finalized", () => {
+    // Placed "gato el el perro" (indices [1,0,2,3]) for target "el gato el perro".
+    // Position 0 expects "el" but got "gato" → false; position 1 expects "gato"
+    // but got "el" → false; positions 2,3 happen to match.
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [1, 0, 2, 3] }));
+    const { patch, result } = confirmSentenceRound({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+    });
+    expect(result.completed).toBe(false);
+    expect(result.correctnessMask).toEqual([false, false, true, true]);
+    expect(result.failedConfirms).toBe(1);
+    expect(patch.sentenceProgress?.[0]).toEqual(
+      expect.objectContaining({ completed: false, failedConfirms: 1 })
+    );
+  });
+
+  it("duplicate word is positional: a 'the' tile is green only in a 'the' slot", () => {
+    // Place "el gato el" then a distractor in slot 3: [0,1,2,4].
+    // Slots 0,1,2 match (el/gato/el); slot 3 expects "perro" but got "raton".
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0, 1, 2, 4] }));
+    const { result } = confirmSentenceRound({ duel, questionIndex: 0, role: "challenger" });
+    expect(result.correctnessMask).toEqual([true, true, true, false]);
+    expect(result.completed).toBe(false);
+  });
+
+  it("a 'the' tile placed in a non-'the' slot is red (not membership-matched)", () => {
+    // Place "el el ..." → slot 1 expects "gato" but got the second "el" (index 2).
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [0, 2] }));
+    const { result } = confirmSentenceRound({ duel, questionIndex: 0, role: "challenger" });
+    // Slot 0 = "el" ✓; slot 1 = "el" where "gato" expected ✗.
+    expect(result.correctnessMask).toEqual([true, false]);
+  });
+
+  it("an empty board is a no-op (no penalty)", () => {
+    const duel = duplicateWordPvpDuel(pvpProgress({ placedTileIndices: [] }));
+    const { patch, result } = confirmSentenceRound({
+      duel,
+      questionIndex: 0,
+      role: "challenger",
+    });
+    expect(patch).toEqual({});
+    expect(result.failedConfirms).toBe(0);
+    expect(result.completed).toBe(false);
+  });
+
+  it("accumulates failed Confirms across attempts", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [1, 0, 2, 3], failedConfirms: 1 })
+    );
+    const { result } = confirmSentenceRound({ duel, questionIndex: 0, role: "challenger" });
+    expect(result.failedConfirms).toBe(2);
+  });
+});
+
+describe("buildSentenceAnswerPatch — PvP build-and-confirm ladder", () => {
+  it("clean Confirm (0 failed) scores +1 with a confirms marker", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true, failedConfirms: 0 })
+    );
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: false,
+      questionIndex: 0,
+    });
+    expect(patch.challengerScore).toBe(0 + SENTENCE_PVP_CLEAN_CONFIRM_POINTS);
+    expect(patch.challengerLastAnswer).toBe("sentence:confirms=0");
+  });
+
+  it("Confirm after two fails scores the −1 floor (allows a negative running score)", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true, failedConfirms: 3 })
+    );
+    duel.challengerScore = 0;
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: false,
+      questionIndex: 0,
+    });
+    expect(patch.challengerScore).toBe(SENTENCE_PVP_FLOOR_POINTS);
+  });
+
+  it("timeout with failed Confirms scores −1; timeout with none scores 0", () => {
+    const withFails = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1], completed: false, failedConfirms: 2 })
+    );
+    withFails.challengerScore = 0;
+    expect(
+      buildSentenceAnswerPatch({
+        duel: withFails,
+        playerRole: "challenger",
+        isChallenger: true,
+        timedOut: true,
+        questionIndex: 0,
+      }).challengerScore
+    ).toBe(SENTENCE_PVP_FLOOR_POINTS);
+
+    const noFails = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1], completed: false, failedConfirms: 0 })
+    );
+    const patch = buildSentenceAnswerPatch({
+      duel: noFails,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: true,
+      questionIndex: 0,
+    });
+    expect(patch.challengerScore).toBe(0);
+    expect(patch.challengerLastAnswer).toBe("__TIMEOUT__");
+  });
+});
+
+describe("buildSentenceAnswerPatch — PvP boss (build-and-confirm lives)", () => {
+  it("deducts one life and breaks the perfect run on an unsolved sentence", () => {
+    const duel = pvpBossDuel(
+      pvpProgress({ placedTileIndices: [0, 1], completed: false, failedConfirms: 1 })
+    );
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: true,
+      questionIndex: 0,
+    });
+    expect(patch.livesRemaining).toBe(2);
+    expect(patch.challengerPerfectRun).toBe(false);
+  });
+
+  it("costs no life when the sentence is solved (even with failed Confirms)", () => {
+    const duel = pvpBossDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true, failedConfirms: 2 })
+    );
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: false,
+      questionIndex: 0,
+    });
+    expect(patch.livesRemaining).toBeUndefined();
+    expect(patch.challengerPerfectRun).toBeUndefined();
+  });
+
+  it("ends the boss attempt when an unsolved sentence empties the lives pool", () => {
+    const duel = pvpBossDuel(
+      pvpProgress({ placedTileIndices: [0], completed: false, failedConfirms: 0 }),
+      { livesRemaining: 1 }
+    );
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: true,
+      questionIndex: 0,
+    });
+    expect(patch.livesRemaining).toBe(0);
+    expect(patch.status).toBe("completed");
+    expect(patch.challengerPerfectRun).toBe(false);
   });
 });
 

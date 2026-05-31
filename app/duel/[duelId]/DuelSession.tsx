@@ -55,7 +55,12 @@ function NonRelayDuelSession(props: DuelSessionProps) {
         challenger={props.challenger}
         opponent={props.opponent}
         viewerRole={props.viewerRole}
-        transition={crossKindTransition}
+        transition={crossKindTransition.transition}
+        secondsLeft={crossKindTransition.secondsLeft}
+        localPaused={crossKindTransition.localPaused}
+        onLocalPause={crossKindTransition.onLocalPause}
+        onLocalUnpause={crossKindTransition.onLocalUnpause}
+        onLocalSkip={crossKindTransition.onLocalSkip}
       />
     );
   }

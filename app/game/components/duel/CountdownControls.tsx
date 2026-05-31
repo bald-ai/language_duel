@@ -15,6 +15,9 @@ interface CountdownControlsProps {
   countdownSkipRequestedBy?: string[];
   onSkip?: () => void;
   dataTestIdBase?: string;
+  // Lead-in for the countdown line; defaults to "Next question". The final
+  // (per-player) reveal passes "Results" so it reads "Results in 3...".
+  countdownLabel?: string;
 }
 
 /**
@@ -31,6 +34,7 @@ export const CountdownControls = memo(function CountdownControls({
   countdownSkipRequestedBy = [],
   onSkip,
   dataTestIdBase,
+  countdownLabel = "Next question",
 }: CountdownControlsProps) {
   const colors = useAppearanceColors();
   const opponentRole = userRole === "challenger" ? "opponent" : "challenger";
@@ -65,7 +69,7 @@ export const CountdownControls = memo(function CountdownControls({
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
         <div className="text-2xl font-bold" style={{ color: colors.secondary.light }}>
-          Next question in {countdown}...
+          {countdownLabel} in {countdown}...
         </div>
         <div className="flex gap-2">
           <button

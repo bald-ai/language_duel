@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ChallengeModal } from "@/app/components/modals/ChallengeModal";
@@ -11,7 +11,7 @@ vi.mock("@/hooks/useWeeklyGoalThemeIds", () => ({
   useWeeklyGoalThemeIds: () => new Set(),
 }));
 
-describe("ChallengeModal Me row", () => {
+describe("ChallengeModal Solo practice row", () => {
   function renderModal(overrides: Partial<Parameters<typeof ChallengeModal>[0]> = {}) {
     const onCreateChallenge = vi.fn();
     render(
@@ -40,25 +40,37 @@ describe("ChallengeModal Me row", () => {
     return { onCreateChallenge };
   }
 
-  it("renders the Me row even when friends list is empty", () => {
+  // Walk the self-duel path: Solo practice -> theme -> difficulty -> review.
+  function navigateSelfToReview() {
+    fireEvent.click(screen.getByTestId("duel-modal-opponent-me"));
+    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
+    fireEvent.click(screen.getByTestId("duel-modal-difficulty-easy"));
+  }
+
+  it("renders the Solo practice row even when friends list is empty", () => {
     renderModal();
     expect(screen.getByTestId("duel-modal-opponent-me")).toBeInTheDocument();
-    expect(screen.getByText("Me")).toBeInTheDocument();
+    expect(screen.getByText("Solo practice")).toBeInTheDocument();
   });
 
-  it("does not render Me row when viewer is null", () => {
+  it("does not render Solo practice row when viewer is null", () => {
     renderModal({ viewer: null });
     expect(screen.queryByTestId("duel-modal-opponent-me")).not.toBeInTheDocument();
   });
 
-  it("hides the Mode picker when Me is selected and submits with viewer as opponent", () => {
+  it("skips the Mode step for a self-duel and submits with viewer as opponent", () => {
     const { onCreateChallenge } = renderModal();
-    expect(screen.getByTestId("duel-modal-mode-pve")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("duel-modal-opponent-me"));
+    // Selecting Solo practice jumps straight to the Theme step — no Mode step.
     expect(screen.queryByTestId("duel-modal-mode-pve")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
+    expect(screen.queryByTestId("duel-modal-mode-pve")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("duel-modal-difficulty-easy"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
 
     expect(onCreateChallenge).toHaveBeenCalledWith(
@@ -69,11 +81,11 @@ describe("ChallengeModal Me row", () => {
     );
   });
 
-  it("shows the viewer label in the Selected footer when Me is selected", () => {
+  it("shows Solo practice as the opponent in the review summary", () => {
     renderModal();
-    fireEvent.click(screen.getByTestId("duel-modal-opponent-me"));
-    expect(screen.getByText(/Selected:/i)).toBeInTheDocument();
-    expect(screen.getAllByText("Me").length).toBeGreaterThan(0);
+    navigateSelfToReview();
+    const review = screen.getByTestId("duel-modal-review");
+    expect(within(review).getByText("Solo practice")).toBeInTheDocument();
   });
 
   it("disables Cancel while joining or creating", () => {
@@ -84,8 +96,7 @@ describe("ChallengeModal Me row", () => {
 
   it("disables Create while joining a duel", () => {
     renderModal({ isJoiningDuel: true });
-    fireEvent.click(screen.getByTestId("duel-modal-opponent-me"));
-    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    navigateSelfToReview();
     const createButton = screen.getByTestId("duel-modal-create") as HTMLButtonElement;
     expect(createButton.disabled).toBe(true);
   });

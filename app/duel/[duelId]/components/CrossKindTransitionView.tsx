@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
+import { CountdownControls } from "@/app/game/components/duel/CountdownControls";
 import { formatVisibleUser } from "@/lib/userDisplay";
-import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
+import { duelCardBackground } from "./duelViewStyles";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 import type { CrossKindTransition } from "../hooks/useCrossKindRoundTransition";
+import { useDuelCountdownActions } from "../hooks/useDuelCountdownActions";
 
 interface CrossKindTransitionViewProps {
   duel: Doc<"duels">;
@@ -15,6 +16,14 @@ interface CrossKindTransitionViewProps {
   opponent: DuelPlayerSummary | null;
   viewerRole: "challenger" | "opponent";
   transition: CrossKindTransition;
+  secondsLeft: number;
+  // Per-player pause/skip for the final reveal only — see
+  // `useCrossKindRoundTransition`'s `CrossKindRoundTransition` docs for why the
+  // last screen intentionally drops the shared (server-coordinated) handshake.
+  localPaused: boolean;
+  onLocalPause: () => void;
+  onLocalUnpause: () => void;
+  onLocalSkip: () => void;
 }
 
 /**
@@ -30,8 +39,14 @@ export function CrossKindTransitionView({
   opponent,
   viewerRole,
   transition,
+  secondsLeft,
+  localPaused,
+  onLocalPause,
+  onLocalUnpause,
+  onLocalSkip,
 }: CrossKindTransitionViewProps) {
   const colors = useAppearanceColors();
+  const countdownActions = useDuelCountdownActions(duel);
 
   const isChallenger = viewerRole === "challenger";
   const myScore = isChallenger ? duel.challengerScore : duel.opponentScore;
@@ -57,13 +72,6 @@ export function CrossKindTransitionView({
       ? priorQuestion.spanishSentence ?? null
       : null;
 
-  const [secondsLeft, setSecondsLeft] = useState(TRANSITION_COUNTDOWN_SECONDS);
-  useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(id);
-  }, [secondsLeft]);
-
   return (
     <main
       className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
@@ -71,8 +79,12 @@ export function CrossKindTransitionView({
       data-testid="cross-kind-transition"
     >
       <div
-        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
-        style={{ borderColor: colors.primary.dark }}
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] backdrop-blur-xl"
+        style={{
+          // Eclipse fade: solid top/bottom, see-through middle (see duelCardBackground).
+          background: duelCardBackground(colors),
+          borderColor: colors.primary.dark,
+        } as React.CSSProperties}
       >
         <header
           className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
@@ -123,21 +135,47 @@ export function CrossKindTransitionView({
           </div>
 
           {duel.status !== "completed" && (
-            <div
-              className="mt-6 text-sm font-semibold"
-              style={{ color: colors.text.muted }}
-              data-testid="cross-kind-transition-countdown"
-            >
-              Next round in {secondsLeft}…
+            <div className="mt-6">
+              <CountdownControls
+                countdown={secondsLeft}
+                countdownPausedBy={duel.countdownPausedBy}
+                countdownUnpauseRequestedBy={duel.countdownUnpauseRequestedBy}
+                userRole={viewerRole}
+                countdownSkipRequestedBy={duel.countdownSkipRequestedBy ?? []}
+                onPause={countdownActions.pauseCountdown}
+                onRequestUnpause={countdownActions.requestUnpauseForControls}
+                onConfirmUnpause={countdownActions.confirmUnpauseCountdown}
+                onSkip={countdownActions.skipCountdown}
+                dataTestIdBase="cross-kind-transition"
+              />
             </div>
           )}
           {duel.status === "completed" && (
-            <div
-              className="mt-6 text-sm font-semibold"
-              style={{ color: colors.text.muted }}
-              data-testid="cross-kind-transition-final"
-            >
-              Wrapping up…
+            <div className="mt-6">
+              {/*
+                Final reveal: the duel is already decided, so these controls are
+                PER-PLAYER, not the shared/coordinated pause used between live
+                rounds. We reuse CountdownControls for visual consistency by
+                mapping the local hold onto its paused state — `countdownPausedBy`
+                is faked to the viewer's own role (never the real server field)
+                and `countdownUnpauseRequestedBy` stays undefined so it renders
+                the plain Pause <-> Unpause toggle with no opponent handshake.
+                Skip is single-click (empty `countdownSkipRequestedBy`) and only
+                collapses this player's countdown. See `useCrossKindRoundTransition`.
+              */}
+              <CountdownControls
+                countdown={secondsLeft}
+                countdownPausedBy={localPaused ? viewerRole : undefined}
+                countdownUnpauseRequestedBy={undefined}
+                userRole={viewerRole}
+                countdownSkipRequestedBy={[]}
+                countdownLabel="Results"
+                onPause={onLocalPause}
+                onRequestUnpause={onLocalUnpause}
+                onConfirmUnpause={onLocalUnpause}
+                onSkip={onLocalSkip}
+                dataTestIdBase="cross-kind-transition-final"
+              />
             </div>
           )}
         </div>

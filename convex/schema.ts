@@ -28,10 +28,15 @@ const wordValidator = v.object({
 // Sentence themes store the editable source: an English prompt, the canonical
 // Spanish sentence, and 3 single-word distractors (decisions: round shape).
 // Gameplay tokenizes the Spanish sentence on whitespace at play time.
+// `ttsStorageId` holds the pre-generated audio of the canonical Spanish
+// sentence (theme editor only — never carried onto session items). Reused for
+// the sentence branch of `weeklyGoalThemeSnapshots` so locked-goal audio is
+// preserved and storage cleanup stays consistent with word themes.
 const sentenceRoundValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
   distractors: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
 });
 
 export const themeContentTypeValidator = v.union(
@@ -184,6 +189,14 @@ const sentenceProgressEntryValidator = v.object({
   mistakes: v.number(),
   completed: v.boolean(),
   finalized: v.boolean(),
+  // PvP build-and-confirm only: count of failed Confirm attempts this round.
+  // Drives the competitive scoring ladder (0 fails → +1, 1 → 0, ≥2 → −1).
+  // Absent on per-tap (PvE/Solo) rows; coalesced to 0 in the rules.
+  failedConfirms: v.optional(v.number()),
+  // PvP build-and-confirm only: the board snapshot recorded on the last failed
+  // Confirm. Re-confirming the identical board (e.g. a double-click) is a no-op
+  // so penalties can't stack without the player actually changing the sentence.
+  lastFailedConfirmTileIndices: v.optional(v.array(v.number())),
 });
 
 export const hintTypeValidator = v.union(

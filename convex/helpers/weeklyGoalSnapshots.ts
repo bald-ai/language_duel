@@ -48,11 +48,11 @@ export async function deleteWeeklyGoalThemeSnapshots(
   for (const snapshot of snapshots) {
     const existingStorageIds =
       storageIdsByThemeId.get(snapshot.originalThemeId) ?? new Set<Id<"_storage">>();
-    // Sentence snapshots don't carry TTS in v1 (plan: no TTS for sentence themes).
+    // Both content types carry per-row TTS storage ids.
     const snapshotStorageIds =
       snapshot.contentType === "word"
         ? collectTtsStorageIds(snapshot.words)
-        : new Set<Id<"_storage">>();
+        : collectTtsStorageIds(snapshot.sentenceRounds);
     for (const storageId of snapshotStorageIds) {
       existingStorageIds.add(storageId);
     }

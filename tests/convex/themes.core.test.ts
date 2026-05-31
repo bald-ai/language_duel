@@ -736,9 +736,8 @@ describe("themes core handlers", () => {
         args: {
           themeId: Id<"themes">;
           generated: Array<{
-            wordIndex: number;
-            sourceWord: string;
-            sourceAnswer: string;
+            index: number;
+            sourceSignature: string;
             storageId: Id<"_storage">;
           }>;
         }
@@ -749,15 +748,14 @@ describe("themes core handlers", () => {
       themeId: "theme_1" as Id<"themes">,
       generated: [
         {
-          wordIndex: 0,
-          sourceWord: "cat",
-          sourceAnswer: "kocka",
+          index: 0,
+          sourceSignature: JSON.stringify(["cat", "kocka"]),
           storageId: "storage_ok" as Id<"_storage">,
         },
         {
-          wordIndex: 1,
-          sourceWord: "DOG_CHANGED",
-          sourceAnswer: "pes",
+          // Signature captured before "dog" was renamed → stale, must be rejected.
+          index: 1,
+          sourceSignature: JSON.stringify(["DOG_CHANGED", "pes"]),
           storageId: "storage_stale" as Id<"_storage">,
         },
       ],
@@ -790,9 +788,8 @@ describe("themes core handlers", () => {
         args: {
           themeId: Id<"themes">;
           generated: Array<{
-            wordIndex: number;
-            sourceWord: string;
-            sourceAnswer: string;
+            index: number;
+            sourceSignature: string;
             storageId: Id<"_storage">;
           }>;
         }
@@ -803,9 +800,8 @@ describe("themes core handlers", () => {
       themeId: "theme_1" as Id<"themes">,
       generated: [
         {
-          wordIndex: 0,
-          sourceWord: "cat",
-          sourceAnswer: "kocka",
+          index: 0,
+          sourceSignature: JSON.stringify(["cat", "kocka"]),
           storageId: "storage_second" as Id<"_storage">,
         },
       ],
@@ -817,6 +813,77 @@ describe("themes core handlers", () => {
       rejectedStorageIds: ["storage_second"],
     });
     expect(db.themes[0]?.words[0]?.ttsStorageId).toBe("storage_first");
+  });
+
+  it("applyGeneratedThemeTts routes sentence themes and applies matching rounds", async () => {
+    const db = new InMemoryDb();
+    // Sentence themes aren't part of the word-typed ThemeDoc fixture, so build the
+    // doc inline and cast on push/read — the handler only reads contentType +
+    // sentenceRounds and patches generically.
+    const sentenceTheme = {
+      _id: "theme_1" as Id<"themes">,
+      _creationTime: Date.now(),
+      name: "TRAVEL",
+      description: "Travel",
+      contentType: "sentence" as const,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["come", "corre", "salta"],
+        },
+        {
+          englishPrompt: "The dog runs",
+          spanishSentence: "El perro corre",
+          distractors: ["lee", "vuela", "nada"],
+        },
+      ],
+      createdAt: Date.now(),
+      ownerId: "user_1" as Id<"users">,
+      visibility: "private" as const,
+      friendsCanEdit: false,
+    };
+    db.themes.push(sentenceTheme as unknown as ThemeDoc);
+
+    const handler = (applyGeneratedThemeTts as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          themeId: Id<"themes">;
+          generated: Array<{
+            index: number;
+            sourceSignature: string;
+            storageId: Id<"_storage">;
+          }>;
+        }
+      ) => Promise<{ applied: number; skipped: number; rejectedStorageIds: Id<"_storage">[] }>;
+    })._handler;
+
+    const result = await handler({ db }, {
+      themeId: "theme_1" as Id<"themes">,
+      generated: [
+        {
+          index: 0,
+          sourceSignature: JSON.stringify(["The cat sleeps", "El gato duerme"]),
+          storageId: "storage_ok" as Id<"_storage">,
+        },
+        {
+          // English prompt was edited mid-generation → stale, must be rejected.
+          index: 1,
+          sourceSignature: JSON.stringify(["The dog SPRINTS", "El perro corre"]),
+          storageId: "storage_stale" as Id<"_storage">,
+        },
+      ],
+    });
+
+    expect(result.applied).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.rejectedStorageIds).toEqual(["storage_stale"]);
+    const rounds = (db.themes[0] as unknown as {
+      sentenceRounds: Array<{ ttsStorageId?: Id<"_storage"> }>;
+    }).sentenceRounds;
+    expect(rounds[0]?.ttsStorageId).toBe("storage_ok");
+    expect(rounds[1]?.ttsStorageId).toBeUndefined();
   });
 
   it("toggleThemeArchive toggles archived state", async () => {

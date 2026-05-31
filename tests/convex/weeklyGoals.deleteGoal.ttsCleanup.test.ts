@@ -273,6 +273,107 @@ describe("weeklyGoals deleteGoal TTS cleanup", () => {
     expect(storage.deleteCalls).toEqual(["storage_1"]);
   });
 
+  it("deletes sentence-snapshot-owned TTS files once the goal snapshots are removed", async () => {
+    const storage = new InMemoryStorage();
+    // Live sentence theme no longer references the file; only the snapshot does.
+    const liveSentenceTheme = {
+      ...buildTheme(),
+      contentType: "sentence",
+      words: undefined,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+        },
+      ],
+    } as unknown as ThemeDoc;
+    const sentenceSnapshot = {
+      ...buildSnapshot(),
+      contentType: "sentence",
+      wordType: undefined,
+      words: undefined,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+          ttsStorageId: "storage_1" as Id<"_storage">,
+        },
+      ],
+    } as unknown as WeeklyGoalThemeSnapshotDoc;
+
+    const db = new InMemoryDb(
+      [
+        buildUser({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+        buildUser({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com" }),
+      ],
+      [liveSentenceTheme],
+      [buildGoal()],
+      [],
+      [],
+      [sentenceSnapshot]
+    );
+
+    await deleteGoalHandler(
+      createAuthCtx(db, "clerk_1", { storage }) as never,
+      { goalId: "goal_1" as Id<"weeklyGoals"> }
+    );
+
+    expect(db.weeklyGoalThemeSnapshots).toHaveLength(0);
+    expect(storage.deleteCalls).toEqual(["storage_1"]);
+  });
+
+  it("keeps sentence TTS files when the live sentence theme still uses them", async () => {
+    const storage = new InMemoryStorage();
+    const liveSentenceTheme = {
+      ...buildTheme(),
+      contentType: "sentence",
+      words: undefined,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+          ttsStorageId: "storage_1" as Id<"_storage">,
+        },
+      ],
+    } as unknown as ThemeDoc;
+    const sentenceSnapshot = {
+      ...buildSnapshot(),
+      contentType: "sentence",
+      wordType: undefined,
+      words: undefined,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+          ttsStorageId: "storage_1" as Id<"_storage">,
+        },
+      ],
+    } as unknown as WeeklyGoalThemeSnapshotDoc;
+
+    const db = new InMemoryDb(
+      [
+        buildUser({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+        buildUser({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com" }),
+      ],
+      [liveSentenceTheme],
+      [buildGoal()],
+      [],
+      [],
+      [sentenceSnapshot]
+    );
+
+    await deleteGoalHandler(
+      createAuthCtx(db, "clerk_1", { storage }) as never,
+      { goalId: "goal_1" as Id<"weeklyGoals"> }
+    );
+
+    expect(storage.deleteCalls).toEqual([]);
+  });
+
   it("keeps TTS files when the live theme still uses them after goal deletion", async () => {
     const storage = new InMemoryStorage();
     const db = new InMemoryDb(

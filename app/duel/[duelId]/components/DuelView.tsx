@@ -96,7 +96,7 @@ export interface DuelViewProps {
     activeSabotage: SabotageEffect | null;
     sabotagePhase: SabotagePhase;
     sabotagesRemaining: number;
-    isOutgoingSabotageActive: boolean;
+    hasSentSabotageThisQuestion: boolean;
   };
   score: {
     myName: string;
@@ -190,7 +190,7 @@ export function DuelView({
 
       {/* Game Container - full screen on mobile, centered card on desktop */}
       <div
-        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] backdrop-blur-xl"
         style={styles.gameContainer}
       >
         {/* Header: Scoreboard + Exit */}

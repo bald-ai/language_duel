@@ -16,15 +16,25 @@ import {
 import { normalizeSentenceRounds } from "../../lib/themes/sentenceValidation";
 import type { WordType } from "../../lib/themes/wordTypes";
 import type { SentenceRoundInput, ThemeContentType } from "../../lib/themes/sentenceTypes";
-import { applyGeneratedTtsToWords, reconcileThemeWordTts } from "../../lib/themes/tts";
+import {
+  applyGeneratedTts,
+  reconcileThemeSentenceTts,
+  reconcileThemeWordTts,
+} from "../../lib/themes/tts";
 import {
   buildDuplicateSentenceThemePayload,
   buildDuplicateWordThemePayload,
 } from "./archiveDuplicate";
-import { cleanupThemeTtsAfterWordUpdate } from "./cleanupHelpers";
+import { cleanupThemeTtsAfterContentUpdate } from "./cleanupHelpers";
 import { loadThemeWithViewerAccess } from "../helpers/themeAccess";
 import { loadDraftGoalsForUser } from "./listQueries";
-import type { ThemeWordWithTts, GeneratedWordTtsResult } from "./ttsPipeline";
+import {
+  SENTENCE_TTS_PIPELINE_SHAPE,
+  WORD_TTS_PIPELINE_SHAPE,
+  type GeneratedThemeTtsResult,
+  type SentenceRoundWithTts,
+  type ThemeWordWithTts,
+} from "./ttsPipeline";
 
 export type ThemeVisibility = "private" | "shared";
 
@@ -50,7 +60,7 @@ export type UpdateThemeArgs = {
 
 export type ApplyGeneratedThemeTtsArgs = {
   themeId: Id<"themes">;
-  generated: GeneratedWordTtsResult[];
+  generated: GeneratedThemeTtsResult[];
 };
 
 export type ApplyGeneratedThemeTtsResult = {
@@ -164,7 +174,7 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
     name?: string;
     description?: string;
     words?: ThemeWordWithTts[];
-    sentenceRounds?: ReturnType<typeof normalizeSentenceRounds>;
+    sentenceRounds?: SentenceRoundWithTts[];
   } = {};
 
   if (updates.name !== undefined) {
@@ -182,7 +192,21 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
       });
     }
     if (updates.sentenceRounds !== undefined) {
-      filteredUpdates.sentenceRounds = normalizeSentenceRounds(updates.sentenceRounds);
+      // Mirror the word branch: reconcile so audio survives distractor-only
+      // edits but is dropped when English or Spanish changes, then delete the
+      // now-orphaned storage files (unless a locked snapshot still references
+      // them). Identity is `spanishSentence` — see SENTENCE_TTS_SHAPE.
+      const normalizedRounds = normalizeSentenceRounds(
+        updates.sentenceRounds
+      ) as SentenceRoundWithTts[];
+      const previousRounds = (theme.sentenceRounds ?? []) as SentenceRoundWithTts[];
+      const reconciledRounds = reconcileThemeSentenceTts<SentenceRoundWithTts>(
+        previousRounds,
+        normalizedRounds
+      );
+
+      filteredUpdates.sentenceRounds = reconciledRounds;
+      await cleanupThemeTtsAfterContentUpdate(ctx, themeId, previousRounds, reconciledRounds);
     }
   } else {
     if (updates.sentenceRounds !== undefined) {
@@ -200,7 +224,7 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
       );
 
       filteredUpdates.words = reconciledWords;
-      await cleanupThemeTtsAfterWordUpdate(ctx, themeId, previousWords, reconciledWords);
+      await cleanupThemeTtsAfterContentUpdate(ctx, themeId, previousWords, reconciledWords);
     }
   }
 
@@ -266,10 +290,9 @@ export async function handleDeleteTheme(
     });
   }
 
-  // Sentence themes don't have TTS in v1, so only word themes need TTS cleanup.
   const themeStorageIds = theme.contentType === "word"
     ? collectTtsStorageIds((theme.words ?? []) as ThemeWordWithTts[])
-    : new Set<Id<"_storage">>();
+    : collectTtsStorageIds((theme.sentenceRounds ?? []) as SentenceRoundWithTts[]);
   await ctx.db.delete(args.themeId);
   await deleteUnreferencedStorageIdsForTheme(
     ctx,
@@ -342,22 +365,28 @@ export async function handleApplyGeneratedThemeTts(
     };
   }
 
-  // Sentence themes don't have TTS in v1; reject any generated audio targeting one.
   if (theme.contentType === "sentence") {
-    return {
-      applied: 0,
-      skipped: args.generated.length,
-      rejectedStorageIds: args.generated.map((item) => item.storageId),
-    };
+    const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
+      SENTENCE_TTS_PIPELINE_SHAPE,
+      (theme.sentenceRounds ?? []) as SentenceRoundWithTts[],
+      args.generated
+    );
+
+    if (applied > 0) {
+      await ctx.db.patch(args.themeId, { sentenceRounds: rows });
+    }
+
+    return { applied, skipped, rejectedStorageIds };
   }
 
-  const { words, applied, skipped, rejectedStorageIds } = applyGeneratedTtsToWords(
+  const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
+    WORD_TTS_PIPELINE_SHAPE,
     (theme.words ?? []) as ThemeWordWithTts[],
     args.generated
   );
 
   if (applied > 0) {
-    await ctx.db.patch(args.themeId, { words });
+    await ctx.db.patch(args.themeId, { words: rows });
   }
 
   return { applied, skipped, rejectedStorageIds };

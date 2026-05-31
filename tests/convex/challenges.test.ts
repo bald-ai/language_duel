@@ -323,7 +323,10 @@ describe("challenge backend", () => {
     });
   });
 
-  it("rejects relay challenge creation with sentence themes", async () => {
+  it("creates a relay challenge with sentence themes", async () => {
+    // Relay now supports sentence decks, so a relay challenge over a sentence
+    // theme is accepted like any other.
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
     db.friends.push(friendDoc());
@@ -339,15 +342,18 @@ describe("challenge backend", () => {
       ],
     });
 
-    await expect(
-      createChallengeHandler(createCtx(db, "clerk_1"), {
-        opponentId: "user_2" as Id<"users">,
-        themeIds: ["theme_1" as Id<"themes">],
-        duelMode: "relay",
-      })
-    ).rejects.toThrow("Relay duels cannot include sentence themes");
-    expect(db.challenges).toHaveLength(0);
-    expect(db.duels).toHaveLength(0);
+    const challengeId = await createChallengeHandler(createCtx(db, "clerk_1"), {
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      duelMode: "relay",
+    });
+
+    expect(challengeId).toBe("challenge_10");
+    expect(db.challenges[0]).toMatchObject({
+      status: "pending",
+      duelMode: "relay",
+      themeIds: ["theme_1"],
+    });
   });
 
   it("rejects challenge creation when opponent is missing, not a friend, or self", async () => {
@@ -409,7 +415,7 @@ describe("challenge backend", () => {
     expect(db.notifications[0].status).toBe("dismissed");
   });
 
-  it("rejects old pending relay challenges if their themes now build sentence rounds", async () => {
+  it("accepts a relay challenge whose themes build sentence rounds into a relay duel", async () => {
     vi.spyOn(Date, "now").mockReturnValue(20_000);
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
@@ -427,15 +433,14 @@ describe("challenge backend", () => {
     db.challenges.push(challengeDoc({ duelMode: "relay" }));
     db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "relay" } }));
 
-    await expect(
-      acceptChallengeHandler(createCtx(db, "clerk_2"), {
-        challengeId: "challenge_1" as Id<"challenges">,
-      })
-    ).rejects.toThrow("Relay duels cannot include sentence themes");
+    const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    });
 
-    expect(db.challenges[0]).toMatchObject({ status: "pending" });
-    expect(db.duels).toHaveLength(0);
-    expect(db.notifications[0].status).toBe("pending");
+    expect(result).toEqual({ duelId: "duel_20" });
+    expect(db.challenges[0]).toMatchObject({ status: "accepted", duelId: "duel_20" });
+    expect(db.duels[0]).toMatchObject({ duelMode: "relay", status: "active" });
+    expect(db.notifications[0].status).toBe("dismissed");
   });
 
   it("rejects expired and wrong-recipient accept attempts", async () => {

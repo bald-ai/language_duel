@@ -28,9 +28,27 @@ export function buildSentenceQuestionSnapshot(args: {
   distractors: string[];
   /** Index into wordOrder — used as the seed namespace. */
   questionIndex: number;
+  /**
+   * How many of the stored decoys to actually show (decision: sentence
+   * difficulty). Omitted → show every stored decoy, so non-difficulty callers
+   * and the default tile shape stay unchanged. When set, the decoys are
+   * seed-shuffled (same trick word rounds use) and the first N taken, clamped to
+   * how many we store. Callers read N from SENTENCE_DISTRACTOR_COUNT_BY_LEVEL —
+   * never a literal.
+   */
+  distractorCount?: number;
 }): SentenceQuestionSnapshot {
   const correctTokens = tokenizeSpanishSentence(args.spanishSentence);
-  const tiles = [...correctTokens, ...args.distractors];
+
+  const shownDistractors =
+    args.distractorCount === undefined
+      ? args.distractors
+      : seededShuffle(
+          args.distractors,
+          hashSeed(`sentence::${args.spanishSentence}::${args.questionIndex}::distractors`)
+        ).slice(0, Math.min(Math.max(args.distractorCount, 0), args.distractors.length));
+
+  const tiles = [...correctTokens, ...shownDistractors];
   const seed = hashSeed(`sentence::${args.spanishSentence}::${args.questionIndex}`);
   return {
     kind: "sentence",

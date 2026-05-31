@@ -100,7 +100,7 @@ export function DuelFooter({
           sabotagesRemaining={sabotage.sabotagesRemaining}
           isLocked={answers.isLocked}
           hasAnswered={answers.hasAnswered}
-          isOutgoingSabotageActive={sabotage.isOutgoingSabotageActive}
+          hasSentSabotageThisQuestion={sabotage.hasSentSabotageThisQuestion}
           opponentHasAnswered={answers.opponentHasAnswered}
           onSendSabotage={actions.onSendSabotage}
           dataTestIdBase="duel-sabotage"

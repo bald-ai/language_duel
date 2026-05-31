@@ -11,33 +11,18 @@ import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
 import { MemoryGame } from "@/app/components/prototypes/MemoryGame";
-import { MissingChunkBeta } from "@/app/components/prototypes/MissingChunkBeta";
-import { RebuildSentenceBeta } from "@/app/components/prototypes/RebuildSentenceBeta";
-import { SpeedModeBeta } from "@/app/components/prototypes/SpeedModeBeta";
 import { ContextCluesBeta } from "@/app/components/prototypes/ContextCluesBeta";
-import { RelayDuelBeta } from "@/app/components/prototypes/RelayDuelBeta";
 import {
   SoloIcon,
   DuelIcon,
   ThemesIcon,
   MemoryIcon,
-  MissingChunkIcon,
-  RebuildSentenceIcon,
-  SpeedModeIcon,
   MockFeaturesIcon,
   ContextCluesIcon,
-  RelayDuelIcon,
   OnlineMockIcon,
 } from "@/app/components/homeMenuIcons";
 
-type HomeScreenMode =
-  | "home"
-  | "memory"
-  | "missing_chunk"
-  | "rebuild_sentence"
-  | "speed"
-  | "context_clues"
-  | "relay_duel";
+type HomeScreenMode = "home" | "memory" | "context_clues";
 
 /** The signed-in nav corners shared by the home screen and every prototype branch. */
 function HomeChrome({ flash }: { flash?: boolean }) {
@@ -131,52 +116,11 @@ export default function Home() {
     );
   }
 
-  if (screen === "missing_chunk") {
-    return (
-      <ThemedPage>
-        <HomeChrome flash={flashAuth} />
-        <MissingChunkBeta
-          onBack={handleBackToHome}
-          onSwitchToRebuildSentence={() => openPrototype("rebuild_sentence")}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if (screen === "rebuild_sentence") {
-    return (
-      <ThemedPage>
-        <HomeChrome flash={flashAuth} />
-        <RebuildSentenceBeta
-          onBack={handleBackToHome}
-          onSwitchToMissingChunk={() => openPrototype("missing_chunk")}
-        />
-      </ThemedPage>
-    );
-  }
-
-  if (screen === "speed") {
-    return (
-      <ThemedPage>
-        <HomeChrome flash={flashAuth} />
-        <SpeedModeBeta onBack={handleBackToHome} />
-      </ThemedPage>
-    );
-  }
-
   if (screen === "context_clues") {
     return (
       <ThemedPage>
         <HomeChrome flash={flashAuth} />
         <ContextCluesBeta onBack={handleBackToHome} />
-      </ThemedPage>
-    );
-  }
-
-  if (screen === "relay_duel") {
-    return (
-      <ThemedPage>
-        <RelayDuelBeta onBack={handleBackToHome} />
       </ThemedPage>
     );
   }
@@ -244,38 +188,10 @@ export default function Home() {
                 </MenuButton>
               </div>
 
-              <div className="animate-slide-up delay-400">
-                <MenuButton onClick={() => openPrototype("missing_chunk")} dataTestId="home-beta-missing-chunk">
-                  <MissingChunkIcon />
-                  Sentence Beta: Missing Chunk
-                </MenuButton>
-              </div>
-
               <div className="animate-slide-up delay-500">
-                <MenuButton onClick={() => openPrototype("rebuild_sentence")} dataTestId="home-beta-rebuild-sentence">
-                  <RebuildSentenceIcon />
-                  Sentence Beta: Rebuild Sentence
-                </MenuButton>
-              </div>
-
-              <div className="animate-slide-up delay-600">
-                <MenuButton onClick={() => openPrototype("speed")} dataTestId="home-speed-mode">
-                  <SpeedModeIcon />
-                  Speed Mode
-                </MenuButton>
-              </div>
-
-              <div className="animate-slide-up delay-700">
                 <MenuButton onClick={() => openPrototype("context_clues")} dataTestId="home-context-clues">
                   <ContextCluesIcon />
                   Context Clues
-                </MenuButton>
-              </div>
-
-              <div className="animate-slide-up delay-700">
-                <MenuButton onClick={() => openPrototype("relay_duel")} dataTestId="home-relay-duel">
-                  <RelayDuelIcon />
-                  Duel Beta: Relay Duel
                 </MenuButton>
               </div>
 

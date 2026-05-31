@@ -10,6 +10,21 @@ export const SENTENCE_MAX_TOKENS = 8;
 /** Every sentence round stores exactly 3 distractors (decision: round shape). */
 export const SENTENCE_DISTRACTOR_COUNT = 3;
 
+/**
+ * How many of a sentence's stored distractors actually appear on the board, by
+ * duel difficulty (decision: sentence difficulty). Same trick word rounds use —
+ * store a big wrong-answer pool, show a subset. Capped at
+ * SENTENCE_DISTRACTOR_COUNT (we only store 3); going higher would require
+ * regenerating sentence content. This is the single source of these 1/2/3
+ * play-time values — no caller hardcodes them. When Relay gains sentences it
+ * reuses this same table.
+ */
+export const SENTENCE_DISTRACTOR_COUNT_BY_LEVEL = {
+  easy: 1,
+  medium: 2,
+  hard: 3,
+} as const;
+
 /** Generation: how many rounds the user can request per theme. */
 export const SENTENCE_MIN_GENERATION_ROUND_COUNT = 5;
 export const SENTENCE_MAX_GENERATION_ROUND_COUNT = 15;
@@ -42,13 +57,37 @@ export const SENTENCE_DISTRACTOR_MAX_LENGTH = SENTENCE_SPANISH_TOKEN_MAX_LENGTH;
  */
 export const SENTENCE_FORBIDDEN_PUNCTUATION = [",", ";", '"', "'", "(", ")", "/"] as const;
 
-/** Per-mode sentence timers (decision: timers and feedback). */
-export const SENTENCE_PVP_TIMER_SECONDS = 30;
-export const SENTENCE_RELAY_TIMER_SECONDS = 30;
-export const SENTENCE_SELF_DUEL_TIMER_SECONDS = 30;
-export const SENTENCE_PVE_TIMER_SECONDS = 45;
+/** Per-mode sentence timers (decision: timers and feedback). Doubled from the
+ * original 30/30/30/45 — sentences need noticeably more time than word rounds. */
+export const SENTENCE_PVP_TIMER_SECONDS = 60;
+export const SENTENCE_RELAY_TIMER_SECONDS = 60;
+export const SENTENCE_SELF_DUEL_TIMER_SECONDS = 60;
+export const SENTENCE_PVE_TIMER_SECONDS = 90;
+
+/**
+ * Relay answer window for a sentence position, in ms. Lives here (next to the
+ * seconds value) so the relay engine can import it without adding a
+ * `duelConstants → sentenceConstants` cross-dependency. Word positions keep
+ * `RELAY_ANSWER_TIMEOUT_MS`; sentence positions use this longer window.
+ */
+export const SENTENCE_RELAY_TIMEOUT_MS = SENTENCE_RELAY_TIMER_SECONDS * 1000;
 
 /** Sentence scoring (decision: sentence scoring matches word scale). */
 export const SENTENCE_CLEAN_COMPLETION_POINTS = 2;
 export const SENTENCE_MESSY_COMPLETION_POINTS = 1;
 export const SENTENCE_TIMEOUT_POINTS = 0;
+
+/**
+ * PvP build-and-confirm scoring ladder (decision: competitive scoring). A
+ * "mistake" is one failed Confirm attempt. The floor is −1: no matter how many
+ * failed Confirms, a round never costs more than one point.
+ *
+ *  | failedConfirms | correct Confirm | timeout / never correct |
+ *  |----------------|-----------------|-------------------------|
+ *  | 0              | +1              | 0                       |
+ *  | 1              | 0               | −1                      |
+ *  | ≥2             | −1              | −1                      |
+ */
+export const SENTENCE_PVP_CLEAN_CONFIRM_POINTS = 1;
+export const SENTENCE_PVP_SINGLE_FAIL_POINTS = 0;
+export const SENTENCE_PVP_FLOOR_POINTS = -1;

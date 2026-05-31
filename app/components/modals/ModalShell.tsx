@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState, useSyncExternalStore } from "react";
+import { CSSProperties, ReactNode, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
@@ -15,6 +15,8 @@ interface ModalShellProps {
   maxHeight?: boolean;
   infoTooltip?: string;
   panelClassName?: string;
+  /** Style overrides merged onto the modal panel (e.g. a gradient background). */
+  panelStyle?: CSSProperties;
   /** Optional data-testid placed on the modal root, for feature-specific modals. */
   dataTestId?: string;
 }
@@ -25,6 +27,7 @@ export function ModalShell({
   maxHeight = false,
   infoTooltip,
   panelClassName,
+  panelStyle,
   dataTestId,
 }: ModalShellProps) {
   const colors = useAppearanceColors();
@@ -52,6 +55,7 @@ export function ModalShell({
             backgroundColor: colors.background.elevated,
             borderColor: colors.primary.dark,
             boxShadow: `0 20px 60px ${colors.primary.glow}`,
+            ...panelStyle,
           }}
         >
           <div className="flex items-center justify-center gap-2 mb-4 flex-shrink-0">

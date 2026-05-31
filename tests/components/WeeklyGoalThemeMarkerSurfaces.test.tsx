@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
@@ -93,6 +93,10 @@ describe("weekly goal theme markers", () => {
         onNavigateToThemes={vi.fn()}
       />
     );
+
+    // The duel modal opens on the opponent step; advance to the Theme step where
+    // the selector (and its markers) render.
+    fireEvent.click(screen.getByTestId("duel-modal-opponent-user_1"));
 
     const markers = screen.getAllByTestId("weekly-goal-theme-marker");
     expect(markers).toHaveLength(1);

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { forRole } from "@/lib/duelRole";
-import { isSelfDuel } from "@/lib/duel/selfDuel";
 import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
 import type { DuelViewProps } from "../components/DuelView";
 import { deriveHintFlags, deriveScoreNames } from "./duelViewModelHelpers";
@@ -20,7 +19,6 @@ import { useDuelActions } from "./useDuelActions";
 import { useDuelPhaseState } from "./useDuelPhaseState";
 import { useDuelQuestionTimer } from "./useDuelQuestionTimer";
 import { useHintPool } from "./useHintPool";
-import { useOutgoingSabotageStatus } from "./useOutgoingSabotageStatus";
 import { useSabotageEffect } from "./useSabotageEffect";
 
 export type DuelPlayerSummary = Pick<
@@ -111,7 +109,7 @@ export function useDuelSessionViewModel({
   });
 
   const actions = useDuelActions({
-    duelId: duel._id,
+    duel,
     setIsLocked,
     lockedAnswerRef,
   });
@@ -201,13 +199,14 @@ export function useDuelSessionViewModel({
     return typeof themeName === "string" ? themeName : null;
   }, [words, wordOrder, displayedIndex]);
 
-  const isOutgoingSabotageActive = useOutgoingSabotageStatus({
-    outgoingSabotage: theirSabotage,
-    questionStartTime:
-      typeof duel.questionStartTime === "number"
-        ? duel.questionStartTime
-        : undefined,
-  });
+  // True once the viewer has already sent a sabotage during the current
+  // question. `theirSabotage` is the sabotage the viewer sent to the opponent;
+  // a timestamp at/after the current question's start means it belongs to this
+  // question. One sabotage per question per player is enforced server-side.
+  const hasSentSabotageThisQuestion =
+    typeof duel.questionStartTime === "number" &&
+    typeof theirSabotage?.timestamp === "number" &&
+    theirSabotage.timestamp >= duel.questionStartTime;
 
   const hints = deriveHintFlags({
     isPve,
@@ -298,7 +297,7 @@ export function useDuelSessionViewModel({
       activeSabotage,
       sabotagePhase,
       sabotagesRemaining: MAX_SABOTAGES - mySabotagesUsed,
-      isOutgoingSabotageActive,
+      hasSentSabotageThisQuestion,
     },
     score: {
       myName,
@@ -311,9 +310,7 @@ export function useDuelSessionViewModel({
     },
     actions: {
       onPauseCountdown: actions.pauseCountdown,
-      onRequestUnpause: isSelfDuel(duel)
-        ? actions.confirmUnpauseCountdown
-        : actions.requestUnpauseCountdown,
+      onRequestUnpause: actions.requestUnpauseForControls,
       onConfirmUnpause: actions.confirmUnpauseCountdown,
       onSkipCountdown: actions.skipCountdown,
       onPlayAudio: handlePlayAudio,

@@ -21,8 +21,14 @@ interface SentenceRoundCardProps {
   index: number;
   issues: SentenceRowIssues;
   canEdit: boolean;
+  playingRoundKey?: string | null;
   onEditField: (roundIndex: number, field: SentenceRoundField, distractorIndex?: number) => void;
   onDeleteRound: (index: number) => void;
+  onPlaySentenceTTS?: (
+    roundIndex: number,
+    spanishSentence: string,
+    storageId?: SentenceRoundInput["ttsStorageId"]
+  ) => void;
 }
 
 export const SentenceRoundCard = memo(function SentenceRoundCard({
@@ -30,8 +36,10 @@ export const SentenceRoundCard = memo(function SentenceRoundCard({
   index,
   issues,
   canEdit,
+  playingRoundKey = null,
   onEditField,
   onDeleteRound,
+  onPlaySentenceTTS,
 }: SentenceRoundCardProps) {
   const colors = useAppearanceColors();
   const hasIssue =
@@ -39,6 +47,10 @@ export const SentenceRoundCard = memo(function SentenceRoundCard({
     issues.spanishHasIssue ||
     issues.distractorHasIssue.size > 0 ||
     issues.isDuplicate;
+
+  const ttsKey = `sentence-round-tts-${index}`;
+  const isPlaying = playingRoundKey === ttsKey;
+  const hasGeneratedTts = !!round.ttsStorageId;
 
   const badgeStyle = hasIssue
     ? {
@@ -132,6 +144,34 @@ export const SentenceRoundCard = memo(function SentenceRoundCard({
             Issue
           </span>
         )}
+        <div className="ml-auto">
+          <button
+            onClick={() => {
+              if (!onPlaySentenceTTS || !hasGeneratedTts) return;
+              onPlaySentenceTTS(index, round.spanishSentence, round.ttsStorageId);
+            }}
+            disabled={!hasGeneratedTts}
+            className="p-1.5 rounded-lg border-2 transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: `${colors.secondary.DEFAULT}1A`,
+              borderColor: `${colors.secondary.DEFAULT}66`,
+              color: colors.secondary.light,
+            }}
+            title={hasGeneratedTts ? "Play generated TTS" : "Generate TTS for this sentence first"}
+            data-testid={`sentence-round-${index}-play-tts`}
+          >
+            {isPlaying ? (
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M4 7.5A1.5 1.5 0 015.5 6H8l3-2v12l-3-2H5.5A1.5 1.5 0 014 12.5v-5z" />
+                <path d="M13.8 6.6a1 1 0 011.4 0 4.8 4.8 0 010 6.8 1 1 0 11-1.4-1.4 2.8 2.8 0 000-4 1 1 0 010-1.4z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       <button

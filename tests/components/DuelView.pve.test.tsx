@@ -78,7 +78,7 @@ function baseProps(overrides: DuelViewOverrides = {}): DuelViewProps {
       activeSabotage: null,
       sabotagePhase: "wind-up",
       sabotagesRemaining: 3,
-      isOutgoingSabotageActive: false,
+      hasSentSabotageThisQuestion: false,
     },
     score: {
       myName: "Alex",

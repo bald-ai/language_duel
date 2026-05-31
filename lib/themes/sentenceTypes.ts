@@ -6,6 +6,8 @@
  * sentence on whitespace to build the tile pool.
  */
 
+import type { Id } from "../types";
+
 /**
  * The editable source for one sentence round. Stored on `themes.sentenceRounds`
  * for sentence themes and on the weekly-goal snapshot. Not the gameplay-ready
@@ -15,6 +17,12 @@ export interface SentenceRoundInput {
   englishPrompt: string;
   spanishSentence: string;
   distractors: string[];
+  /**
+   * Pre-generated TTS audio for the canonical `spanishSentence` (theme editor
+   * only). Optional and absent until the user generates audio. Never carried
+   * onto session items — gameplay derives its tile pool from the sentence text.
+   */
+  ttsStorageId?: Id<"_storage">;
 }
 
 /** Two theme content types: word themes and sentence themes. */

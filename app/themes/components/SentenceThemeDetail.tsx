@@ -38,6 +38,16 @@ interface SentenceThemeDetailProps {
   friendsCanEdit?: boolean;
   isUpdatingFriendsCanEdit?: boolean;
   onFriendsCanEditChange?: (canEdit: boolean) => void;
+  // Theme-level TTS generation + per-row playback
+  isGeneratingTTS?: boolean;
+  isTTSUpToDate?: boolean;
+  onGenerateTTS?: () => void;
+  playingRoundKey?: string | null;
+  onPlaySentenceTTS?: (
+    roundIndex: number,
+    spanishSentence: string,
+    storageId?: SentenceRoundInput["ttsStorageId"]
+  ) => void;
 }
 
 export function SentenceThemeDetail({
@@ -57,6 +67,11 @@ export function SentenceThemeDetail({
   friendsCanEdit,
   isUpdatingFriendsCanEdit,
   onFriendsCanEditChange,
+  isGeneratingTTS = false,
+  isTTSUpToDate = true,
+  onGenerateTTS,
+  playingRoundKey = null,
+  onPlaySentenceTTS,
 }: SentenceThemeDetailProps) {
   const colors = useAppearanceColors();
   const isOwner = theme.isOwner;
@@ -102,6 +117,9 @@ export function SentenceThemeDetail({
         friendsCanEdit={friendsCanEdit}
         isUpdatingFriendsCanEdit={isUpdatingFriendsCanEdit}
         onFriendsCanEditChange={onFriendsCanEditChange}
+        isGeneratingTTS={isGeneratingTTS}
+        isTTSUpToDate={isTTSUpToDate}
+        onGenerateTTS={onGenerateTTS}
       />
 
       <div className="flex-1 min-h-0 flex flex-col">
@@ -124,8 +142,10 @@ export function SentenceThemeDetail({
                   index={index}
                   issues={issues}
                   canEdit={canEdit}
+                  playingRoundKey={playingRoundKey}
                   onEditField={onEditField}
                   onDeleteRound={onDeleteRound}
+                  onPlaySentenceTTS={onPlaySentenceTTS}
                 />
               );
             })}

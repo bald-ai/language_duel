@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { DuelMode } from "@/lib/duelMode";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { DUEL_MODE_OPTIONS } from "./challengeOptions";
+import { CheckmarkIcon } from "./CheckmarkIcon";
 
 interface DuelModePickerProps {
   selectedMode: DuelMode;
@@ -18,6 +19,12 @@ interface DuelModePickerProps {
    * removes the chip entirely.
    */
   disabledModes?: Partial<Record<DuelMode, string>>;
+  /**
+   * "chips" — compact pills used on the standalone launch pages.
+   * "rows" — full-width cards matching the opponent/theme/difficulty steps in
+   * the challenge wizard.
+   */
+  layout?: "chips" | "rows";
 }
 
 export const DuelModePicker = memo(function DuelModePicker({
@@ -26,11 +33,85 @@ export const DuelModePicker = memo(function DuelModePicker({
   dataTestIdPrefix,
   allowedModes,
   disabledModes,
+  layout = "chips",
 }: DuelModePickerProps) {
   const colors = useAppearanceColors();
   const options = allowedModes
     ? DUEL_MODE_OPTIONS.filter((option) => allowedModes.includes(option.mode))
     : DUEL_MODE_OPTIONS;
+
+  if (layout === "rows") {
+    return (
+      <div className="space-y-2">
+        {options.map((option) => {
+          const selected = option.mode === selectedMode;
+          const disabledReason = disabledModes?.[option.mode];
+          const isDisabled = Boolean(disabledReason);
+          const rowStyle: CSSProperties = isDisabled
+            ? {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: "transparent",
+                opacity: 0.5,
+              }
+            : selected
+            ? {
+                backgroundColor: `${colors.cta.DEFAULT}1A`,
+                borderColor: colors.cta.DEFAULT,
+              }
+            : {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: "transparent",
+              };
+          return (
+            <button
+              key={option.mode}
+              type="button"
+              onClick={() => {
+                if (isDisabled) return;
+                onSelectMode(option.mode);
+              }}
+              disabled={isDisabled}
+              data-testid={`${dataTestIdPrefix}-${option.mode}`}
+              data-mode-disabled={isDisabled ? "true" : undefined}
+              aria-pressed={selected}
+              aria-disabled={isDisabled || undefined}
+              title={disabledReason}
+              className="w-full text-left px-4 py-3 border-2 rounded-xl transition hover:brightness-[0.97] disabled:cursor-not-allowed disabled:hover:brightness-100"
+              style={rowStyle}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span aria-hidden="true" className="text-lg leading-none">
+                    {option.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <div
+                      className="font-bold text-sm"
+                      style={{ color: selected ? colors.cta.dark : colors.text.DEFAULT }}
+                    >
+                      {option.label}
+                    </div>
+                    <div className="text-xs" style={{ color: colors.text.muted }}>
+                      {disabledReason ?? option.description}
+                    </div>
+                  </div>
+                </div>
+                {selected && (
+                  <div
+                    className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: colors.cta.DEFAULT }}
+                  >
+                    <CheckmarkIcon />
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   const selectedOption =
     options.find((option) => option.mode === selectedMode) ?? options[0];
   const selectedDisabledReason = selectedOption

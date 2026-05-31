@@ -207,6 +207,91 @@ describe("themes.getTtsStorageUrl authorization", () => {
     expect(storage.calls).toEqual([STORAGE_ID]);
   });
 
+  it("returns URL for owner when storage id belongs to a sentence round", async () => {
+    const db = new InMemoryDb();
+    const { ownerId } = seedOwner(db);
+    // Sentence themes share this query path; the handler reads contentType +
+    // sentenceRounds, so a cast on push is enough for the word-typed fixture db.
+    db.themes.push({
+      _id: THEME_ID,
+      _creationTime: Date.now(),
+      name: "T",
+      description: "d",
+      contentType: "sentence",
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+          ttsStorageId: STORAGE_ID,
+        },
+      ],
+      createdAt: Date.now(),
+      ownerId,
+      visibility: "private",
+    } as unknown as ThemeDoc);
+    const storage = createStorageStub();
+
+    const result = await HANDLER(createCtx(db, "clerk_owner", storage), {
+      storageId: STORAGE_ID,
+      themeId: THEME_ID,
+    });
+
+    expect(result).toBe(`https://storage.example.com/${STORAGE_ID}`);
+    expect(storage.calls).toEqual([STORAGE_ID]);
+  });
+
+  it("returns URL when storage id is only referenced by a sentence snapshot", async () => {
+    const db = new InMemoryDb();
+    const { ownerId } = seedOwner(db);
+    db.themes.push({
+      _id: THEME_ID,
+      _creationTime: Date.now(),
+      name: "T",
+      description: "d",
+      contentType: "sentence",
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+        },
+      ],
+      createdAt: Date.now(),
+      ownerId,
+      visibility: "private",
+    } as unknown as ThemeDoc);
+    db.snapshots.push({
+      _id: "snap_1" as Id<"weeklyGoalThemeSnapshots">,
+      _creationTime: Date.now(),
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      originalThemeId: THEME_ID,
+      order: 0,
+      name: "T",
+      description: "d",
+      contentType: "sentence",
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          distractors: ["a", "b", "c"],
+          ttsStorageId: STORAGE_ID,
+        },
+      ],
+      lockedAt: Date.now(),
+      createdAt: Date.now(),
+    } as unknown as SnapshotDoc);
+    const storage = createStorageStub();
+
+    const result = await HANDLER(createCtx(db, "clerk_owner", storage), {
+      storageId: STORAGE_ID,
+      themeId: THEME_ID,
+    });
+
+    expect(result).toBe(`https://storage.example.com/${STORAGE_ID}`);
+    expect(storage.calls).toEqual([STORAGE_ID]);
+  });
+
   it("returns URL when storage id is only referenced by a snapshot of an accessible theme", async () => {
     const db = new InMemoryDb();
     const { ownerId } = seedOwner(db);

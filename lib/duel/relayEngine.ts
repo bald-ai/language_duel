@@ -12,7 +12,8 @@
 import type { Doc } from "../../convex/_generated/dataModel";
 import type { DuelRole } from "../duelRole";
 import { buildRelayQuestionSet, type DuelQuestionSnapshot } from "../answerShuffle";
-import { RELAY_HARD_BUDGET_DIVISOR } from "../duelConstants";
+import { RELAY_ANSWER_TIMEOUT_MS, RELAY_HARD_BUDGET_DIVISOR } from "../duelConstants";
+import { SENTENCE_RELAY_TIMEOUT_MS } from "../themes/sentenceConstants";
 import type { SessionItem } from "../sessionWords";
 
 type RelayQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
@@ -37,9 +38,9 @@ export function buildInitialRelayState(
   wordOrder: number[]
 ): RelayInitialState {
   const budget = relayHardBudgetForPool(wordOrder.length);
-  // Relay is word-only in v1 (sentence items are rejected by
-  // `buildDuelSession` before reaching this builder). No pre-resolution is
-  // needed because every position is playable.
+  // Mixed word + sentence decks are allowed. Every position is playable on its
+  // own answer surface (MC grid for words, tile board for sentences), so no
+  // pre-resolution is needed.
   return {
     relayPicker: "challenger",
     relayPhase: "pick",
@@ -94,6 +95,21 @@ export function relayServedQuestion(
   return set?.[position];
 }
 
+/**
+ * The answer window for the currently served position: sentences get the longer
+ * 60s window, words keep the 21s window. Single source used by the scheduler
+ * delay, the stale-timeout check, and (mirrored client-side) the countdown.
+ */
+export function relayAnswerWindowMs(
+  duel: Pick<
+    Doc<"duels">,
+    "relayAssignedIndex" | "relayHardUpgradeIndices" | "duelQuestions" | "relayHardQuestions"
+  >
+): number {
+  const served = relayServedQuestion(duel);
+  return served?.kind === "sentence" ? SENTENCE_RELAY_TIMEOUT_MS : RELAY_ANSWER_TIMEOUT_MS;
+}
+
 export function buildRelayPickPatch(params: {
   duel: Doc<"duels">;
   wordIndex: number;
@@ -130,8 +146,9 @@ export function buildRelayAnswerPatch(params: {
   const question = relayServedQuestion(duel);
   const assignedIndex = duel.relayAssignedIndex;
   if (!question || assignedIndex === undefined) return {};
-  // Relay is word-only in v1; the mutation layer rejects sentence served
-  // questions with INTERNAL_ERROR before reaching this builder.
+  // This builder serves the word-only MC path; sentence positions are scored by
+  // `relaySentenceConfirm`, and the `relayAnswer` mutation rejects a sentence
+  // served question before reaching here.
   if (question.kind !== "word") return {};
 
   const answerer = relayAnswerer(duel);

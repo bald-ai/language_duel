@@ -42,6 +42,7 @@ const sentenceRoundValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
   distractors: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
 });
 
 export const getThemes = query({
@@ -177,11 +178,13 @@ export const duplicateTheme = mutation({
 export const applyGeneratedThemeTts = internalMutation({
   args: {
     themeId: v.id("themes"),
+    // Content-agnostic apply payload: the mutation routes by the theme's
+    // contentType and validates each result against the live row via its
+    // `sourceSignature` (captured at generation time).
     generated: v.array(
       v.object({
-        wordIndex: v.number(),
-        sourceWord: v.string(),
-        sourceAnswer: v.string(),
+        index: v.number(),
+        sourceSignature: v.string(),
         storageId: v.id("_storage"),
       })
     ),

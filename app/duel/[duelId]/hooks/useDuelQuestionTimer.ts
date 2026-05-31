@@ -5,9 +5,9 @@ import type { MutableRefObject } from "react";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   QUESTION_TIMER_SECONDS,
-  TRANSITION_COUNTDOWN_SECONDS,
   TIMER_UPDATE_INTERVAL_MS,
 } from "@/lib/duelConstants";
+import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
 
 interface UseDuelQuestionTimerArgs {
   phase: "idle" | "answering" | "transition";
@@ -50,12 +50,16 @@ export function useDuelQuestionTimer({
     }
 
     const updateTimer = () => {
-      const isFirstQuestion = (currentWordIndex ?? 0) === 0;
-      const transitionOffset = isFirstQuestion ? 0 : TRANSITION_COUNTDOWN_SECONDS * 1000;
-      const effectiveStartTime = questionStartTime + transitionOffset;
+      const effectiveStartTime = getEffectiveQuestionStartTime(
+        questionStartTime,
+        currentWordIndex
+      );
       const now = questionTimerPausedAt ?? Date.now();
       const elapsed = (now - effectiveStartTime) / 1000;
-      const remaining = Math.max(0, QUESTION_TIMER_SECONDS - elapsed);
+      const remaining = clampTimerSeconds(
+        QUESTION_TIMER_SECONDS - elapsed,
+        QUESTION_TIMER_SECONDS
+      );
       setQuestionTimer(remaining);
 
       if (remaining <= 0 && !hasTimedOutRef.current) {

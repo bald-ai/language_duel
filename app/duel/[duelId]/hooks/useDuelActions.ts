@@ -5,17 +5,18 @@ import { useMutation } from "convex/react";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Doc } from "@/convex/_generated/dataModel";
 import type { SabotageEffect } from "@/lib/sabotage/types";
 import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage, isExpectedDuelRaceError } from "./useDuelRaceErrors";
+import { useDuelCountdownActions } from "./useDuelCountdownActions";
 
 type SessionItem = Doc<"duels">["sessionWords"][number];
 /** TTS only meaningfully applies to word items today (no TTS for sentences in v1). */
 type SessionWord = Extract<SessionItem, { kind: "word" }>;
 
 export type DuelActionsArgs = {
-  duelId: Id<"duels">;
+  duel: Pick<Doc<"duels">, "_id" | "challengerId" | "opponentId">;
   setIsLocked: (value: boolean) => void;
   lockedAnswerRef: React.MutableRefObject<string | null>;
 };
@@ -27,6 +28,7 @@ export type DuelActions = {
   pauseCountdown: () => void;
   requestUnpauseCountdown: () => void;
   confirmUnpauseCountdown: () => void;
+  requestUnpauseForControls: () => void;
   skipCountdown: () => void;
   submitAnswer: (selectedAnswer: string, questionIndex: number) => Promise<void>;
   submitTimeoutAnswer: (questionIndex: number) => Promise<void>;
@@ -42,10 +44,11 @@ export type DuelActions = {
  * No render-state lives here. Callers compose these into UI props.
  */
 export function useDuelActions({
-  duelId,
+  duel,
   setIsLocked,
   lockedAnswerRef,
 }: DuelActionsArgs): DuelActions {
+  const duelId = duel._id;
   const router = useRouter();
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
@@ -56,10 +59,13 @@ export function useDuelActions({
   const eliminateOptionMutation = useMutation(api.hints.eliminateOption);
   const timeoutAnswerMutation = useMutation(api.gameplay.timeoutAnswer);
   const sendSabotageMutation = useMutation(api.sabotage.sendSabotage);
-  const pauseCountdownMutation = useMutation(api.gameplay.pauseCountdown);
-  const requestUnpauseMutation = useMutation(api.gameplay.requestUnpauseCountdown);
-  const confirmUnpauseMutation = useMutation(api.gameplay.confirmUnpauseCountdown);
-  const skipCountdownMutation = useMutation(api.gameplay.skipCountdown);
+  const {
+    pauseCountdown,
+    requestUnpauseCountdown,
+    confirmUnpauseCountdown,
+    requestUnpauseForControls,
+    skipCountdown,
+  } = useDuelCountdownActions(duel);
 
   const stopDuelAndGoHome = useCallback(async () => {
     try {
@@ -149,34 +155,6 @@ export function useDuelActions({
     [sendSabotageMutation, duelId]
   );
 
-  const pauseCountdown = useCallback(() => {
-    pauseCountdownMutation({ duelId }).catch((error) => {
-      console.error("Failed to pause countdown:", error);
-      toast.error(getErrorMessage(error, "Failed to pause countdown"));
-    });
-  }, [pauseCountdownMutation, duelId]);
-
-  const requestUnpauseCountdown = useCallback(() => {
-    requestUnpauseMutation({ duelId }).catch((error) => {
-      console.error("Failed to request countdown resume:", error);
-      toast.error(getErrorMessage(error, "Failed to request countdown resume"));
-    });
-  }, [requestUnpauseMutation, duelId]);
-
-  const confirmUnpauseCountdown = useCallback(() => {
-    confirmUnpauseMutation({ duelId }).catch((error) => {
-      console.error("Failed to resume countdown:", error);
-      toast.error(getErrorMessage(error, "Failed to resume countdown"));
-    });
-  }, [confirmUnpauseMutation, duelId]);
-
-  const skipCountdown = useCallback(() => {
-    skipCountdownMutation({ duelId }).catch((error) => {
-      console.error("Failed to skip countdown:", error);
-      toast.error(getErrorMessage(error, "Failed to skip countdown"));
-    });
-  }, [skipCountdownMutation, duelId]);
-
   const playWordAudio = useCallback(
     (item: SessionItem | undefined) => {
       if (!item) return;
@@ -206,6 +184,7 @@ export function useDuelActions({
     pauseCountdown,
     requestUnpauseCountdown,
     confirmUnpauseCountdown,
+    requestUnpauseForControls,
     skipCountdown,
     submitAnswer,
     submitTimeoutAnswer,

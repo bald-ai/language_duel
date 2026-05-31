@@ -38,27 +38,6 @@ export const MemoryIcon = () => (
   </svg>
 );
 
-export const MissingChunkIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h6m4 0h6M4 12h3m7 0h6M4 17h6m4 0h6" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M11 10h2v4h-2z" />
-  </svg>
-);
-
-export const RebuildSentenceIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h7l-2-2m2 2-2 2" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M20 16h-7l2-2m-2 2 2 2" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 16h4m4-8h4" />
-  </svg>
-);
-
-export const SpeedModeIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z" />
-  </svg>
-);
-
 export const MockFeaturesIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
@@ -71,13 +50,6 @@ export const ContextCluesIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.2-5.2" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 7.5v.01M10.5 10v2.5" />
-  </svg>
-);
-
-export const RelayDuelIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h11l-3-3m3 3-3 3" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M20 16H9l3-3m-3 3 3 3" />
   </svg>
 );
 

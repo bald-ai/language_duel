@@ -16,7 +16,18 @@ import {
   SENTENCE_PVP_TIMER_SECONDS,
   SENTENCE_SELF_DUEL_TIMER_SECONDS,
 } from "@/lib/themes/sentenceConstants";
-import { formatSentenceTileForDisplay } from "@/lib/sentenceGameplay/displayTile";
+import {
+  formatSentenceTileForDisplay,
+  getSentenceTilePoolFontSizeClass,
+} from "@/lib/sentenceGameplay/displayTile";
+import { isBuildConfirmSentenceMode } from "@/lib/sentenceGameplay/mode";
+import {
+  TIMER_DANGER_THRESHOLD,
+  TIMER_WARNING_THRESHOLD,
+} from "@/lib/duelConstants";
+import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
+import { buildDuelViewStyles } from "./duelViewStyles";
+import { SentencePvpBoard } from "./SentencePvpBoard";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 
@@ -68,6 +79,7 @@ export function SentenceRoundView({
   question,
 }: SentenceRoundViewProps) {
   const colors = useAppearanceColors();
+  const styles = buildDuelViewStyles(colors);
   const router = useRouter();
   const stopDuel = useMutation(api.duels.stopDuel);
 
@@ -89,12 +101,12 @@ export function SentenceRoundView({
       style={{ color: colors.text.DEFAULT }}
     >
       <div
-        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] bg-[var(--duel-bg)] md:bg-[var(--duel-bg-elevated)]"
-        style={{ borderColor: colors.primary.dark }}
+        className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] backdrop-blur-xl"
+        style={styles.gameContainer}
       >
         <header
           className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
-          style={{ borderColor: `${colors.primary.dark}66` }}
+          style={styles.subtleBorder}
         >
           <Scoreboard
             myName={myName}
@@ -107,10 +119,7 @@ export function SentenceRoundView({
             <button
               onClick={handleExit}
               className="font-bold py-2 px-5 rounded-lg text-base flex-shrink-0 transition hover:brightness-110"
-              style={{
-                backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-                color: colors.status.danger.light,
-              }}
+              style={styles.exitButton}
               data-testid="sentence-exit"
             >
               Exit Duel
@@ -118,13 +127,23 @@ export function SentenceRoundView({
           )}
         </header>
 
-        <SentenceRoundBoard
-          key={duel.currentWordIndex}
-          duel={duel}
-          question={question}
-          sessionItem={sessionItem}
-          viewerRole={viewerRole}
-        />
+        {isBuildConfirmSentenceMode(duel) ? (
+          <SentencePvpBoard
+            key={duel.currentWordIndex}
+            duel={duel}
+            question={question}
+            sessionItem={sessionItem}
+            viewerRole={viewerRole}
+          />
+        ) : (
+          <SentenceRoundBoard
+            key={duel.currentWordIndex}
+            duel={duel}
+            question={question}
+            sessionItem={sessionItem}
+            viewerRole={viewerRole}
+          />
+        )}
       </div>
     </main>
   );
@@ -144,6 +163,7 @@ interface SentenceRoundBoardProps {
  */
 function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: SentenceRoundBoardProps) {
   const colors = useAppearanceColors();
+  const styles = buildDuelViewStyles(colors);
   const submit = useMutation(api.gameplay.answerSentenceRound);
   const tap = useMutation(api.gameplay.tapSentenceTile);
 
@@ -170,25 +190,33 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
 
   const timerSeconds = pickTimerSeconds(duel);
   // Both players must see the same countdown — subtract from the server-set
-  // `duel.questionStartTime` anchor (mirrors `useDuelQuestionTimer`).
+  // `duel.questionStartTime` anchor plus the shared transition offset.
   const questionStartTime = duel.questionStartTime;
   const [secondsLeft, setSecondsLeft] = useState(() => {
     if (!questionStartTime) return timerSeconds;
-    const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
-    return Math.max(0, timerSeconds - elapsed);
+    const effectiveStartTime = getEffectiveQuestionStartTime(
+      questionStartTime,
+      duel.currentWordIndex
+    );
+    const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
+    return clampTimerSeconds(timerSeconds - elapsed, timerSeconds);
   });
   useEffect(() => {
     // No anchor yet → the useState initializer already returned the full
     // `timerSeconds`, so there is nothing to do until the server sends one.
     if (!questionStartTime) return;
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
-      setSecondsLeft(Math.max(0, timerSeconds - elapsed));
+      const effectiveStartTime = getEffectiveQuestionStartTime(
+        questionStartTime,
+        duel.currentWordIndex
+      );
+      const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
+      setSecondsLeft(clampTimerSeconds(timerSeconds - elapsed, timerSeconds));
     };
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerSeconds, questionStartTime]);
+  }, [timerSeconds, questionStartTime, duel.currentWordIndex]);
 
   const handleSubmitFinal = useCallback(
     async (timedOut: boolean) => {
@@ -242,40 +270,58 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
     .map(formatSentenceTileForDisplay)
     .join(" ");
   const placedSet = new Set(placedTileIndices);
+  const tileFontSizeClass = getSentenceTilePoolFontSizeClass(question.tilePool);
+
+  const timerIsDanger = secondsLeft <= TIMER_DANGER_THRESHOLD;
+  const timerIsWarning = secondsLeft <= TIMER_WARNING_THRESHOLD;
+  const timerColor = timerIsDanger
+    ? colors.status.danger.light
+    : timerIsWarning
+      ? colors.status.warning.light
+      : colors.text.DEFAULT;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
-      <div className="text-center text-xs uppercase tracking-widest" style={{ color: colors.text.muted }}>
-        Round {duel.currentWordIndex + 1} of {duel.sessionWords.length}
-      </div>
-      <div
-        className="text-[11px] uppercase tracking-widest mt-1"
-        style={{ color: colors.text.muted }}
-      >
-        {sessionItem.themeName}
+      {/* Round progress + theme + prompt — matches the word duel's header chrome */}
+      <div className="text-center mb-3">
+        <div className="text-sm mb-1" style={styles.mutedText}>
+          Round {duel.currentWordIndex + 1} of {duel.sessionWords.length}
+        </div>
       </div>
 
-      <h1
-        className="mt-3 text-center text-2xl sm:text-3xl font-bold leading-tight"
-        style={{ color: colors.text.DEFAULT }}
-        data-testid="sentence-prompt"
-      >
-        {question.englishPrompt}
-      </h1>
+      <div className="text-center mb-4">
+        <div
+          className="text-xs uppercase tracking-[0.25em] mb-2"
+          style={styles.mutedText}
+        >
+          {sessionItem.themeName}
+        </div>
+        <h1
+          className="text-2xl md:text-3xl font-bold leading-tight"
+          style={{ color: colors.text.DEFAULT }}
+          data-testid="sentence-prompt"
+        >
+          {question.englishPrompt}
+        </h1>
+      </div>
 
-      <div
-        className="mt-3 text-center text-3xl font-bold tabular-nums"
-        style={{ color: secondsLeft <= 5 ? colors.status.danger.light : colors.text.DEFAULT }}
-        data-testid="sentence-timer"
-      >
-        {secondsLeft}
-        <span className="text-xs ml-1" style={{ color: colors.text.muted }}>
-          sec
-        </span>
+      <div className="mb-4 text-center">
+        <div className="flex items-center justify-center gap-2">
+          <span
+            className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
+            style={{ color: timerColor }}
+            data-testid="sentence-timer"
+          >
+            {secondsLeft}
+          </span>
+          <span className="text-xs" style={styles.mutedText}>
+            sec
+          </span>
+        </div>
       </div>
 
       <div
-        className="mt-5 w-full min-h-[3rem] rounded-xl border-2 border-dashed p-3 text-center text-base sm:text-lg"
+        className="mt-5 w-full max-w-md min-h-[3rem] rounded-xl border-2 border-dashed p-3 text-center text-base sm:text-lg"
         style={{
           borderColor: colors.primary.dark,
           backgroundColor: `${colors.primary.DEFAULT}10`,
@@ -286,20 +332,32 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
         {assembled || "Tap the words in order…"}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 w-full">
+      {/* Tile pool — same 2-col grid and button chrome as the word duel's answer grid */}
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md">
         {question.tilePool.map((tile, index) => {
           const isPlaced = placedSet.has(index);
+          const isDisabled = isPlaced || completed || secondsLeft === 0;
           return (
             <button
               key={`${tile}-${index}`}
               onClick={() => handleTap(index)}
-              disabled={isPlaced || completed || secondsLeft === 0}
-              className="p-4 rounded-lg border-2 text-lg font-medium transition-all hover:brightness-110 active:scale-95 disabled:opacity-30"
-              style={{
-                backgroundColor: colors.background.elevated,
-                borderColor: colors.primary.dark,
-                color: colors.text.DEFAULT,
-              }}
+              disabled={isDisabled}
+              className={`p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
+                isPlaced ? "opacity-50" : "hover:brightness-110"
+              }`}
+              style={
+                isPlaced
+                  ? {
+                      borderColor: colors.neutral.dark,
+                      backgroundColor: colors.background.DEFAULT,
+                      color: colors.text.muted,
+                    }
+                  : {
+                      borderColor: colors.primary.dark,
+                      backgroundColor: colors.background.elevated,
+                      color: colors.text.DEFAULT,
+                    }
+              }
               data-testid={`sentence-tile-${index}`}
             >
               {formatSentenceTileForDisplay(tile)}
@@ -310,11 +368,11 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
 
       {question.answerRevealedToViewer === true && question.spanishSentence && (
         <div
-          className="mt-5 w-full rounded-xl border-2 p-3 text-center text-sm"
+          className="mt-5 w-full max-w-md rounded-xl border-2 p-3 text-center text-sm font-semibold shadow"
           style={{
             borderColor: colors.status.success.dark,
-            backgroundColor: `${colors.status.success.DEFAULT}1A`,
-            color: colors.status.success.light,
+            backgroundColor: colors.status.success.DEFAULT,
+            color: "#fff",
           }}
           data-testid="sentence-feedback"
         >
@@ -324,8 +382,8 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
 
       {completed && (
         <div
-          className="mt-3 text-sm font-semibold"
-          style={{ color: colors.status.success.light }}
+          className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold shadow"
+          style={{ backgroundColor: colors.status.success.DEFAULT, color: "#fff" }}
           data-testid="sentence-completed"
         >
           Sentence built — waiting for the round to advance.
@@ -344,4 +402,3 @@ function SentenceRoundBoard({ duel, sessionItem, question, viewerRole }: Sentenc
     </div>
   );
 }
-

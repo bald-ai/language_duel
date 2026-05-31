@@ -285,12 +285,17 @@ export function normalizeSentenceRounds(
     throw new Error(issues.map(formatSentenceRoundIssue).join("\n"));
   }
 
+  // Carry `ttsStorageId` through the normalizer — the round is rebuilt from
+  // scratch here, so the audio id would be silently wiped on every save
+  // otherwise. The save-time reconcile (handleUpdateTheme) decides whether the
+  // audio is still valid for the (possibly edited) sentence.
   return rounds.map((round) => ({
     englishPrompt: round.englishPrompt.trim(),
     spanishSentence: round.spanishSentence.trim().replace(/\s+/g, " "),
     distractors: round.distractors.map((distractor) =>
       (typeof distractor === "string" ? distractor : "").trim()
     ),
+    ...(round.ttsStorageId !== undefined ? { ttsStorageId: round.ttsStorageId } : {}),
   }));
 }
 

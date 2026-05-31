@@ -5,6 +5,7 @@ import {
   buildRelayQuestionSet,
   NONE_OF_ABOVE,
 } from "@/lib/answerShuffle";
+import { SENTENCE_DISTRACTOR_COUNT_BY_LEVEL } from "@/lib/themes/sentenceConstants";
 import type { WordEntry, ShuffleDifficultyInfo, Id } from "@/lib/types";
 
 describe("answerShuffle", () => {
@@ -124,20 +125,82 @@ describe("answerShuffle", () => {
     ).toBe(true);
   });
 
-  it("rejects sentence items in relay question sets", () => {
+  it("passes the duel difficulty preset into sentence snapshots (easy/medium/hard -> 1/2/3 distractors)", () => {
+    // The guard that proves the UI/backend preset actually reaches real
+    // duel-backed sentence question creation (decision: sentence difficulty).
+    const sentenceItem = {
+      kind: "sentence" as const,
+      englishPrompt: "I eat bread",
+      spanishSentence: "Yo como pan",
+      distractors: ["tú", "bebes", "agua"],
+      themeId: "theme_1" as Id<"themes">,
+      themeName: "Sentences",
+    };
+    const correctTokenCount = 3; // "Yo como pan"
+    const countShownDistractors = (tilePool: string[]) =>
+      tilePool.filter((tile) => sentenceItem.distractors.includes(tile)).length;
+
+    for (const [preset, expectedDistractors] of [
+      ["easy", SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.easy],
+      ["medium", SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.medium],
+      ["hard", SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.hard],
+    ] as const) {
+      const [snapshot] = buildDuelQuestionSet([sentenceItem], [0], preset);
+      if (snapshot.kind !== "sentence") throw new Error("expected sentence question");
+      expect(snapshot.tilePool).toHaveLength(correctTokenCount + expectedDistractors);
+      expect(countShownDistractors(snapshot.tilePool)).toBe(expectedDistractors);
+    }
+  });
+
+  it("builds sentence positions in relay question sets with a fixed easy pool", () => {
+    // Relay sentences always show 1 distractor (easy) and are never
+    // 🔥-upgraded, so the medium and hard sets must emit an IDENTICAL sentence
+    // pool — that's what keeps the served board == the validated board (R1).
     const items = [
       {
         kind: "sentence" as const,
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
-        distractors: ["tú", "bebes"],
+        distractors: ["tú", "bebes", "agua"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Sentences",
       },
     ];
+    const correctTokenCount = 3; // "Yo como pan"
 
-    expect(() => buildRelayQuestionSet(items, [0], "medium")).toThrow(
-      "Relay question sets require word-only session items"
+    const [medium] = buildRelayQuestionSet(items, [0], "medium");
+    const [hard] = buildRelayQuestionSet(items, [0], "hard");
+    if (medium.kind !== "sentence" || hard.kind !== "sentence") {
+      throw new Error("expected sentence questions");
+    }
+
+    expect(medium.tilePool).toHaveLength(
+      correctTokenCount + SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.easy
     );
+    // Medium and hard sets are pinned to the same pool so indices always align.
+    expect(hard.tilePool).toEqual(medium.tilePool);
+  });
+
+  it("still rejects unknown session item kinds in relay question sets", () => {
+    const items = [{ kind: "mystery" } as never];
+    expect(() => buildRelayQuestionSet(items, [0], "medium")).toThrow(
+      "unknown session item kind"
+    );
+  });
+
+  it("builds word positions in relay question sets at a flat point", () => {
+    const items = [
+      {
+        kind: "word" as const,
+        word: "cat",
+        answer: "gato",
+        wrongAnswers: ["perro", "casa"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Animals",
+      },
+    ];
+    const [snapshot] = buildRelayQuestionSet(items, [0], "medium");
+    if (snapshot.kind !== "word") throw new Error("expected word question");
+    expect(snapshot.points).toBe(1);
   });
 });

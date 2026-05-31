@@ -21,7 +21,7 @@ export const DifficultySelector = memo(function DifficultySelector({ selectedDif
           <button
             key={opt.preset}
             onClick={() => onSelect(opt.preset)}
-            className="w-full text-left px-4 py-3 border-2 rounded-xl transition hover:brightness-110"
+            className="w-full text-left px-4 py-3 border-2 rounded-xl transition hover:brightness-[0.97]"
             style={
               isSelected
                 ? {
@@ -30,7 +30,7 @@ export const DifficultySelector = memo(function DifficultySelector({ selectedDif
                 }
                 : {
                   backgroundColor: colors.background.DEFAULT,
-                  borderColor: colors.primary.dark,
+                  borderColor: "transparent",
                 }
             }
             data-testid={`duel-modal-difficulty-${opt.preset}`}
@@ -39,7 +39,7 @@ export const DifficultySelector = memo(function DifficultySelector({ selectedDif
               <div>
                 <div
                   className="font-bold text-sm"
-                  style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
+                  style={{ color: isSelected ? colors.cta.dark : colors.text.DEFAULT }}
                 >
                   {opt.label}
                 </div>
@@ -49,7 +49,7 @@ export const DifficultySelector = memo(function DifficultySelector({ selectedDif
               </div>
               <div className="flex items-center gap-2">
                 {opt.isDefault && (
-                  <span className="text-xs font-semibold" style={{ color: colors.cta.light }}>
+                  <span className="text-xs font-semibold" style={{ color: colors.cta.dark }}>
                     Default
                   </span>
                 )}

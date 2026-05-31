@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Theme Type Marker — refined proposals</title>
+<style>
+  :root {
+    --primary: #F97316;
+    --primary-light: #FF9043;
+    --primary-dark: #C25000;
+    --cta: #0EA5E9;
+    --cta-light: #32BBF8;
+    --cta-lighter: #62C5F1;
+    --cta-dark: #0574A5;
+    --bg: #FFF7ED;
+    --bg-elevated: #FFFEFC;
+    --text: #1A1A1A;
+    --text-muted: #666666;
+    /* secondary (theme complementary) ~ used for sentence accent in app */
+    --secondary: #2C7BB6;
+    --secondary-light: #4F9BD4;
+    --cta-soft: #0EA5E91A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(circle at 30% 20%, #b9764a, transparent 60%),
+      radial-gradient(circle at 80% 70%, #8a5230, transparent 55%),
+      #6f4326;
+    color: var(--text);
+    padding: 40px 20px 80px;
+  }
+  .page-title { text-align: center; color: #fff7ed; font-weight: 800; font-size: 26px; margin: 0 0 6px; }
+  .page-sub { text-align: center; color: #ffe9d2; font-size: 14px; max-width: 820px; margin: 0 auto 36px; line-height: 1.55; }
+
+  .grid { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; align-items: flex-start; }
+  .col { width: 360px; }
+  .col-label { text-align: center; color: #fff7ed; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .col-desc { text-align: center; color: #ffe9d2; font-size: 12.5px; line-height: 1.45; margin-bottom: 14px; min-height: 56px; }
+
+  .pair-label { text-align:center; color:#ffe9d2; font-size:11px; text-transform:uppercase; letter-spacing:0.12em; margin: 10px 0 8px; opacity:0.85; }
+
+  /* Modal shell */
+  .modal { width: 100%; border-radius: 24px; border: 2px solid var(--primary-dark); padding: 20px; background: var(--bg-elevated); box-shadow: 0 18px 50px rgba(249,115,22,0.35); }
+  .modal + .modal { margin-top: 14px; }
+  .section-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; color: var(--text); margin: 0 0 8px; }
+
+  /* Theme list container */
+  .theme-list { border: 2px solid var(--primary-dark); border-radius: 16px; overflow: hidden; background: var(--bg); }
+  .theme-row { width:100%; text-align:left; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:transparent; border:none; border-bottom:1px solid var(--primary-dark); cursor:pointer; }
+  .theme-row.last { border-bottom: none; }
+  .theme-row.selected { background: var(--cta-soft); }
+  .theme-main { min-width:0; flex:1; }
+  .name-line { display:flex; align-items:center; gap:8px; }
+  .theme-name { font-weight:600; font-size:14px; color:var(--text); }
+  .theme-row.selected .theme-name { color: var(--cta-dark); }
+  .theme-count { font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .check { width:18px; height:18px; border-radius:999px; background:var(--cta); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .check svg { width:11px; height:11px; fill:#fff; }
+  .footer-sel { padding:8px 16px; text-align:center; font-size:12px; background:var(--bg-elevated); border-top:1px solid var(--primary-dark); color:var(--text-muted); }
+  .footer-sel b { color: var(--cta-dark); font-weight:600; }
+
+  /* ---------- CURRENT (what shipped) ---------- */
+  .cur-header { display:flex; align-items:center; gap:8px; padding:6px 16px; background:var(--bg-elevated); border-bottom:1px solid var(--primary-dark); }
+  .cur-header .dot { width:8px; height:8px; border-radius:999px; background:var(--secondary); }
+  .cur-header .lbl { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
+
+  /* ===========================================================
+     OPTION A — Inline type chip per row (no group headers)
+     =========================================================== */
+  .chip { font-size:10px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; padding:2px 8px; border-radius:999px; line-height:1.5; flex-shrink:0; border:1px solid; }
+  .chip.word { background:#0EA5E914; color:var(--cta-dark); border-color:#0EA5E955; }
+  .chip.sentence { background:#2C7BB614; color:var(--secondary); border-color:#2C7BB655; }
+
+  /* ===========================================================
+     OPTION B — Leading icon tile per row (no group headers)
+     =========================================================== */
+  .icon-tile { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:16px; }
+  .icon-tile.word { background:#0EA5E914; }
+  .icon-tile.sentence { background:#2C7BB614; }
+  .row-left { display:flex; align-items:center; gap:12px; min-width:0; flex:1; }
+
+  /* ===========================================================
+     OPTION C — Soft chip header (no hard divider line)
+     =========================================================== */
+  .soft-header { display:flex; align-items:center; gap:8px; padding:10px 16px 6px; }
+  .soft-pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; }
+  .soft-pill.word { background:#0EA5E914; color:var(--cta-dark); }
+  .soft-pill.sentence { background:#2C7BB614; color:var(--secondary); }
+  .soft-pill .dot { width:7px; height:7px; border-radius:999px; }
+  .soft-pill.word .dot { background:var(--cta); }
+  .soft-pill.sentence .dot { background:var(--secondary); }
+
+  /* ===========================================================
+     OPTION D — Left accent rail + grouped header
+     =========================================================== */
+  .rail-group { position:relative; }
+  .rail-header { display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--bg-elevated); }
+  .rail-header .lbl { font-size:11px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; }
+  .rail-header.word .lbl { color:var(--cta-dark); }
+  .rail-header.sentence .lbl { color:var(--secondary); }
+  .rail-row { padding-left:0 !important; }
+  .rail { width:4px; align-self:stretch; flex-shrink:0; }
+  .rail.word { background:var(--cta); }
+  .rail.sentence { background:var(--secondary); }
+  .rail-row .theme-main { margin-left:12px; }
+  .rail-row .check { margin-right:0; }
+
+  /* footer buttons (visual only) */
+  .btn-cta { width:100%; border-radius:12px; padding:12px; font-weight:700; font-size:14px; text-transform:uppercase; letter-spacing:0.12em; color:#fff; text-shadow:0 2px 4px rgba(0,0,0,0.4); background-image:linear-gradient(to bottom,var(--cta),var(--cta-dark)); border:2px solid var(--cta); border-top-color:var(--cta-lighter); border-bottom:4px solid #025276; margin-top:14px; }
+</style>
+</head>
+<body>
+  <h1 class="page-title">Theme type marker — refined options</h1>
+  <p class="page-sub">
+    The shipped grouped header feels heavy: a full-width divider butts against the rounded corner and a whole row is
+    spent on a single label. Below is the current state, then four cleaner directions. Each is shown twice — a
+    <b>single-type</b> list (only sentences) and a <b>mixed</b> list (words + sentences) — so you can judge both.
+  </p>
+
+  <div class="grid">
+
+    <!-- ============ CURRENT ============ -->
+    <div class="col">
+      <div class="col-label">Current (shipped)</div>
+      <div class="col-desc">Full-width header bar with a hard divider. Looks boxy near the rounded corner and wastes a row when only one type exists.</div>
+
+      <div class="pair-label">Single type</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <div class="cur-header"><span class="dot"></span><span class="lbl">Sentences</span></div>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row selected last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div><span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></button>
+        </div>
+      </div>
+
+      <div class="pair-label">Mixed</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <div class="cur-header"><span class="dot" style="background:var(--cta)"></span><span class="lbl">Words</span></div>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Commonly Used</span></div><div class="theme-count">15 words</div></div></button>
+          <div class="cur-header"><span class="dot"></span><span class="lbl">Sentences</span></div>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OPTION A ============ -->
+    <div class="col">
+      <div class="col-label">Option A — Inline type chip</div>
+      <div class="col-desc">No headers at all. A tiny colored chip ("Words" / "Sentences") sits next to each name. Cleanest for short lists; type is always visible even when scrolling.</div>
+
+      <div class="pair-label">Single type</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span><span class="chip sentence">Sentences</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row selected last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span><span class="chip sentence">Sentences</span></div><div class="theme-count">18 rounds</div></div><span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></button>
+        </div>
+      </div>
+
+      <div class="pair-label">Mixed</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Commonly Used</span><span class="chip word">Words</span></div><div class="theme-count">15 words</div></div></button>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span><span class="chip sentence">Sentences</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span><span class="chip sentence">Sentences</span></div><div class="theme-count">18 rounds</div></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OPTION B ============ -->
+    <div class="col">
+      <div class="col-label">Option B — Leading icon tile</div>
+      <div class="col-desc">No headers. A soft rounded icon tile leads each row (✏️ words, 💬 sentences). Very scannable and playful; matches the app's rounded style.</div>
+
+      <div class="pair-label">Single type</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row"><div class="row-left"><span class="icon-tile sentence">💬</span><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></div></button>
+          <button class="theme-row selected last"><div class="row-left"><span class="icon-tile sentence">💬</span><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div></div><span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></button>
+        </div>
+      </div>
+
+      <div class="pair-label">Mixed</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row"><div class="row-left"><span class="icon-tile word">✏️</span><div class="theme-main"><div class="name-line"><span class="theme-name">Commonly Used</span></div><div class="theme-count">15 words</div></div></div></button>
+          <button class="theme-row"><div class="row-left"><span class="icon-tile sentence">💬</span><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></div></button>
+          <button class="theme-row last"><div class="row-left"><span class="icon-tile sentence">💬</span><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OPTION C ============ -->
+    <div class="col">
+      <div class="col-label">Option C — Soft chip header</div>
+      <div class="col-desc">Keeps grouping but drops the hard divider. The label becomes a soft rounded pill with breathing room — lighter, less boxy. Headers only appear when both types exist.</div>
+
+      <div class="pair-label">Single type (no header needed)</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row selected last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div><span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px;">When all themes share a type, the chip is redundant, so no header shows.</div>
+      </div>
+
+      <div class="pair-label">Mixed</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <div class="soft-header"><span class="soft-pill word"><span class="dot"></span>Words</span></div>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Commonly Used</span></div><div class="theme-count">15 words</div></div></button>
+          <div class="soft-header"><span class="soft-pill sentence"><span class="dot"></span>Sentences</span></div>
+          <button class="theme-row"><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row last"><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OPTION D ============ -->
+    <div class="col">
+      <div class="col-label">Option D — Accent rail + header</div>
+      <div class="col-desc">Grouped, with a colored left rail running down each group plus a soft header (no divider). The rail ties rows to their type and looks intentional. Header hidden for single-type.</div>
+
+      <div class="pair-label">Single type (rail only)</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <button class="theme-row rail-row"><span class="rail sentence"></span><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row rail-row selected last"><span class="rail sentence"></span><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div><span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></button>
+        </div>
+      </div>
+
+      <div class="pair-label">Mixed</div>
+      <div class="modal">
+        <p class="section-label">Theme</p>
+        <div class="theme-list">
+          <div class="rail-header word"><span class="lbl">Words</span></div>
+          <button class="theme-row rail-row"><span class="rail word"></span><div class="theme-main"><div class="name-line"><span class="theme-name">Commonly Used</span></div><div class="theme-count">15 words</div></div></button>
+          <div class="rail-header sentence"><span class="lbl">Sentences</span></div>
+          <button class="theme-row rail-row"><span class="rail sentence"></span><div class="theme-main"><div class="name-line"><span class="theme-name">Simple Beginner</span></div><div class="theme-count">22 rounds</div></div></button>
+          <button class="theme-row rail-row last"><span class="rail sentence"></span><div class="theme-main"><div class="name-line"><span class="theme-name">Shopping Sentences</span></div><div class="theme-count">18 rounds</div></div></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

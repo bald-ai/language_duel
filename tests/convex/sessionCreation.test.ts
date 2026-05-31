@@ -126,7 +126,7 @@ describe("session creation helpers", () => {
     expect(hardQ.points).toBe(1);
   });
 
-  it("rejects relay duel sessions that contain sentence items", () => {
+  it("builds relay duel sessions with mixed word + sentence items", () => {
     const mixedItems: SessionItem[] = [
       sessionWords[0],
       {
@@ -139,16 +139,27 @@ describe("session creation helpers", () => {
       },
     ];
 
-    expect(() =>
-      buildDuelSession({
-        challengerId: "user_1" as Id<"users">,
-        opponentId: "user_2" as Id<"users">,
-        sessionWords: mixedItems,
-        sourceType: "normal",
-        duelMode: "relay",
-        createdAt: 1,
-      })
-    ).toThrow("Relay duels cannot include sentence themes");
+    const result = buildDuelSession({
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      sessionWords: mixedItems,
+      sourceType: "normal",
+      duelMode: "relay",
+      createdAt: 1,
+    });
+
+    // The sentence position is present in both the base and hard sets, with an
+    // identical pool (never 🔥-upgraded → served board == validated board).
+    const sentenceBaseIndex = result.wordOrder?.findIndex(
+      (sessionIndex) => mixedItems[sessionIndex].kind === "sentence"
+    );
+    expect(sentenceBaseIndex).toBeGreaterThanOrEqual(0);
+    const base = result.duelQuestions?.[sentenceBaseIndex as number];
+    const hard = result.relayHardQuestions?.[sentenceBaseIndex as number];
+    if (base?.kind !== "sentence" || hard?.kind !== "sentence") {
+      throw new Error("expected sentence questions in both sets");
+    }
+    expect(base.tilePool).toEqual(hard.tilePool);
   });
 
   it("omits relay state for non-relay duels", () => {

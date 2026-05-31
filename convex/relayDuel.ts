@@ -9,9 +9,9 @@ import { mutation, internalMutation, type MutationCtx } from "./_generated/serve
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
-import { getDuelParticipant } from "./helpers/auth";
+import { getDuelParticipant, type PlayerRole } from "./helpers/auth";
 import { assertDuelMode } from "./rules/duelModeGuards";
-import { RELAY_ANSWER_TIMEOUT_MS } from "../lib/duelConstants";
+import { RELAY_QUESTION_POINTS } from "../lib/duelConstants";
 import {
   buildRelayAdvancePatch,
   buildRelayAnswerPatch,
@@ -19,9 +19,16 @@ import {
   buildRelayTimeoutPatch,
   isRelayFinished,
   relayAnswerer,
+  relayAnswerWindowMs,
   relayRemainingPositions,
   relayServedQuestion,
 } from "../lib/duel/relayEngine";
+import {
+  appendSentenceTile,
+  removeLastSentenceTile,
+  clearSentenceBoard,
+  confirmSentenceRound,
+} from "./rules/sentenceGameplayRules";
 
 function assertActive(duel: Doc<"duels">) {
   if (duel.status !== "active") {
@@ -69,7 +76,8 @@ async function resolveRelayTimeoutIfStale(
   }
   if (opts.requireWindowElapsed) {
     const startedAt = duel.relayAnswerStartedAt ?? 0;
-    if (Date.now() - startedAt < RELAY_ANSWER_TIMEOUT_MS) return;
+    // Sentence positions get the longer 60s window; words keep 21s.
+    if (Date.now() - startedAt < relayAnswerWindowMs(duel)) return;
   }
 
   if (opts.cancelScheduled && duel.relayTimeoutScheduledFunctionId) {
@@ -102,6 +110,18 @@ export const relayPick = mutation({
     if (!relayRemainingPositions(duel).includes(wordIndex)) {
       throw new ConvexError({ code: "INVALID_STATE", message: "That word is no longer available" });
     }
+
+    // 🔥 hard-upgrade is disabled on sentence positions in v1 (decision #3):
+    // keeping sentences at a fixed pool is what makes the served board equal the
+    // validated board (plan R1). The toggle is also hidden client-side.
+    const pickedItem = duel.sessionWords[duel.wordOrder[wordIndex]];
+    const isSentence = pickedItem?.kind === "sentence";
+    if (hardUpgrade && isSentence) {
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: "Sentence rounds can't be hard-upgraded",
+      });
+    }
     if (hardUpgrade) {
       if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
         throw new ConvexError({ code: "INVALID_STATE", message: "No hard-upgrade budget left" });
@@ -113,8 +133,10 @@ export const relayPick = mutation({
 
     // Server-side backstop: a both-client disconnect can't stall the answer
     // phase forever (no stale-duel cron exists). Cancelled on a timely answer.
+    // The window depends on the picked kind — sentences get the longer 60s.
+    const windowMs = relayAnswerWindowMs({ ...duel, ...pickPatch });
     const scheduledId = await ctx.scheduler.runAfter(
-      RELAY_ANSWER_TIMEOUT_MS,
+      windowMs,
       internal.relayDuel.relayTimeoutInternal,
       { duelId, expectedAssignedIndex: wordIndex }
     );
@@ -149,13 +171,13 @@ export const relayAnswer = mutation({
     if (served === undefined) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
     }
-    // Relay is word-only in v1. `buildDuelSession` rejects sentence items in
-    // relay decks, so this is structurally unreachable; if it ever fires the
-    // duel itself is corrupt.
+    // `relayAnswer` is the word-only MC path. Sentence positions route through
+    // `relaySentenceConfirm` instead, so a sentence served question here means a
+    // stale/buggy client hit the wrong mutation — reject it.
     if (served.kind !== "word") {
       throw new ConvexError({
-        code: "INTERNAL_ERROR",
-        message: "Relay duels cannot contain sentence positions",
+        code: "WRONG_QUESTION_KIND",
+        message: "Sentence relay positions are answered via relaySentenceConfirm",
       });
     }
 
@@ -164,6 +186,134 @@ export const relayAnswer = mutation({
     }
 
     await ctx.db.patch(duelId, buildRelayAnswerPatch({ duel, value }));
+  },
+});
+
+/**
+ * Shared guard for the relay sentence build mutations: relay mode, active duel,
+ * answer phase, caller is the assigned answerer, and the served position is a
+ * sentence. Returns the `questionIndex` (= `relayAssignedIndex`) the pure
+ * sentence functions expect. The picker (or a stale client) is rejected here so
+ * only the answerer can drive the board (plan R3).
+ */
+function assertRelaySentenceTurn(
+  duel: Doc<"duels">,
+  playerRole: PlayerRole,
+  action: string
+): number {
+  assertDuelMode(duel, "relay", action);
+  assertActive(duel);
+  if (duel.relayPhase !== "answer") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the answer phase" });
+  }
+  if (playerRole !== relayAnswerer(duel)) {
+    throw new ConvexError({
+      code: "NOT_AUTHORIZED",
+      message: "Only the assigned answerer can build the sentence",
+    });
+  }
+  const served = relayServedQuestion(duel);
+  if (served?.kind !== "sentence") {
+    throw new ConvexError({
+      code: "WRONG_QUESTION_KIND",
+      message: "The served relay position is not a sentence round",
+    });
+  }
+  if (duel.relayAssignedIndex === undefined) {
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
+  }
+  return duel.relayAssignedIndex;
+}
+
+// Relay sentence board: tap / peel / reset reuse the build-and-confirm pure
+// functions with `questionIndex = relayAssignedIndex` and `role = answerer`. A
+// sentence is always served from the base set (`duelQuestions[idx]`, 🔥 is
+// disabled on sentences), exactly what those functions read.
+export const relaySentenceTap = mutation({
+  args: { duelId: v.id("duels"), tileIndex: v.number() },
+  handler: async (ctx, { duelId, tileIndex }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceTap");
+    const { patch } = appendSentenceTile({ duel, questionIndex, role: playerRole, tileIndex });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+export const relaySentenceRemoveLast = mutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceRemoveLast");
+    const { patch } = removeLastSentenceTile({ duel, questionIndex, role: playerRole });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+export const relaySentenceReset = mutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceReset");
+    const { patch } = clearSentenceBoard({ duel, questionIndex, role: playerRole });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+/**
+ * The relay sentence scoring point. Forgiving completion: building the sentence
+ * correctly within the timer awards the flat relay point, no matter how many
+ * Confirms it took (`failedConfirms` is tracked by the reused pure fn but does
+ * not affect the relay score). Like PvP, a Confirm returns the per-tile
+ * `correctnessMask` so the answerer sees which words are right/wrong; a wrong
+ * Confirm stays in the answer phase to retry.
+ */
+export const relaySentenceConfirm = mutation({
+  args: { duelId: v.id("duels") },
+  handler: async (ctx, { duelId }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceConfirm");
+
+    const { patch: progressPatch, result } = confirmSentenceRound({
+      duel,
+      questionIndex,
+      role: playerRole,
+    });
+
+    if (!result.completed) {
+      // Wrong Confirm: record the attempt and stay in the answer phase to retry.
+      if (Object.keys(progressPatch).length > 0) {
+        await ctx.db.patch(duelId, progressPatch);
+      }
+      return { completed: false, correctnessMask: result.correctnessMask };
+    }
+
+    // Correct build (within the timer): award the flat relay point and advance
+    // to feedback. Cancel the scheduled-timeout backstop first.
+    if (duel.relayTimeoutScheduledFunctionId) {
+      await ctx.scheduler.cancel(duel.relayTimeoutScheduledFunctionId);
+    }
+    await ctx.db.patch(duelId, {
+      ...progressPatch,
+      relayPhase: "feedback" as const,
+      relayAnswerStartedAt: undefined,
+      relayTimeoutScheduledFunctionId: undefined,
+      relayLastResult: {
+        wordIndex: questionIndex,
+        chosen: "",
+        correct: true,
+        scorer: playerRole,
+      },
+      ...(playerRole === "challenger"
+        ? { challengerScore: duel.challengerScore + RELAY_QUESTION_POINTS }
+        : { opponentScore: duel.opponentScore + RELAY_QUESTION_POINTS }),
+    });
+    return { completed: true, correctnessMask: result.correctnessMask };
   },
 });
 

@@ -46,6 +46,23 @@ describe("DiscardPickAndPruneModal", () => {
     );
   });
 
+  it("uses sentence copy when generatedItemLabel is sentences", () => {
+    render(
+      <DiscardPickAndPruneModal
+        isOpen
+        reviewKind="new-theme"
+        generatedItemLabel="sentences"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Discard generated sentences?")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-pick-prune-discard-message")).toHaveTextContent(
+      "sentence Pick & Prune list"
+    );
+  });
+
   it("triggers confirm and cancel handlers", () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();

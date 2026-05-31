@@ -22,9 +22,15 @@ import {
 } from "./rules/duelGameplayRules";
 import {
   applySentenceTap,
+  appendSentenceTile,
+  removeLastSentenceTile as removeLastSentenceTileRule,
+  clearSentenceBoard as clearSentenceBoardRule,
+  confirmSentenceRound as confirmSentenceRoundRule,
   buildSentenceAnswerPatch,
   validateTimedOutFlag,
 } from "./rules/sentenceGameplayRules";
+import { isBuildConfirmSentenceMode } from "../lib/sentenceGameplay/mode";
+import { getEffectiveQuestionStartTime } from "../lib/duelTiming";
 import { getDuelQuestionOrThrow, requireWordDuelQuestion } from "./rules/duelScoringRules";
 import {
   planConfirmUnpauseCountdown,
@@ -184,10 +190,11 @@ export const timeoutAnswer = mutation({
 });
 
 /**
- * Apply a single tile tap on a sentence position. The server alone tracks the
- * tile sequence and mistake count in `duel.sentenceProgress` — clients can't
- * lie about completion or mistakes because `answerSentenceRound` reads only
- * this state. Out-of-bounds / re-taps / wrong-kind questions are rejected.
+ * Place a tile on a sentence position. The server alone tracks the tile
+ * sequence in `duel.sentenceProgress`. Branches by mode: PvP uses
+ * build-and-confirm placement (no per-tap validation — verified later on
+ * Confirm); PvE / Solo keep per-tap validation. Out-of-bounds / re-taps /
+ * wrong-kind questions are rejected either way.
  */
 export const tapSentenceTile = mutation({
   args: {
@@ -205,10 +212,110 @@ export const tapSentenceTile = mutation({
       "Stale tap: question has changed"
     );
 
-    const { patch } = applySentenceTap({ duel, questionIndex, role: playerRole, tileIndex });
+    const { patch } = isBuildConfirmSentenceMode(duel)
+      ? appendSentenceTile({ duel, questionIndex, role: playerRole, tileIndex })
+      : applySentenceTap({ duel, questionIndex, role: playerRole, tileIndex });
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(duelId, patch);
     }
+  },
+});
+
+/** Build-and-confirm only (PvP + self-duels): reject otherwise. Guards the
+ * peel/reset/confirm mutations against stale tabs on a per-tap (boss/computer
+ * PvE) duel. */
+function requireBuildConfirmMode(duel: Doc<"duels">) {
+  if (!isBuildConfirmSentenceMode(duel)) {
+    throw new ConvexError({
+      code: "WRONG_MODE",
+      message: "This action only applies to build-and-confirm sentence rounds",
+    });
+  }
+}
+
+/**
+ * Peel the most recently placed tile (build-and-confirm, last-only removal).
+ * Free — never costs points. No-op when the board is empty / completed.
+ */
+export const removeLastSentenceTile = mutation({
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    requireBuildConfirmMode(duel);
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_TAP",
+      "Stale removal: question has changed"
+    );
+
+    const { patch } = removeLastSentenceTileRule({ duel, questionIndex, role: playerRole });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+/**
+ * Clear the whole board (build-and-confirm Reset button). Free — never costs
+ * points. No-op when the board is empty / completed.
+ */
+export const clearSentenceBoard = mutation({
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    requireBuildConfirmMode(duel);
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_TAP",
+      "Stale reset: question has changed"
+    );
+
+    const { patch } = clearSentenceBoardRule({ duel, questionIndex, role: playerRole });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+  },
+});
+
+/**
+ * Verify the whole built sentence (build-and-confirm validation point). Reads
+ * the answer key server-side and returns ONLY a per-position correctness mask
+ * — the correct words never leave the server. A correct Confirm flips
+ * `completed` (the client then auto-submits via `answerSentenceRound`); a wrong
+ * Confirm increments `failedConfirms`.
+ */
+export const confirmSentenceRound = mutation({
+  args: {
+    duelId: v.id("duels"),
+    questionIndex: v.number(),
+  },
+  handler: async (ctx, { duelId, questionIndex }) => {
+    const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
+    requireBuildConfirmMode(duel);
+    validateActiveQuestion(
+      duel,
+      questionIndex,
+      "STALE_TAP",
+      "Stale confirm: question has changed"
+    );
+
+    const { patch, result } = confirmSentenceRoundRule({
+      duel,
+      questionIndex,
+      role: playerRole,
+    });
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(duelId, patch);
+    }
+    return result;
   },
 });
 
@@ -425,9 +532,28 @@ export const skipCountdown = mutation({
       return { bothSkipped: false };
     }
 
-    await ctx.db.patch(duelId, {
+    const patch: Partial<Doc<"duels">> = {
       countdownSkipRequestedBy: plan.skipRequestedBy,
-    });
+    };
+
+    // When both players skip, collapse the unspent transition time onto the
+    // question anchor. The next question's timer is offset by the full fixed
+    // transition (`getEffectiveQuestionStartTime`); without this, skipping early
+    // makes the question appear immediately while its timer behaves as if the
+    // whole countdown had elapsed, handing the skippers extra question time. The
+    // `> 0` guard means an already-active question is never shortened.
+    if (plan.bothSkipped && typeof duel.questionStartTime === "number") {
+      const effectiveStart = getEffectiveQuestionStartTime(
+        duel.questionStartTime,
+        duel.currentWordIndex
+      );
+      const unspentTransitionMs = effectiveStart - Date.now();
+      if (unspentTransitionMs > 0) {
+        patch.questionStartTime = duel.questionStartTime - unspentTransitionMs;
+      }
+    }
+
+    await ctx.db.patch(duelId, patch);
 
     return { bothSkipped: plan.bothSkipped };
   },

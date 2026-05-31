@@ -190,6 +190,14 @@ export function useThemesController() {
         onVisibilityChange: sentenceController.handleVisibilityChange,
         friendsCanEdit: sentenceController.selectedTheme.friendsCanEdit ?? false,
         onFriendsCanEditChange: sentenceController.handleFriendsCanEditChange,
+        isGeneratingTTS: sentenceController.isGeneratingTTS,
+        isTTSUpToDate: sentenceController.isTTSUpToDate,
+        onGenerateTTS:
+          sentenceController.selectedState?.kind === "saved"
+            ? sentenceController.handleGenerateSentenceTTS
+            : undefined,
+        playingRoundKey: sentenceController.playingRoundKey,
+        onPlaySentenceTTS: sentenceController.handlePlaySentenceTTS,
       }
     : null;
 

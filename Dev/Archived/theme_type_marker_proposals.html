@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Theme Type Marker — Proposals</title>
+<style>
+  :root {
+    --primary: #F97316;
+    --primary-light: #FF9043;
+    --primary-dark: #C25000;
+    --primary-darkest: #903B00;
+    --cta: #0EA5E9;
+    --cta-light: #32BBF8;
+    --cta-lighter: #62C5F1;
+    --cta-dark: #0574A5;
+    --bg: #FFF7ED;
+    --bg-elevated: #FFFEFC;
+    --text: #1A1A1A;
+    --text-muted: #666666;
+    /* type accents for sentence themes */
+    --sentence: #7C3AED;
+    --sentence-soft: #7C3AED1A;
+    --word: #0EA5E9;
+    --word-soft: #0EA5E91A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(circle at 30% 20%, #b9764a, transparent 60%),
+      radial-gradient(circle at 80% 70%, #8a5230, transparent 55%),
+      #6f4326;
+    color: var(--text);
+    padding: 40px 20px 80px;
+  }
+
+  .page-title {
+    text-align: center;
+    color: #fff7ed;
+    font-weight: 800;
+    font-size: 26px;
+    margin: 0 0 6px;
+  }
+  .page-sub {
+    text-align: center;
+    color: #ffe9d2;
+    font-size: 14px;
+    max-width: 760px;
+    margin: 0 auto 36px;
+    line-height: 1.5;
+  }
+
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .col { width: 360px; }
+
+  .col-label {
+    text-align: center;
+    color: #fff7ed;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .col-desc {
+    text-align: center;
+    color: #ffe9d2;
+    font-size: 12.5px;
+    line-height: 1.4;
+    margin-bottom: 14px;
+    min-height: 50px;
+  }
+
+  /* ---------- Modal shell (1:1 with ModalShell.tsx) ---------- */
+  .modal {
+    width: 100%;
+    border-radius: 24px;
+    border: 2px solid var(--primary-dark);
+    padding: 24px;
+    background: var(--bg-elevated);
+    box-shadow: 0 20px 60px rgba(249, 115, 22, 0.4);
+  }
+  .modal-title {
+    text-align: center;
+    font-weight: 800;
+    font-size: 24px;
+    color: var(--text);
+    margin: 0 0 16px;
+  }
+  .scroll-surface {
+    border: 2px solid var(--primary-dark);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .section-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 8px;
+  }
+  .section + .section { margin-top: 16px; }
+
+  /* ---------- Theme list (1:1 with ThemeSelector compact) ---------- */
+  .theme-list {
+    border: 2px solid var(--primary-dark);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .theme-row {
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--primary-dark);
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .theme-row:last-child { border-bottom: none; }
+  .theme-row:hover { filter: brightness(1.04); }
+  .theme-row.selected { background: var(--cta-soft, #0EA5E91A); }
+  .theme-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .theme-row.selected .theme-name { color: var(--cta-dark); }
+  .theme-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .theme-main { min-width: 0; flex: 1; }
+  .name-line { display: flex; align-items: center; gap: 8px; }
+
+  .check {
+    width: 16px; height: 16px; border-radius: 999px;
+    background: var(--cta);
+    display: none;
+    align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .check svg { width: 10px; height: 10px; fill: #fff; }
+  .theme-row.selected .check { display: flex; }
+
+  /* ---------- Difficulty (kept from original for fidelity) ---------- */
+  .diff-list { display: flex; flex-direction: column; gap: 8px; }
+  .diff-row {
+    padding: 12px 16px;
+    border: 2px solid var(--primary-dark);
+    border-radius: 12px;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .diff-row.selected { background: #0EA5E91A; border-color: var(--cta); }
+  .diff-title { font-weight: 700; font-size: 14px; color: var(--text); }
+  .diff-row.selected .diff-title { color: var(--cta-dark); }
+  .diff-desc { font-size: 12px; color: var(--text-muted); }
+  .diff-right { display: flex; align-items: center; gap: 8px; }
+  .diff-default { font-size: 12px; font-weight: 600; color: var(--cta-dark); }
+
+  /* ---------- Footer buttons ---------- */
+  .footer { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .btn-cta {
+    width: 100%;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    background-image: linear-gradient(to bottom, var(--cta), var(--cta-dark));
+    border: 2px solid var(--cta);
+    border-top: 2px solid var(--cta-lighter);
+    border-bottom: 4px solid #025276;
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-outline {
+    width: 100%;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text);
+    background: var(--bg-elevated);
+    border: 2px solid var(--primary-dark);
+    cursor: pointer;
+  }
+
+  /* =========================================================
+     SOLUTION 1 — Type pill badge
+     ========================================================= */
+  .type-pill {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .type-pill.words { background: var(--word-soft); color: var(--cta-dark); border: 1px solid var(--cta); }
+  .type-pill.sentences { background: var(--sentence-soft); color: var(--sentence); border: 1px solid var(--sentence); }
+
+  /* =========================================================
+     SOLUTION 2 — Left accent stripe + icon
+     ========================================================= */
+  .s2 .theme-row { padding-left: 0; }
+  .stripe {
+    align-self: stretch;
+    width: 5px;
+    flex-shrink: 0;
+  }
+  .stripe.words { background: var(--word); }
+  .stripe.sentences { background: var(--sentence); }
+  .row-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+  .row-icon.words { background: var(--word-soft); }
+  .row-icon.sentences { background: var(--sentence-soft); }
+  .s2 .theme-main { margin-left: 10px; }
+  .s2 .theme-row > .check { margin-right: 16px; }
+
+  /* =========================================================
+     SOLUTION 3 — Grouped sections with headers
+     ========================================================= */
+  .group-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--primary-dark);
+  }
+  .group-header .dot {
+    width: 8px; height: 8px; border-radius: 999px;
+  }
+  .group-header.words .dot { background: var(--word); }
+  .group-header.sentences .dot { background: var(--sentence); }
+  .group-header .label {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .group-header .label.words { color: var(--cta-dark); }
+  .group-header .label.sentences { color: var(--sentence); }
+</style>
+</head>
+<body>
+  <h1 class="page-title">Theme Type Marker — 1:1 replica + 3 proposals</h1>
+  <p class="page-sub">
+    The current picker only signals theme type through the tiny "words" / "rounds" subtext, which is easy to miss
+    (red-circled area in the screenshot). Below is a faithful copy of the Create Challenge picker, followed by three
+    ways to make the word-vs-sentence distinction obvious.
+  </p>
+
+  <div class="grid">
+
+    <!-- ===================== BASELINE ===================== -->
+    <div class="col">
+      <div class="col-label">Current (baseline)</div>
+      <div class="col-desc">Exact replica. Type is only hinted by "words" vs "rounds" subtext — no real visual marker.</div>
+      <div class="modal">
+        <h2 class="modal-title">Create Challenge</h2>
+        <div class="scroll-surface">
+          <div class="section">
+            <p class="section-label">Theme</p>
+            <div class="theme-list">
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Commonly Used</span></div>
+                  <div class="theme-count">15 words</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Simple Beginner</span></div>
+                  <div class="theme-count">22 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Shopping Sentences</span></div>
+                  <div class="theme-count">18 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+            </div>
+          </div>
+          <div class="section">
+            <p class="section-label">Difficulty</p>
+            <div class="diff-list">
+              <div class="diff-row selected">
+                <div><div class="diff-title">Easy</div><div class="diff-desc">All difficulty levels</div></div>
+                <div class="diff-right"><span class="diff-default">Default</span><span class="check" style="display:flex"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></div>
+              </div>
+              <div class="diff-row"><div><div class="diff-title">Medium</div><div class="diff-desc">Medium and hard questions only</div></div></div>
+              <div class="diff-row"><div><div class="diff-title">Hard</div><div class="diff-desc">Hard questions only</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn-cta">Create Challenge</button>
+          <button class="btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SOLUTION 1 ===================== -->
+    <div class="col">
+      <div class="col-label">Solution 1 — Type pill badge</div>
+      <div class="col-desc">A small colored pill next to each theme name: blue "WORDS" / purple "SENTENCES". Minimal, explicit, no layout change.</div>
+      <div class="modal">
+        <h2 class="modal-title">Create Challenge</h2>
+        <div class="scroll-surface">
+          <div class="section">
+            <p class="section-label">Theme</p>
+            <div class="theme-list">
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Commonly Used</span><span class="type-pill words">Words</span></div>
+                  <div class="theme-count">15 words</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Simple Beginner</span><span class="type-pill sentences">Sentences</span></div>
+                  <div class="theme-count">22 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Shopping Sentences</span><span class="type-pill sentences">Sentences</span></div>
+                  <div class="theme-count">18 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+            </div>
+          </div>
+          <div class="section">
+            <p class="section-label">Difficulty</p>
+            <div class="diff-list">
+              <div class="diff-row selected">
+                <div><div class="diff-title">Easy</div><div class="diff-desc">All difficulty levels</div></div>
+                <div class="diff-right"><span class="diff-default">Default</span><span class="check" style="display:flex"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></div>
+              </div>
+              <div class="diff-row"><div><div class="diff-title">Medium</div><div class="diff-desc">Medium and hard questions only</div></div></div>
+              <div class="diff-row"><div><div class="diff-title">Hard</div><div class="diff-desc">Hard questions only</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn-cta">Create Challenge</button>
+          <button class="btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SOLUTION 2 ===================== -->
+    <div class="col s2">
+      <div class="col-label">Solution 2 — Accent stripe + icon</div>
+      <div class="col-desc">A colored left stripe and a type icon (📝 words / 💬 sentences). Scannable at a glance even with long lists.</div>
+      <div class="modal">
+        <h2 class="modal-title">Create Challenge</h2>
+        <div class="scroll-surface">
+          <div class="section">
+            <p class="section-label">Theme</p>
+            <div class="theme-list">
+              <button class="theme-row">
+                <span class="stripe words"></span>
+                <span class="row-icon words">📝</span>
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Commonly Used</span></div>
+                  <div class="theme-count">15 words</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <span class="stripe sentences"></span>
+                <span class="row-icon sentences">💬</span>
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Simple Beginner</span></div>
+                  <div class="theme-count">22 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <span class="stripe sentences"></span>
+                <span class="row-icon sentences">💬</span>
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Shopping Sentences</span></div>
+                  <div class="theme-count">18 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+            </div>
+          </div>
+          <div class="section">
+            <p class="section-label">Difficulty</p>
+            <div class="diff-list">
+              <div class="diff-row selected">
+                <div><div class="diff-title">Easy</div><div class="diff-desc">All difficulty levels</div></div>
+                <div class="diff-right"><span class="diff-default">Default</span><span class="check" style="display:flex"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></div>
+              </div>
+              <div class="diff-row"><div><div class="diff-title">Medium</div><div class="diff-desc">Medium and hard questions only</div></div></div>
+              <div class="diff-row"><div><div class="diff-title">Hard</div><div class="diff-desc">Hard questions only</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn-cta">Create Challenge</button>
+          <button class="btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SOLUTION 3 ===================== -->
+    <div class="col">
+      <div class="col-label">Solution 3 — Grouped sections</div>
+      <div class="col-desc">Themes grouped under "Words" and "Sentences" sub-headers inside the same list. Best when there are many themes of each type.</div>
+      <div class="modal">
+        <h2 class="modal-title">Create Challenge</h2>
+        <div class="scroll-surface">
+          <div class="section">
+            <p class="section-label">Theme</p>
+            <div class="theme-list">
+              <div class="group-header words"><span class="dot"></span><span class="label words">Words</span></div>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Commonly Used</span></div>
+                  <div class="theme-count">15 words</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <div class="group-header sentences"><span class="dot"></span><span class="label sentences">Sentences</span></div>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Simple Beginner</span></div>
+                  <div class="theme-count">22 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+              <button class="theme-row">
+                <div class="theme-main">
+                  <div class="name-line"><span class="theme-name">Shopping Sentences</span></div>
+                  <div class="theme-count">18 rounds</div>
+                </div>
+                <span class="check"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span>
+              </button>
+            </div>
+          </div>
+          <div class="section">
+            <p class="section-label">Difficulty</p>
+            <div class="diff-list">
+              <div class="diff-row selected">
+                <div><div class="diff-title">Easy</div><div class="diff-desc">All difficulty levels</div></div>
+                <div class="diff-right"><span class="diff-default">Default</span><span class="check" style="display:flex"><svg viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"/></svg></span></div>
+              </div>
+              <div class="diff-row"><div><div class="diff-title">Medium</div><div class="diff-desc">Medium and hard questions only</div></div></div>
+              <div class="diff-row"><div><div class="diff-title">Hard</div><div class="diff-desc">Hard questions only</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn-cta">Create Challenge</button>
+          <button class="btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

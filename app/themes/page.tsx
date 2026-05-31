@@ -144,8 +144,14 @@ export default function ThemesPage() {
       <ThemeContentTypeModal {...controller.contentTypeModalProps} />
       <GenerateSentenceThemeModal {...controller.sentenceGenerateModalProps} />
       <GenerateMoreSentenceRoundsModal {...controller.sentenceGenerateMoreModalProps} />
-      <DiscardPickAndPruneModal {...controller.sentenceReviewDiscardProps} />
-      <DiscardPickAndPruneModal {...controller.sentenceDiscardConfirmProps} />
+      <DiscardPickAndPruneModal
+        {...controller.sentenceReviewDiscardProps}
+        generatedItemLabel="sentences"
+      />
+      <DiscardPickAndPruneModal
+        {...controller.sentenceDiscardConfirmProps}
+        generatedItemLabel="sentences"
+      />
     </ThemedPage>
   );
 }

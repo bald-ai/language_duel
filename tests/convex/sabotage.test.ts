@@ -190,6 +190,47 @@ describe("sendSabotage", () => {
     expect(db.duels[0].opponentSabotage).toBeUndefined();
   });
 
+  it("blocks a second sabotage on the same question even after the first expired", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(20_000);
+    // First sabotage was sent during the current question (timestamp >=
+    // questionStartTime). Even though its 7s sticky window has elapsed, the
+    // per-question gate must still reject a second send.
+    const db = seedDb({
+      questionStartTime: 1_000,
+      opponentSabotage: { effect: "sticky", timestamp: 1_500 },
+      challengerSabotagesUsed: 1,
+    });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "bounce",
+      })
+    ).rejects.toThrow("You've already used a sabotage on this question");
+
+    // No state changes from the rejected call.
+    expect(db.duels[0].opponentSabotage).toEqual({ effect: "sticky", timestamp: 1_500 });
+    expect(db.duels[0].challengerSabotagesUsed).toBe(1);
+  });
+
+  it("allows a sabotage on a new question even if one was sent on the previous", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(20_000);
+    // Previous sabotage's timestamp predates the current question's start.
+    const db = seedDb({
+      questionStartTime: 10_000,
+      opponentSabotage: { effect: "sticky", timestamp: 1_500 },
+      challengerSabotagesUsed: 1,
+    });
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      effect: "bounce",
+    });
+
+    expect(db.duels[0].opponentSabotage).toEqual({ effect: "bounce", timestamp: 20_000 });
+    expect(db.duels[0].challengerSabotagesUsed).toBe(2);
+  });
+
   it("blocks sabotage in PvE duels", async () => {
     const db = seedDb({ duelMode: "pve" });
 

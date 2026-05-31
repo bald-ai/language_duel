@@ -6,11 +6,24 @@ import type { DifficultyPillData } from "./DuelView";
  * Static, appearance-keyed style objects for the duel view. Presentation config
  * lifted out of DuelView so the component file is orchestration, not styling.
  */
+/**
+ * Vertical "eclipse" gradient for the duel card: nearly-solid at the top
+ * (scoreboard / header) and bottom (action footer) so the chrome and buttons
+ * read clearly, fading to see-through across the middle so the theme artwork
+ * shows through the play area. Pair with a `backdrop-blur` on the element so the
+ * see-through band stays a soft wash rather than busy detail.
+ */
+export function duelCardBackground(colors: ThemeColors): string {
+  const base = colors.background.DEFAULT;
+  const solid = `${base}F2`; // ~95% — top & bottom bands
+  const sheer = `${base}73`; // ~45% — see-through middle
+  return `linear-gradient(to bottom, ${solid} 0%, ${solid} 15%, ${sheer} 33%, ${sheer} 70%, ${solid} 88%, ${solid} 100%)`;
+}
+
 export function buildDuelViewStyles(colors: ThemeColors) {
   return {
     gameContainer: {
-      "--duel-bg": `${colors.background.DEFAULT}E6`,
-      "--duel-bg-elevated": `${colors.background.elevated}80`,
+      background: duelCardBackground(colors),
       borderColor: colors.primary.dark,
     } as CSSProperties,
     subtleBorder: { borderColor: `${colors.primary.dark}80` } as CSSProperties,

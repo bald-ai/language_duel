@@ -8,10 +8,22 @@ import {
   buildRelayTimeoutPatch,
   isRelayFinished,
   relayAnswerer,
+  relayAnswerWindowMs,
   relayHardBudgetForPool,
   relayRemainingPositions,
   relayServedQuestion,
 } from "@/lib/duel/relayEngine";
+import { RELAY_ANSWER_TIMEOUT_MS } from "@/lib/duelConstants";
+import { SENTENCE_RELAY_TIMEOUT_MS } from "@/lib/themes/sentenceConstants";
+
+function sentenceQuestion(): NonNullable<DuelDoc["duelQuestions"]>[number] {
+  return {
+    kind: "sentence" as const,
+    englishPrompt: "I eat bread",
+    spanishSentence: "Yo como pan",
+    tilePool: ["Yo", "como", "pan", "tú"],
+  };
+}
 
 type DuelDoc = Doc<"duels">;
 
@@ -152,6 +164,26 @@ describe("relayEngine", () => {
 
     it("is undefined when nothing is assigned", () => {
       expect(relayServedQuestion(relayDuel({ relayAssignedIndex: undefined }))).toBeUndefined();
+    });
+  });
+
+  describe("relayAnswerWindowMs", () => {
+    it("uses the 21s word window for a served word position", () => {
+      const duel = relayDuel({ relayAssignedIndex: 0 });
+      expect(relayAnswerWindowMs(duel)).toBe(RELAY_ANSWER_TIMEOUT_MS);
+    });
+
+    it("uses the 60s sentence window for a served sentence position", () => {
+      const duel = relayDuel({
+        relayAssignedIndex: 0,
+        duelQuestions: [sentenceQuestion(), question("base1")],
+      });
+      expect(relayAnswerWindowMs(duel)).toBe(SENTENCE_RELAY_TIMEOUT_MS);
+    });
+
+    it("falls back to the word window when nothing is assigned", () => {
+      const duel = relayDuel({ relayAssignedIndex: undefined });
+      expect(relayAnswerWindowMs(duel)).toBe(RELAY_ANSWER_TIMEOUT_MS);
     });
   });
 

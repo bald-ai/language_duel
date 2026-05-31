@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentence hint — "Mark 2 correct tiles" prototypes</title>
+<style>
+  :root{
+    --bg:#f3f1e9;
+    --card:#ffffff;
+    --ink:#2c2a26;
+    --muted:#9b968a;
+    --line:#e6e1d3;
+    --tile:#fbfaf6;
+    --primary:#6b4ce6;
+    --primary-dark:#5536c9;
+    --cta:#58a700;
+    --success:#58cc02;
+    --success-soft:#58cc0222;
+    --hint:#ff9d00;          /* amber = "revealed by hint" accent (distinct from green correctness) */
+    --hint-soft:#ff9d0022;
+    --hint-ring:#ffbf57;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.45;padding:28px 18px 64px;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 6px}
+  .lede{color:#6c685e;max-width:760px;margin:0 0 4px}
+  .note{color:var(--muted);font-size:13px;max-width:760px;margin:6px 0 26px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:#6c685e;margin-bottom:26px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .sw{width:14px;height:14px;border-radius:4px;display:inline-block}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 18px 20px;box-shadow:0 10px 26px rgba(60,50,30,.06)}
+  .card h2{font-size:16px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--primary);background:#6b4ce615;padding:3px 8px;border-radius:999px}
+  .card p.desc{font-size:13px;color:#6c685e;margin:6px 0 14px;min-height:34px}
+
+  /* mini board */
+  .board{background:linear-gradient(180deg,#ffffff,#fbf9f3);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .prompt{font-size:15px;font-weight:800;text-align:center;margin:2px 0 12px}
+  .timer{text-align:center;font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;color:var(--cta);margin-bottom:12px}
+  .timer small{font-size:11px;color:var(--muted);font-weight:600}
+
+  /* slot tray */
+  .tray{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+  .slot{position:relative;min-width:46px;height:34px;border:2px dashed var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);background:#fff}
+  .slot b{font-size:10px;color:var(--muted);position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:#fff;padding:0 4px}
+  .ghost{color:#caa86a;font-weight:700;font-size:12px;font-style:italic}
+
+  /* tile pool */
+  .pool{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .tile{position:relative;background:var(--tile);border:2px solid #e7e2d5;border-radius:11px;padding:13px 10px;text-align:center;font-weight:600;font-size:15px;transition:.18s}
+  .badge{position:absolute;top:-9px;left:-9px;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.18)}
+
+  /* controls */
+  .controls{margin-top:16px;display:flex;gap:10px;align-items:center}
+  button.fire{appearance:none;border:none;background:var(--primary);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;border-radius:11px;cursor:pointer;border-bottom:3px solid var(--primary-dark)}
+  button.fire:active{transform:translateY(1px)}
+  .hintbtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6c685e}
+  .proscons{margin-top:14px;font-size:12.5px;color:#6c685e}
+  .proscons b{color:var(--ink)}
+
+  /* ===== HINT STATES (added when .hint-on on .board) ===== */
+
+  /* V1 — corner badge + glow */
+  .v1 .tile.reveal{border-color:var(--hint);background:var(--hint-soft);box-shadow:0 0 0 3px var(--hint-ring)55}
+  .v1 .tile.reveal .badge{background:var(--hint)}
+  .board:not(.hint-on) .badge{display:none}
+  .board:not(.hint-on) .tile.reveal{border-color:#e7e2d5;background:var(--tile);box-shadow:none}
+
+  /* V2 — tray link: highlight matching slot + tile share number/color */
+  .v2 .slot.lit{border-style:solid;border-color:var(--hint);color:var(--hint);background:var(--hint-soft);font-weight:800}
+  .v2 .slot.lit b{color:var(--hint)}
+  .v2 .tile.reveal{border-color:var(--hint);background:var(--hint-soft)}
+  .v2 .tile.reveal .badge{background:var(--hint)}
+  .board:not(.hint-on) .slot.lit{border-style:dashed;border-color:var(--line);color:var(--muted);background:#fff}
+  .board:not(.hint-on) .slot.lit b{color:var(--muted)}
+
+  /* V3 — ghost preview drops the word into its slot */
+  .v3 .slot.filled{border-style:solid;border-color:var(--hint-ring);background:#fffaf0}
+  .v3 .tile.reveal{border-color:var(--success);background:var(--success-soft)}
+  .v3 .tile.reveal .check{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--success);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.18)}
+  .board:not(.hint-on) .ghost{visibility:hidden}
+  .board:not(.hint-on) .check{display:none}
+  .board:not(.hint-on) .slot.filled{border-style:dashed;border-color:var(--line);background:#fff}
+  .board:not(.hint-on) .tile.reveal{border-color:#e7e2d5;background:var(--tile)}
+
+  /* V4 — floating "→ slot N" pill tag */
+  .v4 .tile.reveal{border-color:var(--hint);background:var(--hint-soft)}
+  .v4 .pill{position:absolute;top:-11px;right:-6px;background:var(--hint);color:#fff;font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.18)}
+  .board:not(.hint-on) .pill{display:none}
+  .board:not(.hint-on) .tile.reveal{border-color:#e7e2d5;background:var(--tile)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>“Mark 2 correct tiles” — visual options</h1>
+  <p class="lede">The PvE hint reveals <b>2 correct tiles and the slot each belongs in</b>. Same demo sentence in every card. Hit <b>“Fire hint ✨”</b> on each to see the effect, then pick the treatment you like.</p>
+  <p class="note">Demo prompt: <b>“My sister reads a book.”</b> → <i>Mi · hermana · lee · un · libro</i> (5 slots, 8-tile pool). The hint reveals <b>slot 2 = “hermana”</b> and <b>slot 5 = “libro”</b>. Amber = “revealed by hint” (kept distinct from the green you’d get from a correct Confirm).</p>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--hint)"></i> hint-revealed tile</span>
+    <span><i class="sw" style="background:var(--success)"></i> correct (post-Confirm)</span>
+    <span><i class="sw" style="background:#e7e2d5"></i> normal tile</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- V1 -->
+    <div class="card">
+      <h2>Option 1 — Corner badge + glow <span class="tag">minimal</span></h2>
+      <p class="desc">Revealed tiles get an amber glow and a corner badge with the slot number. Reuses the existing order-badge pattern, just in a hint colour.</p>
+      <div class="board v1" id="b1">
+        <div class="prompt">My sister reads a book.</div>
+        <div class="timer">58<small> sec</small></div>
+        <div class="pool" id="p1"></div>
+      </div>
+      <div class="controls"><button class="fire" data-t="b1">Fire hint ✨</button><span class="hintbtn">slot number shown on the tile</span></div>
+      <p class="proscons"><b>Good:</b> tiniest change, familiar. <b>Watch:</b> “slot 2” is implicit — no on-screen slots to anchor the number to.</p>
+    </div>
+
+    <!-- V2 -->
+    <div class="card">
+      <h2>Option 2 — Slot tray link <span class="tag">explicit</span></h2>
+      <p class="desc">A numbered slot tray sits above the pool. Firing the hint lights up the two target slots and their matching tiles in the same colour/number — you literally see “this tile → that slot”.</p>
+      <div class="board v2" id="b2">
+        <div class="prompt">My sister reads a book.</div>
+        <div class="timer">58<small> sec</small></div>
+        <div class="tray" id="t2"></div>
+        <div class="pool" id="p2"></div>
+      </div>
+      <div class="controls"><button class="fire" data-t="b2">Fire hint ✨</button><span class="hintbtn">tile ↔ slot both lit</span></div>
+      <p class="proscons"><b>Good:</b> position is unmistakable. <b>Watch:</b> adds a permanent slot tray to the board (a layout change for all rounds).</p>
+    </div>
+
+    <!-- V3 -->
+    <div class="card">
+      <h2>Option 3 — Ghost in the slot <span class="tag">strongest</span></h2>
+      <p class="desc">The revealed word appears faintly inside its target slot, and the tile gets a green check. You see the answer forming in place.</p>
+      <div class="board v3" id="b3">
+        <div class="prompt">My sister reads a book.</div>
+        <div class="timer">58<small> sec</small></div>
+        <div class="tray" id="t3"></div>
+        <div class="pool" id="p3"></div>
+      </div>
+      <div class="controls"><button class="fire" data-t="b3">Fire hint ✨</button><span class="hintbtn">word previewed in slot</span></div>
+      <p class="proscons"><b>Good:</b> clearest of all. <b>Watch:</b> shows the word text twice; arguably gives away more than the others.</p>
+    </div>
+
+    <!-- V4 -->
+    <div class="card">
+      <h2>Option 4 — Floating “→ slot N” tag <span class="tag">compact</span></h2>
+      <p class="desc">No tray. Each revealed tile wears a little pill that reads “→ #2”. Compact and self-explanatory without changing the board layout.</p>
+      <div class="board v4" id="b4">
+        <div class="prompt">My sister reads a book.</div>
+        <div class="timer">58<small> sec</small></div>
+        <div class="pool" id="p4"></div>
+      </div>
+      <div class="controls"><button class="fire" data-t="b4">Fire hint ✨</button><span class="hintbtn">tag says the slot</span></div>
+      <p class="proscons"><b>Good:</b> no layout change, position is spelled out. <b>Watch:</b> pill can crowd a small tile on narrow phones.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Shared demo data: shuffled 8-tile pool. slot = 1-indexed correct position, or null for distractors.
+  const POOL = [
+    {w:"libro",   slot:5},
+    {w:"hermano", slot:null},
+    {w:"Mi",      slot:1},
+    {w:"lee",     slot:3},
+    {w:"periódico",slot:null},
+    {w:"hermana", slot:2},
+    {w:"un",      slot:4},
+    {w:"escribe", slot:null},
+  ];
+  const REVEAL = [2,5];                 // slots the hint reveals
+  const SOLUTION = {1:"Mi",2:"hermana",3:"lee",4:"un",5:"libro"};
+
+  function tileEl(t, opts){
+    const d = document.createElement("div");
+    d.className = "tile";
+    d.textContent = t.w;
+    const revealed = opts.reveal && t.slot && REVEAL.includes(t.slot);
+    if(revealed){
+      d.classList.add("reveal");
+      if(opts.badge){ const b=document.createElement("span"); b.className="badge"; b.textContent=t.slot; d.appendChild(b); }
+      if(opts.check){ const c=document.createElement("span"); c.className="check"; c.textContent="✓"; d.appendChild(c); }
+      if(opts.pill){ const p=document.createElement("span"); p.className="pill"; p.textContent="→ #"+t.slot; d.appendChild(p); }
+    }
+    return d;
+  }
+  function fillPool(id, opts){
+    const el = document.getElementById(id); el.innerHTML="";
+    POOL.forEach(t=>el.appendChild(tileEl(t,opts)));
+  }
+  function fillTray(id, opts){
+    const el = document.getElementById(id); el.innerHTML="";
+    for(let s=1;s<=5;s++){
+      const slot=document.createElement("div"); slot.className="slot";
+      const lab=document.createElement("b"); lab.textContent=s; slot.appendChild(lab);
+      if(REVEAL.includes(s)){
+        if(opts.lit) slot.classList.add("lit");
+        if(opts.ghost){ slot.classList.add("filled"); const g=document.createElement("span"); g.className="ghost"; g.textContent=SOLUTION[s]; slot.appendChild(g); }
+      }
+      el.appendChild(slot);
+    }
+  }
+
+  // build each board with its own decorations
+  fillPool("p1",{reveal:true,badge:true});
+  fillTray("t2",{lit:true}); fillPool("p2",{reveal:true,badge:true});
+  fillTray("t3",{ghost:true}); fillPool("p3",{reveal:true,check:true});
+  fillPool("p4",{reveal:true,pill:true});
+
+  // toggle hint on/off
+  document.querySelectorAll("button.fire").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const board=document.getElementById(btn.dataset.t);
+      const on=board.classList.toggle("hint-on");
+      btn.textContent = on ? "Reset" : "Fire hint ✨";
+    });
+  });
+</script>
+</body>
+</html>

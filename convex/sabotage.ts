@@ -6,7 +6,6 @@ import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant, isDuelActive } from "./helpers/auth";
 import { forRole } from "../lib/duelRole";
-import { isSabotageActive } from "../lib/sabotage/active";
 import { MAX_SABOTAGES } from "../lib/sabotage/constants";
 import { assertDuelMode } from "./rules/duelModeGuards";
 import { sabotageEffectValidator } from "./schema";
@@ -25,10 +24,9 @@ export const sendSabotage = mutation({
     }
 
     // A sabotage only has meaning against a live question. Movement effects are
-    // bound to the in-flight question (see isSabotageActive), so with no question
-    // started there is nothing to target and the "already active" guard below
-    // cannot evaluate a movement effect. Enforce the contract explicitly instead
-    // of silently allowing a no-op send that could overwrite an existing effect.
+    // bound to the in-flight question, so with no question started there is
+    // nothing to target. Enforce the contract explicitly instead of silently
+    // allowing a no-op send that could overwrite an existing effect.
     if (typeof duel.questionStartTime !== "number") {
       throw new ConvexError({ code: "INVALID_STATE", message: "No active question to sabotage" });
     }
@@ -51,21 +49,21 @@ export const sendSabotage = mutation({
       throw new ConvexError({ code: "NO_SABOTAGES_LEFT", message: "No sabotages remaining" });
     }
 
-    // Check if target already has an active sabotage
     const now = Date.now();
 
     if (roleView.theirAnswered) {
       throw new ConvexError({ code: "INVALID_STATE", message: "Opponent has already answered this question" });
     }
 
-    if (
-      isSabotageActive({
-        sabotage: roleView.theirSabotage,
-        now,
-        questionStartTime: duel.questionStartTime,
-      })
-    ) {
-      throw new ConvexError({ code: "SABOTAGE_ACTIVE", message: "A sabotage is already active" });
+    // One sabotage per question per player. `theirSabotage` is the sabotage
+    // I've sent to my opponent; if its timestamp is at/after the current
+    // question's start, I've already sabotaged this question.
+    const myOutgoingSabotage = roleView.theirSabotage;
+    if (myOutgoingSabotage && myOutgoingSabotage.timestamp >= duel.questionStartTime) {
+      throw new ConvexError({
+        code: "SABOTAGE_ALREADY_SENT_THIS_QUESTION",
+        message: "You've already used a sabotage on this question",
+      });
     }
 
     // Send sabotage to the OTHER player

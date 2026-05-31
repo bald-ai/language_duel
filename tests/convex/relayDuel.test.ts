@@ -4,10 +4,14 @@ import {
   relayAdvance,
   relayAnswer,
   relayPick,
+  relaySentenceConfirm,
+  relaySentenceReset,
+  relaySentenceTap,
   relayTimeout,
   relayTimeoutInternal,
 } from "@/convex/relayDuel";
 import { RELAY_ANSWER_TIMEOUT_MS } from "@/lib/duelConstants";
+import { SENTENCE_RELAY_TIMEOUT_MS } from "@/lib/themes/sentenceConstants";
 import { createAuthCtx, createIndexedQuery, findRowById, patchRow } from "./testUtils/inMemoryDb";
 
 type UserDoc = Pick<Doc<"users">, "_id" | "_creationTime" | "clerkId" | "email" | "name">;
@@ -101,7 +105,46 @@ function seedDb(duel: DuelDoc): InMemoryDb {
   return db;
 }
 
+// A relay duel whose only position is a sentence. The opponent is the answerer
+// (picker is the challenger). `duelQuestions[0]` is the served sentence the pure
+// validation functions read.
+function relaySentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+  return relayDuelDoc({
+    sessionWords: [
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        distractors: ["tú"],
+        themeId: "t" as never,
+        themeName: "Sentences",
+      },
+    ],
+    wordOrder: [0],
+    duelQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        tilePool: ["Yo", "como", "pan", "tú"],
+      },
+    ],
+    relayHardQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        tilePool: ["Yo", "como", "pan", "tú"],
+      },
+    ],
+    ...overrides,
+  });
+}
+
 const pickHandler = (relayPick as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
+const sentenceTapHandler = (relaySentenceTap as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
+const sentenceResetHandler = (relaySentenceReset as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
+const sentenceConfirmHandler = (relaySentenceConfirm as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
 const answerHandler = (relayAnswer as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
 const advanceHandler = (relayAdvance as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
 const timeoutHandler = (relayTimeout as unknown as { _handler: (ctx: unknown, args: unknown) => Promise<unknown> })._handler;
@@ -179,7 +222,7 @@ describe("relayDuel mutations", () => {
       ).rejects.toThrow(/answerer/i);
     });
 
-    it("rejects corrupt relay duels that somehow serve a sentence position", async () => {
+    it("rejects answering a sentence position via the word-only relayAnswer path", async () => {
       const db = seedDb(
         relayDuelDoc({
           relayPhase: "answer",
@@ -209,7 +252,7 @@ describe("relayDuel mutations", () => {
 
       await expect(
         answerHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId, value: "Yo como pan" })
-      ).rejects.toThrow("Relay duels cannot contain sentence positions");
+      ).rejects.toThrow("Sentence relay positions are answered via relaySentenceConfirm");
     });
   });
 
@@ -309,6 +352,139 @@ describe("relayDuel mutations", () => {
       });
       expect(db.duels[0].relayPhase).toBe("answer");
       expect(db.duels[0].relayAssignedIndex).toBe(1);
+    });
+  });
+
+  describe("relay sentences", () => {
+    it("picks a sentence with the 60s window and rejects a 🔥 upgrade on it", async () => {
+      const db = seedDb(relaySentenceDuelDoc());
+      const scheduler = makeScheduler("sched_s");
+
+      await pickHandler(createCtx(db, "clerk_1", scheduler), {
+        duelId,
+        wordIndex: 0,
+        hardUpgrade: false,
+      });
+
+      expect(db.duels[0].relayPhase).toBe("answer");
+      expect(scheduler.runAfter).toHaveBeenCalledWith(
+        SENTENCE_RELAY_TIMEOUT_MS,
+        expect.anything(),
+        { duelId, expectedAssignedIndex: 0 }
+      );
+
+      const hardAttempt = seedDb(relaySentenceDuelDoc());
+      await expect(
+        pickHandler(createCtx(hardAttempt, "clerk_1", makeScheduler()), {
+          duelId,
+          wordIndex: 0,
+          hardUpgrade: true,
+        })
+      ).rejects.toThrow(/hard-upgraded/i);
+    });
+
+    it("lets the answerer place a tile but rejects the picker", async () => {
+      const db = seedDb(
+        relaySentenceDuelDoc({
+          relayPhase: "answer",
+          relayPicker: "challenger",
+          relayAssignedIndex: 0,
+          relayAnswerStartedAt: Date.now(),
+        })
+      );
+
+      // The opponent is the answerer.
+      await sentenceTapHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId, tileIndex: 0 });
+      expect(db.duels[0].sentenceProgress).toEqual([
+        expect.objectContaining({ questionIndex: 0, role: "opponent", placedTileIndices: [0] }),
+      ]);
+
+      // The picker (challenger) cannot drive the board.
+      await expect(
+        sentenceTapHandler(createCtx(db, "clerk_1", makeScheduler()), { duelId, tileIndex: 1 })
+      ).rejects.toThrow(/answerer/i);
+    });
+
+    it("scores a correct Confirm, cancels the backstop, and advances to feedback", async () => {
+      const db = seedDb(
+        relaySentenceDuelDoc({
+          relayPhase: "answer",
+          relayPicker: "challenger",
+          relayAssignedIndex: 0,
+          relayAnswerStartedAt: Date.now(),
+          relayTimeoutScheduledFunctionId: "sched_1" as DuelDoc["relayTimeoutScheduledFunctionId"],
+          // "Yo como pan" already built on the board.
+          sentenceProgress: [
+            {
+              questionIndex: 0,
+              role: "opponent",
+              placedTileIndices: [0, 1, 2],
+              mistakes: 0,
+              completed: false,
+              finalized: false,
+              failedConfirms: 0,
+            },
+          ],
+        })
+      );
+      const scheduler = makeScheduler();
+
+      const result = await sentenceConfirmHandler(createCtx(db, "clerk_2", scheduler), { duelId });
+
+      expect(result).toEqual({ completed: true, correctnessMask: [true, true, true] });
+      expect(db.duels[0].opponentScore).toBe(1);
+      expect(db.duels[0].relayPhase).toBe("feedback");
+      expect(db.duels[0].relayLastResult).toEqual({
+        wordIndex: 0,
+        chosen: "",
+        correct: true,
+        scorer: "opponent",
+      });
+      expect(scheduler.cancel).toHaveBeenCalledWith("sched_1");
+    });
+
+    it("keeps a wrong Confirm in the answer phase with no point but returns the per-tile mask", async () => {
+      const db = seedDb(
+        relaySentenceDuelDoc({
+          relayPhase: "answer",
+          relayPicker: "challenger",
+          relayAssignedIndex: 0,
+          relayAnswerStartedAt: Date.now(),
+          // "Yo como tú" — wrong last tile.
+          sentenceProgress: [
+            {
+              questionIndex: 0,
+              role: "opponent",
+              placedTileIndices: [0, 1, 3],
+              mistakes: 0,
+              completed: false,
+              finalized: false,
+              failedConfirms: 0,
+            },
+          ],
+        })
+      );
+
+      const result = await sentenceConfirmHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId });
+
+      // Same per-tile feedback as PvP: "Yo" + "como" correct, "tú" (vs "pan") wrong.
+      expect(result).toEqual({ completed: false, correctnessMask: [true, true, false] });
+      expect(db.duels[0].relayPhase).toBe("answer");
+      expect(db.duels[0].opponentScore).toBe(0);
+      expect(db.duels[0].sentenceProgress?.[0].failedConfirms).toBe(1);
+    });
+
+    it("rejects sentence build mutations outside the answer phase", async () => {
+      const db = seedDb(
+        relaySentenceDuelDoc({
+          relayPhase: "pick",
+          relayPicker: "challenger",
+          relayAssignedIndex: undefined,
+        })
+      );
+      await expect(
+        sentenceResetHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId })
+      ).rejects.toThrow(/answer phase/i);
     });
   });
 });

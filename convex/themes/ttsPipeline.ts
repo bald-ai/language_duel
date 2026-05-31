@@ -2,26 +2,48 @@ import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { stripIrr } from "../../lib/stringUtils";
 import { generateTtsAudioWithFallback } from "../../lib/tts/providerAdapters";
-import type { ThemeWordWithTts as ThemeWordWithTtsBase } from "../../lib/themes/tts";
+import {
+  SENTENCE_TTS_SHAPE,
+  WORD_TTS_SHAPE,
+  type SentenceRoundWithTts as SentenceRoundWithTtsBase,
+  type ThemeTtsRow,
+  type ThemeTtsShape,
+  type ThemeWordWithTts as ThemeWordWithTtsBase,
+} from "../../lib/themes/tts";
 
-// Convex specialization of the canonical word shape (lib/themes/tts.ts), with the
-// storage-ID brand narrowed from string to Id<"_storage">.
+// Convex specializations of the canonical row shapes (lib/themes/tts.ts), with
+// the storage-ID brand narrowed from string to Id<"_storage">.
 export type ThemeWordWithTts = Omit<ThemeWordWithTtsBase, "ttsStorageId"> & {
   ttsStorageId?: Id<"_storage">;
 };
-
-export type ThemeTtsTarget = ThemeWordWithTts & {
-  wordIndex: number;
+export type SentenceRoundWithTts = Omit<SentenceRoundWithTtsBase, "ttsStorageId"> & {
+  ttsStorageId?: Id<"_storage">;
 };
 
-export type GeneratedWordTtsResult = {
-  wordIndex: number;
-  sourceWord: string;
-  sourceAnswer: string;
+// Convex-branded views of the pure shapes. The shape functions only read string
+// fields, so the base shapes apply verbatim — the casts just pin the storage-ID
+// brand for the rest of this module.
+export const WORD_TTS_PIPELINE_SHAPE: ThemeTtsShape<ThemeWordWithTts> =
+  WORD_TTS_SHAPE;
+export const SENTENCE_TTS_PIPELINE_SHAPE: ThemeTtsShape<SentenceRoundWithTts> =
+  SENTENCE_TTS_SHAPE;
+
+type ConvexTtsRow = ThemeTtsRow & { ttsStorageId?: Id<"_storage"> };
+
+export type ThemeTtsTarget<TRow extends ConvexTtsRow> = TRow & {
+  index: number;
+};
+
+// Content-agnostic generated result: the `sourceSignature` (captured from the
+// row at generation time) lets the apply mutation reject results whose row was
+// edited mid-generation, for both word and sentence themes.
+export type GeneratedThemeTtsResult = {
+  index: number;
+  sourceSignature: string;
   storageId: Id<"_storage">;
 };
 
-export type ThemeTtsPlan =
+export type ThemeTtsPlan<TRow extends ConvexTtsRow> =
   | {
       alreadyUpToDate: true;
       totalMissing: 0;
@@ -31,19 +53,19 @@ export type ThemeTtsPlan =
   | {
       alreadyUpToDate: false;
       totalMissing: number;
-      targets: ThemeTtsTarget[];
+      targets: ThemeTtsTarget<TRow>[];
       skippedForCredits: number;
     };
 
-export function planThemeTtsGeneration(
-  words: ThemeWordWithTts[],
+export function planThemeTtsGeneration<TRow extends ConvexTtsRow>(
+  rows: TRow[],
   ttsGenerationsRemaining: number
-): ThemeTtsPlan {
-  const missingWords = words
-    .map((word, wordIndex) => ({ ...word, wordIndex }))
-    .filter((word) => !word.ttsStorageId);
+): ThemeTtsPlan<TRow> {
+  const missingRows = rows
+    .map((row, index) => ({ ...row, index }))
+    .filter((row) => !row.ttsStorageId);
 
-  if (missingWords.length === 0) {
+  if (missingRows.length === 0) {
     return {
       alreadyUpToDate: true,
       totalMissing: 0,
@@ -53,26 +75,29 @@ export function planThemeTtsGeneration(
   }
 
   const maxGenerations = Math.max(0, Math.floor(ttsGenerationsRemaining));
-  const targets = missingWords.slice(0, maxGenerations);
+  const targets = missingRows.slice(0, maxGenerations);
 
   return {
     alreadyUpToDate: false,
-    totalMissing: missingWords.length,
+    totalMissing: missingRows.length,
     targets,
-    skippedForCredits: Math.max(0, missingWords.length - targets.length),
+    skippedForCredits: Math.max(0, missingRows.length - targets.length),
   };
 }
 
-export function prepareThemeTtsProviderText(answer: string): string {
-  const cleanText = stripIrr(answer).trim();
+export function prepareThemeTtsProviderText(text: string): string {
+  const cleanText = stripIrr(text).trim();
   if (!cleanText) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Answer text is empty" });
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Text is empty" });
   }
   return cleanText;
 }
 
-export async function generateThemeTtsAudio(target: ThemeTtsTarget): Promise<ArrayBuffer> {
-  const cleanText = prepareThemeTtsProviderText(target.answer);
+export async function generateThemeTtsAudio<TRow extends ConvexTtsRow>(
+  shape: ThemeTtsShape<TRow>,
+  target: ThemeTtsTarget<TRow>
+): Promise<ArrayBuffer> {
+  const cleanText = prepareThemeTtsProviderText(shape.voicedText(target));
   const generatedAudio = await generateTtsAudioWithFallback({ text: cleanText });
   if (!generatedAudio) {
     throw new ConvexError({ code: "INTERNAL_ERROR", message: "TTS generation failed" });
@@ -87,14 +112,14 @@ export async function storeThemeTtsAudio(
   return await storage.store(new Blob([audioBuffer], { type: "audio/wav" }));
 }
 
-export function buildGeneratedThemeTtsResult(
-  target: ThemeTtsTarget,
+export function buildGeneratedThemeTtsResult<TRow extends ConvexTtsRow>(
+  shape: ThemeTtsShape<TRow>,
+  target: ThemeTtsTarget<TRow>,
   storageId: Id<"_storage">
-): GeneratedWordTtsResult {
+): GeneratedThemeTtsResult {
   return {
-    wordIndex: target.wordIndex,
-    sourceWord: target.word,
-    sourceAnswer: target.answer,
+    index: target.index,
+    sourceSignature: shape.invalidationSignature(target),
     storageId,
   };
 }

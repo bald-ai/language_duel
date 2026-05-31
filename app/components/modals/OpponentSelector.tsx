@@ -31,19 +31,24 @@ export const OpponentSelector = memo(function OpponentSelector({
     <button
       key="self"
       onClick={() => onSelect(viewer._id)}
-      className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
+      className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
       style={{
-        backgroundColor: isMeSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
-        borderBottom: `1px solid ${colors.primary.dark}`,
+        backgroundColor: isMeSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
+        borderColor: isMeSelected ? colors.cta.DEFAULT : "transparent",
       }}
       data-testid="duel-modal-opponent-me"
     >
-      <div
-        className="font-semibold text-sm truncate"
-        style={{ color: isMeSelected ? colors.cta.light : colors.text.DEFAULT }}
-        title="Me"
-      >
-        Me
+      <div className="min-w-0">
+        <div
+          className="font-semibold text-sm truncate"
+          style={{ color: isMeSelected ? colors.cta.dark : colors.text.DEFAULT }}
+          title="Solo practice"
+        >
+          Solo practice
+        </div>
+        <div className="text-xs" style={{ color: colors.text.muted }}>
+          Duel yourself — practice mode
+        </div>
       </div>
       {isMeSelected && (
         <div
@@ -60,7 +65,7 @@ export const OpponentSelector = memo(function OpponentSelector({
     if (!users) {
       return (
         <div
-          className="text-center p-4"
+          className="text-center p-4 rounded-xl"
           style={{
             backgroundColor: colors.background.DEFAULT,
             color: colors.text.muted,
@@ -74,7 +79,7 @@ export const OpponentSelector = memo(function OpponentSelector({
     if (users.length === 0) {
       return (
         <div
-          className="text-center p-4"
+          className="text-center p-4 rounded-xl"
           style={{
             backgroundColor: colors.background.DEFAULT,
             color: colors.text.muted,
@@ -85,22 +90,22 @@ export const OpponentSelector = memo(function OpponentSelector({
       );
     }
 
-    return users.map((user, index) => {
+    return users.map((user) => {
       const isSelected = selectedOpponentId === user._id;
       return (
         <button
           key={user._id}
           onClick={() => onSelect(user._id)}
-          className="w-full text-left px-4 py-3 transition hover:brightness-110 flex items-center justify-between"
+          className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
           style={{
-            backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : "transparent",
-            borderBottom: index < users.length - 1 ? `1px solid ${colors.primary.dark}` : undefined,
+            backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
+            borderColor: isSelected ? colors.cta.DEFAULT : "transparent",
           }}
           data-testid={`duel-modal-opponent-${user._id}`}
         >
           <div
             className="font-semibold text-sm truncate"
-            style={{ color: isSelected ? colors.cta.light : colors.text.DEFAULT }}
+            style={{ color: isSelected ? colors.cta.dark : colors.text.DEFAULT }}
             title={formatVisibleUser(user, "Unknown")}
           >
             {formatVisibleUser(user, "Unknown")}
@@ -120,32 +125,22 @@ export const OpponentSelector = memo(function OpponentSelector({
 
   const selectedLabel = selectedOpponent
     ? isMeSelected
-      ? "Me"
+      ? "Solo practice"
       : formatVisibleUser(selectedOpponent, "Unknown")
     : null;
 
   return (
-    <div
-      className="border-2 rounded-2xl overflow-hidden"
-      style={{
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-      }}
-    >
-      <div className="max-h-40 overflow-y-auto">
+    <div>
+      <div className="max-h-44 overflow-y-auto space-y-2 pr-0.5">
         {meRow}
         {friendsBody}
       </div>
       {selectedLabel && (
         <div
-          className="px-4 py-2 text-center text-xs"
-          style={{
-            backgroundColor: colors.background.elevated,
-            borderTop: `1px solid ${colors.primary.dark}`,
-            color: colors.text.muted,
-          }}
+          className="pt-2.5 text-center text-xs"
+          style={{ color: colors.text.muted }}
         >
-          Selected: <span style={{ color: colors.cta.light }}>{selectedLabel}</span>
+          Selected: <span style={{ color: colors.cta.dark }}>{selectedLabel}</span>
         </div>
       )}
     </div>

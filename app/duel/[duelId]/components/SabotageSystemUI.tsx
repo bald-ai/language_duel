@@ -11,7 +11,7 @@ interface SabotageSystemUIProps {
   sabotagesRemaining: number;
   isLocked: boolean;
   hasAnswered: boolean;
-  isOutgoingSabotageActive: boolean;
+  hasSentSabotageThisQuestion: boolean;
   opponentHasAnswered: boolean;
   onSendSabotage: (effect: SabotageEffect) => void;
   dataTestIdBase?: string;
@@ -29,7 +29,7 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   sabotagesRemaining,
   isLocked,
   hasAnswered,
-  isOutgoingSabotageActive,
+  hasSentSabotageThisQuestion,
   opponentHasAnswered,
   onSendSabotage,
   dataTestIdBase,
@@ -40,11 +40,12 @@ export const SabotageSystemUI = memo(function SabotageSystemUI({
   }
 
   // Loop-invariant: the same gate applies to every sabotage button, so compute
-  // it once. (Sabotage can't be sent once the opponent has answered.)
+  // it once. Sabotage can't be sent once the opponent has answered, and only
+  // one sabotage per question per player is allowed.
   const disabled =
     sabotagesRemaining <= 0 ||
     (!hasAnswered && isLocked) ||
-    isOutgoingSabotageActive ||
+    hasSentSabotageThisQuestion ||
     opponentHasAnswered;
 
   const containerStyle = {

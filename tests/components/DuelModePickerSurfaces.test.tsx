@@ -124,7 +124,9 @@ describe("duel mode picker surfaces", () => {
 
     fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));
     fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
     fireEvent.click(screen.getByTestId("duel-modal-mode-pve"));
+    fireEvent.click(screen.getByTestId("duel-modal-difficulty-easy"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
 
     expect(onCreateChallenge).toHaveBeenCalledWith(
@@ -152,24 +154,28 @@ describe("duel mode picker surfaces", () => {
 
     fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));
     fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
 
-    // Difficulty preset selector visible before relay is chosen.
-    expect(screen.getByTestId("duel-modal-difficulty-easy")).toBeInTheDocument();
+    // Relay is offered on the Mode step.
     expect(screen.getByTestId("duel-modal-mode-relay")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
 
-    // Difficulty selector is replaced by the picker-controlled note.
+    // On the Difficulty step the preset selector is replaced by the
+    // picker-controlled note when Relay is chosen.
     expect(screen.queryByTestId("duel-modal-difficulty-easy")).not.toBeInTheDocument();
     expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
     expect(onCreateChallenge).toHaveBeenCalledWith(
       expect.objectContaining({ duelMode: "relay", duelDifficultyPreset: undefined })
     );
   });
 
-  it("disables relay for sentence themes and clamps a prior relay pick back to pvp", () => {
+  it("offers relay for sentence themes and creates a relay challenge", () => {
+    // Relay now supports mixed word + sentence decks, so the Relay chip stays
+    // selectable even when a sentence theme is in the selection.
     const onCreateChallenge = vi.fn();
     render(
       <ChallengeModal
@@ -192,21 +198,20 @@ describe("duel mode picker surfaces", () => {
 
     fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));
     fireEvent.click(screen.getByTestId("duel-modal-theme-theme_1"));
-    fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
+    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_2"));
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
+
+    // Relay is offered and not disabled, even with a sentence theme selected.
+    const relayChip = screen.getByTestId("duel-modal-mode-relay");
+    expect(relayChip).not.toBeDisabled();
+
+    fireEvent.click(relayChip);
     expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("duel-modal-theme-theme_2"));
-
-    expect(screen.getByTestId("duel-modal-mode-relay")).toBeDisabled();
-    expect(screen.getByTestId("duel-modal-mode-relay")).toHaveAttribute(
-      "title",
-      "Relay is word-only — remove sentence themes to pick Relay."
-    );
-    expect(screen.getByTestId("duel-modal-difficulty-easy")).toBeInTheDocument();
-
+    fireEvent.click(screen.getByTestId("duel-modal-next"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
     expect(onCreateChallenge).toHaveBeenCalledWith(
-      expect.objectContaining({ duelMode: "pvp" })
+      expect.objectContaining({ duelMode: "relay", duelDifficultyPreset: undefined })
     );
   });
 

@@ -30,14 +30,15 @@ interface SentenceThemeDetailHeaderProps {
   friendsCanEdit?: boolean;
   isUpdatingFriendsCanEdit?: boolean;
   onFriendsCanEditChange?: (canEdit: boolean) => void;
+  isGeneratingTTS?: boolean;
+  isTTSUpToDate?: boolean;
+  onGenerateTTS?: () => void;
 }
 
 /**
  * Sentence-theme variant of `ThemeDetailHeader`. Same visibility / sharing
- * chrome, but:
- *  - Action buttons read "+ Add Sentence" / "+ Generate".
- *  - No TTS controls or pill (plan decision: no TTS for sentence themes in v1,
- *    no reserved placeholder).
+ * chrome and the same TTS controls (Generate TTS button + up-to-date pill); the
+ * action buttons read "+ Add Sentence" / "+ Generate".
  */
 export function SentenceThemeDetailHeader({
   themeName,
@@ -53,6 +54,9 @@ export function SentenceThemeDetailHeader({
   friendsCanEdit,
   isUpdatingFriendsCanEdit,
   onFriendsCanEditChange,
+  isGeneratingTTS = false,
+  isTTSUpToDate = true,
+  onGenerateTTS,
 }: SentenceThemeDetailHeaderProps) {
   const colors = useAppearanceColors();
   const [isEditingThemeName, setIsEditingThemeName] = useState(false);
@@ -226,6 +230,39 @@ export function SentenceThemeDetailHeader({
                   </svg>
                 )}
               </button>
+            )}
+
+            {canEdit && onGenerateTTS && (
+              <>
+                <button
+                  onClick={onGenerateTTS}
+                  disabled={isGeneratingTTS}
+                  className="px-3 py-1 text-xs sm:text-sm font-medium rounded-xl border-2 transition hover:brightness-110 disabled:opacity-60"
+                  style={secondaryAccentStyle}
+                  data-testid="theme-generate-tts"
+                >
+                  {isGeneratingTTS ? "Generating TTS..." : "Generate TTS"}
+                </button>
+                <span
+                  className="px-2 py-1 rounded-lg border text-[11px] sm:text-xs font-medium"
+                  style={
+                    isTTSUpToDate
+                      ? {
+                          backgroundColor: `${colors.status.success.DEFAULT}1A`,
+                          borderColor: `${colors.status.success.DEFAULT}66`,
+                          color: colors.status.success.light,
+                        }
+                      : {
+                          backgroundColor: `${colors.status.warning.DEFAULT}1A`,
+                          borderColor: `${colors.status.warning.DEFAULT}66`,
+                          color: colors.status.warning.light,
+                        }
+                  }
+                  data-testid="theme-tts-status"
+                >
+                  {isTTSUpToDate ? "TTS up to date" : "TTS not up to date"}
+                </span>
+              </>
             )}
           </div>
         </div>

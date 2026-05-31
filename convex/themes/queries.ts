@@ -7,7 +7,7 @@ import {
 } from "../helpers/themeTtsStorage";
 import { loadFriendshipsBetweenUsers } from "../helpers/relationshipPolicy";
 import { loadThemeWithViewerAccess } from "../helpers/themeAccess";
-import type { ThemeWordWithTts } from "./ttsPipeline";
+import type { SentenceRoundWithTts, ThemeWordWithTts } from "./ttsPipeline";
 
 export async function loadThemeForStoredTtsEditor(
   ctx: QueryCtx,
@@ -45,12 +45,12 @@ export async function loadTtsStorageUrlForViewer(
   const theme = await loadThemeWithViewerAccess(ctx, args.viewerId, args.themeId);
   if (!theme) return null;
 
-  // Sentence themes don't carry per-round TTS in v1, so their live storage
-  // set is empty. Only word themes contribute live TTS references.
+  // Both content types contribute live TTS references: word themes on `words`,
+  // sentence themes on `sentenceRounds`.
   const liveStorageIds =
     theme.contentType === "word"
       ? collectTtsStorageIds(theme.words as ThemeWordWithTts[])
-      : new Set<Id<"_storage">>();
+      : collectTtsStorageIds(theme.sentenceRounds as SentenceRoundWithTts[]);
   if (!liveStorageIds.has(args.storageId)) {
     const snapshotStorageIds = await getSnapshotReferencedStorageIdsForTheme(
       ctx,

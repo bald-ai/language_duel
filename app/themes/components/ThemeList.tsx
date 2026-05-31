@@ -86,13 +86,16 @@ const ThemeCard = memo(function ThemeCard({
     !theme.isOwner && theme.ownerNickname
       ? ` • by ${theme.ownerNickname}`
       : "";
-  // Sentence themes don't carry TTS in v1 — skip the pill entirely (no reserved
-  // placeholder, per plan decision: theme behavior).
-  const hasMissingTts = !isSentenceTheme(theme) && hasMissingThemeTts(theme.words ?? []);
+  // Both content types carry per-row TTS now: words store it on each word,
+  // sentence themes on each round. hasMissingThemeTts only checks ttsStorageId,
+  // so the same status pill works for both.
+  const ttsRows = isSentence ? (theme.sentenceRounds ?? []) : (theme.words ?? []);
+  const hasMissingTts = hasMissingThemeTts(ttsRows);
+  const ttsUnit = isSentence ? "sentences" : "words";
   const ttsStatusLabel = hasMissingTts ? "TTS missing" : "TTS up to date";
   const ttsStatusTitle = hasMissingTts
-    ? "Some words are missing pre-generated TTS"
-    : "All words have pre-generated TTS";
+    ? `Some ${ttsUnit} are missing pre-generated TTS`
+    : `All ${ttsUnit} have pre-generated TTS`;
 
   const sentenceBadgeStyle = {
     backgroundColor: `${colors.secondary.DEFAULT}1A`,
@@ -139,22 +142,18 @@ const ThemeCard = memo(function ThemeCard({
             style={{ color: colors.text.muted }}
           >
             {itemLabel} • {categoryLabel} • {visibilityLabel}{ownerInfo}
-            {!isSentence && (
-              <>
-                {" • "}
-                <span
-                  style={{
-                    color: hasMissingTts
-                      ? colors.status.warning.light
-                      : colors.status.success.light,
-                  }}
-                  title={ttsStatusTitle}
-                  data-testid={`theme-tts-status-${theme._id}`}
-                >
-                  {ttsStatusLabel}
-                </span>
-              </>
-            )}
+            {" • "}
+            <span
+              style={{
+                color: hasMissingTts
+                  ? colors.status.warning.light
+                  : colors.status.success.light,
+              }}
+              title={ttsStatusTitle}
+              data-testid={`theme-tts-status-${theme._id}`}
+            >
+              {ttsStatusLabel}
+            </span>
           </div>
         </button>
         <div className="flex items-center gap-1.5 shrink-0">

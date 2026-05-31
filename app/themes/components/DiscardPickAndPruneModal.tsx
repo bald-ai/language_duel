@@ -6,6 +6,7 @@ import { ConfirmModal } from "@/app/components/modals/ConfirmModal";
 interface DiscardPickAndPruneModalProps {
   isOpen: boolean;
   reviewKind: "new-theme" | "existing-theme";
+  generatedItemLabel?: "words" | "sentences";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -13,20 +14,23 @@ interface DiscardPickAndPruneModalProps {
 export function DiscardPickAndPruneModal({
   isOpen,
   reviewKind,
+  generatedItemLabel = "words",
   onConfirm,
   onCancel,
 }: DiscardPickAndPruneModalProps) {
   const colors = useAppearanceColors();
   if (!isOpen) return null;
 
+  const reviewListLabel =
+    generatedItemLabel === "sentences" ? "sentence Pick & Prune list" : "Pick & Prune list";
   const message =
     reviewKind === "existing-theme"
-      ? "These generated words will not be added to the current theme."
-      : "This will drop this Pick & Prune list and no theme will be created.";
+      ? `These generated ${generatedItemLabel} will not be added to the current theme.`
+      : `This will drop this ${reviewListLabel} and no theme will be created.`;
 
   return (
     <ConfirmModal
-      title="Discard generated words?"
+      title={`Discard generated ${generatedItemLabel}?`}
       confirm={{
         label: "Discard",
         onClick: onConfirm,

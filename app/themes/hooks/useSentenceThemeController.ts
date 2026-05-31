@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { ThemeWithOwner } from "@/convex/themes";
@@ -10,6 +10,9 @@ import { getErrorMessage } from "@/lib/errors";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
 import { getSentenceThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
 import { isSentenceTheme } from "@/lib/themes/themeContent";
+import { areSentenceRoundsEqual } from "@/lib/themes/sentenceEditing";
+import { hasMissingThemeTts } from "@/lib/themes/tts";
+import { useTTS } from "@/hooks/useTTS";
 import {
   generateMoreSentenceRounds,
   generateSentenceTheme,
@@ -27,6 +30,19 @@ import type { SentenceRoundField } from "../components/SentenceRoundCard";
 import type { PickAndPruneSentenceReviewProps } from "../components/PickAndPruneSentenceReview";
 import { usePickAndPruneSentence } from "./usePickAndPruneSentence";
 import { createSaveRequestId } from "../lib/saveRequestId";
+
+/**
+ * Drop the round's `ttsStorageId` when an identity/voiced field changed, so the
+ * editor stops offering stale audio before the save-time reconcile runs.
+ */
+function clearTtsIfChanged(
+  round: SentenceRoundInput,
+  changed: boolean
+): SentenceRoundInput {
+  if (!changed || round.ttsStorageId === undefined) return round;
+  const { ttsStorageId: _dropTtsStorageId, ...rest } = round;
+  return rest;
+}
 
 export type SentenceSelectedState =
   | { kind: "saved"; theme: ThemeWithOwner }
@@ -72,6 +88,12 @@ interface UseSentenceThemeControllerReturn {
   editField: SentenceEditField | null;
   isSaving: boolean;
   isGenerating: boolean;
+  /** True while a theme-level TTS generation run is in flight. */
+  isGeneratingTTS: boolean;
+  /** True when every local round already has pre-generated audio. */
+  isTTSUpToDate: boolean;
+  /** Play key of the sentence row whose audio is currently playing, if any. */
+  playingRoundKey: string | null;
   isGenerateModalOpen: boolean;
   isGenerateMoreModalOpen: boolean;
   generationError: string | null;
@@ -101,6 +123,13 @@ interface UseSentenceThemeControllerReturn {
   openGenerateMoreModal: () => void;
   closeGenerateMoreModal: () => void;
   generateMoreAndAppend: () => Promise<void>;
+
+  handleGenerateSentenceTTS: () => Promise<void>;
+  handlePlaySentenceTTS: (
+    roundIndex: number,
+    spanishSentence: string,
+    storageId?: SentenceRoundInput["ttsStorageId"]
+  ) => void;
 
   handleAddManualRound: () => void;
   handleEditField: (
@@ -136,17 +165,22 @@ export function useSentenceThemeController(params: {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [savedThemeNameBaseline, setSavedThemeNameBaseline] = useState<string | null>(null);
   // Post-generation Pick & Prune review: `reviewDraft` carries the theme
   // metadata while the generated rounds sit in the prune hook for review.
   const [reviewDraft, setReviewDraft] = useState<SentenceReviewDraft | null>(null);
   const pickAndPrune = usePickAndPruneSentence();
 
+  const convex = useConvex();
   const currentUser = useQuery(api.users.getCurrentUser);
   const createTheme = useMutation(api.themes.createTheme);
   const updateTheme = useMutation(api.themes.updateTheme);
   const updateVisibility = useMutation(api.themes.updateThemeVisibility);
   const updateFriendsCanEdit = useMutation(api.themes.updateThemeFriendsCanEdit);
+  const generateThemeTTSAction = useAction(api.themes.generateThemeTTS);
+  const { playTTS, playingWordKey } = useTTS();
 
   const selectedTheme = useMemo<SentenceThemeDetailTheme | null>(() => {
     if (!selectedState) return null;
@@ -181,15 +215,20 @@ export function useSentenceThemeController(params: {
     setSelectedState(null);
     setLocalRounds([]);
     setEditField(null);
+    setSavedThemeNameBaseline(null);
   }, []);
 
   const openSavedTheme = useCallback((theme: ThemeWithOwner) => {
     if (!isSentenceTheme(theme)) return;
     setSelectedState({ kind: "saved", theme });
+    setSavedThemeNameBaseline(theme.name);
+    // Carry `ttsStorageId` through so the editor keeps the play-ready audio id;
+    // dropping it here would show stale "no audio" play buttons after load.
     setLocalRounds((theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
       englishPrompt: round.englishPrompt,
       spanishSentence: round.spanishSentence,
       distractors: [...round.distractors],
+      ttsStorageId: round.ttsStorageId,
     })));
     setEditField(null);
   }, []);
@@ -354,6 +393,105 @@ export function useSentenceThemeController(params: {
     }
   }, [localRounds, selectedTheme]);
 
+  // Unsaved local edits vs the persisted saved theme. Used to gate TTS
+  // generation, which must run against the saved sentences (otherwise the
+  // post-generation refresh would discard the unsaved edits). Mirrors the
+  // word controller's `hasUnsavedThemeChanges`.
+  const hasUnsavedSentenceChanges = useMemo(() => {
+    if (!selectedState) return false;
+    if (selectedState.kind === "unsaved") return true;
+    if (
+      savedThemeNameBaseline !== null &&
+      selectedState.theme.name !== savedThemeNameBaseline
+    ) {
+      return true;
+    }
+    const savedRounds = isSentenceTheme(selectedState.theme)
+      ? (selectedState.theme.sentenceRounds as SentenceRoundInput[])
+      : [];
+    return !areSentenceRoundsEqual(localRounds, savedRounds);
+  }, [localRounds, savedThemeNameBaseline, selectedState]);
+
+  const isTTSUpToDate = useMemo(
+    () => !hasMissingThemeTts(localRounds),
+    [localRounds]
+  );
+
+  const handleGenerateSentenceTTS = useCallback(async () => {
+    if (!selectedTheme || selectedTheme.canEdit === false || isGeneratingTTS) return;
+    if (!selectedState || selectedState.kind === "unsaved") {
+      toast.error("Save the theme first before generating TTS");
+      return;
+    }
+    if (hasUnsavedSentenceChanges) {
+      toast.error("Save your theme changes first, then generate TTS");
+      return;
+    }
+
+    const themeId = selectedState.theme._id;
+    setIsGeneratingTTS(true);
+    try {
+      const result = await generateThemeTTSAction({ themeId });
+
+      const refreshedTheme = await convex.query(api.themes.getTheme, { themeId });
+      if (refreshedTheme && isSentenceTheme(refreshedTheme)) {
+        setSavedThemeNameBaseline(refreshedTheme.name);
+        setSelectedState((prev) => {
+          if (!prev || prev.kind !== "saved") return prev;
+          return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
+        });
+        setLocalRounds(
+          (refreshedTheme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
+            englishPrompt: round.englishPrompt,
+            spanishSentence: round.spanishSentence,
+            distractors: [...round.distractors],
+            ttsStorageId: round.ttsStorageId,
+          }))
+        );
+      }
+
+      if (result.alreadyUpToDate) {
+        toast.success("TTS is already up to date");
+        return;
+      }
+      if (result.failed > 0 || result.skippedStale > 0 || result.skippedForCredits > 0) {
+        toast.warning(
+          `TTS generated with issues. Applied ${result.applied}/${result.totalMissing}.`
+        );
+        return;
+      }
+      toast.success(`Generated TTS for ${result.applied} sentences`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to generate TTS"));
+    } finally {
+      setIsGeneratingTTS(false);
+    }
+  }, [
+    convex,
+    generateThemeTTSAction,
+    hasUnsavedSentenceChanges,
+    isGeneratingTTS,
+    selectedState,
+    selectedTheme,
+  ]);
+
+  const handlePlaySentenceTTS = useCallback(
+    (
+      roundIndex: number,
+      spanishSentence: string,
+      storageId?: SentenceRoundInput["ttsStorageId"]
+    ) => {
+      if (!spanishSentence) return;
+      const savedThemeId =
+        selectedState?.kind === "saved" ? selectedState.theme._id : undefined;
+      void playTTS(`sentence-round-tts-${roundIndex}`, spanishSentence, {
+        storageId,
+        themeId: savedThemeId,
+      });
+    },
+    [playTTS, selectedState]
+  );
+
   const handleAddManualRound = useCallback(() => {
     setLocalRounds((previous) => [
       ...previous,
@@ -398,10 +536,19 @@ export function useSentenceThemeController(params: {
         const round = next[editField.roundIndex];
         if (!round) return previous;
         if (editField.field === "english") {
-          next[editField.roundIndex] = { ...round, englishPrompt: nextValue };
+          // English or Spanish edits invalidate the audio (word-parity): drop
+          // the id immediately so a stale play button isn't shown before save.
+          next[editField.roundIndex] = clearTtsIfChanged(
+            { ...round, englishPrompt: nextValue },
+            round.englishPrompt !== nextValue
+          );
         } else if (editField.field === "spanish") {
-          next[editField.roundIndex] = { ...round, spanishSentence: nextValue };
+          next[editField.roundIndex] = clearTtsIfChanged(
+            { ...round, spanishSentence: nextValue },
+            round.spanishSentence !== nextValue
+          );
         } else {
+          // Distractor-only edits keep the audio.
           const distractors = [...round.distractors];
           distractors[editField.distractorIndex ?? 0] = nextValue;
           next[editField.roundIndex] = { ...round, distractors };
@@ -550,6 +697,9 @@ export function useSentenceThemeController(params: {
     editField,
     isSaving,
     isGenerating,
+    isGeneratingTTS,
+    isTTSUpToDate,
+    playingRoundKey: playingWordKey,
     isGenerateModalOpen,
     isGenerateMoreModalOpen,
     generationError,
@@ -569,6 +719,9 @@ export function useSentenceThemeController(params: {
     openGenerateMoreModal,
     closeGenerateMoreModal,
     generateMoreAndAppend,
+
+    handleGenerateSentenceTTS,
+    handlePlaySentenceTTS,
 
     handleAddManualRound,
     handleEditField,

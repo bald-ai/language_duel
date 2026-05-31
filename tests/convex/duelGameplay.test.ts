@@ -734,4 +734,45 @@ describe("self-duel gameplay", () => {
     expect(result).toEqual({ bothSkipped: true });
     expect(db.duels[0].countdownSkipRequestedBy).toEqual(["challenger", "opponent"]);
   });
+
+  it("skipCountdown collapses the unspent transition offset onto questionStartTime when both skip", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(
+      selfDuelDoc({
+        // 1s into a 5s transition before the second (offset-bearing) question.
+        currentWordIndex: 1,
+        questionStartTime: 9_000,
+      })
+    );
+
+    await skipCountdownHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    // Effective start (questionStartTime + 5s) was 14_000, i.e. 4s ahead of the
+    // 10_000 skip moment. Collapsing that 4s makes the effective start equal to
+    // now, so the next question's timer starts ticking immediately.
+    expect(db.duels[0].questionStartTime).toBe(5_000);
+  });
+
+  it("skipCountdown never shortens an already-active question timer", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.duels.push(
+      selfDuelDoc({
+        // Transition offset already elapsed (effective start 4_000 < now).
+        currentWordIndex: 1,
+        questionStartTime: -1_000,
+      })
+    );
+
+    await skipCountdownHandler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+    });
+
+    expect(db.duels[0].questionStartTime).toBe(-1_000);
+  });
 });

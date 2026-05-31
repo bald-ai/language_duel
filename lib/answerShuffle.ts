@@ -14,6 +14,7 @@ import {
   type DuelDifficultyPreset,
 } from "./difficultyUtils";
 import { buildSentenceQuestionSnapshot } from "./sentenceGameplay/engine";
+import { SENTENCE_DISTRACTOR_COUNT_BY_LEVEL } from "./themes/sentenceConstants";
 import type { SentenceQuestionSnapshot } from "./sentenceGameplay/types";
 import {
   isSessionSentenceItem,
@@ -114,7 +115,8 @@ export function buildDuelQuestionSet(
   preset: DuelDifficultyPreset = "easy"
 ): DuelQuestionSnapshot[] {
   // Word-only positions drive the progressive difficulty distribution; sentence
-  // positions don't participate (they have a single difficulty tier in v1).
+  // positions don't participate in that distribution — the preset instead picks
+  // how many distractors each sentence shows (handled below).
   const wordPositionCount = wordOrder.reduce((count, sessionIndex) => {
     return isSessionWordItem(items[sessionIndex]) ? count + 1 : count;
   }, 0);
@@ -124,11 +126,16 @@ export function buildDuelQuestionSet(
   return wordOrder.map((sessionIndex, questionIndex) => {
     const item = items[sessionIndex];
     if (isSessionSentenceItem(item)) {
+      // Uniform mapping (decision: sentence difficulty): every sentence in the
+      // duel shows the same count for the duel's single preset. Boss has no
+      // picker and resolves to "easy" → 1 distractor automatically. The count
+      // always comes from the constant, never a literal here.
       return buildSentenceQuestionSnapshot({
         englishPrompt: item.englishPrompt,
         spanishSentence: item.spanishSentence,
         distractors: item.distractors,
         questionIndex,
+        distractorCount: SENTENCE_DISTRACTOR_COUNT_BY_LEVEL[preset],
       });
     }
     const difficulty = getDifficultyForIndex(wordPositionIndex, distribution);
@@ -137,11 +144,13 @@ export function buildDuelQuestionSet(
   });
 }
 
-// Relay served questions are a single fixed difficulty worth a flat point
+// Relay served word questions are a single fixed difficulty worth a flat point
 // (decisions #10/#11). "medium" is the base snapshot; "hard" is the upgrade
-// variant. Both emit 6 options, so the grid stays visually stable. Relay is
-// word-only in v1; callers must reject sentence items before reaching this
-// builder.
+// variant. Both emit 6 options, so the grid stays visually stable. Sentence
+// positions are built identically for both levels (a fixed easy distractor
+// count, never 🔥-upgraded in v1), so `duelQuestions[idx]` and
+// `relayHardQuestions[idx]` yield the same sentence pool — the answerer's board
+// always equals the board the validator reads (plan R1).
 export type RelayQuestionLevel = "medium" | "hard";
 
 export function buildRelayQuestionSet(
@@ -151,8 +160,20 @@ export function buildRelayQuestionSet(
 ): DuelQuestionSnapshot[] {
   return wordOrder.map((sessionIndex, questionIndex) => {
     const item = items[sessionIndex];
+    if (isSessionSentenceItem(item)) {
+      // Fixed count (never 🔥-upgraded in v1), so the medium and hard sets emit
+      // an identical sentence pool — indices always align. Relay sentences show
+      // 1 distractor (easy). The count comes from the table, never a literal.
+      return buildSentenceQuestionSnapshot({
+        englishPrompt: item.englishPrompt,
+        spanishSentence: item.spanishSentence,
+        distractors: item.distractors,
+        questionIndex,
+        distractorCount: SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.easy,
+      });
+    }
     if (!isSessionWordItem(item)) {
-      throw new Error("Relay question sets require word-only session items");
+      throw new Error("unknown session item kind");
     }
     return {
       ...buildDuelQuestionSnapshot(item, questionIndex, {
