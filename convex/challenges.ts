@@ -37,6 +37,7 @@ import { isCreatedAtExpired } from "../lib/cleanupExpiry";
 import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
 import { calculateStartingLives } from "../lib/limitedLives";
 import { toUserSummary } from "./helpers/userSummary";
+import { DUEL_MODE_LABELS } from "../lib/duelMode";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
@@ -208,7 +209,7 @@ export const createChallenge = mutation({
     if (duelMode === "tbt" && resolvedThemes.some((theme) => !isSentenceTheme(theme))) {
       throw new ConvexError({
         code: "TBT_REQUIRES_SENTENCES",
-        message: "Turn-by-turn duels require sentence themes",
+        message: `${DUEL_MODE_LABELS.tbt} duels require sentence themes`,
       });
     }
 

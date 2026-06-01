@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
-import type { DuelMode } from "../../lib/duelMode";
+import { DUEL_MODE_LABELS, type DuelMode } from "../../lib/duelMode";
 
 export function assertDuelMode(
   duel: Pick<Doc<"duels">, "duelMode">,
@@ -41,6 +41,6 @@ export function assertTbtUnavailable(duelMode: DuelMode, surfaceLabel: string) {
 
   throw new ConvexError({
     code: "WRONG_MODE",
-    message: `Turn-by-turn is not available for ${surfaceLabel}`,
+    message: `${DUEL_MODE_LABELS.tbt} is not available for ${surfaceLabel}`,
   });
 }

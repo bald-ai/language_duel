@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { assertDuelMode, assertRelayUnavailable } from "@/convex/rules/duelModeGuards";
+import {
+  assertDuelMode,
+  assertRelayUnavailable,
+  assertTbtUnavailable,
+} from "@/convex/rules/duelModeGuards";
 
 describe("assertDuelMode", () => {
   it("allows the expected duel mode", () => {
@@ -41,5 +45,19 @@ describe("assertRelayUnavailable", () => {
   it("allows pvp and pve", () => {
     expect(() => assertRelayUnavailable("pvp", "boss duels")).not.toThrow();
     expect(() => assertRelayUnavailable("pve", "spaced repetition duels")).not.toThrow();
+  });
+});
+
+describe("assertTbtUnavailable", () => {
+  it("throws WRONG_MODE for Tag Team on limited-lives surfaces", () => {
+    expect(() => assertTbtUnavailable("tbt", "boss duels")).toThrow(
+      "Tag Team is not available for boss duels"
+    );
+    expect(() => assertTbtUnavailable("tbt", "spaced repetition duels")).toThrow("WRONG_MODE");
+  });
+
+  it("allows pvp and pve", () => {
+    expect(() => assertTbtUnavailable("pvp", "boss duels")).not.toThrow();
+    expect(() => assertTbtUnavailable("pve", "spaced repetition duels")).not.toThrow();
   });
 });

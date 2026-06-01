@@ -162,6 +162,47 @@ describe("session creation helpers", () => {
     expect(base.tilePool).toEqual(hard.tilePool);
   });
 
+  it("builds Tag Team duel sessions with sentence-only turn state", () => {
+    const sentenceItems: SessionItem[] = [
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        distractors: ["tú", "bebes"],
+        themeId: "theme_2" as Id<"themes">,
+        themeName: "Sentences",
+      },
+    ];
+
+    const result = buildDuelSession({
+      challengerId: "user_1" as Id<"users">,
+      opponentId: "user_2" as Id<"users">,
+      sessionWords: sentenceItems,
+      sourceType: "normal",
+      duelMode: "tbt",
+      createdAt: 1,
+    });
+
+    expect(result.duelMode).toBe("tbt");
+    expect(result.tbtTurn).toBe("challenger");
+    expect(result.relayPhase).toBeUndefined();
+    expect(result.duelQuestions).toHaveLength(1);
+    expect(result.duelQuestions[0].kind).toBe("sentence");
+  });
+
+  it("rejects Tag Team duel sessions with word entries", () => {
+    expect(() =>
+      buildDuelSession({
+        challengerId: "user_1" as Id<"users">,
+        opponentId: "user_2" as Id<"users">,
+        sessionWords,
+        sourceType: "normal",
+        duelMode: "tbt",
+        createdAt: 1,
+      })
+    ).toThrow("Tag Team duels require an all-sentence deck");
+  });
+
   it("omits relay state for non-relay duels", () => {
     const result = buildDuelSession({
       challengerId: "user_1" as Id<"users">,

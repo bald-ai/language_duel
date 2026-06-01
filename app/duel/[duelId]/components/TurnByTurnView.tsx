@@ -11,7 +11,7 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { getErrorMessage } from "@/lib/errors";
-import { TBT_BOARD_ROLE, tbtOpener } from "@/lib/duel/tbtEngine";
+import { TBT_BOARD_ROLE } from "@/lib/duel/tbtEngine";
 import {
   TBT_QUESTION_TIMEOUT_MS,
   TBT_QUESTION_TIMEOUT_SECONDS,
@@ -67,7 +67,7 @@ export function TurnByTurnView({
     | ViewerSafeDuelQuestion
     | undefined;
 
-  const currentTurn = duel.tbtTurn ?? tbtOpener(questionIndex);
+  const currentTurn = duel.tbtTurn;
   const myTurn = !isCompleted && currentTurn === viewerRole;
 
   // Both scores move in lockstep (a finished sentence is +1 to each), so either
@@ -206,6 +206,18 @@ export function TurnByTurnView({
         style={{ color: colors.text.muted }}
       >
         Loading…
+      </div>
+    );
+  }
+
+  if (!currentTurn) {
+    return renderShell(
+      <div
+        className="flex-1 flex items-center justify-center px-4 text-center"
+        style={{ color: colors.text.muted }}
+        data-testid="tbt-state-error"
+      >
+        Tag Team duel is missing turn data.
       </div>
     );
   }

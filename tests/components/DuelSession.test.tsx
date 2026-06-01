@@ -28,6 +28,8 @@ const mutationMocks = vi.hoisted(() => ({
   requestUnpauseCountdown: vi.fn(),
   confirmUnpauseCountdown: vi.fn(),
   skipCountdown: vi.fn(),
+  tbtTap: vi.fn(),
+  tbtQuestionTimeout: vi.fn(),
 }));
 
 const duelViewMock = vi.hoisted(() => ({
@@ -75,6 +77,10 @@ vi.mock("convex/react", () => ({
         return mutationMocks.confirmUnpauseCountdown;
       case "skipCountdown":
         return mutationMocks.skipCountdown;
+      case "tbtTap":
+        return mutationMocks.tbtTap;
+      case "tbtQuestionTimeout":
+        return mutationMocks.tbtQuestionTimeout;
       default:
         return vi.fn();
     }
@@ -101,6 +107,10 @@ vi.mock("@/convex/_generated/api", () => ({
     },
     hintPool: {
       fireHint: "fireHint",
+    },
+    tbtDuel: {
+      tbtTap: "tbtTap",
+      tbtQuestionTimeout: "tbtQuestionTimeout",
     },
     sabotage: {
       sendSabotage: "sendSabotage",
@@ -274,6 +284,8 @@ describe("DuelSession", () => {
     mutationMocks.requestUnpauseCountdown.mockResolvedValue(undefined);
     mutationMocks.confirmUnpauseCountdown.mockResolvedValue(undefined);
     mutationMocks.skipCountdown.mockResolvedValue(undefined);
+    mutationMocks.tbtTap.mockResolvedValue(undefined);
+    mutationMocks.tbtQuestionTimeout.mockResolvedValue(undefined);
   });
 
   it("freezes the answered question snapshot during transition", async () => {
@@ -588,7 +600,8 @@ describe("DuelSession", () => {
     });
 
     expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("Yo como pan");
-    expect(screen.getByTestId("cross-kind-transition-final")).toHaveTextContent("Wrapping up");
+    expect(screen.getByText(/Results in/)).toBeInTheDocument();
+    expect(screen.getByTestId("cross-kind-transition-final-pause")).toBeInTheDocument();
   });
 
   it("treats hidden safe DTO answers as unrevealed before the viewer answers", async () => {
@@ -624,6 +637,28 @@ describe("DuelSession", () => {
     await waitFor(() => expect(getDuelViewProps().phase).toBe("answering"));
     expect(getDuelViewProps().answers.correctAnswer).toBeNull();
     expect(getDuelViewProps().answers.hasNoneOption).toBeNull();
+  });
+
+  it("does not guess missing Tag Team turn state", () => {
+    render(
+      <DuelSession
+        duel={createDuel({
+          duelMode: "tbt",
+          sessionWords: [sentenceItem()],
+          duelQuestions: [sentenceQuestion()] as unknown as Doc<"duels">["duelQuestions"],
+          wordOrder: [0],
+          tbtTurn: undefined,
+          sentenceProgress: [],
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    expect(screen.getByTestId("tbt-state-error")).toHaveTextContent(
+      "Tag Team duel is missing turn data."
+    );
   });
 
   it("passes revealed answer data after the viewer has answered", async () => {
@@ -960,7 +995,7 @@ describe("DuelSession", () => {
       expect(screen.queryByTestId("cross-kind-transition")).not.toBeInTheDocument();
     });
 
-    it("shows no controls on the completed wrapping-up state", () => {
+    it("shows local controls on the completed wrapping-up state", () => {
       const sharedBase = {
         sessionWords: [sentenceItem()],
         wordOrder: [0],
@@ -998,7 +1033,9 @@ describe("DuelSession", () => {
         />
       );
 
-      expect(screen.getByTestId("cross-kind-transition-final")).toHaveTextContent("Wrapping up");
+      expect(screen.getByText(/Results in/)).toBeInTheDocument();
+      expect(screen.getByTestId("cross-kind-transition-final-pause")).toBeInTheDocument();
+      expect(screen.getByTestId("cross-kind-transition-final-skip")).toBeInTheDocument();
       expect(screen.queryByTestId("cross-kind-transition-pause")).not.toBeInTheDocument();
       expect(screen.queryByTestId("cross-kind-transition-skip")).not.toBeInTheDocument();
     });

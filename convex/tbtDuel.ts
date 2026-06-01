@@ -19,8 +19,8 @@
  * abandoned duel simply parks (mirrors the normal sentence round and relay).
  */
 
-import { mutation } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import { mutation, type MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
 import { assertDuelMode } from "./rules/duelModeGuards";
@@ -29,7 +29,6 @@ import { TBT_QUESTION_TIMEOUT_MS } from "../lib/duelConstants";
 import { getEffectiveQuestionStartTime } from "../lib/duelTiming";
 import {
   TBT_BOARD_ROLE,
-  tbtOpener,
   otherRole,
   isTbtLastSentence,
   buildTbtAdvancePatch,
@@ -41,18 +40,70 @@ function assertActive(duel: Doc<"duels">) {
   }
 }
 
-/** Whose tap is expected next — falls back to the current sentence's opener. */
-function currentTurnFor(duel: Doc<"duels">) {
-  return duel.tbtTurn ?? tbtOpener(duel.currentWordIndex);
+interface ActiveTbtState {
+  questionIndex: number;
+  questionStartTime: number;
+  turn: NonNullable<Doc<"duels">["tbtTurn"]>;
+}
+
+function requireActiveTbtState(duel: Doc<"duels">): ActiveTbtState {
+  assertActive(duel);
+
+  const questionIndex = duel.currentWordIndex;
+  const question = duel.duelQuestions?.[questionIndex];
+  if (!question || question.kind !== "sentence") {
+    throw new ConvexError({
+      code: "INVALID_TBT_STATE",
+      message: "Tag Team duel is missing the current sentence question",
+    });
+  }
+  if (typeof duel.questionStartTime !== "number") {
+    throw new ConvexError({
+      code: "INVALID_TBT_STATE",
+      message: "Tag Team duel is missing the question timer",
+    });
+  }
+  if (!duel.tbtTurn) {
+    throw new ConvexError({
+      code: "INVALID_TBT_STATE",
+      message: "Tag Team duel is missing the current turn",
+    });
+  }
+
+  return {
+    questionIndex,
+    questionStartTime: duel.questionStartTime,
+    turn: duel.tbtTurn,
+  };
 }
 
 /** Whether the shared sentence clock has fully elapsed for the current sentence. */
-function questionWindowElapsed(duel: Doc<"duels">, now: number): boolean {
+function questionWindowElapsed(
+  questionStartTime: number,
+  questionIndex: number,
+  now: number
+): boolean {
   const effectiveStart = getEffectiveQuestionStartTime(
-    duel.questionStartTime ?? now,
-    duel.currentWordIndex
+    questionStartTime,
+    questionIndex
   );
   return now - effectiveStart >= TBT_QUESTION_TIMEOUT_MS;
+}
+
+async function patchTbtAdvance(
+  ctx: MutationCtx,
+  duelId: Id<"duels">,
+  duel: Doc<"duels">,
+  now: number,
+  opts: { bankPoint: boolean; extraPatch?: Partial<Doc<"duels">> }
+) {
+  const advancePatch = buildTbtAdvancePatch(duel, now, { bankPoint: opts.bankPoint });
+  const finishing = isTbtLastSentence(duel);
+  await ctx.db.patch(duelId, {
+    ...opts.extraPatch,
+    ...advancePatch,
+    ...(finishing ? { status: "completed" as const } : {}),
+  });
 }
 
 /**
@@ -68,13 +119,25 @@ export const tbtTap = mutation({
   handler: async (ctx, { duelId, tileIndex }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
     assertDuelMode(duel, "tbt", "tbtTap");
-    assertActive(duel);
+    const tbtState = requireActiveTbtState(duel);
+    const now = Date.now();
 
-    if (playerRole !== currentTurnFor(duel)) {
+    if (
+      questionWindowElapsed(
+        tbtState.questionStartTime,
+        tbtState.questionIndex,
+        now
+      )
+    ) {
+      await patchTbtAdvance(ctx, duelId, duel, now, { bankPoint: false });
+      return;
+    }
+
+    if (playerRole !== tbtState.turn) {
       throw new ConvexError({ code: "NOT_AUTHORIZED", message: "It's not your turn" });
     }
 
-    const questionIndex = duel.currentWordIndex;
+    const questionIndex = tbtState.questionIndex;
     const { patch: tapPatch, accepted } = applySentenceTap({
       duel,
       questionIndex,
@@ -90,17 +153,13 @@ export const tbtTap = mutation({
       (row) => row.questionIndex === questionIndex && row.role === TBT_BOARD_ROLE
     );
     const completed = rowAfter?.completed === true;
-    const now = Date.now();
 
     if (completed) {
       // Sentence built — bank the shared point and advance (or complete inline
       // on the last sentence; cooperative, so no winnerRole).
-      const advancePatch = buildTbtAdvancePatch(duel, now, { bankPoint: true });
-      const finishing = isTbtLastSentence(duel);
-      await ctx.db.patch(duelId, {
-        ...tapPatch,
-        ...advancePatch,
-        ...(finishing ? { status: "completed" as const } : {}),
+      await patchTbtAdvance(ctx, duelId, duel, now, {
+        bankPoint: true,
+        extraPatch: tapPatch,
       });
       return;
     }
@@ -132,14 +191,18 @@ export const tbtQuestionTimeout = mutation({
     if (duel.status !== "active") return;
     if (duel.currentWordIndex !== questionIndex) return; // a newer sentence already started
 
+    const tbtState = requireActiveTbtState(duel);
     const now = Date.now();
-    if (!questionWindowElapsed(duel, now)) return; // clock hasn't actually run out
+    if (
+      !questionWindowElapsed(
+        tbtState.questionStartTime,
+        tbtState.questionIndex,
+        now
+      )
+    ) {
+      return; // clock hasn't actually run out
+    }
 
-    const advancePatch = buildTbtAdvancePatch(duel, now, { bankPoint: false });
-    const finishing = isTbtLastSentence(duel);
-    await ctx.db.patch(duelId, {
-      ...advancePatch,
-      ...(finishing ? { status: "completed" as const } : {}),
-    });
+    await patchTbtAdvance(ctx, duelId, duel, now, { bankPoint: false });
   },
 });

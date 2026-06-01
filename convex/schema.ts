@@ -551,12 +551,6 @@ export default defineSchema({
     // Lingers as a subtle marker so the next player can see what their partner
     // tried; cleared on any correct placement and on sentence advance.
     tbtLastWrongTileIndex: v.optional(v.number()),
-    // Legacy per-turn AFK fields, no longer written (kept optional so any
-    // in-flight duel doc still validates). Safe to drop once no live TbT duels
-    // carry them.
-    tbtTurnStartedAt: v.optional(v.number()),
-    tbtTimeoutScheduledFunctionId: v.optional(v.id("_scheduled_functions")),
-
     // Per-(questionIndex, role) sentence-round progress. The server is the only
     // authority — see `sentenceProgressEntryValidator` above.
     sentenceProgress: v.optional(v.array(sentenceProgressEntryValidator)),

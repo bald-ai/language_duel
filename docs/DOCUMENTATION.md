@@ -22,7 +22,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Generate themes: A user can generate a normal theme directly, or use Pick & Prune to over-generate words first and then keep only the useful entries.
 - Solo practice: A user practices against the app without needing another player. The Learn + Test path also covers untimed study with hints and TTS before practice play.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
-- Duel modes: New challenges choose `PvP`, `PvE`, or `Relay`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks a word from the remaining pool and the other player answers it, then roles swap.
+- Duel modes: New challenges choose `PvP`, `PvE`, `Relay`, or `Tag Team`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks a word from the remaining pool and the other player answers it, then roles swap. Tag Team is the shared sentence-board mode where players alternate placing the next tile together.
 - Weekly goals: A user can create a solo goal, or two users can create a shared goal. Goals collect themes, lock in a snapshot, and track completion toward boss-style milestone moments.
 
 ## System Map
@@ -66,7 +66,7 @@ Theme generation lifecycle:
 Duel mode lifecycle:
 
 - `duelMode` is required on challenge creation and is copied from the pending `challenges` record into the accepted `duels` record.
-- The mode is shown on challenge notifications so the accepting player can see whether the invite is `PvP`, `PvE`, or `Relay`.
+- The mode is shown on challenge notifications so the accepting player can see whether the invite is `PvP`, `PvE`, `Relay`, or `Tag Team`.
 - The mode picker appears on normal challenge creation, weekly-goal boss duel creation, and spaced-repetition duel creation.
 - `PvP` keeps the competitive tools: sabotages, request-hint, accept-hint, and option elimination. Those actions are allowed only in `PvP`.
 - `PvE` removes sabotages and request-help UI. Instead, both players see the same hint pool during the answering phase.
@@ -77,7 +77,8 @@ Duel mode lifecycle:
 - Sentence rounds in PvE are per-player boards in v1, not a shared cooperative tile board. Players share the duel/timer context, but each player submits their own sentence result.
 - The challenge difficulty preset (Easy/Medium/Hard) shapes both content types. For word positions it drives the progressive difficulty mix; for sentence rounds it decides how many of the 3 stored distractors actually appear on the board (Easy → 1, Medium → 2, Hard → 3). No sentence content is regenerated — every sentence still stores 3 decoys; we just show a subset at play time. The single source of the 1/2/3 mapping is `SENTENCE_DISTRACTOR_COUNT_BY_LEVEL`; the count is selected once in `buildDuelQuestionSet` (`lib/answerShuffle.ts`) and passed into the one tile-board builder, `buildSentenceQuestionSnapshot` (`lib/sentenceGameplay/engine.ts`). Because the preset now affects sentences, the difficulty picker shows for sentence-only duels too. Boss duels have no picker and fall back to the default Easy → 1 distractor. Scoring stays flat regardless of difficulty (clean = 2, messy = 1, timeout = 0). Spaced Repetition does not run sentence themes yet, and the `/mock-online` sentence prototype has its own separate tile builder outside this real-duel path.
 - Sentence tiles render with their leading capital and trailing sentence punctuation stripped so the first and last tiles do not reveal their position. Matching still uses the raw token, and the post-round reveal shows the canonical Spanish sentence with the English prompt stacked above it in the same type so the two languages line up.
-- `Relay` is the third mode: turn-based, no sabotages, no shared hint pool, no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
+- `Relay` is a turn-based hand-off mode with no sabotages, no shared hint pool, and no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
+- `Tag Team` is a sentence-only cooperative mode. Both players share one sentence tile board, alternate turns placing the next tile, and score a shared point only when the sentence is completed before the shared timer expires.
 
 Relay duel lifecycle:
 
@@ -125,6 +126,7 @@ Weekly goal lifecycle:
 - PvP: competitive duel mode with sabotages and request-hint mechanics.
 - PvE: cooperative duel mode with a shared hint pool and no sabotage/request-help mechanics.
 - Relay: turn-based duel mode. The picker hands a single word from the remaining pool to the rival, the rival answers it, then the rival becomes the next picker. Six-option questions, uniform medium difficulty, with a per-player hard-upgrade token budget.
+- Tag Team: sentence-only cooperative duel mode. Two players share one tile board, alternate turns placing the next tile, and build the same sentence together.
 - Hard upgrade (Relay): a token the picker can spend when handing over a word to swap the served question for the pre-built hard variant of that word. Per-player budget is `ceil(poolSize / 10)`.
 - Shared hint pool: the PvE team hint budget. It belongs to the duel, not to one player.
 - Solo practice: a single-player learning flow without another player.

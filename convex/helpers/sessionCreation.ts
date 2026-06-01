@@ -22,7 +22,7 @@ import {
 } from "../../lib/sessionWords";
 import type { BossType } from "../../lib/limitedLives";
 import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
-import type { DuelMode } from "../../lib/duelMode";
+import { DUEL_MODE_LABELS, type DuelMode } from "../../lib/duelMode";
 import type { HintType } from "../../lib/hintPool/types";
 
 export type DuelSourceType = "normal" | "boss" | "spaced_repetition";
@@ -286,7 +286,7 @@ export function buildDuelSession(args: {
   if (isTbt && sessionWords.some((item) => !isSessionSentenceItem(item))) {
     throw new ConvexError({
       code: "TBT_REQUIRES_SENTENCES",
-      message: "Turn-by-turn duels require an all-sentence deck",
+      message: `${DUEL_MODE_LABELS.tbt} duels require an all-sentence deck`,
     });
   }
 

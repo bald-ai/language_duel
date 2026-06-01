@@ -263,7 +263,7 @@ const createChallengeHandler = (createChallenge as unknown as {
       opponentId: Id<"users">;
       themeIds: Id<"themes">[];
       duelDifficultyPreset?: "easy" | "medium" | "hard";
-      duelMode: "pvp" | "pve" | "relay";
+      duelMode: "pvp" | "pve" | "relay" | "tbt";
     }
   ) => Promise<Id<"challenges">>;
 })._handler;
@@ -356,6 +356,52 @@ describe("challenge backend", () => {
     });
   });
 
+  it("creates a Tag Team challenge with sentence themes", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.friends.push(friendDoc());
+    db.themes[0] = themeDoc({
+      contentType: "sentence",
+      words: [],
+      sentenceRounds: [
+        {
+          englishPrompt: "I eat bread",
+          spanishSentence: "Yo como pan",
+          distractors: ["tú", "bebes"],
+        },
+      ],
+    });
+
+    const challengeId = await createChallengeHandler(createCtx(db, "clerk_1"), {
+      opponentId: "user_2" as Id<"users">,
+      themeIds: ["theme_1" as Id<"themes">],
+      duelMode: "tbt",
+    });
+
+    expect(challengeId).toBe("challenge_10");
+    expect(db.challenges[0]).toMatchObject({
+      status: "pending",
+      duelMode: "tbt",
+      themeIds: ["theme_1"],
+    });
+    expect(db.notifications[0].payload).toMatchObject({ duelMode: "tbt" });
+  });
+
+  it("rejects Tag Team challenge creation with word themes", async () => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.friends.push(friendDoc());
+
+    await expect(
+      createChallengeHandler(createCtx(db, "clerk_1"), {
+        opponentId: "user_2" as Id<"users">,
+        themeIds: ["theme_1" as Id<"themes">],
+        duelMode: "tbt",
+      })
+    ).rejects.toThrow("Tag Team duels require sentence themes");
+  });
+
   it("rejects challenge creation when opponent is missing, not a friend, or self", async () => {
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
@@ -440,6 +486,38 @@ describe("challenge backend", () => {
     expect(result).toEqual({ duelId: "duel_20" });
     expect(db.challenges[0]).toMatchObject({ status: "accepted", duelId: "duel_20" });
     expect(db.duels[0]).toMatchObject({ duelMode: "relay", status: "active" });
+    expect(db.notifications[0].status).toBe("dismissed");
+  });
+
+  it("accepts a Tag Team challenge and creates a sentence-only duel with turn state", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(20_000);
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.themes[0] = themeDoc({
+      contentType: "sentence",
+      words: [],
+      sentenceRounds: [
+        {
+          englishPrompt: "I eat bread",
+          spanishSentence: "Yo como pan",
+          distractors: ["tú", "bebes"],
+        },
+      ],
+    });
+    db.challenges.push(challengeDoc({ duelMode: "tbt" }));
+    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "tbt" } }));
+
+    const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
+      challengeId: "challenge_1" as Id<"challenges">,
+    });
+
+    expect(result).toEqual({ duelId: "duel_20" });
+    expect(db.duels[0]).toMatchObject({
+      duelMode: "tbt",
+      status: "active",
+      tbtTurn: "challenger",
+    });
+    expect(db.duels[0].duelQuestions?.[0]).toMatchObject({ kind: "sentence" });
     expect(db.notifications[0].status).toBe("dismissed");
   });
 

@@ -474,6 +474,33 @@ describe("weekly boss flow", () => {
     ).rejects.toThrow("Relay is not available for boss duels");
   });
 
+  it("createBossChallenge rejects Tag Team mode", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    );
+    db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
+    db.weeklyGoals.push(readyMiniBossGoal());
+    addLockedGoalSnapshots(db);
+
+    const handler = (createBossChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big"; duelMode: "pvp" | "pve" | "relay" | "tbt" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    await expect(
+      handler(createCtx(db, "clerk_1", vi.fn()), {
+        goalId: "goal_1" as Id<"weeklyGoals">,
+        bossType: "mini",
+        duelMode: "tbt",
+      })
+    ).rejects.toThrow("Tag Team is not available for boss duels");
+  });
+
   it("createBossChallenge blocks duplicate pending or active boss attempts", async () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();

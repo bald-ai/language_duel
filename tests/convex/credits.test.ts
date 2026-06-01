@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   consumeCredits,
@@ -66,6 +66,10 @@ const consumeCreditsHandler = (consumeCredits as unknown as {
     creditsMonth: string;
   }>;
 })._handler;
+
+function setCurrentTime(isoDate: string) {
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse(isoDate));
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -155,6 +159,10 @@ describe("consumeCredits validation", () => {
 });
 
 describe("consumeCredits behavior", () => {
+  beforeEach(() => {
+    setCurrentTime("2026-05-18T12:00:00.000Z");
+  });
+
   it("debits LLM and TTS balances independently", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ llmCreditsRemaining: 5, ttsGenerationsRemaining: 3 }));
@@ -185,7 +193,7 @@ describe("consumeCredits behavior", () => {
   });
 
   it("resets stale monthly balance before debiting", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-06-01T00:00:00.000Z"));
+    setCurrentTime("2026-06-01T00:00:00.000Z");
     const db = new InMemoryDb();
     db.users.push(
       userDoc({

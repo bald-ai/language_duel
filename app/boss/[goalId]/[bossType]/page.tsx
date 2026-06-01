@@ -11,7 +11,7 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { buildSoloUrl } from "@/lib/soloNavigation";
 import { getErrorMessage } from "@/lib/errors";
 import type { BossType } from "@/lib/limitedLives";
-import { type DuelMode, NON_RELAY_DUEL_MODES } from "@/lib/duelMode";
+import { LIMITED_LIVES_DUEL_MODES, type DuelMode } from "@/lib/duelMode";
 import { DuelModePicker } from "@/app/components/modals/DuelModePicker";
 
 function isBossType(value: string): value is BossType {
@@ -202,7 +202,7 @@ export default function BossLaunchPage() {
                   selectedMode={selectedMode}
                   onSelectMode={setSelectedMode}
                   dataTestIdPrefix="boss-mode"
-                  allowedModes={NON_RELAY_DUEL_MODES}
+                  allowedModes={LIMITED_LIVES_DUEL_MODES}
                 />
 
                 <button

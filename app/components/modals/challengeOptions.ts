@@ -1,5 +1,5 @@
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
-import type { DuelMode } from "@/lib/duelMode";
+import { DUEL_MODE_LABELS, type DuelMode } from "@/lib/duelMode";
 
 interface DuelDifficultyOption {
   preset: DuelDifficultyPreset;
@@ -38,28 +38,28 @@ interface DuelModeOption {
 export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
   {
     mode: "pvp",
-    label: "PvP",
+    label: DUEL_MODE_LABELS.pvp,
     description: "Sabotages · compete",
     icon: "⚔️",
     selectedTone: "primary",
   },
   {
     mode: "pve",
-    label: "PvE",
+    label: DUEL_MODE_LABELS.pve,
     description: "Hints · cooperate",
     icon: "🤝",
     selectedTone: "secondary",
   },
   {
     mode: "relay",
-    label: "Relay",
+    label: DUEL_MODE_LABELS.relay,
     description: "Take turns · hand off words",
     icon: "🏃",
     selectedTone: "primary",
   },
   {
     mode: "tbt",
-    label: "Tag Team",
+    label: DUEL_MODE_LABELS.tbt,
     description: "Take turns · build sentences together",
     icon: "👥",
     selectedTone: "secondary",

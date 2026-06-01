@@ -6,9 +6,9 @@ export const DUEL_MODE_LABELS: Record<DuelMode, string> = {
   pvp: "PvP",
   pve: "PvE",
   relay: "Relay",
-  tbt: "PvE TbT",
+  tbt: "Tag Team",
 };
 
-// Relay is only offered from the regular challenge flow (decision #2). Boss and
-// spaced-repetition launch surfaces offer this relay-excluding set instead.
-export const NON_RELAY_DUEL_MODES: readonly DuelMode[] = ["pvp", "pve"];
+// Limited-lives launch surfaces (boss and spaced repetition) intentionally keep
+// the classic modes only. Relay and Tag Team are regular-challenge-only.
+export const LIMITED_LIVES_DUEL_MODES: readonly DuelMode[] = ["pvp", "pve"];

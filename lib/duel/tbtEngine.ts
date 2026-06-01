@@ -56,8 +56,17 @@ export function buildInitialTbtState(): TbtInitialState {
 export function isTbtLastSentence(
   duel: Pick<Doc<"duels">, "currentWordIndex" | "duelQuestions">
 ): boolean {
-  const total = duel.duelQuestions?.length ?? 0;
+  const total = requireTbtQuestionCount(duel);
   return duel.currentWordIndex + 1 >= total;
+}
+
+function requireTbtQuestionCount(
+  duel: Pick<Doc<"duels">, "duelQuestions">
+): number {
+  if (!duel.duelQuestions || duel.duelQuestions.length === 0) {
+    throw new Error("Tag Team duel question data is missing");
+  }
+  return duel.duelQuestions.length;
 }
 
 /**
@@ -77,7 +86,7 @@ export function buildTbtAdvancePatch(
   now: number,
   opts: { bankPoint: boolean }
 ): Partial<Doc<"duels">> {
-  const total = duel.duelQuestions?.length ?? 0;
+  const total = requireTbtQuestionCount(duel);
 
   const patch: Partial<Doc<"duels">> = {
     // Reset the SHARED between-sentence countdown so each transition starts
