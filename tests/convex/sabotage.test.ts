@@ -89,6 +89,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     createdAt: 1,
     questionStartTime: 1_000,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     ...overrides,
   };
@@ -240,5 +241,83 @@ describe("sendSabotage", () => {
         effect: "sticky",
       })
     ).rejects.toThrow("sendSabotage is only available in PVP duels");
+  });
+
+  // Part C: sabotages now ship on the build-and-confirm sentence board. A PvP
+  // sentence round accepts them (the old kind === "sentence" reject is gone),
+  // while PvE/self-duel sentence rounds still reject (their tool is the hint
+  // pool), and the shared cap + one-per-question rule still hold on sentences.
+  const sentenceDuelOverrides: Partial<DuelDoc> = {
+    sessionWords: [
+      {
+        kind: "sentence",
+        englishPrompt: "I want coffee",
+        spanishSentence: "Quiero cafe",
+        distractors: ["leche"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Cafe",
+      },
+    ],
+    duelQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "I want coffee",
+        spanishSentence: "Quiero cafe",
+        tilePool: ["Quiero", "cafe", "leche"],
+      },
+    ],
+    wordOrder: [0],
+  };
+
+  it("accepts a sabotage on a PvP sentence round", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5_000);
+    const db = seedDb(sentenceDuelOverrides);
+
+    await handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">,
+      effect: "bounce",
+    });
+
+    expect(db.duels[0].opponentSabotage).toEqual({ effect: "bounce", timestamp: 5_000 });
+    expect(db.duels[0].challengerSabotagesUsed).toBe(1);
+  });
+
+  it("still rejects a sabotage on a PvE sentence round", async () => {
+    const db = seedDb({ ...sentenceDuelOverrides, duelMode: "pve" });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "reverse",
+      })
+    ).rejects.toThrow("sendSabotage is only available in PVP duels");
+  });
+
+  it("still caps sabotages at the shared budget on a sentence round", async () => {
+    const db = seedDb({ ...sentenceDuelOverrides, challengerSabotagesUsed: MAX_SABOTAGES });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "sticky",
+      })
+    ).rejects.toThrow("No sabotages remaining");
+  });
+
+  it("still enforces one sabotage per question on a sentence round", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(20_000);
+    const db = seedDb({
+      ...sentenceDuelOverrides,
+      questionStartTime: 1_000,
+      opponentSabotage: { effect: "sticky", timestamp: 1_500 },
+      challengerSabotagesUsed: 1,
+    });
+
+    await expect(
+      handler(createCtx(db, "clerk_1"), {
+        duelId: "duel_1" as Id<"duels">,
+        effect: "trampoline",
+      })
+    ).rejects.toThrow("You've already used a sabotage on this question");
   });
 });

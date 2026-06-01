@@ -5,7 +5,7 @@ import type { DuelViewProps } from "@/app/duel/[duelId]/components/DuelView";
 import DuelSession from "@/app/duel/[duelId]/DuelSession";
 import { QUESTION_TIMER_SECONDS, TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 import { SABOTAGE_DURATION_MS } from "@/lib/sabotage/constants";
-import { SENTENCE_PVP_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
+import { SENTENCE_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
 
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -196,6 +196,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     createdAt: 1,
     questionStartTime: Date.now(),
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
@@ -449,7 +450,7 @@ describe("DuelSession", () => {
     }
 
     expect(screen.getByTestId("sentence-timer")).toHaveTextContent(
-      String(SENTENCE_PVP_TIMER_SECONDS)
+      String(SENTENCE_TIMER_SECONDS)
     );
   });
 

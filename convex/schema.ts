@@ -3,6 +3,7 @@ import { v, type Infer } from "convex/values";
 import { TTS_PROVIDER_IDS } from "../lib/tts/providers";
 import { DUEL_MODES } from "../lib/duelMode";
 import { HINT_TYPES } from "../lib/hintPool/types";
+import { SENTENCE_HINT_TYPES } from "../lib/sentenceGameplay/hints";
 import { SABOTAGE_EFFECTS } from "../lib/sabotage/types";
 import type { WordType } from "../lib/themes/wordTypes";
 import { THEME_CONTENT_TYPES } from "../lib/themes/sentenceTypes";
@@ -206,6 +207,21 @@ export const hintTypeValidator = v.union(
   v.literal(HINT_TYPES[2]),
   v.literal(HINT_TYPES[3])
 );
+
+// PvE sentence hint pool (build-and-confirm rounds). Mirrors hintTypeValidator
+// but the three literals come from the sentence pool (lib/sentenceGameplay/hints).
+export const sentenceHintTypeValidator = v.union(
+  v.literal(SENTENCE_HINT_TYPES[0]),
+  v.literal(SENTENCE_HINT_TYPES[1]),
+  v.literal(SENTENCE_HINT_TYPES[2])
+);
+
+// One revealed slot from the reveal_tiles hint: the slot index and every pool
+// tile whose text fills it (repeated words make several tiles valid for a slot).
+const sentenceTileRevealValidator = v.object({
+  position: v.number(),
+  tileIndices: v.array(v.number()),
+});
 
 const hintRevealValidator = v.union(
   v.object({
@@ -515,6 +531,17 @@ export default defineSchema({
     hintPoolUsed: v.array(hintTypeValidator),
     currentQuestionHintFired: v.boolean(),
     currentQuestionHintReveal: v.optional(hintRevealValidator),
+
+    // PvE sentence hint pool (separate budget from the word `hintPoolUsed`).
+    // Cumulative per duel; the per-question effect fields below are cleared on
+    // advance via `getHintClearFields`.
+    sentenceHintPoolUsed: v.array(sentenceHintTypeValidator),
+    // remove_distractor: pool tile indices greyed out + skipped for this round.
+    currentQuestionEliminatedTileIndices: v.optional(v.array(v.number())),
+    // reveal_tiles: the marked slots for this round (shared across both boards).
+    currentQuestionRevealedTiles: v.optional(v.array(sentenceTileRevealValidator)),
+    // Single source of truth for the round's accumulated hint time bonus (s).
+    currentQuestionTimerBonusSeconds: v.optional(v.number()),
 
     countdownPausedBy: v.optional(playerRoleValidator),
     countdownUnpauseRequestedBy: v.optional(playerRoleValidator),

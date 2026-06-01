@@ -1,12 +1,12 @@
 /**
- * Pure sentence-round engine. Handles tile placement, repeated correct words,
- * normalization (text-equivalence between tiles), and per-player completion.
- * No React, no Convex — keeps the gameplay rules unit-testable.
+ * Pure sentence-round helpers: building the seeded tile pool, assembling the
+ * placed sequence, and validating a submitted sentence. No React, no Convex —
+ * keeps the gameplay rules unit-testable.
  *
  * Repeated-word rule (decision: validation): when the correct sentence has a
- * repeated word, any identical available tile can satisfy the next matching
- * slot. Matching is text-equivalence after normalization, not tile-index
- * identity — tiles with the same text are interchangeable.
+ * repeated word, any identical available tile can satisfy the matching slot.
+ * Matching is text-equivalence after normalization, not tile-index identity —
+ * tiles with the same text are interchangeable.
  */
 
 import { hashSeed, seededShuffle } from "../prng";
@@ -55,78 +55,6 @@ export function buildSentenceQuestionSnapshot(args: {
     englishPrompt: args.englishPrompt,
     spanishSentence: args.spanishSentence,
     tilePool: seededShuffle(tiles, seed),
-  };
-}
-
-/**
- * Local play state for one sentence round on a single player's board. Used by
- * the client and (for self-duel / single-player modes) by tests.
- *
- * `placedTileIndices` are indices into the snapshot's `tilePool` — server uses
- * the same indexing to validate the submitted sequence.
- */
-export interface SentenceRoundState {
-  /** Indices into the snapshot tilePool that are currently placed in order. */
-  placedTileIndices: number[];
-  /** Wrong-tap count for this round. */
-  mistakes: number;
-  /** True once the sentence is fully built correctly. */
-  completed: boolean;
-}
-
-export function createInitialSentenceRoundState(): SentenceRoundState {
-  return { placedTileIndices: [], mistakes: 0, completed: false };
-}
-
-export interface TapTileOutcome {
-  state: SentenceRoundState;
-  /** Whether this tap was accepted (correct). */
-  accepted: boolean;
-}
-
-/**
- * Apply a tile tap to a per-player board. Already-placed tiles, completed
- * rounds, and out-of-range indices are no-ops (returned unchanged, not
- * accepted). A wrong tap increments mistakes; a correct tap advances. When the
- * sentence is complete, `state.completed` flips true.
- */
-export function tapSentenceTile(
-  state: SentenceRoundState,
-  snapshot: SentenceQuestionSnapshot,
-  tileIndex: number
-): TapTileOutcome {
-  if (state.completed) return { state, accepted: false };
-  if (tileIndex < 0 || tileIndex >= snapshot.tilePool.length) {
-    return { state, accepted: false };
-  }
-  if (state.placedTileIndices.includes(tileIndex)) {
-    return { state, accepted: false };
-  }
-
-  const correctTokens = tokenizeSpanishSentence(snapshot.spanishSentence);
-  const expectedToken = correctTokens[state.placedTileIndices.length];
-  if (expectedToken === undefined) {
-    // Sentence was complete but completed flag wasn't set — shouldn't happen,
-    // but guard against off-by-one regressions.
-    return { state, accepted: false };
-  }
-
-  const tappedTile = snapshot.tilePool[tileIndex];
-  const tappedNormalized = normalizeForComparison(tappedTile);
-  const expectedNormalized = normalizeForComparison(expectedToken);
-
-  if (tappedNormalized !== expectedNormalized) {
-    return {
-      state: { ...state, mistakes: state.mistakes + 1 },
-      accepted: false,
-    };
-  }
-
-  const nextPlaced = [...state.placedTileIndices, tileIndex];
-  const completed = nextPlaced.length === correctTokens.length;
-  return {
-    state: { ...state, placedTileIndices: nextPlaced, completed },
-    accepted: true,
   };
 }
 

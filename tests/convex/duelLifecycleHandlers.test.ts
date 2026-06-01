@@ -245,6 +245,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     opponentScore: 0,
     createdAt: 1,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 123,
     ...overrides,
@@ -373,6 +374,7 @@ describe("duel lifecycle handlers", () => {
       opponentScore: 0,
       questionStartTime: 5_000,
       hintPoolUsed: [],
+      sentenceHintPoolUsed: [],
       currentQuestionHintFired: false,
     });
     expect(db.duels[0].sessionWords).toHaveLength(3);

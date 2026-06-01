@@ -7,14 +7,10 @@ import {
   clearSentenceBoard,
   confirmSentenceRound,
   buildSentenceAnswerPatch,
-  scoreSentenceSubmission,
   scorePvpSentenceSubmission,
   validateTimedOutFlag,
 } from "@/convex/rules/sentenceGameplayRules";
 import {
-  SENTENCE_CLEAN_COMPLETION_POINTS,
-  SENTENCE_MESSY_COMPLETION_POINTS,
-  SENTENCE_TIMEOUT_POINTS,
   SENTENCE_PVP_CLEAN_CONFIRM_POINTS,
   SENTENCE_PVP_SINGLE_FAIL_POINTS,
   SENTENCE_PVP_FLOOR_POINTS,
@@ -39,6 +35,7 @@ function baseDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     opponentScore: 0,
     duelMode: "pvp",
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: 1,
     ...overrides,
@@ -137,30 +134,7 @@ function pvpBossDuel(
   });
 }
 
-describe("scoreSentenceSubmission", () => {
-  it("clean completion = perfect points", () => {
-    expect(scoreSentenceSubmission({ completed: true, mistakes: 0 })).toBe(
-      SENTENCE_CLEAN_COMPLETION_POINTS
-    );
-  });
-
-  it("messy completion = messy tier", () => {
-    expect(scoreSentenceSubmission({ completed: true, mistakes: 3 })).toBe(
-      SENTENCE_MESSY_COMPLETION_POINTS
-    );
-  });
-
-  it("timeout / abandon = 0 points", () => {
-    expect(scoreSentenceSubmission({ completed: false, mistakes: 0 })).toBe(
-      SENTENCE_TIMEOUT_POINTS
-    );
-    expect(scoreSentenceSubmission({ completed: false, mistakes: 5 })).toBe(
-      SENTENCE_TIMEOUT_POINTS
-    );
-  });
-});
-
-describe("applySentenceTap (Task 21 server validation)", () => {
+describe("applySentenceTap (retained for the cooperative turn-by-turn board)", () => {
   it("accepts the first correct tile and records it in sentenceProgress", () => {
     const duel = sentenceDuel();
     const { patch, accepted } = applySentenceTap({
@@ -284,24 +258,49 @@ describe("applySentenceTap (Task 21 server validation)", () => {
   });
 });
 
-describe("buildSentenceAnswerPatch — legacy per-tap scoring (PvE / Solo)", () => {
-  // These exercise the non-build-confirm path: clean/messy/timeout scale plus
-  // boss HP. Pinned to `pve` mode so they don't take the PvP ladder branch.
-  const pveSentenceDuel = (
-    progress?: Partial<Doc<"duels">>["sentenceProgress"]
-  ): Doc<"duels"> => sentenceDuel(progress, { duelMode: "pve" });
+describe("buildSentenceAnswerPatch — PvE uses the unified build-and-confirm ladder", () => {
+  // After unification a real two-player PvE duel scores off the SAME
+  // failed-Confirm ladder as PvP (the old clean/messy per-tap scale is gone).
+  it("clean Confirm in a PvE duel scores +1, same ladder as PvP", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true, failedConfirms: 0 })
+    );
+    duel.duelMode = "pve";
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: false,
+      questionIndex: 0,
+    });
+    expect(patch.challengerScore).toBe(SENTENCE_PVP_CLEAN_CONFIRM_POINTS);
+    expect(patch.challengerLastAnswer).toBe("sentence:confirms=0");
+  });
 
-  it("awards clean points when server-tracked progress shows completed + 0 mistakes", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "challenger",
-        placedTileIndices: [0, 1],
-        mistakes: 0,
-        completed: true,
-        finalized: false,
-      },
-    ]);
+  it("a PvE timeout with no failed Confirms scores 0 (timedOut flag is not used for scoring)", () => {
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1], completed: false, failedConfirms: 0 })
+    );
+    duel.duelMode = "pve";
+    const patch = buildSentenceAnswerPatch({
+      duel,
+      playerRole: "challenger",
+      isChallenger: true,
+      timedOut: true,
+      questionIndex: 0,
+    });
+    expect(patch.challengerScore).toBe(0);
+    expect(patch.challengerLastAnswer).toBe("__TIMEOUT__");
+  });
+
+  it("mirrors a completed challenger onto the opponent in a self-duel", () => {
+    // Self-duel: challengerId === opponentId (forced pve mode). The patch mirror
+    // copies the challenger's answer/score onto the opponent half.
+    const duel = duplicateWordPvpDuel(
+      pvpProgress({ placedTileIndices: [0, 1, 2, 3], completed: true, failedConfirms: 0 })
+    );
+    duel.duelMode = "pve";
+    duel.opponentId = duel.challengerId;
     const patch = buildSentenceAnswerPatch({
       duel,
       playerRole: "challenger",
@@ -310,162 +309,8 @@ describe("buildSentenceAnswerPatch — legacy per-tap scoring (PvE / Solo)", () 
       questionIndex: 0,
     });
     expect(patch.challengerAnswered).toBe(true);
-    expect(patch.challengerScore).toBe(SENTENCE_CLEAN_COMPLETION_POINTS);
-    expect(patch.challengerLastAnswer).toBe("sentence:0");
-  });
-
-  it("uses the server-tracked mistakes count, ignoring client-side claims", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "opponent",
-        placedTileIndices: [0, 1],
-        mistakes: 2,
-        completed: true,
-        finalized: false,
-      },
-    ]);
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "opponent",
-      isChallenger: false,
-      timedOut: false,
-      questionIndex: 0,
-    });
-    expect(patch.opponentLastAnswer).toBe("sentence:2");
-    expect(patch.opponentScore).toBe(SENTENCE_MESSY_COMPLETION_POINTS);
-  });
-
-  it("scores 0 on timeout and marks the player answered", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "opponent",
-        placedTileIndices: [0],
-        mistakes: 1,
-        completed: false,
-        finalized: false,
-      },
-    ]);
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "opponent",
-      isChallenger: false,
-      timedOut: true,
-      questionIndex: 0,
-    });
     expect(patch.opponentAnswered).toBe(true);
-    expect(patch.opponentScore).toBe(0);
-    expect(patch.opponentLastAnswer).toBe("__TIMEOUT__");
-  });
-
-  it("treats a player who never tapped as a 0-mistake timeout", () => {
-    const duel = pveSentenceDuel();
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "challenger",
-      isChallenger: true,
-      timedOut: true,
-      questionIndex: 0,
-    });
-    expect(patch.challengerLastAnswer).toBe("__TIMEOUT__");
-    expect(patch.challengerScore).toBe(0);
-  });
-
-  it("is a no-op once the player has already answered", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "challenger",
-        placedTileIndices: [0, 1],
-        mistakes: 0,
-        completed: true,
-        finalized: false,
-      },
-    ]);
-    duel.challengerAnswered = true;
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "challenger",
-      isChallenger: true,
-      timedOut: false,
-      questionIndex: 0,
-    });
-    expect(patch).toEqual({});
-  });
-
-  it("deducts lives equal to mistakes on a boss attempt", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "challenger",
-        placedTileIndices: [0, 1],
-        mistakes: 2,
-        completed: true,
-        finalized: false,
-      },
-    ]);
-    duel.sourceType = "boss";
-    duel.weeklyGoalId = "goal_1" as Id<"weeklyGoals">;
-    duel.bossType = "mini";
-    duel.livesRemaining = 5;
-    duel.livesTotal = 5;
-    duel.challengerPerfectRun = true;
-    duel.opponentPerfectRun = true;
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "challenger",
-      isChallenger: true,
-      timedOut: false,
-      questionIndex: 0,
-    });
-    expect(patch.livesRemaining).toBe(3);
-    expect(patch.challengerPerfectRun).toBe(false);
-  });
-
-  it("does not deduct extra HP on timeout (HP mirrors word: wrong taps only)", () => {
-    const duel = pveSentenceDuel([
-      {
-        questionIndex: 0,
-        role: "challenger",
-        placedTileIndices: [0],
-        mistakes: 1,
-        completed: false,
-        finalized: false,
-      },
-    ]);
-    duel.sourceType = "boss";
-    duel.weeklyGoalId = "goal_1" as Id<"weeklyGoals">;
-    duel.bossType = "mini";
-    duel.livesRemaining = 5;
-    duel.challengerPerfectRun = true;
-    duel.opponentPerfectRun = true;
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "challenger",
-      isChallenger: true,
-      timedOut: true,
-      questionIndex: 0,
-    });
-    expect(patch.livesRemaining).toBe(4);
-  });
-
-  it("deducts zero HP on a timeout with zero wrong taps", () => {
-    const duel = pveSentenceDuel();
-    duel.sourceType = "boss";
-    duel.weeklyGoalId = "goal_1" as Id<"weeklyGoals">;
-    duel.bossType = "mini";
-    duel.livesRemaining = 5;
-    duel.challengerPerfectRun = true;
-    duel.opponentPerfectRun = true;
-    const patch = buildSentenceAnswerPatch({
-      duel,
-      playerRole: "challenger",
-      isChallenger: true,
-      timedOut: true,
-      questionIndex: 0,
-    });
-    expect(patch.livesRemaining).toBeUndefined();
+    expect(patch.opponentScore).toBe(patch.challengerScore);
   });
 });
 

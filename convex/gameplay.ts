@@ -21,7 +21,6 @@ import {
   validateActiveQuestion,
 } from "./rules/duelGameplayRules";
 import {
-  applySentenceTap,
   appendSentenceTile,
   removeLastSentenceTile as removeLastSentenceTileRule,
   clearSentenceBoard as clearSentenceBoardRule,
@@ -29,7 +28,6 @@ import {
   buildSentenceAnswerPatch,
   validateTimedOutFlag,
 } from "./rules/sentenceGameplayRules";
-import { isBuildConfirmSentenceMode } from "../lib/sentenceGameplay/mode";
 import { getEffectiveQuestionStartTime } from "../lib/duelTiming";
 import { getDuelQuestionOrThrow, requireWordDuelQuestion } from "./rules/duelScoringRules";
 import {
@@ -190,11 +188,11 @@ export const timeoutAnswer = mutation({
 });
 
 /**
- * Place a tile on a sentence position. The server alone tracks the tile
- * sequence in `duel.sentenceProgress`. Branches by mode: PvP uses
- * build-and-confirm placement (no per-tap validation — verified later on
- * Confirm); PvE / Solo keep per-tap validation. Out-of-bounds / re-taps /
- * wrong-kind questions are rejected either way.
+ * Place a tile on a sentence position (build-and-confirm placement, the only
+ * sentence model). The server alone tracks the tile sequence in
+ * `duel.sentenceProgress`; placement is NOT validated per tap — tiles are
+ * appended in any order and the whole sentence is verified later on Confirm.
+ * Out-of-bounds / re-taps / over-fill / wrong-kind questions are rejected.
  */
 export const tapSentenceTile = mutation({
   args: {
@@ -212,26 +210,12 @@ export const tapSentenceTile = mutation({
       "Stale tap: question has changed"
     );
 
-    const { patch } = isBuildConfirmSentenceMode(duel)
-      ? appendSentenceTile({ duel, questionIndex, role: playerRole, tileIndex })
-      : applySentenceTap({ duel, questionIndex, role: playerRole, tileIndex });
+    const { patch } = appendSentenceTile({ duel, questionIndex, role: playerRole, tileIndex });
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(duelId, patch);
     }
   },
 });
-
-/** Build-and-confirm only (PvP + self-duels): reject otherwise. Guards the
- * peel/reset/confirm mutations against stale tabs on a per-tap (boss/computer
- * PvE) duel. */
-function requireBuildConfirmMode(duel: Doc<"duels">) {
-  if (!isBuildConfirmSentenceMode(duel)) {
-    throw new ConvexError({
-      code: "WRONG_MODE",
-      message: "This action only applies to build-and-confirm sentence rounds",
-    });
-  }
-}
 
 /**
  * Peel the most recently placed tile (build-and-confirm, last-only removal).
@@ -244,7 +228,6 @@ export const removeLastSentenceTile = mutation({
   },
   handler: async (ctx, { duelId, questionIndex }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    requireBuildConfirmMode(duel);
     validateActiveQuestion(
       duel,
       questionIndex,
@@ -270,7 +253,6 @@ export const clearSentenceBoard = mutation({
   },
   handler: async (ctx, { duelId, questionIndex }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    requireBuildConfirmMode(duel);
     validateActiveQuestion(
       duel,
       questionIndex,
@@ -299,7 +281,6 @@ export const confirmSentenceRound = mutation({
   },
   handler: async (ctx, { duelId, questionIndex }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    requireBuildConfirmMode(duel);
     validateActiveQuestion(
       duel,
       questionIndex,

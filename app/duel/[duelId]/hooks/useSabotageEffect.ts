@@ -26,6 +26,9 @@ interface UseSabotageEffectParams {
 interface UseSabotageEffectResult {
   activeSabotage: SabotageEffect | null;
   sabotagePhase: SabotagePhase;
+  /** Imperatively clear the active effect (e.g. the sentence board clears any
+   * sabotage the instant the player presses Confirm, so the retry is clean). */
+  clearSabotage: () => void;
 }
 
 export function useSabotageEffect({
@@ -96,5 +99,6 @@ export function useSabotageEffect({
   return {
     activeSabotage,
     sabotagePhase,
+    clearSabotage: clearActiveSabotage,
   };
 }

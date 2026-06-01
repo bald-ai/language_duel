@@ -24,6 +24,7 @@ import type { BossType } from "../../lib/limitedLives";
 import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
 import { DUEL_MODE_LABELS, type DuelMode } from "../../lib/duelMode";
 import type { HintType } from "../../lib/hintPool/types";
+import type { SentenceHintType } from "../../lib/sentenceGameplay/hints";
 
 export type DuelSourceType = "normal" | "boss" | "spaced_repetition";
 export type SoloPracticeSourceType = "weekly_goal" | "boss" | "spaced_repetition";
@@ -123,6 +124,7 @@ export interface DuelSessionFields
   duelMode: DuelMode;
   questionStartTime: number;
   hintPoolUsed: HintType[];
+  sentenceHintPoolUsed: SentenceHintType[];
   currentQuestionHintFired: boolean;
   seed: number;
 }
@@ -327,6 +329,7 @@ export function buildDuelSession(args: {
     duelMode: args.duelMode,
     questionStartTime: args.createdAt,
     hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
     currentQuestionHintFired: false,
     seed: args.createdAt ^ SEED_XOR_MASK,
   };

@@ -31,17 +31,6 @@ export const sendSabotage = mutation({
       throw new ConvexError({ code: "INVALID_STATE", message: "No active question to sabotage" });
     }
 
-    // Sabotages don't apply to sentence rounds in v1 (plan decision: mixed
-    // session behavior). Reject the mutation early so a malformed effect can't
-    // target a sentence tile-builder board.
-    const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
-    if (currentQuestion?.kind === "sentence") {
-      throw new ConvexError({
-        code: "SABOTAGE_NOT_AVAILABLE",
-        message: "Sabotages don't apply to sentence rounds",
-      });
-    }
-
     const roleView = forRole(duel, playerRole);
     const sabotagesUsed = roleView.mySabotagesUsed;
 

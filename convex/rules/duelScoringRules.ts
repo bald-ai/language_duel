@@ -9,6 +9,13 @@ export function getHintClearFields(): Partial<Doc<"duels">> {
     eliminatedOptions: undefined,
     currentQuestionHintFired: false,
     currentQuestionHintReveal: undefined,
+    // PvE sentence hint pool: clear the per-question effects on advance, keeping
+    // the cumulative `sentenceHintPoolUsed`. Setting optional fields to undefined
+    // is the same clear-by-undefined idiom as `eliminatedOptions`, so it is
+    // harmless on word advances too.
+    currentQuestionEliminatedTileIndices: undefined,
+    currentQuestionRevealedTiles: undefined,
+    currentQuestionTimerBonusSeconds: undefined,
     questionTimerPausedAt: undefined,
     questionTimerPausedBy: undefined,
     countdownPausedBy: undefined,

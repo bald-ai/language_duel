@@ -7,17 +7,19 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { getErrorMessage } from "@/lib/errors";
-import { isSelfDuel } from "@/lib/duel/selfDuel";
-import {
-  SENTENCE_PVE_TIMER_SECONDS,
-  SENTENCE_PVP_TIMER_SECONDS,
-  SENTENCE_SELF_DUEL_TIMER_SECONDS,
-} from "@/lib/themes/sentenceConstants";
+import { forRole } from "@/lib/duelRole";
+import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
+import type { SabotageEffect } from "@/lib/sabotage/types";
+import { SENTENCE_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
 import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
+import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
+import { SabotageSystemUI } from "./SabotageSystemUI";
+import { useSentenceHintPool } from "../hooks/useSentenceHintPool";
+import { useSabotageEffect } from "../hooks/useSabotageEffect";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
 
-interface SentencePvpBoardProps {
+interface SentenceBoardProps {
   duel: Doc<"duels">;
   sessionItem: ViewerSafeSentenceSessionItem;
   question: {
@@ -30,35 +32,32 @@ interface SentencePvpBoardProps {
   viewerRole: "challenger" | "opponent";
 }
 
-function pickTimerSeconds(duel: Doc<"duels">): number {
-  if (isSelfDuel(duel)) return SENTENCE_SELF_DUEL_TIMER_SECONDS;
-  if (duel.duelMode === "pve") return SENTENCE_PVE_TIMER_SECONDS;
-  return SENTENCE_PVP_TIMER_SECONDS;
-}
-
 /**
- * PvP build-and-confirm sentence board (Variant 1). The player taps tiles in
- * any order — each gets an order badge — peels back from the end, and verifies
- * the whole sentence on Confirm. The server holds the placed sequence; the only
- * client-only state is the last Confirm's correctness mask, which colors tiles
- * green/red and clears the instant the player edits (decision 7).
+ * The unified build-and-confirm sentence board (every mode: PvE / PvP / self).
+ * The player taps tiles in any order — each gets an order badge — peels back
+ * from the end, and verifies the whole sentence on Confirm. The server holds the
+ * placed sequence; the only client-only state is the last Confirm's correctness
+ * mask (green/red), which clears the instant the player edits.
  *
- * Re-mounted via `key={duel.currentWordIndex}` so per-round state resets on
- * advance. Auto-submits via `answerSentenceRound` on a correct Confirm
- * (server-confirmed `completed`) or on timeout — mirrors the word duel.
+ * Tools differ by mode, like word rounds: PvE mounts the cooperative hint pool
+ * (effects ride on shared duel fields, so both co-op boards stay in sync); PvP
+ * mounts the sabotage footer AND receives the opponent's incoming sabotage,
+ * which is drawn on the board (unplaced tiles fly / scramble, sticky overlays).
+ * Re-mounted via `key={duel.currentWordIndex}` so per-round state resets.
  */
-export function SentencePvpBoard({
+export function SentenceBoard({
   duel,
   sessionItem,
   question,
   viewerRole,
-}: SentencePvpBoardProps) {
+}: SentenceBoardProps) {
   const colors = useAppearanceColors();
   const submit = useMutation(api.gameplay.answerSentenceRound);
   const tap = useMutation(api.gameplay.tapSentenceTile);
   const removeLast = useMutation(api.gameplay.removeLastSentenceTile);
   const clearBoard = useMutation(api.gameplay.clearSentenceBoard);
   const confirm = useMutation(api.gameplay.confirmSentenceRound);
+  const sendSabotage = useMutation(api.sabotage.sendSabotage);
 
   const submittedRef = useRef(false);
 
@@ -80,16 +79,42 @@ export function SentencePvpBoard({
   );
   const completed = progress?.completed ?? false;
 
-  const timerSeconds = pickTimerSeconds(duel);
+  const isPve = duel.duelMode === "pve";
+  const isPvp = duel.duelMode === "pvp";
+
+  // PvE cooperative hint pool (self-duels are pve mode, so they get it too). The
+  // per-question effect fields are shared on the duel doc, so both boards mark
+  // the same tiles.
+  const hintPool = useSentenceHintPool({
+    duelId: duel._id,
+    usedHints: duel.sentenceHintPoolUsed,
+    currentQuestionHintFired: duel.currentQuestionHintFired,
+  });
+  const eliminatedTileIndices = useMemo(
+    () => duel.currentQuestionEliminatedTileIndices ?? [],
+    [duel.currentQuestionEliminatedTileIndices]
+  );
+  const revealedTiles = useMemo(
+    () => duel.currentQuestionRevealedTiles ?? [],
+    [duel.currentQuestionRevealedTiles]
+  );
+
+  // PvP sabotage state (the role view gives the incoming effect + outgoing budget).
+  const roleView = useMemo(() => forRole(duel, viewerRole), [duel, viewerRole]);
+
+  // Timer: base + accumulated hint bonus is the single source of truth, used as
+  // BOTH the value and the clamp ceiling so a freeze hint's seconds aren't eaten
+  // (the mutation does not push questionStartTime, so there's no double count).
+  const totalTimer = SENTENCE_TIMER_SECONDS + (duel.currentQuestionTimerBonusSeconds ?? 0);
   const questionStartTime = duel.questionStartTime;
   const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (!questionStartTime) return timerSeconds;
+    if (!questionStartTime) return totalTimer;
     const effectiveStartTime = getEffectiveQuestionStartTime(
       questionStartTime,
       duel.currentWordIndex
     );
     const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
-    return clampTimerSeconds(timerSeconds - elapsed, timerSeconds);
+    return clampTimerSeconds(totalTimer - elapsed, totalTimer);
   });
   useEffect(() => {
     if (!questionStartTime) return;
@@ -99,12 +124,23 @@ export function SentencePvpBoard({
         duel.currentWordIndex
       );
       const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
-      setSecondsLeft(clampTimerSeconds(timerSeconds - elapsed, timerSeconds));
+      setSecondsLeft(clampTimerSeconds(totalTimer - elapsed, totalTimer));
     };
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [timerSeconds, questionStartTime, duel.currentWordIndex]);
+  }, [totalTimer, questionStartTime, duel.currentWordIndex]);
+
+  const locked = completed || secondsLeft === 0;
+
+  // Incoming sabotage (the effect my opponent sent ME). Movement effects persist
+  // for the question; sticky auto-clears on its own ~7s timer. `clearSabotage`
+  // lets Confirm wipe the effect so the retry is a clean board (see handleConfirm).
+  const { activeSabotage, sabotagePhase, clearSabotage } = useSabotageEffect({
+    mySabotage: isPvp ? roleView.mySabotage : undefined,
+    phase: "answering",
+    isLocked: locked,
+  });
 
   const handleSubmitFinal = useCallback(
     async (timedOut: boolean) => {
@@ -131,19 +167,19 @@ export function SentencePvpBoard({
     }
   }, [completed, handleSubmitFinal]);
 
-  // Auto-submit on timeout (Confirm never auto-fires — decision 5).
+  // Auto-submit on timeout (Confirm never auto-fires).
   useEffect(() => {
     if (secondsLeft === 0 && !completed && !submittedRef.current) {
       void handleSubmitFinal(true);
     }
   }, [handleSubmitFinal, secondsLeft, completed]);
 
-  const locked = completed || secondsLeft === 0;
-
   const handleTileClick = useCallback(
     (tileIndex: number) => {
       if (locked) return;
-      // Touching any tile clears the previous Confirm's colors (decision 7).
+      // A removed distractor is inert — skip it in the place/peel handler.
+      if (eliminatedTileIndices.includes(tileIndex)) return;
+      // Touching any tile clears the previous Confirm's colors.
       if (checked) setCorrectnessMask(null);
 
       const order = placedTileIndices.indexOf(tileIndex);
@@ -161,26 +197,28 @@ export function SentencePvpBoard({
           questionIndex: duel.currentWordIndex,
         }).catch((error) => toast.error(getErrorMessage(error, "Could not remove tile")));
       }
-      // A placed-but-not-last tile is not removable — the mask clear above is
-      // the only effect (peel back from the end to reach it).
+      // A placed-but-not-last tile is not removable — peel back from the end.
     },
-    [locked, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentWordIndex]
+    [locked, eliminatedTileIndices, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentWordIndex]
   );
 
   // After a Confirm, the button stays disabled until the player edits the board
-  // (any tap/peel/reset clears `correctnessMask`). Stops repeated clicks on the
-  // same wrong sentence from stacking penalties.
+  // (any tap/peel/reset clears `correctnessMask`).
   const confirmDisabled = locked || placedTileIndices.length === 0 || checked;
 
   const handleConfirm = useCallback(() => {
     if (confirmDisabled) return;
+    // First Confirm clears any active sabotage so the second attempt is a clean
+    // board — we don't keep sabotaging across retries (one-per-question already
+    // stops the opponent re-sending, so a client-side clear is sufficient).
+    clearSabotage();
     void confirm({
       duelId: duel._id,
       questionIndex: duel.currentWordIndex,
     })
       .then((result) => setCorrectnessMask(result.correctnessMask))
       .catch((error) => toast.error(getErrorMessage(error, "Could not check sentence")));
-  }, [confirmDisabled, confirm, duel._id, duel.currentWordIndex]);
+  }, [confirmDisabled, clearSabotage, confirm, duel._id, duel.currentWordIndex]);
 
   const handleReset = useCallback(() => {
     if (locked || placedTileIndices.length === 0) return;
@@ -191,6 +229,23 @@ export function SentencePvpBoard({
     }).catch((error) => toast.error(getErrorMessage(error, "Could not reset board")));
   }, [locked, placedTileIndices.length, clearBoard, duel._id, duel.currentWordIndex]);
 
+  const handleSendSabotage = useCallback(
+    (effect: SabotageEffect) => {
+      void sendSabotage({ duelId: duel._id, effect }).catch((error) =>
+        toast.error(getErrorMessage(error, "Could not send sabotage"))
+      );
+    },
+    [sendSabotage, duel._id]
+  );
+
+  // Outgoing-sabotage footer inputs (PvP only), mirroring the word DuelFooter.
+  // "Already sabotaged this question" = my outgoing sabotage is timestamped at or
+  // after the current question's start.
+  const hasSentSabotageThisQuestion =
+    typeof duel.questionStartTime === "number" &&
+    typeof roleView.theirSabotage?.timestamp === "number" &&
+    roleView.theirSabotage.timestamp >= duel.questionStartTime;
+
   return (
     <SentenceBuildBoard
       roundLabel={`Round ${duel.currentWordIndex + 1} of ${duel.sessionWords.length}`}
@@ -199,6 +254,10 @@ export function SentencePvpBoard({
       tilePool={question.tilePool}
       placedTileIndices={placedTileIndices}
       correctnessMask={correctnessMask}
+      eliminatedTileIndices={eliminatedTileIndices}
+      revealedTiles={revealedTiles}
+      activeSabotage={activeSabotage}
+      sabotagePhase={sabotagePhase}
       secondsLeft={secondsLeft}
       locked={locked}
       showActions
@@ -208,6 +267,35 @@ export function SentencePvpBoard({
       onReset={handleReset}
       belowActions={
         <>
+          {isPve && !locked && (
+            <div className="mt-4">
+              <SentenceHintPoolUI
+                usedHints={hintPool.usedHints}
+                usedCount={hintPool.usedCount}
+                totalCount={hintPool.totalCount}
+                currentQuestionHintFired={hintPool.currentQuestionHintFired}
+                onFireHint={(type) => void hintPool.fireHint(type)}
+              />
+            </div>
+          )}
+
+          {isPvp && (
+            <div className="mt-4">
+              <SabotageSystemUI
+                status={duel.status}
+                phase="answering"
+                isRoundOver={false}
+                sabotagesRemaining={MAX_SABOTAGES - roleView.mySabotagesUsed}
+                isLocked={locked}
+                hasAnswered={roleView.myAnswered}
+                hasSentSabotageThisQuestion={hasSentSabotageThisQuestion}
+                opponentHasAnswered={roleView.theirAnswered}
+                onSendSabotage={handleSendSabotage}
+                dataTestIdBase="sentence-sabotage"
+              />
+            </div>
+          )}
+
           {question.answerRevealedToViewer === true && question.spanishSentence && (
             <div
               className="mt-5 w-full max-w-md rounded-xl border-2 p-3 text-center text-sm font-semibold shadow"
