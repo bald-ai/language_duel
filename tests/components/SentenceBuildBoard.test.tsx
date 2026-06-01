@@ -1,7 +1,12 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SentenceBuildBoard } from "@/app/duel/[duelId]/components/SentenceBuildBoard";
-import { REVERSE_HOLD_MS, REVERSE_SCRAMBLE_MS } from "@/lib/sabotage/constants";
+import {
+  BOUNCE_FLY_SCALE,
+  BUTTON_WIDTH,
+  REVERSE_HOLD_MS,
+  REVERSE_SCRAMBLE_MS,
+} from "@/lib/sabotage/constants";
 
 // "Quiero cafe leche pan" — slot 0 ("Quiero") placed, the rest unplaced.
 const TILE_POOL = ["Quiero", "cafe", "leche", "pan"];
@@ -64,12 +69,34 @@ describe("SentenceBuildBoard — PvP sabotage rendering", () => {
     expect(screen.getByTestId("sentence-tile-3")).toHaveTextContent("nap");
   });
 
-  it("keeps the Confirm/Reset actions anchored under a flying sabotage", () => {
+  it("keeps the Confirm/Reset actions anchored under a flying sabotage", async () => {
+    const measuredWidth = 360;
+    vi.spyOn(Date, "now").mockReturnValue(2);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: measuredWidth,
+      height: 640,
+      top: 0,
+      right: measuredWidth,
+      bottom: 640,
+      left: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
     renderBoard({ activeSabotage: "bounce" });
     // The action row is never part of the flying set.
     expect(screen.getByTestId("sentence-confirm")).toBeInTheDocument();
     expect(screen.getByTestId("sentence-reset")).toBeInTheDocument();
     // The placed tile stays in the anchored grid (not hidden/flying).
     expect(screen.getByTestId("sentence-tile-0")).not.toHaveClass("invisible");
+
+    const flyingTile = await screen.findByTestId("sentence-tile-1-fly");
+    expect(flyingTile).toHaveClass("transition-colors");
+    expect(flyingTile).not.toHaveClass("transition-all");
+    expect(flyingTile.querySelector("span")).toHaveClass("truncate");
+    expect(Number.parseFloat(flyingTile.style.left)).toBeLessThanOrEqual(
+      measuredWidth - BUTTON_WIDTH * BOUNCE_FLY_SCALE
+    );
   });
 });

@@ -14,6 +14,7 @@ import {
 import { useReverseAnswers } from "@/app/game/sabotage/hooks/useReverseAnswers";
 import { useBounceOptions } from "@/app/game/sabotage/hooks/useBounceOptions";
 import { useTrampolineOptions } from "@/app/game/sabotage/hooks/useTrampolineOptions";
+import { useMeasuredAnimationBounds } from "@/app/game/sabotage/hooks/useAnimatedOptions";
 import { reverseText } from "@/app/game/sabotage/utils/textTransforms";
 import { AnswerOptionButton, computeOptionState, type OptionContext } from "./AnswerOptionButton";
 
@@ -46,9 +47,19 @@ export function DuelAnswerGrid({
   hasNoneOption,
   isShowingFeedback,
 }: DuelAnswerGridProps) {
+  const { ref: sabotageAreaRef, bounds: sabotageBounds } =
+    useMeasuredAnimationBounds<HTMLDivElement>();
   const { reverseAnimatedAnswers } = useReverseAnswers({ activeSabotage, answers });
-  const { bouncingOptions } = useBounceOptions({ activeSabotage, optionCount: answers.length });
-  const { trampolineOptions } = useTrampolineOptions({ activeSabotage, optionCount: answers.length });
+  const { bouncingOptions } = useBounceOptions({
+    activeSabotage,
+    optionCount: answers.length,
+    bounds: sabotageBounds,
+  });
+  const { trampolineOptions } = useTrampolineOptions({
+    activeSabotage,
+    optionCount: answers.length,
+    bounds: sabotageBounds,
+  });
 
   const renderOption = (ans: string, i: number, flyStyle?: CSSProperties) => {
     const state = computeOptionState(ans, { ...optionContext, answer: ans });
@@ -79,6 +90,8 @@ export function DuelAnswerGrid({
 
   return (
     <>
+      <div ref={sabotageAreaRef} className="fixed inset-0 pointer-events-none" aria-hidden />
+
       {/* Normal grid - use visibility instead of unmounting to prevent layout shift */}
       <div
         className={`grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md ${
@@ -90,7 +103,7 @@ export function DuelAnswerGrid({
 
       {/* Bouncing options when bounce sabotage is active */}
       {activeSabotage === "bounce" && bouncingOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
           {answers.map((ans, i) => {
             const bouncePos = bouncingOptions[i];
             if (!bouncePos) return null;
@@ -110,7 +123,7 @@ export function DuelAnswerGrid({
 
       {/* Trampoline options when trampoline sabotage is active */}
       {activeSabotage === "trampoline" && trampolineOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
           {answers.map((ans, i) => {
             const trampPos = trampolineOptions[i];
             if (!trampPos) return null;

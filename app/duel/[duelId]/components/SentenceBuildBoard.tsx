@@ -25,6 +25,7 @@ import { SabotageRenderer } from "@/app/game/sabotage/SabotageRenderer";
 import { useReverseAnswers } from "@/app/game/sabotage/hooks/useReverseAnswers";
 import { useBounceOptions } from "@/app/game/sabotage/hooks/useBounceOptions";
 import { useTrampolineOptions } from "@/app/game/sabotage/hooks/useTrampolineOptions";
+import { useMeasuredAnimationBounds } from "@/app/game/sabotage/hooks/useAnimatedOptions";
 import { buildDuelViewStyles } from "./duelViewStyles";
 
 interface SentenceBuildBoardProps {
@@ -143,6 +144,9 @@ export function SentenceBuildBoard({
     () => tilePool.map(formatSentenceTileForDisplay),
     [tilePool]
   );
+  const { ref: sabotageAreaRef, bounds: sabotageBounds } =
+    useMeasuredAnimationBounds<HTMLDivElement>();
+
   const { reverseAnimatedAnswers } = useReverseAnswers({
     activeSabotage,
     answers: displayTiles,
@@ -150,10 +154,12 @@ export function SentenceBuildBoard({
   const { bouncingOptions } = useBounceOptions({
     activeSabotage,
     optionCount: tilePool.length,
+    bounds: sabotageBounds,
   });
   const { trampolineOptions } = useTrampolineOptions({
     activeSabotage,
     optionCount: tilePool.length,
+    bounds: sabotageBounds,
   });
   const isFlyingEffect = activeSabotage === "bounce" || activeSabotage === "trampoline";
 
@@ -240,12 +246,15 @@ export function SentenceBuildBoard({
         ? colors.status.danger.DEFAULT
         : colors.primary.DEFAULT;
 
-    return (
-      <button
-        key={flying ? `fly-${tile}-${index}` : `${tile}-${index}`}
-        onClick={() => onTileClick(index)}
-        disabled={locked || isEliminated}
-        className={`p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
+    const buttonClasses = flying
+      ? `p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden ${
+          isLastWrong ? "border-dashed" : ""
+        } ${
+          isEliminated
+            ? "opacity-40 line-through cursor-not-allowed"
+            : "hover:brightness-110"
+        }`
+      : `p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
           isLastWrong ? "border-dashed" : ""
         } ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${
           hiddenWhileFlying ? "invisible" : ""
@@ -255,11 +264,18 @@ export function SentenceBuildBoard({
             : isPlaced && !checked
               ? "opacity-70"
               : "hover:brightness-110"
-        }`}
+        }`;
+
+    return (
+      <button
+        key={flying ? `fly-${tile}-${index}` : `${tile}-${index}`}
+        onClick={() => onTileClick(index)}
+        disabled={locked || isEliminated}
+        className={buttonClasses}
         style={flyStyle ? { ...tileStyle, ...flyStyle } : tileStyle}
         data-testid={flying ? `sentence-tile-${index}-fly` : `sentence-tile-${index}`}
       >
-        {displayText}
+        {flying ? <span className="truncate block">{displayText}</span> : displayText}
         {badge !== null && (
           <span
             className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow"
@@ -295,6 +311,8 @@ export function SentenceBuildBoard({
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
+      <div ref={sabotageAreaRef} className="fixed inset-0 pointer-events-none" aria-hidden />
+
       {/* Sticky is content-agnostic: a full-screen overlay that obscures the
           board and touches nothing. Bounce/trampoline/reverse draw on the tiles
           themselves below, so SabotageRenderer ignores them. */}
@@ -361,7 +379,7 @@ export function SentenceBuildBoard({
       {/* Bounce / Trampoline overlays: only the unplaced tiles fly, each pinned
           by its pool index so placing one leaves the rest undisturbed. */}
       {activeSabotage === "bounce" && bouncingOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
           {flyingIndices.map((index) => {
             const pos = bouncingOptions[index];
             if (!pos) return null;
@@ -380,7 +398,7 @@ export function SentenceBuildBoard({
       )}
 
       {activeSabotage === "trampoline" && trampolineOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none">
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
           {flyingIndices.map((index) => {
             const pos = trampolineOptions[index];
             if (!pos) return null;

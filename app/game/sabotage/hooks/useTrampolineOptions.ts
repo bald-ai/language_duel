@@ -15,7 +15,11 @@ import {
   TRAMPOLINE_GRID_COLS,
   TRAMPOLINE_GRID_GAP,
 } from "@/lib/sabotage/constants";
-import { useAnimatedOptions, type AnimationFrameContext } from "./useAnimatedOptions";
+import {
+  useAnimatedOptions,
+  type AnimationBounds,
+  type AnimationFrameContext,
+} from "./useAnimatedOptions";
 
 export interface TrampolineOption {
   id: number;
@@ -30,6 +34,7 @@ export interface TrampolineOption {
 interface UseTrampolineOptionsProps {
   activeSabotage: SabotageEffect | null;
   optionCount: number;
+  bounds?: AnimationBounds | null;
 }
 
 interface UseTrampolineOptionsResult {
@@ -127,6 +132,7 @@ function stepTrampoline(
 export function useTrampolineOptions({
   activeSabotage,
   optionCount,
+  bounds,
 }: UseTrampolineOptionsProps): UseTrampolineOptionsResult {
   const trampolineOptions = useAnimatedOptions<TrampolineOption>({
     activeSabotage,
@@ -134,6 +140,7 @@ export function useTrampolineOptions({
     optionCount,
     init: initTrampoline,
     step: stepTrampoline,
+    bounds,
   });
 
   return { trampolineOptions };

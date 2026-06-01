@@ -9,7 +9,11 @@ import {
   BOUNCE_Y_OFFSET_MIN,
   BOUNCE_Y_OFFSET_MAX,
 } from "@/lib/sabotage/constants";
-import { useAnimatedOptions, type AnimationFrameContext } from "./useAnimatedOptions";
+import {
+  useAnimatedOptions,
+  type AnimationBounds,
+  type AnimationFrameContext,
+} from "./useAnimatedOptions";
 
 export interface BouncingOption {
   id: number;
@@ -22,6 +26,7 @@ export interface BouncingOption {
 interface UseBounceOptionsProps {
   activeSabotage: SabotageEffect | null;
   optionCount: number;
+  bounds?: AnimationBounds | null;
 }
 
 interface UseBounceOptionsResult {
@@ -83,6 +88,7 @@ function stepBounce(
 export function useBounceOptions({
   activeSabotage,
   optionCount,
+  bounds,
 }: UseBounceOptionsProps): UseBounceOptionsResult {
   const bouncingOptions = useAnimatedOptions<BouncingOption>({
     activeSabotage,
@@ -90,6 +96,7 @@ export function useBounceOptions({
     optionCount,
     init: initBounce,
     step: stepBounce,
+    bounds,
   });
 
   return { bouncingOptions };
