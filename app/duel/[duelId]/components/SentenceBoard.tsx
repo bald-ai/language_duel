@@ -7,11 +7,16 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { getErrorMessage } from "@/lib/errors";
+import { forRole } from "@/lib/duelRole";
+import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
+import type { SabotageEffect } from "@/lib/sabotage/types";
 import { SENTENCE_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
 import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
 import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
+import { SabotageSystemUI } from "./SabotageSystemUI";
 import { useSentenceHintPool } from "../hooks/useSentenceHintPool";
+import { useSabotageEffect } from "../hooks/useSabotageEffect";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
 
 interface SentenceBoardProps {
@@ -35,9 +40,10 @@ interface SentenceBoardProps {
  * mask (green/red), which clears the instant the player edits.
  *
  * Tools differ by mode, like word rounds: PvE mounts the cooperative hint pool
- * in the footer (the effects ride on shared duel fields, so both co-op boards
- * stay in sync). PvP sabotages are handled separately. Re-mounted via
- * `key={duel.currentWordIndex}` so per-round state resets on advance.
+ * (effects ride on shared duel fields, so both co-op boards stay in sync); PvP
+ * mounts the sabotage footer AND receives the opponent's incoming sabotage,
+ * which is drawn on the board (unplaced tiles fly / scramble, sticky overlays).
+ * Re-mounted via `key={duel.currentWordIndex}` so per-round state resets.
  */
 export function SentenceBoard({
   duel,
@@ -51,6 +57,7 @@ export function SentenceBoard({
   const removeLast = useMutation(api.gameplay.removeLastSentenceTile);
   const clearBoard = useMutation(api.gameplay.clearSentenceBoard);
   const confirm = useMutation(api.gameplay.confirmSentenceRound);
+  const sendSabotage = useMutation(api.sabotage.sendSabotage);
 
   const submittedRef = useRef(false);
 
@@ -72,10 +79,12 @@ export function SentenceBoard({
   );
   const completed = progress?.completed ?? false;
 
+  const isPve = duel.duelMode === "pve";
+  const isPvp = duel.duelMode === "pvp";
+
   // PvE cooperative hint pool (self-duels are pve mode, so they get it too). The
   // per-question effect fields are shared on the duel doc, so both boards mark
-  // the same tiles. PvP gets sabotages instead (handled separately).
-  const isPve = duel.duelMode === "pve";
+  // the same tiles.
   const hintPool = useSentenceHintPool({
     duelId: duel._id,
     usedHints: duel.sentenceHintPoolUsed,
@@ -89,6 +98,9 @@ export function SentenceBoard({
     () => duel.currentQuestionRevealedTiles ?? [],
     [duel.currentQuestionRevealedTiles]
   );
+
+  // PvP sabotage state (the role view gives the incoming effect + outgoing budget).
+  const roleView = useMemo(() => forRole(duel, viewerRole), [duel, viewerRole]);
 
   // Timer: base + accumulated hint bonus is the single source of truth, used as
   // BOTH the value and the clamp ceiling so a freeze hint's seconds aren't eaten
@@ -118,6 +130,17 @@ export function SentenceBoard({
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
   }, [totalTimer, questionStartTime, duel.currentWordIndex]);
+
+  const locked = completed || secondsLeft === 0;
+
+  // Incoming sabotage (the effect my opponent sent ME). Movement effects persist
+  // for the question; sticky auto-clears on its own ~7s timer. `clearSabotage`
+  // lets Confirm wipe the effect so the retry is a clean board (see handleConfirm).
+  const { activeSabotage, sabotagePhase, clearSabotage } = useSabotageEffect({
+    mySabotage: isPvp ? roleView.mySabotage : undefined,
+    phase: "answering",
+    isLocked: locked,
+  });
 
   const handleSubmitFinal = useCallback(
     async (timedOut: boolean) => {
@@ -150,8 +173,6 @@ export function SentenceBoard({
       void handleSubmitFinal(true);
     }
   }, [handleSubmitFinal, secondsLeft, completed]);
-
-  const locked = completed || secondsLeft === 0;
 
   const handleTileClick = useCallback(
     (tileIndex: number) => {
@@ -187,13 +208,17 @@ export function SentenceBoard({
 
   const handleConfirm = useCallback(() => {
     if (confirmDisabled) return;
+    // First Confirm clears any active sabotage so the second attempt is a clean
+    // board — we don't keep sabotaging across retries (one-per-question already
+    // stops the opponent re-sending, so a client-side clear is sufficient).
+    clearSabotage();
     void confirm({
       duelId: duel._id,
       questionIndex: duel.currentWordIndex,
     })
       .then((result) => setCorrectnessMask(result.correctnessMask))
       .catch((error) => toast.error(getErrorMessage(error, "Could not check sentence")));
-  }, [confirmDisabled, confirm, duel._id, duel.currentWordIndex]);
+  }, [confirmDisabled, clearSabotage, confirm, duel._id, duel.currentWordIndex]);
 
   const handleReset = useCallback(() => {
     if (locked || placedTileIndices.length === 0) return;
@@ -203,6 +228,23 @@ export function SentenceBoard({
       questionIndex: duel.currentWordIndex,
     }).catch((error) => toast.error(getErrorMessage(error, "Could not reset board")));
   }, [locked, placedTileIndices.length, clearBoard, duel._id, duel.currentWordIndex]);
+
+  const handleSendSabotage = useCallback(
+    (effect: SabotageEffect) => {
+      void sendSabotage({ duelId: duel._id, effect }).catch((error) =>
+        toast.error(getErrorMessage(error, "Could not send sabotage"))
+      );
+    },
+    [sendSabotage, duel._id]
+  );
+
+  // Outgoing-sabotage footer inputs (PvP only), mirroring the word DuelFooter.
+  // "Already sabotaged this question" = my outgoing sabotage is timestamped at or
+  // after the current question's start.
+  const hasSentSabotageThisQuestion =
+    typeof duel.questionStartTime === "number" &&
+    typeof roleView.theirSabotage?.timestamp === "number" &&
+    roleView.theirSabotage.timestamp >= duel.questionStartTime;
 
   return (
     <SentenceBuildBoard
@@ -214,6 +256,8 @@ export function SentenceBoard({
       correctnessMask={correctnessMask}
       eliminatedTileIndices={eliminatedTileIndices}
       revealedTiles={revealedTiles}
+      activeSabotage={activeSabotage}
+      sabotagePhase={sabotagePhase}
       secondsLeft={secondsLeft}
       locked={locked}
       showActions
@@ -231,6 +275,23 @@ export function SentenceBoard({
                 totalCount={hintPool.totalCount}
                 currentQuestionHintFired={hintPool.currentQuestionHintFired}
                 onFireHint={(type) => void hintPool.fireHint(type)}
+              />
+            </div>
+          )}
+
+          {isPvp && (
+            <div className="mt-4">
+              <SabotageSystemUI
+                status={duel.status}
+                phase="answering"
+                isRoundOver={false}
+                sabotagesRemaining={MAX_SABOTAGES - roleView.mySabotagesUsed}
+                isLocked={locked}
+                hasAnswered={roleView.myAnswered}
+                hasSentSabotageThisQuestion={hasSentSabotageThisQuestion}
+                opponentHasAnswered={roleView.theirAnswered}
+                onSendSabotage={handleSendSabotage}
+                dataTestIdBase="sentence-sabotage"
               />
             </div>
           )}
