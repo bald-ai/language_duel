@@ -75,16 +75,37 @@ describe("duel gameplay rules", () => {
   });
 
   it("detects both answered and builds next round reset patch", () => {
-    const duel = duelDoc({ challengerAnswered: true, opponentAnswered: true });
+    const duel = duelDoc({
+      challengerAnswered: true,
+      opponentAnswered: true,
+      // A sabotage sent during this question must not survive the advance, or it
+      // re-applies on the next question (the sentence-board re-mount bug).
+      challengerSabotage: { effect: "bounce", timestamp: 10 },
+      opponentSabotage: { effect: "reverse", timestamp: 20 },
+      challengerSabotagesUsed: 2,
+      opponentSabotagesUsed: 1,
+    });
 
     expect(haveBothPlayersAnswered(duel)).toBe(true);
-    expect(buildNextRoundPatch(duel, 1, 500)).toMatchObject({
+
+    const patch = buildNextRoundPatch(duel, 1, 500);
+    expect(patch).toMatchObject({
       currentWordIndex: 1,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: 500,
       hintRequestedBy: undefined,
     });
+
+    // Clearing a Convex field requires the key to be present and set to
+    // `undefined`; a missing key would leave the stale sabotage in place.
+    expect(Object.prototype.hasOwnProperty.call(patch, "challengerSabotage")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(patch, "opponentSabotage")).toBe(true);
+    expect(patch.challengerSabotage).toBeUndefined();
+    expect(patch.opponentSabotage).toBeUndefined();
+    // The cumulative per-duel budget is NOT reset on advance.
+    expect(patch).not.toHaveProperty("challengerSabotagesUsed");
+    expect(patch).not.toHaveProperty("opponentSabotagesUsed");
   });
 
   it("builds final completion patch and completion decisions", () => {
@@ -98,13 +119,18 @@ describe("duel gameplay rules", () => {
 
     // Final completion clamps `currentWordIndex` to the last real position so
     // the completed-state UI doesn't crash narrowing past the last question.
-    expect(buildFinalCompletionPatch(bossDuel, 1)).toMatchObject({
+    const completionPatch = buildFinalCompletionPatch(bossDuel, 1);
+    expect(completionPatch).toMatchObject({
       status: "completed",
       currentWordIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: undefined,
     });
+    expect(Object.prototype.hasOwnProperty.call(completionPatch, "challengerSabotage")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(completionPatch, "opponentSabotage")).toBe(true);
+    expect(completionPatch.challengerSabotage).toBeUndefined();
+    expect(completionPatch.opponentSabotage).toBeUndefined();
     expect(shouldCompleteWeeklyGoalBoss(bossDuel)).toBe(true);
     expect(shouldCompleteSpacedRepetitionDuel(spacedRepetitionDuel)).toBe(true);
   });

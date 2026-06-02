@@ -104,6 +104,24 @@ export function haveBothPlayersAnswered(duel: Doc<"duels">): boolean {
   return duel.challengerAnswered && duel.opponentAnswered;
 }
 
+/**
+ * Per-question sabotage state to wipe when the duel advances. A sabotage belongs
+ * to the question it was sent during (one-per-question, PvP only), so the server
+ * is the single source of truth: clearing the incoming-sabotage fields on advance
+ * stops a sent effect from re-applying on the next question. The cumulative
+ * `*SabotagesUsed` budgets are NOT cleared — those persist for the whole duel.
+ *
+ * Word rounds never tripped the stale-sabotage bug (their long-lived view keeps a
+ * "already played" guard and a reveal-phase wipe), but the sentence board rebuilds
+ * per question and re-fired the leftover effect. Clearing at the source fixes both.
+ */
+export function getSabotageClearFields(): Partial<Doc<"duels">> {
+  return {
+    challengerSabotage: undefined,
+    opponentSabotage: undefined,
+  };
+}
+
 export function buildNextRoundPatch(
   duel: Doc<"duels">,
   nextWordIndex: number,
@@ -117,6 +135,7 @@ export function buildNextRoundPatch(
       opponentAnswered: false,
       questionStartTime: now,
       ...getHintClearFields(),
+      ...getSabotageClearFields(),
     },
     duel
   );
@@ -141,6 +160,7 @@ export function buildFinalCompletionPatch(
       opponentAnswered: false,
       questionStartTime: undefined,
       ...getHintClearFields(),
+      ...getSabotageClearFields(),
     },
     duel
   );
