@@ -8,6 +8,12 @@ import type { ThemeWithOwner } from "@/convex/themes";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
+import {
+  buildPlaceholderSentenceWordMeanings,
+  normalizeSentenceFreeWordPositions,
+  sentenceTokensChanged,
+  toggleSentenceFreeWordPosition,
+} from "@/lib/themes/sentenceValidation";
 import { getSentenceThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
 import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { areSentenceRoundsEqual } from "@/lib/themes/sentenceEditing";
@@ -137,6 +143,7 @@ interface UseSentenceThemeControllerReturn {
     field: SentenceRoundField,
     distractorIndex?: number
   ) => void;
+  handleToggleFreeWord: (roundIndex: number, tokenIndex: number) => void;
   handleEditFieldSave: (nextValue: string) => void;
   handleEditFieldCancel: () => void;
   handleDeleteRound: (index: number) => void;
@@ -227,6 +234,10 @@ export function useSentenceThemeController(params: {
     setLocalRounds((theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
       englishPrompt: round.englishPrompt,
       spanishSentence: round.spanishSentence,
+      wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
+      freeWordPositions: round.freeWordPositions
+        ? [...round.freeWordPositions]
+        : undefined,
       distractors: [...round.distractors],
       ttsStorageId: round.ttsStorageId,
     })));
@@ -322,6 +333,10 @@ export function useSentenceThemeController(params: {
       keptRounds.map((round) => ({
         englishPrompt: round.englishPrompt,
         spanishSentence: round.spanishSentence,
+        wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
+        freeWordPositions: round.freeWordPositions
+          ? [...round.freeWordPositions]
+          : undefined,
         distractors: [...round.distractors],
       }))
     );
@@ -444,6 +459,10 @@ export function useSentenceThemeController(params: {
           (refreshedTheme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
             englishPrompt: round.englishPrompt,
             spanishSentence: round.spanishSentence,
+            wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
+            freeWordPositions: round.freeWordPositions
+              ? [...round.freeWordPositions]
+              : undefined,
             distractors: [...round.distractors],
             ttsStorageId: round.ttsStorageId,
           }))
@@ -498,6 +517,8 @@ export function useSentenceThemeController(params: {
       {
         englishPrompt: "",
         spanishSentence: "",
+        wordMeanings: [],
+        freeWordPositions: [],
         distractors: ["", "", ""],
       },
     ]);
@@ -528,6 +549,23 @@ export function useSentenceThemeController(params: {
     [localRounds]
   );
 
+  const handleToggleFreeWord = useCallback((roundIndex: number, tokenIndex: number) => {
+    setLocalRounds((previous) => {
+      const next = [...previous];
+      const round = next[roundIndex];
+      if (!round) return previous;
+      next[roundIndex] = {
+        ...round,
+        freeWordPositions: toggleSentenceFreeWordPosition(
+          round.spanishSentence,
+          round.freeWordPositions,
+          tokenIndex
+        ),
+      };
+      return next;
+    });
+  }, []);
+
   const handleEditFieldSave = useCallback(
     (nextValue: string) => {
       if (!editField) return;
@@ -538,14 +576,44 @@ export function useSentenceThemeController(params: {
         if (editField.field === "english") {
           // English or Spanish edits invalidate the audio (word-parity): drop
           // the id immediately so a stale play button isn't shown before save.
+          const changed = round.englishPrompt !== nextValue;
           next[editField.roundIndex] = clearTtsIfChanged(
-            { ...round, englishPrompt: nextValue },
-            round.englishPrompt !== nextValue
+            changed
+              ? {
+                  ...round,
+                  englishPrompt: nextValue,
+                  wordMeanings: buildPlaceholderSentenceWordMeanings(
+                    round.spanishSentence
+                  ),
+                  freeWordPositions: normalizeSentenceFreeWordPositions(
+                    round.spanishSentence,
+                    round.freeWordPositions
+                  ),
+                }
+              : { ...round, englishPrompt: nextValue },
+            changed
           );
         } else if (editField.field === "spanish") {
+          const changed = round.spanishSentence !== nextValue;
+          const wordsChanged = sentenceTokensChanged(
+            round.spanishSentence,
+            nextValue
+          );
           next[editField.roundIndex] = clearTtsIfChanged(
-            { ...round, spanishSentence: nextValue },
-            round.spanishSentence !== nextValue
+            changed
+              ? {
+                  ...round,
+                  spanishSentence: nextValue,
+                  wordMeanings: buildPlaceholderSentenceWordMeanings(nextValue),
+                  freeWordPositions: wordsChanged
+                    ? []
+                    : normalizeSentenceFreeWordPositions(
+                        nextValue,
+                        round.freeWordPositions
+                      ),
+                }
+              : { ...round, spanishSentence: nextValue },
+            changed
           );
         } else {
           // Distractor-only edits keep the audio.
@@ -615,11 +683,17 @@ export function useSentenceThemeController(params: {
   }, [createTheme, localRounds, params, reset, selectedState, updateTheme]);
 
   const handleCancel = useCallback(() => {
-    // Mirror the word-theme pick-and-prune confirm: bail through a modal so a
-    // ~20-round draft (or a saved-theme edit) is never wiped on a stray tap.
     if (!selectedState) return;
+    // Only guard real work: with no unsaved edits there is nothing to lose, so
+    // close immediately. When edits exist, bail through the confirm modal so a
+    // ~20-round draft (or a saved-theme edit) is never wiped on a stray tap.
+    if (!hasUnsavedSentenceChanges) {
+      reset();
+      params.onAfterCancel();
+      return;
+    }
     setShowDiscardConfirm(true);
-  }, [selectedState]);
+  }, [selectedState, hasUnsavedSentenceChanges, reset, params]);
 
   const confirmDiscard = useCallback(() => {
     setShowDiscardConfirm(false);
@@ -725,6 +799,7 @@ export function useSentenceThemeController(params: {
 
     handleAddManualRound,
     handleEditField,
+    handleToggleFreeWord,
     handleEditFieldSave,
     handleEditFieldCancel,
     handleDeleteRound,

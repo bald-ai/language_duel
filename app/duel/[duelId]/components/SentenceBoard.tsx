@@ -26,6 +26,7 @@ interface SentenceBoardProps {
     kind: "sentence";
     englishPrompt: string;
     tilePool: string[];
+    tileMeanings?: Array<string | null>;
     spanishSentence?: string;
     answerRevealedToViewer?: boolean;
   };
@@ -248,10 +249,11 @@ export function SentenceBoard({
 
   return (
     <SentenceBuildBoard
-      roundLabel={`Round ${duel.currentWordIndex + 1} of ${duel.sessionWords.length}`}
+      roundLabel={`Round ${duel.currentWordIndex + 1} of ${duel.sessionItems.length}`}
       themeName={sessionItem.themeName}
       englishPrompt={question.englishPrompt}
       tilePool={question.tilePool}
+      tileMeanings={question.tileMeanings}
       placedTileIndices={placedTileIndices}
       correctnessMask={correctnessMask}
       eliminatedTileIndices={eliminatedTileIndices}

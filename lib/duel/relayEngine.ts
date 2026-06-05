@@ -1,10 +1,10 @@
 /**
- * Pure relay-duel rules: index-into-`wordOrder` engine that returns
+ * Pure relay-duel rules: index-into-`itemOrder` engine that returns
  * `Partial<Doc<"duels">>` patches, mirroring the style of
  * `convex/rules/duelGameplayRules.ts`. Uses challenger/opponent roles plus
  * hard-upgrade / budget / answer-timeout — the real-duel mechanics.
  *
- * All indices below are positions into `wordOrder` — the same basis as
+ * All indices below are positions into `itemOrder` — the same basis as
  * `duelQuestions` / `relayHardQuestions`, so the snapshot for an assigned
  * position is `set[assignedIndex]`.
  */
@@ -14,7 +14,7 @@ import type { DuelRole } from "../duelRole";
 import { buildRelayQuestionSet, type DuelQuestionSnapshot } from "../answerShuffle";
 import { RELAY_ANSWER_TIMEOUT_MS, RELAY_HARD_BUDGET_DIVISOR } from "../duelConstants";
 import { SENTENCE_RELAY_TIMEOUT_MS } from "../themes/sentenceConstants";
-import type { SessionItem } from "../sessionWords";
+import type { SessionItem } from "../sessionItems";
 
 type RelayQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
 
@@ -35,9 +35,9 @@ export function relayHardBudgetForPool(poolSize: number): number {
 /** Relay-specific fields set once at duel creation. The challenger picks first. */
 export function buildInitialRelayState(
   items: SessionItem[],
-  wordOrder: number[]
+  itemOrder: number[]
 ): RelayInitialState {
-  const budget = relayHardBudgetForPool(wordOrder.length);
+  const budget = relayHardBudgetForPool(itemOrder.length);
   // Mixed word + sentence decks are allowed. Every position is playable on its
   // own answer surface (MC grid for words, tile board for sentences), so no
   // pre-resolution is needed.
@@ -47,7 +47,7 @@ export function buildInitialRelayState(
     relayResolvedIndices: [],
     relayHardUpgradeIndices: [],
     relayHardBudget: { challenger: budget, opponent: budget },
-    relayHardQuestions: buildRelayQuestionSet(items, wordOrder, "hard"),
+    relayHardQuestions: buildRelayQuestionSet(items, itemOrder, "hard"),
   };
 }
 
@@ -61,19 +61,19 @@ export function relayAnswerer(duel: Pick<Doc<"duels">, "relayPicker">): DuelRole
 }
 
 export function isRelayFinished(
-  duel: Pick<Doc<"duels">, "wordOrder" | "relayResolvedIndices" | "relayAssignedIndex">
+  duel: Pick<Doc<"duels">, "itemOrder" | "relayResolvedIndices" | "relayAssignedIndex">
 ): boolean {
   const resolved = duel.relayResolvedIndices ?? [];
-  return duel.relayAssignedIndex === undefined && resolved.length === duel.wordOrder.length;
+  return duel.relayAssignedIndex === undefined && resolved.length === duel.itemOrder.length;
 }
 
 /** Positions the picker may still hand over: unresolved and not currently assigned. */
 export function relayRemainingPositions(
-  duel: Pick<Doc<"duels">, "wordOrder" | "relayResolvedIndices" | "relayAssignedIndex">
+  duel: Pick<Doc<"duels">, "itemOrder" | "relayResolvedIndices" | "relayAssignedIndex">
 ): number[] {
   const resolved = new Set(duel.relayResolvedIndices ?? []);
   const remaining: number[] = [];
-  for (let position = 0; position < duel.wordOrder.length; position++) {
+  for (let position = 0; position < duel.itemOrder.length; position++) {
     if (resolved.has(position)) continue;
     if (position === duel.relayAssignedIndex) continue;
     remaining.push(position);

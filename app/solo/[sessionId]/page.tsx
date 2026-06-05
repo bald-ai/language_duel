@@ -10,6 +10,7 @@ import { useSoloSession } from "./hooks/useSoloSession";
 import { useSoloCompletionReporting } from "./hooks/useSoloCompletionReporting";
 import { CompletionScreen } from "./components/CompletionScreen";
 import { SoloQuestion } from "./components/SoloQuestion";
+import { SentenceClozeQuestion } from "./components/SentenceClozeQuestion";
 import { getDirectionalCopy } from "./translationDirection";
 
 // Shared solo chrome
@@ -34,7 +35,7 @@ export default function SoloPracticePage() {
   const {
     status,
     statusMessage,
-    sessionWords,
+    sessionItems,
     themeSummary,
     soloPracticeSessionId,
     returnTo,
@@ -44,7 +45,7 @@ export default function SoloPracticePage() {
     confidenceParam,
   } = source;
 
-  const initialConfidenceByWordIndex = useMemo(
+  const initialConfidenceByItemIndex = useMemo(
     () => decodeConfidenceParam(confidenceParam),
     [confidenceParam]
   );
@@ -60,11 +61,11 @@ export default function SoloPracticePage() {
     handleIncorrect,
     handleLevel0GotIt,
     handleLevel0NotYet,
-    currentWord,
+    currentItem,
     masteredCount,
   } = useSoloSession({
-    words: sessionWords,
-    initialConfidenceByWordIndex,
+    items: sessionItems,
+    initialConfidenceByItemIndex,
   });
 
   const { handleCorrectWithProgress } = useSoloCompletionReporting({
@@ -84,8 +85,8 @@ export default function SoloPracticePage() {
   }, [router, returnTo]);
 
   const hasMultipleThemes = useMemo(
-    () => new Set(sessionWords.map((word) => String(word.themeId))).size > 1,
-    [sessionWords]
+    () => new Set(sessionItems.map((item) => String(item.themeId))).size > 1,
+    [sessionItems]
   );
 
   if (status !== "ready") {
@@ -100,12 +101,12 @@ export default function SoloPracticePage() {
     );
   }
 
-  if (sessionWords.length === 0) {
+  if (sessionItems.length === 0) {
     return (
       <SoloPageShell>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
           <SoloStatusCard
-            message="This theme has no words to practice"
+            message="This selection has no items to practice"
             variant="error"
             buttonLabel={returnLabel}
             onButtonClick={handleExit}
@@ -116,7 +117,7 @@ export default function SoloPracticePage() {
     );
   }
 
-  if (!session.initialized || !currentWord) {
+  if (!session.initialized || !currentItem) {
     return (
       <SoloPageShell>
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto px-6">
@@ -126,19 +127,14 @@ export default function SoloPracticePage() {
     );
   }
 
-  const { cueText, helperText, expectedAnswer } = getDirectionalCopy(
-    currentWord,
-    session.translationDirection
-  );
-
   const baseCardStyle = {
     backgroundColor: colors.background.elevated,
     borderColor: colors.primary.dark,
     boxShadow: `0 18px 45px ${colors.primary.glow}`,
   };
 
-  const progressPercentage = sessionWords.length
-    ? Math.min(100, (masteredCount / sessionWords.length) * 100)
+  const progressPercentage = sessionItems.length
+    ? Math.min(100, (masteredCount / sessionItems.length) * 100)
     : 0;
 
   const themePill = (
@@ -153,12 +149,47 @@ export default function SoloPracticePage() {
       <span className="truncate max-w-[240px]">{themeSummary}</span>
     </div>
   );
+  const questionCard =
+    currentItem.kind === "word" ? (
+      (() => {
+        const directionalCopy = getDirectionalCopy(
+          currentItem,
+          session.translationDirection
+        );
+        return (
+          <SoloQuestion
+            session={session}
+            currentWord={currentItem}
+            cueText={directionalCopy.cueText}
+            helperText={directionalCopy.helperText}
+            expectedAnswer={directionalCopy.expectedAnswer}
+            hasMultipleThemes={hasMultipleThemes}
+            showFeedback={showFeedback}
+            feedbackCorrect={feedbackCorrect}
+            feedbackAnswer={feedbackAnswer}
+            onCorrect={handleCorrectWithProgress}
+            onIncorrect={handleIncorrect}
+            onLevel0GotIt={handleLevel0GotIt}
+            onLevel0NotYet={handleLevel0NotYet}
+          />
+        );
+      })()
+    ) : (
+      <SentenceClozeQuestion
+        key={`sentence-${session.questionKey}`}
+        session={session}
+        currentSentence={currentItem}
+        hasMultipleThemes={hasMultipleThemes}
+        onCorrect={handleCorrectWithProgress}
+        onIncorrect={handleIncorrect}
+      />
+    );
 
   const content = session.completed ? (
     <CompletionScreen
       questionsAnswered={session.questionsAnswered}
       correctAnswers={session.correctAnswers}
-      totalWords={sessionWords.length}
+      totalItems={sessionItems.length}
       totalDuration={elapsedTime}
       onExit={handleExit}
       exitLabel={returnLabel}
@@ -195,7 +226,7 @@ export default function SoloPracticePage() {
               Mastered
             </div>
             <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-              {masteredCount} / {sessionWords.length}
+              {masteredCount} / {sessionItems.length}
             </div>
             <div className="text-xs" style={{ color: colors.text.muted }}>
               Pool {session.activePool.length} active
@@ -217,21 +248,7 @@ export default function SoloPracticePage() {
         </div>
       </section>
 
-      <SoloQuestion
-        session={session}
-        currentWord={currentWord}
-        cueText={cueText}
-        helperText={helperText}
-        expectedAnswer={expectedAnswer}
-        hasMultipleThemes={hasMultipleThemes}
-        showFeedback={showFeedback}
-        feedbackCorrect={feedbackCorrect}
-        feedbackAnswer={feedbackAnswer}
-        onCorrect={handleCorrectWithProgress}
-        onIncorrect={handleIncorrect}
-        onLevel0GotIt={handleLevel0GotIt}
-        onLevel0NotYet={handleLevel0NotYet}
-      />
+      {questionCard}
 
       <div
         className="mt-4 text-xs uppercase tracking-widest"

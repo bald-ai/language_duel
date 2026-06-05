@@ -11,6 +11,15 @@ export const SENTENCE_MAX_TOKENS = 8;
 export const SENTENCE_DISTRACTOR_COUNT = 3;
 
 /**
+ * Stand-in shown for a word meaning that hasn't been generated yet (manual
+ * drafts, edited sentences, or a failed generation). Async refresh replaces it
+ * with the real in-context meaning. A fixed sentinel — not the Spanish token —
+ * so "is this still a placeholder?" stays reliable even when a word's real
+ * meaning is spelled the same in both languages (e.g. "no", cognates).
+ */
+export const SENTENCE_WORD_MEANING_PLACEHOLDER = "placeholder";
+
+/**
  * How many of a sentence's stored distractors actually appear on the board, by
  * duel difficulty (decision: sentence difficulty). Same trick word rounds use —
  * store a big wrong-answer pool, show a subset. Capped at
@@ -43,7 +52,9 @@ export const SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT = 10;
 
 /** Max round count per sentence theme (mirrors `THEME_MAX_WORD_COUNT`). */
 export const SENTENCE_MIN_ROUND_COUNT = 1;
-export const SENTENCE_MAX_ROUND_COUNT = 200;
+// Double the generation max so a full Pick & Prune over-generated batch can be
+// kept without trimming; this also bounds the async word-meaning refresh fan-out.
+export const SENTENCE_MAX_ROUND_COUNT = SENTENCE_MAX_GENERATION_ROUND_COUNT * 2;
 
 /** Input length limits. */
 export const SENTENCE_ENGLISH_PROMPT_MAX_LENGTH = 200;

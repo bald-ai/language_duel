@@ -1,4 +1,4 @@
-import { WRONG_ANSWER_COUNT } from "../generate/constants";
+import { MAX_THEME_GENERATION_WORD_COUNT, WRONG_ANSWER_COUNT } from "../generate/constants";
 
 export const THEME_NAME_MIN_LENGTH = 1;
 export const THEME_NAME_MAX_LENGTH = 25;
@@ -12,7 +12,9 @@ export const THEME_ANSWER_INPUT_MAX_LENGTH = 96;
 export const THEME_WRONG_ANSWER_INPUT_MAX_LENGTH = 96;
 
 export const THEME_MIN_WORD_COUNT = 1;
-export const THEME_MAX_WORD_COUNT = 200;
+// Double the generation max so a full Pick & Prune over-generated batch can be
+// kept without trimming (Pick & Prune over-generates by 100%).
+export const THEME_MAX_WORD_COUNT = MAX_THEME_GENERATION_WORD_COUNT * 2;
 
 // Every word must carry the full set of wrong answers — no fewer, no more — so
 // each duel question can render the full 6-option grid in all modes.

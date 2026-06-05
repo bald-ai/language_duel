@@ -66,14 +66,14 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
 
   const budget = duel.relayHardBudget?.[viewerRole] ?? 0;
   const served = duel.relayServedQuestion;
-  const total = duel.wordOrder.length;
+  const total = duel.itemOrder.length;
   const resolvedCount = duel.relayResolvedIndices?.length ?? 0;
   const remaining = duel.relayRemainingPositions ?? [];
 
   // Each position renders its own answer surface based on its kind: word → MC
   // grid, sentence → tile board. The prompt is the word itself or the sentence's
   // English prompt.
-  const itemAt = (position: number) => duel.sessionWords[duel.wordOrder[position]];
+  const itemAt = (position: number) => duel.sessionItems[duel.itemOrder[position]];
   const promptAt = (position: number) => {
     const item = itemAt(position);
     if (!item) return "";
@@ -682,6 +682,7 @@ function RelaySentenceAnswer({
       themeName={themeName}
       englishPrompt={served.englishPrompt}
       tilePool={served.tilePool}
+      tileMeanings={served.tileMeanings}
       placedTileIndices={placedTileIndices}
       correctnessMask={correctnessMask}
       secondsLeft={secondsLeft ?? 0}

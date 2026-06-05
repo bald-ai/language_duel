@@ -11,15 +11,15 @@ import {
 } from "./helpers/auth";
 import {
   loadThemesByIds,
-  summarizeSessionWords,
-} from "./helpers/sessionWords";
+  summarizeSessionItems,
+} from "./helpers/sessionItems";
 import {
   relayRemainingPositions,
   relayServedQuestion,
 } from "../lib/duel/relayEngine";
 
 type DuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
-type SessionItem = Doc<"duels">["sessionWords"][number];
+type SessionItem = Doc<"duels">["sessionItems"][number];
 
 function canRevealQuestionAnswer(args: {
   duel: Doc<"duels">;
@@ -74,12 +74,19 @@ function hideQuestionAnswer(question: DuelQuestion): MaskedDuelQuestion {
 /**
  * Blank the answer/TTS on the session item snapshot the client sees. Word
  * items lose `answer` + `ttsStorageId`. Sentence items lose `spanishSentence`
- * + `distractors` (the answer key) — the client only needs the prompt and
- * theme name to render the round; tap validation is server-side.
+ * + `distractors` + all source meanings (the answer key / non-free hints) —
+ * the client only needs the prompt and theme name to render the round; curated
+ * free-word hints ride on `duelQuestions.tileMeanings`.
  */
 function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
   if (item.kind === "sentence") {
-    return { ...item, spanishSentence: "", distractors: [] };
+    return {
+      ...item,
+      spanishSentence: "",
+      wordMeanings: [],
+      freeWordPositions: [],
+      distractors: [],
+    };
   }
   return { ...item, answer: "", ttsStorageId: undefined };
 }
@@ -87,13 +94,13 @@ function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
 /**
  * Relay-safe DTO. The answer key (`duelQuestions`, `relayHardQuestions`) is
  * never shipped; the client only ever sees the phase-masked served question.
- * Per change (B), `sessionWords[i].answer`/`ttsStorageId` are also blanked while
+ * Per change (B), `sessionItems[i].answer`/`ttsStorageId` are also blanked while
  * the duel is active, since the client otherwise reads the answer from there.
  */
 function buildRelaySafeDuel(duel: Doc<"duels">) {
   const isActive = duel.status === "active";
 
-  const safeSessionWords = duel.sessionWords.map((item): SessionItem =>
+  const safeSessionItems = duel.sessionItems.map((item): SessionItem =>
     isActive ? maskSessionItemForActivePlay(item) : item
   );
 
@@ -112,7 +119,7 @@ function buildRelaySafeDuel(duel: Doc<"duels">) {
 
   return {
     ...rest,
-    sessionWords: safeSessionWords,
+    sessionItems: safeSessionItems,
     relayServedQuestion: relayServed,
     relayRemainingPositions: relayRemainingPositions(duel),
   };
@@ -124,7 +131,7 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
   }
 
   const wordIndexBySessionIndex = new Map<number, number>();
-  duel.wordOrder.forEach((sessionItemIndex, questionIndex) => {
+  duel.itemOrder.forEach((sessionItemIndex, questionIndex) => {
     wordIndexBySessionIndex.set(sessionItemIndex, questionIndex);
   });
 
@@ -134,11 +141,11 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
       ? { ...question, answerRevealedToViewer: true as const }
       : hideQuestionAnswer(question);
   });
-  const safeSessionWords = duel.sessionWords.map((item, sessionItemIndex): SessionItem => {
+  const safeSessionItems = duel.sessionItems.map((item, sessionItemIndex): SessionItem => {
     const questionIndex = wordIndexBySessionIndex.get(sessionItemIndex);
     if (questionIndex === undefined) {
       throw new Error(
-        `duel ${duel._id} sessionItem index ${sessionItemIndex} missing from wordOrder`
+        `duel ${duel._id} sessionItem index ${sessionItemIndex} missing from itemOrder`
       );
     }
     if (canRevealQuestionAnswer({ duel, questionIndex, viewerRole })) {
@@ -149,7 +156,7 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
 
   return {
     ...duel,
-    sessionWords: safeSessionWords,
+    sessionItems: safeSessionItems,
     duelQuestions: safeQuestions,
   };
 }
@@ -177,7 +184,7 @@ export const getDuel = query({
     return {
       duel: buildViewerSafeDuel(duel, viewerRole),
       themes: themes.map((sessionTheme) => ({ _id: sessionTheme._id, name: sessionTheme.name })),
-      themeSummary: summarizeSessionWords(duel.sessionWords),
+      themeSummary: summarizeSessionItems(duel.sessionItems),
       viewerRole,
       viewer: {
         _id: auth.user._id,

@@ -8,6 +8,10 @@
 import type { Id } from "./types";
 import type { SentenceRoundInput, ThemeContentType } from "./themes/sentenceTypes";
 import { isSentenceTheme } from "./themes/themeContent";
+import {
+  normalizeSentenceFreeWordPositions,
+  normalizeSentenceWordMeanings,
+} from "./themes/sentenceValidation";
 
 export interface SessionWordItem {
   kind: "word";
@@ -23,19 +27,14 @@ export interface SessionSentenceItem {
   kind: "sentence";
   englishPrompt: string;
   spanishSentence: string;
+  wordMeanings: string[];
+  freeWordPositions: number[];
   distractors: string[];
   themeId: Id<"themes">;
   themeName: string;
 }
 
 export type SessionItem = SessionWordItem | SessionSentenceItem;
-
-/**
- * Legacy alias: pre-sentence code treated `SessionWordEntry` as the flat row
- * shape. Now an alias for the discriminated `SessionWordItem` variant. New code
- * should prefer `SessionItem` (mixed) or `SessionWordItem` (word-only).
- */
-export type SessionWordEntry = SessionWordItem;
 
 export interface SessionThemeInput {
   _id: Id<"themes">;
@@ -58,6 +57,14 @@ export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem
       kind: "sentence",
       englishPrompt: round.englishPrompt,
       spanishSentence: round.spanishSentence,
+      wordMeanings: normalizeSentenceWordMeanings(
+        round.spanishSentence,
+        round.wordMeanings
+      ),
+      freeWordPositions: normalizeSentenceFreeWordPositions(
+        round.spanishSentence,
+        round.freeWordPositions
+      ),
       distractors: [...round.distractors],
       themeId: theme._id,
       themeName: theme.name,
@@ -79,14 +86,6 @@ export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem
 export function buildSessionItems(themes: SessionThemeInput[]): SessionItem[] {
   return themes.flatMap(buildSessionItemsForTheme);
 }
-
-/**
- * Back-compat alias for code that still talks about "session words". Returns
- * the mixed discriminated array — callers are responsible for branching on
- * `item.kind`. Kept under the historical name so 25+ call sites continue to
- * compile while the rename rolls through the codebase.
- */
-export const buildSessionWords = buildSessionItems;
 
 export function getUniqueThemeIds(
   sessionItems: Array<Pick<SessionItem, "themeId">>

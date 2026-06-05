@@ -2,7 +2,7 @@
 
 import { cssVarColors as cssColors } from "@/app/components/themeCssVars";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+import type { SessionWordItem } from "@/lib/sessionItems";
 import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
 import {
   Level0Input,
@@ -41,7 +41,7 @@ const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: stri
 
 interface SoloQuestionProps {
   session: SoloSessionState;
-  currentWord: SessionWordEntry;
+  currentWord: SessionWordItem;
   cueText: string;
   helperText: string;
   expectedAnswer: string;
@@ -83,7 +83,7 @@ export function SoloQuestion({
     boxShadow: `0 18px 45px ${colors.primary.glow}`,
   };
 
-  const questionKey = `${session.currentWordIndex}-${session.questionsAnswered}`;
+  const questionKey = `${session.currentItemIndex}-${session.questionKey}`;
 
   // Multi-theme label: defined once, rendered in whichever branch is active.
   const themeLabel =

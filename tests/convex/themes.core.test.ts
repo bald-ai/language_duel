@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   applyGeneratedThemeTts,
@@ -9,6 +9,7 @@ import {
   updateThemeFriendsCanEdit,
   updateThemeVisibility,
 } from "@/convex/themes";
+import { getCurrentMonthKey } from "@/convex/credits";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -18,7 +19,14 @@ import {
 
 type UserDoc = Pick<
   Doc<"users">,
-  "_id" | "_creationTime" | "clerkId" | "email" | "archivedThemeIds"
+  | "_id"
+  | "_creationTime"
+  | "clerkId"
+  | "email"
+  | "archivedThemeIds"
+  | "creditsMonth"
+  | "llmCreditsRemaining"
+  | "ttsGenerationsRemaining"
 >;
 
 type ThemeWord = {
@@ -254,7 +262,7 @@ describe("themes core handlers", () => {
         contentType: "word",
         words: [],
       })
-    ).rejects.toThrow("Theme must contain 1-200 words");
+    ).rejects.toThrow("Theme must contain 1-40 words");
 
     expect(db.themes).toHaveLength(0);
   });
@@ -273,7 +281,7 @@ describe("themes core handlers", () => {
         themeId: "theme_1" as Id<"themes">,
         words: [],
       })
-    ).rejects.toThrow("Theme must contain 1-200 words");
+    ).rejects.toThrow("Theme must contain 1-40 words");
 
     expect(db.themes[0]?.words).toHaveLength(1);
   });
@@ -392,6 +400,158 @@ describe("themes core handlers", () => {
         ],
       })
     ).rejects.toThrow(/duplicates after normalization/);
+  });
+
+  it("updateTheme placeholders sentence meanings and schedules refresh when English changes", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc());
+    db.themes.push({
+      _id: "theme_1" as Id<"themes">,
+      _creationTime: Date.now(),
+      name: "SENTENCES",
+      description: "Sentences",
+      contentType: "sentence",
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          wordMeanings: ["the", "cat", "sleeps"],
+          freeWordPositions: [1],
+          distractors: ["come", "corre", "salta"],
+        },
+      ],
+      createdAt: Date.now(),
+      ownerId: "user_1" as Id<"users">,
+      visibility: "private",
+      friendsCanEdit: false,
+    } as unknown as ThemeDoc);
+
+    const scheduler = { runAfter: vi.fn().mockResolvedValue(undefined) };
+    const handler = (updateTheme as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          themeId: Id<"themes">;
+          sentenceRounds?: Array<{
+            englishPrompt: string;
+            spanishSentence: string;
+            wordMeanings?: string[];
+            freeWordPositions?: number[];
+            distractors: string[];
+          }>;
+        }
+      ) => Promise<unknown>;
+    })._handler;
+
+    await handler(createAuthCtx(db, "clerk_owner", { scheduler }), {
+      themeId: "theme_1" as Id<"themes">,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat is sleeping",
+          spanishSentence: "El gato duerme",
+          wordMeanings: ["stale", "client", "meanings"],
+          freeWordPositions: [1],
+          distractors: ["come", "corre", "salta"],
+        },
+      ],
+    });
+
+    const sentenceRounds = (db.themes[0] as unknown as {
+      sentenceRounds: Array<{
+        wordMeanings: string[];
+        freeWordPositions: number[];
+      }>;
+    }).sentenceRounds;
+    expect(sentenceRounds[0]?.wordMeanings).toEqual([
+      "placeholder",
+      "placeholder",
+      "placeholder",
+    ]);
+    expect(sentenceRounds[0]?.freeWordPositions).toEqual([1]);
+    expect(scheduler.runAfter).toHaveBeenCalledWith(
+      0,
+      expect.anything(),
+      {
+        themeId: "theme_1",
+        rounds: [
+          {
+            roundIndex: 0,
+            englishPrompt: "The cat is sleeping",
+            spanishSentence: "El gato duerme",
+          },
+        ],
+      }
+    );
+  });
+
+  it("updateTheme skips the word-meaning refresh when the owner is out of LLM credits", async () => {
+    const db = new InMemoryDb();
+    db.users.push(
+      userDoc({ creditsMonth: getCurrentMonthKey(), llmCreditsRemaining: 1, ttsGenerationsRemaining: 5 })
+    );
+    db.themes.push({
+      _id: "theme_1" as Id<"themes">,
+      _creationTime: Date.now(),
+      name: "SENTENCES",
+      description: "Sentences",
+      contentType: "sentence",
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          wordMeanings: ["the", "cat", "sleeps"],
+          freeWordPositions: [1],
+          distractors: ["come", "corre", "salta"],
+        },
+      ],
+      createdAt: Date.now(),
+      ownerId: "user_1" as Id<"users">,
+      visibility: "private",
+      friendsCanEdit: false,
+    } as unknown as ThemeDoc);
+
+    const scheduler = { runAfter: vi.fn().mockResolvedValue(undefined) };
+    const handler = (updateTheme as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: {
+          themeId: Id<"themes">;
+          sentenceRounds?: Array<{
+            englishPrompt: string;
+            spanishSentence: string;
+            wordMeanings?: string[];
+            freeWordPositions?: number[];
+            distractors: string[];
+          }>;
+        }
+      ) => Promise<unknown>;
+    })._handler;
+
+    await handler(createAuthCtx(db, "clerk_owner", { scheduler }), {
+      themeId: "theme_1" as Id<"themes">,
+      sentenceRounds: [
+        {
+          englishPrompt: "The cat is sleeping",
+          spanishSentence: "El gato duerme",
+          wordMeanings: ["stale", "client", "meanings"],
+          freeWordPositions: [1],
+          distractors: ["come", "corre", "salta"],
+        },
+      ],
+    });
+
+    // Save still succeeds (placeholders written), but no AI refresh is scheduled
+    // and no LLM credits are spent because the flat cost can't be afforded.
+    const sentenceRounds = (db.themes[0] as unknown as {
+      sentenceRounds: Array<{ wordMeanings: string[] }>;
+    }).sentenceRounds;
+    expect(sentenceRounds[0]?.wordMeanings).toEqual([
+      "placeholder",
+      "placeholder",
+      "placeholder",
+    ]);
+    expect(scheduler.runAfter).not.toHaveBeenCalled();
+    expect(db.users[0]?.llmCreditsRemaining).toBe(1);
   });
 
   it("updateTheme keeps existing ttsStorageId when word+answer are unchanged", async () => {

@@ -337,7 +337,9 @@ function buildSentenceThemeSpec(
     schemaName: "sentence_theme_rounds",
     schema: buildSentenceThemeSchema(body.roundCount),
     validate: (parsed) =>
-      collectSentenceRoundIssues(parsed.rounds).map(formatSentenceRoundIssue),
+      collectSentenceRoundIssues(parsed.rounds, { requireWordMeanings: true }).map(
+        formatSentenceRoundIssue
+      ),
     toResponseData: (parsed) => parsed.rounds,
     retryInstruction:
       "The previous result is invalid. Regenerate all sentence rounds and fix these issues:",
@@ -363,7 +365,9 @@ function buildGenerateMoreSentenceRoundsSpec(
         distractors: ["x", "y", "z"],
       }));
       return [
-        ...collectSentenceRoundIssues(parsed.rounds).map(formatSentenceRoundIssue),
+        ...collectSentenceRoundIssues(parsed.rounds, { requireWordMeanings: true }).map(
+          formatSentenceRoundIssue
+        ),
         ...validateGeneratedSentenceRoundsAgainstExisting(parsed.rounds, existingRounds),
       ];
     },

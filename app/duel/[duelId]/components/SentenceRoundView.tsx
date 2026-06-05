@@ -30,6 +30,7 @@ interface SentenceRoundViewProps {
     kind: "sentence";
     englishPrompt: string;
     tilePool: string[];
+    tileMeanings?: Array<string | null>;
     spanishSentence?: string;
     answerRevealedToViewer?: boolean;
   };

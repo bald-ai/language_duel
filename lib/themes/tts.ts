@@ -28,6 +28,8 @@ export interface ThemeWordWithTts extends ThemeTtsRow {
 export interface SentenceRoundWithTts extends ThemeTtsRow {
   englishPrompt: string;
   spanishSentence: string;
+  wordMeanings?: string[];
+  freeWordPositions?: number[];
   distractors: string[];
 }
 

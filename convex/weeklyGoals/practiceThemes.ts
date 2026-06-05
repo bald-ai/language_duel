@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { listWeeklyGoalThemeSnapshots } from "../helpers/weeklyGoalSnapshots";
-import type { SessionThemeInput } from "../../lib/sessionWords";
+import type { SessionThemeInput } from "../../lib/sessionItems";
 import type { WeeklyGoalPracticeSource } from "./types";
 
 export function getWeeklyGoalPracticeSource(goal: Doc<"weeklyGoals">): WeeklyGoalPracticeSource {

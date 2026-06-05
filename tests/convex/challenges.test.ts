@@ -49,7 +49,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "status"
     | "currentWordIndex"

@@ -22,6 +22,7 @@ function sentenceQuestion(): NonNullable<DuelDoc["duelQuestions"]>[number] {
     englishPrompt: "I eat bread",
     spanishSentence: "Yo como pan",
     tilePool: ["Yo", "como", "pan", "tú"],
+    tileMeanings: [null, null, null, null],
   };
 }
 
@@ -44,7 +45,7 @@ function relayDuel(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as DuelDoc["challengerId"],
     opponentId: "user_2" as DuelDoc["opponentId"],
     themeIds: [],
-    sessionWords: [
+    sessionItems: [
       { kind: "word" as const, word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
       { kind: "word" as const, word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
     ],
@@ -52,7 +53,7 @@ function relayDuel(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0, 1],
+    itemOrder: [0, 1],
     duelQuestions: [question("base0"), question("base1")],
     relayHardQuestions: [question("hard0"), question("hard1")],
     challengerAnswered: false,
@@ -130,7 +131,7 @@ describe("relayEngine", () => {
 
     it("relayRemainingPositions excludes resolved and assigned positions", () => {
       const duel = relayDuel({
-        wordOrder: [0, 1, 2, 3],
+        itemOrder: [0, 1, 2, 3],
         relayResolvedIndices: [1],
         relayAssignedIndex: 2,
         duelQuestions: [question("a"), question("b"), question("c"), question("d")],

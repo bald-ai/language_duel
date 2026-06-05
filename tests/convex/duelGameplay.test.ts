@@ -32,7 +32,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "duelMode"
     | "status"
@@ -97,7 +97,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "word" as const, word: "cat",
         answer: "gato",
@@ -366,7 +366,7 @@ describe("duel gameplay", () => {
     db.duels.push(
       duelDoc({
         currentWordIndex: 1,
-        sessionWords: [
+        sessionItems: [
           {
             kind: "word" as const, word: "cat",
             answer: "gato",
@@ -625,7 +625,7 @@ describe("self-duel gameplay", () => {
     db.users.push(userDoc());
     db.duels.push(
       selfDuelDoc({
-        sessionWords: [
+        sessionItems: [
           {
             kind: "word" as const, word: "cat",
             answer: "gato",

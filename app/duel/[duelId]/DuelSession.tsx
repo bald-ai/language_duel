@@ -108,8 +108,8 @@ function NonRelayDuelSession(props: DuelSessionProps) {
   const currentQuestion = props.duel.duelQuestions?.[props.duel.currentWordIndex] as
     | ViewerSafeDuelQuestion
     | undefined;
-  const currentItem = props.duel.sessionWords[
-    props.duel.wordOrder[props.duel.currentWordIndex]
+  const currentItem = props.duel.sessionItems[
+    props.duel.itemOrder[props.duel.currentWordIndex]
   ];
 
   // Completed duels always go to the standard view — it owns the final-results

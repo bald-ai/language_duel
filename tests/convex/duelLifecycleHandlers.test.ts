@@ -55,7 +55,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "status"
     | "currentWordIndex"
@@ -234,7 +234,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [],
+    sessionItems: [],
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
@@ -377,7 +377,7 @@ describe("duel lifecycle handlers", () => {
       sentenceHintPoolUsed: [],
       currentQuestionHintFired: false,
     });
-    expect(db.duels[0].sessionWords).toHaveLength(3);
+    expect(db.duels[0].sessionItems).toHaveLength(3);
     expect(db.duels[0].duelQuestions).toHaveLength(3);
   });
 

@@ -9,6 +9,7 @@ export type ConfidenceLevel = 0 | 1 | 2 | 3;
 interface ConfidenceSliderProps {
   value: ConfidenceLevel;
   onChange: (value: ConfidenceLevel) => void;
+  maxLevel?: ConfidenceLevel;
   dataTestIdPrefix?: string;
 }
 
@@ -35,8 +36,8 @@ const CONFIDENCE_COLORS_LIGHT: Record<ConfidenceLevel, string> = {
 const MIN_LEVEL: ConfidenceLevel = 0;
 const MAX_LEVEL: ConfidenceLevel = 3;
 
-const clampLevel = (n: number): ConfidenceLevel =>
-  Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, n)) as ConfidenceLevel;
+const clampLevel = (n: number, maxLevel: ConfidenceLevel): ConfidenceLevel =>
+  Math.min(maxLevel, Math.max(MIN_LEVEL, n)) as ConfidenceLevel;
 
 const SLIDE_DURATION_MS = 220;
 
@@ -46,37 +47,40 @@ type OutgoingState = { value: number; dir: SlideDirection } | null;
 export const ConfidenceSlider = memo(function ConfidenceSlider({
   value,
   onChange,
+  maxLevel = MAX_LEVEL,
   dataTestIdPrefix,
 }: ConfidenceSliderProps) {
   const colors = useAppearanceColors();
+  const resolvedMaxLevel = clampLevel(maxLevel, MAX_LEVEL);
+  const currentValue = clampLevel(value, resolvedMaxLevel);
   // Track previous value so we can detect direction and animate the swap.
-  const prevValueRef = useRef(value);
+  const prevValueRef = useRef(currentValue);
   const [outgoing, setOutgoing] = useState<OutgoingState>(null);
 
   useEffect(() => {
-    if (prevValueRef.current === value) return;
-    const dir: SlideDirection = value > prevValueRef.current ? "up" : "down";
+    if (prevValueRef.current === currentValue) return;
+    const dir: SlideDirection = currentValue > prevValueRef.current ? "up" : "down";
     setOutgoing({ value: prevValueRef.current, dir });
-    prevValueRef.current = value;
-  }, [value]);
+    prevValueRef.current = currentValue;
+  }, [currentValue]);
 
   const clearOutgoing = useCallback(() => setOutgoing(null), []);
 
   const step = useCallback(
     (delta: number) => {
-      const next = clampLevel(value + delta);
-      if (next !== value) onChange(next);
+      const next = clampLevel(currentValue + delta, resolvedMaxLevel);
+      if (next !== currentValue) onChange(next);
     },
-    [onChange, value]
+    [currentValue, onChange, resolvedMaxLevel]
   );
 
   const decrement = useCallback(() => step(-1), [step]);
   const increment = useCallback(() => step(+1), [step]);
 
-  const atMin = value <= MIN_LEVEL;
-  const atMax = value >= MAX_LEVEL;
-  const currentColor = CONFIDENCE_COLORS[value];
-  const currentBg = CONFIDENCE_COLORS_LIGHT[value];
+  const atMin = currentValue <= MIN_LEVEL;
+  const atMax = currentValue >= resolvedMaxLevel;
+  const currentColor = CONFIDENCE_COLORS[currentValue];
+  const currentBg = CONFIDENCE_COLORS_LIGHT[currentValue];
 
   const stepBtnClass = `
     w-10 h-10 text-xl
@@ -127,7 +131,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
         className="w-16 h-10 text-xl relative overflow-hidden rounded-xl border-2 font-bold select-none"
         style={boxStyle}
         aria-live="polite"
-        aria-label={`Confidence level ${value}`}
+        aria-label={`Confidence level ${currentValue}`}
         data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-value` : undefined}
       >
         {outgoing && (
@@ -140,10 +144,10 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
           </span>
         )}
         <span
-          key={`in-${value}-${outgoing?.dir ?? "static"}`}
+          key={`in-${currentValue}-${outgoing?.dir ?? "static"}`}
           className={outgoing ? `conf-slide-num conf-slide-enter-${outgoing.dir}` : "conf-slide-num"}
         >
-          {value}
+          {currentValue}
         </span>
       </div>
 

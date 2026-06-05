@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
-import { getSessionWords } from "./helpers/sessionWords";
+import { getSessionItems } from "./helpers/sessionItems";
 import { completeBigBoss, completeMiniBoss } from "./weeklyGoals/bossWorkflows";
 import { completeRepetitionDuel } from "./weeklyGoalRepetitions";
 import {
@@ -109,7 +109,7 @@ async function finalizeAfterAnswer(
     return noLifecycleIntent;
   }
   if (updatedDuel.status === "active") {
-    const wordCount = getSessionWords(updatedDuel).length;
+    const wordCount = getSessionItems(updatedDuel).length;
     return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
   }
   if (updatedDuel.status === "completed") {

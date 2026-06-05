@@ -18,7 +18,7 @@ export function shuffleArray<T>(array: T[]): T[] {
 /**
  * Create a shuffled word-index order for a duel/session.
  */
-export function createShuffledWordOrder(wordCount: number): number[] {
+export function createShuffledItemOrder(wordCount: number): number[] {
   const indices = Array.from({ length: wordCount }, (_, i) => i);
   return shuffleArray(indices);
 }

@@ -124,6 +124,10 @@ function sentenceRoundItemSchema() {
     properties: {
       englishPrompt: { type: "string" as const },
       spanishSentence: { type: "string" as const },
+      wordMeanings: {
+        type: "array" as const,
+        items: { type: "string" as const },
+      },
       distractors: {
         type: "array" as const,
         items: { type: "string" as const },
@@ -131,7 +135,7 @@ function sentenceRoundItemSchema() {
         maxItems: SENTENCE_DISTRACTOR_COUNT,
       },
     },
-    required: ["englishPrompt", "spanishSentence", "distractors"],
+    required: ["englishPrompt", "spanishSentence", "wordMeanings", "distractors"],
     additionalProperties: false,
   };
 }

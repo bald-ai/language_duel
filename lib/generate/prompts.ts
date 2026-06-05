@@ -322,6 +322,8 @@ function buildSentenceRoundRules(): string {
     `- Each "spanishSentence" must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} space-separated Spanish words. Periods, exclamation points, and question marks may attach to words.`,
     `- ${SENTENCE_PUNCTUATION_RULE}`,
     `- Provide exactly ${SENTENCE_DISTRACTOR_COUNT} single-word Spanish "distractors" per round. Each distractor is one word with no spaces.`,
+    "- Provide \"wordMeanings\" with exactly one short English meaning for each space-separated Spanish word, in order, as used in that sentence.",
+    "- Word meanings are per-word hints, not a literal slice of the fluent English prompt. Keep each one short.",
     "- Distractors must be unique and must not match (after accent/case normalization) any word in the Spanish sentence.",
     "- All Spanish sentences across the theme must be unique after normalization.",
     "- Default reading level: beginner / lower-intermediate Spanish unless the user prompt specifies otherwise.",
@@ -349,6 +351,7 @@ ${buildSentenceRoundRules()}${promptSpecification}
 OUTPUT FORMAT: JSON object with a "rounds" array of exactly ${roundCount} objects. Each round object has:
 - englishPrompt: short English sentence / phrase
 - spanishSentence: the ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS}-word Spanish sentence (space-separated)
+- wordMeanings: array of one short English meaning for each space-separated Spanish word, in order
 - distractors: array of exactly ${SENTENCE_DISTRACTOR_COUNT} single Spanish words used as wrong tiles`;
 }
 
@@ -378,6 +381,7 @@ ${buildSentenceRoundRules()}
 OUTPUT FORMAT: JSON object with a "rounds" array of exactly ${roundCount} objects. Each round object has:
 - englishPrompt: short English sentence / phrase
 - spanishSentence: the ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS}-word Spanish sentence (space-separated)
+- wordMeanings: array of one short English meaning for each space-separated Spanish word, in order
 - distractors: array of exactly ${SENTENCE_DISTRACTOR_COUNT} single Spanish words used as wrong tiles`;
 }
 

@@ -1,4 +1,9 @@
 import {
+  answerSentenceCorrect,
+  answerSentenceIncorrect,
+  type SoloSentenceLevel,
+} from "./soloSentenceRuntime";
+import {
   INITIAL_POOL_RATIO,
   POOL_EXPANSION_SIZE,
   POOL_EXPANSION_THRESHOLD,
@@ -9,27 +14,37 @@ export const LEVEL_2_TYPING_PROBABILITY = 0.5;
 export const LEVEL_1_REVERSE_PROBABILITY = 0.5;
 export const SOLO_CORRECT_ADVANCE_DELAY_MS = 750;
 export const SOLO_INCORRECT_ADVANCE_DELAY_MS = 2250;
+export const SOLO_SENTENCE_INCORRECT_ADVANCE_DELAY_MS = 850;
 
 export type SoloMasteryLevel = 0 | 1 | 2 | 3;
 export type SoloQuestionLevel = 0 | 1 | 2 | 3;
 export type SoloLevel2Mode = "typing" | "multiple_choice";
 export type SoloTranslationDirection = "forward" | "reverse";
+export type SoloPracticeItemKind = "word" | "sentence";
 export type RandomSource = () => number;
 
-export interface SoloWordState {
-  wordIndex: number;
+export interface SoloRuntimeItem {
+  kind: SoloPracticeItemKind;
+  maxLevel: SoloMasteryLevel;
+}
+
+export interface SoloItemState {
+  itemIndex: number;
+  kind: SoloPracticeItemKind;
+  maxLevel: SoloMasteryLevel;
   masteryLevel: SoloMasteryLevel;
-  completedLevel3: boolean;
-  answeredLevel2Plus: boolean;
+  completedMaxLevel: boolean;
+  answeredExpansionGate: boolean;
 }
 
 export interface SoloSessionState {
   initialized: boolean;
   activePool: number[];
   remainingPool: number[];
-  wordStates: Map<number, SoloWordState>;
-  lastQuestionIndex: number | null;
-  currentWordIndex: number | null;
+  itemStates: Map<number, SoloItemState>;
+  lastItemIndex: number | null;
+  currentItemIndex: number | null;
+  questionKey: number;
   questionLevel: SoloQuestionLevel;
   translationDirection: SoloTranslationDirection;
   level2Mode: SoloLevel2Mode;
@@ -42,9 +57,10 @@ export const initialSoloSessionState: SoloSessionState = {
   initialized: false,
   activePool: [],
   remainingPool: [],
-  wordStates: new Map(),
-  lastQuestionIndex: null,
-  currentWordIndex: null,
+  itemStates: new Map(),
+  lastItemIndex: null,
+  currentItemIndex: null,
+  questionKey: 0,
   questionLevel: 1,
   translationDirection: "forward",
   level2Mode: "typing",
@@ -64,6 +80,13 @@ function shuffle<T>(items: T[], random: RandomSource): T[] {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
+}
+
+export function clampSoloMasteryLevel(
+  level: number,
+  maxLevel: SoloMasteryLevel
+): SoloMasteryLevel {
+  return Math.max(0, Math.min(maxLevel, level)) as SoloMasteryLevel;
 }
 
 export function pickSoloQuestionLevel(
@@ -88,42 +111,94 @@ export function pickSoloLevel2Mode(random: RandomSource): SoloLevel2Mode {
   return random() < LEVEL_2_TYPING_PROBABILITY ? "typing" : "multiple_choice";
 }
 
+function pickQuestionLevelForItem(
+  itemState: SoloItemState,
+  random: RandomSource
+): SoloQuestionLevel {
+  if (itemState.kind === "sentence") {
+    return clampSoloMasteryLevel(
+      itemState.masteryLevel,
+      itemState.maxLevel
+    ) as SoloQuestionLevel;
+  }
+  return pickSoloQuestionLevel(itemState.masteryLevel, random);
+}
+
+function questionDirectionForItem(
+  itemState: SoloItemState,
+  questionLevel: SoloQuestionLevel,
+  random: RandomSource
+): SoloTranslationDirection {
+  if (itemState.kind === "sentence") return "forward";
+  return pickSoloQuestionDirection(questionLevel, random);
+}
+
+function level2ModeForItem(
+  itemState: SoloItemState,
+  random: RandomSource
+): SoloLevel2Mode {
+  if (itemState.kind === "sentence") return "typing";
+  return pickSoloLevel2Mode(random);
+}
+
 export function initializeSoloSession(params: {
-  wordCount: number;
-  initialConfidenceByWordIndex: Record<number, SoloMasteryLevel> | null;
+  items: SoloRuntimeItem[];
+  initialConfidenceByItemIndex: Record<number, SoloMasteryLevel> | null;
   random: RandomSource;
 }): SoloSessionState {
-  const { wordCount, initialConfidenceByWordIndex, random } = params;
-  const initialPoolSize = Math.max(1, Math.floor(wordCount * INITIAL_POOL_RATIO));
-  const allIndices = Array.from({ length: wordCount }, (_, index) => index);
+  const { items, initialConfidenceByItemIndex, random } = params;
+  if (items.length === 0) {
+    return {
+      ...initialSoloSessionState,
+      initialized: true,
+      completed: true,
+    };
+  }
+
+  const initialPoolSize = Math.max(1, Math.floor(items.length * INITIAL_POOL_RATIO));
+  const allIndices = Array.from({ length: items.length }, (_, index) => index);
   const shuffled = shuffle(allIndices, random);
   const activePool = shuffled.slice(0, initialPoolSize);
   const remainingPool = shuffled.slice(initialPoolSize);
-  const wordStates = new Map<number, SoloWordState>();
+  const itemStates = new Map<number, SoloItemState>();
 
-  allIndices.forEach((wordIndex) => {
-    wordStates.set(wordIndex, {
-      wordIndex,
-      masteryLevel: initialConfidenceByWordIndex?.[wordIndex] ?? 1,
-      completedLevel3: false,
-      answeredLevel2Plus: false,
+  items.forEach((item, itemIndex) => {
+    itemStates.set(itemIndex, {
+      itemIndex,
+      kind: item.kind,
+      maxLevel: item.maxLevel,
+      masteryLevel: clampSoloMasteryLevel(
+        initialConfidenceByItemIndex?.[itemIndex] ?? 1,
+        item.maxLevel
+      ),
+      completedMaxLevel: false,
+      answeredExpansionGate: false,
     });
   });
 
-  const firstWordIndex = pickFrom(activePool, random);
-  const firstMastery = wordStates.get(firstWordIndex)?.masteryLevel ?? 1;
-  const questionLevel = pickSoloQuestionLevel(firstMastery, random);
+  const firstItemIndex = pickFrom(activePool, random);
+  const firstItemState = itemStates.get(firstItemIndex);
+  if (!firstItemState) {
+    return {
+      ...initialSoloSessionState,
+      initialized: true,
+      completed: true,
+    };
+  }
+
+  const questionLevel = pickQuestionLevelForItem(firstItemState, random);
 
   return {
     initialized: true,
     activePool,
     remainingPool,
-    wordStates,
-    lastQuestionIndex: null,
-    currentWordIndex: firstWordIndex,
+    itemStates,
+    lastItemIndex: null,
+    currentItemIndex: firstItemIndex,
+    questionKey: 0,
     questionLevel,
-    translationDirection: pickSoloQuestionDirection(questionLevel, random),
-    level2Mode: pickSoloLevel2Mode(random),
+    translationDirection: questionDirectionForItem(firstItemState, questionLevel, random),
+    level2Mode: level2ModeForItem(firstItemState, random),
     questionsAnswered: 0,
     correctAnswers: 0,
     completed: false,
@@ -134,12 +209,12 @@ export function selectNextSoloQuestion(
   state: SoloSessionState,
   random: RandomSource
 ): SoloSessionState {
-  const { activePool, wordStates, lastQuestionIndex, remainingPool } = state;
-  const level2PlusCount = activePool.filter(
-    (wordIndex) => wordStates.get(wordIndex)?.answeredLevel2Plus
+  const { activePool, itemStates, lastItemIndex, remainingPool } = state;
+  const expansionGateCount = activePool.filter(
+    (itemIndex) => itemStates.get(itemIndex)?.answeredExpansionGate
   ).length;
   const shouldExpand =
-    level2PlusCount >= Math.ceil(activePool.length * POOL_EXPANSION_THRESHOLD) &&
+    expansionGateCount >= Math.ceil(activePool.length * POOL_EXPANSION_THRESHOLD) &&
     remainingPool.length > 0;
 
   let nextActivePool = [...activePool];
@@ -152,33 +227,61 @@ export function selectNextSoloQuestion(
     nextRemainingPool = shuffledRemaining.slice(toAdd);
   }
 
-  const incompleteWords = nextActivePool.filter(
-    (wordIndex) => !wordStates.get(wordIndex)?.completedLevel3
+  const incompleteItems = nextActivePool.filter(
+    (itemIndex) => !itemStates.get(itemIndex)?.completedMaxLevel
   );
-  if (incompleteWords.length === 0) {
+  if (incompleteItems.length === 0) {
     return { ...state, completed: true };
   }
 
-  let candidates = incompleteWords.filter((wordIndex) => wordIndex !== lastQuestionIndex);
+  let candidates = incompleteItems.filter((itemIndex) => itemIndex !== lastItemIndex);
   if (candidates.length === 0) {
-    candidates = incompleteWords;
+    candidates = incompleteItems;
   }
 
-  const currentWordIndex = pickFrom(candidates, random);
-  const wordState = wordStates.get(currentWordIndex);
-  if (!wordState) return state;
+  const currentItemIndex = pickFrom(candidates, random);
+  const itemState = itemStates.get(currentItemIndex);
+  if (!itemState) return state;
 
-  const questionLevel = pickSoloQuestionLevel(wordState.masteryLevel, random);
+  const questionLevel = pickQuestionLevelForItem(itemState, random);
 
   return {
     ...state,
     activePool: nextActivePool,
     remainingPool: nextRemainingPool,
-    currentWordIndex,
+    currentItemIndex,
+    questionKey: state.questionKey + 1,
     questionLevel,
-    translationDirection: pickSoloQuestionDirection(questionLevel, random),
-    level2Mode: pickSoloLevel2Mode(random),
-    lastQuestionIndex: currentWordIndex,
+    translationDirection: questionDirectionForItem(itemState, questionLevel, random),
+    level2Mode: level2ModeForItem(itemState, random),
+    lastItemIndex: currentItemIndex,
+  };
+}
+
+function answerWordCorrect(
+  itemState: SoloItemState,
+  questionLevel: SoloQuestionLevel,
+  random: RandomSource
+): SoloItemState {
+  let masteryLevel = itemState.masteryLevel;
+  let completedMaxLevel = itemState.completedMaxLevel;
+  let answeredExpansionGate = itemState.answeredExpansionGate;
+
+  if (questionLevel === 1) {
+    masteryLevel = random() < LEVEL_UP_PROBABILITY ? 2 : 3;
+  } else if (questionLevel === 2) {
+    masteryLevel = 3;
+    answeredExpansionGate = true;
+  } else if (questionLevel === 3) {
+    completedMaxLevel = true;
+    answeredExpansionGate = true;
+  }
+
+  return {
+    ...itemState,
+    masteryLevel,
+    completedMaxLevel,
+    answeredExpansionGate,
   };
 }
 
@@ -186,96 +289,104 @@ export function answerSoloQuestionCorrect(
   state: SoloSessionState,
   random: RandomSource
 ): SoloSessionState {
-  if (state.currentWordIndex === null) return state;
-  const wordState = state.wordStates.get(state.currentWordIndex);
-  if (!wordState) return state;
+  if (state.currentItemIndex === null) return state;
+  const itemState = state.itemStates.get(state.currentItemIndex);
+  if (!itemState) return state;
 
-  const wordStates = new Map(state.wordStates);
-  let masteryLevel = wordState.masteryLevel;
-  let completedLevel3 = wordState.completedLevel3;
-  let answeredLevel2Plus = wordState.answeredLevel2Plus;
+  const itemStates = new Map(state.itemStates);
+  const nextItemState =
+    itemState.kind === "sentence"
+      ? {
+          ...itemState,
+          ...answerSentenceCorrect(
+            {
+              masteryLevel: itemState.masteryLevel as SoloSentenceLevel,
+              maxLevel: itemState.maxLevel as SoloSentenceLevel,
+              completedMaxLevel: itemState.completedMaxLevel,
+              answeredExpansionGate: itemState.answeredExpansionGate,
+            },
+            state.questionLevel as SoloSentenceLevel
+          ),
+        }
+      : answerWordCorrect(itemState, state.questionLevel, random);
 
-  if (state.questionLevel === 1) {
-    masteryLevel = random() < LEVEL_UP_PROBABILITY ? 2 : 3;
-  } else if (state.questionLevel === 2) {
-    masteryLevel = 3;
-    answeredLevel2Plus = true;
-  } else if (state.questionLevel === 3) {
-    completedLevel3 = true;
-    answeredLevel2Plus = true;
-  }
-
-  wordStates.set(state.currentWordIndex, {
-    ...wordState,
-    masteryLevel,
-    completedLevel3,
-    answeredLevel2Plus,
-  });
+  itemStates.set(state.currentItemIndex, nextItemState);
 
   return {
     ...state,
-    wordStates,
+    itemStates,
     questionsAnswered: state.questionsAnswered + 1,
     correctAnswers: state.correctAnswers + 1,
   };
 }
 
 export function answerSoloQuestionIncorrect(state: SoloSessionState): SoloSessionState {
-  if (state.currentWordIndex === null) return state;
-  const wordState = state.wordStates.get(state.currentWordIndex);
-  if (!wordState) return state;
+  if (state.currentItemIndex === null) return state;
+  const itemState = state.itemStates.get(state.currentItemIndex);
+  if (!itemState) return state;
 
-  const wordStates = new Map(state.wordStates);
-  const masteryLevel =
-    wordState.masteryLevel > 0
-      ? ((wordState.masteryLevel - 1) as SoloMasteryLevel)
-      : wordState.masteryLevel;
+  const itemStates = new Map(state.itemStates);
+  const nextItemState =
+    itemState.kind === "sentence"
+      ? {
+          ...itemState,
+          ...answerSentenceIncorrect({
+            masteryLevel: itemState.masteryLevel as SoloSentenceLevel,
+            maxLevel: itemState.maxLevel as SoloSentenceLevel,
+            completedMaxLevel: itemState.completedMaxLevel,
+            answeredExpansionGate: itemState.answeredExpansionGate,
+          }),
+        }
+      : {
+          ...itemState,
+          masteryLevel:
+            itemState.masteryLevel > 0
+              ? ((itemState.masteryLevel - 1) as SoloMasteryLevel)
+              : itemState.masteryLevel,
+        };
 
-  wordStates.set(state.currentWordIndex, {
-    ...wordState,
-    masteryLevel,
-  });
+  itemStates.set(state.currentItemIndex, nextItemState);
 
   return {
     ...state,
-    wordStates,
+    itemStates,
     questionsAnswered: state.questionsAnswered + 1,
   };
 }
 
 export function answerSoloLevel0GotIt(state: SoloSessionState): SoloSessionState {
-  if (state.currentWordIndex === null) return state;
-  const wordState = state.wordStates.get(state.currentWordIndex);
-  if (!wordState) return state;
+  if (state.currentItemIndex === null) return state;
+  const itemState = state.itemStates.get(state.currentItemIndex);
+  if (!itemState || itemState.kind !== "word") return state;
 
-  const wordStates = new Map(state.wordStates);
-  wordStates.set(state.currentWordIndex, {
-    ...wordState,
+  const itemStates = new Map(state.itemStates);
+  itemStates.set(state.currentItemIndex, {
+    ...itemState,
     masteryLevel: 1,
   });
 
   return {
     ...state,
-    wordStates,
+    itemStates,
     questionsAnswered: state.questionsAnswered + 1,
     correctAnswers: state.correctAnswers + 1,
   };
 }
 
 export function answerSoloLevel0NotYet(state: SoloSessionState): SoloSessionState {
-  if (state.currentWordIndex === null) return state;
-  const wordState = state.wordStates.get(state.currentWordIndex);
-  if (!wordState) return state;
+  if (state.currentItemIndex === null) return state;
+  const itemState = state.itemStates.get(state.currentItemIndex);
+  if (!itemState || itemState.kind !== "word") return state;
 
-  const wordStates = new Map(state.wordStates);
-  wordStates.set(state.currentWordIndex, {
-    ...wordState,
+  const itemStates = new Map(state.itemStates);
+  itemStates.set(state.currentItemIndex, {
+    ...itemState,
     masteryLevel: 0,
   });
 
   return {
     ...state,
-    wordStates,
+    itemStates,
     questionsAnswered: state.questionsAnswered + 1,
   };
 }

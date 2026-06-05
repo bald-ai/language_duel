@@ -45,6 +45,14 @@ describe("SentenceBuildBoard — PvP sabotage rendering", () => {
     expect(screen.getByTestId("sentence-badge-0")).toHaveTextContent("1");
   });
 
+  it("renders a free-word meaning under a glossed tile", () => {
+    renderBoard({ tileMeanings: [null, "coffee", null, null] });
+
+    expect(screen.getByTestId("sentence-tile-1")).toHaveTextContent("cafe");
+    expect(screen.getByTestId("sentence-tile-1-meaning")).toHaveTextContent("coffee");
+    expect(screen.queryByTestId("sentence-tile-0-meaning")).not.toBeInTheDocument();
+  });
+
   it("sticky mounts a full-screen overlay and leaves the tiles untouched", () => {
     renderBoard({ activeSabotage: "sticky", sabotagePhase: "full" });
     // Sticky note text from the overlay is present; tiles still read normally.

@@ -62,8 +62,8 @@ export function useDuelSessionViewModel({
 }: DuelSessionViewModelArgs): DuelViewProps {
   const router = useRouter();
 
-  const words = duel.sessionWords;
-  const wordOrder = duel.wordOrder;
+  const words = duel.sessionItems;
+  const itemOrder = duel.itemOrder;
   const isCompleted = duel.status === "completed";
   const rawIndex = duel.currentWordIndex ?? 0;
   const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
@@ -138,7 +138,7 @@ export function useDuelSessionViewModel({
     }
   }, [duel.status, router]);
 
-  const actualWordIndex = wordOrder[index];
+  const actualWordIndex = itemOrder[index];
   // The standard view-model is word-only; the page already routes sentence
   // positions to a dedicated SentenceRoundView, so this narrow is the place we
   // assert "we should only be here for word positions". Exception: a completed
@@ -193,11 +193,11 @@ export function useDuelSessionViewModel({
     const hasMultipleThemes =
       new Set(words.map((sessionWord) => String(sessionWord.themeId))).size > 1;
     if (!hasMultipleThemes) return null;
-    const visibleWordIndex = wordOrder[displayedIndex];
+    const visibleWordIndex = itemOrder[displayedIndex];
     const visibleWord = words[visibleWordIndex];
     const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
     return typeof themeName === "string" ? themeName : null;
-  }, [words, wordOrder, displayedIndex]);
+  }, [words, itemOrder, displayedIndex]);
 
   // True once the viewer has already sent a sabotage during the current
   // question. `theirSabotage` is the sabotage the viewer sent to the opponent;
@@ -239,7 +239,7 @@ export function useDuelSessionViewModel({
   };
 
   const handlePlayAudio = () => {
-    const activeWord = words[wordOrder[displayedIndex]];
+    const activeWord = words[itemOrder[displayedIndex]];
     actions.playWordAudio(activeWord);
   };
 

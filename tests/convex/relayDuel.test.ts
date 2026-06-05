@@ -66,7 +66,7 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as DuelDoc["challengerId"],
     opponentId: "user_2" as DuelDoc["opponentId"],
     themeIds: [],
-    sessionWords: [
+    sessionItems: [
       { kind: "word" as const, word: "w0", answer: "base0", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
       { kind: "word" as const, word: "w1", answer: "base1", wrongAnswers: [], themeId: "t" as never, themeName: "T" },
     ],
@@ -74,7 +74,7 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0, 1],
+    itemOrder: [0, 1],
     duelQuestions: [question("base0"), question("base1")],
     relayHardQuestions: [question("hard0"), question("hard1")],
     challengerAnswered: false,
@@ -111,23 +111,26 @@ function seedDb(duel: DuelDoc): InMemoryDb {
 // validation functions read.
 function relaySentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
   return relayDuelDoc({
-    sessionWords: [
+    sessionItems: [
       {
         kind: "sentence",
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
+        wordMeanings: ["I", "eat", "bread"],
+        freeWordPositions: [],
         distractors: ["tú"],
         themeId: "t" as never,
         themeName: "Sentences",
       },
     ],
-    wordOrder: [0],
+    itemOrder: [0],
     duelQuestions: [
       {
         kind: "sentence",
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
         tilePool: ["Yo", "como", "pan", "tú"],
+        tileMeanings: [null, null, null, null],
       },
     ],
     relayHardQuestions: [
@@ -136,6 +139,7 @@ function relaySentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
         tilePool: ["Yo", "como", "pan", "tú"],
+        tileMeanings: [null, null, null, null],
       },
     ],
     ...overrides,
@@ -229,11 +233,13 @@ describe("relayDuel mutations", () => {
           relayPhase: "answer",
           relayPicker: "challenger",
           relayAssignedIndex: 0,
-          sessionWords: [
+          sessionItems: [
             {
               kind: "sentence",
               englishPrompt: "I eat bread",
               spanishSentence: "Yo como pan",
+              wordMeanings: ["I", "eat", "bread"],
+              freeWordPositions: [],
               distractors: ["tú", "bebes"],
               themeId: "t" as never,
               themeName: "Sentences",
@@ -245,9 +251,10 @@ describe("relayDuel mutations", () => {
               englishPrompt: "I eat bread",
               spanishSentence: "Yo como pan",
               tilePool: ["Yo", "como", "pan"],
+              tileMeanings: [null, null, null],
             },
           ],
-          wordOrder: [0],
+          itemOrder: [0],
         })
       );
 

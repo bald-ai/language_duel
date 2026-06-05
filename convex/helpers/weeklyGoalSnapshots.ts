@@ -1,8 +1,8 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
-import type { SessionThemeInput } from "../../lib/sessionWords";
-import { loadThemesByIds } from "./sessionWords";
+import type { SessionThemeInput } from "../../lib/sessionItems";
+import { loadThemesByIds } from "./sessionItems";
 import {
   collectTtsStorageIds,
   deleteUnreferencedStorageIdsForTheme,

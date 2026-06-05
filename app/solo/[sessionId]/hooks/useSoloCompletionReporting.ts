@@ -42,7 +42,7 @@ export function useSoloCompletionReporting({
 
   const handleCorrectWithProgress = useCallback(() => {
     const completedWordIndex =
-      session.questionLevel === 3 ? session.currentWordIndex : null;
+      session.questionLevel === 3 ? session.currentItemIndex : null;
 
     handleCorrect();
 
@@ -73,7 +73,7 @@ export function useSoloCompletionReporting({
   }, [
     handleCorrect,
     recordRepetitionSoloMastery,
-    session.currentWordIndex,
+    session.currentItemIndex,
     session.questionLevel,
     soloPracticeSessionId,
     spacedRepetitionStep,

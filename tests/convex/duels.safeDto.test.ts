@@ -66,7 +66,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "word" as const, word: "cat",
         answer: "gato",
@@ -80,7 +80,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0],
+    itemOrder: [0],
     duelQuestions: [
       {
         kind: "word" as const, options: ["gato", "perro", "pez", "ave"],
@@ -138,7 +138,7 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
     const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
 
-    const firstItem = result?.duel.sessionWords[0];
+    const firstItem = result?.duel.sessionItems[0];
     expect(firstItem && firstItem.kind === "word" ? firstItem.answer : undefined).toBe("");
     expect(result?.duel.duelQuestions?.[0]).not.toHaveProperty("correctOption");
     expect((result?.duel.duelQuestions?.[0] as ViewerSafeQuestion | undefined)?.answerRevealedToViewer).toBe(false);
@@ -159,7 +159,7 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
     const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
 
-    const firstItemRevealed = result?.duel.sessionWords[0];
+    const firstItemRevealed = result?.duel.sessionItems[0];
     expect(firstItemRevealed && firstItemRevealed.kind === "word" ? firstItemRevealed.answer : undefined).toBe("gato");
     const firstQuestion = result?.duel.duelQuestions?.[0];
     expect(firstQuestion && firstQuestion.kind === "word" ? firstQuestion.correctOption : undefined).toBe("gato");
@@ -169,7 +169,7 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
 type RelaySafeResult = {
   duel: Record<string, unknown> & {
-    sessionWords: Array<{ answer: string; ttsStorageId?: unknown }>;
+    sessionItems: Array<{ answer: string; ttsStorageId?: unknown }>;
     relayServedQuestion: (ViewerSafeQuestion & { correctOption?: string }) | null;
     relayRemainingPositions: number[];
     duelQuestions?: unknown;
@@ -222,8 +222,8 @@ describe("duels.getDuel relay viewer-safe DTO", () => {
     expect(result?.duel.relayServedQuestion).not.toBeNull();
     expect(result?.duel.relayServedQuestion).not.toHaveProperty("correctOption");
     expect(result?.duel.relayServedQuestion?.answerRevealedToViewer).toBe(false);
-    expect(result?.duel.sessionWords[0].answer).toBe("");
-    expect(result?.duel.sessionWords[0].ttsStorageId).toBeUndefined();
+    expect(result?.duel.sessionItems[0].answer).toBe("");
+    expect(result?.duel.sessionItems[0].ttsStorageId).toBeUndefined();
   });
 
   it("returns no served question during the pick phase, only the remaining pool", async () => {
@@ -251,24 +251,26 @@ describe("duels.getDuel relay viewer-safe DTO", () => {
     const result = await getRelayDuel(
       relayDuelDoc({ status: "completed", relayPhase: "pick", relayAssignedIndex: undefined })
     );
-    expect(result?.duel.sessionWords[0].answer).toBe("gato");
+    expect(result?.duel.sessionItems[0].answer).toBe("gato");
   });
 });
 
 describe("duels.getDuel sentence masking (Task 21)", () => {
   function sentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     return duelDoc({
-      sessionWords: [
+      sessionItems: [
         {
           kind: "sentence",
           englishPrompt: "I want coffee",
           spanishSentence: "secret-spanish-sentence",
+          wordMeanings: ["secret", "spanish", "sentence"],
+          freeWordPositions: [],
           distractors: ["leak1", "leak2", "leak3"],
           themeId: "theme_1" as Id<"themes">,
           themeName: "Cafe",
         },
       ],
-      wordOrder: [0],
+      itemOrder: [0],
       currentWordIndex: 0,
       duelQuestions: [
         {
@@ -276,6 +278,7 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
           englishPrompt: "I want coffee",
           spanishSentence: "secret-spanish-sentence",
           tilePool: ["Quiero", "cafe", "leak1", "leak2", "leak3"],
+          tileMeanings: [null, "coffee", null, null, null],
         },
       ],
       ...overrides,
@@ -292,10 +295,12 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
       [sentenceDuelDoc()]
     );
     const result = await getDuelHandler(createCtx(db), { duelId: "duel_1" as Id<"duels"> });
-    const item = result?.duel.sessionWords[0];
+    const item = result?.duel.sessionItems[0];
     expect(item?.kind).toBe("sentence");
     if (item?.kind === "sentence") {
       expect(item.spanishSentence).toBe("");
+      expect(item.wordMeanings).toEqual([]);
+      expect(item.freeWordPositions).toEqual([]);
       expect(item.distractors).toEqual([]);
     }
     // The tile pool still ships — players need it to render. The answer key
@@ -317,6 +322,13 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
     const q = result?.duel.duelQuestions?.[0];
     expect(q?.kind).toBe("sentence");
     expect(q).not.toHaveProperty("spanishSentence");
+    expect(q?.kind === "sentence" ? q.tileMeanings : undefined).toEqual([
+      null,
+      "coffee",
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("restores the spanish sentence once the viewer has answered", async () => {

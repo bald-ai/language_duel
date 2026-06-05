@@ -67,7 +67,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "weeklyGoalId"
     | "spacedRepetitionStep"
@@ -89,7 +89,7 @@ type SoloPracticeSessionDoc = Partial<Doc<"soloPracticeSessions">> &
     | "_creationTime"
     | "userId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "weeklyGoalId"
     | "spacedRepetitionStep"
@@ -354,7 +354,7 @@ function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {})
     _creationTime: 1,
     userId: "user_1" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "word" as const, word: "cat",
         answer: "gato",
@@ -379,7 +379,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "word" as const, word: "cat",
         answer: "gato",
@@ -452,7 +452,7 @@ describe("weekly goal spaced repetition", () => {
       opponentId: "user_2",
       themeIds: ["theme_1"],
     });
-    expect("sessionWords" in db.challenges[0]).toBe(false);
+    expect("sessionItems" in db.challenges[0]).toBe(false);
     expect(db.duels).toHaveLength(0);
     expect(db.notifications[0]).toMatchObject({
       type: "challenge_invite",
@@ -584,7 +584,7 @@ describe("weekly goal spaced repetition", () => {
       themeIds: ["theme_1"],
       createdAt: READY_NOW,
     });
-    expect(db.soloPracticeSessions[0].sessionWords).toHaveLength(2);
+    expect(db.soloPracticeSessions[0].sessionItems).toHaveLength(2);
     expect(db.challenges).toHaveLength(0);
   });
 
@@ -676,7 +676,7 @@ describe("weekly goal spaced repetition", () => {
     const db = new InMemoryDb();
     seedCompletedGoal(db);
     db.soloPracticeSessions.push(soloPracticeSessionDoc({
-      sessionWords: [
+      sessionItems: [
         {
           kind: "word" as const, word: "cat",
           answer: "gato",

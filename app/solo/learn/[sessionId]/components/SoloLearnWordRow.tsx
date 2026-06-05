@@ -20,7 +20,7 @@ interface SoloLearnWordRowProps {
   hintState: HintState;
   confidence: ConfidenceLevel;
   playingWordIndex: number | null;
-  setConfidence: (wordKey: string, level: ConfidenceLevel) => void;
+  setConfidence: (wordKey: string, level: ConfidenceLevel, maxLevel?: ConfidenceLevel) => void;
   revealLetter: (wordKey: string, position: number) => void;
   revealFullWord: (wordKey: string, answer: string) => void;
   resetWord: (wordKey: string) => void;
@@ -53,7 +53,7 @@ export const SoloLearnWordRow = memo(function SoloLearnWordRow({
 
   // Memoize callbacks for this specific word
   const handleConfidenceChange = useCallback(
-    (val: ConfidenceLevel) => setConfidence(wordKey, val),
+    (val: ConfidenceLevel) => setConfidence(wordKey, val, 3),
     [setConfidence, wordKey]
   );
 
@@ -82,6 +82,7 @@ export const SoloLearnWordRow = memo(function SoloLearnWordRow({
       word={word}
       confidence={confidence}
       onConfidenceChange={handleConfidenceChange}
+      maxConfidenceLevel={3}
       revealedPositions={hintState.revealedPositions}
       hintsRemaining={hintsRemaining}
       onRevealLetter={handleRevealLetter}

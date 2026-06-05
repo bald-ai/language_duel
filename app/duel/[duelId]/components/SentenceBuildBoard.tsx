@@ -37,6 +37,7 @@ interface SentenceBuildBoardProps {
    * the parent renders its own round/turn header (relay). */
   roundLabel?: string;
   tilePool: string[];
+  tileMeanings?: Array<string | null>;
   placedTileIndices: number[];
   /**
    * Per-position correctness for the placed tiles, set right after a Confirm.
@@ -105,6 +106,7 @@ export function SentenceBuildBoard({
   englishPrompt,
   roundLabel,
   tilePool,
+  tileMeanings = [],
   placedTileIndices,
   correctnessMask,
   eliminatedTileIndices = [],
@@ -177,6 +179,7 @@ export function SentenceBuildBoard({
   // / colors / handlers are declared once (mirrors DuelAnswerGrid.renderOption).
   const renderTile = (index: number, flyStyle?: CSSProperties) => {
     const tile = tilePool[index];
+    const tileMeaning = tileMeanings[index]?.trim() || null;
     const flying = flyStyle !== undefined;
     const order = placedTileIndices.indexOf(index);
     const isPlaced = order !== -1;
@@ -240,6 +243,13 @@ export function SentenceBuildBoard({
       };
     }
 
+    if (tileMeaning && !isEliminated) {
+      tileStyle = {
+        ...tileStyle,
+        boxShadow: `0 0 0 1px ${colors.secondary.light}`,
+      };
+    }
+
     const badgeColor = isCorrect
       ? colors.status.success.DEFAULT
       : isWrong || (isLast && !checked)
@@ -247,14 +257,14 @@ export function SentenceBuildBoard({
         : colors.primary.DEFAULT;
 
     const buttonClasses = flying
-      ? `p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden ${
+      ? `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden flex flex-col items-center justify-center gap-1 ${
           isLastWrong ? "border-dashed" : ""
         } ${
           isEliminated
             ? "opacity-40 line-through cursor-not-allowed"
             : "hover:brightness-110"
         }`
-      : `p-4 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 ${
+      : `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 flex flex-col items-center justify-center gap-1 ${
           isLastWrong ? "border-dashed" : ""
         } ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${
           hiddenWhileFlying ? "invisible" : ""
@@ -275,7 +285,18 @@ export function SentenceBuildBoard({
         style={flyStyle ? { ...tileStyle, ...flyStyle } : tileStyle}
         data-testid={flying ? `sentence-tile-${index}-fly` : `sentence-tile-${index}`}
       >
-        {flying ? <span className="truncate block">{displayText}</span> : displayText}
+        <span className={flying ? "truncate block max-w-full" : "break-words"}>
+          {displayText}
+        </span>
+        {tileMeaning && !isEliminated && (
+          <span
+            className="max-w-full break-words text-center text-[11px] leading-tight font-extrabold opacity-85"
+            style={{ color: colors.secondary.light }}
+            data-testid={`sentence-tile-${index}-meaning`}
+          >
+            {tileMeaning}
+          </span>
+        )}
         {badge !== null && (
           <span
             className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow"

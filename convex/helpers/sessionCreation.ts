@@ -1,7 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { SEED_XOR_MASK } from "../constants";
-import { createShuffledWordOrder } from "./shuffle";
+import { createShuffledItemOrder } from "./shuffle";
 import {
   buildDuelQuestionSet,
   buildRelayQuestionSet,
@@ -19,7 +19,7 @@ import {
   getUniqueThemeIds,
   isSessionSentenceItem,
   type SessionItem,
-} from "../../lib/sessionWords";
+} from "../../lib/sessionItems";
 import type { BossType } from "../../lib/limitedLives";
 import type { DuelDifficultyPreset } from "../../lib/difficultyUtils";
 import { DUEL_MODE_LABELS, type DuelMode } from "../../lib/duelMode";
@@ -102,7 +102,7 @@ export interface DuelSessionFields
   challengerId: Id<"users">;
   opponentId: Id<"users">;
   themeIds: Id<"themes">[];
-  sessionWords: SessionItem[];
+  sessionItems: SessionItem[];
   sourceType: DuelSourceType;
   weeklyGoalId?: Id<"weeklyGoals">;
   bossType?: BossType;
@@ -112,7 +112,7 @@ export interface DuelSessionFields
   status: "active";
   createdAt: number;
   currentWordIndex: number;
-  wordOrder: number[];
+  itemOrder: number[];
   duelQuestions: DuelQuestionSnapshot[];
   challengerAnswered: boolean;
   opponentAnswered: boolean;
@@ -132,7 +132,7 @@ export interface DuelSessionFields
 export interface SoloPracticeSessionFields {
   userId: Id<"users">;
   themeIds: Id<"themes">[];
-  sessionWords: SessionItem[];
+  sessionItems: SessionItem[];
   sourceType: SoloPracticeSourceType;
   weeklyGoalId: Id<"weeklyGoals">;
   bossType?: BossType;
@@ -262,21 +262,21 @@ export function buildDuelSession(args: {
   challengeId?: Id<"challenges">;
   challengerId: Id<"users">;
   opponentId: Id<"users">;
-  sessionWords: SessionItem[];
+  sessionItems: SessionItem[];
   livesTotal?: number;
   livesRemaining?: number;
   duelDifficultyPreset?: DuelDifficultyPreset;
   duelMode: DuelMode;
   createdAt: number;
 } & DuelSourceFields): DuelSessionFields {
-  const sessionWords = [...args.sessionWords];
-  if (sessionWords.length === 0) {
+  const sessionItems = [...args.sessionItems];
+  if (sessionItems.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
   }
   validateDuelSourceFields(args);
 
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
-  const wordOrder = createShuffledWordOrder(sessionWords.length);
+  const itemOrder = createShuffledItemOrder(sessionItems.length);
 
   // Relay serves a flat-point medium snapshot per position (decision #11) and
   // carries its own turn/budget state; other modes use the progressive set.
@@ -285,7 +285,7 @@ export function buildDuelSession(args: {
 
   // TbT shares one sentence board, so the whole deck must be sentence items.
   // Reject a mixed/word deck at creation rather than failing mid-duel.
-  if (isTbt && sessionWords.some((item) => !isSessionSentenceItem(item))) {
+  if (isTbt && sessionItems.some((item) => !isSessionSentenceItem(item))) {
     throw new ConvexError({
       code: "TBT_REQUIRES_SENTENCES",
       message: `${DUEL_MODE_LABELS.tbt} duels require an all-sentence deck`,
@@ -293,9 +293,9 @@ export function buildDuelSession(args: {
   }
 
   const duelQuestions = isRelay
-    ? buildRelayQuestionSet(sessionWords, wordOrder, "medium")
-    : buildDuelQuestionSet(sessionWords, wordOrder, duelDifficultyPreset);
-  const relayState = isRelay ? buildInitialRelayState(sessionWords, wordOrder) : {};
+    ? buildRelayQuestionSet(sessionItems, itemOrder, "medium")
+    : buildDuelQuestionSet(sessionItems, itemOrder, duelDifficultyPreset);
+  const relayState = isRelay ? buildInitialRelayState(sessionItems, itemOrder) : {};
   // TbT tracks whose turn it is on the shared board; the opener of sentence 0
   // goes first. Empty for every other mode.
   const tbtState = isTbt ? buildInitialTbtState() : {};
@@ -306,8 +306,8 @@ export function buildDuelSession(args: {
     challengeId: args.challengeId,
     challengerId: args.challengerId,
     opponentId: args.opponentId,
-    themeIds: getUniqueThemeIds(sessionWords),
-    sessionWords,
+    themeIds: getUniqueThemeIds(sessionItems),
+    sessionItems,
     sourceType: args.sourceType,
     weeklyGoalId: args.weeklyGoalId,
     bossType: args.bossType,
@@ -317,7 +317,7 @@ export function buildDuelSession(args: {
     status: "active",
     createdAt: args.createdAt,
     currentWordIndex: 0,
-    wordOrder,
+    itemOrder,
     duelQuestions,
     challengerAnswered: false,
     opponentAnswered: false,
@@ -337,19 +337,19 @@ export function buildDuelSession(args: {
 
 export function buildSoloPracticeSession(args: {
   userId: Id<"users">;
-  sessionWords: SessionItem[];
+  sessionItems: SessionItem[];
   startsInLearning: boolean;
   createdAt: number;
 } & SoloPracticeSourceFields): SoloPracticeSessionFields {
-  const sessionWords = [...args.sessionWords];
-  if (sessionWords.length === 0) {
+  const sessionItems = [...args.sessionItems];
+  if (sessionItems.length === 0) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });
   }
   // Solo practice is word-only in v1 (plan decision: modes — only duel-style
   // modes support sentence rounds). Sentence themes must be played via duel /
   // self-duel paths instead. Catch this here so the gameplay code below can
   // safely treat session items as word entries.
-  if (sessionWords.some(isSessionSentenceItem)) {
+  if (sessionItems.some(isSessionSentenceItem)) {
     throw new ConvexError({
       code: "INVALID_INPUT",
       message: "Solo practice does not support sentence themes yet. Use a duel instead.",
@@ -359,8 +359,8 @@ export function buildSoloPracticeSession(args: {
 
   return {
     userId: args.userId,
-    themeIds: getUniqueThemeIds(sessionWords),
-    sessionWords,
+    themeIds: getUniqueThemeIds(sessionItems),
+    sessionItems,
     sourceType: args.sourceType,
     weeklyGoalId: args.weeklyGoalId,
     bossType: args.bossType,

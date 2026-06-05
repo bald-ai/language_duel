@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useSoloSession } from "@/app/solo/[sessionId]/hooks/useSoloSession";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+import type { SessionItem } from "@/lib/sessionItems";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type TestWord = SessionWordEntry;
+type TestItem = SessionItem;
 
-const singleWord: TestWord[] = [
+const singleWord: TestItem[] = [
   {
     kind: "word" as const, word: "hello",
     answer: "hola",
@@ -16,14 +16,27 @@ const singleWord: TestWord[] = [
   },
 ];
 
+const shortSentence: TestItem[] = [
+  {
+    kind: "sentence",
+    englishPrompt: "I eat",
+    spanishSentence: "Yo como",
+    wordMeanings: ["I", "eat"],
+    freeWordPositions: [],
+    distractors: ["bebo", "leo", "duermo"],
+    themeId: "theme_0" as Id<"themes">,
+    themeName: "Test Theme",
+  },
+];
+
 async function initializeSession(
   masteryLevel: 0 | 1 | 2 | 3,
-  words: TestWord[] = singleWord
+  items: TestItem[] = singleWord
 ) {
   const hook = renderHook(() =>
     useSoloSession({
-      words,
-      initialConfidenceByWordIndex: { 0: masteryLevel },
+      items,
+      initialConfidenceByItemIndex: { 0: masteryLevel },
     })
   );
 
@@ -51,7 +64,7 @@ describe("useSoloSession", () => {
     const { result } = await initializeSession(1);
 
     expect(result.current.session.initialized).toBe(true);
-    expect(result.current.session.currentWordIndex).toBe(0);
+    expect(result.current.session.currentItemIndex).toBe(0);
     expect([1, 2]).toContain(result.current.session.questionLevel);
     expect(["forward", "reverse"]).toContain(
       result.current.session.translationDirection
@@ -90,7 +103,7 @@ describe("useSoloSession", () => {
       result.current.handleIncorrect();
     });
 
-    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(result.current.session.itemStates.get(0)?.masteryLevel).toBe(0);
     expect(result.current.session.correctAnswers).toBe(0);
   });
 
@@ -123,7 +136,7 @@ describe("useSoloSession", () => {
     // Correct answer → mastery 2
     vi.useFakeTimers();
     act(() => result.current.handleCorrect());
-    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(2);
+    expect(result.current.session.itemStates.get(0)?.masteryLevel).toBe(2);
     expect(result.current.session.correctAnswers).toBe(1);
     vi.useRealTimers();
 
@@ -131,7 +144,7 @@ describe("useSoloSession", () => {
     const { result: incResult } = await initializeSession(1);
     vi.useFakeTimers();
     act(() => incResult.current.handleIncorrect());
-    expect(incResult.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(incResult.current.session.itemStates.get(0)?.masteryLevel).toBe(0);
     expect(incResult.current.session.correctAnswers).toBe(0);
     expect(incResult.current.feedbackAnswer).toBe("hola");
     vi.useRealTimers();
@@ -152,7 +165,7 @@ describe("useSoloSession", () => {
     // Correct answer → mastery 2
     vi.useFakeTimers();
     act(() => result.current.handleCorrect());
-    expect(result.current.session.wordStates.get(0)?.masteryLevel).toBe(2);
+    expect(result.current.session.itemStates.get(0)?.masteryLevel).toBe(2);
     expect(result.current.session.correctAnswers).toBe(1);
     vi.useRealTimers();
 
@@ -160,9 +173,38 @@ describe("useSoloSession", () => {
     const { result: incResult } = await initializeSession(1);
     vi.useFakeTimers();
     act(() => incResult.current.handleIncorrect());
-    expect(incResult.current.session.wordStates.get(0)?.masteryLevel).toBe(0);
+    expect(incResult.current.session.itemStates.get(0)?.masteryLevel).toBe(0);
     expect(incResult.current.session.correctAnswers).toBe(0);
     expect(incResult.current.feedbackAnswer).toBe("hello");
+    vi.useRealTimers();
+  });
+
+  it("completes a two-word sentence after recognition then a full build", async () => {
+    const { result } = await initializeSession(0, shortSentence);
+
+    expect(result.current.currentItem?.kind).toBe("sentence");
+    // Level 0 is the recognition rung, mirroring word Level 0.
+    expect(result.current.session.questionLevel).toBe(0);
+
+    vi.useFakeTimers();
+
+    // "Got it" at recognition climbs to the build rung without completing.
+    act(() => result.current.handleCorrect());
+    expect(result.current.session.itemStates.get(0)?.masteryLevel).toBe(1);
+    expect(result.current.session.itemStates.get(0)?.completedMaxLevel).toBe(false);
+    expect(result.current.masteredCount).toBe(0);
+
+    // Auto-advance to the next question, now the full-build level.
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    expect(result.current.session.questionLevel).toBe(1);
+
+    // Building the whole sentence completes the item.
+    act(() => result.current.handleCorrect());
+    expect(result.current.session.itemStates.get(0)?.completedMaxLevel).toBe(true);
+    expect(result.current.masteredCount).toBe(1);
+
     vi.useRealTimers();
   });
 });

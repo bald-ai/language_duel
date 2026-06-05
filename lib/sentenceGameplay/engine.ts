@@ -11,7 +11,12 @@
 
 import { hashSeed, seededShuffle } from "../prng";
 import { normalizeForComparison } from "../stringUtils";
-import { tokenizeSpanishSentence } from "../themes/sentenceValidation";
+import {
+  normalizeSentenceFreeWordPositions,
+  normalizeSentenceWordMeanings,
+  tokenizeSpanishSentence,
+} from "../themes/sentenceValidation";
+import { SENTENCE_WORD_MEANING_PLACEHOLDER } from "../themes/sentenceConstants";
 import type {
   SentenceQuestionSnapshot,
   SentenceRoundResult,
@@ -25,8 +30,10 @@ import type {
 export function buildSentenceQuestionSnapshot(args: {
   englishPrompt: string;
   spanishSentence: string;
+  wordMeanings?: string[];
+  freeWordPositions?: number[];
   distractors: string[];
-  /** Index into wordOrder — used as the seed namespace. */
+  /** Index into itemOrder — used as the seed namespace. */
   questionIndex: number;
   /**
    * How many of the stored decoys to actually show (decision: sentence
@@ -39,6 +46,13 @@ export function buildSentenceQuestionSnapshot(args: {
   distractorCount?: number;
 }): SentenceQuestionSnapshot {
   const correctTokens = tokenizeSpanishSentence(args.spanishSentence);
+  const wordMeanings = normalizeSentenceWordMeanings(
+    args.spanishSentence,
+    args.wordMeanings
+  );
+  const freeWordPositionSet = new Set(
+    normalizeSentenceFreeWordPositions(args.spanishSentence, args.freeWordPositions)
+  );
 
   const shownDistractors =
     args.distractorCount === undefined
@@ -48,13 +62,29 @@ export function buildSentenceQuestionSnapshot(args: {
           hashSeed(`sentence::${args.spanishSentence}::${args.questionIndex}::distractors`)
         ).slice(0, Math.min(Math.max(args.distractorCount, 0), args.distractors.length));
 
-  const tiles = [...correctTokens, ...shownDistractors];
+  const tiles = [
+    ...correctTokens.map((text, tokenIndex) => {
+      const meaning = wordMeanings[tokenIndex]?.trim();
+      return {
+        text,
+        meaning:
+          freeWordPositionSet.has(tokenIndex) &&
+          meaning &&
+          meaning !== SENTENCE_WORD_MEANING_PLACEHOLDER
+            ? meaning
+            : null,
+      };
+    }),
+    ...shownDistractors.map((text) => ({ text, meaning: null })),
+  ];
   const seed = hashSeed(`sentence::${args.spanishSentence}::${args.questionIndex}`);
+  const shuffledTiles = seededShuffle(tiles, seed);
   return {
     kind: "sentence",
     englishPrompt: args.englishPrompt,
     spanishSentence: args.spanishSentence,
-    tilePool: seededShuffle(tiles, seed),
+    tilePool: shuffledTiles.map((tile) => tile.text),
+    tileMeanings: shuffledTiles.map((tile) => tile.meaning),
   };
 }
 

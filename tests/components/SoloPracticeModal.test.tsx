@@ -29,6 +29,12 @@ const themes = [
     contentType: "word" as const,
     itemCount: 1,
   },
+  {
+    _id: "theme_3" as Id<"themes">,
+    name: "Sentence Drills",
+    contentType: "sentence" as const,
+    itemCount: 2,
+  },
 ];
 
 function renderSoloPracticeModal(
@@ -83,5 +89,16 @@ describe("SoloPracticeModal Solo Practice mode", () => {
     expect(screen.getByText("Snapshot practice notice")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("theme-selector-confirm"));
     expect(screen.queryByText("Snapshot practice notice")).not.toBeInTheDocument();
+  });
+
+  it("summarizes selected mixed decks as items", () => {
+    renderSoloPracticeModal({
+      forceThemeSelectorFirst: true,
+      initialDraftThemeIds: ["theme_1" as Id<"themes">, "theme_3" as Id<"themes">],
+    });
+
+    fireEvent.click(screen.getByTestId("theme-selector-confirm"));
+
+    expect(screen.getByText("3 items total")).toBeInTheDocument();
   });
 });

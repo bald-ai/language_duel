@@ -51,6 +51,8 @@ const sentenceRounds: SentenceRoundInput[] = [
   {
     englishPrompt: "The cat sleeps",
     spanishSentence: "El gato duerme",
+    wordMeanings: ["the", "cat", "sleeps"],
+    freeWordPositions: [1],
     distractors: ["come", "corre", "salta"],
     ttsStorageId: "storage_1" as Id<"_storage">,
   },
@@ -103,5 +105,115 @@ describe("useSentenceThemeController TTS generation guard", () => {
     );
     expect(mocks.generateThemeTTS).not.toHaveBeenCalled();
     expect(mocks.convexQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe("useSentenceThemeController cancel", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+  });
+
+  it("closes immediately without the confirm modal when nothing changed", () => {
+    const onAfterCancel = vi.fn();
+    const { result } = renderHook(() =>
+      useSentenceThemeController({
+        onAfterCancel,
+        onAfterSave: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.openSavedTheme(makeSavedSentenceTheme());
+    });
+    act(() => {
+      result.current.handleCancel();
+    });
+
+    expect(result.current.showDiscardConfirm).toBe(false);
+    expect(onAfterCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the confirm modal when there are unsaved edits", () => {
+    const onAfterCancel = vi.fn();
+    const { result } = renderHook(() =>
+      useSentenceThemeController({
+        onAfterCancel,
+        onAfterSave: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.openSavedTheme(makeSavedSentenceTheme());
+    });
+    act(() => {
+      result.current.handleThemeNameChange("RENAMED ANIMALS");
+    });
+    act(() => {
+      result.current.handleCancel();
+    });
+
+    expect(result.current.showDiscardConfirm).toBe(true);
+    expect(onAfterCancel).not.toHaveBeenCalled();
+  });
+});
+
+describe("useSentenceThemeController free words", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+  });
+
+  it("toggles repeated Spanish words together", () => {
+    const repeatedTheme = makeSavedSentenceTheme({
+      sentenceRounds: [
+        {
+          englishPrompt: "that I want that",
+          spanishSentence: "que quiero que",
+          wordMeanings: ["that", "I want", "that"],
+          freeWordPositions: [],
+          distractors: ["pero", "cuando", "porque"],
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useSentenceThemeController({
+        onAfterCancel: vi.fn(),
+        onAfterSave: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.openSavedTheme(repeatedTheme);
+    });
+    act(() => {
+      result.current.handleToggleFreeWord(0, 0);
+    });
+
+    expect(result.current.localRounds[0]?.freeWordPositions).toEqual([0, 2]);
+  });
+
+  it("clears free picks and placeholders meanings when the Spanish words change", () => {
+    const { result } = renderHook(() =>
+      useSentenceThemeController({
+        onAfterCancel: vi.fn(),
+        onAfterSave: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.openSavedTheme(makeSavedSentenceTheme());
+    });
+    act(() => {
+      result.current.handleEditField(0, "spanish");
+    });
+    act(() => {
+      result.current.handleEditFieldSave("El perro corre");
+    });
+
+    expect(result.current.localRounds[0]?.wordMeanings).toEqual([
+      "placeholder",
+      "placeholder",
+      "placeholder",
+    ]);
+    expect(result.current.localRounds[0]?.freeWordPositions).toEqual([]);
   });
 });

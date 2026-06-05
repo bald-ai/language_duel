@@ -1,6 +1,6 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import type { buildSessionWords } from "../../lib/sessionWords";
+import type { buildSessionItems } from "../../lib/sessionItems";
 
 export type { UserSummary } from "../helpers/userSummary";
 
@@ -11,7 +11,7 @@ export type SpacedRepetitionCompletion = "solo_practice" | "duel";
 export type LoadedSnapshotContent =
   | {
       ok: true;
-      sessionWords: ReturnType<typeof buildSessionWords>;
+      sessionItems: ReturnType<typeof buildSessionItems>;
       themeCount: number;
       wordCount: number;
       themeSummary: string;

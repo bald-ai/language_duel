@@ -250,9 +250,7 @@ export default function Home() {
 
       {lobby.showSoloPracticeModal && (
         <SoloPracticeModal
-          // Solo is word-only today; filter sentence themes out at the picker
-          // so the user can't pick a theme the solo loader would reject.
-          themes={lobby.themes?.filter((theme) => theme.contentType !== "sentence")}
+          themes={lobby.themes}
           onContinue={lobby.handleContinueSoloPractice}
           onClose={handleCloseSoloPracticeModal}
           onNavigateToThemes={lobby.navigateToThemes}

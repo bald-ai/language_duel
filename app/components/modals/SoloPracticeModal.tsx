@@ -192,7 +192,7 @@ export function SoloPracticeModal({
             </div>
             {selectedThemes.length > 0 && (
               <div className="text-xs mt-1" style={{ color: colors.text.muted }}>
-                {selectedThemes.reduce((total, theme) => total + theme.itemCount, 0)} words total
+                {selectedThemes.reduce((total, theme) => total + theme.itemCount, 0)} items total
               </div>
             )}
           </div>

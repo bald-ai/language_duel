@@ -22,6 +22,20 @@ export function areSentenceRoundsEqual(
       return false;
     }
 
+    const leftMeanings = leftRound.wordMeanings ?? [];
+    const rightMeanings = rightRound.wordMeanings ?? [];
+    if (leftMeanings.length !== rightMeanings.length) return false;
+    for (let j = 0; j < leftMeanings.length; j += 1) {
+      if (leftMeanings[j] !== rightMeanings[j]) return false;
+    }
+
+    const leftFreePositions = leftRound.freeWordPositions ?? [];
+    const rightFreePositions = rightRound.freeWordPositions ?? [];
+    if (leftFreePositions.length !== rightFreePositions.length) return false;
+    for (let j = 0; j < leftFreePositions.length; j += 1) {
+      if (leftFreePositions[j] !== rightFreePositions[j]) return false;
+    }
+
     if (leftRound.distractors.length !== rightRound.distractors.length) return false;
     for (let j = 0; j < leftRound.distractors.length; j += 1) {
       if (leftRound.distractors[j] !== rightRound.distractors[j]) return false;

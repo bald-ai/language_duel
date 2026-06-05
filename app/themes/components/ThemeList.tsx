@@ -79,7 +79,7 @@ const ThemeCard = memo(function ThemeCard({
   const visibilityLabel = theme.visibility === "shared" ? "Shared" : "Private";
   const isSentence = isSentenceTheme(theme);
   const itemLabel = isSentence
-    ? `${itemCount} ${itemCount === 1 ? "round" : "rounds"}`
+    ? `${itemCount} ${itemCount === 1 ? "sentence" : "sentences"}`
     : `${itemCount} words`;
 
   const ownerInfo =
@@ -141,7 +141,7 @@ const ThemeCard = memo(function ThemeCard({
             className="text-xs tracking-wide mt-0.5"
             style={{ color: colors.text.muted }}
           >
-            {itemLabel} • {categoryLabel} • {visibilityLabel}{ownerInfo}
+            {itemLabel} • {visibilityLabel}{ownerInfo}
             {" • "}
             <span
               style={{
@@ -162,7 +162,7 @@ const ThemeCard = memo(function ThemeCard({
             style={isSentence ? sentenceBadgeStyle : wordBadgeStyle}
             data-testid={`theme-content-type-badge-${theme._id}`}
           >
-            {isSentence ? "Sentence" : "Word"}
+            {categoryLabel}
           </span>
           <ThemeCardMenu
             themeId={theme._id}

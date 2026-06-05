@@ -1,7 +1,7 @@
 import type { Doc } from "@/convex/_generated/dataModel";
 
 type RawDuelQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
-type RawSessionItem = Doc<"duels">["sessionWords"][number];
+type RawSessionItem = Doc<"duels">["sessionItems"][number];
 
 /**
  * A duel question as seen through the viewer-safe `getDuel` DTO: the base

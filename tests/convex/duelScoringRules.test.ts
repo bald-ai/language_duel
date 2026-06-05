@@ -14,7 +14,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         word: "cat",
         answer: "gato",
@@ -34,7 +34,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0],
+    itemOrder: [0],
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,

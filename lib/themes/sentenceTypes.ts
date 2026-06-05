@@ -2,8 +2,9 @@
  * Pure types for sentence themes. Sentence themes are the second theme content
  * type alongside word themes (see `wordTypes.ts`). A sentence round is the
  * editable source the user authors: an English prompt, the canonical Spanish
- * sentence, and 3 single-word distractors. Gameplay tokenizes the Spanish
- * sentence on whitespace to build the tile pool.
+ * sentence, per-word English meanings, free-word picks, and 3 single-word
+ * distractors. Gameplay tokenizes the Spanish sentence on whitespace to build
+ * the tile pool.
  */
 
 import type { Id } from "../types";
@@ -16,6 +17,18 @@ import type { Id } from "../types";
 export interface SentenceRoundInput {
   englishPrompt: string;
   spanishSentence: string;
+  /**
+   * One short English meaning per Spanish token, aligned to
+   * `tokenizeSpanishSentence(spanishSentence)`. Create/update normalizes
+   * missing or blank entries to the Spanish token while async generation
+   * refreshes better in-context meanings.
+   */
+  wordMeanings?: string[];
+  /**
+   * Token indices the author gives away for learners. Repeated matching tokens
+   * in one sentence are normalized as a group.
+   */
+  freeWordPositions?: number[];
   distractors: string[];
   /**
    * Pre-generated TTS audio for the canonical `spanishSentence` (theme editor

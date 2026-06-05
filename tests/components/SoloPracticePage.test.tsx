@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import SoloPracticePage from "@/app/solo/[sessionId]/page";
 
 const pushMock = vi.fn();
@@ -25,6 +25,7 @@ vi.mock("@/convex/_generated/api", () => ({
   api: {
     weeklyGoals: {
       getBossPracticeSession: "getBossPracticeSession",
+      getWeeklyGoalPracticeThemes: "getWeeklyGoalPracticeThemes",
     },
     weeklyGoalRepetitions: {
       completeSolo: "completeSolo",
@@ -83,9 +84,11 @@ type SessionMock = {
   initialized: boolean;
   activePool: number[];
   remainingPool: number[];
-  wordStates: Map<number, unknown>;
+  itemStates: Map<number, unknown>;
   lastQuestionIndex: number | null;
-  currentWordIndex: number | null;
+  lastItemIndex: number | null;
+  currentItemIndex: number | null;
+  questionKey: number;
   questionLevel: 0 | 1 | 2 | 3;
   translationDirection: "forward" | "reverse";
   level2Mode: "typing" | "multiple_choice";
@@ -104,14 +107,26 @@ type HookReturnMock = {
   handleIncorrect: ReturnType<typeof vi.fn>;
   handleLevel0GotIt: ReturnType<typeof vi.fn>;
   handleLevel0NotYet: ReturnType<typeof vi.fn>;
-  currentWord: {
-    kind: "word";
-    word: string;
-    answer: string;
-    wrongAnswers: string[];
-    themeId: string;
-    themeName: string;
-  } | null;
+  currentItem:
+    | {
+        kind: "word";
+        word: string;
+        answer: string;
+        wrongAnswers: string[];
+        themeId: string;
+        themeName: string;
+      }
+    | {
+        kind: "sentence";
+        englishPrompt: string;
+        spanishSentence: string;
+        wordMeanings: string[];
+        freeWordPositions: number[];
+        distractors: string[];
+        themeId: string;
+        themeName: string;
+      }
+    | null;
   masteredCount: number;
 };
 
@@ -127,9 +142,11 @@ function createBaseSession(): SessionMock {
     initialized: true,
     activePool: [0],
     remainingPool: [],
-    wordStates: new Map(),
+    itemStates: new Map(),
     lastQuestionIndex: null,
-    currentWordIndex: 0,
+    lastItemIndex: null,
+    currentItemIndex: 0,
+    questionKey: 0,
     questionLevel: 1 as const,
     translationDirection: "forward" as const,
     level2Mode: "typing" as const,
@@ -157,7 +174,7 @@ function createBaseHookReturn(): HookReturnMock {
     handleIncorrect: vi.fn(),
     handleLevel0GotIt: vi.fn(),
     handleLevel0NotYet: vi.fn(),
-    currentWord: {
+    currentItem: {
       kind: "word" as const, word: "cat",
       answer: "gato",
       wrongAnswers: ["perro", "casa", "mesa"],
@@ -188,7 +205,7 @@ describe("SoloPracticePage", () => {
           questionLevel: 1,
           translationDirection: "reverse",
         }),
-        currentWord: {
+        currentItem: {
           kind: "word" as const, word: "to speak",
           answer: "hablar (Irr)",
           wrongAnswers: ["comer", "beber", "vivir"],
@@ -226,14 +243,14 @@ describe("SoloPracticePage", () => {
     });
     useSoloSessionMock.mockReturnValue(
       createHookReturn({
-        session: buildSessionState({ initialized: false, currentWordIndex: null }),
-        currentWord: null,
+        session: buildSessionState({ initialized: false, currentItemIndex: null }),
+        currentItem: null,
       })
     );
 
     render(<SoloPracticePage />);
 
-    expect(screen.getByText("This theme has no words to practice")).toBeInTheDocument();
+    expect(screen.getByText("This selection has no items to practice")).toBeInTheDocument();
     expect(screen.getByTestId("solo-practice-back-home")).toHaveTextContent("Back to Home");
     expect(screen.queryByText("Preparing your next question...")).not.toBeInTheDocument();
   });
@@ -256,6 +273,137 @@ describe("SoloPracticePage", () => {
     expect(screen.queryByTestId("solo-practice-level2-typing")).not.toBeInTheDocument();
   });
 
+  it("renders the recognition card for a Level 0 sentence", () => {
+    useSoloSessionMock.mockReturnValue(
+      createHookReturn({
+        session: buildSessionState({
+          questionLevel: 0,
+          translationDirection: "forward",
+        }),
+        currentItem: {
+          kind: "sentence",
+          englishPrompt: "I eat",
+          spanishSentence: "Yo como",
+          wordMeanings: ["I", "eat"],
+          freeWordPositions: [1],
+          distractors: ["bebo", "leo", "duermo"],
+          themeId: "theme_1",
+          themeName: "Basics",
+        },
+      })
+    );
+
+    render(<SoloPracticePage />);
+
+    expect(screen.getByTestId("solo-practice-sentence")).toBeInTheDocument();
+    // Level 0 mirrors word Level 0: the whole sentence is shown for recognition,
+    // not a cloze to fill.
+    expect(screen.getByTestId("solo-practice-level0")).toHaveTextContent("I eat:Yo como");
+    expect(screen.queryByTestId("solo-practice-sentence-bank")).not.toBeInTheDocument();
+  });
+
+  it("renders the sentence cloze card for a Level 1+ sentence", () => {
+    useSoloSessionMock.mockReturnValue(
+      createHookReturn({
+        session: buildSessionState({
+          questionLevel: 1,
+          translationDirection: "forward",
+        }),
+        currentItem: {
+          kind: "sentence",
+          englishPrompt: "I eat",
+          spanishSentence: "Yo como",
+          wordMeanings: ["I", "eat"],
+          freeWordPositions: [1],
+          distractors: ["bebo", "leo", "duermo"],
+          themeId: "theme_1",
+          themeName: "Basics",
+        },
+      })
+    );
+
+    render(<SoloPracticePage />);
+
+    expect(screen.getByTestId("solo-practice-sentence")).toBeInTheDocument();
+    expect(screen.getByTestId("solo-practice-sentence-cue")).toHaveTextContent("I eat");
+    expect(screen.getByTestId("solo-practice-sentence-bank")).toBeInTheDocument();
+    expect(screen.queryByTestId("solo-practice-level0")).not.toBeInTheDocument();
+  });
+
+  it("keeps a completed sentence cloze locked while waiting to advance", () => {
+    let hookReturn = createHookReturn({
+      session: buildSessionState({
+        questionLevel: 1,
+        translationDirection: "forward",
+      }),
+      currentItem: {
+        kind: "sentence",
+        englishPrompt: "I eat",
+        spanishSentence: "Yo como",
+        wordMeanings: ["I", "eat"],
+        freeWordPositions: [],
+        distractors: ["bebo", "leo", "duermo"],
+        themeId: "theme_1",
+        themeName: "Basics",
+      },
+    });
+    useSoloSessionMock.mockImplementation(() => hookReturn);
+
+    const { rerender } = render(<SoloPracticePage />);
+
+    fireEvent.click(screen.getByTestId("solo-practice-sentence-chip-0"));
+    fireEvent.click(screen.getByTestId("solo-practice-sentence-chip-1"));
+    expect(hookReturn.handleCorrect).toHaveBeenCalledTimes(1);
+
+    hookReturn = createHookReturn({
+      ...hookReturn,
+      session: buildSessionState({
+        questionLevel: 1,
+        translationDirection: "forward",
+        questionsAnswered: 1,
+      }),
+    });
+    rerender(<SoloPracticePage />);
+
+    expect(screen.getByTestId("solo-practice-sentence-chip-0")).toBeDisabled();
+    expect(screen.getByTestId("solo-practice-sentence-chip-1")).toBeDisabled();
+  });
+
+  it("places a sentence chip with arrow-key navigation and Enter", () => {
+    useSoloSessionMock.mockReturnValue(
+      createHookReturn({
+        session: buildSessionState({
+          questionLevel: 1,
+          translationDirection: "forward",
+        }),
+        currentItem: {
+          kind: "sentence",
+          englishPrompt: "I eat",
+          spanishSentence: "Yo como",
+          wordMeanings: ["I", "eat"],
+          freeWordPositions: [],
+          distractors: ["bebo", "leo", "duermo"],
+          themeId: "theme_1",
+          themeName: "Basics",
+        },
+      })
+    );
+
+    render(<SoloPracticePage />);
+
+    // The first blank expects "Yo" (rendered lowercase as "yo" on the tiles).
+    // Find that chip's position in the bank (the bank order is shuffled), arrow
+    // over to it, then Enter to place it.
+    const chips = screen.getAllByTestId(/^solo-practice-sentence-chip-\d+$/);
+    const yoIndex = chips.findIndex((chip) => chip.textContent?.includes("yo"));
+    for (let step = 0; step < yoIndex; step += 1) {
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+    }
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    expect(screen.getByTestId("solo-practice-sentence-blank-0")).toHaveTextContent("yo");
+  });
+
   it("shows the English answer in wrong-answer feedback for reverse Level 1", () => {
     useSoloSessionMock.mockReturnValue(
       createHookReturn({
@@ -265,7 +413,7 @@ describe("SoloPracticePage", () => {
         }),
         showFeedback: true,
         feedbackAnswer: "to speak",
-        currentWord: {
+        currentItem: {
           kind: "word" as const, word: "to speak",
           answer: "hablar (Irr)",
           wrongAnswers: ["comer", "beber", "vivir"],

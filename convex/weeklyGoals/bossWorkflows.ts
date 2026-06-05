@@ -4,7 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { DuelMode } from "../../lib/duelMode";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { shuffleArray } from "../helpers/shuffle";
-import { loadThemesByIds, summarizeSessionWords } from "../helpers/sessionWords";
+import { loadThemesByIds, summarizeSessionItems } from "../helpers/sessionItems";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
 import { buildChallengeInvite, buildSoloPracticeSession } from "../helpers/sessionCreation";
 import { assertRelayUnavailable, assertTbtUnavailable } from "../rules/duelModeGuards";
@@ -15,7 +15,7 @@ import {
   createChallengeInviteNotificationAndEmail,
   upsertWeeklyGoalNotificationForGoal,
 } from "../notificationHelpers";
-import { buildSessionWords } from "../../lib/sessionWords";
+import { buildSessionItems } from "../../lib/sessionItems";
 import {
   getEffectiveBigBossStatus,
   getEffectiveMiniBossStatus,
@@ -41,14 +41,14 @@ export function getEligibleThemeIdsForBoss(
   return goal.themes.map((t) => t.themeId);
 }
 
-export function buildBossSessionWords(themes: Awaited<ReturnType<typeof loadThemesByIds>>) {
-  const fullSessionWords = buildSessionWords(themes);
+export function buildBossSessionItems(themes: Awaited<ReturnType<typeof loadThemesByIds>>) {
+  const fullSessionItems = buildSessionItems(themes);
 
-  if (fullSessionWords.length === 0) {
+  if (fullSessionItems.length === 0) {
     throw new ConvexError({ code: "INTERNAL_ERROR", message: "No boss words are available for this goal" });
   }
 
-  return shuffleArray(fullSessionWords);
+  return shuffleArray(fullSessionItems);
 }
 
 export async function loadGoalThemesForBoss(
@@ -101,8 +101,8 @@ export async function validateAndPrepareBoss(
       message: "This goal has no word themes to practice. Sentence themes aren't supported in solo yet.",
     });
   }
-  const sessionWords = buildBossSessionWords(playableThemes);
-  return { user, goal, isCreator, now, sessionWords };
+  const sessionItems = buildBossSessionItems(playableThemes);
+  return { user, goal, isCreator, now, sessionItems };
 }
 
 export async function handleCreateBossChallenge(
@@ -114,7 +114,7 @@ export async function handleCreateBossChallenge(
   assertRelayUnavailable(duelMode, "boss duels");
   assertTbtUnavailable(duelMode, "boss duels");
 
-  const { user, goal, isCreator, now, sessionWords } =
+  const { user, goal, isCreator, now, sessionItems } =
     await validateAndPrepareBoss(ctx, goalId, bossType);
 
   if (goal.mode === "solo") {
@@ -170,7 +170,7 @@ export async function handleCreateBossChallenge(
     challengerId: user._id,
     opponentId,
     challengeId,
-    themeName: `${getBossLabel(bossType)}: ${summarizeSessionWords(sessionWords)}`,
+    themeName: `${getBossLabel(bossType)}: ${summarizeSessionItems(sessionItems)}`,
     duelDifficultyPreset: challengeInvite.duelDifficultyPreset,
     duelMode: challengeInvite.duelMode,
     createdAt: now,
@@ -184,14 +184,14 @@ export async function handleStartBossSoloPractice(
   goalId: Id<"weeklyGoals">,
   bossType: "mini" | "big"
 ) {
-  const { user, now, sessionWords } =
+  const { user, now, sessionItems } =
     await validateAndPrepareBoss(ctx, goalId, bossType, {
       excludeSentenceThemes: true,
     });
 
   return await ctx.db.insert("soloPracticeSessions", buildSoloPracticeSession({
     userId: user._id,
-    sessionWords,
+    sessionItems,
     sourceType: "boss",
     weeklyGoalId: goalId,
     bossType,
@@ -325,4 +325,4 @@ export async function handleCompleteBossSoloPractice(
   return { completed: true };
 }
 
-export { summarizeSessionWords };
+export { summarizeSessionItems };

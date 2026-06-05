@@ -1,49 +1,49 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  getSessionWords,
-  summarizeSessionWords,
-} from "@/convex/helpers/sessionWords";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+  getSessionItems,
+  summarizeSessionItems,
+} from "@/convex/helpers/sessionItems";
+import type { SessionWordItem } from "@/lib/sessionItems";
 
 const themeId = (id: string) => id as Id<"themes">;
 
-const sampleWords: SessionWordEntry[] = [
+const sampleWords: SessionWordItem[] = [
   { kind: "word" as const, word: "cat", answer: "gato", wrongAnswers: ["perro"], themeId: themeId("t1"), themeName: "Animals" },
   { kind: "word" as const, word: "bread", answer: "pan", wrongAnswers: ["agua"], themeId: themeId("t2"), themeName: "Food" },
   { kind: "word" as const, word: "dog", answer: "perro", wrongAnswers: ["gato"], themeId: themeId("t1"), themeName: "Animals" },
 ];
 
-describe("getSessionWords", () => {
-  it("returns sessionWords when present", () => {
-    const result = getSessionWords({ sessionWords: sampleWords });
+describe("getSessionItems", () => {
+  it("returns sessionItems when present", () => {
+    const result = getSessionItems({ sessionItems: sampleWords });
     expect(result).toEqual(sampleWords);
   });
 
-  it("throws when sessionWords is empty", () => {
-    expect(() => getSessionWords({ sessionWords: [] })).toThrow(
+  it("throws when sessionItems is empty", () => {
+    expect(() => getSessionItems({ sessionItems: [] })).toThrow(
       "Session is missing words"
     );
   });
 
-  it("throws when sessionWords is undefined", () => {
+  it("throws when sessionItems is undefined", () => {
     expect(() =>
-      getSessionWords({ sessionWords: undefined } as never)
+      getSessionItems({ sessionItems: undefined } as never)
     ).toThrow("Session is missing words");
   });
 });
 
-describe("summarizeSessionWords", () => {
+describe("summarizeSessionItems", () => {
   it("summarizes single-theme words", () => {
     const words = sampleWords.filter((w) => w.themeName === "Animals");
-    expect(summarizeSessionWords(words)).toBe("Animals");
+    expect(summarizeSessionItems(words)).toBe("Animals");
   });
 
   it("summarizes multi-theme words", () => {
-    expect(summarizeSessionWords(sampleWords)).toBe("2 themes");
+    expect(summarizeSessionItems(sampleWords)).toBe("2 themes");
   });
 
   it("returns 'Theme' for empty array", () => {
-    expect(summarizeSessionWords([])).toBe("Theme");
+    expect(summarizeSessionItems([])).toBe("Theme");
   });
 });

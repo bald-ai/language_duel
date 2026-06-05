@@ -147,7 +147,7 @@ export function buildFinalCompletionPatch(
 ): Partial<Doc<"duels">> {
   // Clamp the post-completion index to the last real position. Callers pass
   // `nextWordIndex` one past the end (the would-be next round); leaving it that
-  // way puts `currentWordIndex` out of `duelQuestions`/`wordOrder` and the
+  // way puts `currentWordIndex` out of `duelQuestions`/`itemOrder` and the
   // client narrowing on the completed-state final-results screen then crashes
   // when the last position is a sentence (no word question to narrow to).
   const lastRealIndex = Math.max(0, nextWordIndex - 1);

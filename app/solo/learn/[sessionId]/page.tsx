@@ -8,6 +8,7 @@ import {
   shouldShowSoloLearnTimer,
 } from "@/lib/soloLearnTimer";
 import { SoloLearnWordRow } from "./components/SoloLearnWordRow";
+import { SentenceStudyCard } from "./components/SentenceStudyCard";
 import { SetAllDropdown } from "./components/SetAllDropdown";
 import { CONFIDENCE_COLORS } from "./components/ConfidenceSlider";
 import { useSoloLearnState, DEFAULT_HINT_STATE } from "./hooks/useSoloLearnState";
@@ -25,6 +26,7 @@ import { SoloStatusScreen } from "@/app/solo/components/SoloStatusScreen";
 import { SoloPageShell } from "@/app/solo/components/SoloPageShell";
 import { SoloExitButton } from "@/app/solo/components/SoloExitButton";
 import { SoloHeader } from "@/app/solo/components/SoloHeader";
+import { sentenceItemMaxLevel } from "@/lib/soloSentenceRuntime";
 
 const toggleButtonClassName =
   "px-4 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold uppercase tracking-widest transition hover:brightness-110";
@@ -74,7 +76,7 @@ export default function LearnPhasePage() {
   const {
     status,
     statusMessage,
-    sessionWords,
+    sessionItems,
     themeSummary,
     requestedThemeIds,
     soloPracticeSessionId,
@@ -103,7 +105,6 @@ export default function LearnPhasePage() {
   const {
     hintStates,
     isAllRevealed,
-    confidenceLevels,
     isConfidenceLegendDismissed,
     isSetAllOpen,
     setIsSetAllOpen,
@@ -112,10 +113,11 @@ export default function LearnPhasePage() {
     setConfidence,
     revealLetter,
     revealFullWord,
+    revealAllPositions,
     resetWord,
     toggleRevealAll,
     setAllConfidence,
-  } = useSoloLearnState({ sessionWords, sessionSourceKey, sessionId });
+  } = useSoloLearnState({ sessionItems, sessionSourceKey, sessionId });
 
   const { timeRemaining, timerStyle } = useSoloLearnTimer(initialDuration, isSessionReady);
 
@@ -129,32 +131,21 @@ export default function LearnPhasePage() {
     return Number.isNaN(parsed) ? null : parsed;
   }, [playingWordKey]);
 
-  // Auto-advance to practice when the study timer runs out.
-  useEffect(() => {
-    if (timeRemaining === 0 && isSessionReady) {
-      const urlParams = buildSoloSearchParams({
-        soloPracticeSessionId,
-        weeklyGoalId,
-        themeIds: requestedThemeIds,
-        returnTo,
-        returnLabel,
-      });
-      router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-    }
-  }, [timeRemaining, isSessionReady, router, sessionId, requestedThemeIds, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
+  // Both word and sentence cards support hide/reveal, so the bulk Reveal All
+  // control shows for any non-empty deck (matches the sentence study mock).
+  const hasRevealableItems = sessionItems.length > 0;
 
-  const playWordTTS = useCallback(
-    (wordIndex: number, spanishWord: string, storageId?: string, themeId?: string) => {
-      void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId, themeId });
-    },
-    [playTTS]
+  const hasMultipleThemes = useMemo(
+    () => new Set(sessionItems.map((item) => String(item.themeId))).size > 1,
+    [sessionItems]
   );
 
-  const handleSkip = useCallback(() => {
-    const confidenceByWordIndex: Record<number, number> = {};
-    sessionWords.forEach((_, wordIndex) => {
-      const wordKey = `${sessionSourceKey}-${wordIndex}`;
-      confidenceByWordIndex[wordIndex] = getConfidence(wordKey);
+  const buildPracticeUrl = useCallback(() => {
+    const confidenceByItemIndex: Record<number, number> = {};
+    sessionItems.forEach((item, itemIndex) => {
+      const itemKey = `${sessionSourceKey}-${itemIndex}`;
+      const maxLevel = item.kind === "sentence" ? sentenceItemMaxLevel(item) : 3;
+      confidenceByItemIndex[itemIndex] = getConfidence(itemKey, maxLevel);
     });
 
     const urlParams = buildSoloSearchParams({
@@ -164,10 +155,38 @@ export default function LearnPhasePage() {
       returnTo,
       returnLabel,
     });
-    urlParams.set("confidence", encodeConfidenceParam(confidenceByWordIndex));
+    urlParams.set("confidence", encodeConfidenceParam(confidenceByItemIndex));
 
-    router.push(`/solo/${sessionId}?${urlParams.toString()}`);
-  }, [sessionWords, sessionSourceKey, requestedThemeIds, getConfidence, router, sessionId, soloPracticeSessionId, weeklyGoalId, returnTo, returnLabel]);
+    return `/solo/${sessionId}?${urlParams.toString()}`;
+  }, [
+    getConfidence,
+    requestedThemeIds,
+    returnLabel,
+    returnTo,
+    sessionId,
+    sessionItems,
+    sessionSourceKey,
+    soloPracticeSessionId,
+    weeklyGoalId,
+  ]);
+
+  // Auto-advance to practice when the study timer runs out.
+  useEffect(() => {
+    if (timeRemaining === 0 && isSessionReady) {
+      router.push(buildPracticeUrl());
+    }
+  }, [buildPracticeUrl, timeRemaining, isSessionReady, router]);
+
+  const playWordTTS = useCallback(
+    (wordIndex: number, spanishWord: string, storageId?: string, themeId?: string) => {
+      void playTTS(`solo-learn-${wordIndex}`, spanishWord, { storageId, themeId });
+    },
+    [playTTS]
+  );
+
+  const handleSkip = useCallback(() => {
+    router.push(buildPracticeUrl());
+  }, [buildPracticeUrl, router]);
 
   const handleExit = useCallback(() => router.push(returnTo), [router, returnTo]);
 
@@ -223,15 +242,17 @@ export default function LearnPhasePage() {
           )}
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={toggleRevealAll}
-              className={`${toggleButtonClassName} min-w-[10rem]`}
-              style={isAllRevealed ? toggleActiveStyle : toggleInactiveStyle}
-              data-testid="solo-learn-toggle-reveal-all"
-            >
-              {isAllRevealed ? "Hide All" : "Reveal All"}
-            </button>
+            {hasRevealableItems && (
+              <button
+                type="button"
+                onClick={toggleRevealAll}
+                className={`${toggleButtonClassName} min-w-[10rem]`}
+                style={isAllRevealed ? toggleActiveStyle : toggleInactiveStyle}
+                data-testid="solo-learn-toggle-reveal-all"
+              >
+                {isAllRevealed ? "Hide All" : "Reveal All"}
+              </button>
+            )}
             <div className="relative">
               {/*
                 SetAllDropdown closes on any document `pointerdown` outside it.
@@ -284,7 +305,7 @@ export default function LearnPhasePage() {
                       <div className="flex-1" style={{ backgroundColor: CONFIDENCE_COLORS[3] }} />
                     </div>
                     <div className="max-w-[520px] flex-1 text-sm leading-snug" style={{ color: colors.text.muted }}>
-                      Confidence sets the starting practice level (0 quick check {"->"} 3 no hints).
+                      Confidence sets the starting practice level.
                     </div>
                     <button
                       type="button"
@@ -301,27 +322,58 @@ export default function LearnPhasePage() {
               </div>
             )}
 
-            {sessionWords.map((word, originalIndex) => {
-              const wordKey = `${sessionSourceKey}-${originalIndex}`;
-              const hintState = hintStates[wordKey] || DEFAULT_HINT_STATE;
-              const confidence = confidenceLevels[wordKey] ?? 0;
+            {sessionItems.map((item, originalIndex) => {
+              const itemKey = `${sessionSourceKey}-${originalIndex}`;
+              const maxConfidenceLevel =
+                item.kind === "sentence" ? sentenceItemMaxLevel(item) : 3;
+              const confidence = getConfidence(itemKey, maxConfidenceLevel);
 
               return (
                 <div key={originalIndex} style={listItemStyle}>
-                  <SoloLearnWordRow
-                    originalIndex={originalIndex}
-                    word={word}
-                    wordKey={wordKey}
-                    hintState={hintState}
-                    confidence={confidence}
-                    playingWordIndex={playingWordIndex}
-                    setConfidence={setConfidence}
-                    revealLetter={revealLetter}
-                    revealFullWord={revealFullWord}
-                    resetWord={resetWord}
-                    playTTS={playWordTTS}
-                    dataTestIdBase={`solo-learn-word-${originalIndex}`}
-                  />
+                  {item.kind === "word" ? (
+                    <SoloLearnWordRow
+                      originalIndex={originalIndex}
+                      word={item}
+                      wordKey={itemKey}
+                      hintState={hintStates[itemKey] || DEFAULT_HINT_STATE}
+                      confidence={confidence}
+                      playingWordIndex={playingWordIndex}
+                      setConfidence={setConfidence}
+                      revealLetter={revealLetter}
+                      revealFullWord={revealFullWord}
+                      resetWord={resetWord}
+                      playTTS={playWordTTS}
+                      dataTestIdBase={`solo-learn-word-${originalIndex}`}
+                    />
+                  ) : (
+                    <SentenceStudyCard
+                      sentence={item}
+                      confidence={confidence}
+                      maxConfidenceLevel={maxConfidenceLevel}
+                      onConfidenceChange={(level) =>
+                        setConfidence(itemKey, level, maxConfidenceLevel)
+                      }
+                      position={originalIndex + 1}
+                      showThemeLabel={hasMultipleThemes}
+                      revealedPositions={
+                        (hintStates[itemKey] || DEFAULT_HINT_STATE).revealedPositions
+                      }
+                      onRevealToken={(tokenIndex) => revealLetter(itemKey, tokenIndex)}
+                      onRevealAll={(positions) => revealAllPositions(itemKey, positions)}
+                      onHide={() => resetWord(itemKey)}
+                      isTTSPlaying={playingWordIndex === originalIndex}
+                      isTTSDisabled={playingWordIndex !== null}
+                      onPlayTTS={() =>
+                        playWordTTS(
+                          originalIndex,
+                          item.spanishSentence,
+                          undefined,
+                          String(item.themeId)
+                        )
+                      }
+                      dataTestIdBase={`solo-learn-sentence-${originalIndex}`}
+                    />
+                  )}
                 </div>
               );
             })}

@@ -18,7 +18,7 @@ import {
 } from "./helpers/sessionCreation";
 import {
   loadThemesByIds,
-} from "./helpers/sessionWords";
+} from "./helpers/sessionItems";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "./helpers/weeklyGoalSnapshots";
 import { resolveAccessibleThemes } from "./helpers/resolveAccessibleThemes";
 import { areUsersFriendsInDb } from "./helpers/relationshipPolicy";
@@ -34,7 +34,7 @@ import { CHALLENGE_INVITE_TTL_MS } from "./constants";
 import { duelModeValidator } from "./schema";
 import { isSentenceTheme } from "../lib/themes/themeContent";
 import { isCreatedAtExpired } from "../lib/cleanupExpiry";
-import { buildSessionWords, summarizeThemes } from "../lib/sessionWords";
+import { buildSessionItems, summarizeThemes } from "../lib/sessionItems";
 import { calculateStartingLives } from "../lib/limitedLives";
 import { toUserSummary } from "./helpers/userSummary";
 import { DUEL_MODE_LABELS } from "../lib/duelMode";
@@ -53,11 +53,11 @@ async function buildDuelWordsForChallenge(
       )
     : await loadThemesByIds(ctx, challenge.themeIds);
 
-  const sessionWords = buildSessionWords(themes);
-  if (sessionWords.length === 0) {
+  const sessionItems = buildSessionItems(themes);
+  if (sessionItems.length === 0) {
     throw new ConvexError({ code: "INTERNAL_ERROR", message: "Challenge has no playable words" });
   }
-  return sessionWords;
+  return sessionItems;
 }
 
 async function loadWeeklyGoalForSession(
@@ -76,7 +76,7 @@ async function insertDuelSessionForChallenge(
   challenge: Doc<"challenges">,
   now: number
 ): Promise<Id<"duels">> {
-  const sessionWords = await buildDuelWordsForChallenge(ctx, challenge);
+  const sessionItems = await buildDuelWordsForChallenge(ctx, challenge);
   const livesTotal = challenge.sourceType === "boss"
     ? await resolveBossChallengeLives(ctx, challenge)
     : challenge.sourceType === "spaced_repetition"
@@ -87,7 +87,7 @@ async function insertDuelSessionForChallenge(
     challengeId: challenge._id,
     challengerId: challenge.challengerId,
     opponentId: challenge.opponentId,
-    sessionWords,
+    sessionItems,
     livesTotal,
     livesRemaining: livesTotal,
     duelDifficultyPreset: challenge.duelDifficultyPreset,
@@ -257,10 +257,10 @@ export const createSelfDuel = mutation({
     const { user } = await getAuthenticatedUser(ctx);
 
     // Access and words come from the same load: pass resolveAccessibleThemes' result
-    // straight to buildSessionWords so theme-access checks and word sourcing stay in sync.
+    // straight to buildSessionItems so theme-access checks and word sourcing stay in sync.
     const themes = await resolveAccessibleThemes(ctx, user._id, themeIds);
-    const sessionWords = buildSessionWords(themes);
-    if (sessionWords.length === 0) {
+    const sessionItems = buildSessionItems(themes);
+    if (sessionItems.length === 0) {
       throw new ConvexError({
         code: "INTERNAL_ERROR",
         message: "Self-duel has no playable words",
@@ -275,7 +275,7 @@ export const createSelfDuel = mutation({
         challengeId: undefined,
         challengerId: user._id,
         opponentId: user._id,
-        sessionWords,
+        sessionItems,
         duelMode: SELF_DUEL_FORCED_MODE,
         duelDifficultyPreset: duelDifficultyPreset as DuelDifficultyPreset | undefined,
         createdAt: now,

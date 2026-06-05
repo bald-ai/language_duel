@@ -54,6 +54,8 @@ export function buildDuplicateSentenceThemePayload(theme: {
   const duplicatedRounds = theme.sentenceRounds.map((round) => ({
     englishPrompt: round.englishPrompt,
     spanishSentence: round.spanishSentence,
+    wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
+    freeWordPositions: round.freeWordPositions ? [...round.freeWordPositions] : undefined,
     distractors: [...round.distractors],
   }));
 

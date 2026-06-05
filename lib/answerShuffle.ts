@@ -20,7 +20,7 @@ import {
   isSessionSentenceItem,
   isSessionWordItem,
   type SessionItem,
-} from "./sessionWords";
+} from "./sessionItems";
 import type { DifficultyInfo, DifficultyLevel, WordEntry, ShuffleDifficultyInfo } from "./types";
 
 export const NONE_OF_ABOVE = "None of the above" as const;
@@ -35,7 +35,7 @@ export interface WordQuestionSnapshot {
 
 /**
  * Mixed-content question snapshot. Word positions render multiple-choice grids;
- * sentence positions render the tile-builder board. Parallel to `wordOrder`.
+ * sentence positions render the tile-builder board. Parallel to `itemOrder`.
  */
 export type DuelQuestionSnapshot = WordQuestionSnapshot | SentenceQuestionSnapshot;
 
@@ -106,24 +106,24 @@ export function buildDuelQuestionSnapshot(
 /**
  * Mixed-content question set. Word items get the progressive-difficulty
  * snapshot; sentence items get the deterministic tile-pool snapshot. The two
- * snapshots share the same `wordOrder`-indexed array shape so consumers walk
+ * snapshots share the same `itemOrder`-indexed array shape so consumers walk
  * positions uniformly and branch on `snapshot.kind`.
  */
 export function buildDuelQuestionSet(
   items: SessionItem[],
-  wordOrder: number[],
+  itemOrder: number[],
   preset: DuelDifficultyPreset = "easy"
 ): DuelQuestionSnapshot[] {
   // Word-only positions drive the progressive difficulty distribution; sentence
   // positions don't participate in that distribution — the preset instead picks
   // how many distractors each sentence shows (handled below).
-  const wordPositionCount = wordOrder.reduce((count, sessionIndex) => {
+  const wordPositionCount = itemOrder.reduce((count, sessionIndex) => {
     return isSessionWordItem(items[sessionIndex]) ? count + 1 : count;
   }, 0);
   const distribution = calculateDuelDifficultyDistribution(wordPositionCount, preset);
 
   let wordPositionIndex = 0;
-  return wordOrder.map((sessionIndex, questionIndex) => {
+  return itemOrder.map((sessionIndex, questionIndex) => {
     const item = items[sessionIndex];
     if (isSessionSentenceItem(item)) {
       // Uniform mapping (decision: sentence difficulty): every sentence in the
@@ -133,6 +133,8 @@ export function buildDuelQuestionSet(
       return buildSentenceQuestionSnapshot({
         englishPrompt: item.englishPrompt,
         spanishSentence: item.spanishSentence,
+        wordMeanings: item.wordMeanings,
+        freeWordPositions: item.freeWordPositions,
         distractors: item.distractors,
         questionIndex,
         distractorCount: SENTENCE_DISTRACTOR_COUNT_BY_LEVEL[preset],
@@ -155,10 +157,10 @@ export type RelayQuestionLevel = "medium" | "hard";
 
 export function buildRelayQuestionSet(
   items: SessionItem[],
-  wordOrder: number[],
+  itemOrder: number[],
   level: RelayQuestionLevel
 ): DuelQuestionSnapshot[] {
-  return wordOrder.map((sessionIndex, questionIndex) => {
+  return itemOrder.map((sessionIndex, questionIndex) => {
     const item = items[sessionIndex];
     if (isSessionSentenceItem(item)) {
       // Fixed count (never 🔥-upgraded in v1), so the medium and hard sets emit
@@ -167,6 +169,8 @@ export function buildRelayQuestionSet(
       return buildSentenceQuestionSnapshot({
         englishPrompt: item.englishPrompt,
         spanishSentence: item.spanishSentence,
+        wordMeanings: item.wordMeanings,
+        freeWordPositions: item.freeWordPositions,
         distractors: item.distractors,
         questionIndex,
         distractorCount: SENTENCE_DISTRACTOR_COUNT_BY_LEVEL.easy,

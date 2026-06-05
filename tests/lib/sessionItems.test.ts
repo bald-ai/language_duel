@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  buildSessionWords,
+  buildSessionItems,
   getUniqueThemeIds,
   summarizeThemeNames,
   summarizeThemes,
   type SessionThemeInput,
-} from "@/lib/sessionWords";
+} from "@/lib/sessionItems";
 
 const themeId = (id: string) => id as Id<"themes">;
 
@@ -43,13 +43,13 @@ const themeWithTts: SessionThemeInput = {
   ],
 };
 
-describe("buildSessionWords", () => {
+describe("buildSessionItems", () => {
   it("returns empty array for no themes", () => {
-    expect(buildSessionWords([])).toEqual([]);
+    expect(buildSessionItems([])).toEqual([]);
   });
 
   it("flattens a single theme with themeId and themeName", () => {
-    const result = buildSessionWords([themeB]);
+    const result = buildSessionItems([themeB]);
     expect(result).toEqual([
       {
         kind: "word" as const, word: "bread",
@@ -62,7 +62,7 @@ describe("buildSessionWords", () => {
   });
 
   it("flattens multiple themes preserving order", () => {
-    const result = buildSessionWords([themeA, themeB]);
+    const result = buildSessionItems([themeA, themeB]);
     expect(result).toHaveLength(3);
     expect(result[0].themeName).toBe("Animals");
     expect(result[1].themeName).toBe("Animals");
@@ -70,14 +70,14 @@ describe("buildSessionWords", () => {
   });
 
   it("preserves ttsStorageId when present", () => {
-    const result = buildSessionWords([themeWithTts]);
+    const result = buildSessionItems([themeWithTts]);
     const first = result[0];
     if (first.kind !== "word") throw new Error("expected word session item");
     expect(first.ttsStorageId).toBe("storage_1");
   });
 
   it("omits ttsStorageId when absent", () => {
-    const result = buildSessionWords([themeA]);
+    const result = buildSessionItems([themeA]);
     const first = result[0];
     if (first.kind !== "word") throw new Error("expected word session item");
     expect(first.ttsStorageId).toBeUndefined();
@@ -90,12 +90,12 @@ describe("getUniqueThemeIds", () => {
   });
 
   it("returns single id for single-theme words", () => {
-    const words = buildSessionWords([themeA]);
+    const words = buildSessionItems([themeA]);
     expect(getUniqueThemeIds(words)).toEqual([themeId("theme_a")]);
   });
 
   it("returns ids in first-seen order and deduplicates", () => {
-    const words = buildSessionWords([themeA, themeB, themeA]);
+    const words = buildSessionItems([themeA, themeB, themeA]);
     expect(getUniqueThemeIds(words)).toEqual([themeId("theme_a"), themeId("theme_b")]);
   });
 });

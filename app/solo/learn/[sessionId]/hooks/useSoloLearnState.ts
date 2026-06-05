@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { revealablePositions } from "@/lib/stringUtils";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+import { tokenizeSpanishSentence } from "@/lib/themes/sentenceValidation";
+import { sentenceItemMaxLevel } from "@/lib/soloSentenceRuntime";
+import type { SessionItem } from "@/lib/sessionItems";
 import type { ConfidenceLevel } from "../components/ConfidenceSlider";
 import type { HintState } from "../components/SoloLearnWordRow";
 
@@ -12,19 +14,19 @@ export const DEFAULT_HINT_STATE = Object.freeze({
 }) as HintState;
 
 interface UseSoloLearnStateParams {
-  sessionWords: SessionWordEntry[];
-  /** `${sessionSourceKey}-${index}` is the per-word key these mutators build. */
+  sessionItems: SessionItem[];
+  /** `${sessionSourceKey}-${index}` is the per-item key these mutators build. */
   sessionSourceKey: string;
   sessionId: string;
 }
 
 /**
- * Owns the Learn page's per-word reveal + confidence state and the bulk
+ * Owns the Learn page's per-item confidence state, word reveals, and the bulk
  * actions over it (reveal/hide all, set-all confidence, legend dismissal).
  * Extracted from the page so the reveal/confidence logic is unit-testable.
  */
 export function useSoloLearnState({
-  sessionWords,
+  sessionItems,
   sessionSourceKey,
   sessionId,
 }: UseSoloLearnStateParams) {
@@ -54,12 +56,16 @@ export function useSoloLearnState({
   }, [confidenceLegendStorageKey]);
 
   const getConfidence = useCallback(
-    (wordKey: string): ConfidenceLevel => confidenceLevels[wordKey] ?? 0,
+    (itemKey: string, maxLevel: ConfidenceLevel = 3): ConfidenceLevel =>
+      Math.min(maxLevel, confidenceLevels[itemKey] ?? 0) as ConfidenceLevel,
     [confidenceLevels]
   );
 
-  const setConfidence = useCallback((wordKey: string, level: ConfidenceLevel) => {
-    setConfidenceLevels((prev) => ({ ...prev, [wordKey]: level }));
+  const setConfidence = useCallback((itemKey: string, level: ConfidenceLevel, maxLevel: ConfidenceLevel = 3) => {
+    setConfidenceLevels((prev) => ({
+      ...prev,
+      [itemKey]: Math.min(maxLevel, level) as ConfidenceLevel,
+    }));
   }, []);
 
   const revealLetter = useCallback((wordKey: string, position: number) => {
@@ -87,6 +93,18 @@ export function useSoloLearnState({
     }));
   }, []);
 
+  // Generic reveal-all for one item. Sentence study cards reveal whole tokens
+  // (positions are token indices) rather than letter positions.
+  const revealAllPositions = useCallback((itemKey: string, positions: number[]) => {
+    setHintStates((prev) => ({
+      ...prev,
+      [itemKey]: {
+        hintCount: positions.length,
+        revealedPositions: positions,
+      },
+    }));
+  }, []);
+
   const resetWord = useCallback((wordKey: string) => {
     setHintStates((prev) => {
       const newState = { ...prev };
@@ -104,8 +122,11 @@ export function useSoloLearnState({
     }
 
     const nextHintStates: Record<string, HintState> = {};
-    sessionWords.forEach((word, index) => {
-      const allPositions = revealablePositions(word.answer);
+    sessionItems.forEach((item, index) => {
+      const allPositions =
+        item.kind === "word"
+          ? revealablePositions(item.answer)
+          : tokenizeSpanishSentence(item.spanishSentence).map((_, i) => i);
       nextHintStates[`${sessionSourceKey}-${index}`] = {
         hintCount: allPositions.length,
         revealedPositions: allPositions,
@@ -114,25 +135,30 @@ export function useSoloLearnState({
 
     setHintStates(nextHintStates);
     setIsAllRevealed(true);
-  }, [isAllRevealed, sessionSourceKey, sessionWords]);
+  }, [isAllRevealed, sessionSourceKey, sessionItems]);
 
   const setAllConfidence = useCallback(
     (level: ConfidenceLevel) => {
-      if (sessionWords.length === 0) {
+      if (sessionItems.length === 0) {
         setIsSetAllOpen(false);
         return;
       }
 
       setConfidenceLevels((prev) => {
         const next = { ...prev };
-        sessionWords.forEach((_, index) => {
-          next[`${sessionSourceKey}-${index}`] = level;
+        sessionItems.forEach((item, index) => {
+          const maxLevel =
+            item.kind === "sentence" ? sentenceItemMaxLevel(item) : 3;
+          next[`${sessionSourceKey}-${index}`] = Math.min(
+            maxLevel,
+            level
+          ) as ConfidenceLevel;
         });
         return next;
       });
       setIsSetAllOpen(false);
     },
-    [sessionSourceKey, sessionWords]
+    [sessionSourceKey, sessionItems]
   );
 
   return {
@@ -147,6 +173,7 @@ export function useSoloLearnState({
     setConfidence,
     revealLetter,
     revealFullWord,
+    revealAllPositions,
     resetWord,
     toggleRevealAll,
     setAllConfidence,

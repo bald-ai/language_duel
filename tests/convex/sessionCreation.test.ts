@@ -5,9 +5,9 @@ import {
   buildDuelSession,
   buildSoloPracticeSession,
 } from "@/convex/helpers/sessionCreation";
-import type { SessionItem, SessionWordEntry } from "@/lib/sessionWords";
+import type { SessionItem, SessionWordItem } from "@/lib/sessionItems";
 
-const sessionWords: SessionWordEntry[] = [
+const sessionItems: SessionWordItem[] = [
   {
     kind: "word" as const, word: "cat",
     answer: "gato",
@@ -52,7 +52,7 @@ describe("session creation helpers", () => {
       createdAt: 123,
     });
     expect(result.themeIds).toEqual(["theme_1"]);
-    expect("sessionWords" in result).toBe(false);
+    expect("sessionItems" in result).toBe(false);
     expect("duelQuestions" in result).toBe(false);
   });
 
@@ -61,7 +61,7 @@ describe("session creation helpers", () => {
       challengeId: "challenge_1" as Id<"challenges">,
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      sessionWords,
+      sessionItems,
       sourceType: "boss",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       bossType: "mini",
@@ -74,9 +74,9 @@ describe("session creation helpers", () => {
 
     expect(result.status).toBe("active");
     expect(result.themeIds).toEqual(["theme_1", "theme_2"]);
-    expect(result.sessionWords).toHaveLength(3);
-    expect(result.wordOrder).toHaveLength(3);
-    expect([...result.wordOrder].sort((a, b) => a - b)).toEqual([0, 1, 2]);
+    expect(result.sessionItems).toHaveLength(3);
+    expect(result.itemOrder).toHaveLength(3);
+    expect([...result.itemOrder].sort((a, b) => a - b)).toEqual([0, 1, 2]);
     expect(result.duelQuestions).toHaveLength(3);
     const firstQuestion = result.duelQuestions[0];
     if (firstQuestion.kind !== "word") throw new Error("expected word question");
@@ -94,7 +94,7 @@ describe("session creation helpers", () => {
   });
 
   it("builds relay duel sessions with turn state and flat-point 6-option questions", () => {
-    const relayWords: SessionWordEntry[] = [
+    const relayWords: SessionWordItem[] = [
       { kind: "word" as const, word: "cat", answer: "gato", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
       { kind: "word" as const, word: "dog", answer: "perro", wrongAnswers: ["a", "b", "c", "d", "e"], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
     ];
@@ -102,7 +102,7 @@ describe("session creation helpers", () => {
     const result = buildDuelSession({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      sessionWords: relayWords,
+      sessionItems: relayWords,
       sourceType: "normal",
       duelMode: "relay",
       createdAt: 1,
@@ -128,11 +128,13 @@ describe("session creation helpers", () => {
 
   it("builds relay duel sessions with mixed word + sentence items", () => {
     const mixedItems: SessionItem[] = [
-      sessionWords[0],
+      sessionItems[0],
       {
         kind: "sentence",
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
+        wordMeanings: ["I", "eat", "bread"],
+        freeWordPositions: [],
         distractors: ["tú", "bebes"],
         themeId: "theme_2" as Id<"themes">,
         themeName: "Sentences",
@@ -142,7 +144,7 @@ describe("session creation helpers", () => {
     const result = buildDuelSession({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      sessionWords: mixedItems,
+      sessionItems: mixedItems,
       sourceType: "normal",
       duelMode: "relay",
       createdAt: 1,
@@ -150,7 +152,7 @@ describe("session creation helpers", () => {
 
     // The sentence position is present in both the base and hard sets, with an
     // identical pool (never 🔥-upgraded → served board == validated board).
-    const sentenceBaseIndex = result.wordOrder?.findIndex(
+    const sentenceBaseIndex = result.itemOrder?.findIndex(
       (sessionIndex) => mixedItems[sessionIndex].kind === "sentence"
     );
     expect(sentenceBaseIndex).toBeGreaterThanOrEqual(0);
@@ -168,6 +170,8 @@ describe("session creation helpers", () => {
         kind: "sentence",
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
+        wordMeanings: ["I", "eat", "bread"],
+        freeWordPositions: [],
         distractors: ["tú", "bebes"],
         themeId: "theme_2" as Id<"themes">,
         themeName: "Sentences",
@@ -177,7 +181,7 @@ describe("session creation helpers", () => {
     const result = buildDuelSession({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      sessionWords: sentenceItems,
+      sessionItems: sentenceItems,
       sourceType: "normal",
       duelMode: "tbt",
       createdAt: 1,
@@ -195,7 +199,7 @@ describe("session creation helpers", () => {
       buildDuelSession({
         challengerId: "user_1" as Id<"users">,
         opponentId: "user_2" as Id<"users">,
-        sessionWords,
+        sessionItems,
         sourceType: "normal",
         duelMode: "tbt",
         createdAt: 1,
@@ -207,7 +211,7 @@ describe("session creation helpers", () => {
     const result = buildDuelSession({
       challengerId: "user_1" as Id<"users">,
       opponentId: "user_2" as Id<"users">,
-      sessionWords,
+      sessionItems,
       sourceType: "normal",
       duelMode: "pvp",
       createdAt: 1,
@@ -222,7 +226,7 @@ describe("session creation helpers", () => {
   it("builds persisted solo-practice sessions without challenge or duel fields", () => {
     const result = buildSoloPracticeSession({
       userId: "user_1" as Id<"users">,
-      sessionWords,
+      sessionItems,
       sourceType: "spaced_repetition",
       weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
       spacedRepetitionStep: 2,
@@ -239,7 +243,7 @@ describe("session creation helpers", () => {
       createdAt: 789,
     });
     expect(result.themeIds).toEqual(["theme_1", "theme_2"]);
-    expect(result.sessionWords).toHaveLength(3);
+    expect(result.sessionItems).toHaveLength(3);
     expect("currentWordIndex" in result).toBe(false);
     expect("questionStartTime" in result).toBe(false);
     expect("seed" in result).toBe(false);
@@ -275,7 +279,7 @@ describe("session creation helpers", () => {
       buildDuelSession({
         challengerId: "user_1" as Id<"users">,
         opponentId: "user_2" as Id<"users">,
-        sessionWords: [],
+        sessionItems: [],
         sourceType: "normal",
         duelMode: "pvp",
         createdAt: 1,
@@ -285,7 +289,7 @@ describe("session creation helpers", () => {
     expect(() =>
       buildSoloPracticeSession({
         userId: "user_1" as Id<"users">,
-        sessionWords: [],
+        sessionItems: [],
         sourceType: "weekly_goal",
         weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
         startsInLearning: false,

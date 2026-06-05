@@ -41,6 +41,8 @@ const wordValidator = v.object({
 const sentenceRoundValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
+  wordMeanings: v.optional(v.array(v.string())),
+  freeWordPositions: v.optional(v.array(v.number())),
   distractors: v.array(v.string()),
   ttsStorageId: v.optional(v.id("_storage")),
 });

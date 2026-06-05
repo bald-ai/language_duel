@@ -11,17 +11,20 @@ import {
   selectNextSoloQuestion,
   SOLO_CORRECT_ADVANCE_DELAY_MS,
   SOLO_INCORRECT_ADVANCE_DELAY_MS,
+  SOLO_SENTENCE_INCORRECT_ADVANCE_DELAY_MS,
   type SoloMasteryLevel,
+  type SoloRuntimeItem,
   type SoloSessionState,
 } from "@/lib/soloPracticeRuntime";
-import type { SessionWordEntry } from "@/lib/sessionWords";
+import { sentenceItemMaxLevel } from "@/lib/soloSentenceRuntime";
+import type { SessionItem } from "@/lib/sessionItems";
 import { getDirectionalCopy } from "../translationDirection";
 
 type SessionState = SoloSessionState;
 
 interface UseSoloSessionParams {
-  words: SessionWordEntry[] | undefined;
-  initialConfidenceByWordIndex: Record<number, SoloMasteryLevel> | null;
+  items: SessionItem[] | undefined;
+  initialConfidenceByItemIndex: Record<number, SoloMasteryLevel> | null;
 }
 
 interface UseSoloSessionResult {
@@ -36,7 +39,7 @@ interface UseSoloSessionResult {
   handleLevel0GotIt: () => void;
   handleLevel0NotYet: () => void;
   // Derived
-  currentWord: SessionWordEntry | null;
+  currentItem: SessionItem | null;
   masteredCount: number;
 }
 
@@ -45,8 +48,8 @@ interface UseSoloSessionResult {
  * Handles word pool management, mastery progression, and question selection.
  */
 export function useSoloSession({
-  words,
-  initialConfidenceByWordIndex,
+  items,
+  initialConfidenceByItemIndex,
 }: UseSoloSessionParams): UseSoloSessionResult {
   const [session, setSession] = useState<SessionState>(initialSoloSessionState);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -57,6 +60,13 @@ export function useSoloSession({
   // Timer state
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  const runtimeItems = useMemo<SoloRuntimeItem[] | undefined>(() => {
+    return items?.map((item) => ({
+      kind: item.kind,
+      maxLevel: item.kind === "sentence" ? sentenceItemMaxLevel(item) : 3,
+    }));
+  }, [items]);
 
   const clearAutoAdvanceTimeout = useCallback(() => {
     if (autoAdvanceTimeoutRef.current !== null) {
@@ -87,15 +97,15 @@ export function useSoloSession({
 
   useEffect(() => clearAutoAdvanceTimeout, [clearAutoAdvanceTimeout]);
 
-  // Initialize session when words load. The setState pair is deferred via
+  // Initialize session when items load. The setState pair is deferred via
   // queueMicrotask because this project's react-hooks/set-state-in-effect lint
   // rule forbids synchronous setState in an effect body; a microtask callback is
   // the supported escape hatch.
   useEffect(() => {
-    if (words && words.length > 0 && !session.initialized) {
+    if (runtimeItems && runtimeItems.length > 0 && !session.initialized) {
       const newSession = initializeSoloSession({
-        wordCount: words.length,
-        initialConfidenceByWordIndex,
+        items: runtimeItems,
+        initialConfidenceByItemIndex,
         random: Math.random,
       });
       queueMicrotask(() => {
@@ -103,7 +113,7 @@ export function useSoloSession({
         setStartTime(Date.now());
       });
     }
-  }, [words, session.initialized, initialConfidenceByWordIndex]);
+  }, [runtimeItems, session.initialized, initialConfidenceByItemIndex]);
 
   // Live elapsed timer update
   useEffect(() => {
@@ -129,43 +139,53 @@ export function useSoloSession({
    */
   const handleCorrect = useCallback(() => {
     if (
-      session.currentWordIndex === null ||
-      !session.wordStates.has(session.currentWordIndex)
+      session.currentItemIndex === null ||
+      !session.itemStates.has(session.currentItemIndex)
     ) {
       return;
     }
 
+    const currentItem = items?.[session.currentItemIndex];
     setFeedbackCorrect(true);
-    setShowFeedback(true);
+    setShowFeedback(currentItem?.kind === "word");
     setFeedbackAnswer(null);
 
     setSession((prev) => answerSoloQuestionCorrect(prev, Math.random));
     scheduleAutoAdvance(SOLO_CORRECT_ADVANCE_DELAY_MS);
-  }, [scheduleAutoAdvance, session.currentWordIndex, session.wordStates]);
+  }, [items, scheduleAutoAdvance, session.currentItemIndex, session.itemStates]);
 
   /**
    * Handle incorrect answer - drop mastery by 1, show correct answer.
    */
   const handleIncorrect = useCallback(() => {
-    if (!words || session.currentWordIndex === null) return;
+    if (!items || session.currentItemIndex === null) return;
 
-    const currentWord = words[session.currentWordIndex];
-    if (!currentWord || !session.wordStates.has(session.currentWordIndex)) return;
+    const currentItem = items[session.currentItemIndex];
+    if (!currentItem || !session.itemStates.has(session.currentItemIndex)) return;
+
+    if (currentItem.kind === "sentence") {
+      setFeedbackCorrect(false);
+      setShowFeedback(false);
+      setFeedbackAnswer(null);
+      setSession(answerSoloQuestionIncorrect);
+      scheduleAutoAdvance(SOLO_SENTENCE_INCORRECT_ADVANCE_DELAY_MS);
+      return;
+    }
 
     setFeedbackCorrect(false);
     setShowFeedback(true);
     setFeedbackAnswer(
-      getDirectionalCopy(currentWord, session.translationDirection).feedbackAnswer
+      getDirectionalCopy(currentItem, session.translationDirection).feedbackAnswer
     );
 
     setSession(answerSoloQuestionIncorrect);
     scheduleAutoAdvance(SOLO_INCORRECT_ADVANCE_DELAY_MS);
   }, [
     scheduleAutoAdvance,
-    words,
-    session.currentWordIndex,
+    items,
+    session.currentItemIndex,
     session.translationDirection,
-    session.wordStates,
+    session.itemStates,
   ]);
 
   /**
@@ -185,14 +205,14 @@ export function useSoloSession({
   }, [selectNextQuestion]);
 
   // Derived values
-  const currentWord = useMemo(() => {
-    if (!words || session.currentWordIndex === null) return null;
-    return words[session.currentWordIndex];
-  }, [words, session.currentWordIndex]);
+  const currentItem = useMemo(() => {
+    if (!items || session.currentItemIndex === null) return null;
+    return items[session.currentItemIndex];
+  }, [items, session.currentItemIndex]);
 
   const masteredCount = useMemo(() => {
-    return Array.from(session.wordStates.values()).filter((ws) => ws.completedLevel3).length;
-  }, [session.wordStates]);
+    return Array.from(session.itemStates.values()).filter((itemState) => itemState.completedMaxLevel).length;
+  }, [session.itemStates]);
 
   return {
     session,
@@ -204,7 +224,7 @@ export function useSoloSession({
     handleIncorrect,
     handleLevel0GotIt,
     handleLevel0NotYet,
-    currentWord,
+    currentItem,
     masteredCount,
   };
 }

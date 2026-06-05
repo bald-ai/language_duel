@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flashcard editor — Blue stage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FFF7ED; --bg-elevated: #FFFEFC;
+    --primary: #F97316; --primary-light: #FF9043; --primary-dark: #C25000; --primary-darkest: #903B00;
+    --glow: rgba(249,115,22,0.4);
+    --cta: #0EA5E9; --cta-light: #32BBF8; --cta-lighter: #62C5F1; --cta-dark: #0574A5;
+    --secondary: #4AA2DF; --secondary-light: #75B8E7; --secondary-dark: #217CBB;
+    --neutral: #6BA5BF; --text: #1A1A1A; --text-muted: #666666;
+    --danger: #E35F5F; --danger-light: #F27979; --success: #3BB273; --success-light: #5CD192;
+    --display: "Fredoka", sans-serif; --body: "Outfit", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: var(--body); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  #bg-layer { position: fixed; inset: 0; z-index: -1; background: var(--bg); }
+  #bg-layer img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+
+  @keyframes slide-up-fade { from { opacity: 0; transform: translateY(18px);} to { opacity:1; transform:none; } }
+  .animate-up { animation: slide-up-fade .5s ease-out forwards; opacity: 0; }
+  .d1{animation-delay:.05s}.d2{animation-delay:.11s}.d3{animation-delay:.17s}
+
+  /* mockup toolbar (only non-app chrome) */
+  .toolbar { flex-shrink: 0; z-index: 60; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; padding: 8px 14px; background: rgba(20,16,14,0.62); backdrop-filter: blur(10px); }
+  .toolbar .group { display: flex; align-items: center; gap: 6px; }
+  .toolbar .glabel { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+  .toolbar .swatch { width: 22px; height: 22px; border-radius: 6px; padding: 0; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; }
+  .toolbar .swatch.active { border-color: #fff; transform: scale(1.12); }
+  .toolbar .bgbtn { font-family: var(--body); font-weight: 700; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 10px; border-radius: 9px; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.82); }
+  .toolbar .bgbtn.active { background: #fff; color: #1a1a1a; }
+
+  /* app column (mirrors themes/page.tsx: max-w-xl, h-dvh flex col, panel scrolls) */
+  .appwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; }
+  .app { width: 100%; max-width: 576px; height: 100%; display: flex; flex-direction: column; padding: 16px 24px 10px; }
+
+  /* theme header */
+  .theme-head { flex-shrink: 0; background: var(--bg-elevated); border: 2px solid var(--primary-dark); border-radius: 16px; padding: 12px 16px; margin-bottom: 16px; box-shadow: 0 12px 32px var(--glow); display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(4px); }
+  .theme-head .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .theme-title { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; background: linear-gradient(135deg, var(--text), var(--neutral), var(--text)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 8px rgba(0,0,0,.25)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
+  .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .util-btn { font-weight: 600; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 8px 12px; border-radius: 12px; border: 2px solid; cursor: pointer; transition: filter .15s; }
+  .btn-add { background: var(--bg-elevated); border-color: var(--primary-dark); color: var(--text); }
+  .btn-gen { background: var(--bg-elevated); border-color: var(--secondary-dark); color: var(--secondary-light); }
+  .seg { display: inline-flex; border: 2px solid var(--primary-dark); border-radius: 12px; overflow: hidden; }
+  .seg button { border: none; padding: 5px 13px; font-weight: 500; font-size: 13px; cursor: pointer; background: var(--bg); color: var(--text-muted); }
+  .seg button.on { background: var(--primary); color: var(--text); }
+  .tts-btn { background: var(--bg-elevated); border: 2px solid var(--secondary-dark); color: var(--secondary-light); border-radius: 12px; padding: 5px 12px; font-weight: 500; font-size: 13px; cursor: pointer; }
+  .pill { font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); color: var(--success-light); }
+
+  /* THE OUTER WINDOW (mirrors SentenceThemeDetail panel: opaque, scrolls) */
+  .window { flex: 1; min-height: 0; overflow-y: auto; background: var(--bg-elevated); border: 2px solid var(--primary-dark); border-radius: 24px; padding: 16px; box-shadow: 0 20px 60px var(--glow); backdrop-filter: blur(4px); display: flex; flex-direction: column; gap: 16px; }
+  .window::-webkit-scrollbar { width: 8px; } .window::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 8px; }
+
+  /* ===== FLASHCARD · BLUE STAGE ===== */
+  .card { position: relative; flex-shrink: 0; background: var(--bg-elevated); border: 2px solid color-mix(in srgb, var(--primary) 50%, transparent); border-radius: 22px; box-shadow: 0 16px 40px rgba(0,0,0,.10); padding: 18px; overflow: hidden; }
+  .crow { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .num { width: 26px; height: 26px; border-radius: 50%; border: none; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex-shrink: 0; box-shadow: 0 3px 8px var(--glow); }
+  .slabel { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+  .crow-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .tts { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 2px solid color-mix(in srgb, var(--secondary) 40%, transparent); background: color-mix(in srgb, var(--secondary) 10%, transparent); color: var(--secondary-light); cursor: pointer; }
+  .tts svg { width: 16px; height: 16px; }
+  .trash { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; border: 2px solid color-mix(in srgb, var(--neutral) 32%, transparent); background: transparent; color: var(--text-muted); cursor: pointer; transition: all .15s; }
+  .trash svg { width: 15px; height: 15px; }
+  .trash:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 9%, transparent); }
+
+  .field-en { display: block; width: 100%; text-align: left; border: none; border-left: 4px solid var(--primary); background: color-mix(in srgb, var(--primary) 9%, transparent); border-radius: 0 12px 12px 0; padding: 9px 12px; margin: 10px 2px 0; cursor: pointer; }
+  .field-en .lab { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--primary-dark); margin-bottom: 3px; }
+  .field-en .val { font-size: 16px; font-weight: 600; color: var(--text); }
+
+  .field-es { border: 2px solid color-mix(in srgb, var(--secondary) 32%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--secondary) 16%, transparent), color-mix(in srgb, var(--secondary) 5%, transparent)); border-radius: 18px; padding: 10px 12px 14px; margin: 12px 0 14px; }
+  .es-head { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .field-es .es-head .lab { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--secondary-dark); margin-right: auto; }
+  .es-head .tools { display: flex; align-items: center; gap: 8px; }
+  .hint { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .hint svg { width: 12px; height: 12px; opacity: .7; }
+  .mini-edit { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--secondary-dark); background: color-mix(in srgb, var(--bg-elevated) 70%, transparent); border: 1px solid color-mix(in srgb, var(--secondary) 45%, transparent); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+  .mini-edit svg { width: 12px; height: 12px; }
+
+  /* Spanish hero */
+  .es-words { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 8px 14px; margin-top: 16px; padding-bottom: 6px; }
+  .word { position: relative; font-family: var(--body); cursor: pointer; background: transparent; border: none; color: var(--text); font-size: 26px; font-weight: 600; padding: 20px 3px 6px; border-bottom: 2px dotted rgba(0,0,0,0.22); transition: all .15s; }
+  .word:hover { background: color-mix(in srgb, var(--bg-elevated) 60%, transparent); border-radius: 7px 7px 0 0; }
+  .word .gloss { position: absolute; left: 50%; top: 0; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: var(--secondary-dark); white-space: nowrap; opacity: 0; transition: opacity .15s; }
+  .word.is-free { background: var(--bg-elevated); border-bottom: 3px solid var(--secondary-dark); border-radius: 9px 9px 0 0; box-shadow: 0 3px 8px rgba(0,0,0,.10); }
+  .word.is-free .gloss { opacity: 1; }
+
+  /* word answer hero (single-word themes) */
+  .es-answer { text-align: center; font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--text); padding: 14px 6px 8px; line-height: 1.1; }
+  .es-answer-sub { text-align: center; font-size: 11px; font-weight: 500; color: var(--text-muted); padding-bottom: 4px; }
+
+  .distractors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .distractor { border: 2px solid color-mix(in srgb, var(--cta-light) 40%, transparent); background: color-mix(in srgb, var(--cta) 10%, transparent); border-radius: 12px; padding: 7px 6px; text-align: center; cursor: pointer; }
+  .distractor .lab { font-size: 10px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--cta-dark); margin-bottom: 2px; }
+  .distractor .val { font-size: 14px; font-weight: 500; color: var(--text); }
+
+  .edit-form { display: grid; gap: 10px; margin-top: 12px; }
+  .edit-form label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .edit-form .field { display: grid; gap: 4px; }
+  .edit-form input { font-family: var(--body); font-size: 15px; padding: 10px 12px; border-radius: 8px; border: 2px solid rgba(0,0,0,0.12); background: #fff; color: var(--text); width: 100%; }
+  .edit-form input:focus { outline: none; border-color: var(--secondary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 25%, transparent); }
+  .edit-done { justify-self: start; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer; color: var(--text); background: linear-gradient(to bottom, var(--cta), var(--cta-dark)); }
+
+  /* dock (mirrors ThemeActionDock: full-width bar, Save left, Cancel right) */
+  .dock-wrap { flex-shrink: 0; padding-top: 16px; }
+  .dock { border: 2px solid var(--primary-dark); border-radius: 16px; padding: 8px; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(6px); box-shadow: 0 10px 24px rgba(0,0,0,0.18); display: flex; gap: 8px; }
+  .dock .save, .dock .cancel { flex: 1; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .12em; padding: 11px 16px; border-radius: 16px; cursor: pointer; }
+  .dock .save { color: var(--text); text-shadow: 0 2px 4px rgba(0,0,0,0.35); background: linear-gradient(to bottom, var(--cta), var(--cta-dark)); border-top: 2px solid var(--cta-lighter); border-bottom: 4px solid color-mix(in srgb, var(--cta-dark) 70%, black); border-left: 2px solid var(--cta); border-right: 2px solid var(--cta); }
+  .dock .cancel { color: var(--text); background: var(--bg-elevated); border: 2px solid var(--primary-dark); }
+
+  /* bottom gradient hairline (mirrors page.tsx h-1) */
+  .hairline { flex-shrink: 0; height: 4px; width: 100%; background: linear-gradient(to right, var(--primary), var(--cta), var(--secondary)); }
+</style>
+</head>
+<body>
+  <div id="bg-layer"><img id="bg-img" alt="" /></div>
+
+  <div class="toolbar">
+    <div class="group"><span class="glabel">Theme</span><div id="palettes" style="display:flex;gap:6px"></div></div>
+    <div class="group"><span class="glabel">BG</span><div id="bgs" style="display:flex;gap:6px"></div></div>
+    <div class="group"><span class="glabel">View</span><div id="modes" style="display:flex;gap:6px"></div></div>
+  </div>
+
+  <div class="appwrap"><div class="app">
+    <div id="head"></div>
+    <div id="window" class="window"></div>
+    <div class="dock-wrap"><div class="dock"><button class="save">Save</button><button class="cancel">Cancel</button></div></div>
+  </div></div>
+  <div class="hairline"></div>
+
+<script>
+const PALETTES = {
+  "playful-duo":{label:"Playful Duo",sw:"#FB7185",v:{bg:"#FFF8F1","bg-elevated":"#FFFFFF",primary:"#FB7185","primary-light":"#FFA0AE","primary-dark":"#FE2141","primary-darkest":"#EC0022",glow:"rgba(251,113,133,0.4)",cta:"#22C55E","cta-light":"#37E376","cta-lighter":"#64DF91","cta-dark":"#13883E",secondary:"#52E0CC","secondary-light":"#7DE8D9","secondary-dark":"#26D9BF",neutral:"#65B582"}},
+  "toybox-adventure":{label:"Toybox",sw:"#A855F7",v:{bg:"#FDF4FF","bg-elevated":"#FFFFFF",primary:"#A855F7","primary-light":"#C183FC","primary-dark":"#8306FA","primary-darkest":"#6901CB",glow:"rgba(168,85,247,0.4)",cta:"#FACC15","cta-light":"#FFD943","cta-lighter":"#F8DD73","cta-dark":"#C39B00",secondary:"#97E052","secondary-light":"#B1E87D","secondary-dark":"#7DD926",neutral:"#C7B77B"}},
+  "warm-mischief":{label:"Warm Mischief",sw:"#F97316",v:{bg:"#FFF7ED","bg-elevated":"#FFFEFC",primary:"#F97316","primary-light":"#FF9043","primary-dark":"#C25000","primary-darkest":"#903B00",glow:"rgba(249,115,22,0.4)",cta:"#0EA5E9","cta-light":"#32BBF8","cta-lighter":"#62C5F1","cta-dark":"#0574A5",secondary:"#4AA2DF","secondary-light":"#75B8E7","secondary-dark":"#217CBB",neutral:"#6BA5BF"}},
+  "friendly-rivalry":{label:"Friendly Rivalry",sw:"#2563EB",v:{bg:"#F0F9FF","bg-elevated":"#FFFFFF",primary:"#2563EB","primary-light":"#4F83F4","primary-dark":"#0C42B8","primary-darkest":"#06308A",glow:"rgba(37,99,235,0.4)",cta:"#FB7185","cta-light":"#FFA0AE","cta-lighter":"#FCCCD3","cta-dark":"#FE2141",secondary:"#DFB14A","secondary-light":"#E5C377","secondary-dark":"#BC8B21",neutral:"#E0B8BE"}},
+  "candy-coop":{label:"Candy Co-op",sw:"#EC4899",v:{bg:"#FFF1F2","bg-elevated":"#FFFFFF",primary:"#EC4899","primary-light":"#F572B3","primary-dark":"#D81073","primary-darkest":"#AB0A59",glow:"rgba(236,72,153,0.4)",cta:"#22D3EE","cta-light":"#4DE0F6","cta-lighter":"#7BE1F1","cta-dark":"#09A3BA",secondary:"#52E09A","secondary-light":"#80E5B3","secondary-dark":"#26D981",neutral:"#7CBDC7"}},
+};
+const BACKGROUNDS = [ {file:"background.jpg", label:"Castle Lights"}, {file:"background_2.jpg", label:"Mystic Forest"} ];
+
+const SENTENCES = [
+  { en:"I want to buy a shirt", words:[["Quiero","I want"],["comprar","to buy"],["una","a"],["camisa","shirt"]], free:[2], distractors:["mesa","rápido","ayer"] },
+  { en:"She is tired and wants to sleep", words:[["Ella","she"],["está","is"],["cansada","tired"],["y","and"],["quiere","wants"],["dormir","to sleep"]], free:[3], distractors:["duerme","feliz","corre"] },
+  { en:"We can eat now or later", words:[["Podemos","we can"],["comer","to eat"],["ahora","now"],["o","or"],["más","more"],["tarde","late"]], free:[3,4], distractors:["bebemos","nunca","aquí"] },
+];
+
+const WORDS = [
+  { word:"hammer", answer:"el martillo", wrong:["el martillo pequeño","la martilla","el maletillo","el mazo","la herramienta","el tornillo"] },
+  { word:"nail", answer:"el clavo", wrong:["la clave","el clavo pequeño","el clavo de olor","la uña","el gancho","la tachuela"] },
+  { word:"wrench", answer:"la llave inglesa", wrong:["la llave","el destornillador","la pinza","la tuerca","el alicate","la palanca"] },
+];
+
+const state = {};
+SENTENCES.forEach((s,si)=>{ state[si]={ free:new Set(s.free), editing:false }; });
+const wordState = {};
+WORDS.forEach((w,wi)=>{ wordState[wi]={ editing:false }; });
+
+let mode = "sentences"; // "sentences" | "words"
+
+const ICON = {
+  speaker:'<svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 7.5A1.5 1.5 0 015.5 6H8l3-2v12l-3-2H5.5A1.5 1.5 0 014 12.5v-5z"/><path d="M13.8 6.6a1 1 0 011.4 0 4.8 4.8 0 010 6.8 1 1 0 11-1.4-1.4 2.8 2.8 0 000-4 1 1 0 010-1.4z"/></svg>',
+  pencil:'<svg viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.51l-3 .857a.5.5 0 01-.618-.618l.857-3a2 2 0 01.51-.878l8.5-8.5z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+};
+const bulb = '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM10 18a6 6 0 100-12 6 6 0 000 12z"/></svg>';
+
+const words = (si,s,st)=> s.words.map((w,wi)=>'<button class="word'+(st.free.has(wi)?' is-free':'')+'" data-action="word" data-si="'+si+'" data-wi="'+wi+'"><span class="es">'+w[0]+'</span><span class="gloss">'+w[1]+'</span></button>').join("");
+const editForm = (si,s)=>'<div class="edit-form"><div class="field"><label>English prompt</label><input value="'+s.en.replace(/"/g,'&quot;')+'"></div><div class="field"><label>Spanish sentence</label><input value="'+s.words.map(w=>w[0]).join(" ")+'"></div><button class="edit-done" data-action="done" data-si="'+si+'">Done editing</button></div>';
+
+function card(si,s,st){
+  const top = '<div class="crow"><div class="num">'+(si+1)+'</div><span class="slabel">Sentence</span><div class="crow-actions"><button class="tts">'+ICON.speaker+'</button><button class="trash" data-action="del">'+ICON.trash+'</button></div></div>';
+  if (st.editing) return '<div class="card animate-up d'+(si+1)+'">'+top+editForm(si,s)+'</div>';
+  const en = '<button class="field-en"><div class="lab">English</div><div class="val">'+s.en+'</div></button>';
+  const es = '<div class="field-es"><div class="es-head"><span class="lab">Spanish</span>'
+    + '<div class="tools"><span class="hint">'+bulb+'Tap a word to keep it translated</span>'
+    + '<button class="mini-edit" data-action="edit" data-si="'+si+'">'+ICON.pencil+'Edit text</button></div></div>'
+    + '<div class="es-words">'+words(si,s,st)+'</div></div>';
+  const dist = '<div class="distractors">'+s.distractors.map((d,i)=>'<button class="distractor"><div class="lab">Distractor '+(i+1)+'</div><div class="val">'+d+'</div></button>').join("")+'</div>';
+  return '<div class="card animate-up d'+(si+1)+'">'+top+en+es+dist+'</div>';
+}
+
+// ===== WORD CARD (single-word theme) =====
+const wordEditForm = (wi,w)=>'<div class="edit-form"><div class="field"><label>English word</label><input value="'+w.word.replace(/"/g,'&quot;')+'"></div><div class="field"><label>Spanish answer</label><input value="'+w.answer.replace(/"/g,'&quot;')+'"></div><button class="edit-done" data-action="wdone" data-wi="'+wi+'">Done editing</button></div>';
+
+function wordCard(wi,w,st){
+  const top = '<div class="crow"><div class="num">'+(wi+1)+'</div><span class="slabel">Word</span><div class="crow-actions"><button class="tts">'+ICON.speaker+'</button><button class="trash" data-action="wdel">'+ICON.trash+'</button></div></div>';
+  if (st.editing) return '<div class="card animate-up d'+(wi+1)+'">'+top+wordEditForm(wi,w)+'</div>';
+  const en = '<button class="field-en"><div class="lab">Word</div><div class="val">'+w.word+'</div></button>';
+  const es = '<div class="field-es"><div class="es-head"><span class="lab">Answer</span>'
+    + '<div class="tools"><button class="mini-edit" data-action="wedit" data-wi="'+wi+'">'+ICON.pencil+'Edit text</button></div></div>'
+    + '<div class="es-answer">'+w.answer+'</div></div>';
+  const dist = '<div class="distractors">'+w.wrong.map((d,i)=>'<button class="distractor"><div class="lab">Wrong '+(i+1)+'</div><div class="val">'+d+'</div></button>').join("")+'</div>';
+  return '<div class="card animate-up d'+(wi+1)+'">'+top+en+es+dist+'</div>';
+}
+
+const head = document.getElementById("head"), win = document.getElementById("window");
+const sentenceHead = '<div class="theme-head"><div class="row"><div class="theme-title">Shopping Sentences</div><div class="head-actions"><button class="util-btn btn-add">+ Add Sentence</button><button class="util-btn btn-gen">+ Generate</button></div></div><div class="row" style="gap:8px"><div class="seg"><button class="on">Private</button><button>Shared</button></div><button class="tts-btn">Generate TTS</button><span class="pill">TTS up to date</span></div></div>';
+const wordHead = '<div class="theme-head"><div class="row"><div class="theme-title">Garage Items</div><div class="head-actions"><button class="util-btn btn-add">+ Add Word</button><button class="util-btn btn-gen">+ Generate</button></div></div><div class="row" style="gap:8px"><div class="seg"><button>Private</button><button class="on">Shared</button></div><button class="tts-btn">Generate TTS</button><span class="pill">TTS up to date</span></div></div>';
+
+function paint(){
+  if(mode==="words"){
+    head.innerHTML = wordHead;
+    win.innerHTML = WORDS.map((w,wi)=>wordCard(wi,w,wordState[wi])).join("");
+  } else {
+    head.innerHTML = sentenceHead;
+    win.innerHTML = SENTENCES.map((s,si)=>card(si,s,state[si])).join("");
+  }
+}
+
+const pal = document.getElementById("palettes");
+pal.innerHTML = Object.keys(PALETTES).map(n=>'<button class="swatch" data-p="'+n+'" title="'+PALETTES[n].label+'" style="background:'+PALETTES[n].sw+'"></button>').join("");
+pal.addEventListener("click",e=>{ const b=e.target.closest("[data-p]"); if(!b)return; applyPalette(b.dataset.p); });
+
+const bgs = document.getElementById("bgs");
+bgs.innerHTML = BACKGROUNDS.map(b=>'<button class="bgbtn" data-bg="'+b.file+'">'+b.label+'</button>').join("");
+bgs.addEventListener("click",e=>{ const b=e.target.closest("[data-bg]"); if(!b)return; applyBg(b.dataset.bg); });
+
+const modes = document.getElementById("modes");
+modes.innerHTML = [["sentences","Sentences"],["words","Words"]].map(m=>'<button class="bgbtn" data-mode="'+m[0]+'">'+m[1]+'</button>').join("");
+modes.addEventListener("click",e=>{ const b=e.target.closest("[data-mode]"); if(!b)return; mode=b.dataset.mode; [...modes.querySelectorAll(".bgbtn")].forEach(x=>x.classList.toggle("active",x.dataset.mode===mode)); paint(); });
+
+function applyPalette(name){ const v=PALETTES[name].v, root=document.documentElement.style; for(const k in v) root.setProperty("--"+k,v[k]); [...document.querySelectorAll("#palettes .swatch")].forEach(b=>b.classList.toggle("active",b.dataset.p===name)); }
+function applyBg(file){ document.getElementById("bg-img").src="../public/"+file; [...document.querySelectorAll("#bgs .bgbtn")].forEach(b=>b.classList.toggle("active",b.dataset.bg===file)); }
+
+win.addEventListener("click",e=>{
+  const el=e.target.closest("[data-action]"); if(!el)return;
+  const a=el.dataset.action, st=state[el.dataset.si];
+  if(a==="word"){ const wi=+el.dataset.wi; st.free.has(wi)?st.free.delete(wi):st.free.add(wi); paint(); }
+  else if(a==="edit"){ st.editing=true; paint(); }
+  else if(a==="done"){ st.editing=false; paint(); }
+  else if(a==="wedit"){ wordState[el.dataset.wi].editing=true; paint(); }
+  else if(a==="wdone"){ wordState[el.dataset.wi].editing=false; paint(); }
+});
+
+applyPalette("warm-mischief"); applyBg("background.jpg");
+[...modes.querySelectorAll(".bgbtn")].forEach(x=>x.classList.toggle("active",x.dataset.mode===mode));
+paint();
+</script>
+</body>
+</html>

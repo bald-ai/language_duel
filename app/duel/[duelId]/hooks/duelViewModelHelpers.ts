@@ -95,8 +95,8 @@ export function buildFrozenData(args: {
 }): FrozenData {
   const { duel, prevIndex, lockedAnswer, theirLastAnswer } = args;
 
-  const prevActualIndex = duel.wordOrder[prevIndex];
-  const rawPrev = duel.sessionWords[prevActualIndex];
+  const prevActualIndex = duel.itemOrder[prevIndex];
+  const rawPrev = duel.sessionItems[prevActualIndex];
   const prevWord = rawPrev
     ? requireWordSessionItem(rawPrev)
     : { word: "", answer: "", wrongAnswers: [] };

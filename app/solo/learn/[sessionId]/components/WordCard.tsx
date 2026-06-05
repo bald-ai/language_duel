@@ -15,6 +15,7 @@ interface WordCardProps {
   };
   confidence: ConfidenceLevel;
   onConfidenceChange: (value: ConfidenceLevel) => void;
+  maxConfidenceLevel?: ConfidenceLevel;
   // Hint mode props
   revealedPositions: number[];
   hintsRemaining: number;
@@ -71,6 +72,7 @@ export const WordCard = memo(function WordCard({
   word,
   confidence,
   onConfidenceChange,
+  maxConfidenceLevel,
   revealedPositions,
   hintsRemaining,
   onRevealLetter,
@@ -149,6 +151,7 @@ export const WordCard = memo(function WordCard({
           <ConfidenceSlider
             value={confidence}
             onChange={onConfidenceChange}
+            maxLevel={maxConfidenceLevel}
             dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined}
           />
         </div>

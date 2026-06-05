@@ -18,6 +18,7 @@ import {
   SENTENCE_MIN_ROUND_COUNT,
   SENTENCE_MIN_TOKENS,
   SENTENCE_SPANISH_TOKEN_MAX_LENGTH,
+  SENTENCE_WORD_MEANING_PLACEHOLDER,
 } from "./sentenceConstants";
 import type { SentenceRoundInput } from "./sentenceTypes";
 
@@ -29,6 +30,20 @@ export type SentenceRoundIssue =
   | { type: "spanish_too_many_tokens"; roundIndex: number; tokenCount: number }
   | { type: "spanish_token_too_long"; roundIndex: number; tokenIndex: number; token: string }
   | { type: "spanish_forbidden_punctuation"; roundIndex: number; character: string }
+  | { type: "word_meanings_missing"; roundIndex: number }
+  | {
+      type: "word_meanings_count";
+      roundIndex: number;
+      expectedCount: number;
+      actualCount: number;
+    }
+  | {
+      type: "free_word_position_invalid";
+      roundIndex: number;
+      positionIndex: number;
+      position: unknown;
+      tokenCount: number;
+    }
   | { type: "distractor_count"; roundIndex: number; actualCount: number }
   | { type: "distractor_empty"; roundIndex: number; distractorIndex: number }
   | { type: "distractor_too_long"; roundIndex: number; distractorIndex: number }
@@ -56,6 +71,16 @@ export type SentenceRoundIssue =
       secondSpanish: string;
     };
 
+export type SentenceRoundIssueOptions = {
+  /** Generation must return real aligned meanings; manual drafts may omit them. */
+  requireWordMeanings?: boolean;
+};
+
+export type NormalizedSentenceRoundInput = SentenceRoundInput & {
+  wordMeanings: string[];
+  freeWordPositions: number[];
+};
+
 /**
  * Whitespace-split tokens of a Spanish sentence — the gameplay tile pool.
  * Punctuation stays attached to its host word (decision: round shape).
@@ -64,6 +89,92 @@ export function tokenizeSpanishSentence(spanish: string): string[] {
   const trimmed = spanish.trim();
   if (trimmed === "") return [];
   return trimmed.split(/\s+/);
+}
+
+export function buildPlaceholderSentenceWordMeanings(spanish: string): string[] {
+  return tokenizeSpanishSentence(spanish).map(() => SENTENCE_WORD_MEANING_PLACEHOLDER);
+}
+
+export function normalizeSentenceWordMeanings(
+  spanish: string,
+  wordMeanings: readonly string[] | undefined
+): string[] {
+  const tokens = tokenizeSpanishSentence(spanish);
+  if (!wordMeanings || wordMeanings.length !== tokens.length) {
+    return buildPlaceholderSentenceWordMeanings(spanish);
+  }
+
+  return tokens.map((_token, index) => {
+    const meaning = wordMeanings[index]?.trim();
+    return meaning ? meaning : SENTENCE_WORD_MEANING_PLACEHOLDER;
+  });
+}
+
+function tokenGroupKey(token: string): string {
+  return normalizeForComparison(token);
+}
+
+export function normalizeSentenceFreeWordPositions(
+  spanish: string,
+  freeWordPositions: readonly number[] | undefined
+): number[] {
+  const tokens = tokenizeSpanishSentence(spanish);
+  if (!freeWordPositions || tokens.length === 0) return [];
+
+  const requestedKeys = new Set<string>();
+  for (const position of freeWordPositions) {
+    if (!Number.isInteger(position) || position < 0 || position >= tokens.length) {
+      continue;
+    }
+    requestedKeys.add(tokenGroupKey(tokens[position]));
+  }
+
+  return tokens.flatMap((token, index) =>
+    requestedKeys.has(tokenGroupKey(token)) ? [index] : []
+  );
+}
+
+export function toggleSentenceFreeWordPosition(
+  spanish: string,
+  freeWordPositions: readonly number[] | undefined,
+  tokenIndex: number
+): number[] {
+  const tokens = tokenizeSpanishSentence(spanish);
+  if (tokenIndex < 0 || tokenIndex >= tokens.length) {
+    return normalizeSentenceFreeWordPositions(spanish, freeWordPositions);
+  }
+
+  const current = new Set(normalizeSentenceFreeWordPositions(spanish, freeWordPositions));
+  const targetKey = tokenGroupKey(tokens[tokenIndex]);
+  const groupPositions = tokens.flatMap((token, index) =>
+    tokenGroupKey(token) === targetKey ? [index] : []
+  );
+  const groupIsFree = groupPositions.every((position) => current.has(position));
+
+  for (const position of groupPositions) {
+    if (groupIsFree) {
+      current.delete(position);
+    } else {
+      current.add(position);
+    }
+  }
+
+  return normalizeSentenceFreeWordPositions(spanish, Array.from(current));
+}
+
+export function sentenceTokensChanged(leftSpanish: string, rightSpanish: string): boolean {
+  const leftTokens = tokenizeSpanishSentence(leftSpanish);
+  const rightTokens = tokenizeSpanishSentence(rightSpanish);
+  if (leftTokens.length !== rightTokens.length) return true;
+
+  return leftTokens.some((token, index) => tokenGroupKey(token) !== tokenGroupKey(rightTokens[index]));
+}
+
+export function hasPlaceholderSentenceWordMeanings(round: SentenceRoundInput): boolean {
+  const placeholders = buildPlaceholderSentenceWordMeanings(round.spanishSentence);
+  const meanings = normalizeSentenceWordMeanings(round.spanishSentence, round.wordMeanings);
+  if (placeholders.length !== meanings.length) return true;
+  return meanings.some((meaning, index) => meaning === placeholders[index]);
 }
 
 function findForbiddenPunctuation(value: string): string | null {
@@ -88,7 +199,8 @@ function normalizeForDistractorComparison(token: string): string {
  * the editor can highlight specific fields (mirrors `collectThemeIssues`).
  */
 export function collectSentenceRoundIssues(
-  rounds: SentenceRoundInput[]
+  rounds: SentenceRoundInput[],
+  options: SentenceRoundIssueOptions = {}
 ): SentenceRoundIssue[] {
   const issues: SentenceRoundIssue[] = [];
   const seenSpanish = new Map<string, { index: number; spanish: string }>();
@@ -141,6 +253,52 @@ export function collectSentenceRoundIssues(
           });
         }
       });
+
+      const rawWordMeanings = round.wordMeanings;
+      if (rawWordMeanings === undefined) {
+        if (options.requireWordMeanings) {
+          issues.push({ type: "word_meanings_missing", roundIndex });
+        }
+      } else if (!Array.isArray(rawWordMeanings)) {
+        issues.push({
+          type: "word_meanings_count",
+          roundIndex,
+          expectedCount: tokens.length,
+          actualCount: 0,
+        });
+      } else if (rawWordMeanings.length !== tokens.length) {
+        issues.push({
+          type: "word_meanings_count",
+          roundIndex,
+          expectedCount: tokens.length,
+          actualCount: rawWordMeanings.length,
+        });
+      }
+
+      const rawFreeWordPositions = round.freeWordPositions;
+      if (rawFreeWordPositions !== undefined) {
+        if (!Array.isArray(rawFreeWordPositions)) {
+          issues.push({
+            type: "free_word_position_invalid",
+            roundIndex,
+            positionIndex: 0,
+            position: rawFreeWordPositions,
+            tokenCount: tokens.length,
+          });
+        } else {
+          rawFreeWordPositions.forEach((position, positionIndex) => {
+            if (!Number.isInteger(position) || position < 0 || position >= tokens.length) {
+              issues.push({
+                type: "free_word_position_invalid",
+                roundIndex,
+                positionIndex,
+                position,
+                tokenCount: tokens.length,
+              });
+            }
+          });
+        }
+      }
     }
 
     const rawDistractors = Array.isArray(round.distractors) ? round.distractors : [];
@@ -245,6 +403,12 @@ export function formatSentenceRoundIssue(issue: SentenceRoundIssue): string {
       return `${label(issue.roundIndex)}: Spanish word "${issue.token}" must be at most ${SENTENCE_SPANISH_TOKEN_MAX_LENGTH} characters`;
     case "spanish_forbidden_punctuation":
       return `${label(issue.roundIndex)}: Spanish sentence must not contain "${issue.character}"`;
+    case "word_meanings_missing":
+      return `${label(issue.roundIndex)}: word meanings must be generated for each Spanish word`;
+    case "word_meanings_count":
+      return `${label(issue.roundIndex)}: word meanings must match the Spanish word count (${issue.expectedCount}, got ${issue.actualCount})`;
+    case "free_word_position_invalid":
+      return `${label(issue.roundIndex)}: free word position ${issue.positionIndex + 1} must be a valid Spanish word index (got ${String(issue.position)})`;
     case "distractor_count":
       return `${label(issue.roundIndex)}: must have exactly ${SENTENCE_DISTRACTOR_COUNT} distractors (got ${issue.actualCount})`;
     case "distractor_empty":
@@ -273,7 +437,7 @@ export function describeSentenceRoundIssues(rounds: SentenceRoundInput[]): strin
  */
 export function normalizeSentenceRounds(
   rounds: SentenceRoundInput[]
-): SentenceRoundInput[] {
+): NormalizedSentenceRoundInput[] {
   if (rounds.length < SENTENCE_MIN_ROUND_COUNT || rounds.length > SENTENCE_MAX_ROUND_COUNT) {
     throw new Error(
       `Sentence theme must contain ${SENTENCE_MIN_ROUND_COUNT}-${SENTENCE_MAX_ROUND_COUNT} rounds`
@@ -292,6 +456,14 @@ export function normalizeSentenceRounds(
   return rounds.map((round) => ({
     englishPrompt: round.englishPrompt.trim(),
     spanishSentence: round.spanishSentence.trim().replace(/\s+/g, " "),
+    wordMeanings: normalizeSentenceWordMeanings(
+      round.spanishSentence.trim().replace(/\s+/g, " "),
+      round.wordMeanings
+    ),
+    freeWordPositions: normalizeSentenceFreeWordPositions(
+      round.spanishSentence.trim().replace(/\s+/g, " "),
+      round.freeWordPositions
+    ),
     distractors: round.distractors.map((distractor) =>
       (typeof distractor === "string" ? distractor : "").trim()
     ),

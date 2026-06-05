@@ -9,7 +9,7 @@ import { actionButtonClassName, getPrimaryActionStyle } from "@/app/components/m
 interface CompletionScreenProps {
   questionsAnswered: number;
   correctAnswers: number;
-  totalWords: number;
+  totalItems: number;
   totalDuration: number;
   onExit: () => void;
   exitLabel?: string;
@@ -21,7 +21,7 @@ interface CompletionScreenProps {
 export function CompletionScreen({
   questionsAnswered,
   correctAnswers,
-  totalWords,
+  totalItems,
   totalDuration,
   onExit,
   exitLabel = "Back to Home",
@@ -74,10 +74,10 @@ export function CompletionScreen({
 
         <div className="rounded-2xl border-2 p-3" style={statCardStyle}>
           <div className="text-[11px] uppercase tracking-widest" style={{ color: colors.text.muted }}>
-            Words Mastered
+            Items Mastered
           </div>
           <div className="mt-1 text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
-            {totalWords}
+            {totalItems}
           </div>
         </div>
 

@@ -9,7 +9,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [],
+    sessionItems: [],
     sourceType: "normal",
     duelMode: "pve",
     status: "active",

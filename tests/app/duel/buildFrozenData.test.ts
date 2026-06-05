@@ -2,7 +2,7 @@
  * Coverage for `buildFrozenData`, the pure reconstruction of the reveal-phase
  * snapshot. The phase machine (`useDuelPhaseState`) decides *when* to freeze;
  * this asserts *what* the frozen card contains for a given previous position,
- * including the `wordOrder` indirection and the viewer-reveal gating.
+ * including the `itemOrder` indirection and the viewer-reveal gating.
  */
 
 import { describe, expect, it } from "vitest";
@@ -11,13 +11,13 @@ import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { buildFrozenData } from "@/app/duel/[duelId]/hooks/duelViewModelHelpers";
 
 function makeDuel(args: {
-  wordOrder: number[];
-  sessionWords: Array<Record<string, unknown>>;
+  itemOrder: number[];
+  sessionItems: Array<Record<string, unknown>>;
   duelQuestions: Array<Record<string, unknown>>;
 }): Doc<"duels"> {
   return {
-    wordOrder: args.wordOrder,
-    sessionWords: args.sessionWords,
+    itemOrder: args.itemOrder,
+    sessionItems: args.sessionItems,
     duelQuestions: args.duelQuestions,
   } as unknown as Doc<"duels">;
 }
@@ -37,8 +37,8 @@ const revealedCatQuestion = {
 describe("buildFrozenData", () => {
   it("builds the frozen snapshot for a revealed word position", () => {
     const duel = makeDuel({
-      wordOrder: [0, 1],
-      sessionWords: [cat, dog],
+      itemOrder: [0, 1],
+      sessionItems: [cat, dog],
       duelQuestions: [revealedCatQuestion, revealedCatQuestion],
     });
 
@@ -56,11 +56,11 @@ describe("buildFrozenData", () => {
     });
   });
 
-  it("maps position to the session word through wordOrder, not directly", () => {
-    // Position 0 resolves to sessionWords[1] via wordOrder.
+  it("maps position to the session word through itemOrder, not directly", () => {
+    // Position 0 resolves to sessionItems[1] via itemOrder.
     const duel = makeDuel({
-      wordOrder: [1, 0],
-      sessionWords: [cat, dog],
+      itemOrder: [1, 0],
+      sessionItems: [cat, dog],
       duelQuestions: [revealedCatQuestion, revealedCatQuestion],
     });
 
@@ -71,8 +71,8 @@ describe("buildFrozenData", () => {
 
   it("hides the correct answer until the viewer reveal flag is set", () => {
     const duel = makeDuel({
-      wordOrder: [0],
-      sessionWords: [cat],
+      itemOrder: [0],
+      sessionItems: [cat],
       duelQuestions: [{ ...revealedCatQuestion, answerRevealedToViewer: false }],
     });
 
@@ -83,8 +83,8 @@ describe("buildFrozenData", () => {
 
   it("normalizes empty locked/opponent answers to null and flags none-of-above", () => {
     const duel = makeDuel({
-      wordOrder: [0],
-      sessionWords: [cat],
+      itemOrder: [0],
+      sessionItems: [cat],
       duelQuestions: [{ ...revealedCatQuestion, correctOption: NONE_OF_ABOVE }],
     });
 
@@ -101,8 +101,8 @@ describe("buildFrozenData", () => {
 
   it("reports an unknown none-of-above state when the correct option is absent", () => {
     const duel = makeDuel({
-      wordOrder: [0],
-      sessionWords: [cat],
+      itemOrder: [0],
+      sessionItems: [cat],
       duelQuestions: [{ kind: "word", options: ["a", "b", "c", "d"], difficulty: "hard", points: 3 }],
     });
 
@@ -113,8 +113,8 @@ describe("buildFrozenData", () => {
 
   it("falls back to an empty word when the session item is missing", () => {
     const duel = makeDuel({
-      wordOrder: [5], // points past the end of sessionWords
-      sessionWords: [cat],
+      itemOrder: [5], // points past the end of sessionItems
+      sessionItems: [cat],
       duelQuestions: [revealedCatQuestion],
     });
 
@@ -125,9 +125,17 @@ describe("buildFrozenData", () => {
 
   it("throws when the previous position is a sentence question", () => {
     const duel = makeDuel({
-      wordOrder: [0],
-      sessionWords: [cat],
-      duelQuestions: [{ kind: "sentence", englishPrompt: "Hi", spanishSentence: "Hola", tilePool: ["Hola"] }],
+      itemOrder: [0],
+      sessionItems: [cat],
+      duelQuestions: [
+        {
+          kind: "sentence",
+          englishPrompt: "Hi",
+          spanishSentence: "Hola",
+          tilePool: ["Hola"],
+          tileMeanings: [null],
+        },
+      ],
     });
 
     expect(() =>

@@ -6,24 +6,22 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
-  buildSessionWords,
+  buildSessionItems,
   isSessionSentenceItem,
   summarizeThemes,
-  type SessionWordItem,
-} from "@/lib/sessionWords";
+  type SessionItem,
+} from "@/lib/sessionItems";
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 /**
- * Solo practice is word-only in v1 (plan decision: modes — only duel-style
- * modes support sentence rounds). The hook throws if any sentence item slips
- * through so an upstream routing bug surfaces loudly rather than silently
- * dropping content.
+ * Normal ad-hoc Solo Practice supports mixed word + sentence decks. Persisted
+ * boss/SR sessions and weekly-goal practice stay word-only for the MVP.
  */
-export type SessionWordEntry = SessionWordItem;
+export type SoloSessionEntry = SessionItem;
 
 /**
  * Gate state shared by the Solo Practice and Solo Learn pages. `ready` means all
- * five entry checks passed and `sessionWords`/`themeSummary` are usable; the
+ * five entry checks passed and `sessionItems`/`themeSummary` are usable; the
  * other three drive the {@link SoloStatusScreen}.
  */
 export type SoloSourceStatus = "invalid" | "loading" | "unavailable" | "ready";
@@ -32,7 +30,7 @@ export interface SoloSessionSource {
   status: SoloSourceStatus;
   /** Message for the non-ready states; empty string when ready. */
   statusMessage: string;
-  sessionWords: SessionWordEntry[];
+  sessionItems: SoloSessionEntry[];
   themeSummary: string;
   requestedThemeIds: Id<"themes">[];
   soloPracticeSessionId: string | null;
@@ -104,15 +102,16 @@ export function useSoloSessionSource({
     });
   }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
 
-  const sessionWords: SessionWordEntry[] = useMemo(() => {
-    const raw = practiceSession?.sessionWords ?? buildSessionWords(selectedThemes);
-    if (raw.some(isSessionSentenceItem)) {
-      throw new Error(
-        "Solo practice cannot run sentence items — sentence themes must be filtered out before reaching the solo session loader."
-      );
-    }
-    return raw as SessionWordEntry[];
-  }, [practiceSession?.sessionWords, selectedThemes]);
+  const isNormalSoloPractice = !soloPracticeSessionId && !weeklyGoalId;
+  const rawSessionItems = useMemo(
+    () => practiceSession?.sessionItems ?? buildSessionItems(selectedThemes),
+    [practiceSession?.sessionItems, selectedThemes]
+  );
+  const hasUnsupportedSentenceItems =
+    !isNormalSoloPractice && rawSessionItems.some(isSessionSentenceItem);
+  const sessionItems: SoloSessionEntry[] = hasUnsupportedSentenceItems
+    ? []
+    : rawSessionItems;
   const themeSummary = useMemo(
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]
@@ -161,12 +160,16 @@ export function useSoloSessionSource({
   ) {
     status = "invalid";
     statusMessage = "Theme not found";
+  } else if (hasUnsupportedSentenceItems) {
+    status = "invalid";
+    statusMessage =
+      "Sentence themes are only available from normal Solo Practice for now.";
   }
 
   return {
     status,
     statusMessage,
-    sessionWords,
+    sessionItems,
     themeSummary,
     requestedThemeIds,
     soloPracticeSessionId,

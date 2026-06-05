@@ -271,6 +271,15 @@ function isSentenceRoundInput(value: unknown): value is SentenceRoundInput {
   if (!isRecord(value)) return false;
   if (typeof value.englishPrompt !== "string") return false;
   if (typeof value.spanishSentence !== "string") return false;
+  if (!Array.isArray(value.wordMeanings)) return false;
+  if (!value.wordMeanings.every((entry) => typeof entry === "string")) return false;
+  if (
+    value.freeWordPositions !== undefined &&
+    (!Array.isArray(value.freeWordPositions) ||
+      !value.freeWordPositions.every((entry) => typeof entry === "number"))
+  ) {
+    return false;
+  }
   if (!Array.isArray(value.distractors)) return false;
   return value.distractors.every((entry) => typeof entry === "string");
 }

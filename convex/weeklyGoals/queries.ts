@@ -2,7 +2,7 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { loadUsersById } from "../helpers/users";
 import { loadWeeklyGoalSessionThemesByThemeIds } from "../helpers/weeklyGoalSnapshots";
-import { buildSessionWords } from "../../lib/sessionWords";
+import { buildSessionItems } from "../../lib/sessionItems";
 import { calculateStartingLives } from "../../lib/limitedLives";
 import { canAttachThemeToGoal } from "../../lib/themeAccess";
 import {
@@ -16,7 +16,7 @@ import {
 } from "./readModels";
 import {
   getEligibleThemeIdsForBoss,
-  summarizeSessionWords,
+  summarizeSessionItems,
 } from "./bossWorkflows";
 import {
   getWeeklyGoalPracticeSource,
@@ -117,7 +117,7 @@ export async function getBossLaunchPreviewForViewer(
       : getEffectiveBigBossStatus(goal, now);
   const eligibleThemeIds = getEligibleThemeIdsForBoss(goal, bossType);
   const themes = await loadWeeklyGoalSessionThemesByThemeIds(ctx, goal, eligibleThemeIds);
-  const fullSessionWords = buildSessionWords(themes);
+  const fullSessionItems = buildSessionItems(themes);
   const livesTotal = calculateStartingLives({
     bossType,
     themeCount: themes.length,
@@ -127,7 +127,7 @@ export async function getBossLaunchPreviewForViewer(
   return {
     mode: goal.mode,
     themeCount: themes.length,
-    wordCount: fullSessionWords.length,
+    wordCount: fullSessionItems.length,
     livesTotal,
     selectedBossStatus: effectiveStatus,
   };
@@ -149,8 +149,8 @@ export async function getBossPracticeSessionForViewer(
     soloPracticeSessionId: session._id,
     sourceType: session.sourceType,
     spacedRepetitionStep: session.spacedRepetitionStep,
-    sessionWords: session.sessionWords,
-    themeSummary: summarizeSessionWords(session.sessionWords),
+    sessionItems: session.sessionItems,
+    themeSummary: summarizeSessionItems(session.sessionItems),
   };
 }
 

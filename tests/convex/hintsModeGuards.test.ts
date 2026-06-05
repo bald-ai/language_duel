@@ -56,13 +56,13 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [],
+    sessionItems: [],
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0],
+    itemOrder: [0],
     duelQuestions: [
       {
         kind: "word" as const, options: ["cat", "dog", "bird", "fish"],

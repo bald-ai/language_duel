@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   collectSentenceRoundIssues,
   describeSentenceRoundIssues,
+  normalizeSentenceFreeWordPositions,
   normalizeSentenceRounds,
+  normalizeSentenceWordMeanings,
   tokenizeSpanishSentence,
+  toggleSentenceFreeWordPosition,
   validateGeneratedSentenceRoundsAgainstExisting,
 } from "@/lib/themes/sentenceValidation";
 
@@ -177,6 +180,68 @@ describe("collectSentenceRoundIssues", () => {
       ])
     ).toEqual([]);
   });
+
+  it("requires generated word meanings when requested", () => {
+    expect(collectSentenceRoundIssues([valid], { requireWordMeanings: true })).toContainEqual({
+      type: "word_meanings_missing",
+      roundIndex: 0,
+    });
+  });
+
+  it("flags word meanings that do not align to the Spanish tokens", () => {
+    expect(
+      collectSentenceRoundIssues([
+        { ...valid, wordMeanings: ["want"] },
+      ])
+    ).toContainEqual({
+      type: "word_meanings_count",
+      roundIndex: 0,
+      expectedCount: 2,
+      actualCount: 1,
+    });
+  });
+
+  it("flags invalid free word positions", () => {
+    expect(
+      collectSentenceRoundIssues([
+        { ...valid, freeWordPositions: [99] },
+      ])
+    ).toContainEqual({
+      type: "free_word_position_invalid",
+      roundIndex: 0,
+      positionIndex: 0,
+      position: 99,
+      tokenCount: 2,
+    });
+  });
+});
+
+describe("free word normalization", () => {
+  it("fills missing or blank meanings with the placeholder sentinel", () => {
+    expect(normalizeSentenceWordMeanings("Yo como pan", ["I", "", "bread"])).toEqual([
+      "I",
+      "placeholder",
+      "bread",
+    ]);
+    expect(normalizeSentenceWordMeanings("Yo como pan", undefined)).toEqual([
+      "placeholder",
+      "placeholder",
+      "placeholder",
+    ]);
+  });
+
+  it("sorts, dedupes, and expands repeated free words as a group", () => {
+    expect(normalizeSentenceFreeWordPositions("que quiero que", [2, 2])).toEqual([
+      0,
+      2,
+    ]);
+  });
+
+  it("toggles repeated matching tokens together", () => {
+    const freed = toggleSentenceFreeWordPosition("que quiero que", [], 0);
+    expect(freed).toEqual([0, 2]);
+    expect(toggleSentenceFreeWordPosition("que quiero que", freed, 2)).toEqual([]);
+  });
 });
 
 describe("normalizeSentenceRounds", () => {
@@ -185,6 +250,8 @@ describe("normalizeSentenceRounds", () => {
       {
         englishPrompt: "  I want coffee  ",
         spanishSentence: "  Quiero   cafe.  ",
+        wordMeanings: ["I want", "coffee"],
+        freeWordPositions: [1],
         distractors: [" Tengo ", "agua", "pan "],
       },
     ]);
@@ -192,6 +259,8 @@ describe("normalizeSentenceRounds", () => {
       {
         englishPrompt: "I want coffee",
         spanishSentence: "Quiero cafe.",
+        wordMeanings: ["I want", "coffee"],
+        freeWordPositions: [1],
         distractors: ["Tengo", "agua", "pan"],
       },
     ]);
@@ -210,7 +279,7 @@ describe("normalizeSentenceRounds", () => {
   });
 
   it("rejects empty round lists", () => {
-    expect(() => normalizeSentenceRounds([])).toThrow(/1-200/);
+    expect(() => normalizeSentenceRounds([])).toThrow(/1-30/);
   });
 });
 

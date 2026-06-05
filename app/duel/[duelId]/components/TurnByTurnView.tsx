@@ -235,7 +235,7 @@ export function TurnByTurnView({
 
   // The sentence question carries no theme label — it lives on the matching
   // session item. Read it defensively (we only need the optional display label).
-  const sessionItem = duel.sessionWords[duel.wordOrder[questionIndex]] as unknown as
+  const sessionItem = duel.sessionItems[duel.itemOrder[questionIndex]] as unknown as
     | { themeName?: string }
     | undefined;
   const themeName = sessionItem?.themeName ?? "";
@@ -274,6 +274,7 @@ export function TurnByTurnView({
       themeName={themeName}
       englishPrompt={question.englishPrompt}
       tilePool={question.tilePool}
+      tileMeanings={question.tileMeanings}
       placedTileIndices={placedTileIndices}
       correctnessMask={correctnessMask}
       lastWrongTileIndex={duel.tbtLastWrongTileIndex ?? null}

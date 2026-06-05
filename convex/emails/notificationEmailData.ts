@@ -12,7 +12,7 @@ import {
 import { type EmailData } from "../../lib/notificationTemplates";
 import { formatVisibleUser } from "../../lib/userDisplay";
 import { colorPalettes, DEFAULT_THEME_NAME } from "../../lib/appearance";
-import { summarizeThemeNames } from "../../lib/sessionWords";
+import { summarizeThemeNames } from "../../lib/sessionItems";
 import { getGoalDeleteAt } from "../../lib/weeklyGoals";
 import { WEEKLY_GOAL_DAILY_REMINDER_TIMEZONE } from "../../lib/weeklyGoalTiming";
 import { getGoalPartnerIdForViewer } from "../weeklyGoals/participants";

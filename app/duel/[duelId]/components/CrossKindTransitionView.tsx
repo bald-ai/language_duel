@@ -55,7 +55,7 @@ export function CrossKindTransitionView({
   const theirName = formatVisibleUser(isChallenger ? opponent : challenger, "Opponent");
 
   const priorQuestion = duel.duelQuestions?.[transition.prevIndex];
-  const priorItem = duel.sessionWords[duel.wordOrder[transition.prevIndex]];
+  const priorItem = duel.sessionItems[duel.itemOrder[transition.prevIndex]];
 
   const prompt =
     priorQuestion?.kind === "word"
@@ -105,7 +105,7 @@ export function CrossKindTransitionView({
             style={{ color: colors.text.muted }}
             data-testid="cross-kind-transition-round"
           >
-            Round {transition.prevIndex + 1} of {duel.sessionWords.length}
+            Round {transition.prevIndex + 1} of {duel.sessionItems.length}
           </div>
 
           {/* Prompt and answer share one typographic scale and stack directly

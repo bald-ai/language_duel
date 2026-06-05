@@ -1,7 +1,10 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import { getAuthenticatedUser } from "../helpers/auth";
+import { computeCreditConsumption } from "../credits";
+import { SENTENCE_HINT_REFRESH_CREDITS } from "../../lib/credits/constants";
 import { requireThemeOwner, requireThemeEditor } from "../helpers/permissions";
 import {
   collectTtsStorageIds,
@@ -13,7 +16,14 @@ import {
   normalizeThemeName,
   normalizeThemeWords,
 } from "../../lib/themes/serverValidation";
-import { normalizeSentenceRounds } from "../../lib/themes/sentenceValidation";
+import {
+  buildPlaceholderSentenceWordMeanings,
+  hasPlaceholderSentenceWordMeanings,
+  normalizeSentenceFreeWordPositions,
+  normalizeSentenceRounds,
+  normalizeSentenceWordMeanings,
+  sentenceTokensChanged,
+} from "../../lib/themes/sentenceValidation";
 import type { WordType } from "../../lib/themes/wordTypes";
 import type { SentenceRoundInput, ThemeContentType } from "../../lib/themes/sentenceTypes";
 import {
@@ -69,6 +79,12 @@ export type ApplyGeneratedThemeTtsResult = {
   rejectedStorageIds: Id<"_storage">[];
 };
 
+type SentenceWordMeaningRefreshRound = {
+  roundIndex: number;
+  englishPrompt: string;
+  spanishSentence: string;
+};
+
 function assertCreateContentMatches(
   contentType: ThemeContentType,
   args: { words?: ThemeWordWithTts[]; sentenceRounds?: SentenceRoundInput[] }
@@ -102,6 +118,128 @@ function assertCreateContentMatches(
   }
 }
 
+function withPlaceholderWordMeanings<TRound extends SentenceRoundWithTts>(
+  round: TRound,
+  freeWordPositions = round.freeWordPositions
+): TRowWithSentenceFreeWords<TRound> {
+  return {
+    ...round,
+    wordMeanings: buildPlaceholderSentenceWordMeanings(round.spanishSentence),
+    freeWordPositions: normalizeSentenceFreeWordPositions(
+      round.spanishSentence,
+      freeWordPositions
+    ),
+  };
+}
+
+type TRowWithSentenceFreeWords<TRow extends SentenceRoundWithTts> = TRow & {
+  wordMeanings: string[];
+  freeWordPositions: number[];
+};
+
+function buildSentenceWordMeaningRefreshRounds(
+  rounds: readonly TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
+  roundIndices: readonly number[]
+): SentenceWordMeaningRefreshRound[] {
+  return roundIndices.flatMap((roundIndex) => {
+    const round = rounds[roundIndex];
+    if (!round) return [];
+    return [{
+      roundIndex,
+      englishPrompt: round.englishPrompt,
+      spanishSentence: round.spanishSentence,
+    }];
+  });
+}
+
+async function scheduleSentenceWordMeaningRefresh(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  themeId: Id<"themes">,
+  rounds: readonly TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
+  roundIndices: readonly number[]
+) {
+  const refreshRounds = buildSentenceWordMeaningRefreshRounds(rounds, roundIndices);
+  if (refreshRounds.length === 0) return;
+
+  // Flat LLM charge per save that needs hints. Out of credits is non-fatal: the
+  // save stands and the affected rounds keep their placeholder meanings.
+  const charged = computeCreditConsumption(user, "llm", SENTENCE_HINT_REFRESH_CREDITS);
+  if (!charged) return;
+  await ctx.db.patch(user._id, {
+    llmCreditsRemaining: charged.llmCreditsRemaining,
+    ttsGenerationsRemaining: charged.ttsGenerationsRemaining,
+    creditsMonth: charged.creditsMonth,
+  });
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.themes.sentenceWordMeanings.refreshSentenceWordMeanings,
+    { themeId, rounds: refreshRounds }
+  );
+}
+
+function reconcileSentenceWordMeanings(
+  previousRounds: readonly SentenceRoundWithTts[],
+  nextRounds: readonly SentenceRoundWithTts[]
+): {
+  rounds: TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
+  refreshRoundIndices: number[];
+} {
+  const previousBySpanish = new Map(
+    previousRounds.map((round) => [round.spanishSentence, round])
+  );
+  const refreshRoundIndices: number[] = [];
+
+  const rounds = nextRounds.map((round, roundIndex) => {
+    const sameSpanishPrevious = previousBySpanish.get(round.spanishSentence);
+    const sameIndexPrevious = previousRounds[roundIndex];
+    const normalizedFreeWordPositions = normalizeSentenceFreeWordPositions(
+      round.spanishSentence,
+      round.freeWordPositions
+    );
+
+    if (sameSpanishPrevious) {
+      if (sameSpanishPrevious.englishPrompt !== round.englishPrompt) {
+        refreshRoundIndices.push(roundIndex);
+        return withPlaceholderWordMeanings(round, normalizedFreeWordPositions);
+      }
+
+      return {
+        ...round,
+        wordMeanings: normalizeSentenceWordMeanings(
+          round.spanishSentence,
+          sameSpanishPrevious.wordMeanings
+        ),
+        freeWordPositions: normalizedFreeWordPositions,
+      };
+    }
+
+    if (
+      sameIndexPrevious &&
+      sentenceTokensChanged(sameIndexPrevious.spanishSentence, round.spanishSentence)
+    ) {
+      refreshRoundIndices.push(roundIndex);
+      return withPlaceholderWordMeanings(round, []);
+    }
+
+    const normalizedRound = {
+      ...round,
+      wordMeanings: normalizeSentenceWordMeanings(
+        round.spanishSentence,
+        round.wordMeanings
+      ),
+      freeWordPositions: normalizedFreeWordPositions,
+    };
+    if (hasPlaceholderSentenceWordMeanings(normalizedRound)) {
+      refreshRoundIndices.push(roundIndex);
+    }
+    return normalizedRound;
+  });
+
+  return { rounds, refreshRoundIndices };
+}
+
 export async function handleCreateTheme(
   ctx: MutationCtx,
   args: CreateThemeArgs
@@ -130,8 +268,10 @@ export async function handleCreateTheme(
   }
 
   if (contentType === "sentence") {
-    const normalizedRounds = normalizeSentenceRounds(args.sentenceRounds!);
-    return await ctx.db.insert("themes", {
+    const normalizedRounds = normalizeSentenceRounds(
+      args.sentenceRounds!
+    ) as TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
+    const themeId = await ctx.db.insert("themes", {
       name: normalizedName,
       description: normalizedDescription,
       contentType,
@@ -143,6 +283,17 @@ export async function handleCreateTheme(
       friendsCanEdit: args.friendsCanEdit ?? false,
       saveRequestId: normalizedSaveRequestId,
     });
+    const refreshRoundIndices = normalizedRounds.flatMap((round, roundIndex) =>
+      hasPlaceholderSentenceWordMeanings(round) ? [roundIndex] : []
+    );
+    await scheduleSentenceWordMeaningRefresh(
+      ctx,
+      user,
+      themeId,
+      normalizedRounds,
+      refreshRoundIndices
+    );
+    return themeId;
   }
 
   const normalizedWords = normalizeThemeWords(args.words!);
@@ -200,13 +351,22 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
         updates.sentenceRounds
       ) as SentenceRoundWithTts[];
       const previousRounds = (theme.sentenceRounds ?? []) as SentenceRoundWithTts[];
+      const { rounds: meaningReconciledRounds, refreshRoundIndices } =
+        reconcileSentenceWordMeanings(previousRounds, normalizedRounds);
       const reconciledRounds = reconcileThemeSentenceTts<SentenceRoundWithTts>(
         previousRounds,
-        normalizedRounds
-      );
+        meaningReconciledRounds
+      ) as TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
 
       filteredUpdates.sentenceRounds = reconciledRounds;
       await cleanupThemeTtsAfterContentUpdate(ctx, themeId, previousRounds, reconciledRounds);
+      await scheduleSentenceWordMeaningRefresh(
+        ctx,
+        user,
+        themeId,
+        reconciledRounds,
+        refreshRoundIndices
+      );
     }
   } else {
     if (updates.sentenceRounds !== undefined) {
@@ -373,7 +533,9 @@ export async function handleApplyGeneratedThemeTts(
     );
 
     if (applied > 0) {
-      await ctx.db.patch(args.themeId, { sentenceRounds: rows });
+      await ctx.db.patch(args.themeId, {
+        sentenceRounds: rows as TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
+      });
     }
 
     return { applied, skipped, rejectedStorageIds };

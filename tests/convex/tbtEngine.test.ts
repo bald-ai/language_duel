@@ -17,6 +17,7 @@ function deck(n: number): NonNullable<Doc<"duels">["duelQuestions"]> {
     englishPrompt: "I eat bread",
     spanishSentence: "Yo como pan",
     tilePool: ["Yo", "como", "pan"],
+    tileMeanings: [null, null, null],
   }));
 }
 

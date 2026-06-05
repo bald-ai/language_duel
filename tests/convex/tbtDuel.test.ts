@@ -45,6 +45,7 @@ function sentenceQuestion(): NonNullable<DuelDoc["duelQuestions"]>[number] {
     englishPrompt: "I eat bread",
     spanishSentence: "Yo como pan",
     tilePool: ["Yo", "como", "pan", "tú"],
+    tileMeanings: [null, null, null, null],
   };
 }
 
@@ -55,11 +56,13 @@ function tbtDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "sentence",
         englishPrompt: "I eat bread",
         spanishSentence: "Yo como pan",
+        wordMeanings: ["I", "eat", "bread"],
+        freeWordPositions: [],
         distractors: ["tú"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Sentences",
@@ -68,6 +71,8 @@ function tbtDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
         kind: "sentence",
         englishPrompt: "You drink water",
         spanishSentence: "Tú bebes agua",
+        wordMeanings: ["you", "drink", "water"],
+        freeWordPositions: [],
         distractors: ["yo"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Sentences",
@@ -77,7 +82,7 @@ function tbtDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0, 1],
+    itemOrder: [0, 1],
     duelQuestions: [sentenceQuestion(), sentenceQuestion()],
     challengerAnswered: false,
     opponentAnswered: false,

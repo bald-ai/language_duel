@@ -55,9 +55,10 @@ export const ThemeWordCard = memo(function ThemeWordCard({
         color: colors.status.danger.light,
       }
     : {
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
-        color: colors.text.DEFAULT,
+        backgroundImage: `linear-gradient(135deg, ${colors.primary.DEFAULT}, ${colors.primary.dark})`,
+        borderColor: "transparent",
+        color: "#FFFFFF",
+        boxShadow: `0 3px 8px ${colors.primary.glow}`,
       };
 
   const dangerFieldStyle = {
@@ -66,17 +67,27 @@ export const ThemeWordCard = memo(function ThemeWordCard({
     color: colors.status.danger.light,
   };
 
-  const baseWordButtonStyle = {
-    backgroundColor: `${colors.primary.DEFAULT}1A`,
-    borderColor: `${colors.primary.light}66`,
-    color: colors.text.DEFAULT,
-  };
+  // Word shows as a bar with a primary accent rail down the left edge.
+  const wordStyle = isDuplicate
+    ? {
+        borderLeft: `4px solid ${colors.status.danger.DEFAULT}`,
+        backgroundColor: `${colors.status.danger.DEFAULT}1A`,
+      }
+    : {
+        borderLeft: `4px solid ${colors.primary.DEFAULT}`,
+        backgroundColor: `${colors.primary.DEFAULT}1A`,
+      };
 
-  const baseAnswerButtonStyle = {
-    backgroundColor: `${colors.secondary.DEFAULT}1A`,
-    borderColor: `${colors.secondary.light}66`,
-    color: colors.text.DEFAULT,
-  };
+  // The Answer "stage": a secondary-tinted panel that shows the answer big.
+  const stageStyle = wrongMatchesAnswer
+    ? {
+        borderColor: `${colors.status.danger.DEFAULT}66`,
+        background: `${colors.status.danger.DEFAULT}14`,
+      }
+    : {
+        borderColor: `${colors.secondary.DEFAULT}52`,
+        background: `linear-gradient(160deg, ${colors.secondary.DEFAULT}29, ${colors.secondary.DEFAULT}0D)`,
+      };
 
   const baseWrongButtonStyle = {
     backgroundColor: `${colors.cta.DEFAULT}1A`,
@@ -84,10 +95,8 @@ export const ThemeWordCard = memo(function ThemeWordCard({
     color: colors.text.DEFAULT,
   };
 
-  const wordButtonStyle = isDuplicate ? dangerFieldStyle : baseWordButtonStyle;
-  const answerButtonStyle = wrongMatchesAnswer ? dangerFieldStyle : baseAnswerButtonStyle;
-  const wordLabelColor = isDuplicate ? colors.status.danger.light : colors.primary.light;
-  const answerLabelColor = wrongMatchesAnswer ? colors.status.danger.light : colors.secondary.light;
+  const wordLabelColor = isDuplicate ? colors.status.danger.light : colors.primary.dark;
+  const answerLabelColor = wrongMatchesAnswer ? colors.status.danger.light : colors.secondary.dark;
   const issuePillStyle = {
     backgroundColor: `${colors.status.danger.DEFAULT}1A`,
     borderColor: `${colors.status.danger.DEFAULT}66`,
@@ -101,15 +110,16 @@ export const ThemeWordCard = memo(function ThemeWordCard({
 
   return (
     <div
-      className="border-2 rounded-2xl p-4"
+      className="rounded-[22px] p-[18px]"
       style={{
-        backgroundColor: colors.background.DEFAULT,
-        borderColor: colors.primary.dark,
+        backgroundColor: colors.background.elevated,
+        border: `2px solid ${colors.primary.DEFAULT}80`,
+        boxShadow: "0 16px 40px rgba(0,0,0,0.10)",
       }}
       data-testid={`theme-word-card-${index}`}
     >
       {/* Word number badge */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1">
         <div
           className="w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold"
           style={badgeStyle}
@@ -117,16 +127,19 @@ export const ThemeWordCard = memo(function ThemeWordCard({
         >
           {index + 1}
         </div>
+        <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: colors.text.muted }}>
+          Word
+        </span>
         {issueMessage && (
           <span
-            className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+            className="ml-2 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
             style={issuePillStyle}
             data-testid={`theme-word-${index}-issue-badge`}
           >
             Issue
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => {
               if (!onPlayWordTTS || !hasGeneratedTts) return;
@@ -153,42 +166,92 @@ export const ThemeWordCard = memo(function ThemeWordCard({
               </svg>
             )}
           </button>
+          {canEdit && (
+            <button
+              onClick={() => onDeleteWord(index)}
+              className="p-1.5 rounded-lg border-2 transition hover:brightness-110"
+              style={{
+                backgroundColor: "transparent",
+                borderColor: `${colors.neutral.DEFAULT}52`,
+                color: colors.text.muted,
+              }}
+              title="Delete word"
+              data-testid={`theme-word-${index}-delete`}
+            >
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Word & Answer Row */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <button
-          onClick={() => canEdit && onEditWord(index, "word")}
-          disabled={!canEdit}
-          data-invalid={isDuplicate}
-          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-          }`}
-          style={wordButtonStyle}
-          data-testid={`theme-word-${index}-word`}
-        >
-          <div className="text-xs mb-1" style={{ color: wordLabelColor }}>
-            Word
-          </div>
-          {word.word}
-        </button>
-        <button
-          onClick={() => canEdit && onEditWord(index, "answer")}
-          disabled={!canEdit}
-          data-invalid={wrongMatchesAnswer}
-          className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
-            canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
-          }`}
-          style={answerButtonStyle}
-          data-testid={`theme-word-${index}-answer`}
-        >
-          <div className="text-xs mb-1" style={{ color: answerLabelColor }}>
+      {/* Word (English prompt) — primary accent bar */}
+      <button
+        onClick={() => canEdit && onEditWord(index, "word")}
+        disabled={!canEdit}
+        data-invalid={isDuplicate}
+        className={`w-full px-3 py-2 rounded-r-xl text-sm font-medium transition text-left mt-2.5 mb-3 ${
+          canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+        }`}
+        style={wordStyle}
+        data-testid={`theme-word-${index}-word`}
+      >
+        <div className="text-[10px] mb-1 uppercase tracking-wider font-semibold" style={{ color: wordLabelColor }}>
+          Word
+        </div>
+        <div className="font-semibold" style={{ color: colors.text.DEFAULT }}>
+          {word.word || <span style={{ color: colors.text.muted }}>—</span>}
+        </div>
+      </button>
+
+      {/* Answer stage — the correct translation shown big. Tap to edit. */}
+      <button
+        onClick={() => canEdit && onEditWord(index, "answer")}
+        disabled={!canEdit}
+        data-invalid={wrongMatchesAnswer}
+        className={`w-full mb-3 rounded-[18px] border-2 px-3 pt-2 pb-3.5 transition ${
+          canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
+        }`}
+        style={stageStyle}
+        data-testid={`theme-word-${index}-answer`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: answerLabelColor }}>
             Answer
-          </div>
-          {word.answer}
-        </button>
-      </div>
+          </span>
+          {canEdit && (
+            <span
+              className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider"
+              style={{
+                color: colors.secondary.dark,
+                backgroundColor: `${colors.background.elevated}B3`,
+                borderColor: `${colors.secondary.DEFAULT}73`,
+              }}
+            >
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.51l-3 .857a.5.5 0 01-.618-.618l.857-3a2 2 0 01.51-.878l8.5-8.5z" />
+              </svg>
+              Edit text
+            </span>
+          )}
+        </div>
+        <div className="text-center text-2xl font-bold pt-3 pb-1 leading-tight" style={{ color: colors.text.DEFAULT }}>
+          {word.answer || <span className="text-base font-medium" style={{ color: colors.text.muted }}>—</span>}
+        </div>
+      </button>
 
       {/* Wrong Answers Grid */}
       <div className="grid grid-cols-3 gap-2">
@@ -202,15 +265,15 @@ export const ThemeWordCard = memo(function ThemeWordCard({
               onClick={() => canEdit && onEditWord(index, "wrong", wrongIdx)}
               disabled={!canEdit}
               data-invalid={isInvalidWrong}
-              className={`p-2 border-2 rounded-lg text-sm font-medium transition text-center ${
+              className={`p-2 border-2 rounded-xl text-sm font-medium transition text-center ${
                 canEdit ? "cursor-pointer hover:brightness-110" : "cursor-default"
               }`}
               style={isInvalidWrong ? dangerFieldStyle : baseWrongButtonStyle}
               data-testid={`theme-word-${index}-wrong-${wrongIdx}`}
             >
               <div
-                className="text-xs mb-1"
-                style={{ color: isInvalidWrong ? colors.status.danger.light : colors.cta.light }}
+                className="text-[10px] mb-1 uppercase tracking-wider font-semibold"
+                style={{ color: isInvalidWrong ? colors.status.danger.light : colors.cta.dark }}
               >
                 Wrong {wrongIdx + 1}
               </div>
@@ -228,22 +291,6 @@ export const ThemeWordCard = memo(function ThemeWordCard({
         >
           {issueMessage}
         </div>
-      )}
-
-      {/* Delete Word Button */}
-      {canEdit && (
-        <button
-          onClick={() => onDeleteWord(index)}
-          className="mt-3 w-full py-2 border-2 rounded-lg text-sm font-medium transition hover:brightness-110"
-          style={{
-            backgroundColor: `${colors.status.danger.DEFAULT}1A`,
-            borderColor: `${colors.status.danger.DEFAULT}66`,
-            color: colors.status.danger.light,
-          }}
-          data-testid={`theme-word-${index}-delete`}
-        >
-          Delete Word
-        </button>
       )}
     </div>
   );

@@ -55,11 +55,13 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "sentence" as const,
         englishPrompt: "the cat the dog",
         spanishSentence: "el gato el perro",
+        wordMeanings: ["the", "cat", "the", "dog"],
+        freeWordPositions: [],
         distractors: ["raton"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Animals",
@@ -70,13 +72,14 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0],
+    itemOrder: [0],
     duelQuestions: [
       {
         kind: "sentence" as const,
         englishPrompt: "the cat the dog",
         spanishSentence: "el gato el perro",
         tilePool: ["el", "gato", "el", "perro", "raton"],
+        tileMeanings: [null, null, null, null, null],
       },
     ],
     challengerAnswered: false,

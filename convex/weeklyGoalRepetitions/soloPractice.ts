@@ -25,7 +25,7 @@ export async function startRepetitionSoloPracticeForCurrentUser(
     "soloPracticeSessions",
     buildSoloPracticeSession({
       userId: user._id,
-      sessionWords: content.sessionWords,
+      sessionItems: content.sessionItems,
       sourceType: "spaced_repetition",
       weeklyGoalId,
       spacedRepetitionStep: step,
@@ -65,9 +65,9 @@ export async function completeRepetitionSoloPracticeForCurrentUser(
     return { advanced: false };
   }
 
-  const wordCount = session.sessionWords.length;
+  const wordCount = session.sessionItems.length;
   const masteredWordIndices = new Set(session.masteredWordIndices ?? []);
-  const hasServerOwnedCompletion = session.sessionWords.every((_, index) =>
+  const hasServerOwnedCompletion = session.sessionItems.every((_, index) =>
     masteredWordIndices.has(index)
   );
   if (!hasServerOwnedCompletion) {
@@ -151,7 +151,7 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   if (
     !Number.isInteger(args.wordIndex) ||
     args.wordIndex < 0 ||
-    args.wordIndex >= session.sessionWords.length
+    args.wordIndex >= session.sessionItems.length
   ) {
     throw new ConvexError({
       code: "INVALID_INPUT",
@@ -169,7 +169,7 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
     progressUpdatedAt: now,
   });
 
-  if (masteredWordIndices.length === session.sessionWords.length) {
+  if (masteredWordIndices.length === session.sessionItems.length) {
     const goal = await ctx.db.get(session.weeklyGoalId);
     if (
       goal?.status === "completed" &&
@@ -193,6 +193,6 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
 
   return {
     masteredCount: masteredWordIndices.length,
-    totalCount: session.sessionWords.length,
+    totalCount: session.sessionItems.length,
   };
 }

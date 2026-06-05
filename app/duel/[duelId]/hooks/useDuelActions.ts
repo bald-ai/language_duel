@@ -11,7 +11,7 @@ import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage, isExpectedDuelRaceError } from "./useDuelRaceErrors";
 import { useDuelCountdownActions } from "./useDuelCountdownActions";
 
-type SessionItem = Doc<"duels">["sessionWords"][number];
+type SessionItem = Doc<"duels">["sessionItems"][number];
 /** TTS only meaningfully applies to word items today (no TTS for sentences in v1). */
 type SessionWord = Extract<SessionItem, { kind: "word" }>;
 

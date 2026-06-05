@@ -181,6 +181,7 @@ export function useThemesController() {
         onThemeNameChange: sentenceController.handleThemeNameChange,
         onDeleteRound: sentenceController.handleDeleteRound,
         onEditField: sentenceController.handleEditField,
+        onToggleFreeWord: sentenceController.handleToggleFreeWord,
         onSave: sentenceController.handleSave,
         onCancel: sentenceController.handleCancel,
         isSaving: sentenceController.isSaving,

@@ -16,6 +16,8 @@ export interface SentenceQuestionSnapshot {
   englishPrompt: string;
   spanishSentence: string;
   tilePool: string[];
+  /** English free-word hints aligned to `tilePool`; distractors and non-free words are null. */
+  tileMeanings: Array<string | null>;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface SentenceTilePool {
  * per-player answer fields.
  */
 export interface SentenceParticipantResult {
-  /** Position into wordOrder, matches `duelQuestions[index]`. */
+  /** Position into itemOrder, matches `duelQuestions[index]`. */
   position: number;
   /** How many wrong tile taps this player accumulated on this round. */
   mistakes: number;

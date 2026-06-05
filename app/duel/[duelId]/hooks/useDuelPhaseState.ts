@@ -65,7 +65,7 @@ export function useDuelPhaseState({
   const selectedAnswer = getSelectedAnswerForIndex(index);
   const isLocked = getIsLockedForIndex(index);
 
-  const words = duel.sessionWords;
+  const words = duel.sessionItems;
   const currentWordIndex = duel.currentWordIndex;
 
   const { isRevealing, typedText, revealComplete, resetTypeReveal } =
@@ -129,7 +129,7 @@ export function useDuelPhaseState({
 
     activeQuestionIndexRef.current = currentWordIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, duel.wordOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
+  }, [currentWordIndex, words, duel.itemOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
 
   useEffect(() => {
     const eliminated = duel.eliminatedOptions || [];

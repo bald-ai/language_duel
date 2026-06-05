@@ -62,7 +62,7 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       { kind: "word" as const, word: "cat", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
       { kind: "word" as const, word: "dog", answer: "", wrongAnswers: [], themeId: "theme_1" as Id<"themes">, themeName: "Animals" },
     ],
@@ -70,7 +70,7 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
     status: "active",
     createdAt: 1,
     currentWordIndex: 0,
-    wordOrder: [0, 1],
+    itemOrder: [0, 1],
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,

@@ -305,7 +305,10 @@ export function analyzeSentenceThemeIssues(
       issue.type === "spanish_too_few_tokens" ||
       issue.type === "spanish_too_many_tokens" ||
       issue.type === "spanish_forbidden_punctuation" ||
-      issue.type === "spanish_token_too_long"
+      issue.type === "spanish_token_too_long" ||
+      issue.type === "word_meanings_missing" ||
+      issue.type === "word_meanings_count" ||
+      issue.type === "free_word_position_invalid"
     ) {
       ensureSlot(issue.roundIndex).spanishHasIssue = true;
       setIssueMessage(issue.roundIndex);

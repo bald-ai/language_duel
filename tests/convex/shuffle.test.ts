@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createShuffledWordOrder, shuffleArray } from "@/convex/helpers/shuffle";
+import { createShuffledItemOrder, shuffleArray } from "@/convex/helpers/shuffle";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,9 +19,9 @@ describe("shuffle helpers", () => {
     expect(values).toEqual([1, 2, 3, 4]);
   });
 
-  it("createShuffledWordOrder returns a valid word index permutation", () => {
+  it("createShuffledItemOrder returns a valid word index permutation", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
 
-    expect(createShuffledWordOrder(5)).toEqual([1, 2, 3, 4, 0]);
+    expect(createShuffledItemOrder(5)).toEqual([1, 2, 3, 4, 0]);
   });
 });

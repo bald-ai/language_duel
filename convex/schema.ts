@@ -36,6 +36,8 @@ const wordValidator = v.object({
 const sentenceRoundValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
+  wordMeanings: v.array(v.string()),
+  freeWordPositions: v.array(v.number()),
   distractors: v.array(v.string()),
   ttsStorageId: v.optional(v.id("_storage")),
 });
@@ -99,6 +101,8 @@ const sessionSentenceItemValidator = v.object({
   kind: v.literal("sentence"),
   englishPrompt: v.string(),
   spanishSentence: v.string(),
+  wordMeanings: v.array(v.string()),
+  freeWordPositions: v.array(v.number()),
   distractors: v.array(v.string()),
   themeId: v.id("themes"),
   themeName: v.string(),
@@ -234,7 +238,7 @@ const hintRevealValidator = v.union(
   })
 );
 
-// duelQuestions is parallel to wordOrder: one snapshot per position in the
+// duelQuestions is parallel to itemOrder: one snapshot per position in the
 // deck. Word positions store the shuffled multiple-choice snapshot;
 // sentence positions store the pre-shuffled tile pool plus the canonical
 // solution (server-only — masked at the DTO boundary in convex/duels.ts).
@@ -251,6 +255,7 @@ const duelSentenceQuestionValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
   tilePool: v.array(v.string()),
+  tileMeanings: v.array(v.union(v.string(), v.null())),
 });
 
 const duelQuestionValidator = v.union(
@@ -499,7 +504,7 @@ export default defineSchema({
     challengerId: v.id("users"),
     opponentId: v.id("users"),
     ...sessionSourceFields,
-    sessionWords: v.array(sessionItemValidator),
+    sessionItems: v.array(sessionItemValidator),
     sourceType: duelSourceTypeValidator,
     livesTotal: v.optional(v.number()),
     livesRemaining: v.optional(v.number()),
@@ -507,7 +512,7 @@ export default defineSchema({
     createdAt: v.number(),
 
     currentWordIndex: v.number(),
-    wordOrder: v.array(v.number()),
+    itemOrder: v.array(v.number()),
     duelQuestions: v.optional(v.array(duelQuestionValidator)),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
@@ -554,7 +559,7 @@ export default defineSchema({
     opponentSabotagesUsed: v.optional(v.number()),
 
     // Relay-mode state. Only set when duelMode === "relay"; absent otherwise.
-    // Indices below are positions into wordOrder (same basis as duelQuestions).
+    // Indices below are positions into itemOrder (same basis as duelQuestions).
     relayPicker: v.optional(playerRoleValidator),
     relayPhase: v.optional(relayPhaseValidator),
     relayAssignedIndex: v.optional(v.number()),
@@ -598,7 +603,7 @@ export default defineSchema({
     ...sessionSourceFields,
     // Solo practice always belongs to a weekly goal, so weeklyGoalId is required here.
     weeklyGoalId: v.id("weeklyGoals"),
-    sessionWords: v.array(sessionItemValidator),
+    sessionItems: v.array(sessionItemValidator),
     sourceType: soloPracticeSourceTypeValidator,
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),

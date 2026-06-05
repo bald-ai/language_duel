@@ -114,7 +114,7 @@ export const relayPick = mutation({
     // 🔥 hard-upgrade is disabled on sentence positions in v1 (decision #3):
     // keeping sentences at a fixed pool is what makes the served board equal the
     // validated board (plan R1). The toggle is also hidden client-side.
-    const pickedItem = duel.sessionWords[duel.wordOrder[wordIndex]];
+    const pickedItem = duel.sessionItems[duel.itemOrder[wordIndex]];
     const isSentence = pickedItem?.kind === "sentence";
     if (hardUpgrade && isSentence) {
       throw new ConvexError({

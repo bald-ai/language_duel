@@ -22,7 +22,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "challengerId"
     | "opponentId"
     | "themeIds"
-    | "sessionWords"
+    | "sessionItems"
     | "sourceType"
     | "duelMode"
     | "status"
@@ -77,7 +77,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [],
+    sessionItems: [],
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
@@ -248,11 +248,13 @@ describe("sendSabotage", () => {
   // while PvE/self-duel sentence rounds still reject (their tool is the hint
   // pool), and the shared cap + one-per-question rule still hold on sentences.
   const sentenceDuelOverrides: Partial<DuelDoc> = {
-    sessionWords: [
+    sessionItems: [
       {
         kind: "sentence",
         englishPrompt: "I want coffee",
         spanishSentence: "Quiero cafe",
+        wordMeanings: ["I want", "coffee"],
+        freeWordPositions: [],
         distractors: ["leche"],
         themeId: "theme_1" as Id<"themes">,
         themeName: "Cafe",
@@ -264,9 +266,10 @@ describe("sendSabotage", () => {
         englishPrompt: "I want coffee",
         spanishSentence: "Quiero cafe",
         tilePool: ["Quiero", "cafe", "leche"],
+        tileMeanings: [null, null, null],
       },
     ],
-    wordOrder: [0],
+    itemOrder: [0],
   };
 
   it("accepts a sabotage on a PvP sentence round", async () => {

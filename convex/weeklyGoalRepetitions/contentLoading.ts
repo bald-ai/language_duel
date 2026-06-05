@@ -1,14 +1,14 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
-import { summarizeSessionWords } from "../helpers/sessionWords";
+import { summarizeSessionItems } from "../helpers/sessionItems";
 import { listWeeklyGoalThemeSnapshots } from "../helpers/weeklyGoalSnapshots";
-import { buildSessionWords } from "../../lib/sessionWords";
+import { buildSessionItems } from "../../lib/sessionItems";
 import type { CtxWithDb, LoadedSnapshotContent } from "./types";
 
 export function buildDeferredSnapshotContent(goal: Doc<"weeklyGoals">): LoadedSnapshotContent {
   return {
     ok: true,
-    sessionWords: [],
+    sessionItems: [],
     themeCount: goal.themes.length,
     wordCount: 0,
     themeSummary: "",
@@ -19,9 +19,9 @@ export function buildDeferredSnapshotContent(goal: Doc<"weeklyGoals">): LoadedSn
  * Cheap availability probe for the board, which only needs the ok/error flags
  * (the launch preview is the only consumer that renders wordCount). Runs the
  * same per-theme missing/empty-snapshot checks as the full loader but skips
- * buildSessionWords/summarizeSessionWords. Behavior-equivalent because
- * buildSessionWords is a flatMap with no filtering — "every theme has words"
- * implies "sessionWords non-empty" — and the empty-themes case is guarded below
+ * buildSessionItems/summarizeSessionItems. Behavior-equivalent because
+ * buildSessionItems is a flatMap with no filtering — "every theme has words"
+ * implies "sessionItems non-empty" — and the empty-themes case is guarded below
  * to match the full loader's final "no words" check.
  */
 export async function assertSnapshotContentReady(
@@ -122,9 +122,9 @@ export async function loadSpacedRepetitionSnapshotContent(
       sentenceRounds: undefined,
     };
   });
-  const sessionWords = buildSessionWords(sessionThemes);
+  const sessionItems = buildSessionItems(sessionThemes);
 
-  if (sessionWords.length === 0) {
+  if (sessionItems.length === 0) {
     return {
       ok: false,
       message: "This goal snapshot has no words. Spaced repetition cannot start.",
@@ -133,10 +133,10 @@ export async function loadSpacedRepetitionSnapshotContent(
 
   return {
     ok: true,
-    sessionWords,
+    sessionItems,
     themeCount: sessionThemes.length,
-    wordCount: sessionWords.length,
-    themeSummary: summarizeSessionWords(sessionWords),
+    wordCount: sessionItems.length,
+    themeSummary: summarizeSessionItems(sessionItems),
   };
 }
 

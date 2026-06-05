@@ -26,6 +26,7 @@ const sentenceQuestion = {
   englishPrompt: "Hi",
   spanishSentence: "Hola",
   tilePool: ["Hola", "x", "y", "z"],
+  tileMeanings: [null, null, null, null],
 };
 
 const wordItem = {
@@ -41,6 +42,8 @@ const sentenceItem = {
   kind: "sentence" as const,
   englishPrompt: "Hi",
   spanishSentence: "Hola amigo",
+  wordMeanings: ["hello", "friend"],
+  freeWordPositions: [],
   distractors: ["a", "b", "c"],
   themeId: "theme_1" as Id<"themes">,
   themeName: "Greetings",

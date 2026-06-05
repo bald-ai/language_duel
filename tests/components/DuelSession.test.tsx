@@ -154,7 +154,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     challengerId: "user_1" as Id<"users">,
     opponentId: "user_2" as Id<"users">,
     themeIds: ["theme_1" as Id<"themes">],
-    sessionWords: [
+    sessionItems: [
       {
         kind: "word" as const, word: "cat",
         answer: "gato",
@@ -184,7 +184,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
         points: 1.5,
       },
     ],
-    wordOrder: [0, 1],
+    itemOrder: [0, 1],
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
@@ -203,7 +203,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
   } as Doc<"duels">;
 }
 
-function wordItem(overrides: Partial<Extract<Doc<"duels">["sessionWords"][number], { kind: "word" }>> = {}) {
+function wordItem(overrides: Partial<Extract<Doc<"duels">["sessionItems"][number], { kind: "word" }>> = {}) {
   return {
     kind: "word" as const,
     word: "cat",
@@ -216,12 +216,14 @@ function wordItem(overrides: Partial<Extract<Doc<"duels">["sessionWords"][number
 }
 
 function sentenceItem(
-  overrides: Partial<Extract<Doc<"duels">["sessionWords"][number], { kind: "sentence" }>> = {}
+  overrides: Partial<Extract<Doc<"duels">["sessionItems"][number], { kind: "sentence" }>> = {}
 ) {
   return {
     kind: "sentence" as const,
     englishPrompt: "I eat bread",
     spanishSentence: "Yo como pan",
+    wordMeanings: ["I", "eat", "bread"],
+    freeWordPositions: [],
     distractors: ["Tú", "bebes"],
     themeId: "theme_2" as Id<"themes">,
     themeName: "Sentences",
@@ -246,6 +248,7 @@ function sentenceQuestion(overrides: Record<string, unknown> = {}) {
     englishPrompt: "I eat bread",
     spanishSentence: "Yo como pan",
     tilePool: ["Yo", "como", "pan", "Tú", "bebes"],
+    tileMeanings: [null, null, null, null, null],
     ...overrides,
   };
 }
@@ -359,12 +362,12 @@ describe("DuelSession", () => {
     const { rerender } = render(
       <DuelSession
         duel={createDuel({
-          sessionWords: [wordItem(), sentenceItem()],
+          sessionItems: [wordItem(), sentenceItem()],
           duelQuestions: [
             wordQuestion(),
             sentenceQuestion({ answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
         })}
         challenger={challenger}
         opponent={opponent}
@@ -377,12 +380,12 @@ describe("DuelSession", () => {
     rerender(
       <DuelSession
         duel={createDuel({
-          sessionWords: [wordItem(), sentenceItem()],
+          sessionItems: [wordItem(), sentenceItem()],
           duelQuestions: [
             wordQuestion({ answerRevealedToViewer: true }),
             sentenceQuestion({ answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
           currentWordIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -405,8 +408,8 @@ describe("DuelSession", () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
     const sharedRound = {
-      sessionWords: [wordItem(), sentenceItem()],
-      wordOrder: [0, 1],
+      sessionItems: [wordItem(), sentenceItem()],
+      itemOrder: [0, 1],
       questionStartTime: 100_000,
     } as Partial<Doc<"duels">>;
 
@@ -459,12 +462,12 @@ describe("DuelSession", () => {
     const { rerender } = render(
       <DuelSession
         duel={createDuel({
-          sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+          sessionItems: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
           duelQuestions: [
             sentenceQuestion({ answerRevealedToViewer: false }),
             wordQuestion({ correctOption: "perro" }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
         })}
         challenger={challenger}
         opponent={opponent}
@@ -475,12 +478,12 @@ describe("DuelSession", () => {
     rerender(
       <DuelSession
         duel={createDuel({
-          sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+          sessionItems: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
           duelQuestions: [
             sentenceQuestion({ answerRevealedToViewer: true }),
             wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
           currentWordIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -504,7 +507,7 @@ describe("DuelSession", () => {
     const { rerender } = render(
       <DuelSession
         duel={createDuel({
-          sessionWords: [
+          sessionItems: [
             sentenceItem(),
             sentenceItem({ englishPrompt: "You drink water", spanishSentence: "Tú bebes agua" }),
           ],
@@ -517,7 +520,7 @@ describe("DuelSession", () => {
               answerRevealedToViewer: false,
             }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
         })}
         challenger={challenger}
         opponent={opponent}
@@ -528,7 +531,7 @@ describe("DuelSession", () => {
     rerender(
       <DuelSession
         duel={createDuel({
-          sessionWords: [
+          sessionItems: [
             sentenceItem(),
             sentenceItem({ englishPrompt: "You drink water", spanishSentence: "Tú bebes agua" }),
           ],
@@ -541,7 +544,7 @@ describe("DuelSession", () => {
               answerRevealedToViewer: false,
             }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0, 1],
+          itemOrder: [0, 1],
           currentWordIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -565,11 +568,11 @@ describe("DuelSession", () => {
     const { rerender } = render(
       <DuelSession
         duel={createDuel({
-          sessionWords: [sentenceItem()],
+          sessionItems: [sentenceItem()],
           duelQuestions: [
             sentenceQuestion({ answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0],
+          itemOrder: [0],
         })}
         challenger={challenger}
         opponent={opponent}
@@ -581,11 +584,11 @@ describe("DuelSession", () => {
       <DuelSession
         duel={createDuel({
           status: "completed",
-          sessionWords: [sentenceItem()],
+          sessionItems: [sentenceItem()],
           duelQuestions: [
             sentenceQuestion({ answerRevealedToViewer: true }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0],
+          itemOrder: [0],
           currentWordIndex: 0,
           challengerAnswered: false,
           opponentAnswered: false,
@@ -609,7 +612,7 @@ describe("DuelSession", () => {
     render(
       <DuelSession
         duel={createDuel({
-          sessionWords: [
+          sessionItems: [
             {
               kind: "word" as const, word: "cat",
               answer: "",
@@ -627,7 +630,7 @@ describe("DuelSession", () => {
               answerRevealedToViewer: false,
             },
           ] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0],
+          itemOrder: [0],
         })}
         challenger={challenger}
         opponent={opponent}
@@ -645,9 +648,9 @@ describe("DuelSession", () => {
       <DuelSession
         duel={createDuel({
           duelMode: "tbt",
-          sessionWords: [sentenceItem()],
+          sessionItems: [sentenceItem()],
           duelQuestions: [sentenceQuestion()] as unknown as Doc<"duels">["duelQuestions"],
-          wordOrder: [0],
+          itemOrder: [0],
           tbtTurn: undefined,
           sentenceProgress: [],
         })}
@@ -832,8 +835,8 @@ describe("DuelSession", () => {
     viewerRole?: "challenger" | "opponent";
   } = {}) {
     const sharedBase = {
-      sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
-      wordOrder: [0, 1],
+      sessionItems: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+      itemOrder: [0, 1],
       ...baseOverrides,
     } as Partial<Doc<"duels">>;
 
@@ -948,12 +951,12 @@ describe("DuelSession", () => {
       render(
         <DuelSession
           duel={createDuel({
-            sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+            sessionItems: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
             duelQuestions: [
               sentenceQuestion({ answerRevealedToViewer: true }),
               wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
             ] as unknown as Doc<"duels">["duelQuestions"],
-            wordOrder: [0, 1],
+            itemOrder: [0, 1],
             currentWordIndex: 1,
             challengerAnswered: false,
             opponentAnswered: false,
@@ -977,12 +980,12 @@ describe("DuelSession", () => {
       render(
         <DuelSession
           duel={createDuel({
-            sessionWords: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
+            sessionItems: [sentenceItem(), wordItem({ word: "dog", answer: "perro" })],
             duelQuestions: [
               sentenceQuestion({ answerRevealedToViewer: true }),
               wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
             ] as unknown as Doc<"duels">["duelQuestions"],
-            wordOrder: [0, 1],
+            itemOrder: [0, 1],
             currentWordIndex: 1,
             challengerAnswered: false,
             opponentAnswered: false,
@@ -998,8 +1001,8 @@ describe("DuelSession", () => {
 
     it("shows local controls on the completed wrapping-up state", () => {
       const sharedBase = {
-        sessionWords: [sentenceItem()],
-        wordOrder: [0],
+        sessionItems: [sentenceItem()],
+        itemOrder: [0],
       } as Partial<Doc<"duels">>;
 
       const utils = render(

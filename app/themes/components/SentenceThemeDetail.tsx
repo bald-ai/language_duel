@@ -27,6 +27,7 @@ interface SentenceThemeDetailProps {
   onThemeNameChange: (name: string) => void;
   onDeleteRound: (index: number) => void;
   onEditField: (roundIndex: number, field: SentenceRoundField, distractorIndex?: number) => void;
+  onToggleFreeWord: (roundIndex: number, tokenIndex: number) => void;
   onSave: () => void;
   onCancel: () => void;
   isSaving?: boolean;
@@ -56,6 +57,7 @@ export function SentenceThemeDetail({
   onThemeNameChange,
   onDeleteRound,
   onEditField,
+  onToggleFreeWord,
   onSave,
   onCancel,
   isSaving = false,
@@ -144,6 +146,7 @@ export function SentenceThemeDetail({
                   canEdit={canEdit}
                   playingRoundKey={playingRoundKey}
                   onEditField={onEditField}
+                  onToggleFreeWord={onToggleFreeWord}
                   onDeleteRound={onDeleteRound}
                   onPlaySentenceTTS={onPlaySentenceTTS}
                 />

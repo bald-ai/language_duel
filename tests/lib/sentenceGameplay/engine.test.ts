@@ -3,7 +3,10 @@ import {
   buildSentenceQuestionSnapshot,
   isSubmittedSentenceCorrect,
 } from "@/lib/sentenceGameplay/engine";
-import { SENTENCE_DISTRACTOR_COUNT_BY_LEVEL } from "@/lib/themes/sentenceConstants";
+import {
+  SENTENCE_DISTRACTOR_COUNT_BY_LEVEL,
+  SENTENCE_WORD_MEANING_PLACEHOLDER,
+} from "@/lib/themes/sentenceConstants";
 
 describe("buildSentenceQuestionSnapshot", () => {
   it("produces a tile pool containing every correct word and every distractor", () => {
@@ -18,6 +21,7 @@ describe("buildSentenceQuestionSnapshot", () => {
     expect(snapshot.spanishSentence).toBe("Quiero cafe.");
     // 2 correct + 3 distractors = 5 tiles, identical-text tiles allowed
     expect(snapshot.tilePool).toHaveLength(5);
+    expect(snapshot.tileMeanings).toHaveLength(5);
     expect(snapshot.tilePool).toEqual(expect.arrayContaining(["Quiero", "cafe.", "Tengo", "agua", "pan"]));
   });
 
@@ -35,6 +39,40 @@ describe("buildSentenceQuestionSnapshot", () => {
       questionIndex: 3,
     });
     expect(b.tilePool).toEqual(a.tilePool);
+  });
+
+  it("attaches free-word meanings to the matching shuffled correct tiles only", () => {
+    const snapshot = buildSentenceQuestionSnapshot({
+      englishPrompt: "I want coffee",
+      spanishSentence: "Quiero cafe.",
+      wordMeanings: ["I want", "coffee"],
+      freeWordPositions: [1],
+      distractors: ["Tengo", "agua", "pan"],
+      questionIndex: 0,
+    });
+
+    const cafeIndex = snapshot.tilePool.findIndex((tile) => tile === "cafe.");
+    const quieroIndex = snapshot.tilePool.findIndex((tile) => tile === "Quiero");
+    const distractorIndex = snapshot.tilePool.findIndex((tile) => tile === "Tengo");
+
+    expect(snapshot.tileMeanings[cafeIndex]).toBe("coffee");
+    expect(snapshot.tileMeanings[quieroIndex]).toBeNull();
+    expect(snapshot.tileMeanings[distractorIndex]).toBeNull();
+  });
+
+  it("does not expose placeholder free-word meanings as tile hints", () => {
+    const snapshot = buildSentenceQuestionSnapshot({
+      englishPrompt: "I want coffee",
+      spanishSentence: "Quiero cafe.",
+      wordMeanings: ["I want", SENTENCE_WORD_MEANING_PLACEHOLDER],
+      freeWordPositions: [1],
+      distractors: ["Tengo", "agua", "pan"],
+      questionIndex: 0,
+    });
+
+    const cafeIndex = snapshot.tilePool.findIndex((tile) => tile === "cafe.");
+
+    expect(snapshot.tileMeanings[cafeIndex]).toBeNull();
   });
 });
 

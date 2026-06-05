@@ -8,13 +8,13 @@ import {
   type SessionItem,
   type SessionThemeInput,
   type SessionWordItem,
-} from "../../lib/sessionWords";
+} from "../../lib/sessionItems";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
-export function summarizeSessionWords(sessionWords: SessionItem[]): string {
+export function summarizeSessionItems(sessionItems: SessionItem[]): string {
   return summarizeThemeNames(
-    Array.from(new Set(sessionWords.map((item) => item.themeName)))
+    Array.from(new Set(sessionItems.map((item) => item.themeName)))
   );
 }
 
@@ -56,13 +56,13 @@ export async function loadThemesByIds(
   });
 }
 
-export function getSessionWords(
-  session: Pick<Doc<"duels"> | Doc<"soloPracticeSessions">, "sessionWords">
+export function getSessionItems(
+  session: Pick<Doc<"duels"> | Doc<"soloPracticeSessions">, "sessionItems">
 ): SessionItem[] {
-  if (!session.sessionWords || session.sessionWords.length === 0) {
+  if (!session.sessionItems || session.sessionItems.length === 0) {
     throw new ConvexError({ code: "INTERNAL_ERROR", message: "Session is missing words" });
   }
-  return session.sessionWords;
+  return session.sessionItems;
 }
 
 /**
