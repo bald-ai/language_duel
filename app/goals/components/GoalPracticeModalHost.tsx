@@ -5,6 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { SoloMode } from "@/lib/soloNavigation";
+import { getThemeItemCount } from "@/lib/themes/themeContent";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 const SoloPracticeModal = dynamic(
@@ -33,25 +34,23 @@ export function GoalPracticeModalHost({
 }: GoalPracticeModalHostProps) {
   const colors = useAppearanceColors();
   if (weeklyGoalPracticeThemes?.ok) {
-    // Solo is word-only today (plan: solo / weekly-goal practice doesn't run
-    // sentence themes in v1). Filter at the picker so the user never selects
-    // a theme the solo loader would reject.
-    const wordOnlyThemes = weeklyGoalPracticeThemes.themes.filter(
-      (theme) => theme.contentType !== "sentence"
-    );
+    // Weekly-goal practice runs mixed word + sentence decks, same as ad-hoc
+    // solo. Pass every goal theme through with its real item count (words or
+    // sentence rounds).
+    const goalThemes = weeklyGoalPracticeThemes.themes;
     return (
       <SoloPracticeModal
         key={`${goalId}:${weeklyGoalPracticeThemes.source}`}
-        themes={wordOnlyThemes.map((theme) => ({
+        themes={goalThemes.map((theme) => ({
           _id: theme._id,
           name: theme.name,
           contentType: theme.contentType,
-          itemCount: theme.words?.length ?? 0,
+          itemCount: getThemeItemCount(theme),
         }))}
         onContinue={onContinue}
         onClose={onClose}
         onNavigateToThemes={() => {}}
-        initialDraftThemeIds={wordOnlyThemes.map((theme) => theme._id)}
+        initialDraftThemeIds={goalThemes.map((theme) => theme._id)}
         forceThemeSelectorFirst
         hideCreateThemeButton
         themeSelectorNotice={

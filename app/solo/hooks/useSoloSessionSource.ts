@@ -14,8 +14,10 @@ import {
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 /**
- * Normal ad-hoc Solo Practice supports mixed word + sentence decks. Persisted
- * boss/SR sessions and weekly-goal practice stay word-only for the MVP.
+ * Ad-hoc Solo Practice and weekly-goal practice both support mixed word +
+ * sentence decks. Only persisted boss/SR sessions stay word-only — their
+ * backends already exclude sentence themes, so a sentence item arriving here
+ * is a broken contract, not a normal deck.
  */
 export type SoloSessionEntry = SessionItem;
 
@@ -102,13 +104,15 @@ export function useSoloSessionSource({
     });
   }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
 
-  const isNormalSoloPractice = !soloPracticeSessionId && !weeklyGoalId;
+  // Persisted boss/SR sessions are the only word-only solo flow; ad-hoc and
+  // weekly-goal practice both run mixed word + sentence decks.
+  const isPersistedWordOnlySession = Boolean(soloPracticeSessionId);
   const rawSessionItems = useMemo(
     () => practiceSession?.sessionItems ?? buildSessionItems(selectedThemes),
     [practiceSession?.sessionItems, selectedThemes]
   );
   const hasUnsupportedSentenceItems =
-    !isNormalSoloPractice && rawSessionItems.some(isSessionSentenceItem);
+    isPersistedWordOnlySession && rawSessionItems.some(isSessionSentenceItem);
   const sessionItems: SoloSessionEntry[] = hasUnsupportedSentenceItems
     ? []
     : rawSessionItems;
@@ -163,7 +167,7 @@ export function useSoloSessionSource({
   } else if (hasUnsupportedSentenceItems) {
     status = "invalid";
     statusMessage =
-      "Sentence themes are only available from normal Solo Practice for now.";
+      "Sentence themes aren't available in boss or spaced-repetition practice yet.";
   }
 
   return {
