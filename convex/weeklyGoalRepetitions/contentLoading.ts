@@ -10,19 +10,43 @@ export function buildDeferredSnapshotContent(goal: Doc<"weeklyGoals">): LoadedSn
     ok: true,
     sessionItems: [],
     themeCount: goal.themes.length,
-    wordCount: 0,
+    itemCount: 0,
     themeSummary: "",
   };
 }
 
+type Snapshot = Doc<"weeklyGoalThemeSnapshots">;
+
+function validateSnapshotForSpacedRepetition(
+  themeName: string,
+  snapshot: Snapshot
+): { ok: true } | { ok: false; message: string } {
+  if (snapshot.contentType === "word") {
+    if (!snapshot.words || snapshot.words.length === 0) {
+      return {
+        ok: false,
+        message: `"${themeName}" snapshot has no words. Spaced repetition cannot start.`,
+      };
+    }
+    return { ok: true };
+  }
+
+  if (!snapshot.sentenceRounds || snapshot.sentenceRounds.length === 0) {
+    return {
+      ok: false,
+      message: `"${themeName}" snapshot has no sentence rounds. Spaced repetition cannot start.`,
+    };
+  }
+  return { ok: true };
+}
+
 /**
  * Cheap availability probe for the board, which only needs the ok/error flags
- * (the launch preview is the only consumer that renders wordCount). Runs the
+ * (the launch preview is the only consumer that renders itemCount). Runs the
  * same per-theme missing/empty-snapshot checks as the full loader but skips
- * buildSessionItems/summarizeSessionItems. Behavior-equivalent because
- * buildSessionItems is a flatMap with no filtering — "every theme has words"
- * implies "sessionItems non-empty" — and the empty-themes case is guarded below
- * to match the full loader's final "no words" check.
+ * buildSessionItems/summarizeSessionItems. Behavior-equivalent because each
+ * validated snapshot has at least one content row and buildSessionItems is a
+ * flatMap with no filtering.
  */
 export async function assertSnapshotContentReady(
   ctx: CtxWithDb,
@@ -41,28 +65,14 @@ export async function assertSnapshotContentReady(
         message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
       };
     }
-    // Spaced repetition is word-only today (plan: solo / weekly goals don't
-    // run sentence themes in v1). Sentence snapshots have an empty `words`
-    // array — name the real reason so the user knows it's a feature gap, not
-    // a corrupt snapshot.
-    if (snapshot.contentType === "sentence") {
-      return {
-        ok: false,
-        message: `"${theme.themeName}" is a sentence theme. Spaced repetition does not support sentence themes yet.`,
-      };
-    }
-    if (!snapshot.words || snapshot.words.length === 0) {
-      return {
-        ok: false,
-        message: `"${theme.themeName}" snapshot has no words. Spaced repetition cannot start.`,
-      };
-    }
+    const validation = validateSnapshotForSpacedRepetition(theme.themeName, snapshot);
+    if (!validation.ok) return validation;
   }
 
   if (goal.themes.length === 0) {
     return {
       ok: false,
-      message: "This goal snapshot has no words. Spaced repetition cannot start.",
+      message: "This goal snapshot has no items. Spaced repetition cannot start.",
     };
   }
 
@@ -86,18 +96,8 @@ export async function loadSpacedRepetitionSnapshotContent(
         message: `"${theme.themeName}" snapshot is missing. Spaced repetition cannot use live theme data.`,
       };
     }
-    if (snapshot.contentType === "sentence") {
-      return {
-        ok: false,
-        message: `"${theme.themeName}" is a sentence theme. Spaced repetition does not support sentence themes yet.`,
-      };
-    }
-    if (!snapshot.words || snapshot.words.length === 0) {
-      return {
-        ok: false,
-        message: `"${theme.themeName}" snapshot has no words. Spaced repetition cannot start.`,
-      };
-    }
+    const validation = validateSnapshotForSpacedRepetition(theme.themeName, snapshot);
+    if (!validation.ok) return validation;
   }
 
   const sessionThemes = goal.themes.map((theme) => {
@@ -105,21 +105,21 @@ export async function loadSpacedRepetitionSnapshotContent(
     if (!snapshot) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Missing validated weekly goal snapshot" });
     }
-    // Sentence snapshots are rejected by the contentType check above, so by
-    // here every snapshot is the word variant. Narrow explicitly so TypeScript
-    // sees `words` on the discriminated union.
-    if (snapshot.contentType !== "word") {
-      throw new ConvexError({
-        code: "INTERNAL_ERROR",
-        message: "Unexpected sentence snapshot reached word-only loader",
-      });
+    if (snapshot.contentType === "word") {
+      return {
+        _id: snapshot.originalThemeId,
+        name: snapshot.name,
+        contentType: snapshot.contentType,
+        words: snapshot.words,
+        sentenceRounds: undefined,
+      };
     }
     return {
       _id: snapshot.originalThemeId,
       name: snapshot.name,
       contentType: snapshot.contentType,
-      words: snapshot.words,
-      sentenceRounds: undefined,
+      words: undefined,
+      sentenceRounds: snapshot.sentenceRounds,
     };
   });
   const sessionItems = buildSessionItems(sessionThemes);
@@ -127,7 +127,7 @@ export async function loadSpacedRepetitionSnapshotContent(
   if (sessionItems.length === 0) {
     return {
       ok: false,
-      message: "This goal snapshot has no words. Spaced repetition cannot start.",
+      message: "This goal snapshot has no items. Spaced repetition cannot start.",
     };
   }
 
@@ -135,8 +135,7 @@ export async function loadSpacedRepetitionSnapshotContent(
     ok: true,
     sessionItems,
     themeCount: sessionThemes.length,
-    wordCount: sessionItems.length,
+    itemCount: sessionItems.length,
     themeSummary: summarizeSessionItems(sessionItems),
   };
 }
-

@@ -103,12 +103,8 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     "_id" | "_creationTime" | "type" | "fromUserId" | "toUserId" | "status" | "createdAt"
   >;
 
-type WordSnapshotBranch = Extract<
-  Doc<"weeklyGoalThemeSnapshots">,
-  { contentType: "word" }
->;
-type SnapshotDoc = Pick<
-  WordSnapshotBranch,
+type WordSnapshotDoc = Pick<
+  Extract<Doc<"weeklyGoalThemeSnapshots">, { contentType: "word" }>,
   | "_id"
   | "_creationTime"
   | "weeklyGoalId"
@@ -121,6 +117,21 @@ type SnapshotDoc = Pick<
   | "lockedAt"
   | "createdAt"
 >;
+type SentenceSnapshotDoc = Pick<
+  Extract<Doc<"weeklyGoalThemeSnapshots">, { contentType: "sentence" }>,
+  | "_id"
+  | "_creationTime"
+  | "weeklyGoalId"
+  | "originalThemeId"
+  | "order"
+  | "name"
+  | "description"
+  | "contentType"
+  | "sentenceRounds"
+  | "lockedAt"
+  | "createdAt"
+>;
+type SnapshotDoc = WordSnapshotDoc | SentenceSnapshotDoc;
 
 type Row =
   | UserDoc
@@ -328,7 +339,7 @@ function repetitionDoc(overrides: Partial<RepetitionDoc> = {}): RepetitionDoc {
   };
 }
 
-function snapshotDoc(overrides: Partial<SnapshotDoc> = {}): SnapshotDoc {
+function snapshotDoc(overrides: Partial<WordSnapshotDoc> = {}): WordSnapshotDoc {
   return {
     _id: "snapshot_1" as Id<"weeklyGoalThemeSnapshots">,
     _creationTime: 1,
@@ -341,6 +352,33 @@ function snapshotDoc(overrides: Partial<SnapshotDoc> = {}): SnapshotDoc {
     words: [
       { word: "cat", answer: "gato", wrongAnswers: ["perro", "pez", "pajaro"] },
       { word: "dog", answer: "perro", wrongAnswers: ["gato", "pez", "pajaro"] },
+    ],
+    lockedAt: 1,
+    createdAt: 1,
+    ...overrides,
+  };
+}
+
+function sentenceSnapshotDoc(
+  overrides: Partial<SentenceSnapshotDoc> = {}
+): SentenceSnapshotDoc {
+  return {
+    _id: "snapshot_1" as Id<"weeklyGoalThemeSnapshots">,
+    _creationTime: 1,
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    originalThemeId: "theme_1" as Id<"themes">,
+    order: 0,
+    name: "Sentences",
+    description: "Sentence practice",
+    contentType: "sentence",
+    sentenceRounds: [
+      {
+        englishPrompt: "I eat",
+        spanishSentence: "Yo como",
+        wordMeanings: ["I", "eat"],
+        freeWordPositions: [],
+        distractors: ["bebo", "leo", "duermo"],
+      },
     ],
     lockedAt: 1,
     createdAt: 1,
@@ -370,6 +408,27 @@ function soloPracticeSessionDoc(overrides: Partial<SoloPracticeSessionDoc> = {})
     createdAt: 1,
     ...overrides,
   };
+}
+
+function sentenceSoloPracticeSessionDoc(
+  overrides: Partial<SoloPracticeSessionDoc> = {}
+): SoloPracticeSessionDoc {
+  return soloPracticeSessionDoc({
+    themeIds: ["theme_1" as Id<"themes">],
+    sessionItems: [
+      {
+        kind: "sentence",
+        englishPrompt: "I eat",
+        spanishSentence: "Yo como",
+        wordMeanings: ["I", "eat"],
+        freeWordPositions: [],
+        distractors: ["bebo", "leo", "duermo"],
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Sentences",
+      },
+    ],
+    ...overrides,
+  });
 }
 
 function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
@@ -418,6 +477,25 @@ function seedCompletedGoal(db: InMemoryDb) {
   db.weeklyGoalThemeSnapshots.push(snapshotDoc());
 }
 
+function seedCompletedSentenceGoal(db: InMemoryDb) {
+  db.users.push(
+    userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+    userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+  );
+  db.weeklyGoals.push(completedGoal({
+    themes: [
+      {
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Sentences",
+        creatorCompleted: true,
+        partnerCompleted: true,
+      },
+    ],
+  }));
+  db.weeklyGoalRepetitions.push(repetitionDoc());
+  db.weeklyGoalThemeSnapshots.push(sentenceSnapshotDoc());
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -463,6 +541,38 @@ describe("weekly goal spaced repetition", () => {
       },
     });
     expect(schedulerRunAfter).toHaveBeenCalledOnce();
+  });
+
+  it("createRepetitionChallenge accepts sentence snapshot items", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedSentenceGoal(db);
+
+    const handler = (createRepetitionChallenge as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals">; duelMode: "pvp" | "pve" }
+      ) => Promise<Id<"challenges">>;
+    })._handler;
+
+    const challengeId = await handler(createCtx(db, "clerk_1"), {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      duelMode: "pvp",
+    });
+
+    expect(challengeId).toBe("challenge_10");
+    expect(db.challenges[0]).toMatchObject({
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1",
+      spacedRepetitionStep: 1,
+      status: "pending",
+      themeIds: ["theme_1"],
+    });
+    expect(db.notifications[0]).toMatchObject({
+      payload: {
+        themeName: "Spaced Repetition 1/6: Sentences",
+      },
+    });
   });
 
   it("createRepetitionChallenge rejects relay mode", async () => {
@@ -588,6 +698,40 @@ describe("weekly goal spaced repetition", () => {
     expect(db.challenges).toHaveLength(0);
   });
 
+  it("startRepetitionSoloPractice creates a persisted solo session for sentence snapshot items", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedSentenceGoal(db);
+
+    const handler = (startRepetitionSoloPractice as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { weeklyGoalId: Id<"weeklyGoals"> }
+      ) => Promise<Id<"soloPracticeSessions">>;
+    })._handler;
+
+    const sessionId = await handler(createCtx(db, "clerk_1"), {
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    });
+
+    expect(sessionId).toBe("solo_practice_10");
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1",
+      spacedRepetitionStep: 1,
+      status: "learning",
+      themeIds: ["theme_1"],
+    });
+    expect(db.soloPracticeSessions[0].sessionItems).toMatchObject([
+      {
+        kind: "sentence",
+        englishPrompt: "I eat",
+        spanishSentence: "Yo como",
+        themeName: "Sentences",
+      },
+    ]);
+  });
+
   it("startRepetitionSoloPractice still works when partner user no longer exists", async () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
@@ -619,7 +763,7 @@ describe("weekly goal spaced repetition", () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
     seedCompletedGoal(db);
-    db.soloPracticeSessions.push(soloPracticeSessionDoc({ masteredWordIndices: [0] }));
+    db.soloPracticeSessions.push(soloPracticeSessionDoc({ masteredItemIndices: [0] }));
 
     const handler = (completeRepetitionSoloPractice as unknown as {
       _handler: (
@@ -671,7 +815,7 @@ describe("weekly goal spaced repetition", () => {
     expect(db.soloPracticeSessions[0].status).toBe("practicing");
   });
 
-  it("recordRepetitionSoloMastery stores unique mastered word indices", async () => {
+  it("recordRepetitionSoloMastery stores unique mastered item indices", async () => {
     vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
     const db = new InMemoryDb();
     seedCompletedGoal(db);
@@ -697,22 +841,56 @@ describe("weekly goal spaced repetition", () => {
     const handler = (recordRepetitionSoloMastery as unknown as {
       _handler: (
         ctx: unknown,
-        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; wordIndex: number }
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; itemIndex: number }
       ) => Promise<{ masteredCount: number; totalCount: number }>;
     })._handler;
 
     await handler(createCtx(db, "clerk_1"), {
       soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
-      wordIndex: 0,
+      itemIndex: 0,
     });
     const result = await handler(createCtx(db, "clerk_1"), {
       soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
-      wordIndex: 0,
+      itemIndex: 0,
     });
 
     expect(result).toEqual({ masteredCount: 1, totalCount: 2 });
-    expect(db.soloPracticeSessions[0].masteredWordIndices).toEqual([0]);
+    expect(db.soloPracticeSessions[0].masteredItemIndices).toEqual([0]);
     expect(db.soloPracticeSessions[0].progressUpdatedAt).toBe(READY_NOW);
+  });
+
+  it("recordRepetitionSoloMastery advances repetition for a mastered sentence item", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb();
+    seedCompletedSentenceGoal(db);
+    db.soloPracticeSessions.push(sentenceSoloPracticeSessionDoc());
+
+    const handler = (recordRepetitionSoloMastery as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; itemIndex: number }
+      ) => Promise<{ masteredCount: number; totalCount: number }>;
+    })._handler;
+
+    const result = await handler(createCtx(db, "clerk_1"), {
+      soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
+      itemIndex: 0,
+    });
+
+    expect(result).toEqual({ masteredCount: 1, totalCount: 1 });
+    expect(db.soloPracticeSessions[0].masteredItemIndices).toEqual([0]);
+    expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([
+      {
+        completedAt: READY_NOW,
+        completedVia: "solo_practice",
+        duelId: undefined,
+        soloPracticeSessionId: "solo_practice_1",
+      },
+    ]);
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      status: "completed",
+      completedAt: READY_NOW,
+    });
   });
 
   it("final mastery write advances repetition even if completion was called too early", async () => {
@@ -730,7 +908,7 @@ describe("weekly goal spaced repetition", () => {
     const recordHandler = (recordRepetitionSoloMastery as unknown as {
       _handler: (
         ctx: unknown,
-        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; wordIndex: number }
+        args: { soloPracticeSessionId: Id<"soloPracticeSessions">; itemIndex: number }
       ) => Promise<{ masteredCount: number; totalCount: number }>;
     })._handler;
 
@@ -742,7 +920,7 @@ describe("weekly goal spaced repetition", () => {
 
     await recordHandler(createCtx(db, "clerk_1"), {
       soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
-      wordIndex: 0,
+      itemIndex: 0,
     });
 
     expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([

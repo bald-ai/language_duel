@@ -103,7 +103,7 @@ export default function RepetitionLaunchPage() {
   const intervalDays = getSpacedRepetitionIntervalDaysForStep(currentStep);
   const canStart = preview.canStart;
   const duelAvailable = preview.duelAvailable;
-  const wordCountLabel = canStart ? preview.wordCount : "-";
+  const itemCountLabel = canStart ? preview.itemCount : "-";
   const title = boardItemTitle(preview);
 
   return (
@@ -141,8 +141,8 @@ export default function RepetitionLaunchPage() {
               <p className="text-xl font-black" style={{ color: colors.text.DEFAULT }}>{preview.themeCount}</p>
             </div>
             <div className="rounded-xl border p-3" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
-              <p className="text-[10px] uppercase tracking-wide" style={{ color: colors.text.muted }}>Words</p>
-              <p className="text-xl font-black" style={{ color: colors.text.DEFAULT }}>{wordCountLabel}</p>
+              <p className="text-[10px] uppercase tracking-wide" style={{ color: colors.text.muted }}>Items</p>
+              <p className="text-xl font-black" style={{ color: colors.text.DEFAULT }}>{itemCountLabel}</p>
             </div>
             <div className="rounded-xl border p-3" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
               <p className="text-[10px] uppercase tracking-wide" style={{ color: colors.text.muted }}>Lives</p>

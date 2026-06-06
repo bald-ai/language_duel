@@ -7,16 +7,14 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   buildSessionItems,
-  isSessionSentenceItem,
   summarizeThemes,
   type SessionItem,
 } from "@/lib/sessionItems";
 import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 /**
- * Ad-hoc Solo Practice and weekly-goal practice both support mixed word +
- * sentence decks. Persisted boss sessions now use the same mixed deck; spaced
- * repetition stays word-only.
+ * Ad-hoc Solo Practice, weekly-goal practice, persisted boss sessions, and
+ * spaced repetition all support mixed word + sentence decks.
  */
 export type SoloSessionEntry = SessionItem;
 
@@ -107,12 +105,7 @@ export function useSoloSessionSource({
     () => practiceSession?.sessionItems ?? buildSessionItems(selectedThemes),
     [practiceSession?.sessionItems, selectedThemes]
   );
-  const hasUnsupportedSentenceItems =
-    practiceSession?.sourceType === "spaced_repetition" &&
-    rawSessionItems.some(isSessionSentenceItem);
-  const sessionItems: SoloSessionEntry[] = hasUnsupportedSentenceItems
-    ? []
-    : rawSessionItems;
+  const sessionItems: SoloSessionEntry[] = rawSessionItems;
   const themeSummary = useMemo(
     () => practiceSession?.themeSummary ?? summarizeThemes(selectedThemes),
     [practiceSession?.themeSummary, selectedThemes]
@@ -161,10 +154,6 @@ export function useSoloSessionSource({
   ) {
     status = "invalid";
     statusMessage = "Theme not found";
-  } else if (hasUnsupportedSentenceItems) {
-    status = "invalid";
-    statusMessage =
-      "Sentence themes aren't available in spaced-repetition practice yet.";
   }
 
   return {

@@ -41,7 +41,7 @@ export function buildBoardItem(args: {
     themeNames: getThemeNames(args.goal),
     partner: args.partner,
     themeCount: args.goal.themes.length,
-    wordCount: args.content.ok ? args.content.wordCount : 0,
+    itemCount: args.content.ok ? args.content.itemCount : 0,
     completedSteps: args.record.completedSteps,
     step,
     totalSteps: SPACED_REPETITION_TOTAL_STEPS,

@@ -37,10 +37,10 @@ const EMPTY_BOARD: RepetitionBoard = {
   done: [],
 };
 
-// The board only renders the availability flag/reason, never wordCount, so for
-// ready items run the cheap snapshot probe and reuse the word-free deferred
-// content shape when it passes — skipping full word materialization. The launch
-// preview keeps the full loader because it shows wordCount/themeSummary.
+// The board only renders the availability flag/reason, never itemCount, so for
+// ready items run the cheap snapshot probe and reuse the item-free deferred
+// content shape when it passes. The launch preview keeps the full loader because
+// it shows itemCount/themeSummary.
 async function loadBoardContent(
   ctx: QueryCtx,
   goal: Doc<"weeklyGoals">,

@@ -65,18 +65,18 @@ export async function completeRepetitionSoloPracticeForCurrentUser(
     return { advanced: false };
   }
 
-  const wordCount = session.sessionItems.length;
-  const masteredWordIndices = new Set(session.masteredWordIndices ?? []);
+  const itemCount = session.sessionItems.length;
+  const masteredItemIndices = new Set(session.masteredItemIndices ?? []);
   const hasServerOwnedCompletion = session.sessionItems.every((_, index) =>
-    masteredWordIndices.has(index)
+    masteredItemIndices.has(index)
   );
   if (!hasServerOwnedCompletion) {
     console.warn(
       "Skipping spaced repetition solo completion: server progress is incomplete.",
       {
         soloPracticeSessionId: args.soloPracticeSessionId,
-        masteredCount: masteredWordIndices.size,
-        wordCount,
+        masteredCount: masteredItemIndices.size,
+        itemCount,
       }
     );
     return { advanced: false };
@@ -131,7 +131,7 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   ctx: MutationCtx,
   args: {
     soloPracticeSessionId: Id<"soloPracticeSessions">;
-    wordIndex: number;
+    itemIndex: number;
   }
 ): Promise<{ masteredCount: number; totalCount: number }> {
   const { user } = await getAuthenticatedUser(ctx);
@@ -149,27 +149,27 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   }
 
   if (
-    !Number.isInteger(args.wordIndex) ||
-    args.wordIndex < 0 ||
-    args.wordIndex >= session.sessionItems.length
+    !Number.isInteger(args.itemIndex) ||
+    args.itemIndex < 0 ||
+    args.itemIndex >= session.sessionItems.length
   ) {
     throw new ConvexError({
       code: "INVALID_INPUT",
-      message: "Invalid solo practice word index.",
+      message: "Invalid solo practice item index.",
     });
   }
 
-  const masteredWordIndices = Array.from(
-    new Set([...(session.masteredWordIndices ?? []), args.wordIndex])
+  const masteredItemIndices = Array.from(
+    new Set([...(session.masteredItemIndices ?? []), args.itemIndex])
   ).sort((a, b) => a - b);
   const now = Date.now();
 
   await ctx.db.patch(args.soloPracticeSessionId, {
-    masteredWordIndices,
+    masteredItemIndices,
     progressUpdatedAt: now,
   });
 
-  if (masteredWordIndices.length === session.sessionItems.length) {
+  if (masteredItemIndices.length === session.sessionItems.length) {
     const goal = await ctx.db.get(session.weeklyGoalId);
     if (
       goal?.status === "completed" &&
@@ -192,7 +192,7 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   }
 
   return {
-    masteredCount: masteredWordIndices.length,
+    masteredCount: masteredItemIndices.length,
     totalCount: session.sessionItems.length,
   };
 }

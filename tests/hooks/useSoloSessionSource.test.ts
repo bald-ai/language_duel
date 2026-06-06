@@ -107,7 +107,7 @@ describe("useSoloSessionSource sentence support", () => {
     expect(result.current.sessionItems[0].kind).toBe("sentence");
   });
 
-  it("rejects a sentence item that leaks into a persisted spaced-repetition session", () => {
+  it("accepts a sentence item in a persisted spaced-repetition session", () => {
     searchParams = { soloPracticeSessionId: "session_1" };
     useQueryMock.mockImplementation((query: unknown) => {
       if (query === "getBossPracticeSession") {
@@ -125,10 +125,9 @@ describe("useSoloSessionSource sentence support", () => {
       useSoloSessionSource({ loadingMessage: "Loading..." })
     );
 
-    expect(result.current.status).toBe("invalid");
-    expect(result.current.statusMessage).toBe(
-      "Sentence themes aren't available in spaced-repetition practice yet."
-    );
-    expect(result.current.sessionItems).toHaveLength(0);
+    expect(result.current.status).toBe("ready");
+    expect(result.current.spacedRepetitionStep).toBe(1);
+    expect(result.current.sessionItems).toHaveLength(1);
+    expect(result.current.sessionItems[0].kind).toBe("sentence");
   });
 });

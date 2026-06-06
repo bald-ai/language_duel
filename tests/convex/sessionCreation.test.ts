@@ -279,18 +279,27 @@ describe("session creation helpers", () => {
     expect(result.sessionItems.map((item) => item.kind)).toEqual(["word", "sentence"]);
   });
 
-  it("keeps spaced-repetition solo practice word-only", () => {
-    expect(() =>
-      buildSoloPracticeSession({
-        userId: "user_1" as Id<"users">,
-        sessionItems: [sentenceSessionItem],
-        sourceType: "spaced_repetition",
-        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-        spacedRepetitionStep: 1,
-        startsInLearning: true,
-        createdAt: 789,
-      })
-    ).toThrow("Spaced repetition does not support sentence themes yet.");
+  it("builds spaced-repetition solo practice with sentence items", () => {
+    const result = buildSoloPracticeSession({
+      userId: "user_1" as Id<"users">,
+      sessionItems: [sentenceSessionItem],
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      spacedRepetitionStep: 1,
+      startsInLearning: true,
+      createdAt: 789,
+    });
+
+    expect(result).toMatchObject({
+      userId: "user_1",
+      sourceType: "spaced_repetition",
+      weeklyGoalId: "goal_1",
+      spacedRepetitionStep: 1,
+      status: "learning",
+      createdAt: 789,
+    });
+    expect(result.themeIds).toEqual(["theme_3"]);
+    expect(result.sessionItems).toEqual([sentenceSessionItem]);
   });
 
   it("rejects empty inputs at each creation boundary", () => {

@@ -17,11 +17,11 @@ interface UseSoloCompletionReportingParams {
 
 /**
  * Reports solo-practice progress back to the server for boss and
- * spaced-repetition sessions: per-word mastery as each word clears Level 3, the
- * spaced-repetition step on completion (once all mastery writes settle), and the
- * boss completion on completion. Each report is latched idle→pending→done so it
- * fires at most once. Plain theme practice (no `soloPracticeSessionId`) is a
- * no-op and just returns the base correct handler.
+ * spaced-repetition sessions: per-item mastery as each item clears its max
+ * level, the spaced-repetition step on completion (once all mastery writes
+ * settle), and the boss completion on completion. Each report is latched
+ * idle→pending→done so it fires at most once. Plain theme practice (no
+ * `soloPracticeSessionId`) is a no-op and just returns the base correct handler.
  */
 export function useSoloCompletionReporting({
   soloPracticeSessionId,
@@ -41,26 +41,32 @@ export function useSoloCompletionReporting({
   const [masteryWritesPending, setMasteryWritesPending] = useState(0);
 
   const handleCorrectWithProgress = useCallback(() => {
-    const completedWordIndex =
-      session.questionLevel === 3 ? session.currentItemIndex : null;
+    const currentItemState =
+      session.currentItemIndex === null
+        ? null
+        : session.itemStates.get(session.currentItemIndex) ?? null;
+    const completedItemIndex =
+      currentItemState && session.questionLevel >= currentItemState.maxLevel
+        ? session.currentItemIndex
+        : null;
 
     handleCorrect();
 
     if (
       soloPracticeSessionId &&
       spacedRepetitionStep !== null &&
-      completedWordIndex !== null &&
-      !reportedMasteryIndicesRef.current.has(completedWordIndex)
+      completedItemIndex !== null &&
+      !reportedMasteryIndicesRef.current.has(completedItemIndex)
     ) {
-      reportedMasteryIndicesRef.current.add(completedWordIndex);
+      reportedMasteryIndicesRef.current.add(completedItemIndex);
       pendingMasteryWritesRef.current += 1;
       setMasteryWritesPending(pendingMasteryWritesRef.current);
       void recordRepetitionSoloMastery({
         soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions">,
-        wordIndex: completedWordIndex,
+        itemIndex: completedItemIndex,
       })
         .catch(() => {
-          reportedMasteryIndicesRef.current.delete(completedWordIndex);
+          reportedMasteryIndicesRef.current.delete(completedItemIndex);
         })
         .finally(() => {
           pendingMasteryWritesRef.current = Math.max(
@@ -74,6 +80,7 @@ export function useSoloCompletionReporting({
     handleCorrect,
     recordRepetitionSoloMastery,
     session.currentItemIndex,
+    session.itemStates,
     session.questionLevel,
     soloPracticeSessionId,
     spacedRepetitionStep,

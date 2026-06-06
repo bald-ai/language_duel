@@ -608,7 +608,7 @@ export default defineSchema({
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),
     finalStats: v.optional(playerStatsValidator),
-    masteredWordIndices: v.optional(v.array(v.number())),
+    masteredItemIndices: v.optional(v.array(v.number())),
     progressUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })

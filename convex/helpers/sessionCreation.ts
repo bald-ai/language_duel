@@ -347,15 +347,6 @@ export function buildSoloPracticeSession(args: {
   }
   validateSoloPracticeSourceFields(args);
 
-  // Spaced repetition remains word-only; boss solo practice now uses the same
-  // mixed word + sentence deck that ordinary solo practice already supports.
-  if (args.sourceType === "spaced_repetition" && sessionItems.some(isSessionSentenceItem)) {
-    throw new ConvexError({
-      code: "INVALID_INPUT",
-      message: "Spaced repetition does not support sentence themes yet.",
-    });
-  }
-
   return {
     userId: args.userId,
     themeIds: getUniqueThemeIds(sessionItems),

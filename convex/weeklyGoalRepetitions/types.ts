@@ -13,7 +13,7 @@ export type LoadedSnapshotContent =
       ok: true;
       sessionItems: ReturnType<typeof buildSessionItems>;
       themeCount: number;
-      wordCount: number;
+      itemCount: number;
       themeSummary: string;
     }
   | {
@@ -28,4 +28,3 @@ export type ReadyRepetitionContext = {
   content: Extract<LoadedSnapshotContent, { ok: true }>;
   step: number;
 };
-

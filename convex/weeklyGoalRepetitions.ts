@@ -69,7 +69,7 @@ export const completeRepetitionSoloPractice = mutation({
 export const recordRepetitionSoloMastery = mutation({
   args: {
     soloPracticeSessionId: v.id("soloPracticeSessions"),
-    wordIndex: v.number(),
+    itemIndex: v.number(),
   },
   handler: async (ctx, args) => {
     return await recordRepetitionSoloMasteryForCurrentUser(ctx, args);

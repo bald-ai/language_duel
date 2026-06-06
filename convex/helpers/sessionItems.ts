@@ -67,8 +67,8 @@ export function getSessionItems(
 
 /**
  * Narrow a mixed-content session item to its word variant or throw. Use this
- * in word-only code paths (current solo practice, word-question gameplay rules)
- * so a sentence item never silently slips through as a malformed word.
+ * in word-question gameplay rules so a sentence item never silently slips
+ * through as a malformed word.
  */
 export function requireWordItem(item: SessionItem): SessionWordItem {
   if (!isSessionWordItem(item)) {
