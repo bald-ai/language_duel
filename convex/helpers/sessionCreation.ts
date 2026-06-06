@@ -271,7 +271,7 @@ export function buildDuelSession(args: {
 } & DuelSourceFields): DuelSessionFields {
   const sessionItems = [...args.sessionItems];
   if (sessionItems.length === 0) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session word" });
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Duel requires at least one session item" });
   }
   validateDuelSourceFields(args);
 
@@ -343,19 +343,18 @@ export function buildSoloPracticeSession(args: {
 } & SoloPracticeSourceFields): SoloPracticeSessionFields {
   const sessionItems = [...args.sessionItems];
   if (sessionItems.length === 0) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session word" });
-  }
-  // Solo practice is word-only in v1 (plan decision: modes — only duel-style
-  // modes support sentence rounds). Sentence themes must be played via duel /
-  // self-duel paths instead. Catch this here so the gameplay code below can
-  // safely treat session items as word entries.
-  if (sessionItems.some(isSessionSentenceItem)) {
-    throw new ConvexError({
-      code: "INVALID_INPUT",
-      message: "Solo practice does not support sentence themes yet. Use a duel instead.",
-    });
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Solo practice requires at least one session item" });
   }
   validateSoloPracticeSourceFields(args);
+
+  // Spaced repetition remains word-only; boss solo practice now uses the same
+  // mixed word + sentence deck that ordinary solo practice already supports.
+  if (args.sourceType === "spaced_repetition" && sessionItems.some(isSessionSentenceItem)) {
+    throw new ConvexError({
+      code: "INVALID_INPUT",
+      message: "Spaced repetition does not support sentence themes yet.",
+    });
+  }
 
   return {
     userId: args.userId,

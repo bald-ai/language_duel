@@ -24,7 +24,7 @@ vi.mock("convex/react", () => ({
       return {
         selectedBossStatus: "ready",
         themeCount: 2,
-        wordCount: 12,
+        itemCount: 12,
         livesTotal: 3,
       };
     }

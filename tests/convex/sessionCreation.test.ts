@@ -5,7 +5,7 @@ import {
   buildDuelSession,
   buildSoloPracticeSession,
 } from "@/convex/helpers/sessionCreation";
-import type { SessionItem, SessionWordItem } from "@/lib/sessionItems";
+import type { SessionItem, SessionSentenceItem, SessionWordItem } from "@/lib/sessionItems";
 
 const sessionItems: SessionWordItem[] = [
   {
@@ -30,6 +30,17 @@ const sessionItems: SessionWordItem[] = [
     themeName: "Food",
   },
 ];
+
+const sentenceSessionItem: SessionSentenceItem = {
+  kind: "sentence",
+  englishPrompt: "I eat bread",
+  spanishSentence: "Yo como pan",
+  wordMeanings: ["I", "eat", "bread"],
+  freeWordPositions: [],
+  distractors: ["tú", "bebes", "leche"],
+  themeId: "theme_3" as Id<"themes">,
+  themeName: "Sentences",
+};
 
 describe("session creation helpers", () => {
   it("builds pending challenge invites without gameplay state", () => {
@@ -129,16 +140,7 @@ describe("session creation helpers", () => {
   it("builds relay duel sessions with mixed word + sentence items", () => {
     const mixedItems: SessionItem[] = [
       sessionItems[0],
-      {
-        kind: "sentence",
-        englishPrompt: "I eat bread",
-        spanishSentence: "Yo como pan",
-        wordMeanings: ["I", "eat", "bread"],
-        freeWordPositions: [],
-        distractors: ["tú", "bebes"],
-        themeId: "theme_2" as Id<"themes">,
-        themeName: "Sentences",
-      },
+      sentenceSessionItem,
     ];
 
     const result = buildDuelSession({
@@ -252,6 +254,45 @@ describe("session creation helpers", () => {
     expect("duelQuestions" in result).toBe(false);
   });
 
+  it("builds boss solo-practice sessions with mixed word + sentence items", () => {
+    const mixedItems: SessionItem[] = [sessionItems[0], sentenceSessionItem];
+
+    const result = buildSoloPracticeSession({
+      userId: "user_1" as Id<"users">,
+      sessionItems: mixedItems,
+      sourceType: "boss",
+      weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "big",
+      startsInLearning: true,
+      createdAt: 789,
+    });
+
+    expect(result).toMatchObject({
+      userId: "user_1",
+      sourceType: "boss",
+      weeklyGoalId: "goal_1",
+      bossType: "big",
+      status: "learning",
+      createdAt: 789,
+    });
+    expect(result.themeIds).toEqual(["theme_1", "theme_3"]);
+    expect(result.sessionItems.map((item) => item.kind)).toEqual(["word", "sentence"]);
+  });
+
+  it("keeps spaced-repetition solo practice word-only", () => {
+    expect(() =>
+      buildSoloPracticeSession({
+        userId: "user_1" as Id<"users">,
+        sessionItems: [sentenceSessionItem],
+        sourceType: "spaced_repetition",
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+        spacedRepetitionStep: 1,
+        startsInLearning: true,
+        createdAt: 789,
+      })
+    ).toThrow("Spaced repetition does not support sentence themes yet.");
+  });
+
   it("rejects empty inputs at each creation boundary", () => {
     expect(() =>
       buildChallengeInvite({
@@ -284,7 +325,7 @@ describe("session creation helpers", () => {
         duelMode: "pvp",
         createdAt: 1,
       })
-    ).toThrow("Duel requires at least one session word");
+    ).toThrow("Duel requires at least one session item");
 
     expect(() =>
       buildSoloPracticeSession({
@@ -295,6 +336,6 @@ describe("session creation helpers", () => {
         startsInLearning: false,
         createdAt: 1,
       })
-    ).toThrow("Solo practice requires at least one session word");
+    ).toThrow("Solo practice requires at least one session item");
   });
 });

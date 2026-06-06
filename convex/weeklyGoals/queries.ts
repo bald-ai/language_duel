@@ -127,7 +127,7 @@ export async function getBossLaunchPreviewForViewer(
   return {
     mode: goal.mode,
     themeCount: themes.length,
-    wordCount: fullSessionItems.length,
+    itemCount: fullSessionItems.length,
     livesTotal,
     selectedBossStatus: effectiveStatus,
   };

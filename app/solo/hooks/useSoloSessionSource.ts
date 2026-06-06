@@ -15,9 +15,8 @@ import { sanitizeSoloReturnTo } from "@/lib/soloNavigation";
 
 /**
  * Ad-hoc Solo Practice and weekly-goal practice both support mixed word +
- * sentence decks. Only persisted boss/SR sessions stay word-only — their
- * backends already exclude sentence themes, so a sentence item arriving here
- * is a broken contract, not a normal deck.
+ * sentence decks. Persisted boss sessions now use the same mixed deck; spaced
+ * repetition stays word-only.
  */
 export type SoloSessionEntry = SessionItem;
 
@@ -104,15 +103,13 @@ export function useSoloSessionSource({
     });
   }, [allThemes, requestedThemeIds, weeklyGoalPractice]);
 
-  // Persisted boss/SR sessions are the only word-only solo flow; ad-hoc and
-  // weekly-goal practice both run mixed word + sentence decks.
-  const isPersistedWordOnlySession = Boolean(soloPracticeSessionId);
   const rawSessionItems = useMemo(
     () => practiceSession?.sessionItems ?? buildSessionItems(selectedThemes),
     [practiceSession?.sessionItems, selectedThemes]
   );
   const hasUnsupportedSentenceItems =
-    isPersistedWordOnlySession && rawSessionItems.some(isSessionSentenceItem);
+    practiceSession?.sourceType === "spaced_repetition" &&
+    rawSessionItems.some(isSessionSentenceItem);
   const sessionItems: SoloSessionEntry[] = hasUnsupportedSentenceItems
     ? []
     : rawSessionItems;
@@ -167,7 +164,7 @@ export function useSoloSessionSource({
   } else if (hasUnsupportedSentenceItems) {
     status = "invalid";
     statusMessage =
-      "Sentence themes aren't available in boss or spaced-repetition practice yet.";
+      "Sentence themes aren't available in spaced-repetition practice yet.";
   }
 
   return {

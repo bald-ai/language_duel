@@ -84,9 +84,30 @@ describe("useSoloSessionSource sentence support", () => {
     expect(result.current.sessionItems[0].kind).toBe("sentence");
   });
 
-  it("rejects a sentence item that leaks into a persisted boss/SR session", () => {
-    // Boss/SR backends exclude sentence themes; a sentence arriving here is a
-    // broken contract, so the gate must still reject it for that path.
+  it("accepts a sentence item in a persisted boss session", () => {
+    searchParams = { soloPracticeSessionId: "session_1" };
+    useQueryMock.mockImplementation((query: unknown) => {
+      if (query === "getBossPracticeSession") {
+        return {
+          sessionItems: [sentenceSessionItem],
+          themeSummary: "Basics",
+          sourceType: "boss",
+        };
+      }
+      return undefined;
+    });
+
+    const { result } = renderHook(() =>
+      useSoloSessionSource({ loadingMessage: "Loading..." })
+    );
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.isBossPractice).toBe(true);
+    expect(result.current.sessionItems).toHaveLength(1);
+    expect(result.current.sessionItems[0].kind).toBe("sentence");
+  });
+
+  it("rejects a sentence item that leaks into a persisted spaced-repetition session", () => {
     searchParams = { soloPracticeSessionId: "session_1" };
     useQueryMock.mockImplementation((query: unknown) => {
       if (query === "getBossPracticeSession") {
@@ -106,7 +127,7 @@ describe("useSoloSessionSource sentence support", () => {
 
     expect(result.current.status).toBe("invalid");
     expect(result.current.statusMessage).toBe(
-      "Sentence themes aren't available in boss or spaced-repetition practice yet."
+      "Sentence themes aren't available in spaced-repetition practice yet."
     );
     expect(result.current.sessionItems).toHaveLength(0);
   });

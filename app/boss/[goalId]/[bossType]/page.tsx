@@ -171,10 +171,10 @@ export default function BossLaunchPage() {
             </div>
             <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>
               <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
-                Words
+                Items
               </p>
               <p className="text-xl font-semibold" style={{ color: colors.text.DEFAULT }}>
-                {preview.wordCount}
+                {preview.itemCount}
               </p>
             </div>
             <div className="rounded-2xl border-2 p-4" style={{ backgroundColor: colors.background.DEFAULT, borderColor: colors.primary.dark }}>

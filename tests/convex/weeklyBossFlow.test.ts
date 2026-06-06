@@ -105,24 +105,7 @@ type NotificationDoc = Partial<Doc<"notifications">> &
     "_id" | "_creationTime" | "type" | "fromUserId" | "toUserId" | "status" | "createdAt"
   >;
 
-type WordSnapshotBranch = Extract<
-  Doc<"weeklyGoalThemeSnapshots">,
-  { contentType: "word" }
->;
-type SnapshotDoc = Pick<
-  WordSnapshotBranch,
-  | "_id"
-  | "_creationTime"
-  | "weeklyGoalId"
-  | "originalThemeId"
-  | "order"
-  | "name"
-  | "description"
-  | "contentType"
-  | "words"
-  | "lockedAt"
-  | "createdAt"
->;
+type SnapshotDoc = Doc<"weeklyGoalThemeSnapshots">;
 
 type Row =
   | UserDoc
@@ -321,6 +304,30 @@ function snapshotDoc(id: string, themeId: string, name: string): SnapshotDoc {
     words: [
       { word: `${name} 1`, answer: `${name} answer 1`, wrongAnswers: ["a", "b", "c"] },
       { word: `${name} 2`, answer: `${name} answer 2`, wrongAnswers: ["d", "e", "f"] },
+    ],
+    lockedAt: 1,
+    createdAt: 1,
+  };
+}
+
+function sentenceSnapshotDoc(id: string, themeId: string, name: string): SnapshotDoc {
+  return {
+    _id: id as Id<"weeklyGoalThemeSnapshots">,
+    _creationTime: 1,
+    weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+    originalThemeId: themeId as Id<"themes">,
+    order: 0,
+    name,
+    description: `${name} snapshot sentences`,
+    contentType: "sentence",
+    sentenceRounds: [
+      {
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        wordMeanings: ["I", "eat", "bread"],
+        freeWordPositions: [],
+        distractors: ["tú", "bebes", "leche"],
+      },
     ],
     lockedAt: 1,
     createdAt: 1,
@@ -659,6 +666,56 @@ describe("weekly boss flow", () => {
     expect(db.soloPracticeSessions[0].sessionItems).toHaveLength(2);
     expect(db.challenges).toHaveLength(0);
     expect(db.duels).toHaveLength(0);
+  });
+
+  it("startBossSoloPractice includes sentence themes in the solo-practice session", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(6_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.weeklyGoals.push(readyMiniBossGoal({
+      themes: [
+        {
+          themeId: "theme_sentence" as Id<"themes">,
+          themeName: "Sentences",
+          creatorCompleted: true,
+          partnerCompleted: true,
+        },
+      ],
+      bigBossStatus: "ready",
+    }));
+    db.weeklyGoalThemeSnapshots.push(
+      sentenceSnapshotDoc("snapshot_sentence", "theme_sentence", "Sentences")
+    );
+
+    const handler = (startBossSoloPractice as unknown as {
+      _handler: (
+        ctx: unknown,
+        args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }
+      ) => Promise<Id<"soloPracticeSessions">>;
+    })._handler;
+
+    const sessionId = await handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: "big",
+    });
+
+    expect(sessionId).toBe("solo_practice_10");
+    expect(db.soloPracticeSessions[0]).toMatchObject({
+      userId: "user_1",
+      sourceType: "boss",
+      weeklyGoalId: "goal_1",
+      bossType: "big",
+      themeIds: ["theme_sentence"],
+    });
+    expect(db.soloPracticeSessions[0].sessionItems).toMatchObject([
+      {
+        kind: "sentence",
+        englishPrompt: "I eat bread",
+        spanishSentence: "Yo como pan",
+        themeId: "theme_sentence",
+        themeName: "Sentences",
+      },
+    ]);
   });
 
   it("getBossPracticeSession reads persisted solo-practice sessions by soloPracticeSessionId", async () => {
