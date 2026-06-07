@@ -17,7 +17,7 @@ import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTimi
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
 import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
 import { SabotageSystemUI } from "./SabotageSystemUI";
-import { getListenButtonStyle } from "./duelViewStyles";
+import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
 import { useSentenceHintPool } from "../hooks/useSentenceHintPool";
 import { useSabotageEffect } from "../hooks/useSabotageEffect";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";

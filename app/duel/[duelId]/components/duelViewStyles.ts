@@ -45,20 +45,6 @@ export function buildDuelViewStyles(colors: ThemeColors) {
   };
 }
 
-export function getListenButtonStyle(colors: ThemeColors, isPlaying: boolean): CSSProperties {
-  return isPlaying
-    ? {
-        backgroundColor: colors.status.success.DEFAULT,
-        borderColor: colors.status.success.dark,
-        color: colors.text.DEFAULT,
-      }
-    : {
-        backgroundColor: colors.secondary.DEFAULT,
-        borderColor: colors.secondary.dark,
-        color: colors.text.DEFAULT,
-      };
-}
-
 export function getConfirmButtonStyle(colors: ThemeColors, disabled: boolean): CSSProperties {
   return disabled
     ? {

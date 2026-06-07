@@ -7,7 +7,8 @@ import { CountdownControls } from "@/app/game/components/duel/CountdownControls"
 import { SpeakerIcon } from "@/app/components/icons";
 import { useTTS } from "@/hooks/useTTS";
 import { formatVisibleUser } from "@/lib/userDisplay";
-import { duelCardBackground, getListenButtonStyle } from "./duelViewStyles";
+import { duelCardBackground } from "./duelViewStyles";
+import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 import type { CrossKindTransition } from "../hooks/useCrossKindRoundTransition";
 import { useDuelCountdownActions } from "../hooks/useDuelCountdownActions";

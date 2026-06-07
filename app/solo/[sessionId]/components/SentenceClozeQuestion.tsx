@@ -13,6 +13,7 @@ import {
   formatSentenceTileForDisplay,
   getSentenceTilePoolFontSizeClass,
 } from "@/lib/sentenceGameplay/displayTile";
+import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
 import { Level0Input } from "@/app/game/levels";
 import { SpeakerIcon } from "@/app/components/icons";
 import type { SessionSentenceItem } from "@/lib/sessionItems";
@@ -255,16 +256,8 @@ export function SentenceClozeQuestion({
                 type="button"
                 onClick={listenDisabled ? undefined : onPlayTTS}
                 disabled={listenDisabled}
-                className="inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-bold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                style={{
-                  backgroundColor: isTTSPlaying
-                    ? colors.secondary.DEFAULT
-                    : colors.background.DEFAULT,
-                  borderColor: isTTSPlaying
-                    ? colors.secondary.dark
-                    : colors.primary.dark,
-                  color: colors.text.DEFAULT,
-                }}
+                className="inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                style={getListenButtonStyle(colors, isTTSPlaying)}
                 data-testid="solo-practice-sentence-listen"
               >
                 <SpeakerIcon className="h-4 w-4" />

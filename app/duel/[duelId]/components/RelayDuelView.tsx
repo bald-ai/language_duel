@@ -24,7 +24,8 @@ import {
   type OptionContext,
 } from "./AnswerOptionButton";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
-import { duelCardBackground, getListenButtonStyle } from "./duelViewStyles";
+import { duelCardBackground } from "./duelViewStyles";
+import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
 import { RELAY_ANSWER_TIMEOUT_MS, TIMER_UPDATE_INTERVAL_MS } from "@/lib/duelConstants";
 import { SENTENCE_RELAY_TIMEOUT_MS } from "@/lib/themes/sentenceConstants";
 import { formatVisibleUser } from "@/lib/userDisplay";
