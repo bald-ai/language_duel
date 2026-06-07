@@ -4,8 +4,10 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { CountdownControls } from "@/app/game/components/duel/CountdownControls";
+import { SpeakerIcon } from "@/app/components/icons";
+import { useTTS } from "@/hooks/useTTS";
 import { formatVisibleUser } from "@/lib/userDisplay";
-import { duelCardBackground } from "./duelViewStyles";
+import { duelCardBackground, getListenButtonStyle } from "./duelViewStyles";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 import type { CrossKindTransition } from "../hooks/useCrossKindRoundTransition";
 import { useDuelCountdownActions } from "../hooks/useDuelCountdownActions";
@@ -47,6 +49,7 @@ export function CrossKindTransitionView({
 }: CrossKindTransitionViewProps) {
   const colors = useAppearanceColors();
   const countdownActions = useDuelCountdownActions(duel);
+  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   const isChallenger = viewerRole === "challenger";
   const myScore = isChallenger ? duel.challengerScore : duel.opponentScore;
@@ -71,6 +74,25 @@ export function CrossKindTransitionView({
       : priorQuestion?.kind === "sentence"
       ? priorQuestion.spanishSentence ?? null
       : null;
+  const canPlaySentenceAudio =
+    priorQuestion?.kind === "sentence" &&
+    priorItem?.kind === "sentence" &&
+    !!priorQuestion.spanishSentence &&
+    !!priorItem.ttsStorageId;
+  const handlePlaySentenceAudio = () => {
+    if (
+      priorQuestion?.kind !== "sentence" ||
+      priorItem?.kind !== "sentence" ||
+      !priorQuestion.spanishSentence ||
+      !priorItem.ttsStorageId
+    ) {
+      return;
+    }
+    void playTTS(`cross-kind-sentence-${duel._id}-${transition.prevIndex}`, priorQuestion.spanishSentence, {
+      storageId: priorItem.ttsStorageId,
+      themeId: String(priorItem.themeId),
+    });
+  };
 
   return (
     <main
@@ -132,6 +154,19 @@ export function CrossKindTransitionView({
             >
               {correctAnswer ?? ""}
             </p>
+            {canPlaySentenceAudio && (
+              <button
+                type="button"
+                onClick={handlePlaySentenceAudio}
+                disabled={isPlayingAudio}
+                className="inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                style={getListenButtonStyle(colors, isPlayingAudio)}
+                data-testid="cross-kind-transition-listen"
+              >
+                <SpeakerIcon className="h-4 w-4" />
+                <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
+              </button>
+            )}
           </div>
 
           {duel.status !== "completed" && (

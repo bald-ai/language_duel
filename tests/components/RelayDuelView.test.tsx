@@ -12,6 +12,9 @@ const mutationMocks = vi.hoisted(() => ({
   relayTimeout: vi.fn(),
   stopDuel: vi.fn(),
 }));
+const ttsMocks = vi.hoisted(() => ({
+  playTTS: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerMocks.push }),
@@ -36,6 +39,14 @@ vi.mock("convex/react", () => ({
         return vi.fn();
     }
   },
+}));
+
+vi.mock("@/hooks/useTTS", () => ({
+  useTTS: () => ({
+    playingWordKey: null,
+    isPlaying: false,
+    playTTS: ttsMocks.playTTS,
+  }),
 }));
 
 vi.mock("@/convex/_generated/api", () => ({
@@ -116,6 +127,7 @@ function revealedQuestion(): ServedQuestion {
 describe("RelayDuelView", () => {
   beforeEach(() => {
     routerMocks.push.mockReset();
+    ttsMocks.playTTS.mockReset();
     Object.values(mutationMocks).forEach((mock) => {
       mock.mockReset();
       mock.mockResolvedValue(undefined);
@@ -235,5 +247,51 @@ describe("RelayDuelView", () => {
 
     expect(screen.getByTestId("relay-back-home")).toBeInTheDocument();
     expect(screen.queryByTestId("relay-exit")).not.toBeInTheDocument();
+  });
+
+  it("plays stored sentence audio during relay sentence feedback", () => {
+    const duel = relayDuel({
+      sessionItems: [
+        {
+          kind: "sentence",
+          englishPrompt: "I eat",
+          spanishSentence: "Yo como",
+          wordMeanings: ["I", "eat"],
+          freeWordPositions: [],
+          distractors: ["bebo", "leo", "duermo"],
+          ttsStorageId: "storage_sentence_1" as Id<"_storage">,
+          themeId: "theme_1" as Id<"themes">,
+          themeName: "Basics",
+        },
+      ],
+      itemOrder: [0],
+      relayPhase: "feedback",
+      relayPicker: "challenger",
+      relayAssignedIndex: 0,
+      relayResolvedIndices: [],
+      relayServedQuestion: {
+        kind: "sentence",
+        englishPrompt: "I eat",
+        spanishSentence: "Yo como",
+        tilePool: ["Yo", "como", "bebo"],
+        tileMeanings: [null, null, null],
+        answerRevealedToViewer: true,
+      } as ServedQuestion,
+      relayRemainingPositions: [],
+      relayLastResult: { wordIndex: 0, chosen: "Yo como", correct: true, scorer: "opponent" },
+    });
+
+    render(<RelayDuelView duel={duel} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+
+    expect(screen.getByTestId("relay-sentence-feedback")).toHaveTextContent("Correct: Yo como");
+    fireEvent.click(screen.getByTestId("relay-sentence-listen"));
+    expect(ttsMocks.playTTS).toHaveBeenCalledWith(
+      "relay-sentence-duel_1-0",
+      "Yo como",
+      {
+        storageId: "storage_sentence_1",
+        themeId: "theme_1",
+      }
+    );
   });
 });

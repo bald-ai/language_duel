@@ -14,6 +14,8 @@ import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { SpeakerIcon } from "@/app/components/icons";
+import { useTTS } from "@/hooks/useTTS";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { FinalResultsPanel } from "@/app/game/components/duel/FinalResultsPanel";
 import {
@@ -22,7 +24,7 @@ import {
   type OptionContext,
 } from "./AnswerOptionButton";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
-import { duelCardBackground } from "./duelViewStyles";
+import { duelCardBackground, getListenButtonStyle } from "./duelViewStyles";
 import { RELAY_ANSWER_TIMEOUT_MS, TIMER_UPDATE_INTERVAL_MS } from "@/lib/duelConstants";
 import { SENTENCE_RELAY_TIMEOUT_MS } from "@/lib/themes/sentenceConstants";
 import { formatVisibleUser } from "@/lib/userDisplay";
@@ -566,6 +568,7 @@ function RelaySentenceAnswer({
   const removeLast = useMutation(api.relayDuel.relaySentenceRemoveLast);
   const reset = useMutation(api.relayDuel.relaySentenceReset);
   const confirm = useMutation(api.relayDuel.relaySentenceConfirm);
+  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   // Per-Confirm correctness snapshot (client-only). `null` = not checked yet.
   // Set from the Confirm result, cleared on any board edit — same as PvP. While
@@ -632,6 +635,17 @@ function RelaySentenceAnswer({
   const revealed = served.answerRevealedToViewer === true;
   const spanishSentence =
     revealed && "spanishSentence" in served ? served.spanishSentence : undefined;
+  const assignedItem =
+    assignedIndex === undefined ? undefined : duel.sessionItems[duel.itemOrder[assignedIndex]];
+  const sentenceItem = assignedItem?.kind === "sentence" ? assignedItem : undefined;
+  const canPlaySentenceAudio = !!spanishSentence && !!sentenceItem?.ttsStorageId;
+  const handlePlaySentenceAudio = useCallback(() => {
+    if (!spanishSentence || !sentenceItem?.ttsStorageId) return;
+    void playTTS(`relay-sentence-${duel._id}-${assignedIndex ?? "none"}`, spanishSentence, {
+      storageId: sentenceItem.ttsStorageId,
+      themeId: String(sentenceItem.themeId),
+    });
+  }, [assignedIndex, duel._id, playTTS, sentenceItem, spanishSentence]);
 
   const belowActions = (
     <>
@@ -657,6 +671,20 @@ function RelaySentenceAnswer({
         >
           Correct: {spanishSentence}
         </div>
+      )}
+
+      {showFeedback && canPlaySentenceAudio && (
+        <button
+          type="button"
+          onClick={handlePlaySentenceAudio}
+          disabled={isPlayingAudio}
+          className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          style={getListenButtonStyle(colors, isPlayingAudio)}
+          data-testid="relay-sentence-listen"
+        >
+          <SpeakerIcon className="h-4 w-4" />
+          <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
+        </button>
       )}
 
       {amAnswerer && showFeedback && (

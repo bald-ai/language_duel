@@ -38,6 +38,7 @@ const sentenceSessionItem: SessionSentenceItem = {
   wordMeanings: ["I", "eat", "bread"],
   freeWordPositions: [],
   distractors: ["tú", "bebes", "leche"],
+  ttsStorageId: "storage_sentence_1" as Id<"_storage">,
   themeId: "theme_3" as Id<"themes">,
   themeName: "Sentences",
 };

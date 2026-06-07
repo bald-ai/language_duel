@@ -367,7 +367,7 @@ export default function LearnPhasePage() {
                         playWordTTS(
                           originalIndex,
                           item.spanishSentence,
-                          undefined,
+                          item.ttsStorageId,
                           String(item.themeId)
                         )
                       }

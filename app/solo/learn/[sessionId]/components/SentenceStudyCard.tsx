@@ -61,11 +61,6 @@ const hintCounterEmptyStyle = {
   color: cssColors.text.muted,
 } as const;
 
-// TEMPORARY: sentence TTS generation is currently failing in production, so the
-// study-card Listen button is force-disabled (greyed out) for now. Flip this back
-// to `true` once /api/tts reliably synthesizes full sentences again.
-const SENTENCE_TTS_ENABLED = false;
-
 export const SentenceStudyCard = memo(function SentenceStudyCard({
   sentence,
   confidence,
@@ -95,15 +90,11 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
   const isFullyRevealed = tokens.length > 0 && revealedSet.size >= tokens.length;
   const handleRevealToggle = isFullyRevealed ? onHide : () => onRevealAll(allPositions);
 
-  // TEMPORARY: while sentence TTS is unavailable, the button stays disabled
-  // regardless of playback state. Remove the `!SENTENCE_TTS_ENABLED` guards when
-  // re-enabling.
-  const ttsDisabled = !SENTENCE_TTS_ENABLED || isTTSDisabled;
-  const ttsStyle = !SENTENCE_TTS_ENABLED
-    ? disabledButtonStyleConst
-    : isTTSPlaying
+  const hasStoredTTS = !!sentence.ttsStorageId;
+  const ttsDisabled = !hasStoredTTS || isTTSDisabled;
+  const ttsStyle = isTTSPlaying
       ? playingButtonStyleConst
-      : isTTSDisabled
+      : ttsDisabled
         ? disabledButtonStyleConst
         : iconButtonStyleConst;
 
@@ -257,9 +248,7 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
               onClick={ttsDisabled ? undefined : onPlayTTS}
               disabled={ttsDisabled}
               aria-label="Listen"
-              title={
-                SENTENCE_TTS_ENABLED ? undefined : "Sentence audio is temporarily unavailable"
-              }
+              title={hasStoredTTS ? undefined : "Sentence audio has not been generated"}
               className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 transition ${
                 ttsDisabled ? "cursor-not-allowed" : "cursor-pointer hover:brightness-110"
               }`}

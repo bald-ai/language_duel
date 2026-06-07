@@ -21,6 +21,7 @@ import { SoloPageShell } from "@/app/solo/components/SoloPageShell";
 import { SoloExitButton } from "@/app/solo/components/SoloExitButton";
 import { SoloHeader } from "@/app/solo/components/SoloHeader";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { useTTS } from "@/hooks/useTTS";
 
 /**
  * Solo Practice Page - Controller component
@@ -75,6 +76,7 @@ export default function SoloPracticePage() {
     session,
     handleCorrect,
   });
+  const { playingWordKey, playTTS } = useTTS();
 
   // Navigation
   const handleExit = useCallback(() => {
@@ -87,6 +89,14 @@ export default function SoloPracticePage() {
   const hasMultipleThemes = useMemo(
     () => new Set(sessionItems.map((item) => String(item.themeId))).size > 1,
     [sessionItems]
+  );
+
+  const playSentenceAudio = useCallback(
+    (ttsKey: string, spanishSentence: string, storageId?: string, themeId?: string) => {
+      if (!storageId) return;
+      void playTTS(ttsKey, spanishSentence, { storageId, themeId });
+    },
+    [playTTS]
   );
 
   if (status !== "ready") {
@@ -149,6 +159,10 @@ export default function SoloPracticePage() {
       <span className="truncate max-w-[240px]">{themeSummary}</span>
     </div>
   );
+  // Single source for the sentence-audio playback key so the "is playing" check
+  // and the play call can never drift (e.g. mismatched index fallbacks).
+  const sentenceTTSKey = `solo-practice-sentence-${session.currentItemIndex ?? 0}-${session.questionKey}`;
+
   const questionCard =
     currentItem.kind === "word" ? (
       (() => {
@@ -182,6 +196,16 @@ export default function SoloPracticePage() {
         hasMultipleThemes={hasMultipleThemes}
         onCorrect={handleCorrectWithProgress}
         onIncorrect={handleIncorrect}
+        isTTSPlaying={playingWordKey === sentenceTTSKey}
+        isTTSDisabled={playingWordKey !== null}
+        onPlayTTS={() =>
+          playSentenceAudio(
+            sentenceTTSKey,
+            currentItem.spanishSentence,
+            currentItem.ttsStorageId,
+            String(currentItem.themeId)
+          )
+        }
       />
     );
 

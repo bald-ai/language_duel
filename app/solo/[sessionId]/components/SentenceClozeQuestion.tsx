@@ -14,6 +14,7 @@ import {
   getSentenceTilePoolFontSizeClass,
 } from "@/lib/sentenceGameplay/displayTile";
 import { Level0Input } from "@/app/game/levels";
+import { SpeakerIcon } from "@/app/components/icons";
 import type { SessionSentenceItem } from "@/lib/sessionItems";
 import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
 
@@ -54,6 +55,9 @@ interface SentenceClozeQuestionProps {
   hasMultipleThemes: boolean;
   onCorrect: () => void;
   onIncorrect: () => void;
+  isTTSPlaying: boolean;
+  isTTSDisabled: boolean;
+  onPlayTTS: () => void;
 }
 
 export function SentenceClozeQuestion({
@@ -62,6 +66,9 @@ export function SentenceClozeQuestion({
   hasMultipleThemes,
   onCorrect,
   onIncorrect,
+  isTTSPlaying,
+  isTTSDisabled,
+  onPlayTTS,
 }: SentenceClozeQuestionProps) {
   const colors = useAppearanceColors();
   const cloze = useMemo(
@@ -82,6 +89,8 @@ export function SentenceClozeQuestion({
   // double-clicked into a double answer.
   const isRecognition = session.questionLevel === 0;
   const [recognitionLocked, setRecognitionLocked] = useState(false);
+  const showRecognitionListen = isRecognition && !!currentSentence.ttsStorageId;
+  const listenDisabled = isTTSDisabled || isTTSPlaying;
 
   const handleRecognitionGotIt = () => {
     if (recognitionLocked) return;
@@ -232,13 +241,38 @@ export function SentenceClozeQuestion({
       ) : null}
 
       {isRecognition ? (
-        <Level0Input
-          word={currentSentence.englishPrompt}
-          answer={currentSentence.spanishSentence}
-          onGotIt={handleRecognitionGotIt}
-          onNotYet={handleRecognitionNotYet}
-          dataTestIdBase="solo-practice-sentence-level0"
-        />
+        <>
+          <Level0Input
+            word={currentSentence.englishPrompt}
+            answer={currentSentence.spanishSentence}
+            onGotIt={handleRecognitionGotIt}
+            onNotYet={handleRecognitionNotYet}
+            dataTestIdBase="solo-practice-sentence-level0"
+          />
+          {showRecognitionListen && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={listenDisabled ? undefined : onPlayTTS}
+                disabled={listenDisabled}
+                className="inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-bold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  backgroundColor: isTTSPlaying
+                    ? colors.secondary.DEFAULT
+                    : colors.background.DEFAULT,
+                  borderColor: isTTSPlaying
+                    ? colors.secondary.dark
+                    : colors.primary.dark,
+                  color: colors.text.DEFAULT,
+                }}
+                data-testid="solo-practice-sentence-listen"
+              >
+                <SpeakerIcon className="h-4 w-4" />
+                <span>{isTTSPlaying ? "Playing..." : "Listen"}</span>
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div ref={containerRef} tabIndex={0} className="outline-none">
           <div className="text-center mb-5">

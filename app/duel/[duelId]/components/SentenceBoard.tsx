@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
+import { SpeakerIcon } from "@/app/components/icons";
+import { useTTS } from "@/hooks/useTTS";
 import { getErrorMessage } from "@/lib/errors";
 import { forRole } from "@/lib/duelRole";
 import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
@@ -15,6 +17,7 @@ import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTimi
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
 import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
 import { SabotageSystemUI } from "./SabotageSystemUI";
+import { getListenButtonStyle } from "./duelViewStyles";
 import { useSentenceHintPool } from "../hooks/useSentenceHintPool";
 import { useSabotageEffect } from "../hooks/useSabotageEffect";
 import type { ViewerSafeSentenceSessionItem } from "../hooks/duelSessionTypes";
@@ -59,6 +62,7 @@ export function SentenceBoard({
   const clearBoard = useMutation(api.gameplay.clearSentenceBoard);
   const confirm = useMutation(api.gameplay.confirmSentenceRound);
   const sendSabotage = useMutation(api.sabotage.sendSabotage);
+  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   const submittedRef = useRef(false);
 
@@ -238,6 +242,25 @@ export function SentenceBoard({
     },
     [sendSabotage, duel._id]
   );
+  const canPlaySentenceAudio =
+    question.answerRevealedToViewer === true &&
+    !!question.spanishSentence &&
+    !!sessionItem.ttsStorageId;
+  const handlePlaySentenceAudio = useCallback(() => {
+    if (!canPlaySentenceAudio || !question.spanishSentence || !sessionItem.ttsStorageId) return;
+    void playTTS(`duel-sentence-${duel._id}-${duel.currentWordIndex}`, question.spanishSentence, {
+      storageId: sessionItem.ttsStorageId,
+      themeId: String(sessionItem.themeId),
+    });
+  }, [
+    canPlaySentenceAudio,
+    duel._id,
+    duel.currentWordIndex,
+    playTTS,
+    question.spanishSentence,
+    sessionItem.themeId,
+    sessionItem.ttsStorageId,
+  ]);
 
   // Outgoing-sabotage footer inputs (PvP only), mirroring the word DuelFooter.
   // "Already sabotaged this question" = my outgoing sabotage is timestamped at or
@@ -310,6 +333,20 @@ export function SentenceBoard({
             >
               Correct: {question.spanishSentence}
             </div>
+          )}
+
+          {canPlaySentenceAudio && (
+            <button
+              type="button"
+              onClick={handlePlaySentenceAudio}
+              disabled={isPlayingAudio}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              style={getListenButtonStyle(colors, isPlayingAudio)}
+              data-testid="sentence-listen"
+            >
+              <SpeakerIcon className="h-4 w-4" />
+              <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
+            </button>
           )}
 
           {completed && (

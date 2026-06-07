@@ -6,6 +6,7 @@ import SoloPracticePage from "@/app/solo/[sessionId]/page";
 const pushMock = vi.fn();
 const useQueryMock = vi.fn();
 const useSoloSessionMock = vi.fn();
+const playTTSMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -42,6 +43,13 @@ vi.mock("@/app/solo/[sessionId]/hooks/useSoloSession", () => ({
 
 vi.mock("@/app/solo/[sessionId]/components/CompletionScreen", () => ({
   CompletionScreen: () => <div data-testid="completion-screen">Complete</div>,
+}));
+
+vi.mock("@/hooks/useTTS", () => ({
+  useTTS: () => ({
+    playingWordKey: null,
+    playTTS: playTTSMock,
+  }),
 }));
 
 vi.mock("@/app/components/ThemedPage", () => ({
@@ -123,6 +131,7 @@ type HookReturnMock = {
         wordMeanings: string[];
         freeWordPositions: number[];
         distractors: string[];
+        ttsStorageId?: string;
         themeId: string;
         themeName: string;
       }
@@ -190,6 +199,7 @@ describe("SoloPracticePage", () => {
     pushMock.mockReset();
     useQueryMock.mockReset();
     useSoloSessionMock.mockReset();
+    playTTSMock.mockReset();
     useQueryMock.mockImplementation((query: unknown) => {
       if (query === "getThemes") {
         return themes;
@@ -287,6 +297,7 @@ describe("SoloPracticePage", () => {
           wordMeanings: ["I", "eat"],
           freeWordPositions: [1],
           distractors: ["bebo", "leo", "duermo"],
+          ttsStorageId: "storage_sentence_1",
           themeId: "theme_1",
           themeName: "Basics",
         },
@@ -299,6 +310,15 @@ describe("SoloPracticePage", () => {
     // Level 0 mirrors word Level 0: the whole sentence is shown for recognition,
     // not a cloze to fill.
     expect(screen.getByTestId("solo-practice-level0")).toHaveTextContent("I eat:Yo como");
+    fireEvent.click(screen.getByTestId("solo-practice-sentence-listen"));
+    expect(playTTSMock).toHaveBeenCalledWith(
+      "solo-practice-sentence-0-0",
+      "Yo como",
+      {
+        storageId: "storage_sentence_1",
+        themeId: "theme_1",
+      }
+    );
     expect(screen.queryByTestId("solo-practice-sentence-bank")).not.toBeInTheDocument();
   });
 

@@ -134,7 +134,7 @@ Weekly goal lifecycle:
 - Solo practice: a single-player learning flow without another player.
 - Weekly goal: a solo or shared study plan, built from selected themes and tracked toward completion.
 - Boss: a milestone challenge generated from weekly-goal progress, used to turn shared progress into a more game-like event.
-- TTS: text-to-speech audio generated in the theme editor and attached to a content row — a word's answer, or a sentence theme's canonical Spanish sentence. Word TTS plays in studying and challenge flows; sentence TTS generation/playback currently lives only in the editor (duels, solo, and relay don't play it yet).
+- TTS: text-to-speech audio generated in the theme editor and attached to a content row — a word's answer, or a sentence theme's canonical Spanish sentence. Word TTS plays in studying and challenge flows; sentence TTS also plays from stored audio in solo study/practice reveal moments and duel sentence reveal/feedback moments.
 
 ## App-Specific Gotchas
 

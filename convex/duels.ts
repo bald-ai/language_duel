@@ -74,9 +74,9 @@ function hideQuestionAnswer(question: DuelQuestion): MaskedDuelQuestion {
 /**
  * Blank the answer/TTS on the session item snapshot the client sees. Word
  * items lose `answer` + `ttsStorageId`. Sentence items lose `spanishSentence`
- * + `distractors` + all source meanings (the answer key / non-free hints) —
- * the client only needs the prompt and theme name to render the round; curated
- * free-word hints ride on `duelQuestions.tileMeanings`.
+ * + `ttsStorageId` + `distractors` + all source meanings (the answer key /
+ * non-free hints) — the client only needs the prompt and theme name to render
+ * the round; curated free-word hints ride on `duelQuestions.tileMeanings`.
  */
 function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
   if (item.kind === "sentence") {
@@ -86,6 +86,7 @@ function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
       wordMeanings: [],
       freeWordPositions: [],
       distractors: [],
+      ttsStorageId: undefined,
     };
   }
   return { ...item, answer: "", ttsStorageId: undefined };
@@ -99,10 +100,18 @@ function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
  */
 function buildRelaySafeDuel(duel: Doc<"duels">) {
   const isActive = duel.status === "active";
+  const relayFeedbackPosition =
+    isActive && duel.relayPhase === "feedback" ? duel.relayAssignedIndex : undefined;
 
-  const safeSessionItems = duel.sessionItems.map((item): SessionItem =>
-    isActive ? maskSessionItemForActivePlay(item) : item
-  );
+  const safeSessionItems = duel.sessionItems.map((item, sessionItemIndex): SessionItem => {
+    const position = relayFeedbackPosition;
+    const servedSessionItemIndex =
+      position === undefined ? undefined : duel.itemOrder[position];
+    if (!isActive || sessionItemIndex === servedSessionItemIndex) {
+      return item;
+    }
+    return maskSessionItemForActivePlay(item);
+  });
 
   const served = relayServedQuestion(duel);
   let relayServed: RevealedDuelQuestion | MaskedDuelQuestion | null = null;

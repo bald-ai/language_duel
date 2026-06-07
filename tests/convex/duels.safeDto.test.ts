@@ -169,7 +169,12 @@ describe("duels.getDuel viewer-safe DTO", () => {
 
 type RelaySafeResult = {
   duel: Record<string, unknown> & {
-    sessionItems: Array<{ answer: string; ttsStorageId?: unknown }>;
+    sessionItems: Array<{
+      kind: "word" | "sentence";
+      answer?: string;
+      spanishSentence?: string;
+      ttsStorageId?: unknown;
+    }>;
     relayServedQuestion: (ViewerSafeQuestion & { correctOption?: string }) | null;
     relayRemainingPositions: number[];
     duelQuestions?: unknown;
@@ -195,6 +200,46 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     relayAnswerStartedAt: 1000,
     ...overrides,
   });
+}
+
+function relaySentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
+  return relayDuelDoc({
+    sessionItems: [
+      {
+        kind: "sentence",
+        englishPrompt: "I want coffee",
+        spanishSentence: "secret-relay-sentence",
+        wordMeanings: ["I", "want", "coffee"],
+        freeWordPositions: [],
+        distractors: ["leak1", "leak2", "leak3"],
+        ttsStorageId: "relay_sentence_audio" as Id<"_storage">,
+        themeId: "theme_1" as Id<"themes">,
+        themeName: "Cafe",
+      },
+    ],
+    itemOrder: [0],
+    duelQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "I want coffee",
+        spanishSentence: "secret-relay-sentence",
+        tilePool: ["Quiero", "cafe", "leak1"],
+        tileMeanings: [null, "coffee", null],
+      },
+    ],
+    relayHardQuestions: [
+      {
+        kind: "sentence",
+        englishPrompt: "I want coffee",
+        spanishSentence: "secret-relay-sentence",
+        tilePool: ["Quiero", "cafe", "leak1"],
+        tileMeanings: [null, "coffee", null],
+      },
+    ],
+    relayAssignedIndex: 0,
+    relayRemainingPositions: undefined,
+    ...overrides,
+  } as Partial<DuelDoc>);
 }
 
 async function getRelayDuel(duel: DuelDoc): Promise<RelaySafeResult | null> {
@@ -253,6 +298,25 @@ describe("duels.getDuel relay viewer-safe DTO", () => {
     );
     expect(result?.duel.sessionItems[0].answer).toBe("gato");
   });
+
+  it("masks sentence audio during relay answer phase", async () => {
+    const result = await getRelayDuel(relaySentenceDuelDoc({ relayPhase: "answer" }));
+    expect(result?.duel.relayServedQuestion).not.toHaveProperty("spanishSentence");
+    expect(result?.duel.sessionItems[0].kind).toBe("sentence");
+    expect(result?.duel.sessionItems[0].spanishSentence).toBe("");
+    expect(result?.duel.sessionItems[0].ttsStorageId).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("secret-relay-sentence");
+  });
+
+  it("reveals served sentence audio during relay feedback", async () => {
+    const result = await getRelayDuel(relaySentenceDuelDoc({ relayPhase: "feedback" }));
+    expect(result?.duel.relayServedQuestion?.answerRevealedToViewer).toBe(true);
+    expect(result?.duel.relayServedQuestion).toHaveProperty(
+      "spanishSentence",
+      "secret-relay-sentence"
+    );
+    expect(result?.duel.sessionItems[0].ttsStorageId).toBe("relay_sentence_audio");
+  });
 });
 
 describe("duels.getDuel sentence masking (Task 21)", () => {
@@ -266,6 +330,7 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
           wordMeanings: ["secret", "spanish", "sentence"],
           freeWordPositions: [],
           distractors: ["leak1", "leak2", "leak3"],
+          ttsStorageId: "secret_sentence_audio" as Id<"_storage">,
           themeId: "theme_1" as Id<"themes">,
           themeName: "Cafe",
         },
@@ -302,6 +367,7 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
       expect(item.wordMeanings).toEqual([]);
       expect(item.freeWordPositions).toEqual([]);
       expect(item.distractors).toEqual([]);
+      expect(item.ttsStorageId).toBeUndefined();
     }
     // The tile pool still ships — players need it to render. The answer key
     // itself (the canonical sentence) must not appear anywhere in the payload
@@ -344,6 +410,10 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
     const q = result?.duel.duelQuestions?.[0];
     expect(q?.kind === "sentence" ? q.spanishSentence : undefined).toBe(
       "secret-spanish-sentence"
+    );
+    const item = result?.duel.sessionItems[0];
+    expect(item?.kind === "sentence" ? item.ttsStorageId : undefined).toBe(
+      "secret_sentence_audio"
     );
   });
 });

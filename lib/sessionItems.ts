@@ -30,6 +30,7 @@ export interface SessionSentenceItem {
   wordMeanings: string[];
   freeWordPositions: number[];
   distractors: string[];
+  ttsStorageId?: Id<"_storage">;
   themeId: Id<"themes">;
   themeName: string;
 }
@@ -66,6 +67,7 @@ export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem
         round.freeWordPositions
       ),
       distractors: [...round.distractors],
+      ttsStorageId: round.ttsStorageId,
       themeId: theme._id,
       themeName: theme.name,
     }));

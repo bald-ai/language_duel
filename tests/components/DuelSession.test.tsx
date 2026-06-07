@@ -36,6 +36,10 @@ const duelViewMock = vi.hoisted(() => ({
   latestProps: null as unknown,
 }));
 
+const ttsMocks = vi.hoisted(() => ({
+  playTTS: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerMocks.push }),
 }));
@@ -122,7 +126,7 @@ vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
     playingWordKey: null,
     isPlaying: false,
-    playTTS: vi.fn(),
+    playTTS: ttsMocks.playTTS,
   }),
 }));
 
@@ -130,6 +134,7 @@ vi.mock("@/app/duel/[duelId]/hooks/useSabotageEffect", () => ({
   useSabotageEffect: () => ({
     activeSabotage: null,
     sabotagePhase: "wind-up",
+    clearSabotage: vi.fn(),
   }),
 }));
 
@@ -275,6 +280,7 @@ describe("DuelSession", () => {
     Object.values(mutationMocks).forEach((mock) => mock.mockReset());
     routerMocks.push.mockReset();
     toastMocks.error.mockReset();
+    ttsMocks.playTTS.mockReset();
     duelViewMock.latestProps = null;
     mutationMocks.answer.mockResolvedValue(undefined);
     mutationMocks.stopDuel.mockResolvedValue(undefined);
@@ -561,6 +567,37 @@ describe("DuelSession", () => {
 
     expect(screen.getByTestId("cross-kind-transition-prompt")).toHaveTextContent("I eat bread");
     expect(screen.getByTestId("cross-kind-transition-answer")).toHaveTextContent("Yo como pan");
+  });
+
+  it("plays stored sentence audio on the normal sentence feedback screen", () => {
+    render(
+      <DuelSession
+        duel={createDuel({
+          sessionItems: [
+            sentenceItem({ ttsStorageId: "sentence_audio_1" as Id<"_storage"> }),
+          ],
+          duelQuestions: [
+            sentenceQuestion({ answerRevealedToViewer: true }),
+          ] as unknown as Doc<"duels">["duelQuestions"],
+          itemOrder: [0],
+          challengerAnswered: true,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    expect(screen.getByTestId("sentence-feedback")).toHaveTextContent("Correct: Yo como pan");
+    fireEvent.click(screen.getByTestId("sentence-listen"));
+    expect(ttsMocks.playTTS).toHaveBeenCalledWith(
+      "duel-sentence-duel_1-0",
+      "Yo como pan",
+      {
+        storageId: "sentence_audio_1",
+        themeId: "theme_2",
+      }
+    );
   });
 
   it("shows sentence feedback before the final-results handoff", async () => {
@@ -883,6 +920,27 @@ describe("DuelSession", () => {
 
       expect(screen.getByTestId("cross-kind-transition-pause")).toBeInTheDocument();
       expect(screen.getByTestId("cross-kind-transition-skip")).toBeInTheDocument();
+    });
+
+    it("plays stored sentence audio on a cross-kind sentence reveal", () => {
+      renderSentenceToWordTransition({
+        baseOverrides: {
+          sessionItems: [
+            sentenceItem({ ttsStorageId: "sentence_audio_1" as Id<"_storage"> }),
+            wordItem({ word: "dog", answer: "perro" }),
+          ],
+        },
+      });
+
+      fireEvent.click(screen.getByTestId("cross-kind-transition-listen"));
+      expect(ttsMocks.playTTS).toHaveBeenCalledWith(
+        "cross-kind-sentence-duel_1-0",
+        "Yo como pan",
+        {
+          storageId: "sentence_audio_1",
+          themeId: "theme_2",
+        }
+      );
     });
 
     it("calls skipCountdown when Skip is clicked", () => {

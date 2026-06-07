@@ -82,6 +82,7 @@ const sentenceThemes = [
         wordMeanings: ["I", "drink", "water"],
         freeWordPositions: [2],
         distractors: ["pan", "leche", "cafe"],
+        ttsStorageId: "storage_sentence_1",
       },
     ],
   },
@@ -250,6 +251,11 @@ describe("SoloLearnPage", () => {
     renderSoloLearnPage();
 
     expect(screen.getByTestId("solo-learn-sentence-0-english")).toHaveTextContent("I drink water");
+    fireEvent.click(screen.getByTestId("solo-learn-sentence-0-tts"));
+    expect(playTTSMock).toHaveBeenCalledWith("solo-learn-0", "Yo bebo agua", {
+      storageId: "storage_sentence_1",
+      themeId: "theme_1",
+    });
 
     // Spanish words start hidden behind tap-to-reveal tiles, not shown outright.
     expect(screen.getByTestId("solo-learn-sentence-0-token-0")).not.toHaveTextContent("Yo");

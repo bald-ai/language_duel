@@ -43,6 +43,22 @@ const themeWithTts: SessionThemeInput = {
   ],
 };
 
+const sentenceThemeWithTts: SessionThemeInput = {
+  _id: themeId("theme_sentence_tts"),
+  name: "Sentence TTS",
+  contentType: "sentence",
+  sentenceRounds: [
+    {
+      englishPrompt: "I drink water",
+      spanishSentence: "Yo bebo agua",
+      wordMeanings: ["I", "drink", "water"],
+      freeWordPositions: [2],
+      distractors: ["pan", "leche", "cafe"],
+      ttsStorageId: "storage_sentence_1" as Id<"_storage">,
+    },
+  ],
+};
+
 describe("buildSessionItems", () => {
   it("returns empty array for no themes", () => {
     expect(buildSessionItems([])).toEqual([]);
@@ -81,6 +97,13 @@ describe("buildSessionItems", () => {
     const first = result[0];
     if (first.kind !== "word") throw new Error("expected word session item");
     expect(first.ttsStorageId).toBeUndefined();
+  });
+
+  it("preserves sentence ttsStorageId when present", () => {
+    const result = buildSessionItems([sentenceThemeWithTts]);
+    const first = result[0];
+    if (first.kind !== "sentence") throw new Error("expected sentence session item");
+    expect(first.ttsStorageId).toBe("storage_sentence_1");
   });
 });
 

@@ -30,9 +30,8 @@ const wordValidator = v.object({
 // Spanish sentence, and 3 single-word distractors (decisions: round shape).
 // Gameplay tokenizes the Spanish sentence on whitespace at play time.
 // `ttsStorageId` holds the pre-generated audio of the canonical Spanish
-// sentence (theme editor only — never carried onto session items). Reused for
-// the sentence branch of `weeklyGoalThemeSnapshots` so locked-goal audio is
-// preserved and storage cleanup stays consistent with word themes.
+// sentence. It is copied onto sentence session items and masked from active
+// duel DTOs until the answer is revealed.
 const sentenceRoundValidator = v.object({
   englishPrompt: v.string(),
   spanishSentence: v.string(),
@@ -86,7 +85,8 @@ export const optionalWordTypeValidator = v.optional(wordTypeValidator);
 // preserves the historical word fields (so existing consumers can narrow once
 // and keep the same property access). The sentence variant carries the
 // editable sentence source verbatim — the gameplay tile pool is derived at
-// play time from `spanishSentence`.
+// play time from `spanishSentence`; `ttsStorageId` is optional stored audio for
+// reveal/listen surfaces.
 const sessionWordItemValidator = v.object({
   kind: v.literal("word"),
   word: v.string(),
@@ -104,6 +104,7 @@ const sessionSentenceItemValidator = v.object({
   wordMeanings: v.array(v.string()),
   freeWordPositions: v.array(v.number()),
   distractors: v.array(v.string()),
+  ttsStorageId: v.optional(v.id("_storage")),
   themeId: v.id("themes"),
   themeName: v.string(),
 });
