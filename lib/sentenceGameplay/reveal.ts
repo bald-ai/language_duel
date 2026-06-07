@@ -3,7 +3,7 @@
  * Derives, from the SHARED revealed slots and THIS player's own placed sequence,
  * which tile carries which slot badge and which tile should pulse "place me now".
  * Kept pure (no React) so the board stays presentational and the rules are
- * unit-testable. See `Dev/sentence_coop_hints_plan.md` B9.
+ * unit-testable.
  */
 
 import type { SentenceTileReveal } from "./hints";
