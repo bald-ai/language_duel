@@ -33,7 +33,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     sourceType: "normal",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0],
     challengerAnswered: false,
     opponentAnswered: false,

@@ -79,7 +79,7 @@ export function getLimitedLivesMissPatch(
 
 export function getDuelQuestionOrThrow(
   duel: Doc<"duels">,
-  questionIndex = duel.currentWordIndex
+  questionIndex = duel.currentItemIndex
 ) {
   const question = duel.duelQuestions?.[questionIndex];
   if (!question) {
@@ -96,7 +96,7 @@ export function getDuelQuestionOrThrow(
  */
 export function requireWordDuelQuestion(
   duel: Doc<"duels">,
-  questionIndex = duel.currentWordIndex
+  questionIndex = duel.currentItemIndex
 ) {
   const question = getDuelQuestionOrThrow(duel, questionIndex);
   if (question.kind !== "word") {

@@ -2,9 +2,9 @@ import { TRANSITION_COUNTDOWN_SECONDS } from "./duelConstants";
 
 export function getEffectiveQuestionStartTime(
   questionStartTime: number,
-  currentWordIndex: number | undefined
+  currentItemIndex: number | undefined
 ): number {
-  const isFirstQuestion = (currentWordIndex ?? 0) === 0;
+  const isFirstQuestion = (currentItemIndex ?? 0) === 0;
   const transitionOffset = isFirstQuestion ? 0 : TRANSITION_COUNTDOWN_SECONDS * 1000;
   return questionStartTime + transitionOffset;
 }

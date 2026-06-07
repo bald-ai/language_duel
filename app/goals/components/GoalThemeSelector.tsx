@@ -16,6 +16,10 @@ interface GoalThemeSelectorProps {
 
 type ContentTab = "word" | "sentence";
 
+function formatUnitCount(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 export function GoalThemeSelector({
   goalId,
   currentThemeCount,
@@ -197,8 +201,8 @@ export function GoalThemeSelector({
                             style={{ color: colors.text.muted }}
                           >
                             {theme.contentType === "sentence"
-                              ? `${theme.sentenceRounds?.length ?? 0} rounds`
-                              : `${theme.words?.length ?? 0} words`}
+                              ? formatUnitCount(theme.sentenceRounds?.length ?? 0, "round", "rounds")
+                              : formatUnitCount(theme.words?.length ?? 0, "word", "words")}
                           </span>
                           {theme.description && (
                             <>

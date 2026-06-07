@@ -82,6 +82,26 @@ describe("PickAndPruneReview", () => {
     );
   });
 
+  it("uses singular word grammar for one generated word", () => {
+    render(
+      <PickAndPruneReview
+        reviewKind="new-theme"
+        activeWords={[activeWords[0]]}
+        removedWords={[]}
+        removedOpen={false}
+        onRemovedOpenChange={vi.fn()}
+        onRemove={vi.fn()}
+        onRestore={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-pick-prune-review-submit")).toHaveTextContent(
+      "Continue with 1 word"
+    );
+  });
+
   it("uses 'Add N words' label for existing-theme review", () => {
     render(
       <PickAndPruneReview
@@ -98,6 +118,24 @@ describe("PickAndPruneReview", () => {
     );
 
     expect(screen.getByTestId("theme-pick-prune-review-submit")).toHaveTextContent("Add 2 words");
+  });
+
+  it("uses singular word grammar when adding one generated word", () => {
+    render(
+      <PickAndPruneReview
+        reviewKind="existing-theme"
+        activeWords={[activeWords[0]]}
+        removedWords={[]}
+        removedOpen={false}
+        onRemovedOpenChange={vi.fn()}
+        onRemove={vi.fn()}
+        onRestore={vi.fn()}
+        onContinue={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("theme-pick-prune-review-submit")).toHaveTextContent("Add 1 word");
   });
 
   it("calls remove and restore handlers", () => {

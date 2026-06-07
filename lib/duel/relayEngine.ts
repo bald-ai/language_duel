@@ -112,21 +112,21 @@ export function relayAnswerWindowMs(
 
 export function buildRelayPickPatch(params: {
   duel: Doc<"duels">;
-  wordIndex: number;
+  position: number;
   hardUpgrade: boolean;
   now: number;
 }): Partial<Doc<"duels">> {
-  const { duel, wordIndex, hardUpgrade, now } = params;
+  const { duel, position, hardUpgrade, now } = params;
   const picker = duel.relayPicker ?? "challenger";
 
   const patch: Partial<Doc<"duels">> = {
-    relayAssignedIndex: wordIndex,
+    relayAssignedIndex: position,
     relayPhase: "answer",
     relayAnswerStartedAt: now,
   };
 
   if (hardUpgrade) {
-    patch.relayHardUpgradeIndices = [...(duel.relayHardUpgradeIndices ?? []), wordIndex];
+    patch.relayHardUpgradeIndices = [...(duel.relayHardUpgradeIndices ?? []), position];
     const budget = duel.relayHardBudget ?? { challenger: 0, opponent: 0 };
     patch.relayHardBudget = {
       challenger:
@@ -159,7 +159,7 @@ export function buildRelayAnswerPatch(params: {
     relayPhase: "feedback",
     relayAnswerStartedAt: undefined,
     relayTimeoutScheduledFunctionId: undefined,
-    relayLastResult: { wordIndex: assignedIndex, chosen: value, correct, scorer },
+    relayLastResult: { position: assignedIndex, chosen: value, correct, scorer },
   };
 
   if (scorer === "challenger") {

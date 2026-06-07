@@ -69,18 +69,18 @@ async function advanceDuelIfBothAnswered(
   ctx: MutationCtx,
   duelId: Id<"duels">,
   duel: Doc<"duels">,
-  wordCount: number
+  itemCount: number
 ): Promise<DuelLifecycleIntent> {
   if (!haveBothPlayersAnswered(duel)) {
     return noLifecycleIntent;
   }
 
-  const nextWordIndex = duel.currentWordIndex + 1;
+  const nextItemIndex = duel.currentItemIndex + 1;
 
-  if (nextWordIndex >= wordCount) {
+  if (nextItemIndex >= itemCount) {
     const bossWasDefeated = shouldCompleteWeeklyGoalBoss(duel);
 
-    await ctx.db.patch(duelId, buildFinalCompletionPatch(duel, nextWordIndex));
+    await ctx.db.patch(duelId, buildFinalCompletionPatch(duel, nextItemIndex));
 
     const intent: DuelLifecycleIntent = {
       completed: true,
@@ -91,7 +91,7 @@ async function advanceDuelIfBothAnswered(
     return intent;
   }
 
-  await ctx.db.patch(duelId, buildNextRoundPatch(duel, nextWordIndex, Date.now()));
+  await ctx.db.patch(duelId, buildNextRoundPatch(duel, nextItemIndex, Date.now()));
   return noLifecycleIntent;
 }
 
@@ -109,8 +109,8 @@ async function finalizeAfterAnswer(
     return noLifecycleIntent;
   }
   if (updatedDuel.status === "active") {
-    const wordCount = getSessionItems(updatedDuel).length;
-    return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, wordCount);
+    const itemCount = getSessionItems(updatedDuel).length;
+    return await advanceDuelIfBothAnswered(ctx, duelId, updatedDuel, itemCount);
   }
   if (updatedDuel.status === "completed") {
     return {
@@ -526,7 +526,7 @@ export const skipCountdown = mutation({
     if (plan.bothSkipped && typeof duel.questionStartTime === "number") {
       const effectiveStart = getEffectiveQuestionStartTime(
         duel.questionStartTime,
-        duel.currentWordIndex
+        duel.currentItemIndex
       );
       const unspentTransitionMs = effectiveStart - Date.now();
       if (unspentTransitionMs > 0) {

@@ -98,7 +98,7 @@ export const eliminateOption = mutation({
     if (duel.hintRequestedBy !== otherRole) throw new ConvexError({ code: "INVALID_STATE", message: "You are not the hint provider" });
     if (!duel.hintAccepted) throw new ConvexError({ code: "HINT_NOT_ACCEPTED", message: "Hint not accepted yet" });
 
-    const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
+    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }

@@ -56,7 +56,7 @@ export default function DuelPage() {
   } else if (!duel) {
     content = <FullScreenMessage>Duel not found</FullScreenMessage>;
   } else if (duel.sessionItems.length === 0) {
-    content = <FullScreenMessage>Duel data is incomplete. Missing session words.</FullScreenMessage>;
+    content = <FullScreenMessage>Duel data is incomplete. Missing session content.</FullScreenMessage>;
   } else if (duel.duelMode !== "relay" && !duel.duelQuestions?.length) {
     content = <FullScreenMessage>Duel data is incomplete. Missing duel questions.</FullScreenMessage>;
   } else if (duel.status === "stopped") {

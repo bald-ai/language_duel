@@ -80,7 +80,7 @@ function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
     sourceType: "normal",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0, 1],
     challengerAnswered: false,
     opponentAnswered: false,
@@ -145,7 +145,7 @@ describe("RelayDuelView", () => {
     expect(screen.getByTestId("relay-hard-toggle-0")).toBeInTheDocument();
   });
 
-  it("hands a word over with the hard upgrade once toggled", () => {
+  it("hands a round over with the hard upgrade once toggled", () => {
     render(
       <RelayDuelView duel={relayDuel()} viewerRole="challenger" challenger={challenger} opponent={opponent} />
     );
@@ -155,12 +155,12 @@ describe("RelayDuelView", () => {
 
     expect(mutationMocks.relayPick).toHaveBeenCalledWith({
       duelId: "duel_1",
-      wordIndex: 0,
+      position: 0,
       hardUpgrade: true,
     });
   });
 
-  it("hands a word over without upgrade by default", () => {
+  it("hands a round over without upgrade by default", () => {
     render(
       <RelayDuelView duel={relayDuel()} viewerRole="challenger" challenger={challenger} opponent={opponent} />
     );
@@ -168,7 +168,7 @@ describe("RelayDuelView", () => {
     fireEvent.click(screen.getByTestId("relay-pick-1"));
     expect(mutationMocks.relayPick).toHaveBeenCalledWith({
       duelId: "duel_1",
-      wordIndex: 1,
+      position: 1,
       hardUpgrade: false,
     });
   });
@@ -224,7 +224,7 @@ describe("RelayDuelView", () => {
       relayPicker: "challenger",
       relayAssignedIndex: 0,
       relayServedQuestion: revealedQuestion(),
-      relayLastResult: { wordIndex: 0, chosen: "gato", correct: true, scorer: "opponent" },
+      relayLastResult: { position: 0, chosen: "gato", correct: true, scorer: "opponent" },
       relayRemainingPositions: [1],
     });
     render(<RelayDuelView duel={duel} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
@@ -278,7 +278,7 @@ describe("RelayDuelView", () => {
         answerRevealedToViewer: true,
       } as ServedQuestion,
       relayRemainingPositions: [],
-      relayLastResult: { wordIndex: 0, chosen: "Yo como", correct: true, scorer: "opponent" },
+      relayLastResult: { position: 0, chosen: "Yo como", correct: true, scorer: "opponent" },
     });
 
     render(<RelayDuelView duel={duel} viewerRole="opponent" challenger={challenger} opponent={opponent} />);

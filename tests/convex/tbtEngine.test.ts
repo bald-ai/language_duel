@@ -48,27 +48,27 @@ describe("tbtEngine", () => {
 
   describe("isTbtLastSentence", () => {
     it("is true only on the final sentence", () => {
-      expect(isTbtLastSentence({ currentWordIndex: 0, duelQuestions: deck(3) })).toBe(false);
-      expect(isTbtLastSentence({ currentWordIndex: 1, duelQuestions: deck(3) })).toBe(false);
-      expect(isTbtLastSentence({ currentWordIndex: 2, duelQuestions: deck(3) })).toBe(true);
+      expect(isTbtLastSentence({ currentItemIndex: 0, duelQuestions: deck(3) })).toBe(false);
+      expect(isTbtLastSentence({ currentItemIndex: 1, duelQuestions: deck(3) })).toBe(false);
+      expect(isTbtLastSentence({ currentItemIndex: 2, duelQuestions: deck(3) })).toBe(true);
     });
 
     it("treats a single-sentence deck as already last", () => {
-      expect(isTbtLastSentence({ currentWordIndex: 0, duelQuestions: deck(1) })).toBe(true);
+      expect(isTbtLastSentence({ currentItemIndex: 0, duelQuestions: deck(1) })).toBe(true);
     });
   });
 
   describe("buildTbtAdvancePatch", () => {
     it("on a finished sentence, banks a SHARED point (+1 both) and re-anchors the clock", () => {
       const patch = buildTbtAdvancePatch(
-        { currentWordIndex: 0, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
+        { currentItemIndex: 0, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
         999,
         { bankPoint: true }
       );
       expect(patch).toEqual({
         challengerScore: 3,
         opponentScore: 3,
-        currentWordIndex: 1,
+        currentItemIndex: 1,
         tbtTurn: "opponent", // opener of sentence 1
         questionStartTime: 999,
         // Countdown reset is also in the patch (toEqual ignores the explicit
@@ -78,13 +78,13 @@ describe("tbtEngine", () => {
 
     it("on a timed-out sentence, banks NOTHING but still advances and re-anchors", () => {
       const patch = buildTbtAdvancePatch(
-        { currentWordIndex: 0, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
+        { currentItemIndex: 0, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
         999,
         { bankPoint: false }
       );
       expect(patch).toEqual({
         // No score keys — a timeout earns no point.
-        currentWordIndex: 1,
+        currentItemIndex: 1,
         tbtTurn: "opponent",
         questionStartTime: 999,
       });
@@ -92,14 +92,14 @@ describe("tbtEngine", () => {
 
     it("banks the final shared point, clamps the index, and clears the turn pointer", () => {
       const patch = buildTbtAdvancePatch(
-        { currentWordIndex: 2, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
+        { currentItemIndex: 2, duelQuestions: deck(3), challengerScore: 2, opponentScore: 2 },
         999,
         { bankPoint: true }
       );
       expect(patch).toEqual({
         challengerScore: 3,
         opponentScore: 3,
-        currentWordIndex: 2,
+        currentItemIndex: 2,
         tbtTurn: undefined,
         questionStartTime: undefined,
       });
@@ -107,7 +107,7 @@ describe("tbtEngine", () => {
 
     it("resets the shared countdown fields so the next reveal starts fresh", () => {
       const patch = buildTbtAdvancePatch(
-        { currentWordIndex: 0, duelQuestions: deck(3), challengerScore: 0, opponentScore: 0 },
+        { currentItemIndex: 0, duelQuestions: deck(3), challengerScore: 0, opponentScore: 0 },
         100,
         { bankPoint: true }
       );
@@ -124,7 +124,7 @@ describe("tbtEngine", () => {
       let opponentScore = 0;
       for (let i = 0; i < 3; i++) {
         const patch = buildTbtAdvancePatch(
-          { currentWordIndex: i, duelQuestions: deck(3), challengerScore, opponentScore },
+          { currentItemIndex: i, duelQuestions: deck(3), challengerScore, opponentScore },
           i,
           { bankPoint: true }
         );

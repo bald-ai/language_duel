@@ -30,11 +30,11 @@ function canRevealQuestionAnswer(args: {
     return true;
   }
 
-  if (args.questionIndex < args.duel.currentWordIndex) {
+  if (args.questionIndex < args.duel.currentItemIndex) {
     return true;
   }
 
-  if (args.questionIndex !== args.duel.currentWordIndex) {
+  if (args.questionIndex !== args.duel.currentItemIndex) {
     return false;
   }
 
@@ -139,9 +139,9 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
     return buildRelaySafeDuel(duel);
   }
 
-  const wordIndexBySessionIndex = new Map<number, number>();
+  const itemIndexBySessionIndex = new Map<number, number>();
   duel.itemOrder.forEach((sessionItemIndex, questionIndex) => {
-    wordIndexBySessionIndex.set(sessionItemIndex, questionIndex);
+    itemIndexBySessionIndex.set(sessionItemIndex, questionIndex);
   });
 
   const safeQuestions = duel.duelQuestions?.map((question, questionIndex) => {
@@ -151,7 +151,7 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
       : hideQuestionAnswer(question);
   });
   const safeSessionItems = duel.sessionItems.map((item, sessionItemIndex): SessionItem => {
-    const questionIndex = wordIndexBySessionIndex.get(sessionItemIndex);
+    const questionIndex = itemIndexBySessionIndex.get(sessionItemIndex);
     if (questionIndex === undefined) {
       throw new Error(
         `duel ${duel._id} sessionItem index ${sessionItemIndex} missing from itemOrder`

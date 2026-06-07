@@ -28,7 +28,7 @@ export const fireHint = mutation({
       throw new ConvexError({ code: "QUESTION_HINT_ALREADY_FIRED", message: "Only one hint can be used per question" });
     }
 
-    const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
+    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }
@@ -45,7 +45,7 @@ export const fireHint = mutation({
     const visibleOptions = currentQuestion.options.filter(
       (option) => !existingEliminated.includes(option)
     );
-    const hintSeed = hashSeed(`${duel.seed}:${duel.currentWordIndex}:${hintType}`);
+    const hintSeed = hashSeed(`${duel.seed}:${duel.currentItemIndex}:${hintType}`);
     const effect = resolveEffect(
       hintType,
       {
@@ -100,7 +100,7 @@ export const fireSentenceHint = mutation({
       throw new ConvexError({ code: "QUESTION_HINT_ALREADY_FIRED", message: "Only one hint can be used per question" });
     }
 
-    const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
+    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }
@@ -112,7 +112,7 @@ export const fireSentenceHint = mutation({
     }
 
     const existingEliminated = duel.currentQuestionEliminatedTileIndices ?? [];
-    const hintSeed = hashSeed(`${duel.seed}:${duel.currentWordIndex}:${hintType}`);
+    const hintSeed = hashSeed(`${duel.seed}:${duel.currentItemIndex}:${hintType}`);
     const effect = resolveSentenceHint(hintType, {
       tilePool: currentQuestion.tilePool,
       spanishSentence: currentQuestion.spanishSentence,

@@ -26,7 +26,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "sourceType"
     | "duelMode"
     | "status"
-    | "currentWordIndex"
+    | "currentItemIndex"
     | "challengerAnswered"
     | "opponentAnswered"
     | "challengerScore"
@@ -81,7 +81,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,

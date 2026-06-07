@@ -90,8 +90,8 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
   }, [timeout, duel._id]);
 
   const handlePick = (position: number, hardUpgrade: boolean) => {
-    void pick({ duelId: duel._id, wordIndex: position, hardUpgrade }).catch((error) =>
-      toast.error(getErrorMessage(error, "Could not hand over the word"))
+    void pick({ duelId: duel._id, position, hardUpgrade }).catch((error) =>
+      toast.error(getErrorMessage(error, "Could not hand over the round"))
     );
   };
 
@@ -163,7 +163,7 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
                 colors={colors}
               />
             ) : (
-              <Waiting colors={colors}>Waiting for {theirName} to pick a word…</Waiting>
+              <Waiting colors={colors}>Waiting for {theirName} to pick the next round…</Waiting>
             )
           ) : served?.kind === "sentence" ? (
             <RelaySentenceAnswer
@@ -177,7 +177,7 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
               startedAt={duel.relayAnswerStartedAt}
               onTimeout={handleTimeout}
               onAdvance={handleAdvance}
-              isLastWord={resolvedCount + 1 >= total}
+              isLastItem={resolvedCount + 1 >= total}
               index={resolvedCount + 1}
               total={total}
               themeName={duel.relayAssignedIndex !== undefined ? themeAt(duel.relayAssignedIndex) : ""}
@@ -203,7 +203,7 @@ export function RelayDuelView({ duel, viewerRole, challenger, opponent }: RelayD
                 onTimeout={handleTimeout}
                 lastResult={duel.relayLastResult ?? null}
                 theirName={theirName}
-                isLastWord={resolvedCount + 1 >= total}
+                isLastItem={resolvedCount + 1 >= total}
                 onAnswer={handleAnswer}
                 onAdvance={handleAdvance}
                 colors={colors}
@@ -258,7 +258,7 @@ function RelayWordHeader({
   return (
     <div className="text-center mb-4">
       <div className="text-sm mb-2" style={{ color: colors.text.muted }}>
-        Word {index} of {total}
+        Round {index} of {total}
       </div>
       <div className="text-xs uppercase tracking-[0.25em] mb-2" style={{ color: colors.text.muted }}>
         {fromOrTo}
@@ -296,7 +296,7 @@ function RelayPickList({ remaining, promptAt, isSentenceAt, theirName, budget, o
     <div className="w-full max-w-md">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm" style={{ color: colors.text.muted }}>
-          Hand a word to {theirName} · {remaining.length} left
+          Hand the next round to {theirName} · {remaining.length} left
         </div>
         <span
           className="rounded-full px-3 py-1 text-xs font-bold"
@@ -402,14 +402,14 @@ interface RelayAnswerAreaProps {
   onTimeout: () => void;
   lastResult: RelaySafeDuel["relayLastResult"] | null;
   theirName: string;
-  isLastWord: boolean;
+  isLastItem: boolean;
   onAnswer: (value: string) => void;
   onAdvance: () => void;
   colors: Colors;
 }
 
 // Owns the answerer's tentative selection. Keyed on the assigned position by the
-// parent, so a new word remounts it and the selection resets without an effect.
+// parent, so a new round remounts it and the selection resets without an effect.
 function RelayAnswerArea({
   served,
   amAnswerer,
@@ -419,7 +419,7 @@ function RelayAnswerArea({
   onTimeout,
   lastResult,
   theirName,
-  isLastWord,
+  isLastItem,
   onAnswer,
   onAdvance,
   colors,
@@ -517,7 +517,7 @@ function RelayAnswerArea({
           onClick={onAdvance}
           data-testid="relay-continue"
         >
-          {isLastWord ? "See Results" : "Continue"}
+          {isLastItem ? "See Results" : "Continue"}
         </button>
       )}
     </>
@@ -534,7 +534,7 @@ interface RelaySentenceAnswerProps {
   startedAt: number | undefined;
   onTimeout: () => void;
   onAdvance: () => void;
-  isLastWord: boolean;
+  isLastItem: boolean;
   index: number;
   total: number;
   themeName: string;
@@ -557,7 +557,7 @@ function RelaySentenceAnswer({
   startedAt,
   onTimeout,
   onAdvance,
-  isLastWord,
+  isLastItem,
   index,
   total,
   themeName,
@@ -698,7 +698,7 @@ function RelaySentenceAnswer({
           onClick={onAdvance}
           data-testid="relay-continue"
         >
-          {isLastWord ? "See Results" : "Continue"}
+          {isLastItem ? "See Results" : "Continue"}
         </button>
       )}
     </>
@@ -706,7 +706,7 @@ function RelaySentenceAnswer({
 
   return (
     <SentenceBuildBoard
-      roundLabel={`${amAnswerer ? `from ${theirName}` : `to ${theirName}`} · ${index} of ${total}`}
+      roundLabel={`${amAnswerer ? `from ${theirName}` : `to ${theirName}`} · Round ${index} of ${total}`}
       themeName={themeName}
       englishPrompt={served.englishPrompt}
       tilePool={served.tilePool}

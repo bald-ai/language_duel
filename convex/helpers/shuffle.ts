@@ -1,5 +1,5 @@
 /**
- * Pure shuffle helpers for building duel/session word order.
+ * Pure shuffle helpers for building duel/session item order.
  * No database access; easily testable.
  */
 
@@ -16,9 +16,9 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Create a shuffled word-index order for a duel/session.
+ * Create a shuffled item-index order for a duel/session.
  */
-export function createShuffledItemOrder(wordCount: number): number[] {
-  const indices = Array.from({ length: wordCount }, (_, i) => i);
+export function createShuffledItemOrder(itemCount: number): number[] {
+  const indices = Array.from({ length: itemCount }, (_, i) => i);
   return shuffleArray(indices);
 }

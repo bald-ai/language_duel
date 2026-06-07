@@ -48,10 +48,11 @@ export function PickAndPruneReview({
   const colors = useAppearanceColors();
   const activeCount = activeWords.length;
   const removedCount = removedWords.length;
+  const activeUnit = activeCount === 1 ? "word" : "words";
   const continueLabel =
     reviewKind === "existing-theme"
-      ? `Add ${activeCount} words`
-      : `Continue with ${activeCount} words`;
+      ? `Add ${activeCount} ${activeUnit}`
+      : `Continue with ${activeCount} ${activeUnit}`;
 
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col" data-testid="theme-pick-prune-review">

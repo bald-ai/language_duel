@@ -111,7 +111,7 @@ export interface DuelSessionFields
   livesRemaining?: number;
   status: "active";
   createdAt: number;
-  currentWordIndex: number;
+  currentItemIndex: number;
   itemOrder: number[];
   duelQuestions: DuelQuestionSnapshot[];
   challengerAnswered: boolean;
@@ -316,7 +316,7 @@ export function buildDuelSession(args: {
     livesRemaining: args.livesRemaining,
     status: "active",
     createdAt: args.createdAt,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder,
     duelQuestions,
     challengerAnswered: false,

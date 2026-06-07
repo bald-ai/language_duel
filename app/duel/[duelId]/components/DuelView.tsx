@@ -30,7 +30,7 @@ export interface FrozenData {
   shuffledAnswers: string[];
   selectedAnswer: string | null;
   opponentAnswer: string | null;
-  wordIndex: number;
+  itemIndex: number;
   hasNoneOption: boolean | null;
   difficulty: DifficultyPillData;
 }
@@ -42,7 +42,7 @@ export interface DuelViewProps {
   /** True when there is no current word to play (waiting on the duel to complete). */
   isRoundOver: boolean;
   round: {
-    wordsCount: number;
+    itemCount: number;
     index: number;
     word: string;
     sourceThemeName?: string | null;
@@ -221,7 +221,7 @@ export function DuelView({
         {/* Main game content - scrollable middle section */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">
           <DuelRoundHeader
-            wordsCount={round.wordsCount}
+            itemCount={round.itemCount}
             index={round.index}
             word={round.word}
             sourceThemeName={round.sourceThemeName}

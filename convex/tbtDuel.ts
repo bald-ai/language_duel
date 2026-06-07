@@ -49,7 +49,7 @@ interface ActiveTbtState {
 function requireActiveTbtState(duel: Doc<"duels">): ActiveTbtState {
   assertActive(duel);
 
-  const questionIndex = duel.currentWordIndex;
+  const questionIndex = duel.currentItemIndex;
   const question = duel.duelQuestions?.[questionIndex];
   if (!question || question.kind !== "sentence") {
     throw new ConvexError({
@@ -189,7 +189,7 @@ export const tbtQuestionTimeout = mutation({
     const { duel } = await getDuelParticipant(ctx, duelId);
     assertDuelMode(duel, "tbt", "tbtQuestionTimeout");
     if (duel.status !== "active") return;
-    if (duel.currentWordIndex !== questionIndex) return; // a newer sentence already started
+    if (duel.currentItemIndex !== questionIndex) return; // a newer sentence already started
 
     const tbtState = requireActiveTbtState(duel);
     const now = Date.now();

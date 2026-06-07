@@ -65,8 +65,8 @@ export function useDuelPhaseState({
   const selectedAnswer = getSelectedAnswerForIndex(index);
   const isLocked = getIsLockedForIndex(index);
 
-  const words = duel.sessionItems;
-  const currentWordIndex = duel.currentWordIndex;
+  const items = duel.sessionItems;
+  const currentItemIndex = duel.currentItemIndex;
 
   const { isRevealing, typedText, revealComplete, resetTypeReveal } =
     useDuelTypeReveal(frozenData);
@@ -90,15 +90,15 @@ export function useDuelPhaseState({
   });
 
   useEffect(() => {
-    if (currentWordIndex === undefined || !words.length) return;
+    if (currentItemIndex === undefined || !items.length) return;
 
     if (activeQuestionIndexRef.current === null) {
-      activeQuestionIndexRef.current = currentWordIndex;
+      activeQuestionIndexRef.current = currentItemIndex;
       setPhase("answering");
       return;
     }
 
-    if (activeQuestionIndexRef.current === currentWordIndex) return;
+    if (activeQuestionIndexRef.current === currentItemIndex) return;
 
     const prevIndex = activeQuestionIndexRef.current;
     const shouldShowTransition =
@@ -115,7 +115,7 @@ export function useDuelPhaseState({
         })
       );
 
-      const isLastQuestion = prevIndex >= words.length - 1;
+      const isLastQuestion = prevIndex >= items.length - 1;
       if (!isLastQuestion) {
         setCountdown(TRANSITION_COUNTDOWN_SECONDS);
       }
@@ -127,9 +127,9 @@ export function useDuelPhaseState({
       hasTimedOutRef.current = false;
     }
 
-    activeQuestionIndexRef.current = currentWordIndex;
+    activeQuestionIndexRef.current = currentItemIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentWordIndex, words, duel.itemOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
+  }, [currentItemIndex, items, duel.itemOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
 
   useEffect(() => {
     const eliminated = duel.eliminatedOptions || [];

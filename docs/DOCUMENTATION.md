@@ -22,7 +22,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 - Generate themes: A user can generate a normal theme directly, or use Pick & Prune to over-generate words first and then keep only the useful entries.
 - Solo practice: A user practices against the app without needing another player. The ad-hoc Learn + Practice flow, weekly-goal solo practice, boss solo practice, and spaced repetition all support word themes, sentence themes, or mixed selections. Sentence practice uses a fill-the-blanks ladder where higher levels blank more of the sentence until the user builds the whole sentence.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
-- Duel modes: New challenges choose `PvP`, `PvE`, `Relay`, or `Tag Team`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks a word from the remaining pool and the other player answers it, then roles swap. Tag Team is the shared sentence-board mode where players alternate placing the next tile together.
+- Duel modes: New challenges choose `PvP`, `PvE`, `Relay`, or `Tag Team`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks the next round from the remaining content and the other player answers it, then roles swap. Tag Team is the shared sentence-board mode where players alternate placing the next tile together.
 - Weekly goals: A user can create a solo goal, or two users can create a shared goal. Goals collect themes, lock in a snapshot, and track completion toward boss-style milestone moments.
 
 ## System Map
@@ -39,8 +39,8 @@ The direction is still evolving. AI should treat this thesis as the current best
 - `friendRequests`: pending or resolved requests that let users connect before collaborating directly.
 - `friends`: accepted user-to-user relationships used across duels, goals, and shared content flows.
 - `challenges`: pending person-to-person duel invites, including participants, chosen themes, and optional weekly-goal linkage.
-- `duels`: accepted two-person gameplay sessions, including participants, chosen themes, generated session words, game state, and optional weekly-goal linkage.
-- `soloPracticeSessions`: single-player practice sessions, including chosen themes, generated session words, and optional weekly-goal linkage.
+- `duels`: accepted two-person gameplay sessions, including participants, chosen themes, generated session content, game state, and optional weekly-goal linkage.
+- `soloPracticeSessions`: single-player practice sessions, including chosen themes, generated session content, and optional weekly-goal linkage.
 - `weeklyGoals`: solo or shared goals that track chosen themes, participant lock state, lifecycle state, completion progress, and boss readiness.
 - `notifications`: in-app event records for friend requests, challenges, duel activity, and weekly-goal events.
 - `notificationPreferences`: per-user settings controlling which notification and reminder events should fire.
@@ -79,21 +79,21 @@ Duel mode lifecycle:
 - PvP sentence rounds get sabotages (the symmetric counterpart to the PvE hint pool), reusing all four existing effects (`sticky`, `bounce`, `trampoline`, `reverse`) on the build board — PvP-only, shared 5-per-duel budget, one-per-question. Only the UNPLACED pool tiles fly (bounce/trampoline) or scramble (reverse); placed tiles and the Confirm/Reset row stay anchored so the player can keep building. Sticky is a drop-in full-screen overlay. The first Confirm clears any active sabotage, so the retry is always a clean board.
 - The challenge difficulty preset (Easy/Medium/Hard) shapes both content types. For word positions it drives the progressive difficulty mix; for sentence rounds it decides how many of the 3 stored distractors actually appear on the board (Easy → 1, Medium → 2, Hard → 3). No sentence content is regenerated — every sentence still stores 3 decoys; we just show a subset at play time. The single source of the 1/2/3 mapping is `SENTENCE_DISTRACTOR_COUNT_BY_LEVEL`; the count is selected once in `buildDuelQuestionSet` (`lib/answerShuffle.ts`) and passed into the one tile-board builder, `buildSentenceQuestionSnapshot` (`lib/sentenceGameplay/engine.ts`). Because the preset now affects sentences, the difficulty picker shows for sentence-only duels too. Boss duels have no picker and fall back to the default Easy → 1 distractor. Scoring stays flat regardless of difficulty (clean = 2, messy = 1, timeout = 0). Spaced Repetition uses the same mixed word + sentence session-item path, and the `/mock-online` sentence prototype has its own separate tile builder outside this real-duel path.
 - Sentence tiles render with their leading capital and trailing sentence punctuation stripped so the first and last tiles do not reveal their position. Matching still uses the raw token, and the post-round reveal shows the canonical Spanish sentence with the English prompt stacked above it in the same type so the two languages line up.
-- `Relay` is a turn-based hand-off mode with no sabotages, no shared hint pool, and no per-turn difficulty preset. The picker hands a single word to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
+- `Relay` is a turn-based hand-off mode with no sabotages, no shared hint pool, and no per-turn difficulty preset. The picker hands a single round to the rival, the rival answers it, then the rival becomes the next picker. See the Relay duel lifecycle below for details.
 - `Tag Team` is a sentence-only cooperative mode. Both players share one sentence tile board, alternate turns placing the next tile, and score a shared point only when the sentence is completed before the shared timer expires.
 
 Relay duel lifecycle:
 
 - Relay supports mixed word + sentence decks. Each position renders its own answer surface based on its kind: words use the six-option MC grid, sentences use the build-and-confirm tile board (the picker watches the answerer's board fill live).
 - Relay has three phases tracked on the duel record: `pick`, `answer`, and `feedback`. Only `answer` is timed.
-- The challenger always picks first. After every answered word (correct, wrong, or timed out) the answerer becomes the next picker, so turns alternate by outcome of play rather than by a fixed schedule.
-- The pick phase shows the picker the remaining word pool (resolved and currently-assigned positions are excluded) plus a per-player hard-upgrade budget. The non-picker sees a waiting screen.
-- Each player gets `ceil(poolSize / 10)` hard-upgrade tokens at duel creation (`RELAY_HARD_BUDGET_DIVISOR = 10`). Using a token swaps the served question for the pre-built "hard" variant of that word. Tokens are independent per player and do not refund on wrong answers or timeouts.
+- The challenger always picks first. After every answered round (correct, wrong, or timed out) the answerer becomes the next picker, so turns alternate by outcome of play rather than by a fixed schedule.
+- The pick phase shows the picker the remaining positions (resolved and currently assigned positions are excluded) plus a per-player hard-upgrade budget. The non-picker sees a waiting screen.
+- Each player gets `ceil(poolSize / 10)` hard-upgrade tokens at duel creation (`RELAY_HARD_BUDGET_DIVISOR = 10`). Using a token swaps the served question for the pre-built "hard" variant of that word position. Tokens are independent per player and do not refund on wrong answers or timeouts.
 - Relay word questions are six-option, uniform-medium-difficulty by default; the difficulty preset selector is hidden on Relay and the backend ignores any preset that gets sent. The hard upgrade is the only per-turn difficulty lever, and it is disabled on sentence positions (the 🔥 toggle is hidden on sentence rows and `relayPick` rejects it). Sentences always serve a fixed easy (1-distractor) pool, so the served board equals the board the validator reads.
 - The answer phase countdown is per-position: word positions use `RELAY_ANSWER_TIMEOUT_SECONDS = 21`, sentence positions use `SENTENCE_RELAY_TIMER_SECONDS = 60` (`relayAnswerWindowMs` is the single source, mirrored client-side; the client countdown anchors on `relayAnswerStartedAt`). A Convex scheduled function is the source of truth for timeouts; the client timer is just display.
 - Timeout counts the position as wrong (no score) and resolves + hands off in a single step — Relay never parks in `feedback` after a timeout, because the answerer is likely gone.
 - Scoring is a flat `RELAY_QUESTION_POINTS = 1` per resolved position credited to the answerer. A sentence scores the point for building the sentence correctly within the timer, no matter how many Confirms it took; a wrong Confirm stays in the answer phase to retry. Like PvP, a Confirm returns a per-tile correctness mask that colors each placed tile green/red. Sentences route through `relaySentenceTap` / `relaySentenceRemoveLast` / `relaySentenceReset` / `relaySentenceConfirm`, not the word-only `relayAnswer` path. There is no per-position point variation and no streak bonus.
-- The duel completes when every position in `itemOrder` has been resolved and no word is currently assigned (`isRelayFinished`). The final-results panel then replaces the picker/answer UI.
+- The duel completes when every position in `itemOrder` has been resolved and no position is currently assigned (`isRelayFinished`). The final-results panel then replaces the picker/answer UI.
 - Server enforcement lives in `convex/relayDuel.ts` (`relayPick`, `relayAnswer`, `relayAdvance`, `relayTimeout`) and the pure rules in `lib/duel/relayEngine.ts`. UI lives in `app/duel/[duelId]/components/RelayDuelView.tsx`.
 
 Weekly goal lifecycle:
@@ -127,9 +127,9 @@ Weekly goal lifecycle:
 - Challenge: a proposal sent to another person to start a duel.
 - PvP: competitive duel mode with sabotages and request-hint mechanics.
 - PvE: cooperative duel mode with a shared hint pool and no sabotage/request-help mechanics.
-- Relay: turn-based duel mode. The picker hands a single word from the remaining pool to the rival, the rival answers it, then the rival becomes the next picker. Six-option questions, uniform medium difficulty, with a per-player hard-upgrade token budget.
+- Relay: turn-based duel mode. The picker hands a single position from the remaining content to the rival, the rival answers it, then the rival becomes the next picker. Six-option word questions, uniform medium difficulty, with a per-player hard-upgrade token budget.
 - Tag Team: sentence-only cooperative duel mode. Two players share one tile board, alternate turns placing the next tile, and build the same sentence together.
-- Hard upgrade (Relay): a token the picker can spend when handing over a word to swap the served question for the pre-built hard variant of that word. Per-player budget is `ceil(poolSize / 10)`.
+- Hard upgrade (Relay): a token the picker can spend when handing over an eligible word position to swap the served question for the pre-built hard variant of that word. Per-player budget is `ceil(poolSize / 10)`.
 - Shared hint pool: the PvE team hint budget. It belongs to the duel, not to one player.
 - Solo practice: a single-player learning flow without another player.
 - Weekly goal: a solo or shared study plan, built from selected themes and tracked toward completion.

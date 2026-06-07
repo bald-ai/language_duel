@@ -61,7 +61,7 @@ export function TurnByTurnView({
   const stopDuel = useMutation(api.duels.stopDuel);
 
   const isCompleted = duel.status === "completed";
-  const questionIndex = duel.currentWordIndex;
+  const questionIndex = duel.currentItemIndex;
   const total = duel.duelQuestions?.length ?? 0;
   const question = duel.duelQuestions?.[questionIndex] as
     | ViewerSafeDuelQuestion

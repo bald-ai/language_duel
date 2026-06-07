@@ -62,11 +62,11 @@ export function useDuelSessionViewModel({
 }: DuelSessionViewModelArgs): DuelViewProps {
   const router = useRouter();
 
-  const words = duel.sessionItems;
+  const items = duel.sessionItems;
   const itemOrder = duel.itemOrder;
   const isCompleted = duel.status === "completed";
-  const rawIndex = duel.currentWordIndex ?? 0;
-  const index = isCompleted && words.length > 0 ? words.length - 1 : rawIndex;
+  const rawIndex = duel.currentItemIndex ?? 0;
+  const index = isCompleted && items.length > 0 ? items.length - 1 : rawIndex;
   const roleView = forRole(duel, viewerRole);
   const {
     myScore,
@@ -125,7 +125,7 @@ export function useDuelSessionViewModel({
     duelId: duel._id,
     questionStartTime: duel.questionStartTime,
     questionTimerPausedAt: duel.questionTimerPausedAt,
-    currentWordIndex: duel.currentWordIndex,
+    currentItemIndex: duel.currentItemIndex,
     questionIndex: index,
     myAnswered,
     hasTimedOutRef,
@@ -138,7 +138,7 @@ export function useDuelSessionViewModel({
     }
   }, [duel.status, router]);
 
-  const actualWordIndex = itemOrder[index];
+  const actualItemIndex = itemOrder[index];
   // The standard view-model is word-only; the page already routes sentence
   // positions to a dedicated SentenceRoundView, so this narrow is the place we
   // assert "we should only be here for word positions". Exception: a completed
@@ -151,7 +151,7 @@ export function useDuelSessionViewModel({
     isCompleted && !isWordQuestion(rawCurrentQuestion)
       ? COMPLETED_PLACEHOLDER_WORD_QUESTION
       : requireWordQuestion(rawCurrentQuestion);
-  const rawCurrentSessionItem = words[actualWordIndex];
+  const rawCurrentSessionItem = items[actualItemIndex];
   const currentSessionWord =
     !rawCurrentSessionItem || (isCompleted && rawCurrentSessionItem.kind !== "word")
       ? null
@@ -177,7 +177,7 @@ export function useDuelSessionViewModel({
   // otherwise the live question. Resolved once, here, instead of branching at
   // every use site in the view.
   const displayedWord = frozenData ? frozenData.word : currentSessionWord?.word ?? "";
-  const displayedIndex = frozenData ? frozenData.wordIndex : index;
+  const displayedIndex = frozenData ? frozenData.itemIndex : index;
   const displayedAnswers = frozenData ? frozenData.shuffledAnswers : currentQuestion.options;
   const displayedSelected = frozenData ? frozenData.selectedAnswer : selectedAnswer;
   const displayedCorrect = frozenData ? frozenData.correctAnswer : liveCorrectAnswer;
@@ -191,13 +191,13 @@ export function useDuelSessionViewModel({
 
   const sourceThemeName = useMemo(() => {
     const hasMultipleThemes =
-      new Set(words.map((sessionWord) => String(sessionWord.themeId))).size > 1;
+      new Set(items.map((sessionItem) => String(sessionItem.themeId))).size > 1;
     if (!hasMultipleThemes) return null;
-    const visibleWordIndex = itemOrder[displayedIndex];
-    const visibleWord = words[visibleWordIndex];
-    const themeName = (visibleWord as { themeName?: string } | undefined)?.themeName;
+    const visibleItemIndex = itemOrder[displayedIndex];
+    const visibleItem = items[visibleItemIndex];
+    const themeName = (visibleItem as { themeName?: string } | undefined)?.themeName;
     return typeof themeName === "string" ? themeName : null;
-  }, [words, itemOrder, displayedIndex]);
+  }, [items, itemOrder, displayedIndex]);
 
   // True once the viewer has already sent a sabotage during the current
   // question. `theirSabotage` is the sabotage the viewer sent to the opponent;
@@ -239,7 +239,7 @@ export function useDuelSessionViewModel({
   };
 
   const handlePlayAudio = () => {
-    const activeWord = words[itemOrder[displayedIndex]];
+    const activeWord = items[itemOrder[displayedIndex]];
     actions.playWordAudio(activeWord);
   };
 
@@ -249,7 +249,7 @@ export function useDuelSessionViewModel({
     phase,
     isRoundOver,
     round: {
-      wordsCount: words.length,
+      itemCount: items.length,
       index: displayedIndex,
       word: displayedWord,
       sourceThemeName,

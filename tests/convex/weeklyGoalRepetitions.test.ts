@@ -73,7 +73,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "spacedRepetitionStep"
     | "livesRemaining"
     | "status"
-    | "currentWordIndex"
+    | "currentItemIndex"
     | "challengerAnswered"
     | "opponentAnswered"
     | "challengerScore"
@@ -453,7 +453,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     spacedRepetitionStep: 1,
     livesRemaining: 1,
     status: "completed",
-    currentWordIndex: 1,
+    currentItemIndex: 1,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 1,

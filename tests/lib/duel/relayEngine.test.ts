@@ -52,7 +52,7 @@ function relayDuel(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "normal",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0, 1],
     duelQuestions: [question("base0"), question("base1")],
     relayHardQuestions: [question("hard0"), question("hard1")],
@@ -190,9 +190,9 @@ describe("relayEngine", () => {
   });
 
   describe("buildRelayPickPatch", () => {
-    it("hands the word over and starts the answer phase", () => {
+    it("hands the position over and starts the answer phase", () => {
       const duel = relayDuel();
-      const patch = buildRelayPickPatch({ duel, wordIndex: 0, hardUpgrade: false, now: 5000 });
+      const patch = buildRelayPickPatch({ duel, position: 0, hardUpgrade: false, now: 5000 });
       expect(patch.relayAssignedIndex).toBe(0);
       expect(patch.relayPhase).toBe("answer");
       expect(patch.relayAnswerStartedAt).toBe(5000);
@@ -202,14 +202,14 @@ describe("relayEngine", () => {
 
     it("consumes a hard token from the picker on upgrade", () => {
       const duel = relayDuel({ relayPicker: "challenger", relayHardBudget: { challenger: 2, opponent: 3 } });
-      const patch = buildRelayPickPatch({ duel, wordIndex: 1, hardUpgrade: true, now: 1 });
+      const patch = buildRelayPickPatch({ duel, position: 1, hardUpgrade: true, now: 1 });
       expect(patch.relayHardUpgradeIndices).toEqual([1]);
       expect(patch.relayHardBudget).toEqual({ challenger: 1, opponent: 3 });
     });
 
     it("clamps the consumed budget at zero", () => {
       const duel = relayDuel({ relayPicker: "opponent", relayHardBudget: { challenger: 1, opponent: 0 } });
-      const patch = buildRelayPickPatch({ duel, wordIndex: 0, hardUpgrade: true, now: 1 });
+      const patch = buildRelayPickPatch({ duel, position: 0, hardUpgrade: true, now: 1 });
       expect(patch.relayHardBudget).toEqual({ challenger: 1, opponent: 0 });
     });
   });
@@ -229,7 +229,7 @@ describe("relayEngine", () => {
       expect(patch.opponentScore).toBe(5);
       expect(patch.challengerScore).toBeUndefined();
       expect(patch.relayLastResult).toEqual({
-        wordIndex: 0,
+        position: 0,
         chosen: "base0",
         correct: true,
         scorer: "opponent",

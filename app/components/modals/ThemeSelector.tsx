@@ -34,6 +34,13 @@ function groupThemesByContentType(themes: ModalTheme[]): ThemeGroup[] {
   return groups.filter((group) => group.themes.length > 0);
 }
 
+function formatThemeItemCount(count: number, contentType: ThemeContentType): string {
+  const unit = contentType === "sentence"
+    ? (count === 1 ? "round" : "rounds")
+    : (count === 1 ? "word" : "words");
+  return `${count} ${unit}`;
+}
+
 function ThemeGroupHeader({
   label,
   contentType,
@@ -213,7 +220,7 @@ export function ThemeSelector({
                         {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
                       </div>
                       <div className="text-xs" style={{ color: colors.text.muted }}>
-                        {theme.itemCount} {theme.contentType === "sentence" ? "rounds" : "words"}
+                        {formatThemeItemCount(theme.itemCount, theme.contentType)}
                       </div>
                     </div>
                     {isSelected && (
@@ -279,7 +286,7 @@ export function ThemeSelector({
                   {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
                 </div>
                 <div className="text-sm" style={{ color: colors.text.muted }}>
-                  {theme.itemCount} {theme.contentType === "sentence" ? "rounds" : "words"}
+                  {formatThemeItemCount(theme.itemCount, theme.contentType)}
                 </div>
               </div>
               <div

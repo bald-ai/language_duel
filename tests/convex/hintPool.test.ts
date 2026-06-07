@@ -69,7 +69,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     duelMode: "pve",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0],
     duelQuestions: [
       {

@@ -76,7 +76,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "weeklyGoalId"
     | "bossType"
     | "status"
-    | "currentWordIndex"
+    | "currentItemIndex"
     | "challengerAnswered"
     | "opponentAnswered"
     | "challengerScore"
@@ -581,7 +581,7 @@ describe("weekly boss flow", () => {
       bossType: "mini",
       duelMode: "pvp",
       status: "completed",
-      currentWordIndex: 0,
+      currentItemIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
       challengerScore: 0,

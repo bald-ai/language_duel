@@ -28,7 +28,7 @@ function baseProps(overrides: DuelViewOverrides = {}): DuelViewProps {
     phase: "answering",
     isRoundOver: false,
     round: {
-      wordsCount: 2,
+      itemCount: 2,
       index: 0,
       word: "cat",
       sourceThemeName: "Animals",
@@ -144,7 +144,7 @@ describe("DuelView PvE mode", () => {
               shuffledAnswers: ["gato", "perro", "mesa", "casa"],
               selectedAnswer: "gato",
               opponentAnswer: "perro",
-              wordIndex: 0,
+              itemIndex: 0,
               hasNoneOption: false,
               difficulty: { level: "easy", points: 1 },
             },

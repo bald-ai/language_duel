@@ -14,7 +14,7 @@
  * same pause/transition handling applies). There is no per-turn clock.
  *
  * Indices below are positions into `duelQuestions` — the same basis as
- * `currentWordIndex`.
+ * `currentItemIndex`.
  */
 
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -54,10 +54,10 @@ export function buildInitialTbtState(): TbtInitialState {
 
 /** Whether the current sentence is the last one in the deck. */
 export function isTbtLastSentence(
-  duel: Pick<Doc<"duels">, "currentWordIndex" | "duelQuestions">
+  duel: Pick<Doc<"duels">, "currentItemIndex" | "duelQuestions">
 ): boolean {
   const total = requireTbtQuestionCount(duel);
-  return duel.currentWordIndex + 1 >= total;
+  return duel.currentItemIndex + 1 >= total;
 }
 
 function requireTbtQuestionCount(
@@ -81,7 +81,7 @@ function requireTbtQuestionCount(
 export function buildTbtAdvancePatch(
   duel: Pick<
     Doc<"duels">,
-    "currentWordIndex" | "duelQuestions" | "challengerScore" | "opponentScore"
+    "currentItemIndex" | "duelQuestions" | "challengerScore" | "opponentScore"
   >,
   now: number,
   opts: { bankPoint: boolean }
@@ -109,14 +109,14 @@ export function buildTbtAdvancePatch(
   }
 
   if (isTbtLastSentence(duel)) {
-    patch.currentWordIndex = Math.max(0, total - 1);
+    patch.currentItemIndex = Math.max(0, total - 1);
     patch.tbtTurn = undefined;
     patch.questionStartTime = undefined;
     return patch;
   }
 
-  const nextIndex = duel.currentWordIndex + 1;
-  patch.currentWordIndex = nextIndex;
+  const nextIndex = duel.currentItemIndex + 1;
+  patch.currentItemIndex = nextIndex;
   patch.tbtTurn = tbtOpener(nextIndex);
   // Re-anchor the shared clock. `getEffectiveQuestionStartTime` adds the fixed
   // transition offset for non-first sentences, so the 90s only starts ticking

@@ -81,7 +81,7 @@ function tbtDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "normal",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0, 1],
     duelQuestions: [sentenceQuestion(), sentenceQuestion()],
     challengerAnswered: false,
@@ -144,7 +144,7 @@ describe("tbtDuel mutations", () => {
     await tapHandler(createCtx(db, "clerk_1"), { duelId, tileIndex: 2 });
 
     expect(db.duels[0]).toMatchObject({
-      currentWordIndex: 1,
+      currentItemIndex: 1,
       challengerScore: 1,
       opponentScore: 1,
       tbtTurn: "opponent",
@@ -163,7 +163,7 @@ describe("tbtDuel mutations", () => {
     await tapHandler(createCtx(db, "clerk_1"), { duelId, tileIndex: 2 });
 
     expect(db.duels[0]).toMatchObject({
-      currentWordIndex: 1,
+      currentItemIndex: 1,
       challengerScore: 0,
       opponentScore: 0,
       tbtTurn: "opponent",
@@ -183,7 +183,7 @@ describe("tbtDuel mutations", () => {
     await timeoutHandler(createCtx(db, "clerk_2"), { duelId, questionIndex: 0 });
 
     expect(db.duels[0]).toMatchObject({
-      currentWordIndex: 1,
+      currentItemIndex: 1,
       challengerScore: 0,
       opponentScore: 0,
       tbtTurn: "opponent",

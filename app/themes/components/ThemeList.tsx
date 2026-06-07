@@ -80,7 +80,7 @@ const ThemeCard = memo(function ThemeCard({
   const isSentence = isSentenceTheme(theme);
   const itemLabel = isSentence
     ? `${itemCount} ${itemCount === 1 ? "sentence" : "sentences"}`
-    : `${itemCount} words`;
+    : `${itemCount} ${itemCount === 1 ? "word" : "words"}`;
 
   const ownerInfo =
     !theme.isOwner && theme.ownerNickname

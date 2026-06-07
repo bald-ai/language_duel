@@ -1,5 +1,5 @@
 /**
- * Relay-duel mutations. Turn-based: the picker hands a word to the rival, who
+ * Relay-duel mutations. Turn-based: the picker hands a round to the rival, who
  * answers it (or times out), then becomes the next picker. Scoring and turn
  * state live entirely in the relay-specific fields; this never routes through
  * the both-answered advance used by PvP/PvE.
@@ -38,7 +38,7 @@ function assertActive(duel: Doc<"duels">) {
 
 /**
  * Apply a hand-off patch (advance or timeout), completing the duel inline when
- * it was the final word. Completion is relay-local: no lifecycle scheduler is
+ * it was the final round. Completion is relay-local: no lifecycle scheduler is
  * involved because relay is normal-source-only (Slice 6).
  */
 async function applyRelayHandoff(
@@ -90,10 +90,10 @@ async function resolveRelayTimeoutIfStale(
 export const relayPick = mutation({
   args: {
     duelId: v.id("duels"),
-    wordIndex: v.number(),
+    position: v.number(),
     hardUpgrade: v.boolean(),
   },
-  handler: async (ctx, { duelId, wordIndex, hardUpgrade }) => {
+  handler: async (ctx, { duelId, position, hardUpgrade }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
     assertDuelMode(duel, "relay", "relayPick");
     assertActive(duel);
@@ -104,17 +104,17 @@ export const relayPick = mutation({
     if (playerRole !== duel.relayPicker) {
       throw new ConvexError({
         code: "NOT_AUTHORIZED",
-        message: "Only the picker can hand over a word",
+        message: "Only the picker can hand over a round",
       });
     }
-    if (!relayRemainingPositions(duel).includes(wordIndex)) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "That word is no longer available" });
+    if (!relayRemainingPositions(duel).includes(position)) {
+      throw new ConvexError({ code: "INVALID_STATE", message: "That round is no longer available" });
     }
 
     // 🔥 hard-upgrade is disabled on sentence positions in v1 (decision #3):
     // keeping sentences at a fixed pool is what makes the served board equal the
     // validated board (plan R1). The toggle is also hidden client-side.
-    const pickedItem = duel.sessionItems[duel.itemOrder[wordIndex]];
+    const pickedItem = duel.sessionItems[duel.itemOrder[position]];
     const isSentence = pickedItem?.kind === "sentence";
     if (hardUpgrade && isSentence) {
       throw new ConvexError({
@@ -129,7 +129,7 @@ export const relayPick = mutation({
     }
 
     const now = Date.now();
-    const pickPatch = buildRelayPickPatch({ duel, wordIndex, hardUpgrade, now });
+    const pickPatch = buildRelayPickPatch({ duel, position, hardUpgrade, now });
 
     // Server-side backstop: a both-client disconnect can't stall the answer
     // phase forever (no stale-duel cron exists). Cancelled on a timely answer.
@@ -138,7 +138,7 @@ export const relayPick = mutation({
     const scheduledId = await ctx.scheduler.runAfter(
       windowMs,
       internal.relayDuel.relayTimeoutInternal,
-      { duelId, expectedAssignedIndex: wordIndex }
+      { duelId, expectedAssignedIndex: position }
     );
 
     await ctx.db.patch(duelId, {
@@ -304,7 +304,7 @@ export const relaySentenceConfirm = mutation({
       relayAnswerStartedAt: undefined,
       relayTimeoutScheduledFunctionId: undefined,
       relayLastResult: {
-        wordIndex: questionIndex,
+        position: questionIndex,
         chosen: "",
         correct: true,
         scorer: playerRole,
@@ -342,7 +342,7 @@ export const relayAdvance = mutation({
 });
 
 // Fast path: either client may call when its local answer timer expires. Only
-// resolves when the assigned word is still unanswered and the window elapsed.
+// resolves when the assigned round is still unanswered and the window elapsed.
 export const relayTimeout = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
@@ -358,7 +358,7 @@ export const relayTimeout = mutation({
 });
 
 // Scheduler backstop, set on entering the answer phase. Re-reads and force
-// resolves only if the same word is still pending an answer.
+// resolves only if the same round is still pending an answer.
 export const relayTimeoutInternal = internalMutation({
   args: { duelId: v.id("duels"), expectedAssignedIndex: v.number() },
   handler: async (ctx, { duelId, expectedAssignedIndex }) => {

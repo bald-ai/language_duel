@@ -112,7 +112,7 @@ export function buildFrozenData(args: {
     shuffledAnswers: prevQuestion.options,
     selectedAnswer: lockedAnswer,
     opponentAnswer: theirLastAnswer || null,
-    wordIndex: prevIndex,
+    itemIndex: prevIndex,
     hasNoneOption:
       prevCorrectOption === null ? null : prevCorrectOption === NONE_OF_ABOVE,
     difficulty: {

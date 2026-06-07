@@ -45,7 +45,7 @@ interface SentenceRoundViewProps {
  *
  * Tools differ by mode exactly like word rounds — PvE gets the cooperative hint
  * pool, PvP gets sabotages — mounted in the board footer (see `SentenceBoard`).
- * The per-round board state resets via `key={duel.currentWordIndex}` on advance.
+ * The per-round board state resets via `key={duel.currentItemIndex}` on advance.
  */
 export function SentenceRoundView({
   duel,
@@ -105,7 +105,7 @@ export function SentenceRoundView({
         </header>
 
         <SentenceBoard
-          key={duel.currentWordIndex}
+          key={duel.currentItemIndex}
           duel={duel}
           question={question}
           sessionItem={sessionItem}

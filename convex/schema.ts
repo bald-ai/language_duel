@@ -173,7 +173,7 @@ const relayPhaseValidator = v.union(
 );
 
 const relayLastResultValidator = v.object({
-  wordIndex: v.number(),
+  position: v.number(),
   chosen: v.string(),
   correct: v.boolean(),
   scorer: v.union(playerRoleValidator, v.null()),
@@ -512,7 +512,7 @@ export default defineSchema({
     status: duelStatusValidator,
     createdAt: v.number(),
 
-    currentWordIndex: v.number(),
+    currentItemIndex: v.number(),
     itemOrder: v.array(v.number()),
     duelQuestions: v.optional(v.array(duelQuestionValidator)),
     challengerAnswered: v.boolean(),

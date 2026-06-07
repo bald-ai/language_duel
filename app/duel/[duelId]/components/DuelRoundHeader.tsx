@@ -6,7 +6,7 @@ import type { DifficultyPillData } from "./DuelView";
 import { buildDuelViewStyles, getDifficultyPillStyle } from "./duelViewStyles";
 
 interface DuelRoundHeaderProps {
-  wordsCount: number;
+  itemCount: number;
   index: number;
   word: string;
   sourceThemeName?: string | null;
@@ -16,9 +16,9 @@ interface DuelRoundHeaderProps {
   colors: ThemeColors;
 }
 
-/** Word progress, difficulty pill, the word to translate, and the hint reveal. */
+/** Round progress, difficulty pill, the word to translate, and the hint reveal. */
 export function DuelRoundHeader({
-  wordsCount,
+  itemCount,
   index,
   word,
   sourceThemeName,
@@ -31,10 +31,10 @@ export function DuelRoundHeader({
 
   return (
     <>
-      {/* Word progress and difficulty */}
+      {/* Round progress and difficulty */}
       <div className="text-center mb-3">
         <div className="text-sm mb-1" style={styles.mutedText}>
-          Word #{index + 1} of {wordsCount}
+          Round {index + 1} of {itemCount}
         </div>
         <div>
           <span

@@ -55,7 +55,7 @@ export function DeleteConfirmModal({
 
       <p className="text-sm mb-6 text-center" style={{ color: colors.text.muted }}>
         {itemType === "theme"
-          ? "This will permanently delete this theme and all its words."
+          ? "This will permanently delete this theme and all its items."
           : "This will remove the word from this theme."}
       </p>
     </ConfirmModal>

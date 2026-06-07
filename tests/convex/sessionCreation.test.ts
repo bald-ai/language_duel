@@ -247,7 +247,7 @@ describe("session creation helpers", () => {
     });
     expect(result.themeIds).toEqual(["theme_1", "theme_2"]);
     expect(result.sessionItems).toHaveLength(3);
-    expect("currentWordIndex" in result).toBe(false);
+    expect("currentItemIndex" in result).toBe(false);
     expect("questionStartTime" in result).toBe(false);
     expect("seed" in result).toBe(false);
     expect("challengerId" in result).toBe(false);

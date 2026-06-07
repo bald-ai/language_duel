@@ -22,14 +22,14 @@ describe("getSessionItems", () => {
 
   it("throws when sessionItems is empty", () => {
     expect(() => getSessionItems({ sessionItems: [] })).toThrow(
-      "Session is missing words"
+      "Session is missing content"
     );
   });
 
   it("throws when sessionItems is undefined", () => {
     expect(() =>
       getSessionItems({ sessionItems: undefined } as never)
-    ).toThrow("Session is missing words");
+    ).toThrow("Session is missing content");
   });
 });
 

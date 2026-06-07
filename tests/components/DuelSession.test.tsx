@@ -193,7 +193,7 @@ function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
@@ -322,7 +322,7 @@ describe("DuelSession", () => {
     rerender(
       <DuelSession
         duel={createDuel({
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
           opponentLastAnswer: "perro",
@@ -358,7 +358,7 @@ describe("DuelSession", () => {
       shuffledAnswers: ["gato", "perro", "mesa", "casa"],
       selectedAnswer: "gato",
       opponentAnswer: "perro",
-      wordIndex: 0,
+      itemIndex: 0,
       difficulty: { level: "easy", points: 1 },
     });
   });
@@ -392,7 +392,7 @@ describe("DuelSession", () => {
             sentenceQuestion({ answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
           itemOrder: [0, 1],
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
         })}
@@ -442,7 +442,7 @@ describe("DuelSession", () => {
             wordQuestion({ answerRevealedToViewer: true }),
             sentenceQuestion({ answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
         })}
@@ -490,7 +490,7 @@ describe("DuelSession", () => {
             wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
           itemOrder: [0, 1],
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
         })}
@@ -551,7 +551,7 @@ describe("DuelSession", () => {
             }),
           ] as unknown as Doc<"duels">["duelQuestions"],
           itemOrder: [0, 1],
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
         })}
@@ -626,7 +626,7 @@ describe("DuelSession", () => {
             sentenceQuestion({ answerRevealedToViewer: true }),
           ] as unknown as Doc<"duels">["duelQuestions"],
           itemOrder: [0],
-          currentWordIndex: 0,
+          currentItemIndex: 0,
           challengerAnswered: false,
           opponentAnswered: false,
         })}
@@ -900,7 +900,7 @@ describe("DuelSession", () => {
             sentenceQuestion({ answerRevealedToViewer: true }),
             wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
           ] as unknown as Doc<"duels">["duelQuestions"],
-          currentWordIndex: 1,
+          currentItemIndex: 1,
           challengerAnswered: false,
           opponentAnswered: false,
           ...advancedOverrides,
@@ -1015,7 +1015,7 @@ describe("DuelSession", () => {
               wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
             ] as unknown as Doc<"duels">["duelQuestions"],
             itemOrder: [0, 1],
-            currentWordIndex: 1,
+            currentItemIndex: 1,
             challengerAnswered: false,
             opponentAnswered: false,
             countdownPausedBy: "opponent",
@@ -1044,7 +1044,7 @@ describe("DuelSession", () => {
               wordQuestion({ correctOption: "perro", answerRevealedToViewer: false }),
             ] as unknown as Doc<"duels">["duelQuestions"],
             itemOrder: [0, 1],
-            currentWordIndex: 1,
+            currentItemIndex: 1,
             challengerAnswered: false,
             opponentAnswered: false,
           })}
@@ -1085,7 +1085,7 @@ describe("DuelSession", () => {
             duelQuestions: [
               sentenceQuestion({ answerRevealedToViewer: true }),
             ] as unknown as Doc<"duels">["duelQuestions"],
-            currentWordIndex: 0,
+            currentItemIndex: 0,
             challengerAnswered: false,
             opponentAnswered: false,
           })}

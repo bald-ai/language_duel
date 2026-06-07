@@ -58,7 +58,7 @@ export function useCrossKindRoundTransition(
   duel: Doc<"duels">
 ): CrossKindRoundTransition | null {
   const [baseline, setBaseline] = useState({
-    index: duel.currentWordIndex,
+    index: duel.currentItemIndex,
     status: duel.status,
   });
   const [secondsLeft, setSecondsLeft] = useState(TRANSITION_COUNTDOWN_SECONDS);
@@ -67,11 +67,11 @@ export function useCrossKindRoundTransition(
   // (server-coordinated) pause used between live rounds.
   const [localPaused, setLocalPaused] = useState(false);
 
-  const indexAdvanced = duel.currentWordIndex > baseline.index;
+  const indexAdvanced = duel.currentItemIndex > baseline.index;
   const justCompleted = baseline.status === "active" && duel.status === "completed";
-  const priorIndex = indexAdvanced ? baseline.index : duel.currentWordIndex;
+  const priorIndex = indexAdvanced ? baseline.index : duel.currentItemIndex;
   const priorQuestion = duel.duelQuestions?.[priorIndex];
-  const currentQuestion = duel.duelQuestions?.[duel.currentWordIndex];
+  const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
   const involvesSentence =
     priorQuestion?.kind === "sentence" ||
     (indexAdvanced && currentQuestion?.kind === "sentence");
@@ -91,9 +91,9 @@ export function useCrossKindRoundTransition(
   // piece of transition state the server persists (`countdownPausedBy`), and a
   // paused countdown only ever exists mid-transition, so re-derive the held
   // transition from it: the paused round is always the advance INTO
-  // `currentWordIndex` (rounds advance by one). Word->word stays the standard
+  // `currentItemIndex` (rounds advance by one). Word->word stays the standard
   // phase machine's job, so this only fires when a sentence is involved.
-  const pausedPriorIndex = duel.currentWordIndex - 1;
+  const pausedPriorIndex = duel.currentItemIndex - 1;
   const pausedPriorQuestion = duel.duelQuestions?.[pausedPriorIndex];
   const pausedTransition: CrossKindTransition | null =
     !diffTransition &&
@@ -113,19 +113,19 @@ export function useCrossKindRoundTransition(
   const bothSkipped = bothRolesSkipped(duel.countdownSkipRequestedBy ?? []);
 
   const resolveBaseline = () =>
-    setBaseline({ index: duel.currentWordIndex, status: duel.status });
+    setBaseline({ index: duel.currentItemIndex, status: duel.status });
 
   // Advances that don't cross word<->sentence are handled by the word-only
   // phase machine, so resolve them immediately (delay 0) and let routing fall
   // through to the standard/sentence views.
   useEffect(() => {
     const hasObservedCurrent =
-      baseline.index === duel.currentWordIndex && baseline.status === duel.status;
+      baseline.index === duel.currentItemIndex && baseline.status === duel.status;
     if (hasObservedCurrent || transitionKey) return;
     const timer = setTimeout(resolveBaseline, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveBaseline reads the latest index/status by closure each render.
-  }, [baseline.index, baseline.status, duel.currentWordIndex, duel.status, transitionKey]);
+  }, [baseline.index, baseline.status, duel.currentItemIndex, duel.status, transitionKey]);
 
   // Restart the per-second countdown whenever a new cross-kind transition opens.
   const prevTransitionKeyRef = useRef<string | null>(null);
@@ -146,7 +146,7 @@ export function useCrossKindRoundTransition(
     }
     resolveBaseline();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveBaseline reads the latest index/status by closure each render.
-  }, [transitionKey, countdownPausedBy, localPaused, secondsLeft, duel.currentWordIndex, duel.status]);
+  }, [transitionKey, countdownPausedBy, localPaused, secondsLeft, duel.currentItemIndex, duel.status]);
 
   // Both players skipped: collapse the timer now (mutual-skip handshake).
   useEffect(() => {

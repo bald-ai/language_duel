@@ -36,7 +36,7 @@ type DuelDoc = Partial<Doc<"duels">> &
     | "sourceType"
     | "duelMode"
     | "status"
-    | "currentWordIndex"
+    | "currentItemIndex"
     | "challengerAnswered"
     | "opponentAnswered"
     | "challengerScore"
@@ -117,7 +117,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "normal",
     duelMode: "pvp",
     status: "active",
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
@@ -365,7 +365,7 @@ describe("duel gameplay", () => {
     );
     db.duels.push(
       duelDoc({
-        currentWordIndex: 1,
+        currentItemIndex: 1,
         sessionItems: [
           {
             kind: "word" as const, word: "cat",
@@ -417,7 +417,7 @@ describe("duel gameplay", () => {
 
     expect(db.duels[0].challengerAnswered).toBe(false);
     expect(db.duels[0].challengerLastAnswer).toBeUndefined();
-    expect(db.duels[0].currentWordIndex).toBe(1);
+    expect(db.duels[0].currentItemIndex).toBe(1);
   });
 
   it("returns DUEL_NOT_ACTIVE for answer submissions after duel completion", async () => {
@@ -743,7 +743,7 @@ describe("self-duel gameplay", () => {
     db.duels.push(
       selfDuelDoc({
         // 1s into a 5s transition before the second (offset-bearing) question.
-        currentWordIndex: 1,
+        currentItemIndex: 1,
         questionStartTime: 9_000,
       })
     );
@@ -765,7 +765,7 @@ describe("self-duel gameplay", () => {
     db.duels.push(
       selfDuelDoc({
         // Transition offset already elapsed (effective start 4_000 < now).
-        currentWordIndex: 1,
+        currentItemIndex: 1,
         questionStartTime: -1_000,
       })
     );

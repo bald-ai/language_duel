@@ -53,7 +53,7 @@ export const DUEL_MODE_OPTIONS: DuelModeOption[] = [
   {
     mode: "relay",
     label: DUEL_MODE_LABELS.relay,
-    description: "Take turns · hand off words",
+    description: "Take turns · hand off rounds",
     icon: "🏃",
     selectedTone: "primary",
   },

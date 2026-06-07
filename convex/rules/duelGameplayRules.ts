@@ -26,7 +26,7 @@ export function validateActiveQuestion(
     });
   }
 
-  if (duel.currentWordIndex !== questionIndex) {
+  if (duel.currentItemIndex !== questionIndex) {
     throw new ConvexError({
       code: staleCode,
       message: staleMessage,
@@ -124,13 +124,13 @@ export function getSabotageClearFields(): Partial<Doc<"duels">> {
 
 export function buildNextRoundPatch(
   duel: Doc<"duels">,
-  nextWordIndex: number,
+  nextItemIndex: number,
   now: number
 ): Partial<Doc<"duels">> {
   return mirrorPatchForSelfDuel(
     {
       ...getHintProviderBonusPatch(duel),
-      currentWordIndex: nextWordIndex,
+      currentItemIndex: nextItemIndex,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: now,
@@ -143,19 +143,19 @@ export function buildNextRoundPatch(
 
 export function buildFinalCompletionPatch(
   duel: Doc<"duels">,
-  nextWordIndex: number
+  nextItemIndex: number
 ): Partial<Doc<"duels">> {
   // Clamp the post-completion index to the last real position. Callers pass
-  // `nextWordIndex` one past the end (the would-be next round); leaving it that
-  // way puts `currentWordIndex` out of `duelQuestions`/`itemOrder` and the
+  // `nextItemIndex` one past the end (the would-be next round); leaving it that
+  // way puts `currentItemIndex` out of `duelQuestions`/`itemOrder` and the
   // client narrowing on the completed-state final-results screen then crashes
   // when the last position is a sentence (no word question to narrow to).
-  const lastRealIndex = Math.max(0, nextWordIndex - 1);
+  const lastRealIndex = Math.max(0, nextItemIndex - 1);
   return mirrorPatchForSelfDuel(
     {
       ...getHintProviderBonusPatch(duel),
       status: "completed",
-      currentWordIndex: lastRealIndex,
+      currentItemIndex: lastRealIndex,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: undefined,

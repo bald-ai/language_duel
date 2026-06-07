@@ -50,7 +50,7 @@ describe("buildFrozenData", () => {
       shuffledAnswers: ["gato", "perro", "pez", "ave"],
       selectedAnswer: "gato",
       opponentAnswer: "perro",
-      wordIndex: 0,
+      itemIndex: 0,
       hasNoneOption: false,
       difficulty: { level: "easy", points: 1 },
     });

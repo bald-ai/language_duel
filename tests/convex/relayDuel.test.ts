@@ -73,7 +73,7 @@ function relayDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     sourceType: "normal",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0, 1],
     duelQuestions: [question("base0"), question("base1")],
     relayHardQuestions: [question("hard0"), question("hard1")],
@@ -165,7 +165,7 @@ describe("relayDuel mutations", () => {
       const db = seedDb(relayDuelDoc());
       const scheduler = makeScheduler("sched_42");
 
-      await pickHandler(createCtx(db, "clerk_1", scheduler), { duelId, wordIndex: 0, hardUpgrade: false });
+      await pickHandler(createCtx(db, "clerk_1", scheduler), { duelId, position: 0, hardUpgrade: false });
 
       expect(db.duels[0].relayAssignedIndex).toBe(0);
       expect(db.duels[0].relayPhase).toBe("answer");
@@ -180,19 +180,19 @@ describe("relayDuel mutations", () => {
     it("rejects a pick from the non-picker", async () => {
       const db = seedDb(relayDuelDoc({ relayPicker: "challenger" }));
       await expect(
-        pickHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId, wordIndex: 0, hardUpgrade: false })
+        pickHandler(createCtx(db, "clerk_2", makeScheduler()), { duelId, position: 0, hardUpgrade: false })
       ).rejects.toThrow(/picker/i);
     });
 
     it("consumes a hard token and refuses when the budget is zero", async () => {
       const db = seedDb(relayDuelDoc({ relayHardBudget: { challenger: 1, opponent: 1 } }));
-      await pickHandler(createCtx(db, "clerk_1", makeScheduler()), { duelId, wordIndex: 0, hardUpgrade: true });
+      await pickHandler(createCtx(db, "clerk_1", makeScheduler()), { duelId, position: 0, hardUpgrade: true });
       expect(db.duels[0].relayHardUpgradeIndices).toEqual([0]);
       expect(db.duels[0].relayHardBudget).toEqual({ challenger: 0, opponent: 1 });
 
       const empty = seedDb(relayDuelDoc({ relayHardBudget: { challenger: 0, opponent: 1 } }));
       await expect(
-        pickHandler(createCtx(empty, "clerk_1", makeScheduler()), { duelId, wordIndex: 0, hardUpgrade: true })
+        pickHandler(createCtx(empty, "clerk_1", makeScheduler()), { duelId, position: 0, hardUpgrade: true })
       ).rejects.toThrow(/budget/i);
     });
   });
@@ -370,7 +370,7 @@ describe("relayDuel mutations", () => {
 
       await pickHandler(createCtx(db, "clerk_1", scheduler), {
         duelId,
-        wordIndex: 0,
+        position: 0,
         hardUpgrade: false,
       });
 
@@ -385,7 +385,7 @@ describe("relayDuel mutations", () => {
       await expect(
         pickHandler(createCtx(hardAttempt, "clerk_1", makeScheduler()), {
           duelId,
-          wordIndex: 0,
+          position: 0,
           hardUpgrade: true,
         })
       ).rejects.toThrow(/hard-upgraded/i);
@@ -443,7 +443,7 @@ describe("relayDuel mutations", () => {
       expect(db.duels[0].opponentScore).toBe(1);
       expect(db.duels[0].relayPhase).toBe("feedback");
       expect(db.duels[0].relayLastResult).toEqual({
-        wordIndex: 0,
+        position: 0,
         chosen: "",
         correct: true,
         scorer: "opponent",

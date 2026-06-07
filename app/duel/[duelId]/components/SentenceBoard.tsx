@@ -47,7 +47,7 @@ interface SentenceBoardProps {
  * (effects ride on shared duel fields, so both co-op boards stay in sync); PvP
  * mounts the sabotage footer AND receives the opponent's incoming sabotage,
  * which is drawn on the board (unplaced tiles fly / scramble, sticky overlays).
- * Re-mounted via `key={duel.currentWordIndex}` so per-round state resets.
+ * Re-mounted via `key={duel.currentItemIndex}` so per-round state resets.
  */
 export function SentenceBoard({
   duel,
@@ -74,9 +74,9 @@ export function SentenceBoard({
   const progress = useMemo(() => {
     return (duel.sentenceProgress ?? []).find(
       (entry) =>
-        entry.questionIndex === duel.currentWordIndex && entry.role === viewerRole
+        entry.questionIndex === duel.currentItemIndex && entry.role === viewerRole
     );
-  }, [duel.sentenceProgress, duel.currentWordIndex, viewerRole]);
+  }, [duel.sentenceProgress, duel.currentItemIndex, viewerRole]);
 
   const placedTileIndices = useMemo(
     () => progress?.placedTileIndices ?? [],
@@ -116,7 +116,7 @@ export function SentenceBoard({
     if (!questionStartTime) return totalTimer;
     const effectiveStartTime = getEffectiveQuestionStartTime(
       questionStartTime,
-      duel.currentWordIndex
+      duel.currentItemIndex
     );
     const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
     return clampTimerSeconds(totalTimer - elapsed, totalTimer);
@@ -126,7 +126,7 @@ export function SentenceBoard({
     const tick = () => {
       const effectiveStartTime = getEffectiveQuestionStartTime(
         questionStartTime,
-        duel.currentWordIndex
+        duel.currentItemIndex
       );
       const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
       setSecondsLeft(clampTimerSeconds(totalTimer - elapsed, totalTimer));
@@ -134,7 +134,7 @@ export function SentenceBoard({
     tick();
     const interval = setInterval(tick, 250);
     return () => clearInterval(interval);
-  }, [totalTimer, questionStartTime, duel.currentWordIndex]);
+  }, [totalTimer, questionStartTime, duel.currentItemIndex]);
 
   const locked = completed || secondsLeft === 0;
 
@@ -154,7 +154,7 @@ export function SentenceBoard({
       try {
         await submit({
           duelId: duel._id,
-          questionIndex: duel.currentWordIndex,
+          questionIndex: duel.currentItemIndex,
           timedOut,
         });
       } catch (error) {
@@ -162,7 +162,7 @@ export function SentenceBoard({
         toast.error(getErrorMessage(error, "Could not submit sentence"));
       }
     },
-    [submit, duel._id, duel.currentWordIndex]
+    [submit, duel._id, duel.currentItemIndex]
   );
 
   // Auto-submit when a correct Confirm marks the round completed (server-confirmed).
@@ -191,7 +191,7 @@ export function SentenceBoard({
       if (order === -1) {
         void tap({
           duelId: duel._id,
-          questionIndex: duel.currentWordIndex,
+          questionIndex: duel.currentItemIndex,
           tileIndex,
         }).catch((error) => toast.error(getErrorMessage(error, "Could not place tile")));
         return;
@@ -199,12 +199,12 @@ export function SentenceBoard({
       if (order === placedTileIndices.length - 1) {
         void removeLast({
           duelId: duel._id,
-          questionIndex: duel.currentWordIndex,
+          questionIndex: duel.currentItemIndex,
         }).catch((error) => toast.error(getErrorMessage(error, "Could not remove tile")));
       }
       // A placed-but-not-last tile is not removable — peel back from the end.
     },
-    [locked, eliminatedTileIndices, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentWordIndex]
+    [locked, eliminatedTileIndices, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentItemIndex]
   );
 
   // After a Confirm, the button stays disabled until the player edits the board
@@ -219,20 +219,20 @@ export function SentenceBoard({
     clearSabotage();
     void confirm({
       duelId: duel._id,
-      questionIndex: duel.currentWordIndex,
+      questionIndex: duel.currentItemIndex,
     })
       .then((result) => setCorrectnessMask(result.correctnessMask))
       .catch((error) => toast.error(getErrorMessage(error, "Could not check sentence")));
-  }, [confirmDisabled, clearSabotage, confirm, duel._id, duel.currentWordIndex]);
+  }, [confirmDisabled, clearSabotage, confirm, duel._id, duel.currentItemIndex]);
 
   const handleReset = useCallback(() => {
     if (locked || placedTileIndices.length === 0) return;
     setCorrectnessMask(null);
     void clearBoard({
       duelId: duel._id,
-      questionIndex: duel.currentWordIndex,
+      questionIndex: duel.currentItemIndex,
     }).catch((error) => toast.error(getErrorMessage(error, "Could not reset board")));
-  }, [locked, placedTileIndices.length, clearBoard, duel._id, duel.currentWordIndex]);
+  }, [locked, placedTileIndices.length, clearBoard, duel._id, duel.currentItemIndex]);
 
   const handleSendSabotage = useCallback(
     (effect: SabotageEffect) => {
@@ -248,14 +248,14 @@ export function SentenceBoard({
     !!sessionItem.ttsStorageId;
   const handlePlaySentenceAudio = useCallback(() => {
     if (!canPlaySentenceAudio || !question.spanishSentence || !sessionItem.ttsStorageId) return;
-    void playTTS(`duel-sentence-${duel._id}-${duel.currentWordIndex}`, question.spanishSentence, {
+    void playTTS(`duel-sentence-${duel._id}-${duel.currentItemIndex}`, question.spanishSentence, {
       storageId: sessionItem.ttsStorageId,
       themeId: String(sessionItem.themeId),
     });
   }, [
     canPlaySentenceAudio,
     duel._id,
-    duel.currentWordIndex,
+    duel.currentItemIndex,
     playTTS,
     question.spanishSentence,
     sessionItem.themeId,
@@ -272,7 +272,7 @@ export function SentenceBoard({
 
   return (
     <SentenceBuildBoard
-      roundLabel={`Round ${duel.currentWordIndex + 1} of ${duel.sessionItems.length}`}
+      roundLabel={`Round ${duel.currentItemIndex + 1} of ${duel.sessionItems.length}`}
       themeName={sessionItem.themeName}
       englishPrompt={question.englishPrompt}
       tilePool={question.tilePool}

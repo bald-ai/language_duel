@@ -60,7 +60,7 @@ export function getSessionItems(
   session: Pick<Doc<"duels"> | Doc<"soloPracticeSessions">, "sessionItems">
 ): SessionItem[] {
   if (!session.sessionItems || session.sessionItems.length === 0) {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Session is missing words" });
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Session is missing content" });
   }
   return session.sessionItems;
 }

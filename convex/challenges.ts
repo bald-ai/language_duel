@@ -41,7 +41,7 @@ import { DUEL_MODE_LABELS } from "../lib/duelMode";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
-async function buildDuelWordsForChallenge(
+async function buildChallengeSessionItems(
   ctx: CtxWithDb,
   challenge: Doc<"challenges">
 ) {
@@ -55,7 +55,7 @@ async function buildDuelWordsForChallenge(
 
   const sessionItems = buildSessionItems(themes);
   if (sessionItems.length === 0) {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Challenge has no playable words" });
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Challenge has no playable content" });
   }
   return sessionItems;
 }
@@ -76,7 +76,7 @@ async function insertDuelSessionForChallenge(
   challenge: Doc<"challenges">,
   now: number
 ): Promise<Id<"duels">> {
-  const sessionItems = await buildDuelWordsForChallenge(ctx, challenge);
+  const sessionItems = await buildChallengeSessionItems(ctx, challenge);
   const livesTotal = challenge.sourceType === "boss"
     ? await resolveBossChallengeLives(ctx, challenge)
     : challenge.sourceType === "spaced_repetition"
@@ -263,7 +263,7 @@ export const createSelfDuel = mutation({
     if (sessionItems.length === 0) {
       throw new ConvexError({
         code: "INTERNAL_ERROR",
-        message: "Self-duel has no playable words",
+        message: "Self-duel has no playable content",
       });
     }
 

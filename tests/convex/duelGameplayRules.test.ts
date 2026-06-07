@@ -24,7 +24,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
     duelMode: "pvp",
     status: "active",
     createdAt: 1,
-    currentWordIndex: 0,
+    currentItemIndex: 0,
     itemOrder: [0],
     duelQuestions: [
       {
@@ -90,7 +90,7 @@ describe("duel gameplay rules", () => {
 
     const patch = buildNextRoundPatch(duel, 1, 500);
     expect(patch).toMatchObject({
-      currentWordIndex: 1,
+      currentItemIndex: 1,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: 500,
@@ -117,12 +117,12 @@ describe("duel gameplay rules", () => {
     });
     const spacedRepetitionDuel = duelDoc({ sourceType: "spaced_repetition" });
 
-    // Final completion clamps `currentWordIndex` to the last real position so
+    // Final completion clamps `currentItemIndex` to the last real position so
     // the completed-state UI doesn't crash narrowing past the last question.
     const completionPatch = buildFinalCompletionPatch(bossDuel, 1);
     expect(completionPatch).toMatchObject({
       status: "completed",
-      currentWordIndex: 0,
+      currentItemIndex: 0,
       challengerAnswered: false,
       opponentAnswered: false,
       questionStartTime: undefined,

@@ -15,7 +15,7 @@ interface UseDuelQuestionTimerArgs {
   duelId: Id<"duels">;
   questionStartTime?: number;
   questionTimerPausedAt?: number;
-  currentWordIndex?: number;
+  currentItemIndex?: number;
   questionIndex: number;
   myAnswered: boolean;
   hasTimedOutRef: MutableRefObject<boolean>;
@@ -28,7 +28,7 @@ export function useDuelQuestionTimer({
   duelId,
   questionStartTime,
   questionTimerPausedAt,
-  currentWordIndex,
+  currentItemIndex,
   questionIndex,
   myAnswered,
   hasTimedOutRef,
@@ -52,7 +52,7 @@ export function useDuelQuestionTimer({
     const updateTimer = () => {
       const effectiveStartTime = getEffectiveQuestionStartTime(
         questionStartTime,
-        currentWordIndex
+        currentItemIndex
       );
       const now = questionTimerPausedAt ?? Date.now();
       const elapsed = (now - effectiveStartTime) / 1000;
@@ -86,7 +86,7 @@ export function useDuelQuestionTimer({
     duelId,
     questionStartTime,
     questionTimerPausedAt,
-    currentWordIndex,
+    currentItemIndex,
     questionIndex,
     myAnswered,
     hasTimedOutRef,
