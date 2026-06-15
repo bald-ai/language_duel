@@ -10,21 +10,15 @@ import { useSoloDeepLink } from "@/hooks/useSoloDeepLink";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
-import { MemoryGame } from "@/app/components/prototypes/MemoryGame";
-import { ContextCluesBeta } from "@/app/components/prototypes/ContextCluesBeta";
 import {
   SoloIcon,
   DuelIcon,
   ThemesIcon,
-  MemoryIcon,
   MockFeaturesIcon,
-  ContextCluesIcon,
   OnlineMockIcon,
 } from "@/app/components/homeMenuIcons";
 
-type HomeScreenMode = "home" | "memory" | "context_clues";
-
-/** The signed-in nav corners shared by the home screen and every prototype branch. */
+/** The signed-in nav corners shared by the home screen and mock feature shells. */
 function HomeChrome({ flash }: { flash?: boolean }) {
   return (
     <>
@@ -55,7 +49,6 @@ export default function Home() {
 
   const router = useRouter();
 
-  const [screen, setScreen] = useState<HomeScreenMode>("home");
   const [showMockFeaturesMenu, setShowMockFeaturesMenu] = useState(false);
   const [flashAuth, setFlashAuth] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -93,37 +86,9 @@ export default function Home() {
     openSoloPracticeModal();
   }, [soloThemeIds, soloDeepLinkKey, openSoloPracticeModal]);
 
-  const handleBackToHome = useCallback(() => {
-    setScreen("home");
-    setShowMockFeaturesMenu(false);
-  }, []);
-
-  const openPrototype = useCallback((next: Exclude<HomeScreenMode, "home">) => {
-    setShowMockFeaturesMenu(false);
-    setScreen(next);
-  }, []);
-
   const handleCloseSoloPracticeModal = () => {
     lobby.closeSoloPracticeModal();
   };
-
-  if (screen === "memory") {
-    return (
-      <ThemedPage>
-        <HomeChrome flash={flashAuth} />
-        <MemoryGame onBack={handleBackToHome} />
-      </ThemedPage>
-    );
-  }
-
-  if (screen === "context_clues") {
-    return (
-      <ThemedPage>
-        <HomeChrome flash={flashAuth} />
-        <ContextCluesBeta onBack={handleBackToHome} />
-      </ThemedPage>
-    );
-  }
 
   return (
     <ThemedPage className="justify-between">
@@ -182,20 +147,16 @@ export default function Home() {
           {showMockFeaturesMenu ? (
             <>
               <div className="animate-slide-up delay-300">
-                <MenuButton onClick={() => guardAuth(() => openPrototype("memory"))} dataTestId="home-memory-game">
-                  <MemoryIcon />
-                  Memory Game
+                <MenuButton
+                  onClick={() => router.push("/mocks/theme-sentences")}
+                  dataTestId="home-theme-sentences"
+                >
+                  <ThemesIcon />
+                  Theme Sentences
                 </MenuButton>
               </div>
 
               <div className="animate-slide-up delay-500">
-                <MenuButton onClick={() => openPrototype("context_clues")} dataTestId="home-context-clues">
-                  <ContextCluesIcon />
-                  Context Clues
-                </MenuButton>
-              </div>
-
-              <div className="animate-slide-up delay-700">
                 <MenuButton
                   onClick={() => setShowMockFeaturesMenu(false)}
                   dataTestId="home-mock-features-back"

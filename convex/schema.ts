@@ -9,11 +9,6 @@ import type { WordType } from "../lib/themes/wordTypes";
 import { THEME_CONTENT_TYPES } from "../lib/themes/sentenceTypes";
 import type { ThemeContentType } from "../lib/themes/sentenceTypes";
 import type { NotificationEmailTrigger } from "../lib/notifications/definitions";
-import {
-  gameStateValidator,
-  mockGameValidator,
-  roomStatusValidator,
-} from "../lib/mockOnline/state";
 
 // ===========================================
 // Shared Validators
@@ -779,21 +774,4 @@ export default defineSchema({
     ])
     .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_sentAt", ["sentAt"]),
-
-  // -------------------------------------------
-  // Prototype Rooms Table
-  // Self-contained backing for the "Online Mock Features" prototypes. Not wired
-  // into duels/challenges/themes — safe to drop together with the mockOnline
-  // feature (lib/mockOnline, convex/prototypeRooms.ts, app/mock-online).
-  // -------------------------------------------
-  prototypeRooms: defineTable({
-    code: v.string(),
-    game: mockGameValidator,
-    hostId: v.id("users"),
-    guestId: v.optional(v.id("users")),
-    status: roomStatusValidator,
-    state: gameStateValidator,
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_code", ["code"]),
 });

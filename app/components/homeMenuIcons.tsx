@@ -1,5 +1,5 @@
 /**
- * Presentation-only SVG icons for the home menu and prototype menu.
+ * Presentation-only SVG icons for the home menu and mock feature shells.
  * These are static design constants extracted from HomePageClient so the page
  * wires the menu rather than carrying ~80 lines of inline SVG.
  */
@@ -31,25 +31,10 @@ export const ThemesIcon = () => (
   </svg>
 );
 
-export const MemoryIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V6h1.5A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-9A2.5 2.5 0 0 1 6.5 6H8v-.5Z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6M9 14h3" />
-  </svg>
-);
-
 export const MockFeaturesIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v6M12 9v6M17 14v6" />
-  </svg>
-);
-
-export const ContextCluesIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--color-cta-light)" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.2-5.2" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 7.5v.01M10.5 10v2.5" />
   </svg>
 );
 

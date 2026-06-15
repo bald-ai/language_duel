@@ -1,55 +1,8 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
-import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
+import Link from "next/link";
 import { ThemedPage } from "@/app/components/ThemedPage";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
-import { ROOM_CODE_LENGTH } from "@/lib/mockOnline/constants";
-import type { MockGame } from "@/lib/mockOnline/state";
-import { MockOnlineShell } from "./components/MockOnlineShell";
-import { ActionButton } from "./components/ActionButton";
-import { GAME_META, GAME_ORDER } from "./games";
-import { convexErrorMessage } from "./helpers";
 
-export default function MockOnlineLobby() {
-  const router = useRouter();
-  const { isLoaded, isSignedIn } = useUser();
-  const createRoom = useMutation(api.prototypeRooms.createRoom);
-  const joinRoom = useMutation(api.prototypeRooms.joinRoom);
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const goHome = () => router.push("/");
-
-  const handleCreate = async (game: MockGame) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const { roomId } = await createRoom({ game });
-      router.push(`/mock-online/${roomId}`);
-    } catch (error) {
-      toast.error(convexErrorMessage(error, "Could not create room"));
-      setBusy(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    const trimmed = code.trim();
-    if (!trimmed || busy) return;
-    setBusy(true);
-    try {
-      const { roomId } = await joinRoom({ code: trimmed });
-      router.push(`/mock-online/${roomId}`);
-    } catch (error) {
-      toast.error(convexErrorMessage(error, "Could not join room"));
-      setBusy(false);
-    }
-  };
-
+export default function MockOnlinePlaceholder() {
   return (
     <ThemedPage>
       <div className="absolute top-3 left-2 sm:left-4 z-20">
@@ -59,78 +12,49 @@ export default function MockOnlineLobby() {
         <AuthButtons />
       </div>
 
-      <MockOnlineShell title="Online Mock" eyebrow="Prototype" backLabel="Back" onBack={goHome}>
-        {isLoaded && !isSignedIn ? (
-          <p className="py-6 text-center text-sm font-semibold" style={{ color: "var(--color-text)" }}>
-            Sign in to play the online prototypes.
-          </p>
-        ) : (
-          <div className="space-y-5">
-            <section className="space-y-2.5">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: "var(--color-primary-dark)" }}>
-                Create a room
-              </p>
-              <div className="grid gap-2.5">
-                {GAME_ORDER.map((game) => (
-                  <button
-                    key={game}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => handleCreate(game)}
-                    data-testid={`mock-online-create-${game}`}
-                    className="flex w-full flex-col items-start rounded-2xl border-2 px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{
-                      backgroundColor: "color-mix(in srgb, var(--color-primary) 16%, white 84%)",
-                      borderColor: "color-mix(in srgb, var(--color-primary) 70%, transparent)",
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    <span className="text-base font-bold">{GAME_META[game].label}</span>
-                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                      {GAME_META[game].tagline}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
+      <main className="relative z-10 flex flex-1 w-full items-start justify-center px-4 pt-20 pb-[calc(24px+env(safe-area-inset-bottom))]">
+        <section
+          data-testid="mock-online-placeholder"
+          className="w-full max-w-[480px] rounded-[28px] border p-5 shadow-2xl backdrop-blur-md animate-slide-up"
+          style={{
+            background:
+              "linear-gradient(180deg, color-mix(in srgb, var(--color-background-elevated) 82%, white 18%) 0%, color-mix(in srgb, var(--color-background-elevated) 90%, transparent) 100%)",
+            borderColor: "color-mix(in srgb, var(--color-primary) 22%, white 24%)",
+            boxShadow: "0 24px 70px rgba(0, 0, 0, 0.28)",
+          }}
+        >
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <Link
+              href="/"
+              data-testid="mock-online-back"
+              className="rounded-full border px-3 py-1.5 text-sm font-semibold uppercase tracking-[0.18em] transition-colors"
+              style={{
+                color: "var(--color-text)",
+                borderColor: "color-mix(in srgb, var(--color-primary) 40%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--color-background-elevated) 65%, transparent)",
+              }}
+            >
+              Back
+            </Link>
 
-            <div className="flex items-center gap-3 text-xs uppercase tracking-[0.24em]" style={{ color: "var(--color-text-muted)" }}>
-              <span className="h-px flex-1" style={{ backgroundColor: "color-mix(in srgb, var(--color-text-muted) 40%, transparent)" }} />
-              or
-              <span className="h-px flex-1" style={{ backgroundColor: "color-mix(in srgb, var(--color-text-muted) 40%, transparent)" }} />
+            <div className="text-right">
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.28em]"
+                style={{ color: "var(--color-primary-dark)" }}
+              >
+                Prototype Shell
+              </p>
+              <h1 className="title-font text-3xl leading-none" style={{ color: "var(--color-text)" }}>
+                Online Mock Features
+              </h1>
             </div>
-
-            <section className="space-y-2.5">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: "var(--color-primary-dark)" }}>
-                Join with a code
-              </p>
-              <div className="flex gap-2">
-                <input
-                  value={code}
-                  onChange={(event) => setCode(event.target.value.toUpperCase())}
-                  maxLength={ROOM_CODE_LENGTH}
-                  placeholder="ABCD"
-                  data-testid="mock-online-join-code"
-                  className="w-full rounded-2xl border-2 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] outline-none"
-                  style={{
-                    backgroundColor: "color-mix(in srgb, var(--color-background-elevated) 80%, transparent)",
-                    borderColor: "color-mix(in srgb, var(--color-primary) 60%, transparent)",
-                    color: "var(--color-text)",
-                  }}
-                />
-                <ActionButton
-                  variant="primary"
-                  onClick={handleJoin}
-                  disabled={busy || code.trim().length === 0}
-                  dataTestId="mock-online-join"
-                >
-                  Join
-                </ActionButton>
-              </div>
-            </section>
           </div>
-        )}
-      </MockOnlineShell>
+
+          <p className="text-sm font-semibold leading-6" style={{ color: "var(--color-text)" }}>
+            No online prototypes are active right now. This page is kept as a clean entry point for the next online mock.
+          </p>
+        </section>
+      </main>
     </ThemedPage>
   );
 }

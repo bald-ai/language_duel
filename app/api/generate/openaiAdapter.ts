@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { MAX_OUTPUT_TOKENS } from "@/lib/generate/constants";
 
-export const OPENAI_MODEL = "gpt-5.4-2026-03-05" as const;
+export const OPENAI_MODEL = "gpt-5.5-2026-04-23" as const;
 export const OPENAI_REASONING_EFFORT = "low" as const;
 
 // All generate prompts use plain string content, so model this directly instead

@@ -10,7 +10,7 @@ import {
 } from "../../lib/themes/sentenceValidation";
 import { MAX_OUTPUT_TOKENS } from "../../lib/generate/constants";
 
-const OPENAI_MODEL = "gpt-5.4-2026-03-05";
+const OPENAI_MODEL = "gpt-5.5-2026-04-23";
 const OPENAI_REASONING_EFFORT = "low";
 
 type SentenceTheme = Extract<Doc<"themes">, { contentType: "sentence" }>;
