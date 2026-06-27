@@ -3,9 +3,8 @@ import type { Doc } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getAuthenticatedUser } from "./helpers/auth";
 import {
+  isValidLlmCreditCost,
   LLM_MONTHLY_CREDITS,
-  LLM_SMALL_ACTION_CREDITS,
-  LLM_THEME_CREDITS,
   TTS_GENERATION_COST,
   TTS_MONTHLY_GENERATIONS,
 } from "../lib/credits/constants";
@@ -59,7 +58,7 @@ export function computeCreditConsumption(
     throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid TTS credit cost" });
   }
 
-  if (creditType === "llm" && (cost < LLM_SMALL_ACTION_CREDITS || cost > LLM_THEME_CREDITS)) {
+  if (creditType === "llm" && !isValidLlmCreditCost(cost)) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid LLM credit cost" });
   }
 

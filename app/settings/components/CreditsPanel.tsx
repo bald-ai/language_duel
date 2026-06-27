@@ -1,8 +1,12 @@
 "use client";
 
 import {
-  LLM_THEME_CREDITS,
-  LLM_SMALL_ACTION_CREDITS,
+  LLM_FIELD_REGEN_CREDITS,
+  LLM_GENERATE_MORE_SENTENCES_CREDITS,
+  LLM_GENERATE_MORE_WORDS_CREDITS,
+  LLM_SENTENCE_THEME_CREDITS,
+  LLM_SINGLE_WORD_REGEN_CREDITS,
+  LLM_WORD_THEME_CREDITS,
 } from "@/lib/credits/constants";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
@@ -52,8 +56,11 @@ export function CreditsPanel({
           >
             {llmCreditsRemaining}
           </p>
-          <p className="text-xs" style={{ color: colors.text.muted }}>
-            Theme {LLM_THEME_CREDITS} | Other {LLM_SMALL_ACTION_CREDITS}
+          <p className="text-xs leading-snug" style={{ color: colors.text.muted }}>
+            Word {LLM_WORD_THEME_CREDITS} | Sentence {LLM_SENTENCE_THEME_CREDITS}
+            <br />
+            More {LLM_GENERATE_MORE_WORDS_CREDITS}/{LLM_GENERATE_MORE_SENTENCES_CREDITS} | Edits{" "}
+            {LLM_FIELD_REGEN_CREDITS}-{LLM_SINGLE_WORD_REGEN_CREDITS}
           </p>
         </div>
         <div

@@ -25,7 +25,15 @@ import {
   wrongAnswerSchema,
 } from "@/lib/generate/schemas";
 import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
-import { LLM_SMALL_ACTION_CREDITS, LLM_THEME_CREDITS } from "@/lib/credits/constants";
+import {
+  LLM_ADD_WORD_CREDITS,
+  LLM_FIELD_REGEN_CREDITS,
+  LLM_GENERATE_MORE_SENTENCES_CREDITS,
+  LLM_GENERATE_MORE_WORDS_CREDITS,
+  LLM_SENTENCE_THEME_CREDITS,
+  LLM_SINGLE_WORD_REGEN_CREDITS,
+  LLM_WORD_THEME_CREDITS,
+} from "@/lib/credits/constants";
 import { type GenerateRequest } from "@/lib/generate/requestValidation";
 import { ApiRouteError } from "@/lib/api/serverErrors";
 import { getAuthedConvexClient } from "@/lib/api/convexClient";
@@ -404,12 +412,27 @@ function buildGenerateMoreSpec(
   };
 }
 
+export function getGenerateRequestCreditCost(body: GenerateRequest): number {
+  switch (body.type) {
+    case "theme":
+      return LLM_WORD_THEME_CREDITS;
+    case "sentence-theme":
+      return LLM_SENTENCE_THEME_CREDITS;
+    case "generate-more-words":
+      return LLM_GENERATE_MORE_WORDS_CREDITS;
+    case "generate-more-sentence-rounds":
+      return LLM_GENERATE_MORE_SENTENCES_CREDITS;
+    case "field":
+      return LLM_FIELD_REGEN_CREDITS;
+    case "regenerate-for-word":
+      return LLM_SINGLE_WORD_REGEN_CREDITS;
+    case "add-word":
+      return LLM_ADD_WORD_CREDITS;
+  }
+}
+
 export async function handleGenerateRequest(body: GenerateRequest) {
-  const isThemeScaleRequest =
-    body.type === "theme" ||
-    body.type === "sentence-theme" ||
-    body.type === "generate-more-sentence-rounds";
-  const creditCost = isThemeScaleRequest ? LLM_THEME_CREDITS : LLM_SMALL_ACTION_CREDITS;
+  const creditCost = getGenerateRequestCreditCost(body);
   let convexClient: ConvexHttpClient;
   try {
     convexClient = await ensureLlmCreditsAvailable(creditCost);

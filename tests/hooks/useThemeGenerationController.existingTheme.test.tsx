@@ -3,17 +3,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WordEntry } from "@/lib/types";
 import { VIEW_MODES } from "@/app/themes/constants";
 import type { ThemeDetailTheme } from "@/app/themes/components/ThemeDetail";
+import { LLM_GENERATE_MORE_WORDS_CREDITS } from "@/lib/credits/constants";
 
-const generateMoreWordsMock = vi.fn();
+const mocks = vi.hoisted(() => ({
+  currentUser: { llmCreditsRemaining: 1000 } as
+    | { llmCreditsRemaining: number }
+    | null
+    | undefined,
+  generateMoreWords: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("@/lib/themes/api", () => ({
   generateTheme: vi.fn(),
   addWord: vi.fn(),
-  generateMoreWords: (...args: unknown[]) => generateMoreWordsMock(...args),
+  generateMoreWords: (...args: unknown[]) => mocks.generateMoreWords(...args),
 }));
 
 vi.mock("convex/react", () => ({
-  useQuery: () => ({ llmCreditsRemaining: 1000 }),
+  useQuery: () => mocks.currentUser,
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: mocks.toastError,
+  },
 }));
 
 import { useThemeGenerationController } from "@/app/themes/hooks/useThemeGenerationController";
@@ -64,7 +78,9 @@ function setupController(initialLocalWords: WordEntry[]) {
 
 describe("useThemeGenerationController existing-theme Pick & Prune flow", () => {
   beforeEach(() => {
-    generateMoreWordsMock.mockReset();
+    mocks.currentUser = { llmCreditsRemaining: 1000 };
+    mocks.generateMoreWords.mockReset();
+    mocks.toastError.mockReset();
   });
 
   it("appends all kept words including duplicates and returns to detail view", async () => {
@@ -89,7 +105,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
       wrongAnswers: ["m", "n", "o", "p", "q", "r"],
     };
 
-    generateMoreWordsMock.mockResolvedValue({
+    mocks.generateMoreWords.mockResolvedValue({
       success: true,
       data: [generatedDuplicate, generatedFresh, generatedRemoved],
     });
@@ -132,7 +148,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
   });
 
   it("returns reviewKind=existing-theme in props during existing-theme review", async () => {
-    generateMoreWordsMock.mockResolvedValue({
+    mocks.generateMoreWords.mockResolvedValue({
       success: true,
       data: [
         {
@@ -151,5 +167,17 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
 
     expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("existing-theme");
     expect(hook.result.current.discardPickAndPruneProps.reviewKind).toBe("existing-theme");
+  });
+
+  it("blocks generate-more when the user cannot afford the action cost", async () => {
+    mocks.currentUser = { llmCreditsRemaining: LLM_GENERATE_MORE_WORDS_CREDITS - 1 };
+    const { hook } = setupController([]);
+
+    await act(async () => {
+      await hook.result.current.generateMoreModalProps.onGenerate();
+    });
+
+    expect(mocks.toastError).toHaveBeenCalledWith("LLM credits exhausted");
+    expect(mocks.generateMoreWords).not.toHaveBeenCalled();
   });
 });

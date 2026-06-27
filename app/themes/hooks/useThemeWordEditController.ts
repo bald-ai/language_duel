@@ -1,7 +1,13 @@
 import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
+import { useQuery } from "convex/react";
 import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import type { WordEntry } from "@/lib/types";
+import {
+  LLM_FIELD_REGEN_CREDITS,
+  LLM_SINGLE_WORD_REGEN_CREDITS,
+} from "@/lib/credits/constants";
 import {
   applyGeneratedWordEdit,
   applyManualWordEdit,
@@ -23,6 +29,23 @@ type UseThemeWordEditControllerParams = {
 
 export function useThemeWordEditController(params: UseThemeWordEditControllerParams) {
   const wordEditor = useWordEditor();
+  const currentUser = useQuery(api.users.getCurrentUser);
+
+  const ensureLlmCredits = useCallback((cost: number, signInMessage: string) => {
+    if (currentUser === undefined) {
+      toast.error("Credits are still loading. Try again.");
+      return false;
+    }
+    if (!currentUser) {
+      toast.error(signInMessage);
+      return false;
+    }
+    if (currentUser.llmCreditsRemaining < cost) {
+      toast.error("LLM credits exhausted");
+      return false;
+    }
+    return true;
+  }, [currentUser]);
 
   const handleEditWord = useCallback(
     (wordIndex: number, field: FieldType, wrongIndex?: number) => {
@@ -39,6 +62,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
 
   const handleGenerate = useCallback(async () => {
     if (wordEditor.editingWordIndex === null || !params.selectedTheme) return;
+    if (!ensureLlmCredits(LLM_FIELD_REGEN_CREDITS, "Please sign in to regenerate fields.")) return;
 
     const word = params.localWords[wordEditor.editingWordIndex];
     const existingWords = params.localWords
@@ -55,10 +79,11 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed");
     }
-  }, [params, wordEditor]);
+  }, [ensureLlmCredits, params, wordEditor]);
 
   const handleRegenerate = useCallback(async () => {
     if (wordEditor.editingWordIndex === null || !params.selectedTheme) return;
+    if (!ensureLlmCredits(LLM_FIELD_REGEN_CREDITS, "Please sign in to regenerate fields.")) return;
 
     const word = params.localWords[wordEditor.editingWordIndex];
     const existingWords = params.localWords
@@ -75,7 +100,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
-  }, [params, wordEditor]);
+  }, [ensureLlmCredits, params, wordEditor]);
 
   const handleAcceptGenerated = useCallback(() => {
     const { editingWordIndex, editingField } = wordEditor;
@@ -156,6 +181,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
   const handleRegenerateConfirm = useCallback(async () => {
     const { editingWordIndex } = wordEditor;
     if (editingWordIndex === null || !params.selectedTheme) return;
+    if (!ensureLlmCredits(LLM_SINGLE_WORD_REGEN_CREDITS, "Please sign in to regenerate words.")) return;
 
     try {
       const result = await wordEditor.regenerateAnswersForWord(
@@ -185,7 +211,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed");
     }
-  }, [params, wordEditor]);
+  }, [ensureLlmCredits, params, wordEditor]);
 
   const wordEditorPromptSummary = useMemo(() => {
     if (wordEditor.editingField && params.selectedTheme && wordEditor.editingWordIndex !== null) {

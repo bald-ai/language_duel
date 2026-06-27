@@ -5,7 +5,11 @@ import { api } from "@/convex/_generated/api";
 import type { WordEntry } from "@/lib/types";
 import { isWordDuplicate } from "@/lib/themes/themeUiValidation";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
-import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
+import {
+  LLM_ADD_WORD_CREDITS,
+  LLM_GENERATE_MORE_WORDS_CREDITS,
+  LLM_WORD_THEME_CREDITS,
+} from "@/lib/credits/constants";
 import {
   GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
   PICK_AND_PRUNE_WORD_COUNT,
@@ -41,31 +45,39 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
   const [showAddWordModal, setShowAddWordModal] = useState(false);
   const [showGenerateMoreModal, setShowGenerateMoreModal] = useState(false);
 
-  const handleOpenGenerateModal = useCallback(() => {
+  const ensureLlmCredits = useCallback((cost: number, signInMessage: string) => {
     if (currentUser === undefined) {
       toast.error("Credits are still loading. Try again.");
-      return;
+      return false;
     }
 
     if (!currentUser) {
-      toast.error("Please sign in to generate themes.");
-      return;
+      toast.error(signInMessage);
+      return false;
     }
 
-    if (currentUser.llmCreditsRemaining < LLM_THEME_CREDITS) {
+    if (currentUser.llmCreditsRemaining < cost) {
       toast.error("LLM credits exhausted");
-      return;
+      return false;
     }
+
+    return true;
+  }, [currentUser]);
+
+  const handleOpenGenerateModal = useCallback(() => {
+    if (!ensureLlmCredits(LLM_WORD_THEME_CREDITS, "Please sign in to generate themes.")) return;
 
     themeGenerator.reset();
     pickAndPrune.clear();
     setShowGenerateModal(true);
-  }, [currentUser, pickAndPrune, themeGenerator]);
+  }, [ensureLlmCredits, pickAndPrune, themeGenerator]);
 
   // One handler for both modes; `mode` selects the word count and where the
   // generated words land (detail draft vs. Pick & Prune review).
   const handleGenerateTheme = useCallback(
     async (mode: GenerationMode) => {
+      if (!ensureLlmCredits(LLM_WORD_THEME_CREDITS, "Please sign in to generate themes.")) return;
+
       const themeName = themeGenerator.themeName;
       const wordType = themeGenerator.wordType;
 
@@ -112,7 +124,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
         toast.error(message);
       }
     },
-    [params, pickAndPrune, themeGenerator]
+    [ensureLlmCredits, params, pickAndPrune, themeGenerator]
   );
 
   const handleCloseGenerateModal = useCallback(() => {
@@ -163,9 +175,11 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
   }, [params, pickAndPrune]);
 
   const openAddWord = useCallback(() => {
+    if (!ensureLlmCredits(LLM_ADD_WORD_CREDITS, "Please sign in to add words.")) return;
+
     addWordHook.reset();
     setShowAddWordModal(true);
-  }, [addWordHook]);
+  }, [addWordHook, ensureLlmCredits]);
 
   const closeAddWord = useCallback(() => {
     setShowAddWordModal(false);
@@ -180,6 +194,8 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       return;
     }
 
+    if (!ensureLlmCredits(LLM_ADD_WORD_CREDITS, "Please sign in to add words.")) return;
+
     const existingWords = params.localWords.map((word) => word.word);
     const newWord = await addWordHook.add(
       params.selectedTheme.name,
@@ -192,12 +208,14 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       addWordHook.reset();
       setShowAddWordModal(false);
     }
-  }, [addWordHook, params]);
+  }, [addWordHook, ensureLlmCredits, params]);
 
   const openGenerateMore = useCallback(() => {
+    if (!ensureLlmCredits(LLM_GENERATE_MORE_WORDS_CREDITS, "Please sign in to generate more words.")) return;
+
     generateMoreHook.reset();
     setShowGenerateMoreModal(true);
-  }, [generateMoreHook]);
+  }, [ensureLlmCredits, generateMoreHook]);
 
   const closeGenerateMore = useCallback(() => {
     setShowGenerateMoreModal(false);
@@ -209,6 +227,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
   const handleGenerateMore = useCallback(
     async (mode: GenerationMode) => {
       if (!params.selectedTheme) return;
+      if (!ensureLlmCredits(LLM_GENERATE_MORE_WORDS_CREDITS, "Please sign in to generate more words.")) return;
 
       const existingWords = params.localWords.map((word) => word.word);
 
@@ -241,7 +260,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
         setShowGenerateMoreModal(false);
       }
     },
-    [generateMoreHook, params, pickAndPrune]
+    [ensureLlmCredits, generateMoreHook, params, pickAndPrune]
   );
 
   const generateModalProps = useMemo(

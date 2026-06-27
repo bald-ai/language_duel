@@ -9,6 +9,8 @@ const TTS_PROVIDER_ICONS: Record<TtsProvider, string> = {
   [TTS_PROVIDER_IDS.ELEVENLABS]: "🎙️",
 };
 
+const DISABLED_TTS_PROVIDERS = new Set<TtsProvider>([TTS_PROVIDER_IDS.ELEVENLABS]);
+
 /**
  * TTSProviderSelector - Allows users to select their preferred TTS provider
  */
@@ -42,12 +44,17 @@ export function TTSProviderSelector() {
       <div className="p-4 grid gap-2">
         {TTS_PROVIDER_OPTIONS.map((option) => {
           const isActive = option.id === provider;
+          const isDisabledProvider = DISABLED_TTS_PROVIDERS.has(option.id);
+          const isDisabled = isUpdating || isDisabledProvider;
 
           return (
             <button
               key={option.id}
-              onClick={() => setProvider(option.id)}
-              disabled={isUpdating}
+              onClick={() => {
+                if (isDisabledProvider) return;
+                void setProvider(option.id);
+              }}
+              disabled={isDisabled}
               className="w-full flex items-center justify-between rounded-xl border-2 px-3 py-3 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: isActive
@@ -75,14 +82,21 @@ export function TTSProviderSelector() {
                   </span>
                 </div>
               </div>
-              {isActive && (
+              {isDisabledProvider ? (
+                <span
+                  className="text-[11px] uppercase tracking-widest"
+                  style={{ color: colors.text.muted }}
+                >
+                  Disabled
+                </span>
+              ) : isActive ? (
                 <span
                   className="text-[11px] uppercase tracking-widest"
                   style={{ color: colors.secondary.light }}
                 >
                   Active
                 </span>
-              )}
+              ) : null}
             </button>
           );
         })}

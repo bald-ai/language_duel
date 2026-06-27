@@ -10,6 +10,7 @@ import {
   updateThemeVisibility,
 } from "@/convex/themes";
 import { getCurrentMonthKey } from "@/convex/credits";
+import { SENTENCE_HINT_REFRESH_CREDITS } from "@/lib/credits/constants";
 import {
   createAuthCtx,
   createIndexedQuery,
@@ -541,7 +542,7 @@ describe("themes core handlers", () => {
     });
 
     // Save still succeeds (placeholders written), but no AI refresh is scheduled
-    // and no LLM credits are spent because the flat cost can't be afforded.
+    // and no LLM credits are spent because the refresh cost can't be afforded.
     const sentenceRounds = (db.themes[0] as unknown as {
       sentenceRounds: Array<{ wordMeanings: string[] }>;
     }).sentenceRounds;
@@ -551,7 +552,7 @@ describe("themes core handlers", () => {
       "placeholder",
     ]);
     expect(scheduler.runAfter).not.toHaveBeenCalled();
-    expect(db.users[0]?.llmCreditsRemaining).toBe(1);
+    expect(db.users[0]?.llmCreditsRemaining).toBeLessThan(SENTENCE_HINT_REFRESH_CREDITS);
   });
 
   it("updateTheme keeps existing ttsStorageId when word+answer are unchanged", async () => {

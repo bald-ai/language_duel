@@ -6,11 +6,13 @@ import {
   normalizeCreditState,
 } from "@/convex/credits";
 import {
+  LLM_FIELD_REGEN_CREDITS,
+  LLM_GENERATE_MORE_SENTENCES_CREDITS,
   LLM_MONTHLY_CREDITS,
-  LLM_SMALL_ACTION_CREDITS,
-  LLM_THEME_CREDITS,
+  LLM_SENTENCE_THEME_CREDITS,
   TTS_GENERATION_COST,
   TTS_MONTHLY_GENERATIONS,
+  VALID_LLM_CREDIT_COSTS,
 } from "@/lib/credits/constants";
 import { createAuthCtx, createIndexedQuery, patchRow } from "./testUtils/inMemoryDb";
 
@@ -145,15 +147,24 @@ describe("consumeCredits validation", () => {
     ).rejects.toThrow("Invalid TTS credit cost");
   });
 
-  it("rejects out-of-range LLM costs", async () => {
+  it.each(Array.from(new Set(VALID_LLM_CREDIT_COSTS)))(
+    "allows known LLM action cost %s",
+    async (cost) => {
+      const db = new InMemoryDb();
+      db.users.push(userDoc({ creditsMonth: getCurrentMonthKey(), llmCreditsRemaining: 100 }));
+
+      await expect(
+        consumeCreditsHandler(createCtx(db), { creditType: "llm", cost })
+      ).resolves.toMatchObject({ llmCreditsRemaining: 100 - cost });
+    }
+  );
+
+  it("rejects unknown positive LLM costs", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
 
     await expect(
-      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_SMALL_ACTION_CREDITS - 1 })
-    ).rejects.toThrow("Invalid credit cost");
-    await expect(
-      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_THEME_CREDITS + 1 })
+      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: 2 })
     ).rejects.toThrow("Invalid LLM credit cost");
   });
 });
@@ -165,17 +176,17 @@ describe("consumeCredits behavior", () => {
 
   it("debits LLM and TTS balances independently", async () => {
     const db = new InMemoryDb();
-    db.users.push(userDoc({ llmCreditsRemaining: 5, ttsGenerationsRemaining: 3 }));
+    db.users.push(userDoc({ llmCreditsRemaining: 25, ttsGenerationsRemaining: 3 }));
 
     await expect(
-      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_THEME_CREDITS })
-    ).resolves.toMatchObject({ llmCreditsRemaining: 3, ttsGenerationsRemaining: 3 });
+      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_SENTENCE_THEME_CREDITS })
+    ).resolves.toMatchObject({ llmCreditsRemaining: 5, ttsGenerationsRemaining: 3 });
     await expect(
       consumeCreditsHandler(createCtx(db), { creditType: "tts", cost: TTS_GENERATION_COST })
-    ).resolves.toMatchObject({ llmCreditsRemaining: 3, ttsGenerationsRemaining: 2 });
+    ).resolves.toMatchObject({ llmCreditsRemaining: 5, ttsGenerationsRemaining: 2 });
 
     expect(db.users[0]).toMatchObject({
-      llmCreditsRemaining: 3,
+      llmCreditsRemaining: 5,
       ttsGenerationsRemaining: 2,
     });
   });
@@ -185,7 +196,7 @@ describe("consumeCredits behavior", () => {
     db.users.push(userDoc({ llmCreditsRemaining: 0, ttsGenerationsRemaining: 0 }));
 
     await expect(
-      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_SMALL_ACTION_CREDITS })
+      consumeCreditsHandler(createCtx(db), { creditType: "llm", cost: LLM_FIELD_REGEN_CREDITS })
     ).rejects.toMatchObject({ data: { code: "CREDITS_EXHAUSTED" } });
     await expect(
       consumeCreditsHandler(createCtx(db), { creditType: "tts", cost: TTS_GENERATION_COST })
@@ -205,12 +216,12 @@ describe("consumeCredits behavior", () => {
 
     const result = await consumeCreditsHandler(createCtx(db), {
       creditType: "llm",
-      cost: LLM_THEME_CREDITS,
+      cost: LLM_GENERATE_MORE_SENTENCES_CREDITS,
     });
 
     expect(result).toEqual({
       creditsMonth: "2026-06",
-      llmCreditsRemaining: LLM_MONTHLY_CREDITS - LLM_THEME_CREDITS,
+      llmCreditsRemaining: LLM_MONTHLY_CREDITS - LLM_GENERATE_MORE_SENTENCES_CREDITS,
       ttsGenerationsRemaining: TTS_MONTHLY_GENERATIONS,
     });
     expect(db.users[0]).toMatchObject(result);

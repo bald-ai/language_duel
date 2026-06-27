@@ -24,7 +24,10 @@ import {
   generateSentenceTheme,
   type GenerateSentenceThemeParams,
 } from "@/lib/themes/api";
-import { LLM_THEME_CREDITS } from "@/lib/credits/constants";
+import {
+  LLM_GENERATE_MORE_SENTENCES_CREDITS,
+  LLM_SENTENCE_THEME_CREDITS,
+} from "@/lib/credits/constants";
 import {
   DEFAULT_SENTENCE_GENERATION_ROUND_COUNT,
   SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
@@ -225,6 +228,22 @@ export function useSentenceThemeController(params: {
     setSavedThemeNameBaseline(null);
   }, []);
 
+  const ensureLlmCredits = useCallback((cost: number, signInMessage: string) => {
+    if (currentUser === undefined) {
+      toast.error("Credits are still loading. Try again.");
+      return false;
+    }
+    if (!currentUser) {
+      toast.error(signInMessage);
+      return false;
+    }
+    if (currentUser.llmCreditsRemaining < cost) {
+      toast.error("LLM credits exhausted");
+      return false;
+    }
+    return true;
+  }, [currentUser]);
+
   const openSavedTheme = useCallback((theme: ThemeWithOwner) => {
     if (!isSentenceTheme(theme)) return;
     setSelectedState({ kind: "saved", theme });
@@ -245,21 +264,10 @@ export function useSentenceThemeController(params: {
   }, []);
 
   const openGenerateModal = useCallback(() => {
-    if (currentUser === undefined) {
-      toast.error("Credits are still loading. Try again.");
-      return;
-    }
-    if (!currentUser) {
-      toast.error("Please sign in to generate themes.");
-      return;
-    }
-    if (currentUser.llmCreditsRemaining < LLM_THEME_CREDITS) {
-      toast.error("LLM credits exhausted");
-      return;
-    }
+    if (!ensureLlmCredits(LLM_SENTENCE_THEME_CREDITS, "Please sign in to generate themes.")) return;
     setGenerationError(null);
     setIsGenerateModalOpen(true);
-  }, [currentUser]);
+  }, [ensureLlmCredits]);
 
   const closeGenerateModal = useCallback(() => {
     if (isGenerating) return;
@@ -274,6 +282,7 @@ export function useSentenceThemeController(params: {
       targetRoundCount: number;
     }) => {
       if (!input.themeName.trim()) return;
+      if (!ensureLlmCredits(LLM_SENTENCE_THEME_CREDITS, "Please sign in to generate themes.")) return;
       // Clamp the user-chosen target into the supported 5-15 range so a
       // tampered client can't request an absurd generation size.
       const safeTarget = Math.min(
@@ -311,7 +320,7 @@ export function useSentenceThemeController(params: {
         setIsGenerating(false);
       }
     },
-    [pickAndPrune]
+    [ensureLlmCredits, pickAndPrune]
   );
 
   const handleContinueReview = useCallback(() => {
@@ -360,21 +369,10 @@ export function useSentenceThemeController(params: {
 
   const openGenerateMoreModal = useCallback(() => {
     if (!selectedTheme) return;
-    if (currentUser === undefined) {
-      toast.error("Credits are still loading. Try again.");
-      return;
-    }
-    if (!currentUser) {
-      toast.error("Please sign in.");
-      return;
-    }
-    if (currentUser.llmCreditsRemaining < LLM_THEME_CREDITS) {
-      toast.error("LLM credits exhausted");
-      return;
-    }
+    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
     setGenerationError(null);
     setIsGenerateMoreModalOpen(true);
-  }, [currentUser, selectedTheme]);
+  }, [ensureLlmCredits, selectedTheme]);
 
   const closeGenerateMoreModal = useCallback(() => {
     if (isGenerating) return;
@@ -384,6 +382,7 @@ export function useSentenceThemeController(params: {
 
   const generateMoreAndAppend = useCallback(async () => {
     if (!selectedTheme) return;
+    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
     setIsGenerating(true);
     setGenerationError(null);
     try {
@@ -406,7 +405,7 @@ export function useSentenceThemeController(params: {
     } finally {
       setIsGenerating(false);
     }
-  }, [localRounds, selectedTheme]);
+  }, [ensureLlmCredits, localRounds, selectedTheme]);
 
   // Unsaved local edits vs the persisted saved theme. Used to gate TTS
   // generation, which must run against the saved sentences (otherwise the

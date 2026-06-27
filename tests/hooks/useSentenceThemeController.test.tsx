@@ -3,8 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
+import { LLM_SENTENCE_THEME_CREDITS } from "@/lib/credits/constants";
 
 const mocks = vi.hoisted(() => ({
+  currentUser: {
+    _id: "user_1",
+    llmCreditsRemaining: 100,
+    ttsGenerationsRemaining: 100,
+  } as { _id: string; llmCreditsRemaining: number; ttsGenerationsRemaining: number } | null | undefined,
   convexQuery: vi.fn(),
   generateThemeTTS: vi.fn(),
   mutation: vi.fn(),
@@ -18,11 +24,7 @@ vi.mock("convex/react", () => ({
   useAction: () => mocks.generateThemeTTS,
   useConvex: () => ({ query: mocks.convexQuery }),
   useMutation: () => mocks.mutation,
-  useQuery: () => ({
-    _id: "user_1",
-    llmCreditsRemaining: 100,
-    ttsGenerationsRemaining: 100,
-  }),
+  useQuery: () => mocks.currentUser,
 }));
 
 vi.mock("@/hooks/useTTS", () => ({
@@ -46,6 +48,24 @@ vi.mock("sonner", () => ({
 }));
 
 import { useSentenceThemeController } from "@/app/themes/hooks/useSentenceThemeController";
+
+function resetMockFns() {
+  mocks.convexQuery.mockReset();
+  mocks.generateThemeTTS.mockReset();
+  mocks.mutation.mockReset();
+  mocks.playTTS.mockReset();
+  mocks.toastError.mockReset();
+  mocks.toastSuccess.mockReset();
+  mocks.toastWarning.mockReset();
+}
+
+function setCurrentUserCredits(llmCreditsRemaining: number) {
+  mocks.currentUser = {
+    _id: "user_1",
+    llmCreditsRemaining,
+    ttsGenerationsRemaining: 100,
+  };
+}
 
 const sentenceRounds: SentenceRoundInput[] = [
   {
@@ -78,7 +98,8 @@ function makeSavedSentenceTheme(overrides: Partial<ThemeWithOwner> = {}): ThemeW
 
 describe("useSentenceThemeController TTS generation guard", () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockReset());
+    resetMockFns();
+    setCurrentUserCredits(100);
   });
 
   it("blocks sentence TTS generation when the saved theme title has unsaved edits", async () => {
@@ -108,9 +129,33 @@ describe("useSentenceThemeController TTS generation guard", () => {
   });
 });
 
+describe("useSentenceThemeController credit gates", () => {
+  beforeEach(() => {
+    resetMockFns();
+    setCurrentUserCredits(LLM_SENTENCE_THEME_CREDITS - 1);
+  });
+
+  it("blocks opening sentence generation when credits are below the action cost", () => {
+    const { result } = renderHook(() =>
+      useSentenceThemeController({
+        onAfterCancel: vi.fn(),
+        onAfterSave: vi.fn(),
+      })
+    );
+
+    act(() => {
+      result.current.openGenerateModal();
+    });
+
+    expect(result.current.isGenerateModalOpen).toBe(false);
+    expect(mocks.toastError).toHaveBeenCalledWith("LLM credits exhausted");
+  });
+});
+
 describe("useSentenceThemeController cancel", () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockReset());
+    resetMockFns();
+    setCurrentUserCredits(100);
   });
 
   it("closes immediately without the confirm modal when nothing changed", () => {
@@ -159,7 +204,8 @@ describe("useSentenceThemeController cancel", () => {
 
 describe("useSentenceThemeController free words", () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockReset());
+    resetMockFns();
+    setCurrentUserCredits(100);
   });
 
   it("toggles repeated Spanish words together", () => {

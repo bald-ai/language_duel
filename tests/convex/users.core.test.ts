@@ -10,9 +10,8 @@ import {
   updatePresence,
 } from "@/convex/users";
 import {
+  LLM_FIELD_REGEN_CREDITS,
   LLM_MONTHLY_CREDITS,
-  LLM_SMALL_ACTION_CREDITS,
-  LLM_THEME_CREDITS,
   TTS_GENERATION_COST,
   TTS_MONTHLY_GENERATIONS,
 } from "@/lib/credits/constants";
@@ -323,9 +322,9 @@ describe("users core handlers", () => {
 
     await expect(callConsume({ creditType: "llm", cost: 0 })).rejects.toThrow("Invalid credit cost");
     await expect(callConsume({ creditType: "tts", cost: TTS_GENERATION_COST + 1 })).rejects.toThrow("Invalid TTS credit cost");
-    await expect(callConsume({ creditType: "llm", cost: LLM_THEME_CREDITS + 10 })).rejects.toThrow("Invalid LLM credit cost");
+    await expect(callConsume({ creditType: "llm", cost: 2 })).rejects.toThrow("Invalid LLM credit cost");
 
-    const llmResult = await callConsume({ creditType: "llm", cost: LLM_SMALL_ACTION_CREDITS });
+    const llmResult = await callConsume({ creditType: "llm", cost: LLM_FIELD_REGEN_CREDITS });
     expect(llmResult.llmCreditsRemaining).toBe(9);
     expect(llmResult.ttsGenerationsRemaining).toBe(3);
 

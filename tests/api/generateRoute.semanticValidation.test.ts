@@ -5,6 +5,15 @@ import {
   THEME_WORD_INPUT_MAX_LENGTH,
   THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
 } from "@/lib/themes/constants";
+import {
+  LLM_ADD_WORD_CREDITS,
+  LLM_FIELD_REGEN_CREDITS,
+  LLM_GENERATE_MORE_SENTENCES_CREDITS,
+  LLM_GENERATE_MORE_WORDS_CREDITS,
+  LLM_SENTENCE_THEME_CREDITS,
+  LLM_SINGLE_WORD_REGEN_CREDITS,
+  LLM_WORD_THEME_CREDITS,
+} from "@/lib/credits/constants";
 
 const {
   authMock,
@@ -64,6 +73,7 @@ type BranchCase = {
   request: Record<string, unknown>;
   validOutput: unknown;
   responseData: unknown;
+  expectedCreditCost: number;
   invalidCases: Array<{
     name: string;
     output?: unknown;
@@ -165,6 +175,54 @@ const randomWordsValidWords = [
   }),
 ];
 
+const sentenceThemeRounds = [
+  {
+    englishPrompt: "I eat bread",
+    spanishSentence: "Yo como pan",
+    wordMeanings: ["I", "eat", "bread"],
+    distractors: ["bebo", "libro", "rojo"],
+  },
+  {
+    englishPrompt: "You drink water",
+    spanishSentence: "Tu bebes agua",
+    wordMeanings: ["you", "drink", "water"],
+    distractors: ["como", "pan", "verde"],
+  },
+  {
+    englishPrompt: "The cat sleeps",
+    spanishSentence: "El gato duerme",
+    wordMeanings: ["the", "cat", "sleeps"],
+    distractors: ["perro", "come", "salta"],
+  },
+  {
+    englishPrompt: "We read books",
+    spanishSentence: "Nosotros leemos libros",
+    wordMeanings: ["we", "read", "books"],
+    distractors: ["ellos", "corren", "cartas"],
+  },
+  {
+    englishPrompt: "She opens doors",
+    spanishSentence: "Ella abre puertas",
+    wordMeanings: ["she", "opens", "doors"],
+    distractors: ["cierra", "ventanas", "lento"],
+  },
+];
+
+const generateMoreSentenceRounds = [
+  {
+    englishPrompt: "He walks home",
+    spanishSentence: "El camina casa",
+    wordMeanings: ["he", "walks", "home"],
+    distractors: ["corre", "calle", "azul"],
+  },
+  {
+    englishPrompt: "They cook rice",
+    spanishSentence: "Ellos cocinan arroz",
+    wordMeanings: ["they", "cook", "rice"],
+    distractors: ["comen", "pan", "rapido"],
+  },
+];
+
 const branchCases: BranchCase[] = [
   {
     name: "theme",
@@ -176,6 +234,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: { words: themeValidWords },
     responseData: themeValidWords,
+    expectedCreditCost: LLM_WORD_THEME_CREDITS,
     invalidCases: [
       {
         name: "rule 1 word empty",
@@ -244,6 +303,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: validAnswerAndWrongs,
     responseData: validEntry(),
+    expectedCreditCost: LLM_ADD_WORD_CREDITS,
     invalidCases: [
       {
         name: "rule 2 answer empty",
@@ -299,6 +359,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: validAnswerAndWrongs,
     responseData: validAnswerAndWrongs,
+    expectedCreditCost: LLM_SINGLE_WORD_REGEN_CREDITS,
     invalidCases: [
       {
         name: "rule 2 answer too long",
@@ -349,6 +410,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: { words: randomWordsValidWords },
     responseData: randomWordsValidWords,
+    expectedCreditCost: LLM_GENERATE_MORE_WORDS_CREDITS,
     invalidCases: [
       {
         name: "rule 1 word too long",
@@ -406,6 +468,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: validEntry({ word: "dog" }),
     responseData: validEntry({ word: "dog" }),
+    expectedCreditCost: LLM_FIELD_REGEN_CREDITS,
     invalidCases: [
       {
         name: "rule 1 word empty",
@@ -457,6 +520,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: { answer: "el can" },
     responseData: { answer: "el can" },
+    expectedCreditCost: LLM_FIELD_REGEN_CREDITS,
     invalidCases: [
       {
         name: "rule 2 answer empty",
@@ -479,6 +543,7 @@ const branchCases: BranchCase[] = [
     },
     validOutput: { wrongAnswer: "el lobo" },
     responseData: { wrongAnswer: "el lobo" },
+    expectedCreditCost: LLM_FIELD_REGEN_CREDITS,
     invalidCases: [
       {
         name: "rule 3 wrong answer empty",
@@ -494,6 +559,52 @@ const branchCases: BranchCase[] = [
         name: "rule 6 wrong answer duplicates another wrong",
         output: { wrongAnswer: "el pez" },
         expectedIssue: "are duplicates after normalization",
+      },
+    ],
+  },
+  {
+    name: "sentence-theme",
+    request: {
+      type: "sentence-theme",
+      themeName: "Daily life",
+      roundCount: 5,
+    },
+    validOutput: { rounds: sentenceThemeRounds },
+    responseData: sentenceThemeRounds,
+    expectedCreditCost: LLM_SENTENCE_THEME_CREDITS,
+    invalidCases: [
+      {
+        name: "word meanings count",
+        output: {
+          rounds: sentenceThemeRounds.map((round, index) =>
+            index === 0 ? { ...round, wordMeanings: ["I"] } : round
+          ),
+        },
+        expectedIssue: "word meanings must match",
+      },
+    ],
+  },
+  {
+    name: "generate-more-sentence-rounds",
+    request: {
+      type: "generate-more-sentence-rounds",
+      themeName: "Daily life",
+      roundCount: 2,
+      existingSpanishSentences: ["Yo como pan"],
+    },
+    validOutput: { rounds: generateMoreSentenceRounds },
+    responseData: generateMoreSentenceRounds,
+    expectedCreditCost: LLM_GENERATE_MORE_SENTENCES_CREDITS,
+    invalidCases: [
+      {
+        name: "duplicate existing sentence",
+        output: {
+          rounds: [
+            sentenceThemeRounds[0]!,
+            generateMoreSentenceRounds[1]!,
+          ],
+        },
+        expectedIssue: "duplicates an existing sentence",
       },
     ],
   },
@@ -517,7 +628,7 @@ describe("/api/generate semantic validation", () => {
       userId: "user_1",
       getToken: getTokenMock,
     });
-    queryMock.mockResolvedValue({ llmCreditsRemaining: 10 });
+    queryMock.mockResolvedValue({ llmCreditsRemaining: 100 });
     mutationMock.mockResolvedValue(undefined);
   });
 
@@ -566,6 +677,10 @@ describe("/api/generate semantic validation", () => {
         expect(payload).not.toHaveProperty("prompt");
         expect(responsesCreateMock).toHaveBeenCalledTimes(1);
         expect(mutationMock).toHaveBeenCalledTimes(1);
+        expect(mutationMock).toHaveBeenCalledWith("credits.consumeCredits", {
+          creditType: "llm",
+          cost: branch.expectedCreditCost,
+        });
       });
 
       if (branch.name !== "theme") {
@@ -589,6 +704,10 @@ describe("/api/generate semantic validation", () => {
           expect(payload.data).toEqual(branch.responseData);
           expect(responsesCreateMock).toHaveBeenCalledTimes(2);
           expect(mutationMock).toHaveBeenCalledTimes(1);
+          expect(mutationMock).toHaveBeenCalledWith("credits.consumeCredits", {
+            creditType: "llm",
+            cost: branch.expectedCreditCost,
+          });
         });
       }
     });
