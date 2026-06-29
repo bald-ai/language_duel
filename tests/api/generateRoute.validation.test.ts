@@ -119,6 +119,21 @@ describe("/api/generate request validation", () => {
     );
   });
 
+  it("parseGenerateRequest accepts add-sentence-round payloads", () => {
+    const result = parseGenerateRequest({
+      type: "add-sentence-round",
+      themeName: "Animals",
+      englishPrompt: " The cat sleeps ",
+      existingEnglishPrompts: ["The dog runs"],
+      existingSpanishSentences: ["El perro corre"],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(
+      (result as { ok: true; data: { englishPrompt: string } }).data.englishPrompt
+    ).toBe("The cat sleeps");
+  });
+
   it("returns 400 when theme wordCount is out of bounds", async () => {
     const response = await POST(
       createJsonRequest({

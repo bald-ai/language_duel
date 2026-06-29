@@ -3,8 +3,6 @@
 import type { WordType } from "@/lib/themes/api";
 import { FormError } from "@/app/components/FormError";
 import {
-  MAX_GENERATED_WORDS_COUNT,
-  MIN_GENERATED_WORDS_COUNT,
   PICK_AND_PRUNE_WORD_COUNT,
   THEME_NAME_MAX_LENGTH,
   THEME_PROMPT_MAX_LENGTH,
@@ -12,7 +10,6 @@ import {
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { ModalShell } from "@/app/components/modals/ModalShell";
 import { WordTypeCarousel } from "./WordTypeCarousel";
-import { PickAndPruneCta } from "./PickAndPruneCta";
 import { themeActionButtonClassName, themeOutlineButtonClassName, getThemeActionButtonStyle, getThemeOutlineButtonStyle } from "./themeStyles";
 
 interface GenerateThemeModalProps {
@@ -20,15 +17,12 @@ interface GenerateThemeModalProps {
   themeName: string;
   themePrompt: string;
   wordType: WordType;
-  wordCount: number;
   generationMode: "standard" | "pick-and-prune" | null;
   error?: string | null;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
   onWordTypeChange: (wordType: WordType) => void;
-  onWordCountChange: (wordCount: number) => void;
   onGenerate: () => void;
-  onGeneratePickAndPrune: () => void;
   onClose: () => void;
 }
 
@@ -37,15 +31,12 @@ export function GenerateThemeModal({
   themeName,
   themePrompt,
   wordType,
-  wordCount,
   generationMode,
   error,
   onThemeNameChange,
   onThemePromptChange,
   onWordTypeChange,
-  onWordCountChange,
   onGenerate,
-  onGeneratePickAndPrune,
   onClose,
 }: GenerateThemeModalProps) {
   const colors = useAppearanceColors();
@@ -108,34 +99,16 @@ export function GenerateThemeModal({
           </p>
         </div>
 
-        <div>
-          <label
-            htmlFor="theme-generate-word-count"
-            className="block text-sm font-medium mb-2"
-            style={{ color: colors.text.DEFAULT }}
-          >
-            Number of words ({MIN_GENERATED_WORDS_COUNT}-{MAX_GENERATED_WORDS_COUNT})
-          </label>
-          <div className="flex items-center gap-4">
-            <input
-              id="theme-generate-word-count"
-              type="range"
-              min={MIN_GENERATED_WORDS_COUNT}
-              max={MAX_GENERATED_WORDS_COUNT}
-              value={wordCount}
-              onChange={(e) => onWordCountChange(Number.parseInt(e.target.value, 10))}
-              className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-              style={{ backgroundColor: colors.primary.dark }}
-              disabled={isGenerating}
-              data-testid="theme-generate-word-count"
-            />
-            <span
-              className="w-8 text-center text-xl font-bold shrink-0"
-              style={{ color: colors.text.DEFAULT }}
-            >
-              {wordCount}
-            </span>
-          </div>
+        <div
+          className="rounded-xl border-2 px-4 py-3 text-sm"
+          style={{
+            backgroundColor: colors.background.DEFAULT,
+            borderColor: colors.primary.dark,
+            color: colors.text.muted,
+          }}
+          data-testid="theme-generate-pick-prune-summary"
+        >
+          Generate {PICK_AND_PRUNE_WORD_COUNT} words, then keep the useful ones before the draft opens.
         </div>
       </div>
 
@@ -148,7 +121,7 @@ export function GenerateThemeModal({
           <p className="text-sm" style={{ color: colors.text.muted }}>
             {generationMode === "pick-and-prune"
               ? `Generating ${PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
-              : `Generating ${wordCount} words... This may take a moment.`}
+              : "Generating words... This may take a moment."}
           </p>
         </div>
       )}
@@ -177,14 +150,6 @@ export function GenerateThemeModal({
           Cancel
         </button>
       </div>
-
-      <PickAndPruneCta
-        description={`Use the theme name above, add optional details if you want, then click Try to generate ${PICK_AND_PRUNE_WORD_COUNT} words for review.`}
-        onTry={onGeneratePickAndPrune}
-        disabled={!themeName.trim() || isGenerating}
-        infoTestId="theme-pick-prune-info"
-        tryTestId="theme-pick-prune-try"
-      />
     </ModalShell>
   );
 }

@@ -226,9 +226,6 @@ export const searchUsers = query({
 export const syncUser = mutation({
   args: {
     clerkId: v.string(),
-    email: v.string(),
-    name: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -262,8 +259,19 @@ export const syncUser = mutation({
       return existingUser._id;
     }
 
+    if (!identity.email) {
+      throw new ConvexError({ code: "INVALID_IDENTITY", message: "Authenticated identity is missing an email" });
+    }
+
+    const trustedIdentity = {
+      clerkId: identity.subject,
+      email: identity.email,
+      name: identity.name,
+      imageUrl: identity.pictureUrl,
+    };
+
     // For new users, generate nickname from first name or default
-    const nickname = args.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
+    const nickname = trustedIdentity.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
     const validNickname =
       nickname.length >= NICKNAME_MIN_LENGTH
         ? nickname.slice(0, NICKNAME_MAX_LENGTH)
@@ -272,7 +280,7 @@ export const syncUser = mutation({
     const creditsMonth = getCurrentMonthKey();
 
     return await ctx.db.insert("users", {
-      ...args,
+      ...trustedIdentity,
       nickname: validNickname,
       discriminator,
       llmCreditsRemaining: LLM_MONTHLY_CREDITS,

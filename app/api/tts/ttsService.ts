@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { TTS_GENERATION_COST } from "@/lib/credits/constants";
 import { ApiRouteError, resolveApiError } from "@/lib/api/serverErrors";
 import { getAuthedConvexClient } from "@/lib/api/convexClient";
@@ -11,7 +12,11 @@ import {
 } from "@/lib/tts/providers";
 import { generateTtsAudioWithFallback } from "@/lib/tts/providerAdapters";
 
-async function getUserAndCredits(): Promise<{
+type ConsumedCreditTransaction = {
+  creditTransactionId: Id<"creditTransactions">;
+};
+
+async function getUserTtsProvider(): Promise<{
   client: ConvexHttpClient;
   ttsProvider: TtsProvider;
 }> {
@@ -19,9 +24,6 @@ async function getUserAndCredits(): Promise<{
   const currentUser = await client.query(api.users.getCurrentUser, {});
   if (!currentUser) {
     throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-  if (currentUser.ttsGenerationsRemaining < TTS_GENERATION_COST) {
-    throw new ApiRouteError("CREDITS_EXHAUSTED", "TTS credits exhausted", 402);
   }
 
   const ttsProvider = isTtsProvider(currentUser.ttsProvider)
@@ -31,11 +33,26 @@ async function getUserAndCredits(): Promise<{
   return { client, ttsProvider };
 }
 
-async function consumeTtsCredit(client: ConvexHttpClient) {
-  await client.mutation(api.credits.consumeCredits, {
+async function consumeTtsCredit(
+  client: ConvexHttpClient
+): Promise<ConsumedCreditTransaction> {
+  return await client.mutation(api.credits.consumeCredits, {
     creditType: "tts",
     cost: TTS_GENERATION_COST,
   });
+}
+
+async function refundTtsCredit(
+  client: ConvexHttpClient,
+  transaction: ConsumedCreditTransaction
+) {
+  try {
+    await client.mutation(api.credits.refundConsumedCredits, {
+      creditTransactionId: transaction.creditTransactionId,
+    });
+  } catch (error) {
+    console.error("[TTS] Failed to refund TTS credit:", error);
+  }
 }
 
 function creditsFailureResponse(error: unknown, defaultMessage: string) {
@@ -55,11 +72,18 @@ export async function generateLiveTtsResponse(text: string) {
   let convexClient: ConvexHttpClient;
   let ttsProvider: TtsProvider;
   try {
-    const result = await getUserAndCredits();
+    const result = await getUserTtsProvider();
     convexClient = result.client;
     ttsProvider = result.ttsProvider;
   } catch (error) {
     return creditsFailureResponse(error, "Credit check failed");
+  }
+
+  let creditTransaction: ConsumedCreditTransaction;
+  try {
+    creditTransaction = await consumeTtsCredit(convexClient);
+  } catch (error) {
+    return creditsFailureResponse(error, "Credit consumption failed");
   }
 
   let generatedAudio;
@@ -69,6 +93,7 @@ export async function generateLiveTtsResponse(text: string) {
       preferredProvider: ttsProvider,
     });
   } catch (error) {
+    await refundTtsCredit(convexClient, creditTransaction);
     if (error instanceof Error && error.name === "AbortError") {
       console.error("[TTS] Request timed out");
       return NextResponse.json(
@@ -80,16 +105,11 @@ export async function generateLiveTtsResponse(text: string) {
   }
 
   if (!generatedAudio) {
+    await refundTtsCredit(convexClient, creditTransaction);
     return NextResponse.json(
       { error: `TTS generation failed (${ttsProvider})` },
       { status: 500 }
     );
-  }
-
-  try {
-    await consumeTtsCredit(convexClient);
-  } catch (error) {
-    return creditsFailureResponse(error, "Credit consumption failed");
   }
 
   return new NextResponse(generatedAudio.audioBuffer, {

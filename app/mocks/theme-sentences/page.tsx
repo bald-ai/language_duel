@@ -310,7 +310,7 @@ export default function ThemeSentencesMockPage() {
         style={getThemeModalPanelStyle(colors)}
       >
         {header(
-          "Experimental Review",
+          "Pick & Prune",
           "Review Generated Sentences",
           <>
             <span className="rounded-full border px-2.5 py-0.5 font-semibold" style={getCountPillStyle(colors)}>

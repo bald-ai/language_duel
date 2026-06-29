@@ -13,14 +13,11 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="nouns"
-        wordCount={10}
         generationMode={null}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={vi.fn()}
-        onWordCountChange={vi.fn()}
         onGenerate={vi.fn()}
-        onGeneratePickAndPrune={vi.fn()}
         onClose={vi.fn()}
         {...overrides}
       />
@@ -34,31 +31,16 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="nouns"
-        wordCount={10}
         generationMode={null}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={vi.fn()}
-        onWordCountChange={vi.fn()}
         onGenerate={vi.fn()}
-        onGeneratePickAndPrune={vi.fn()}
         onClose={vi.fn()}
       />
     );
 
     expect(queryByTestId("theme-generate-modal")).toBeNull();
-  });
-
-  it("calls onWordCountChange with the integer when the slider changes", () => {
-    const onWordCountChange = vi.fn();
-
-    renderModal({ onWordCountChange });
-
-    fireEvent.change(screen.getByTestId("theme-generate-word-count"), {
-      target: { value: "15" },
-    });
-
-    expect(onWordCountChange).toHaveBeenCalledWith(15);
   });
 
   it("cycles word type with the carousel arrows", () => {
@@ -76,14 +58,11 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="verbs"
-        wordCount={10}
         generationMode={null}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={onWordTypeChange}
-        onWordCountChange={vi.fn()}
         onGenerate={vi.fn()}
-        onGeneratePickAndPrune={vi.fn()}
         onClose={vi.fn()}
       />
     );
@@ -98,14 +77,11 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="adjectives"
-        wordCount={10}
         generationMode={null}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={onWordTypeChange}
-        onWordCountChange={vi.fn()}
         onGenerate={vi.fn()}
-        onGeneratePickAndPrune={vi.fn()}
         onClose={vi.fn()}
       />
     );
@@ -145,21 +121,22 @@ describe("GenerateThemeModal", () => {
     expect(screen.getByTestId("theme-generate-error")).toHaveTextContent("Generation failed");
   });
 
-  it("renders the experimental Pick & Prune info and triggers try action", () => {
-    const onGeneratePickAndPrune = vi.fn();
-    renderModal({ onGeneratePickAndPrune });
+  it("uses the main Generate button for Pick & Prune review", () => {
+    const onGenerate = vi.fn();
+    renderModal({ onGenerate });
 
-    expect(screen.getByTestId("theme-pick-prune-info")).toHaveTextContent("Try Pick & Prune");
-    expect(screen.getByTestId("theme-pick-prune-info")).toHaveTextContent(
-      `generate ${PICK_AND_PRUNE_WORD_COUNT} words for review`
+    expect(screen.getByTestId("theme-generate-pick-prune-summary")).toHaveTextContent(
+      `Generate ${PICK_AND_PRUNE_WORD_COUNT} words`
     );
-    fireEvent.click(screen.getByTestId("theme-pick-prune-try"));
-    expect(onGeneratePickAndPrune).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("theme-pick-prune-try")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("theme-generate-submit"));
+    expect(onGenerate).toHaveBeenCalledTimes(1);
   });
 
-  it("disables Pick & Prune try when theme name is empty", () => {
+  it("disables Generate when theme name is empty", () => {
     renderModal({ themeName: "" });
-    expect(screen.getByTestId("theme-pick-prune-try")).toBeDisabled();
+    expect(screen.getByTestId("theme-generate-submit")).toBeDisabled();
   });
 
   it("shows Pick & Prune loading text when that mode is generating", () => {

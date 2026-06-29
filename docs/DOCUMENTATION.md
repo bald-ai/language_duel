@@ -19,7 +19,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 ## Core User Experiences
 
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
-- Generate themes: A user can generate a normal theme directly, or use Pick & Prune to over-generate words first and then keep only the useful entries.
+- Generate themes: AI-generated theme content uses Pick & Prune first, so users review generated words or sentence rounds and keep only the useful entries before the content becomes a draft or is appended to an existing theme.
 - Solo practice: A user practices against the app without needing another player. The ad-hoc Learn + Practice flow, weekly-goal solo practice, boss solo practice, and spaced repetition all support word themes, sentence themes, or mixed selections. Sentence practice uses a fill-the-blanks ladder where higher levels blank more of the sentence until the user builds the whole sentence.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
 - Duel modes: New challenges choose `PvP`, `PvE`, `Relay`, or `Tag Team`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks the next round from the remaining content and the other player answers it, then roles swap. Tag Team is the shared sentence-board mode where players alternate placing the next tile together.
@@ -55,12 +55,11 @@ Important relationships:
 
 Theme generation lifecycle:
 
-- Standard generation creates an unsaved private theme draft from a theme name, optional custom prompt, word type, and requested word count.
-- Pick & Prune is a review-first generation flow. For a new theme it requests `20` generated words, shows them in a review screen, lets the user remove and restore entries, and only creates the unsaved theme draft from the kept words.
-- Pick & Prune also exists when adding generated words to an existing theme. In that case it over-generates using the existing random-generation maximum, opens the same review screen, and appends only the kept words to the current local theme words.
+- User-visible AI generation is review-first through Pick & Prune. For a new word theme it requests `20` generated words, shows them in a review screen, lets the user remove and restore entries, and only creates the unsaved theme draft from the kept words.
+- Adding generated words to an existing theme also opens Pick & Prune first. It over-generates `10` words, opens the same review screen, and appends only the kept words to the current local theme words.
 - Removed Pick & Prune words are not deleted from a saved theme because the review happens before the new generated words are saved. The removed list is just a temporary review bucket.
 - Continuing Pick & Prune requires at least one kept word. Discarding a new-theme Pick & Prune review drops the generated list and returns to the theme list; discarding an existing-theme review returns to the theme detail without appending anything.
-- Sentence themes use the same review-first flow. Generating a sentence theme over-generates rounds (2× the requested count) and opens a sentence Pick & Prune review (each row shows the English prompt and Spanish answer with remove/restore) before the kept rounds open in the sentence editor.
+- Sentence themes use the same review-first flow. Generating a sentence theme over-generates rounds (2× the requested count) and opens a sentence Pick & Prune review (each row shows the English prompt and Spanish answer with remove/restore) before the kept rounds open in the sentence editor. Adding generated sentence rounds to an existing theme opens that same review screen before appending kept rounds.
 - Generated content is validated through the shared theme-generation API and semantic validation rules before it reaches the review or draft flow.
 
 Duel mode lifecycle:
@@ -119,7 +118,7 @@ Weekly goal lifecycle:
 ## Domain Terms
 
 - Theme: the core content unit, made of words and answers plus metadata like description, word type, sharing, and editability.
-- Pick & Prune: a generation review flow where the app intentionally creates more candidate words than needed, then the user removes weak entries before saving or appending the kept words.
+- Pick & Prune: a generation review flow where the app intentionally creates more candidate words or sentence rounds than needed, then the user removes weak entries before saving or appending the kept content.
 - Padded handle: the canonical concrete user label, formatted like `Alex#0123`. Generic status copy can still use product words like "Someone" when no user label is available.
 - Adjective themes use Spanish masculine singular/base-form adjectives, without articles or irregular markers.
 - Adverb themes use Spanish adverbs in canonical form, preferring the -mente form when derivable; pure adverbs (bien, siempre, aquí, muy) stay as-is. Wrong answers may include at most one bare-adjective distractor (for example, "rápido" as a distractor for "rápidamente").
@@ -144,7 +143,7 @@ Weekly goal lifecycle:
 - Mode-specific duel actions are enforced at the Convex mutation boundary through `assertDuelMode`; UI hiding is only for clarity.
 - PvE mode is not just PvP with sabotages hidden. PvE has different interaction rules, a shared hint pool, and a co-located-player product assumption.
 - Relay mode is not a PvP/PvE variant. It has its own phase machine (`pick`/`answer`/`feedback`), its own server mutations in `convex/relayDuel.ts`, and ignores the difficulty preset because difficulty is controlled per-turn via the hard-upgrade token instead.
-- Pick & Prune review state is temporary client-side state. Saved theme data only receives the words the user keeps.
+- Pick & Prune review state is temporary client-side state. Saved theme data only receives the generated words or sentence rounds the user keeps.
 - Weekly goals, boss challenges, notifications, and reminders are connected. Changes in one area can affect behavior in the others.
 - Themes are reused across study, solo practice, duels, and weekly goals, so content changes can have effects in multiple surfaces.
 

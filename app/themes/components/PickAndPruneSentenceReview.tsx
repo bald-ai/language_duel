@@ -23,6 +23,7 @@ import {
 import type { PickAndPruneRound } from "../hooks/usePickAndPruneSentence";
 
 export interface PickAndPruneSentenceReviewProps {
+  reviewKind: "new-theme" | "existing-theme";
   activeRounds: PickAndPruneRound[];
   removedRounds: PickAndPruneRound[];
   removedOpen: boolean;
@@ -40,6 +41,7 @@ export interface PickAndPruneSentenceReviewProps {
  * straight into the per-field editor.
  */
 export function PickAndPruneSentenceReview({
+  reviewKind,
   activeRounds,
   removedRounds,
   removedOpen,
@@ -52,6 +54,11 @@ export function PickAndPruneSentenceReview({
   const colors = useAppearanceColors();
   const activeCount = activeRounds.length;
   const removedCount = removedRounds.length;
+  const activeUnit = activeCount === 1 ? "sentence" : "sentences";
+  const continueLabel =
+    reviewKind === "existing-theme"
+      ? `Add ${activeCount} ${activeUnit}`
+      : `Continue with ${activeCount} ${activeUnit}`;
 
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col" data-testid="theme-sentence-pick-prune-review">
@@ -64,7 +71,7 @@ export function PickAndPruneSentenceReview({
             className="text-[11px] font-bold uppercase tracking-[0.22em]"
             style={{ color: colors.cta.light }}
           >
-            Experimental Review
+            Pick & Prune
           </p>
           <h1 className="title-font text-lg font-bold mt-0.5" style={{ color: colors.text.DEFAULT }}>
             Review Generated Sentences
@@ -171,7 +178,7 @@ export function PickAndPruneSentenceReview({
             style={getThemeActionButtonStyle("cta", colors)}
             data-testid="theme-sentence-pick-prune-review-submit"
           >
-            {`Continue with ${activeCount} ${activeCount === 1 ? "sentence" : "sentences"}`}
+            {continueLabel}
           </button>
           <button
             type="button"

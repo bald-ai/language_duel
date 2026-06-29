@@ -18,13 +18,16 @@ import { getSentenceThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation
 import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { areSentenceRoundsEqual } from "@/lib/themes/sentenceEditing";
 import { hasMissingThemeTts } from "@/lib/themes/tts";
+import { normalizeForComparison } from "@/lib/stringUtils";
 import { useTTS } from "@/hooks/useTTS";
 import {
+  addSentenceRound,
   generateMoreSentenceRounds,
   generateSentenceTheme,
   type GenerateSentenceThemeParams,
 } from "@/lib/themes/api";
 import {
+  LLM_ADD_SENTENCE_CREDITS,
   LLM_GENERATE_MORE_SENTENCES_CREDITS,
   LLM_SENTENCE_THEME_CREDITS,
 } from "@/lib/credits/constants";
@@ -53,6 +56,31 @@ function clearTtsIfChanged(
   return rest;
 }
 
+function getExistingSpanishSentences(rounds: SentenceRoundInput[]): string[] {
+  return rounds
+    .map((round) => round.spanishSentence.trim())
+    .filter((spanishSentence) => spanishSentence.length > 0);
+}
+
+function getExistingEnglishPrompts(rounds: SentenceRoundInput[]): string[] {
+  return rounds
+    .map((round) => round.englishPrompt.trim())
+    .filter((englishPrompt) => englishPrompt.length > 0);
+}
+
+function findDuplicateEnglishPrompt(
+  englishPrompt: string,
+  rounds: SentenceRoundInput[]
+): string | null {
+  const nextKey = normalizeForComparison(englishPrompt);
+  if (nextKey === "") return null;
+
+  const matchingRound = rounds.find(
+    (round) => normalizeForComparison(round.englishPrompt) === nextKey
+  );
+  return matchingRound?.englishPrompt ?? null;
+}
+
 export type SentenceSelectedState =
   | { kind: "saved"; theme: ThemeWithOwner }
   | {
@@ -76,17 +104,20 @@ export type SentenceEditField = {
 };
 
 /**
- * Theme metadata held during the Pick & Prune review, before the kept rounds
- * become the unsaved draft. Mirrors the `unsaved` draft minus `rounds` (those
- * live in the prune hook while the user reviews them).
+ * Metadata held during sentence Pick & Prune review. New-theme review carries
+ * the future draft fields; existing-theme review only needs to remember that
+ * kept rounds should append to the current local theme.
  */
-type SentenceReviewDraft = {
-  name: string;
-  description: string;
-  visibility: "private" | "shared";
-  friendsCanEdit: boolean;
-  saveRequestId: string;
-};
+type SentenceReviewDraft =
+  | {
+      kind: "new-theme";
+      name: string;
+      description: string;
+      visibility: "private" | "shared";
+      friendsCanEdit: boolean;
+      saveRequestId: string;
+    }
+  | { kind: "existing-theme" };
 
 interface UseSentenceThemeControllerReturn {
   /** True when sentence-theme UI should be visible (selected or editing). */
@@ -97,6 +128,16 @@ interface UseSentenceThemeControllerReturn {
   editField: SentenceEditField | null;
   isSaving: boolean;
   isGenerating: boolean;
+  isAddSentenceModalOpen: boolean;
+  addSentenceModalProps: {
+    isOpen: boolean;
+    englishPrompt: string;
+    isAdding: boolean;
+    error: string | null;
+    onPromptChange: (value: string) => void;
+    onAdd: () => Promise<void>;
+    onClose: () => void;
+  };
   /** True while a theme-level TTS generation run is in flight. */
   isGeneratingTTS: boolean;
   /** True when every local round already has pre-generated audio. */
@@ -113,6 +154,8 @@ interface UseSentenceThemeControllerReturn {
 
   /** True while the post-generation Pick & Prune review is on screen. */
   isReviewActive: boolean;
+  /** Whether the current review creates a draft or appends to an existing theme. */
+  reviewKind: "new-theme" | "existing-theme";
   /** Props for the sentence Pick & Prune review screen. */
   reviewProps: PickAndPruneSentenceReviewProps;
   /** True when the review's discard-confirm modal is open. */
@@ -131,6 +174,7 @@ interface UseSentenceThemeControllerReturn {
 
   openGenerateMoreModal: () => void;
   closeGenerateMoreModal: () => void;
+  generateMoreAndReview: () => Promise<void>;
   generateMoreAndAppend: () => Promise<void>;
 
   handleGenerateSentenceTTS: () => Promise<void>;
@@ -172,6 +216,10 @@ export function useSentenceThemeController(params: {
   const [editField, setEditField] = useState<SentenceEditField | null>(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isGenerateMoreModalOpen, setIsGenerateMoreModalOpen] = useState(false);
+  const [isAddSentenceModalOpen, setIsAddSentenceModalOpen] = useState(false);
+  const [addSentencePrompt, setAddSentencePrompt] = useState("");
+  const [addSentenceError, setAddSentenceError] = useState<string | null>(null);
+  const [isAddingSentence, setIsAddingSentence] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -307,6 +355,7 @@ export function useSentenceThemeController(params: {
         // Hand the over-generated rounds to the Pick & Prune review; the kept
         // rounds become the unsaved draft once the user clicks Continue.
         setReviewDraft({
+          kind: "new-theme",
           name: normalizeThemeName(input.themeName),
           description: `Generated sentence theme for: ${input.themeName.trim()}`,
           visibility: "private",
@@ -327,6 +376,14 @@ export function useSentenceThemeController(params: {
     if (!reviewDraft) return;
     const keptRounds = pickAndPrune.getActiveRounds();
     if (keptRounds.length === 0) return;
+
+    if (reviewDraft.kind === "existing-theme") {
+      setLocalRounds((previous) => [...previous, ...keptRounds]);
+      pickAndPrune.clear();
+      setReviewDraft(null);
+      return;
+    }
+
     setSelectedState({
       kind: "unsaved",
       draft: {
@@ -358,10 +415,12 @@ export function useSentenceThemeController(params: {
   }, [pickAndPrune]);
 
   const confirmDiscardReview = useCallback(() => {
+    const isExistingThemeReview = reviewDraft?.kind === "existing-theme";
     pickAndPrune.clear();
     setReviewDraft(null);
+    if (isExistingThemeReview) return;
     params.onAfterCancel();
-  }, [params, pickAndPrune]);
+  }, [params, pickAndPrune, reviewDraft]);
 
   const cancelDiscardReview = useCallback(() => {
     pickAndPrune.cancelDiscard();
@@ -380,6 +439,36 @@ export function useSentenceThemeController(params: {
     setGenerationError(null);
   }, [isGenerating]);
 
+  const generateMoreAndReview = useCallback(async () => {
+    if (!selectedTheme) return;
+    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      const result = await generateMoreSentenceRounds({
+        themeName: selectedTheme.name,
+        // Match the initial generation's review-first pattern: generate a
+        // larger batch, then append only the rounds kept in Pick & Prune.
+        roundCount: SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
+        existingSpanishSentences: getExistingSpanishSentences(localRounds),
+      });
+      if (!result.success || !result.data) {
+        setGenerationError(result.error || "Failed to generate more rounds");
+        return;
+      }
+      setReviewDraft({ kind: "existing-theme" });
+      pickAndPrune.initialize(result.data);
+      setIsGenerateMoreModalOpen(false);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : "Failed to generate more rounds");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [ensureLlmCredits, localRounds, pickAndPrune, selectedTheme]);
+
+  // Direct generation is intentionally not exposed in the UI while we test
+  // Pick & Prune as the default flow for all AI-generated theme content. Keep
+  // this append path for now so we can remove or restore it deliberately later.
   const generateMoreAndAppend = useCallback(async () => {
     if (!selectedTheme) return;
     if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
@@ -388,11 +477,8 @@ export function useSentenceThemeController(params: {
     try {
       const result = await generateMoreSentenceRounds({
         themeName: selectedTheme.name,
-        // Match the initial generation's over-generation pattern: ask for the
-        // pick-and-prune count, then let the user prune the appended rounds in
-        // the editor (no separate review screen — same as the initial flow).
         roundCount: SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
-        existingSpanishSentences: localRounds.map((round) => round.spanishSentence),
+        existingSpanishSentences: getExistingSpanishSentences(localRounds),
       });
       if (!result.success || !result.data) {
         setGenerationError(result.error || "Failed to generate more rounds");
@@ -510,23 +596,58 @@ export function useSentenceThemeController(params: {
     [playTTS, selectedState]
   );
 
+  const closeAddSentenceModal = useCallback(() => {
+    if (isAddingSentence) return;
+    setIsAddSentenceModalOpen(false);
+    setAddSentencePrompt("");
+    setAddSentenceError(null);
+  }, [isAddingSentence]);
+
   const handleAddManualRound = useCallback(() => {
-    setLocalRounds((previous) => [
-      ...previous,
-      {
-        englishPrompt: "",
-        spanishSentence: "",
-        wordMeanings: [],
-        freeWordPositions: [],
-        distractors: ["", "", ""],
-      },
-    ]);
-    setEditField({
-      roundIndex: localRounds.length,
-      field: "english",
-      initialValue: "",
-    });
-  }, [localRounds.length]);
+    if (!selectedTheme) return;
+    if (!ensureLlmCredits(LLM_ADD_SENTENCE_CREDITS, "Please sign in to add sentences.")) return;
+    setAddSentencePrompt("");
+    setAddSentenceError(null);
+    setIsAddSentenceModalOpen(true);
+  }, [ensureLlmCredits, selectedTheme]);
+
+  const handleAddSentenceRound = useCallback(async () => {
+    if (!selectedTheme) return;
+    const englishPrompt = addSentencePrompt.trim();
+    if (!englishPrompt) return;
+
+    const duplicatePrompt = findDuplicateEnglishPrompt(englishPrompt, localRounds);
+    if (duplicatePrompt) {
+      setAddSentenceError(`"${englishPrompt}" already exists in this theme as "${duplicatePrompt}"`);
+      return;
+    }
+
+    if (!ensureLlmCredits(LLM_ADD_SENTENCE_CREDITS, "Please sign in to add sentences.")) return;
+
+    setIsAddingSentence(true);
+    setAddSentenceError(null);
+    try {
+      const result = await addSentenceRound({
+        themeName: selectedTheme.name,
+        englishPrompt,
+        existingEnglishPrompts: getExistingEnglishPrompts(localRounds),
+        existingSpanishSentences: getExistingSpanishSentences(localRounds),
+      });
+
+      if (!result.success || !result.data) {
+        setAddSentenceError(result.error || "Failed to generate sentence");
+        return;
+      }
+
+      setLocalRounds((previous) => [...previous, result.data!]);
+      setAddSentencePrompt("");
+      setIsAddSentenceModalOpen(false);
+    } catch (error) {
+      setAddSentenceError(error instanceof Error ? error.message : "Failed to generate sentence");
+    } finally {
+      setIsAddingSentence(false);
+    }
+  }, [addSentencePrompt, ensureLlmCredits, localRounds, selectedTheme]);
 
   const handleEditField = useCallback(
     (roundIndex: number, field: SentenceRoundField, distractorIndex?: number) => {
@@ -749,7 +870,9 @@ export function useSentenceThemeController(params: {
   );
 
   const isReviewActive = reviewDraft !== null;
+  const reviewKind: "new-theme" | "existing-theme" = reviewDraft?.kind ?? "new-theme";
   const reviewProps: PickAndPruneSentenceReviewProps = {
+    reviewKind,
     activeRounds: pickAndPrune.activeRounds,
     removedRounds: pickAndPrune.removedRounds,
     removedOpen: pickAndPrune.removedOpen,
@@ -758,6 +881,19 @@ export function useSentenceThemeController(params: {
     onRestore: pickAndPrune.restoreRound,
     onContinue: handleContinueReview,
     onCancel: requestDiscardReview,
+  };
+
+  const addSentenceModalProps = {
+    isOpen: isAddSentenceModalOpen,
+    englishPrompt: addSentencePrompt,
+    isAdding: isAddingSentence,
+    error: addSentenceError,
+    onPromptChange: (value: string) => {
+      setAddSentencePrompt(value);
+      setAddSentenceError(null);
+    },
+    onAdd: handleAddSentenceRound,
+    onClose: closeAddSentenceModal,
   };
 
   const isActive = selectedState !== null || isGenerateModalOpen || isReviewActive;
@@ -770,6 +906,8 @@ export function useSentenceThemeController(params: {
     editField,
     isSaving,
     isGenerating,
+    isAddSentenceModalOpen,
+    addSentenceModalProps,
     isGeneratingTTS,
     isTTSUpToDate,
     playingRoundKey: playingWordKey,
@@ -780,6 +918,7 @@ export function useSentenceThemeController(params: {
     discardReviewKind,
 
     isReviewActive,
+    reviewKind,
     reviewProps,
     reviewDiscardConfirm: pickAndPrune.showDiscardConfirm,
     confirmDiscardReview,
@@ -791,6 +930,7 @@ export function useSentenceThemeController(params: {
     generateAndReview,
     openGenerateMoreModal,
     closeGenerateMoreModal,
+    generateMoreAndReview,
     generateMoreAndAppend,
 
     handleGenerateSentenceTTS,

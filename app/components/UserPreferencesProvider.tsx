@@ -9,6 +9,7 @@ type UserPreferences = {
   selectedColorSet: string | null;
   selectedBackground: string | null;
   ttsProvider: TtsProvider;
+  showExperimentalFeatures: boolean;
 } | null | undefined;
 
 type UserPreferencesContextValue = {
@@ -19,6 +20,9 @@ type UserPreferencesContextValue = {
   updateTtsProvider: (
     ttsProvider: TtsProvider
   ) => Promise<{ ttsProvider: TtsProvider }>;
+  updateShowExperimentalFeatures: (
+    showExperimentalFeatures: boolean
+  ) => Promise<{ showExperimentalFeatures: boolean }>;
 };
 
 const UserPreferencesContext = createContext<UserPreferencesContextValue | undefined>(undefined);
@@ -28,6 +32,9 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
   const updateColorSetMutation = useMutation(api.userPreferences.updateColorSet);
   const updateBackgroundMutation = useMutation(api.userPreferences.updateBackground);
   const updateTtsProviderMutation = useMutation(api.userPreferences.updateTtsProvider);
+  const updateShowExperimentalFeaturesMutation = useMutation(
+    api.userPreferences.updateShowExperimentalFeatures
+  );
 
   return (
     <UserPreferencesContext.Provider
@@ -37,6 +44,8 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
         updateColorSet: (colorSet) => updateColorSetMutation({ colorSet }),
         updateBackground: (background) => updateBackgroundMutation({ background }),
         updateTtsProvider: (ttsProvider) => updateTtsProviderMutation({ ttsProvider }),
+        updateShowExperimentalFeatures: (showExperimentalFeatures) =>
+          updateShowExperimentalFeaturesMutation({ showExperimentalFeatures }),
       }}
     >
       {children}

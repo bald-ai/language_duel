@@ -39,6 +39,10 @@ export type CreditBalances = {
   creditsMonth: string;
 };
 
+export type ConsumedCreditTransaction = CreditBalances & {
+  creditTransactionId: Doc<"creditTransactions">["_id"];
+};
+
 /**
  * Pure deduction: validates the cost, then returns the post-charge balances, or
  * `null` when the user can't afford it. Throws only on an invalid cost (a
@@ -86,7 +90,7 @@ export const consumeCredits = mutation({
     creditType: v.union(v.literal("llm"), v.literal("tts")),
     cost: v.number(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<ConsumedCreditTransaction> => {
     const { user } = await getAuthenticatedUser(ctx);
 
     const next = computeCreditConsumption(user, args.creditType, args.cost);
@@ -97,10 +101,68 @@ export const consumeCredits = mutation({
       });
     }
 
+    const creditTransactionId = await ctx.db.insert("creditTransactions", {
+      userId: user._id,
+      creditType: args.creditType,
+      cost: args.cost,
+      creditsMonth: next.creditsMonth,
+      status: "consumed",
+      createdAt: Date.now(),
+    });
+
     await ctx.db.patch(user._id, {
       llmCreditsRemaining: next.llmCreditsRemaining,
       ttsGenerationsRemaining: next.ttsGenerationsRemaining,
       creditsMonth: next.creditsMonth,
+    });
+
+    return { ...next, creditTransactionId };
+  },
+});
+
+export const refundConsumedCredits = mutation({
+  args: {
+    creditTransactionId: v.id("creditTransactions"),
+  },
+  handler: async (ctx, args): Promise<CreditBalances> => {
+    const { user } = await getAuthenticatedUser(ctx);
+    const transaction = await ctx.db.get(args.creditTransactionId);
+
+    if (!transaction || transaction.userId !== user._id) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Credit transaction not found" });
+    }
+
+    if (transaction.status !== "consumed") {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Credit transaction already refunded" });
+    }
+
+    const normalized = normalizeCreditState(user);
+    const next: CreditBalances = {
+      creditsMonth: normalized.creditsMonth,
+      llmCreditsRemaining: normalized.llmCreditsRemaining,
+      ttsGenerationsRemaining: normalized.ttsGenerationsRemaining,
+    };
+
+    if (transaction.creditType === "llm") {
+      next.llmCreditsRemaining = Math.min(
+        LLM_MONTHLY_CREDITS,
+        normalized.llmCreditsRemaining + transaction.cost
+      );
+    } else {
+      next.ttsGenerationsRemaining = Math.min(
+        TTS_MONTHLY_GENERATIONS,
+        normalized.ttsGenerationsRemaining + transaction.cost
+      );
+    }
+
+    await ctx.db.patch(user._id, {
+      llmCreditsRemaining: next.llmCreditsRemaining,
+      ttsGenerationsRemaining: next.ttsGenerationsRemaining,
+      creditsMonth: next.creditsMonth,
+    });
+    await ctx.db.patch(transaction._id, {
+      status: "refunded",
+      refundedAt: Date.now(),
     });
 
     return next;

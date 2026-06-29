@@ -1,0 +1,1306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Language Duel - Duel Creation Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Modak&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light;
+        --sat: env(safe-area-inset-top, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+        --color-primary: #fb7185;
+        --color-primary-light: #fc8a9c;
+        --color-primary-dark: #e9586e;
+        --color-primary-darkest: #d33d56;
+        --color-cta: #22c55e;
+        --color-cta-light: #3dd672;
+        --color-cta-lighter: #6ee391;
+        --color-cta-dark: #1a9a4a;
+        --color-cta-darkest: #137c3a;
+        --color-neutral: #6bbf8e;
+        --color-neutral-light: #8ad0a6;
+        --color-neutral-dark: #4f9a6d;
+        --color-secondary: #8ab0c4;
+        --color-secondary-light: #a5c4d5;
+        --color-secondary-dark: #6b95ad;
+        --color-background: #fff8f1;
+        --color-background-elevated: #ffffff;
+        --color-text: #1a1a1a;
+        --color-text-muted: #6b6b6b;
+        --color-success: #3bb273;
+        --color-danger: #e35f5f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Outfit", Arial, Helvetica, sans-serif;
+        color: var(--color-text);
+        background: var(--color-background);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .app {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .background {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+      }
+
+      .background picture,
+      .background img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .background img {
+        object-fit: cover;
+        object-position: 50% 30%;
+        transform: translateZ(0);
+      }
+
+      .top-left,
+      .top-right {
+        position: absolute;
+        top: 12px;
+        z-index: 20;
+        display: flex;
+        gap: 8px;
+      }
+
+      .top-left {
+        left: 8px;
+      }
+
+      .top-right {
+        right: 8px;
+      }
+
+      .nav-icon-btn {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 9999px;
+        background: transparent;
+        color: var(--color-text);
+        display: grid;
+        place-items: center;
+      }
+
+      .nav-icon-btn:hover {
+        background-color: color-mix(in srgb, var(--color-text) 10%, transparent);
+      }
+
+      .home-header {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 32px;
+        padding-bottom: 16px;
+      }
+
+      .hairline {
+        width: 64px;
+        height: 2px;
+        margin-bottom: 12px;
+        border-radius: 9999px;
+        background: linear-gradient(to right, transparent, var(--color-text-muted), transparent);
+      }
+
+      .brand {
+        margin: 0;
+        font-family: "Modak", "Fredoka", sans-serif;
+        font-size: clamp(48px, 9vw, 104px);
+        line-height: 0.92;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-align: center;
+      }
+
+      .brand-language {
+        background-image: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-light) 50%, var(--color-primary-dark) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .brand-duel {
+        background-image: linear-gradient(135deg, var(--color-cta-dark) 0%, var(--color-cta-light) 50%, var(--color-cta-dark) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .tagline {
+        margin: 12px 0 0;
+        max-width: 360px;
+        padding: 0 16px;
+        text-align: center;
+        font-size: 18px;
+        line-height: 1.4;
+        font-weight: 300;
+        letter-spacing: 0;
+      }
+
+      .home-spacer {
+        flex: 1;
+      }
+
+      .home-menu {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        max-width: 360px;
+        margin: 0 auto;
+        padding: 0 24px calc(20px + env(safe-area-inset-bottom));
+      }
+
+      .menu-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .menu-button {
+        width: 100%;
+        border-style: solid;
+        border-width: 2px 2px 4px;
+        border-radius: 12px;
+        padding: 8px 16px;
+        background-image: linear-gradient(to bottom, var(--color-primary-light), var(--color-primary-dark));
+        border-top-color: var(--color-primary-light);
+        border-left-color: var(--color-primary);
+        border-right-color: var(--color-primary);
+        border-bottom-color: var(--color-primary-darkest);
+        color: #fff;
+        text-transform: uppercase;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.14);
+        backdrop-filter: blur(4px);
+        transition: filter 0.2s, transform 0.2s, border-bottom-width 0.2s;
+      }
+
+      .menu-button:hover {
+        filter: brightness(1.1);
+        transform: translateY(2px);
+        border-bottom-width: 2px;
+      }
+
+      .menu-button span {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        padding-left: 4px;
+      }
+
+      .menu-button svg,
+      .nav-icon-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: var(--color-cta-light);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .modal-center {
+        min-height: 100%;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .modal-panel {
+        width: calc(100vw - 32px);
+        max-width: 448px;
+        min-width: 0;
+        height: min(640px, calc(100dvh - 32px));
+        max-height: calc(100dvh - 32px);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border: 2px solid var(--color-primary);
+        border-radius: 24px;
+        padding: 20px;
+        background-image: linear-gradient(180deg, var(--color-background), var(--color-background-elevated));
+        box-shadow: 0 20px 60px rgba(251, 113, 133, 0.4);
+        backdrop-filter: blur(4px);
+      }
+
+      .modal-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 26px;
+        flex-shrink: 0;
+      }
+
+      .modal-title {
+        margin: 0;
+        font-family: "Fredoka", sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .modal-scroll {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding-right: 2px;
+      }
+
+      .progress-region {
+        flex: 0 0 auto;
+        margin-bottom: 24px;
+      }
+
+      .step-content {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        transform-origin: center top;
+        will-change: opacity, transform, filter;
+      }
+
+      .progress-breadcrumb {
+        display: grid;
+        grid-template-columns: repeat(var(--step-count), minmax(0, 1fr));
+        align-items: start;
+        gap: 0;
+      }
+
+      .crumb-step {
+        position: relative;
+        min-width: 0;
+        display: grid;
+        justify-items: center;
+        gap: 5px;
+        color: var(--color-text-muted);
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.05;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .crumb-step::before,
+      .crumb-step::after {
+        content: "";
+        position: absolute;
+        top: 10px;
+        height: 2px;
+        width: 50%;
+        background: color-mix(in srgb, var(--color-primary) 24%, transparent);
+      }
+
+      .crumb-step::before {
+        left: 0;
+      }
+
+      .crumb-step::after {
+        right: 0;
+      }
+
+      .crumb-step:first-child::before,
+      .crumb-step:last-child::after {
+        display: none;
+      }
+
+      .crumb-step.done::before,
+      .crumb-step.done::after,
+      .crumb-step.active::before {
+        background: var(--color-primary);
+      }
+
+      .crumb-dot {
+        position: relative;
+        z-index: 1;
+        width: 20px;
+        height: 20px;
+        border: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+        border-radius: 9999px;
+        display: grid;
+        place-items: center;
+        background: var(--color-background-elevated);
+        color: var(--color-text-muted);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .crumb-step.done .crumb-dot {
+        border-color: var(--color-primary);
+        color: #fff;
+        background: var(--color-primary);
+      }
+
+      .crumb-step.active .crumb-dot {
+        border-color: var(--color-cta);
+        color: #fff;
+        background: var(--color-cta);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-cta) 16%, transparent);
+      }
+
+      .step-prompt {
+        flex: 0 0 auto;
+        margin: 0 0 22px;
+        color: var(--color-text-muted);
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .section-card {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        border: 1.5px solid var(--color-primary-dark);
+        border-radius: 16px;
+        padding: 16px;
+        background: var(--color-background-elevated);
+        box-shadow: 0 6px 16px rgba(80, 40, 15, 0.12);
+      }
+
+      .section-card > div {
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .flow-exit-forward {
+        animation: flow-exit-forward 105ms cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+
+      .flow-enter-forward {
+        animation: flow-enter-forward 210ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .flow-exit-back {
+        animation: flow-exit-back 105ms cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+
+      .flow-enter-back {
+        animation: flow-enter-back 210ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      @keyframes flow-exit-forward {
+        from {
+          opacity: 1;
+          transform: translateX(0) translateY(0) scale(1);
+        }
+
+        to {
+          opacity: 0;
+          transform: translateX(-10px) translateY(2px) scale(0.992);
+        }
+      }
+
+      @keyframes flow-enter-forward {
+        from {
+          opacity: 0;
+          filter: blur(1.5px);
+          transform: translateX(14px) translateY(3px) scale(0.995);
+        }
+
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateX(0) translateY(0) scale(1);
+        }
+      }
+
+      @keyframes flow-exit-back {
+        from {
+          opacity: 1;
+          transform: translateX(0) translateY(0) scale(1);
+        }
+
+        to {
+          opacity: 0;
+          transform: translateX(10px) translateY(2px) scale(0.992);
+        }
+      }
+
+      @keyframes flow-enter-back {
+        from {
+          opacity: 0;
+          filter: blur(1.5px);
+          transform: translateX(-14px) translateY(3px) scale(0.995);
+        }
+
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateX(0) translateY(0) scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .flow-exit-forward,
+        .flow-enter-forward,
+        .flow-exit-back,
+        .flow-enter-back {
+          animation: none;
+        }
+      }
+
+      .stack {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .scroll-stack {
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 2px;
+      }
+
+      .theme-scroll {
+        height: 100%;
+      }
+
+      .row-button {
+        width: 100%;
+        min-width: 0;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 12px 16px;
+        background: var(--color-background);
+        text-align: left;
+        transition: filter 0.15s;
+      }
+
+      .row-button:hover {
+        filter: brightness(0.97);
+      }
+
+      .row-button.selected {
+        border-color: var(--color-cta);
+        background: color-mix(in srgb, var(--color-cta) 10%, transparent);
+      }
+
+      .row-button.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .row-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .row-left {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .row-text {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .row-title {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--color-text);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .row-button.selected .row-title,
+      .selected-text {
+        color: var(--color-cta-dark);
+      }
+
+      .row-title.bold {
+        font-weight: 700;
+      }
+
+      .row-subtitle {
+        display: block;
+        color: var(--color-text-muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .checkmark {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        display: grid;
+        place-items: center;
+        margin-left: 8px;
+        background: var(--color-cta);
+      }
+
+      .checkmark svg {
+        width: 10px;
+        height: 10px;
+        fill: white;
+      }
+
+      .selected-summary {
+        flex: 0 0 auto;
+        padding-top: 10px;
+        color: var(--color-text-muted);
+        text-align: center;
+        font-size: 12px;
+      }
+
+      .group-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 4px 6px;
+      }
+
+      .group-dot {
+        width: 8px;
+        height: 8px;
+        flex-shrink: 0;
+        border-radius: 9999px;
+        background: var(--color-text-muted);
+      }
+
+      .group-dot.sentence {
+        background: var(--color-secondary);
+      }
+
+      .group-label {
+        color: var(--color-text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .group-label.sentence {
+        color: var(--color-secondary-dark);
+      }
+
+      .mode-icon {
+        flex-shrink: 0;
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .default-label {
+        color: var(--color-cta-dark);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .review-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 0;
+        border-bottom: 1px solid color-mix(in srgb, var(--color-primary) 13%, transparent);
+      }
+
+      .review-row:last-child {
+        border-bottom: 0;
+      }
+
+      .review-key {
+        color: var(--color-text-muted);
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .review-value {
+        color: var(--color-text);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: right;
+      }
+
+      .footer {
+        margin-top: 16px;
+        min-height: 108px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+
+      .footer.stack-footer {
+        gap: 12px;
+      }
+
+      .footer-row {
+        display: flex;
+        gap: 12px;
+      }
+
+      .button {
+        border: 0;
+        border-radius: 16px;
+        padding: 14px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        transition: filter 0.15s, transform 0.15s;
+      }
+
+      .button:hover {
+        filter: brightness(1.08);
+      }
+
+      .button:active {
+        transform: translateY(2px);
+      }
+
+      .button.primary {
+        flex: 1;
+        color: white;
+        background-image: linear-gradient(to bottom, var(--color-cta-light), var(--color-cta-dark));
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 8px 20px rgba(34, 197, 94, 0.5);
+      }
+
+      .button.outline {
+        color: var(--color-primary-dark);
+        background: var(--color-background-elevated);
+        border: 1.5px solid var(--color-primary);
+      }
+
+      .button.full {
+        width: 100%;
+      }
+
+      .button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (min-width: 640px) {
+        .top-left {
+          left: 16px;
+        }
+
+        .top-right {
+          right: 16px;
+        }
+
+        .modal-panel {
+          padding: 24px;
+        }
+
+        .modal-title {
+          font-size: 24px;
+        }
+      }
+
+      @media (max-width: 639px) {
+        .tagline {
+          font-size: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="background" aria-hidden="true">
+        <picture>
+          <source media="(min-aspect-ratio: 1/1)" srcset="../public/background-wide.jpg" />
+          <img src="../public/background.jpg" alt="" />
+        </picture>
+      </div>
+
+      <div class="top-left" aria-hidden="true">
+        <button class="nav-icon-btn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
+      </div>
+      <div class="top-right" aria-hidden="true">
+        <button class="nav-icon-btn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        </button>
+      </div>
+
+      <header class="home-header">
+        <div class="hairline"></div>
+        <h1 class="brand">
+          <span class="brand-language">Language</span><br />
+          <span class="brand-duel">Duel</span>
+        </h1>
+        <p class="tagline">
+          Achieve <b><u>oral mastery</u></b> and find out<br />
+          which one of you <b><u>sucks</u></b> more
+        </p>
+      </header>
+
+      <div class="home-spacer"></div>
+
+      <main class="home-menu">
+        <nav class="menu-list">
+          <button class="menu-button" type="button">
+            <span>
+              <svg viewBox="0 0 24 24"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" /><path d="M12 14a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7z" /></svg>
+              Solo Practice
+            </span>
+          </button>
+          <button class="menu-button" type="button" id="open-modal-button">
+            <span>
+              <svg viewBox="0 0 24 24">
+                <g transform="rotate(45 12 12)"><path d="M12 3v13" /><path d="M9 16a3 3 0 0 0 6 0" /><path d="M12 19v3" /></g>
+                <g transform="rotate(-45 12 12)"><path d="M12 3v13" /><path d="M9 16a3 3 0 0 0 6 0" /><path d="M12 19v3" /></g>
+              </svg>
+              Duel
+            </span>
+          </button>
+          <button class="menu-button" type="button">
+            <span>
+              <svg viewBox="0 0 24 24"><path d="M7 21a4 4 0 0 1-4-4V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v12a4 4 0 0 1-4 4zm0 0h12a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 0 1 2.828 0l2.829 2.829a2 2 0 0 1 0 2.828l-8.486 8.485M7 17h.01" /></svg>
+              Manage Themes
+            </span>
+          </button>
+          <button class="menu-button" type="button">
+            <span>
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /><path d="M7 4v6M12 9v6M17 14v6" /></svg>
+              Mock Features
+            </span>
+          </button>
+          <button class="menu-button" type="button">
+            <span>
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" /></svg>
+              Online Mock Features
+            </span>
+          </button>
+        </nav>
+      </main>
+
+      <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal-center">
+          <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-title-row">
+              <h2 class="modal-title" id="modal-title">Create Challenge</h2>
+            </div>
+            <div class="modal-scroll">
+              <div class="progress-region" id="progress-region"></div>
+              <div class="step-content" id="step-content">
+                <p class="step-prompt" id="step-prompt"></p>
+                <section class="section-card" id="step-body"></section>
+              </div>
+            </div>
+            <div class="footer" id="footer"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const viewer = { id: "me", label: "Solo practice", sub: "Duel yourself — practice mode" };
+      const users = [
+        { id: "sofia", label: "Sofia#0184" },
+        { id: "marco", label: "Marco#2047" },
+        { id: "lucia", label: "Lucia#0912" },
+      ];
+      const themes = [
+        { id: "restaurant", name: "Restaurant basics", itemCount: 24, contentType: "word" },
+        { id: "travel", name: "Travel verbs", itemCount: 18, contentType: "word" },
+        { id: "family", name: "Family phrases", itemCount: 16, contentType: "word" },
+        { id: "daily", name: "Daily conversation", itemCount: 8, contentType: "sentence" },
+        { id: "ordering", name: "Ordering food", itemCount: 7, contentType: "sentence" },
+      ];
+      const modes = [
+        { mode: "pvp", label: "PvP", description: "Sabotages · compete", icon: "⚔️" },
+        { mode: "pve", label: "PvE", description: "Hints · cooperate", icon: "🤝" },
+        { mode: "relay", label: "Relay", description: "Take turns · hand off rounds", icon: "🏃" },
+        { mode: "tbt", label: "Tag Team", description: "Take turns · build sentences together", icon: "👥" },
+      ];
+      const difficulties = [
+        { preset: "easy", label: "Easy", description: "All difficulty levels", isDefault: true },
+        { preset: "medium", label: "Medium", description: "Medium and hard questions only" },
+        { preset: "hard", label: "Hard", description: "Hard questions only" },
+      ];
+      const stepPrompt = {
+        opponent: "Who are you playing?",
+        theme: "Pick your theme(s)",
+        mode: "How do you want to play?",
+        difficulty: "Difficulty",
+        confirm: "Review",
+      };
+      const progressLabels = {
+        opponent: "Opponent",
+        theme: "Theme",
+        mode: "Type",
+        difficulty: "Level",
+        confirm: "Review",
+      };
+      const state = {
+        modalOpen: true,
+        stepKey: "opponent",
+        selectedOpponentId: null,
+        selectedThemeIds: [],
+        requestedMode: "pvp",
+        selectedDifficulty: "easy",
+      };
+
+      const modal = document.getElementById("modal-backdrop");
+      const openButton = document.getElementById("open-modal-button");
+      const title = document.getElementById("modal-title");
+      const progressRegion = document.getElementById("progress-region");
+      const stepContent = document.getElementById("step-content");
+      const prompt = document.getElementById("step-prompt");
+      const body = document.getElementById("step-body");
+      const footer = document.getElementById("footer");
+      const transitionClassNames = [
+        "flow-exit-forward",
+        "flow-enter-forward",
+        "flow-exit-back",
+        "flow-enter-back",
+      ];
+      let transitionTimer = null;
+      let isTransitioning = false;
+
+      function isSelfSelected() {
+        return state.selectedOpponentId === viewer.id;
+      }
+
+      function selectedOpponent() {
+        if (isSelfSelected()) return viewer;
+        return users.find((user) => user.id === state.selectedOpponentId) || null;
+      }
+
+      function hasOpponent() {
+        return state.selectedOpponentId !== null;
+      }
+
+      function hasTheme() {
+        return state.selectedThemeIds.length > 0;
+      }
+
+      function allSentenceThemes() {
+        return hasTheme() && state.selectedThemeIds.every((themeId) => {
+          const theme = themes.find((item) => item.id === themeId);
+          return theme && theme.contentType === "sentence";
+        });
+      }
+
+      function steps() {
+        const list = ["opponent"];
+        if (!hasOpponent()) return list;
+        list.push("theme");
+        if (!hasTheme()) return list;
+        if (!isSelfSelected()) list.push("mode");
+        list.push("difficulty");
+        list.push("confirm");
+        return list;
+      }
+
+      function activeStep() {
+        const list = steps();
+        return list.includes(state.stepKey) ? state.stepKey : list[list.length - 1];
+      }
+
+      function isRelaySelected() {
+        return !isSelfSelected() && state.requestedMode === "relay";
+      }
+
+      function isAutoStep(step) {
+        return step === "opponent" || step === "mode" || (step === "difficulty" && !isRelaySelected());
+      }
+
+      function stepDirection(currentStep, nextStep) {
+        const currentIndex = steps().indexOf(currentStep);
+        state.stepKey = nextStep;
+        const nextIndex = steps().indexOf(activeStep());
+        state.stepKey = currentStep;
+        return nextIndex < currentIndex ? "back" : "forward";
+      }
+
+      function setStep(nextStep, direction) {
+        const currentStep = activeStep();
+        if (nextStep === currentStep) {
+          render();
+          return;
+        }
+
+        const resolvedDirection = direction ?? stepDirection(currentStep, nextStep);
+        if (transitionTimer) clearTimeout(transitionTimer);
+        isTransitioning = true;
+        stepContent.classList.remove(...transitionClassNames);
+        footer.classList.remove(...transitionClassNames);
+        void stepContent.offsetWidth;
+        stepContent.classList.add(`flow-exit-${resolvedDirection}`);
+        footer.classList.add(`flow-exit-${resolvedDirection}`);
+
+        transitionTimer = setTimeout(() => {
+          state.stepKey = nextStep;
+          render({ enterDirection: resolvedDirection });
+          isTransitioning = false;
+        }, 105);
+      }
+
+      function checkmark() {
+        return '<span class="checkmark"><svg viewBox="0 0 20 20"><path fill-rule="evenodd" clip-rule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0z"/></svg></span>';
+      }
+
+      function rowButton({ id, title, subtitle, selected, disabled, icon, extraRight, onClick }) {
+        return `
+          <button class="row-button${selected ? " selected" : ""}${disabled ? " disabled" : ""}" type="button" data-action="${onClick}" data-id="${id}" ${disabled ? "disabled" : ""}>
+            <span class="row-inner">
+              <span class="row-left">
+                ${icon ? `<span class="mode-icon" aria-hidden="true">${icon}</span>` : ""}
+                <span class="row-text">
+                  <span class="row-title${icon ? " bold" : ""}">${title}</span>
+                  ${subtitle ? `<span class="row-subtitle">${subtitle}</span>` : ""}
+                </span>
+              </span>
+              <span class="row-left">
+                ${extraRight || ""}
+                ${selected ? checkmark() : ""}
+              </span>
+            </span>
+          </button>
+        `;
+      }
+
+      function renderOpponentStep() {
+        const rows = [
+          rowButton({
+            id: viewer.id,
+            title: viewer.label,
+            subtitle: viewer.sub,
+            selected: state.selectedOpponentId === viewer.id,
+            onClick: "select-opponent",
+          }),
+          ...users.map((user) =>
+            rowButton({
+              id: user.id,
+              title: user.label,
+              selected: state.selectedOpponentId === user.id,
+              onClick: "select-opponent",
+            })
+          ),
+        ];
+        const selected = selectedOpponent();
+        body.innerHTML = `
+          <div>
+            <div class="scroll-stack">${rows.join("")}</div>
+            ${selected ? `<div class="selected-summary">Selected: <span class="selected-text">${isSelfSelected() ? "Solo practice" : selected.label}</span></div>` : ""}
+          </div>
+        `;
+      }
+
+      function formatThemeItemCount(theme) {
+        const unit = theme.contentType === "sentence"
+          ? theme.itemCount === 1 ? "round" : "rounds"
+          : theme.itemCount === 1 ? "word" : "words";
+        return `${theme.itemCount} ${unit}`;
+      }
+
+      function renderThemeGroup(contentType, label) {
+        const groupThemes = themes.filter((theme) => theme.contentType === contentType);
+        if (groupThemes.length === 0) return "";
+        return `
+          <div class="group-header">
+            <span class="group-dot${contentType === "sentence" ? " sentence" : ""}"></span>
+            <span class="group-label${contentType === "sentence" ? " sentence" : ""}">${label}</span>
+          </div>
+          ${groupThemes.map((theme) => rowButton({
+            id: theme.id,
+            title: theme.name,
+            subtitle: formatThemeItemCount(theme),
+            selected: state.selectedThemeIds.includes(theme.id),
+            onClick: "toggle-theme",
+          })).join("")}
+        `;
+      }
+
+      function renderThemeStep() {
+        const selectedThemes = themes.filter((theme) => state.selectedThemeIds.includes(theme.id));
+        body.innerHTML = `
+          <div>
+            <div class="scroll-stack theme-scroll">
+              ${renderThemeGroup("word", "Words")}
+              ${renderThemeGroup("sentence", "Sentences")}
+            </div>
+            ${selectedThemes.length > 0 ? `<div class="selected-summary">Selected: <span class="selected-text">${selectedThemes.length === 1 ? selectedThemes[0].name : `${selectedThemes.length} themes`}</span></div>` : ""}
+          </div>
+        `;
+      }
+
+      function renderModeStep() {
+        const disabledReason = allSentenceThemes() ? null : "Needs an all-sentence deck";
+        body.innerHTML = `
+          <div class="stack">
+            ${modes.map((mode) => {
+              const disabled = mode.mode === "tbt" && disabledReason;
+              return rowButton({
+                id: mode.mode,
+                title: mode.label,
+                subtitle: disabled ? disabledReason : mode.description,
+                icon: mode.icon,
+                selected: state.requestedMode === mode.mode,
+                disabled,
+                onClick: "select-mode",
+              });
+            }).join("")}
+          </div>
+        `;
+      }
+
+      function renderDifficultyStep() {
+        if (isRelaySelected()) {
+          body.innerHTML = '<p class="row-subtitle" style="font-size:14px;margin:0;">Controlled by the picker</p>';
+          return;
+        }
+        body.innerHTML = `
+          <div class="stack">
+            ${difficulties.map((difficulty) => rowButton({
+              id: difficulty.preset,
+              title: difficulty.label,
+              subtitle: difficulty.description,
+              selected: state.selectedDifficulty === difficulty.preset,
+              extraRight: difficulty.isDefault ? '<span class="default-label">Default</span>' : "",
+              onClick: "select-difficulty",
+            })).join("")}
+          </div>
+        `;
+      }
+
+      function renderConfirmStep() {
+        const opponent = isSelfSelected() ? "Solo practice" : (selectedOpponent() ? selectedOpponent().label : "—");
+        const themeLabel = state.selectedThemeIds.length === 1
+          ? (themes.find((theme) => theme.id === state.selectedThemeIds[0]) || {}).name || "1 theme"
+          : `${state.selectedThemeIds.length} themes`;
+        const modeLabel = isSelfSelected()
+          ? "Practice (PvE)"
+          : (modes.find((mode) => mode.mode === state.requestedMode) || {}).label || "—";
+        const difficultyLabel = isRelaySelected()
+          ? "Per-turn (Relay)"
+          : (difficulties.find((difficulty) => difficulty.preset === state.selectedDifficulty) || {}).label || "—";
+        body.innerHTML = `
+          <div>
+            ${reviewRow("Opponent", opponent)}
+            ${reviewRow("Theme", themeLabel)}
+            ${reviewRow("Mode", modeLabel)}
+            ${reviewRow("Difficulty", difficultyLabel)}
+          </div>
+        `;
+      }
+
+      function reviewRow(key, value) {
+        return `<div class="review-row"><span class="review-key">${key}</span><span class="review-value">${value}</span></div>`;
+      }
+
+      function renderBody(step) {
+        if (step === "opponent") renderOpponentStep();
+        if (step === "theme") renderThemeStep();
+        if (step === "mode") renderModeStep();
+        if (step === "difficulty") renderDifficultyStep();
+        if (step === "confirm") renderConfirmStep();
+      }
+
+      function progressStatus(progressStep, currentStep, visibleSteps) {
+        const stepIndex = visibleSteps.indexOf(progressStep);
+        const currentIndex = visibleSteps.indexOf(currentStep);
+        if (stepIndex === currentIndex) return "active";
+        if (stepIndex < currentIndex) return "done";
+        return "future";
+      }
+
+      function renderProgress(currentStep, visibleSteps) {
+        const progressStyle = `--step-count:${visibleSteps.length}`;
+        progressRegion.innerHTML = `
+          <div class="progress-breadcrumb" style="${progressStyle}">
+            ${visibleSteps.map((progressStep, index) => {
+              const status = progressStatus(progressStep, currentStep, visibleSteps);
+              const dotText = status === "done" ? "✓" : index + 1;
+              return `
+                <div class="crumb-step ${status}">
+                  <span class="crumb-dot">${dotText}</span>
+                  <span>${progressLabels[progressStep]}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      function renderFooter(step, list, index) {
+        const isFirst = index <= 0;
+        const isConfirm = step === "confirm";
+        const backButton = !isFirst ? '<button class="button outline" type="button" data-action="back">Back</button>' : "";
+        const cancelButton = '<button class="button outline full" type="button" data-action="cancel">Cancel</button>';
+        const nextDisabled = step === "theme" && !hasTheme();
+        const primary = isConfirm
+          ? `<button class="button primary" type="button" data-action="create" ${!hasOpponent() || !hasTheme() ? "disabled" : ""}>${isSelfSelected() ? "Start practice" : "Create Challenge"}</button>`
+          : `<button class="button primary" type="button" data-action="next" ${nextDisabled ? "disabled" : ""}>Next</button>`;
+
+        if (!isAutoStep(step)) {
+          footer.className = "footer stack-footer";
+          footer.innerHTML = `<div class="footer-row">${backButton}${primary}</div>${cancelButton}`;
+          return;
+        }
+
+        footer.className = "footer";
+        footer.innerHTML = backButton
+          ? `<div class="footer-row">${backButton}<button class="button outline" style="flex:1" type="button" data-action="cancel">Cancel</button></div>`
+          : cancelButton;
+      }
+
+      function render(options = {}) {
+        modal.classList.toggle("hidden", !state.modalOpen);
+        const list = steps();
+        const step = activeStep();
+        const index = list.indexOf(step);
+        title.textContent = isSelfSelected() ? "Solo Practice" : "Create Challenge";
+        prompt.textContent = stepPrompt[step];
+        renderProgress(step, list);
+        renderBody(step);
+        renderFooter(step, list, index);
+        stepContent.classList.remove(...transitionClassNames);
+        footer.classList.remove(...transitionClassNames);
+        if (options.enterDirection) {
+          void stepContent.offsetWidth;
+          stepContent.classList.add(`flow-enter-${options.enterDirection}`);
+          footer.classList.add(`flow-enter-${options.enterDirection}`);
+        }
+      }
+
+      function advanceAfterTheme() {
+        if (!isSelfSelected()) {
+          setStep("mode");
+          return;
+        }
+        setStep("difficulty");
+      }
+
+      function nextStep() {
+        const step = activeStep();
+        if (step === "theme") advanceAfterTheme();
+        if (step === "difficulty") setStep("confirm");
+      }
+
+      function backStep() {
+        const list = steps();
+        const index = list.indexOf(activeStep());
+        if (index > 0) setStep(list[index - 1], "back");
+      }
+
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        if (!target) return;
+        if (isTransitioning) return;
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+
+        if (action === "select-opponent") {
+          state.selectedOpponentId = id;
+          setStep("theme");
+        }
+        if (action === "toggle-theme") {
+          state.selectedThemeIds = state.selectedThemeIds.includes(id)
+            ? state.selectedThemeIds.filter((themeId) => themeId !== id)
+            : [...state.selectedThemeIds, id];
+          if (state.requestedMode === "tbt" && !allSentenceThemes()) {
+            state.requestedMode = "pvp";
+          }
+          render();
+        }
+        if (action === "select-mode") {
+          state.requestedMode = id;
+          setStep("difficulty");
+        }
+        if (action === "select-difficulty") {
+          state.selectedDifficulty = id;
+          setStep("confirm");
+        }
+        if (action === "next") nextStep();
+        if (action === "back") backStep();
+        if (action === "cancel") {
+          state.modalOpen = false;
+          render();
+        }
+        if (action === "create") {
+          target.textContent = isSelfSelected() ? "Starting..." : "Creating...";
+          target.disabled = true;
+        }
+      });
+
+      openButton.addEventListener("click", () => {
+        state.modalOpen = true;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

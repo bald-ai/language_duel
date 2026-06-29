@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
+  buildAddSentenceRoundPrompt,
+  buildAddSentenceRoundUserMessage,
   buildAddWordPrompt,
   buildFieldSystemPrompt,
   buildGenerateMoreSentenceRoundsPrompt,
@@ -27,6 +30,7 @@ import {
 import { WRONG_ANSWER_COUNT } from "@/lib/generate/constants";
 import {
   LLM_ADD_WORD_CREDITS,
+  LLM_ADD_SENTENCE_CREDITS,
   LLM_FIELD_REGEN_CREDITS,
   LLM_GENERATE_MORE_SENTENCES_CREDITS,
   LLM_GENERATE_MORE_WORDS_CREDITS,
@@ -35,7 +39,6 @@ import {
   LLM_WORD_THEME_CREDITS,
 } from "@/lib/credits/constants";
 import { type GenerateRequest } from "@/lib/generate/requestValidation";
-import { ApiRouteError } from "@/lib/api/serverErrors";
 import { getAuthedConvexClient } from "@/lib/api/convexClient";
 import type { WordType } from "@/lib/themes/wordTypes";
 import type { ThemeWordInput } from "@/lib/themes/serverValidation";
@@ -64,6 +67,7 @@ import {
   validateGeneratedWordsAgainstExisting,
   validateGeneratedWrongAnswer,
 } from "@/lib/generate/semanticValidation";
+import { normalizeForComparison } from "@/lib/stringUtils";
 
 type OpenAIClient = ReturnType<typeof createOpenAIClient>;
 
@@ -72,6 +76,26 @@ type AnswerOnly = { answer: string };
 type WrongAnswerOnly = { wrongAnswer: string };
 type FieldGeneratedData = WordWithChoices | AnswerOnly | WrongAnswerOnly;
 type AnswerAndWrongs = { answer: string; wrongAnswers: string[] };
+type ConsumedCreditTransaction = {
+  creditTransactionId: Id<"creditTransactions">;
+};
+
+function validateEnglishPromptAgainstExisting(
+  englishPrompt: string,
+  existingEnglishPrompts: string[]
+): string[] {
+  const promptKey = normalizeForComparison(englishPrompt);
+  if (promptKey === "") return [];
+
+  const matchingExisting = existingEnglishPrompts.find(
+    (existingPrompt) => normalizeForComparison(existingPrompt) === promptKey
+  );
+  if (!matchingExisting) return [];
+
+  return [
+    `Sentence 1: English prompt "${englishPrompt}" duplicates existing sentence prompt "${matchingExisting}" after normalization.`,
+  ];
+}
 
 /**
  * One generate→validate→retry-once→validate pipeline, shared by every request
@@ -89,31 +113,41 @@ type GenerationSpec<T> = {
   retryInstruction: string;
 };
 
-async function ensureLlmCreditsAvailable(cost: number) {
-  const client = await getAuthedConvexClient();
-  const currentUser = await client.query(api.users.getCurrentUser, {});
-  if (!currentUser) {
-    throw new ApiRouteError("AUTH_FAILED", "Unauthorized", 401);
-  }
-  if (currentUser.llmCreditsRemaining < cost) {
-    throw new ApiRouteError("CREDITS_EXHAUSTED", "LLM credits exhausted", 402);
-  }
-  return client;
+async function getCreditClient() {
+  return await getAuthedConvexClient();
 }
 
-async function consumeLlmCredits(client: ConvexHttpClient, cost: number) {
-  await client.mutation(api.credits.consumeCredits, {
+async function consumeLlmCredits(
+  client: ConvexHttpClient,
+  cost: number
+): Promise<ConsumedCreditTransaction> {
+  return await client.mutation(api.credits.consumeCredits, {
     creditType: "llm",
     cost,
   });
 }
 
-async function consumeCreditsOrReturnFailure(client: ConvexHttpClient, cost: number) {
+async function consumeCreditsOrReturnFailure(
+  client: ConvexHttpClient,
+  cost: number
+): Promise<ConsumedCreditTransaction | NextResponse> {
   try {
-    await consumeLlmCredits(client, cost);
-    return null;
+    return await consumeLlmCredits(client, cost);
   } catch (error) {
     return creditFailureResponse(error);
+  }
+}
+
+async function refundConsumedCredits(
+  client: ConvexHttpClient,
+  transaction: ConsumedCreditTransaction
+) {
+  try {
+    await client.mutation(api.credits.refundConsumedCredits, {
+      creditTransactionId: transaction.creditTransactionId,
+    });
+  } catch (error) {
+    console.error("[Generate API] Failed to refund LLM credits:", error);
   }
 }
 
@@ -157,8 +191,22 @@ async function generateAndRespond<T>(
   creditCost: number,
   spec: GenerationSpec<T>
 ) {
-  const { parsed, issues } = await runGeneration(openai, spec);
+  const creditResult = await consumeCreditsOrReturnFailure(convexClient, creditCost);
+  if (creditResult instanceof NextResponse) return creditResult;
+
+  let parsed: T;
+  let issues: string[];
+  try {
+    const generationResult = await runGeneration(openai, spec);
+    parsed = generationResult.parsed;
+    issues = generationResult.issues;
+  } catch (error) {
+    await refundConsumedCredits(convexClient, creditResult);
+    throw error;
+  }
+
   if (issues.length > 0) {
+    await refundConsumedCredits(convexClient, creditResult);
     return validationFailureResponse({
       validationIssues: issues,
       prompt: spec.systemPrompt,
@@ -166,8 +214,6 @@ async function generateAndRespond<T>(
     });
   }
 
-  const creditFailure = await consumeCreditsOrReturnFailure(convexClient, creditCost);
-  if (creditFailure) return creditFailure;
   return generationSuccessResponse(spec.toResponseData(parsed), spec.systemPrompt);
 }
 
@@ -385,6 +431,54 @@ function buildGenerateMoreSentenceRoundsSpec(
   };
 }
 
+function buildAddSentenceRoundSpec(
+  body: Extract<GenerateRequest, { type: "add-sentence-round" }>
+): GenerationSpec<{ rounds: SentenceRoundInput[] }> {
+  return {
+    systemPrompt: buildAddSentenceRoundPrompt(
+      body.themeName,
+      body.englishPrompt,
+      body.existingSpanishSentences
+    ),
+    userMessage: buildAddSentenceRoundUserMessage(body.themeName, body.englishPrompt),
+    schemaName: "add_sentence_round",
+    schema: buildSentenceThemeSchema(1),
+    validate: (parsed) => {
+      const round = parsed.rounds[0];
+      if (!round) return ["Sentence 1: generated sentence round is missing"];
+
+      const generatedRound: SentenceRoundInput = {
+        ...round,
+        englishPrompt: body.englishPrompt,
+        freeWordPositions: [],
+      };
+      const existingRounds = body.existingSpanishSentences.map((sentence) => ({
+        englishPrompt: "(existing)",
+        spanishSentence: sentence,
+        distractors: ["x", "y", "z"],
+      }));
+
+      return [
+        ...collectSentenceRoundIssues([generatedRound], { requireWordMeanings: true }).map(
+          formatSentenceRoundIssue
+        ),
+        ...validateGeneratedSentenceRoundsAgainstExisting([generatedRound], existingRounds),
+      ];
+    },
+    toResponseData: (parsed) => {
+      const round = parsed.rounds[0];
+      if (!round) return null;
+      return {
+        ...round,
+        englishPrompt: body.englishPrompt,
+        freeWordPositions: [],
+      };
+    },
+    retryInstruction:
+      "The previous result is invalid. Regenerate the sentence round and fix these issues:",
+  };
+}
+
 function buildGenerateMoreSpec(
   body: Extract<GenerateRequest, { type: "generate-more-words" }>
 ): GenerationSpec<{ words: WordWithChoices[] }> {
@@ -422,6 +516,8 @@ export function getGenerateRequestCreditCost(body: GenerateRequest): number {
       return LLM_GENERATE_MORE_WORDS_CREDITS;
     case "generate-more-sentence-rounds":
       return LLM_GENERATE_MORE_SENTENCES_CREDITS;
+    case "add-sentence-round":
+      return LLM_ADD_SENTENCE_CREDITS;
     case "field":
       return LLM_FIELD_REGEN_CREDITS;
     case "regenerate-for-word":
@@ -435,7 +531,7 @@ export async function handleGenerateRequest(body: GenerateRequest) {
   const creditCost = getGenerateRequestCreditCost(body);
   let convexClient: ConvexHttpClient;
   try {
-    convexClient = await ensureLlmCreditsAvailable(creditCost);
+    convexClient = await getCreditClient();
   } catch (error) {
     return creditFailureResponse(error);
   }
@@ -457,6 +553,26 @@ export async function handleGenerateRequest(body: GenerateRequest) {
       creditCost,
       buildGenerateMoreSentenceRoundsSpec(body)
     );
+  }
+
+  if (body.type === "add-sentence-round") {
+    const systemPrompt = buildAddSentenceRoundPrompt(
+      body.themeName,
+      body.englishPrompt,
+      body.existingSpanishSentences
+    );
+    const duplicateEnglishIssues = validateEnglishPromptAgainstExisting(
+      body.englishPrompt,
+      body.existingEnglishPrompts
+    );
+    if (duplicateEnglishIssues.length > 0) {
+      return validationFailureResponse({
+        validationIssues: duplicateEnglishIssues,
+        prompt: systemPrompt,
+        status: 400,
+      });
+    }
+    return generateAndRespond(openai, convexClient, creditCost, buildAddSentenceRoundSpec(body));
   }
 
   if (body.type === "field") {

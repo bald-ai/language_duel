@@ -9,6 +9,7 @@ import { NicknameEditor } from "./components/NicknameEditor";
 import { ColorSetSelector } from "./components/ColorSetSelector";
 import { BackgroundSelector } from "./components/BackgroundSelector";
 import { TTSProviderSelector } from "./components/TTSProviderSelector";
+import { ExperimentalFeaturesToggle } from "./components/ExperimentalFeaturesToggle";
 import { useNicknameUpdate } from "./hooks/useNicknameUpdate";
 import { useBackground } from "@/app/components/BackgroundProvider";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
@@ -119,6 +120,9 @@ export default function SettingsPage() {
 
         {/* TTS Provider Selector */}
         <TTSProviderSelector />
+
+        {/* Experimental Features Toggle */}
+        <ExperimentalFeaturesToggle />
 
         {/* Notifications Button */}
         <button

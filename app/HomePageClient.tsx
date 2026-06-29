@@ -9,6 +9,7 @@ import { useChallengeLobby } from "@/hooks/useChallengeLobby";
 import { useSoloDeepLink } from "@/hooks/useSoloDeepLink";
 import { MenuButton } from "@/app/components/MenuButton";
 import { ThemedPage } from "@/app/components/ThemedPage";
+import { useUserPreferences } from "@/app/components/UserPreferencesProvider";
 import { AuthButtons, LeftNavButtons } from "@/app/components/auth";
 import {
   SoloIcon,
@@ -45,6 +46,7 @@ const AUTH_FLASH_DURATION_MS = 750;
 
 export default function Home() {
   const { isSignedIn } = useUser();
+  const { userPreferences } = useUserPreferences();
   useSyncUser();
 
   const router = useRouter();
@@ -73,6 +75,7 @@ export default function Home() {
   const { openSoloPracticeModal } = lobby;
 
   const { soloThemeIds, soloInitialMode, soloDeepLinkKey } = useSoloDeepLink(searchParams);
+  const showExperimentalFeatures = userPreferences?.showExperimentalFeatures === true;
 
   useEffect(() => {
     if (!soloThemeIds || soloThemeIds.length === 0 || !soloDeepLinkKey) {
@@ -144,7 +147,7 @@ export default function Home() {
 
       <main className="relative z-10 w-full max-w-[360px] mx-auto px-6 pb-[calc(20px+env(safe-area-inset-bottom))] animate-slide-up delay-300">
         <nav className="w-full flex flex-col gap-2.5">
-          {showMockFeaturesMenu ? (
+          {showExperimentalFeatures && showMockFeaturesMenu ? (
             <>
               <div className="animate-slide-up delay-300">
                 <MenuButton
@@ -189,19 +192,23 @@ export default function Home() {
                 </MenuButton>
               </div>
 
-              <div className="animate-slide-up delay-700">
-                <MenuButton onClick={() => setShowMockFeaturesMenu(true)} dataTestId="home-mock-features">
-                  <MockFeaturesIcon />
-                  Mock Features
-                </MenuButton>
-              </div>
+              {showExperimentalFeatures && (
+                <>
+                  <div className="animate-slide-up delay-700">
+                    <MenuButton onClick={() => setShowMockFeaturesMenu(true)} dataTestId="home-mock-features">
+                      <MockFeaturesIcon />
+                      Mock Features
+                    </MenuButton>
+                  </div>
 
-              <div className="animate-slide-up delay-700">
-                <MenuButton onClick={() => guardAuth(() => router.push("/mock-online"))} dataTestId="home-online-mock-features">
-                  <OnlineMockIcon />
-                  Online Mock Features
-                </MenuButton>
-              </div>
+                  <div className="animate-slide-up delay-700">
+                    <MenuButton onClick={() => guardAuth(() => router.push("/mock-online"))} dataTestId="home-online-mock-features">
+                      <OnlineMockIcon />
+                      Online Mock Features
+                    </MenuButton>
+                  </div>
+                </>
+              )}
             </>
           )}
         </nav>

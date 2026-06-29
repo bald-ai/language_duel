@@ -392,6 +392,44 @@ export function buildGenerateMoreSentenceRoundsUserMessage(
   return `Generate ${roundCount} more Spanish sentence rounds for the theme "${themeName}".`;
 }
 
+export function buildAddSentenceRoundPrompt(
+  themeName: string,
+  englishPrompt: string,
+  existingSpanishSentences: string[]
+): string {
+  const existingList =
+    existingSpanishSentences.length > 0
+      ? existingSpanishSentences.join(" | ")
+      : "(none)";
+
+  return `You are a Spanish language tutor creating one sentence-building round for English speakers learning Spanish.
+
+TASK: Generate the Spanish sentence, word meanings, and distractor tiles for this English prompt in the theme "${themeName}".
+
+ENGLISH PROMPT TO TRANSLATE: ${englishPrompt}
+
+EXISTING SPANISH SENTENCES IN THE THEME (DO NOT DUPLICATE): ${existingList}
+
+REQUIREMENTS:
+${buildSentenceRoundRules()}
+- Keep "englishPrompt" exactly as: ${englishPrompt}
+- The Spanish sentence must be a natural translation of the English prompt.
+- The Spanish sentence must not duplicate (after normalization) any existing sentence above.
+
+OUTPUT FORMAT: JSON object with a "rounds" array containing exactly 1 object. The object has:
+- englishPrompt: exactly the English prompt above
+- spanishSentence: the ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS}-word Spanish sentence (space-separated)
+- wordMeanings: array of one short English meaning for each space-separated Spanish word, in order
+- distractors: array of exactly ${SENTENCE_DISTRACTOR_COUNT} single Spanish words used as wrong tiles`;
+}
+
+export function buildAddSentenceRoundUserMessage(
+  themeName: string,
+  englishPrompt: string
+): string {
+  return `Generate one Spanish sentence round for "${englishPrompt}" in the theme "${themeName}".`;
+}
+
 // ============================================================================
 // Generate More Words Prompt
 // ============================================================================

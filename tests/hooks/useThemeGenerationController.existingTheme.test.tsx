@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WordEntry } from "@/lib/types";
-import { VIEW_MODES } from "@/app/themes/constants";
+import { PICK_AND_PRUNE_WORD_COUNT, VIEW_MODES } from "@/app/themes/constants";
 import type { ThemeDetailTheme } from "@/app/themes/components/ThemeDetail";
 import { LLM_GENERATE_MORE_WORDS_CREDITS } from "@/lib/credits/constants";
 
@@ -10,12 +10,13 @@ const mocks = vi.hoisted(() => ({
     | { llmCreditsRemaining: number }
     | null
     | undefined,
+  generateTheme: vi.fn(),
   generateMoreWords: vi.fn(),
   toastError: vi.fn(),
 }));
 
 vi.mock("@/lib/themes/api", () => ({
-  generateTheme: vi.fn(),
+  generateTheme: (...args: unknown[]) => mocks.generateTheme(...args),
   addWord: vi.fn(),
   generateMoreWords: (...args: unknown[]) => mocks.generateMoreWords(...args),
 }));
@@ -79,8 +80,43 @@ function setupController(initialLocalWords: WordEntry[]) {
 describe("useThemeGenerationController existing-theme Pick & Prune flow", () => {
   beforeEach(() => {
     mocks.currentUser = { llmCreditsRemaining: 1000 };
+    mocks.generateTheme.mockReset();
     mocks.generateMoreWords.mockReset();
     mocks.toastError.mockReset();
+  });
+
+  it("routes the visible new-theme Generate action through Pick & Prune", async () => {
+    mocks.generateTheme.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          word: "dog",
+          answer: "el perro",
+          wrongAnswers: ["a", "b", "c", "d", "e", "f"],
+        },
+      ],
+    });
+
+    const { hook, setSelectedThemeState, setViewMode } = setupController([]);
+
+    act(() => {
+      hook.result.current.generateModalProps.onThemeNameChange("Animals");
+    });
+
+    await act(async () => {
+      await hook.result.current.generateModalProps.onGenerate();
+    });
+
+    expect(mocks.generateTheme).toHaveBeenCalledWith({
+      themeName: "Animals",
+      themePrompt: undefined,
+      wordType: "nouns",
+      wordCount: PICK_AND_PRUNE_WORD_COUNT,
+    });
+    expect(setViewMode).toHaveBeenLastCalledWith(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
+    expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("new-theme");
+    expect(hook.result.current.pickAndPruneReviewProps.activeWords).toHaveLength(1);
+    expect(setSelectedThemeState).not.toHaveBeenCalled();
   });
 
   it("appends all kept words including duplicates and returns to detail view", async () => {
@@ -114,7 +150,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
       setupController([existingWord]);
 
     await act(async () => {
-      await hook.result.current.generateMoreModalProps.onGeneratePickAndPrune();
+      await hook.result.current.generateMoreModalProps.onGenerate();
     });
 
     expect(setViewMode).toHaveBeenLastCalledWith(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
@@ -162,7 +198,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
     const { hook } = setupController([]);
 
     await act(async () => {
-      await hook.result.current.generateMoreModalProps.onGeneratePickAndPrune();
+      await hook.result.current.generateMoreModalProps.onGenerate();
     });
 
     expect(hook.result.current.pickAndPruneReviewProps.reviewKind).toBe("existing-theme");

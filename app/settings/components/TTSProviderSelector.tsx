@@ -83,6 +83,16 @@ export function TTSProviderSelector() {
                 </div>
               </div>
               {isDisabledProvider ? (
+                /**
+                 * ELEVENLABS DISABLED PROVIDER NOTE:
+                 * The ElevenLabs settings button is intentionally disabled because
+                 * ElevenLabs is not currently relevant for the product. If a future
+                 * agent re-enables this provider, also revisit the production Sentry
+                 * cron monitor in `netlify/functions/critical-provider-health.mjs`
+                 * and decide whether ElevenLabs should be added back to the critical
+                 * provider health check. Search terms: ElevenLabs, disabled TTS
+                 * provider, TTSProviderSelector, critical-provider-health.
+                 */
                 <span
                   className="text-[11px] uppercase tracking-widest"
                   style={{ color: colors.text.muted }}

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  addSentenceRound,
   addWord,
   generateField,
   generateMoreWords,
@@ -129,6 +130,40 @@ describe("themes api response validation", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.answer).toBe("el gato");
+  });
+
+  it("accepts a valid add-sentence-round payload", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: {
+          englishPrompt: "The cat sleeps",
+          spanishSentence: "El gato duerme",
+          wordMeanings: ["the", "cat", "sleeps"],
+          freeWordPositions: [],
+          distractors: ["come", "corre", "salta"],
+        },
+      })
+    );
+
+    const result = await addSentenceRound({
+      themeName: "animals",
+      englishPrompt: "The cat sleeps",
+      existingEnglishPrompts: ["The dog runs"],
+      existingSpanishSentences: ["El perro corre"],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.spanishSentence).toBe("El gato duerme");
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toMatchObject({
+      type: "add-sentence-round",
+      themeName: "animals",
+      englishPrompt: "The cat sleeps",
+      existingEnglishPrompts: ["The dog runs"],
+      existingSpanishSentences: ["El perro corre"],
+    });
   });
 
   it("accepts a valid generate-more-words payload", async () => {

@@ -230,7 +230,7 @@ export function useThemesController() {
 
   const sentenceReviewDiscardProps = {
     isOpen: sentenceController.reviewDiscardConfirm,
-    reviewKind: "new-theme" as const,
+    reviewKind: sentenceController.reviewKind,
     onConfirm: sentenceController.confirmDiscardReview,
     onCancel: sentenceController.cancelDiscardReview,
   };
@@ -241,8 +241,10 @@ export function useThemesController() {
     isGenerating: sentenceController.isGenerating,
     error: sentenceController.generationError,
     onClose: sentenceController.closeGenerateMoreModal,
-    onGenerate: () => sentenceController.generateMoreAndAppend(),
+    onGenerate: () => sentenceController.generateMoreAndReview(),
   };
+
+  const addSentenceModalProps = sentenceController.addSentenceModalProps;
 
   const contentTypeModalProps = {
     isOpen: showContentTypeModal,
@@ -293,6 +295,7 @@ export function useThemesController() {
     sentenceEditorProps,
     sentenceGenerateModalProps,
     sentenceGenerateMoreModalProps,
+    addSentenceModalProps,
     sentencePickAndPruneReviewProps,
     sentenceReviewDiscardProps,
     sentenceDiscardConfirmProps,

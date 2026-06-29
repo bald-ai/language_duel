@@ -103,6 +103,14 @@ export interface GenerateMoreSentenceRoundsRequest {
   existingSpanishSentences: string[];
 }
 
+export interface AddSentenceRoundRequest {
+  type: "add-sentence-round";
+  themeName: string;
+  englishPrompt: string;
+  existingEnglishPrompts: string[];
+  existingSpanishSentences: string[];
+}
+
 export type GenerateRequest =
   | GenerateThemeRequest
   | RegenerateFieldRequest
@@ -110,7 +118,8 @@ export type GenerateRequest =
   | AddWordRequest
   | GenerateMoreWordsRequest
   | GenerateSentenceThemeRequest
-  | GenerateMoreSentenceRoundsRequest;
+  | GenerateMoreSentenceRoundsRequest
+  | AddSentenceRoundRequest;
 
 type ParseResult =
   | { ok: true; data: GenerateRequest }
@@ -484,6 +493,14 @@ function parseExistingSpanishSentences(value: unknown): string[] {
   });
 }
 
+function parseExistingEnglishPrompts(value: unknown): string[] {
+  return parseStringArray({
+    value,
+    field: "existingEnglishPrompts",
+    maxItemLength: SENTENCE_ENGLISH_PROMPT_MAX_LENGTH,
+  });
+}
+
 function parseSentenceThemeRequest(body: Record<string, unknown>): GenerateSentenceThemeRequest {
   return {
     type: "sentence-theme",
@@ -503,6 +520,23 @@ function parseGenerateMoreSentenceRoundsRequest(
     type: "generate-more-sentence-rounds",
     themeName: parseThemeName(body.themeName),
     roundCount: parseGenerateMoreRoundCount(body.roundCount),
+    existingSpanishSentences: parseExistingSpanishSentences(body.existingSpanishSentences),
+  };
+}
+
+function parseAddSentenceRoundRequest(
+  body: Record<string, unknown>
+): AddSentenceRoundRequest {
+  return {
+    type: "add-sentence-round",
+    themeName: parseThemeName(body.themeName),
+    englishPrompt: parseTrimmedString({
+      value: body.englishPrompt,
+      field: "englishPrompt",
+      min: 1,
+      max: SENTENCE_ENGLISH_PROMPT_MAX_LENGTH,
+    }),
+    existingEnglishPrompts: parseExistingEnglishPrompts(body.existingEnglishPrompts),
     existingSpanishSentences: parseExistingSpanishSentences(body.existingSpanishSentences),
   };
 }
@@ -541,6 +575,9 @@ export function parseGenerateRequest(payload: unknown): ParseResult {
     }
     if (payload.type === "generate-more-sentence-rounds") {
       return { ok: true, data: parseGenerateMoreSentenceRoundsRequest(payload) };
+    }
+    if (payload.type === "add-sentence-round") {
+      return { ok: true, data: parseAddSentenceRoundRequest(payload) };
     }
     return { ok: false, error: "Invalid request type" };
   } catch (error) {

@@ -28,6 +28,7 @@ const removedRounds: PickAndPruneRound[] = [
 function renderReview(overrides: Partial<ComponentProps<typeof PickAndPruneSentenceReview>> = {}) {
   return render(
     <PickAndPruneSentenceReview
+      reviewKind="new-theme"
       activeRounds={activeRounds}
       removedRounds={removedRounds}
       removedOpen={false}
@@ -61,6 +62,13 @@ describe("PickAndPruneSentenceReview", () => {
     );
   });
 
+  it("shows the 'Add N sentences' label for existing-theme review", () => {
+    renderReview({ reviewKind: "existing-theme" });
+    expect(screen.getByTestId("theme-sentence-pick-prune-review-submit")).toHaveTextContent(
+      "Add 2 sentences"
+    );
+  });
+
   it("calls remove, toggle, and restore handlers", () => {
     const onRemove = vi.fn();
     const onRestore = vi.fn();
@@ -76,6 +84,7 @@ describe("PickAndPruneSentenceReview", () => {
 
     rerender(
       <PickAndPruneSentenceReview
+        reviewKind="new-theme"
         activeRounds={activeRounds}
         removedRounds={removedRounds}
         removedOpen

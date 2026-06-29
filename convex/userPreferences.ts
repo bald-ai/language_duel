@@ -37,6 +37,7 @@ export const getUserPreferences = query({
       selectedColorSet: auth.user.selectedColorSet ?? null,
       selectedBackground: auth.user.selectedBackground ?? null,
       ttsProvider: auth.user.ttsProvider ?? DEFAULT_TTS_PROVIDER,
+      showExperimentalFeatures: auth.user.showExperimentalFeatures === true,
     };
   },
 });
@@ -92,5 +93,23 @@ export const updateTtsProvider = mutation({
     });
 
     return { ttsProvider: args.ttsProvider };
+  },
+});
+
+/**
+ * Update whether experimental/mock feature entry points are visible.
+ */
+export const updateShowExperimentalFeatures = mutation({
+  args: {
+    showExperimentalFeatures: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await getAuthenticatedUser(ctx);
+
+    await ctx.db.patch(user._id, {
+      showExperimentalFeatures: args.showExperimentalFeatures,
+    });
+
+    return { showExperimentalFeatures: args.showExperimentalFeatures };
   },
 });

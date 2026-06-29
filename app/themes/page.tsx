@@ -27,6 +27,10 @@ const AddWordModal = dynamic(
   () => import("./components/AddWordModal").then((mod) => mod.AddWordModal),
   { loading: () => null }
 );
+const AddSentenceModal = dynamic(
+  () => import("./components/AddSentenceModal").then((mod) => mod.AddSentenceModal),
+  { loading: () => null }
+);
 const GenerateMoreModal = dynamic(
   () => import("./components/GenerateMoreModal").then((mod) => mod.GenerateMoreModal),
   { loading: () => null }
@@ -120,14 +124,17 @@ export default function ThemesPage() {
 
         {/* Sentence-theme flow */}
         {controller.isSentenceFlowActive &&
+          !controller.isSentenceReviewActive &&
           !sentenceEditorActive &&
           controller.sentenceDetailProps && (
             <SentenceThemeDetail {...controller.sentenceDetailProps} />
           )}
 
-        {sentenceEditorActive && controller.sentenceEditorProps && (
-          <SentenceRoundEditor {...controller.sentenceEditorProps} />
-        )}
+        {!controller.isSentenceReviewActive &&
+          sentenceEditorActive &&
+          controller.sentenceEditorProps && (
+            <SentenceRoundEditor {...controller.sentenceEditorProps} />
+          )}
       </div>
 
       <div
@@ -140,6 +147,7 @@ export default function ThemesPage() {
       <DeleteConfirmModal {...controller.deleteConfirmProps} />
       <DiscardPickAndPruneModal {...controller.discardPickAndPruneProps} />
       <AddWordModal {...controller.addWordModalProps} />
+      <AddSentenceModal {...controller.addSentenceModalProps} />
       <GenerateMoreModal {...controller.generateMoreModalProps} />
       <ThemeContentTypeModal {...controller.contentTypeModalProps} />
       <GenerateSentenceThemeModal {...controller.sentenceGenerateModalProps} />

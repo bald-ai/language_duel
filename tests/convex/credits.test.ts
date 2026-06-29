@@ -4,6 +4,7 @@ import {
   consumeCredits,
   getCurrentMonthKey,
   normalizeCreditState,
+  refundConsumedCredits,
 } from "@/convex/credits";
 import {
   LLM_FIELD_REGEN_CREDITS,
@@ -27,16 +28,55 @@ type UserDoc = Pick<
   | "ttsGenerationsRemaining"
   | "creditsMonth"
 >;
+type CreditTransactionDoc = Pick<
+  Doc<"creditTransactions">,
+  | "_id"
+  | "_creationTime"
+  | "userId"
+  | "creditType"
+  | "cost"
+  | "creditsMonth"
+  | "status"
+  | "createdAt"
+  | "refundedAt"
+>;
 
 class InMemoryDb {
   public users: UserDoc[] = [];
+  public creditTransactions: CreditTransactionDoc[] = [];
+  private creditTransactionCounter = 1;
 
-  query(_table: "users") {
+  query(table: "users" | "creditTransactions") {
+    if (table === "creditTransactions") {
+      return createIndexedQuery(this.creditTransactions);
+    }
     return createIndexedQuery(this.users);
   }
 
+  async get(id: string) {
+    return this.creditTransactions.find((row) => row._id === id) ?? null;
+  }
+
   async patch(id: Id<"users">, value: Partial<UserDoc>) {
+    if (id.toString().startsWith("creditTransaction_")) {
+      patchRow(this.creditTransactions, id, value);
+      return;
+    }
     patchRow(this.users, id, value);
+  }
+
+  async insert(
+    _table: "creditTransactions",
+    value: Omit<CreditTransactionDoc, "_id" | "_creationTime">
+  ) {
+    const id = `creditTransaction_${this.creditTransactionCounter}` as Id<"creditTransactions">;
+    this.creditTransactionCounter += 1;
+    this.creditTransactions.push({
+      _id: id,
+      _creationTime: Date.now(),
+      ...value,
+    });
+    return id;
   }
 }
 
@@ -62,6 +102,18 @@ const consumeCreditsHandler = (consumeCredits as unknown as {
   _handler: (
     ctx: unknown,
     args: { creditType: "llm" | "tts"; cost: number }
+  ) => Promise<{
+    llmCreditsRemaining: number;
+    ttsGenerationsRemaining: number;
+    creditsMonth: string;
+    creditTransactionId: Id<"creditTransactions">;
+  }>;
+})._handler;
+
+const refundConsumedCreditsHandler = (refundConsumedCredits as unknown as {
+  _handler: (
+    ctx: unknown,
+    args: { creditTransactionId: Id<"creditTransactions"> }
   ) => Promise<{
     llmCreditsRemaining: number;
     ttsGenerationsRemaining: number;
@@ -189,6 +241,11 @@ describe("consumeCredits behavior", () => {
       llmCreditsRemaining: 5,
       ttsGenerationsRemaining: 2,
     });
+    expect(db.creditTransactions).toHaveLength(2);
+    expect(db.creditTransactions.map((transaction) => transaction.status)).toEqual([
+      "consumed",
+      "consumed",
+    ]);
   });
 
   it("throws CREDITS_EXHAUSTED when either balance cannot cover the cost", async () => {
@@ -219,11 +276,60 @@ describe("consumeCredits behavior", () => {
       cost: LLM_GENERATE_MORE_SENTENCES_CREDITS,
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       creditsMonth: "2026-06",
       llmCreditsRemaining: LLM_MONTHLY_CREDITS - LLM_GENERATE_MORE_SENTENCES_CREDITS,
       ttsGenerationsRemaining: TTS_MONTHLY_GENERATIONS,
     });
-    expect(db.users[0]).toMatchObject(result);
+    expect(db.users[0]).toMatchObject({
+      creditsMonth: "2026-06",
+      llmCreditsRemaining: LLM_MONTHLY_CREDITS - LLM_GENERATE_MORE_SENTENCES_CREDITS,
+      ttsGenerationsRemaining: TTS_MONTHLY_GENERATIONS,
+    });
+  });
+
+  it("refunds a consumed credit transaction exactly once", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ llmCreditsRemaining: 25, ttsGenerationsRemaining: 3 }));
+
+    const consumed = await consumeCreditsHandler(createCtx(db), {
+      creditType: "llm",
+      cost: LLM_SENTENCE_THEME_CREDITS,
+    });
+
+    expect(db.users[0]?.llmCreditsRemaining).toBe(5);
+
+    await expect(
+      refundConsumedCreditsHandler(createCtx(db), {
+        creditTransactionId: consumed.creditTransactionId,
+      })
+    ).resolves.toMatchObject({
+      llmCreditsRemaining: 25,
+      ttsGenerationsRemaining: 3,
+    });
+
+    expect(db.creditTransactions[0]).toMatchObject({ status: "refunded" });
+    await expect(
+      refundConsumedCreditsHandler(createCtx(db), {
+        creditTransactionId: consumed.creditTransactionId,
+      })
+    ).rejects.toThrow("Credit transaction already refunded");
+  });
+
+  it("does not refund another user's credit transaction", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }));
+
+    const consumed = await consumeCreditsHandler(createCtx(db, "clerk_1"), {
+      creditType: "tts",
+      cost: TTS_GENERATION_COST,
+    });
+
+    await expect(
+      refundConsumedCreditsHandler(createCtx(db, "clerk_2"), {
+        creditTransactionId: consumed.creditTransactionId,
+      })
+    ).rejects.toThrow("Credit transaction not found");
   });
 });

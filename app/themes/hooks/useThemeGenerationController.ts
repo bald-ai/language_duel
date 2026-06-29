@@ -104,6 +104,10 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
           return;
         }
 
+        // Direct generation is intentionally not exposed in the UI while we
+        // test Pick & Prune as the default flow for all AI-generated theme
+        // content. Keep this path for now so we can remove or restore it
+        // deliberately later.
         const draft: NewThemeDraft = {
           name: normalizeThemeName(themeName),
           description: `Generated theme for: ${themeName}`,
@@ -248,6 +252,10 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
         return;
       }
 
+      // Direct generation is intentionally not exposed in the UI while we test
+      // Pick & Prune as the default flow for all AI-generated theme content.
+      // Keep this path for now so we can remove or restore it deliberately
+      // later.
       const newWords = await generateMoreHook.generate(
         params.selectedTheme.name,
         params.selectedWordType,
@@ -269,15 +277,12 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       themeName: themeGenerator.themeName,
       themePrompt: themeGenerator.themePrompt,
       wordType: themeGenerator.wordType,
-      wordCount: themeGenerator.wordCount,
       generationMode: themeGenerator.generationMode,
       error: themeGenerator.error,
       onThemeNameChange: themeGenerator.setThemeName,
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,
-      onWordCountChange: themeGenerator.setWordCount,
-      onGenerate: () => handleGenerateTheme("standard"),
-      onGeneratePickAndPrune: () => handleGenerateTheme("pick-and-prune"),
+      onGenerate: () => handleGenerateTheme("pick-and-prune"),
       onClose: handleCloseGenerateModal,
     }),
     [handleCloseGenerateModal, handleGenerateTheme, showGenerateModal, themeGenerator]
@@ -300,13 +305,9 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     () => ({
       isOpen: showGenerateMoreModal,
       themeName: params.selectedTheme?.name ?? "",
-      count: generateMoreHook.count,
       isGenerating: generateMoreHook.isGenerating,
-      pickAndPrune: generateMoreHook.pickAndPrune,
       error: generateMoreHook.error,
-      onCountChange: generateMoreHook.setCount,
-      onGenerate: () => handleGenerateMore("standard"),
-      onGeneratePickAndPrune: () => handleGenerateMore("pick-and-prune"),
+      onGenerate: () => handleGenerateMore("pick-and-prune"),
       onClose: closeGenerateMore,
     }),
     [closeGenerateMore, generateMoreHook, handleGenerateMore, params.selectedTheme?.name, showGenerateMoreModal]

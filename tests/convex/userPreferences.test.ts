@@ -6,6 +6,7 @@ import {
   getUserPreferences,
   updateBackground,
   updateColorSet,
+  updateShowExperimentalFeatures,
   updateTtsProvider,
 } from "@/convex/userPreferences";
 import { createAuthCtx, createIndexedQuery, patchRow } from "./testUtils/inMemoryDb";
@@ -24,6 +25,7 @@ type UserDoc = Pick<
   | "selectedColorSet"
   | "selectedBackground"
   | "ttsProvider"
+  | "showExperimentalFeatures"
 >;
 
 class InMemoryDb {
@@ -50,6 +52,7 @@ function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
     selectedColorSet: "playful-duo",
     selectedBackground: "background.jpg",
     ttsProvider: "resemble",
+    showExperimentalFeatures: false,
     ...overrides,
   };
 }
@@ -66,6 +69,7 @@ describe("userPreferences", () => {
         selectedColorSet: "friendly-rivalry",
         selectedBackground: "background_2.jpg",
         ttsProvider: "elevenlabs",
+        showExperimentalFeatures: true,
       })
     );
 
@@ -75,21 +79,37 @@ describe("userPreferences", () => {
       selectedColorSet: "friendly-rivalry",
       selectedBackground: "background_2.jpg",
       ttsProvider: "elevenlabs",
+      showExperimentalFeatures: true,
     });
   });
 
-  it("updates color set, background, and TTS preferences", async () => {
+  it("defaults experimental features to hidden when the preference is absent", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ showExperimentalFeatures: undefined }));
+
+    const result = await callConvex(getUserPreferences, createCtx(db));
+
+    expect(result).toMatchObject({
+      showExperimentalFeatures: false,
+    });
+  });
+
+  it("updates color set, background, TTS, and experimental feature preferences", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc());
 
     await callConvex(updateColorSet, createCtx(db), { colorSet: "candy-coop" });
     await callConvex(updateBackground, createCtx(db), { background: "background_2.jpg" });
     await callConvex(updateTtsProvider, createCtx(db), { ttsProvider: "elevenlabs" });
+    await callConvex(updateShowExperimentalFeatures, createCtx(db), {
+      showExperimentalFeatures: true,
+    });
 
     expect(db.users[0]).toMatchObject({
       selectedColorSet: "candy-coop",
       selectedBackground: "background_2.jpg",
       ttsProvider: "elevenlabs",
+      showExperimentalFeatures: true,
     });
   });
 

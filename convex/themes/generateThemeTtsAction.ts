@@ -21,6 +21,9 @@ import {
 const TTS_GENERATION_LOCK_MS = 10 * 60 * 1000;
 
 type ConvexTtsRow = { ttsStorageId?: Id<"_storage"> };
+type ChargedGeneratedThemeTtsResult = GeneratedThemeTtsResult & {
+  creditTransactionId: Id<"creditTransactions">;
+};
 
 export type GenerateThemeTtsResult = {
   totalMissing: number;
@@ -62,25 +65,40 @@ async function generateAndStoreThemeTtsTarget<TRow extends ConvexTtsRow>(
   ctx: ActionCtx,
   shape: ThemeTtsShape<TRow>,
   target: ThemeTtsTarget<TRow>
-): Promise<GeneratedThemeTtsResult> {
-  const audioBuffer = await generateThemeTtsAudio(shape, target);
-  const storageId = await storeThemeTtsAudio(ctx.storage, audioBuffer);
+): Promise<ChargedGeneratedThemeTtsResult> {
+  const creditTransaction = await ctx.runMutation(api.credits.consumeCredits, {
+    creditType: "tts",
+    cost: TTS_GENERATION_COST,
+  });
 
   try {
-    await ctx.runMutation(api.credits.consumeCredits, {
-      creditType: "tts",
-      cost: TTS_GENERATION_COST,
-    });
+    const audioBuffer = await generateThemeTtsAudio(shape, target);
+    const storageId = await storeThemeTtsAudio(ctx.storage, audioBuffer);
+    return {
+      ...buildGeneratedThemeTtsResult(shape, target, storageId),
+      creditTransactionId: creditTransaction.creditTransactionId,
+    };
   } catch (error) {
-    try {
-      await ctx.storage.delete(storageId);
-    } catch (deleteError) {
-      console.error("[Theme TTS] Failed to cleanup uncharged file:", storageId, deleteError);
-    }
+    await refundThemeTtsCredits(ctx, [creditTransaction.creditTransactionId]);
     throw error;
   }
+}
 
-  return buildGeneratedThemeTtsResult(shape, target, storageId);
+async function refundThemeTtsCredits(
+  ctx: ActionCtx,
+  creditTransactionIds: Id<"creditTransactions">[]
+) {
+  await Promise.allSettled(
+    creditTransactionIds.map(async (creditTransactionId) => {
+      try {
+        await ctx.runMutation(api.credits.refundConsumedCredits, {
+          creditTransactionId,
+        });
+      } catch (error) {
+        console.error("[Theme TTS] Failed to refund TTS credit:", error);
+      }
+    })
+  );
 }
 
 async function generateThemeTtsTargets<TRow extends ConvexTtsRow>(
@@ -88,7 +106,7 @@ async function generateThemeTtsTargets<TRow extends ConvexTtsRow>(
   shape: ThemeTtsShape<TRow>,
   targets: ThemeTtsTarget<TRow>[]
 ): Promise<{
-  successful: GeneratedThemeTtsResult[];
+  successful: ChargedGeneratedThemeTtsResult[];
   failed: number;
 }> {
   const generationResults = await Promise.allSettled(
@@ -97,7 +115,7 @@ async function generateThemeTtsTargets<TRow extends ConvexTtsRow>(
 
   const successful = generationResults
     .filter(
-      (result): result is PromiseFulfilledResult<GeneratedThemeTtsResult> =>
+      (result): result is PromiseFulfilledResult<ChargedGeneratedThemeTtsResult> =>
         result.status === "fulfilled"
     )
     .map((result) => result.value);
@@ -111,15 +129,23 @@ async function generateThemeTtsTargets<TRow extends ConvexTtsRow>(
 async function applyGeneratedThemeTts(
   ctx: ActionCtx,
   themeId: Id<"themes">,
-  generated: GeneratedThemeTtsResult[]
+  generated: ChargedGeneratedThemeTtsResult[]
 ) {
+  const applyPayload = generated.map(({ creditTransactionId: _creditTransactionId, ...result }) => result);
   const applyResult = await ctx.runMutation(internal.themes.applyGeneratedThemeTts, {
     themeId,
-    generated,
+    generated: applyPayload,
   });
 
   if (applyResult.rejectedStorageIds.length > 0) {
     await cleanupRejectedThemeTtsStorage(ctx.storage, applyResult.rejectedStorageIds);
+    const rejectedStorageIds = new Set(applyResult.rejectedStorageIds);
+    await refundThemeTtsCredits(
+      ctx,
+      generated
+        .filter((result) => rejectedStorageIds.has(result.storageId))
+        .map((result) => result.creditTransactionId)
+    );
   }
 
   return applyResult;
@@ -177,7 +203,20 @@ async function runThemeTtsGeneration<TRow extends ConvexTtsRow>(
       };
     }
 
-    const applyResult = await applyGeneratedThemeTts(ctx, params.themeId, successful);
+    let applyResult: Awaited<ReturnType<typeof applyGeneratedThemeTts>>;
+    try {
+      applyResult = await applyGeneratedThemeTts(ctx, params.themeId, successful);
+    } catch (error) {
+      await cleanupRejectedThemeTtsStorage(
+        ctx.storage,
+        successful.map((result) => result.storageId)
+      );
+      await refundThemeTtsCredits(
+        ctx,
+        successful.map((result) => result.creditTransactionId)
+      );
+      throw error;
+    }
 
     return {
       totalMissing: plan.totalMissing,

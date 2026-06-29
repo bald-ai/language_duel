@@ -17,6 +17,7 @@ import {
 } from "@/lib/credits/constants";
 import {
   createAuthCtx,
+  createIdentityCtx,
   createIndexedQuery,
   insertRow,
   patchRow,
@@ -51,14 +52,27 @@ type FriendRequestDoc = Pick<
   Doc<"friendRequests">,
   "_id" | "_creationTime" | "senderId" | "receiverId" | "status"
 >;
+type CreditTransactionDoc = Pick<
+  Doc<"creditTransactions">,
+  | "_id"
+  | "_creationTime"
+  | "userId"
+  | "creditType"
+  | "cost"
+  | "creditsMonth"
+  | "status"
+  | "createdAt"
+>;
 
-type TableName = "users" | "friends" | "friendRequests";
+type TableName = "users" | "friends" | "friendRequests" | "creditTransactions";
 
 class InMemoryDb {
   public users: UserDoc[] = [];
   public friends: FriendDoc[] = [];
   public friendRequests: FriendRequestDoc[] = [];
+  public creditTransactions: CreditTransactionDoc[] = [];
   private userIdCounter = 10;
+  private creditTransactionCounter = 1;
 
   query(table: TableName) {
     if (table === "users") {
@@ -69,6 +83,10 @@ class InMemoryDb {
       return createIndexedQuery(this.friends);
     }
 
+    if (table === "creditTransactions") {
+      return createIndexedQuery(this.creditTransactions);
+    }
+
     return createIndexedQuery(this.friendRequests);
   }
 
@@ -76,11 +94,22 @@ class InMemoryDb {
     patchRow(this.users, id, value);
   }
 
-  async insert(table: "users", value: Omit<UserDoc, "_id" | "_creationTime">): Promise<Id<"users">> {
-    if (table !== "users") {
-      throw new Error(`Unsupported table for insert: ${table}`);
+  async insert(
+    table: "users" | "creditTransactions",
+    value:
+      | Omit<UserDoc, "_id" | "_creationTime">
+      | Omit<CreditTransactionDoc, "_id" | "_creationTime">
+  ): Promise<Id<"users"> | Id<"creditTransactions">> {
+    if (table === "creditTransactions") {
+      const inserted = insertRow<CreditTransactionDoc>(
+        this.creditTransactions,
+        "creditTransaction",
+        this.creditTransactionCounter,
+        value
+      );
+      this.creditTransactionCounter = inserted.nextCounter;
+      return inserted.id as Id<"creditTransactions">;
     }
-
     const inserted = insertRow<UserDoc>(this.users, "user", this.userIdCounter, value);
     this.userIdCounter = inserted.nextCounter;
     return inserted.id as Id<"users">;
@@ -130,6 +159,13 @@ function requestDoc(overrides: Partial<FriendRequestDoc> = {}): FriendRequestDoc
 
 function createCtx(db: InMemoryDb, identitySubject: string | null) {
   return createAuthCtx(db, identitySubject);
+}
+
+function createTrustedIdentityCtx(
+  db: InMemoryDb,
+  identity: { subject: string; email?: string; name?: string; pictureUrl?: string } | null
+) {
+  return createIdentityCtx(db, identity as { subject: string } | null);
 }
 
 describe("users core handlers", () => {
@@ -203,16 +239,54 @@ describe("users core handlers", () => {
 
   it("syncUser rejects unauthenticated and mismatched identity", async () => {
     const db = new InMemoryDb();
-    const callSync = (identity: string | null, args: { clerkId: string; email: string; name?: string; imageUrl?: string }) =>
+    const callSync = (identity: string | null, args: { clerkId: string }) =>
       callConvex(syncUser, createCtx(db, identity), args);
 
     await expect(
-      callSync(null, { clerkId: "clerk_1", email: "a@example.com" })
+      callSync(null, { clerkId: "clerk_1" })
     ).rejects.toThrow("Unauthorized");
 
     await expect(
-      callSync("clerk_other", { clerkId: "clerk_1", email: "a@example.com" })
+      callSync("clerk_other", { clerkId: "clerk_1" })
     ).rejects.toThrow("Cannot sync user for another identity");
+  });
+
+  it("syncUser creates new users from trusted auth identity", async () => {
+    const db = new InMemoryDb();
+
+    const id = await callConvex(
+      syncUser,
+      createTrustedIdentityCtx(db, {
+        subject: "clerk_1",
+        email: "trusted@example.com",
+        name: "Trusted Person",
+        pictureUrl: "https://trusted.example.com/avatar.png",
+      }),
+      {
+        clerkId: "clerk_1",
+      }
+    );
+
+    const created = db.users.find((user) => user._id === id);
+    expect(created).toMatchObject({
+      clerkId: "clerk_1",
+      email: "trusted@example.com",
+      name: "Trusted Person",
+      imageUrl: "https://trusted.example.com/avatar.png",
+      nickname: "TrustedPerson",
+    });
+  });
+
+  it("syncUser rejects new users when trusted auth identity has no email", async () => {
+    const db = new InMemoryDb();
+
+    await expect(
+      callConvex(
+        syncUser,
+        createTrustedIdentityCtx(db, { subject: "clerk_1", name: "No Email" }),
+        { clerkId: "clerk_1" }
+      )
+    ).rejects.toThrow("Authenticated identity is missing an email");
   });
 
   it("syncUser existing user does not backfill nickname/discriminator", async () => {

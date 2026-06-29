@@ -393,6 +393,7 @@ export default defineSchema({
     // User preferences for theme system
     selectedColorSet: v.optional(v.string()),
     selectedBackground: v.optional(v.string()),
+    showExperimentalFeatures: v.optional(v.boolean()),
     // Archived themes (hidden from main list)
     archivedThemeIds: v.optional(v.array(v.id("themes"))),
     // Guard against concurrent theme-level TTS generation runs
@@ -403,6 +404,20 @@ export default defineSchema({
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_nickname_discriminator", ["nickname", "discriminator"]),
+
+  // One-use ledger rows for provider-backed credit charges. A provider flow can
+  // refund a consumed row if it fails before useful content/audio is delivered.
+  creditTransactions: defineTable({
+    userId: v.id("users"),
+    creditType: v.union(v.literal("llm"), v.literal("tts")),
+    cost: v.number(),
+    creditsMonth: v.string(),
+    status: v.union(v.literal("consumed"), v.literal("refunded")),
+    createdAt: v.number(),
+    refundedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"]),
 
   // -------------------------------------------
   // Themes Table

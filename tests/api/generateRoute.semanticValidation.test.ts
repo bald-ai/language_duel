@@ -6,6 +6,7 @@ import {
   THEME_WRONG_ANSWER_INPUT_MAX_LENGTH,
 } from "@/lib/themes/constants";
 import {
+  LLM_ADD_SENTENCE_CREDITS,
   LLM_ADD_WORD_CREDITS,
   LLM_FIELD_REGEN_CREDITS,
   LLM_GENERATE_MORE_SENTENCES_CREDITS,
@@ -58,6 +59,7 @@ vi.mock("@/convex/_generated/api", () => ({
     },
     credits: {
       consumeCredits: "credits.consumeCredits",
+      refundConsumedCredits: "credits.refundConsumedCredits",
     },
   },
 }));
@@ -585,6 +587,35 @@ const branchCases: BranchCase[] = [
     ],
   },
   {
+    name: "add-sentence-round",
+    request: {
+      type: "add-sentence-round",
+      themeName: "Daily life",
+      englishPrompt: "The cat sleeps",
+      existingEnglishPrompts: ["I eat bread"],
+      existingSpanishSentences: ["Yo como pan"],
+    },
+    validOutput: { rounds: [sentenceThemeRounds[2]!] },
+    responseData: { ...sentenceThemeRounds[2]!, freeWordPositions: [] },
+    expectedCreditCost: LLM_ADD_SENTENCE_CREDITS,
+    invalidCases: [
+      {
+        name: "word meanings count",
+        output: {
+          rounds: [{ ...sentenceThemeRounds[2]!, wordMeanings: ["the"] }],
+        },
+        expectedIssue: "word meanings must match",
+      },
+      {
+        name: "duplicate existing sentence",
+        output: {
+          rounds: [sentenceThemeRounds[0]!],
+        },
+        expectedIssue: "duplicates an existing sentence",
+      },
+    ],
+  },
+  {
     name: "generate-more-sentence-rounds",
     request: {
       type: "generate-more-sentence-rounds",
@@ -629,13 +660,18 @@ describe("/api/generate semantic validation", () => {
       getToken: getTokenMock,
     });
     queryMock.mockResolvedValue({ llmCreditsRemaining: 100 });
-    mutationMock.mockResolvedValue(undefined);
+    mutationMock.mockImplementation((mutationName: string) => {
+      if (mutationName === "credits.consumeCredits") {
+        return Promise.resolve({ creditTransactionId: "creditTransaction_1" });
+      }
+      return Promise.resolve(undefined);
+    });
   });
 
   branchCases.forEach((branch) => {
     describe(branch.name, () => {
       branch.invalidCases.forEach((testCase) => {
-        it(`rejects ${testCase.name} without consuming credits`, async () => {
+        it(`rejects ${testCase.name} without permanently consuming credits`, async () => {
           if (testCase.output !== undefined) {
             setupOpenAiFailure(testCase.output);
           }
@@ -658,7 +694,18 @@ describe("/api/generate semantic validation", () => {
           expect(responsesCreateMock).toHaveBeenCalledTimes(
             testCase.expectedOpenAiCalls ?? 2
           );
-          expect(mutationMock).not.toHaveBeenCalled();
+          if ((testCase.expectedOpenAiCalls ?? 2) === 0) {
+            expect(mutationMock).not.toHaveBeenCalled();
+          } else {
+            expect(mutationMock).toHaveBeenCalledTimes(2);
+            expect(mutationMock).toHaveBeenNthCalledWith(1, "credits.consumeCredits", {
+              creditType: "llm",
+              cost: branch.expectedCreditCost,
+            });
+            expect(mutationMock).toHaveBeenNthCalledWith(2, "credits.refundConsumedCredits", {
+              creditTransactionId: "creditTransaction_1",
+            });
+          }
         });
       });
 
@@ -741,5 +788,68 @@ describe("/api/generate semantic validation", () => {
     expect(payload.error).toContain("fieldIndex");
     expect(responsesCreateMock).not.toHaveBeenCalled();
     expect(mutationMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate add-sentence English prompt before calling OpenAI", async () => {
+    const response = await postGenerate({
+      type: "add-sentence-round",
+      themeName: "Daily life",
+      englishPrompt: "the CAT sleeps",
+      existingEnglishPrompts: ["The cat sleeps"],
+      existingSpanishSentences: [],
+    });
+    const payload = (await response.json()) as {
+      success: boolean;
+      error: string;
+      validationIssues?: string[];
+    };
+
+    expect(response.status).toBe(400);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain("Failed to generate valid content");
+    expect(payload.validationIssues?.join("\n")).toContain("duplicates existing sentence prompt");
+    expect(responsesCreateMock).not.toHaveBeenCalled();
+    expect(mutationMock).not.toHaveBeenCalled();
+  });
+
+  it("does not call OpenAI when credits cannot be consumed", async () => {
+    mutationMock.mockImplementation((mutationName: string) => {
+      if (mutationName === "credits.consumeCredits") {
+        const error = new Error("LLM credits exhausted") as Error & {
+          data: { code: string };
+        };
+        error.data = { code: "CREDITS_EXHAUSTED" };
+        return Promise.reject(error);
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const response = await postGenerate(branchCases[0]!.request);
+    const payload = (await response.json()) as { success: boolean; code?: string };
+
+    expect(response.status).toBe(402);
+    expect(payload.success).toBe(false);
+    expect(payload.code).toBe("CREDITS_EXHAUSTED");
+    expect(mutationMock).toHaveBeenCalledOnce();
+    expect(mutationMock).toHaveBeenCalledWith("credits.consumeCredits", {
+      creditType: "llm",
+      cost: LLM_WORD_THEME_CREDITS,
+    });
+    expect(responsesCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("consumes LLM credits before calling OpenAI", async () => {
+    responsesCreateMock.mockResolvedValueOnce(openAiPayload(branchCases[0]!.validOutput));
+
+    const response = await postGenerate(branchCases[0]!.request);
+
+    expect(response.status).toBe(200);
+    expect(mutationMock).toHaveBeenCalledWith("credits.consumeCredits", {
+      creditType: "llm",
+      cost: LLM_WORD_THEME_CREDITS,
+    });
+    expect(mutationMock.mock.invocationCallOrder[0]).toBeLessThan(
+      responsesCreateMock.mock.invocationCallOrder[0]!
+    );
   });
 });

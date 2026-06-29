@@ -23,8 +23,7 @@ interface GenerateMoreSentenceRoundsModalProps {
 /**
  * "Generate more sentence rounds" modal for an existing sentence theme.
  * Mirrors the word "Generate more" modal. Always over-generates so the user
- * can prune the appended rounds in the editor (same pattern as the initial
- * generation — no separate review screen).
+ * can prune the generated rounds before they are appended to the editor.
  */
 export function GenerateMoreSentenceRoundsModal({
   isOpen,
@@ -44,7 +43,7 @@ export function GenerateMoreSentenceRoundsModal({
     >
       <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
         Generate {SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT} new sentence rounds for &quot;{themeName}&quot;.
-        Review and prune them in the editor afterward. New rounds avoid duplicating existing kept sentences.
+        Review them before they are added. New rounds avoid duplicating existing kept sentences.
       </p>
 
       {isGenerating && (

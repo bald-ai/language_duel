@@ -7,18 +7,10 @@ import { useUser } from "@clerk/nextjs";
 
 type SyncPayload = {
   clerkId: string;
-  email: string;
-  name: string | undefined;
-  imageUrl: string | undefined;
 };
 
 function getSyncKey(payload: SyncPayload): string {
-  return [
-    payload.clerkId,
-    payload.email,
-    payload.name || "",
-    payload.imageUrl || "",
-  ].join("|");
+  return payload.clerkId;
 }
 
 /**
@@ -32,9 +24,6 @@ export function useSyncUser() {
   const lastSyncedKeyRef = useRef<string | null>(null);
   const isSyncingRef = useRef(false);
   const pendingPayloadRef = useRef<SyncPayload | null>(null);
-  const primaryEmail = user?.emailAddresses[0]?.emailAddress || "";
-  const displayName = user?.firstName || user?.fullName || undefined;
-  const imageUrl = user?.imageUrl || undefined;
 
   const syncPayload = useMemo(() => {
     if (!user) {
@@ -43,11 +32,8 @@ export function useSyncUser() {
 
     return {
       clerkId: user.id,
-      email: primaryEmail,
-      name: displayName,
-      imageUrl,
     };
-  }, [user, primaryEmail, displayName, imageUrl]);
+  }, [user]);
 
   const performSync = useCallback(async (payload: SyncPayload) => {
     const syncKey = getSyncKey(payload);

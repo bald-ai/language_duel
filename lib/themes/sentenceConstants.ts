@@ -45,8 +45,7 @@ export const SENTENCE_PICK_AND_PRUNE_ROUND_COUNT =
 
 /**
  * Generate-more for an existing sentence theme. Always over-generates so the
- * user can prune the appended rounds in the editor (same pattern as the
- * initial generation — no separate review screen).
+ * user can prune generated rounds before they append to the editor.
  */
 export const SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT = 10;
 

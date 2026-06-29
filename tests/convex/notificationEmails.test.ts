@@ -281,6 +281,43 @@ describe("notification email claim-before-send", () => {
     expect(db.emailNotificationLog[0].sentAt).toEqual(expect.any(Number));
   });
 
+  it("sends notifications to the email stored on the trusted user record", async () => {
+    const db = new InMemoryDb([
+      buildUser({ email: "trusted-stored@example.com" }),
+    ]);
+    let sentTo: string | undefined;
+
+    const result = await sendNotificationEmailHandler(
+      {
+        runQuery: async (_fn: unknown, args: { id?: Id<"users">; userId?: Id<"users"> }) => {
+          if (args.id) return db.users.find((user) => user._id === args.id) ?? null;
+          if (args.userId) return { ...DEFAULT_NOTIFICATION_PREFS, userId: args.userId };
+          return null;
+        },
+        runMutation: async (_fn: unknown, args: { claimId?: Id<"emailNotificationLog"> }) => {
+          if (args.claimId) {
+            return markNotificationSendSentHandler({ db } as never, {
+              claimId: args.claimId,
+            });
+          }
+          return claimNotificationSendHandler({ db } as never, args as never);
+        },
+        runAction: async (_fn: unknown, args: { to: string }) => {
+          sentTo = args.to;
+          return { success: true };
+        },
+      } as never,
+      {
+        toUserId: "user_1" as Id<"users">,
+        trigger: "weekly_goal_draft_expiring",
+        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
+      }
+    );
+
+    expect(result).toEqual({ sent: true });
+    expect(sentTo).toBe("trusted-stored@example.com");
+  });
+
   it("marks the claim failed and rethrows when the email send fails", async () => {
     const db = new InMemoryDb([buildUser()]);
 

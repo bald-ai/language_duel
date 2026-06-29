@@ -65,7 +65,7 @@ export function PickAndPruneReview({
             className="text-[11px] font-bold uppercase tracking-[0.22em]"
             style={{ color: colors.cta.light }}
           >
-            Experimental Review
+            Pick & Prune
           </p>
           <h1 className="title-font text-lg font-bold mt-0.5" style={{ color: colors.text.DEFAULT }}>
             Review Generated Words

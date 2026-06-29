@@ -44,6 +44,7 @@ vi.mock("@/convex/_generated/api", () => ({
     },
     credits: {
       consumeCredits: "credits.consumeCredits",
+      refundConsumedCredits: "credits.refundConsumedCredits",
     },
   },
 }));
@@ -100,7 +101,12 @@ describe("/api/generate theme generation", () => {
       getToken: getTokenMock,
     });
     queryMock.mockResolvedValue({ llmCreditsRemaining: 10 });
-    mutationMock.mockResolvedValue(undefined);
+    mutationMock.mockImplementation((mutationName: string) => {
+      if (mutationName === "credits.consumeCredits") {
+        return Promise.resolve({ creditTransactionId: "creditTransaction_1" });
+      }
+      return Promise.resolve(undefined);
+    });
   });
 
   it("retries schema-invalid theme output and fails when the retry is still invalid", async () => {
@@ -135,7 +141,14 @@ describe("/api/generate theme generation", () => {
     expect(Array.isArray(payload.validationIssues)).toBe(true);
     expect(payload.validationIssues!.length).toBeGreaterThan(0);
     expect(responsesCreateMock).toHaveBeenCalledTimes(2);
-    expect(mutationMock).not.toHaveBeenCalled();
+    expect(mutationMock).toHaveBeenCalledTimes(2);
+    expect(mutationMock).toHaveBeenNthCalledWith(1, "credits.consumeCredits", {
+      creditType: "llm",
+      cost: 10,
+    });
+    expect(mutationMock).toHaveBeenNthCalledWith(2, "credits.refundConsumedCredits", {
+      creditTransactionId: "creditTransaction_1",
+    });
   });
 
   it("consumes credits once when the retry produces a valid theme", async () => {

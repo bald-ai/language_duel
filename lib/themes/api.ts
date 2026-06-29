@@ -318,6 +318,37 @@ export async function generateSentenceTheme(
   return { success: true, data: result.data };
 }
 
+export type AddSentenceRoundParams = Omit<
+  Extract<GenerateRequest, { type: "add-sentence-round" }>,
+  "type"
+>;
+
+export interface AddSentenceRoundResult {
+  success: boolean;
+  data?: SentenceRoundInput;
+  error?: string;
+}
+
+export async function addSentenceRound(
+  params: AddSentenceRoundParams
+): Promise<AddSentenceRoundResult> {
+  const result = await callGenerateApi(
+    {
+      type: "add-sentence-round",
+      themeName: params.themeName,
+      englishPrompt: params.englishPrompt,
+      existingEnglishPrompts: params.existingEnglishPrompts,
+      existingSpanishSentences: params.existingSpanishSentences,
+    },
+    isSentenceRoundInput,
+    "SentenceRoundInput",
+    "Failed to generate sentence"
+  );
+
+  if (!result.success) return result;
+  return { success: true, data: result.data };
+}
+
 export type GenerateMoreSentenceRoundsParams = Omit<
   Extract<GenerateRequest, { type: "generate-more-sentence-rounds" }>,
   "type"
