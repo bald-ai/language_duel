@@ -16,7 +16,7 @@ describe("resolveApiError", () => {
 
     expect(resolved).toEqual({
       code: "AUTH_FAILED",
-      message: "Unauthorized",
+      message: "Please sign in and try again.",
       status: 401,
     });
   });
@@ -26,7 +26,7 @@ describe("resolveApiError", () => {
     authError.data = { code: "AUTH_FAILED" };
     expect(resolveApiError(authError, fallback)).toEqual({
       code: "AUTH_FAILED",
-      message: "Unauthorized",
+      message: "Please sign in and try again.",
       status: 401,
     });
 
@@ -34,15 +34,15 @@ describe("resolveApiError", () => {
     creditError.data = { code: "CREDITS_EXHAUSTED" };
     expect(resolveApiError(creditError, fallback)).toEqual({
       code: "CREDITS_EXHAUSTED",
-      message: "LLM credits exhausted",
+      message: "You are out of AI generation credits.",
       status: 402,
     });
   });
 
-  it("does not classify message-only errors", () => {
+  it("cleans message-only credit errors without classifying the code", () => {
     expect(resolveApiError(new Error("LLM credits exhausted"), fallback)).toEqual({
       code: "UNKNOWN_ERROR",
-      message: "LLM credits exhausted",
+      message: "You are out of AI generation credits.",
       status: 500,
     });
   });
@@ -56,7 +56,7 @@ describe("resolveApiError", () => {
 
     expect(resolveApiError(null, fallback)).toEqual({
       code: "UNKNOWN_ERROR",
-      message: "Unknown failure",
+      message: "Unknown failure. Please try again.",
       status: 500,
     });
   });

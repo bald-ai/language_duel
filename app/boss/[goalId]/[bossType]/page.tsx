@@ -203,6 +203,7 @@ export default function BossLaunchPage() {
                   onSelectMode={setSelectedMode}
                   dataTestIdPrefix="boss-mode"
                   allowedModes={LIMITED_LIVES_DUEL_MODES}
+                  layout="rows"
                 />
 
                 <button

@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 import { stripIrr } from "@/lib/stringUtils";
 import { DEFAULT_TTS_PROVIDER, type TtsProvider } from "@/lib/tts/providers";
 
@@ -98,7 +99,10 @@ export function useTTS() {
         });
 
         if (!response.ok) {
-          const message = await getResponseErrorMessage(response);
+          const message = await getResponseErrorMessage(
+            response,
+            "Audio could not be played. Please try again."
+          );
           throw new Error(message);
         }
 
@@ -130,7 +134,10 @@ export function useTTS() {
 
       await audio.play();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to play audio";
+      const message =
+        error instanceof Error
+          ? normalizePlainErrorMessage(error.message, "Audio could not be played")
+          : "Audio could not be played. Please try again.";
       toast.error(message);
       setPlayingWordKey(null);
     }

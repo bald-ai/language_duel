@@ -20,12 +20,19 @@ export function creditFailureResponse(error: unknown) {
   const resolved = resolveApiError(error, {
     defaultCode: "CREDITS_EXHAUSTED",
     defaultStatus: 402,
-    defaultMessage: "Credit check failed",
+    defaultMessage: "Could not check your AI generation credits",
   });
 
   return NextResponse.json(
     { success: false, error: resolved.message, code: resolved.code },
     { status: resolved.status }
+  );
+}
+
+export function generationFailureResponse() {
+  return NextResponse.json(
+    { success: false, error: "Could not generate content. Please try again." },
+    { status: 500 }
   );
 }
 

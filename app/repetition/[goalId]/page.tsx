@@ -178,6 +178,7 @@ export default function RepetitionLaunchPage() {
               onSelectMode={setSelectedMode}
               dataTestIdPrefix="repetition-mode"
               allowedModes={LIMITED_LIVES_DUEL_MODES}
+              layout="rows"
             />
           )}
 

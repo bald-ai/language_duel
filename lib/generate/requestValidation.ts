@@ -422,26 +422,6 @@ function parseGenerateMoreWordsRequest(
   };
 }
 
-function parseSentenceRoundCount(value: unknown): number {
-  if (value === undefined) return DEFAULT_SENTENCE_GENERATION_ROUND_COUNT;
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    !Number.isInteger(value)
-  ) {
-    throw new Error("roundCount must be an integer");
-  }
-  if (
-    value < SENTENCE_MIN_GENERATION_ROUND_COUNT ||
-    value > SENTENCE_MAX_GENERATION_ROUND_COUNT
-  ) {
-    throw new Error(
-      `roundCount must be between ${SENTENCE_MIN_GENERATION_ROUND_COUNT} and ${SENTENCE_MAX_GENERATION_ROUND_COUNT}`
-    );
-  }
-  return value;
-}
-
 // Allow Pick & Prune to over-generate beyond the user-facing cap. The plan
 // over-generates by 100% so the upper bound is 2x the user max.
 const SENTENCE_OVERGENERATION_MAX =
@@ -540,10 +520,6 @@ function parseAddSentenceRoundRequest(
     existingSpanishSentences: parseExistingSpanishSentences(body.existingSpanishSentences),
   };
 }
-
-// Quiet TS6133 by ensuring parseSentenceRoundCount remains a referenced helper
-// (kept for callers that want the user-facing cap rather than Pick & Prune).
-void parseSentenceRoundCount;
 
 export function parseGenerateRequest(payload: unknown): ParseResult {
   if (!isRecord(payload)) {

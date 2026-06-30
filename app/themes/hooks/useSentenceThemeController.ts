@@ -31,6 +31,7 @@ import {
   LLM_GENERATE_MORE_SENTENCES_CREDITS,
   LLM_SENTENCE_THEME_CREDITS,
 } from "@/lib/credits/constants";
+import { AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/userFacingErrors";
 import {
   DEFAULT_SENTENCE_GENERATION_ROUND_COUNT,
   SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
@@ -286,7 +287,7 @@ export function useSentenceThemeController(params: {
       return false;
     }
     if (currentUser.llmCreditsRemaining < cost) {
-      toast.error("LLM credits exhausted");
+      toast.error(AI_CREDITS_EXHAUSTED_MESSAGE);
       return false;
     }
     return true;
@@ -364,7 +365,7 @@ export function useSentenceThemeController(params: {
         });
         pickAndPrune.initialize(result.data);
       } catch (error) {
-        setGenerationError(error instanceof Error ? error.message : "Generation failed");
+        setGenerationError(getErrorMessage(error, "Generation failed"));
       } finally {
         setIsGenerating(false);
       }
@@ -460,7 +461,7 @@ export function useSentenceThemeController(params: {
       pickAndPrune.initialize(result.data);
       setIsGenerateMoreModalOpen(false);
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "Failed to generate more rounds");
+      setGenerationError(getErrorMessage(error, "Failed to generate more rounds"));
     } finally {
       setIsGenerating(false);
     }
@@ -487,7 +488,7 @@ export function useSentenceThemeController(params: {
       setLocalRounds((previous) => [...previous, ...result.data!]);
       setIsGenerateMoreModalOpen(false);
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "Failed to generate more rounds");
+      setGenerationError(getErrorMessage(error, "Failed to generate more rounds"));
     } finally {
       setIsGenerating(false);
     }
@@ -643,7 +644,7 @@ export function useSentenceThemeController(params: {
       setAddSentencePrompt("");
       setIsAddSentenceModalOpen(false);
     } catch (error) {
-      setAddSentenceError(error instanceof Error ? error.message : "Failed to generate sentence");
+      setAddSentenceError(getErrorMessage(error, "Failed to generate sentence"));
     } finally {
       setIsAddingSentence(false);
     }

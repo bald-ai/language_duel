@@ -86,6 +86,8 @@ interface ThemeSelectorProps {
   hideCreateThemeButton?: boolean;
   /** Dense layout for embedding (e.g. the challenge modal): scroll cap + "Selected" summary footer. */
   compact?: boolean;
+  /** Lets compact usage fill a fixed wizard body instead of using its default max-height cap. */
+  fillHeight?: boolean;
   /** Per-row testid prefix; each row is `${itemTestIdPrefix}-${themeId}`. */
   itemTestIdPrefix?: string;
 }
@@ -114,6 +116,7 @@ export function ThemeSelector({
   hideConfirmButton = false,
   hideCreateThemeButton = false,
   compact = false,
+  fillHeight = false,
   itemTestIdPrefix = "theme-selector-item",
 }: ThemeSelectorProps) {
   const colors = useAppearanceColors();
@@ -185,8 +188,12 @@ export function ThemeSelector({
   if (compact) {
     const selectedThemes = themes.filter((theme) => draftThemeIds.includes(theme._id));
     return (
-      <div>
-        <div className="max-h-52 overflow-y-auto space-y-2 pr-0.5">
+      <div className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}>
+        <div
+          className={`overflow-y-auto space-y-2 pr-0.5 ${
+            fillHeight ? "min-h-0 flex-1" : "max-h-52"
+          }`}
+        >
           {themeGroups.map((group) => (
             <Fragment key={group.contentType}>
               <ThemeGroupHeader
@@ -204,7 +211,7 @@ export function ThemeSelector({
                     className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
                     style={{
                       backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-                      borderColor: isSelected ? colors.cta.DEFAULT : "transparent",
+                      borderColor: isSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
                     }}
                     data-testid={`${itemTestIdPrefix}-${theme._id}`}
                   >

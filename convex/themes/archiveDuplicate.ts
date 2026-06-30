@@ -65,6 +65,3 @@ export function buildDuplicateSentenceThemePayload(theme: {
     sentenceRounds: normalizeSentenceRounds(duplicatedRounds),
   };
 }
-
-// Legacy alias kept for direct word-theme call sites.
-export const buildDuplicateThemePayload = buildDuplicateWordThemePayload;

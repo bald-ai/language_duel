@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction, useCallback, useMemo, useState } from "react"
 import { useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
+import { getErrorMessage } from "@/lib/errors";
 import type { WordEntry } from "@/lib/types";
 import { isWordDuplicate } from "@/lib/themes/themeUiValidation";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
@@ -10,6 +11,7 @@ import {
   LLM_GENERATE_MORE_WORDS_CREDITS,
   LLM_WORD_THEME_CREDITS,
 } from "@/lib/credits/constants";
+import { AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/userFacingErrors";
 import {
   GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
   PICK_AND_PRUNE_WORD_COUNT,
@@ -57,7 +59,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     }
 
     if (currentUser.llmCreditsRemaining < cost) {
-      toast.error("LLM credits exhausted");
+      toast.error(AI_CREDITS_EXHAUSTED_MESSAGE);
       return false;
     }
 
@@ -124,8 +126,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
         setShowGenerateModal(false);
         themeGenerator.reset();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Generation failed";
-        toast.error(message);
+        toast.error(getErrorMessage(error, "Generation failed"));
       }
     },
     [ensureLlmCredits, params, pickAndPrune, themeGenerator]

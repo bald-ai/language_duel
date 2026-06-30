@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useSoloCompletionReporting } from "@/app/solo/[sessionId]/hooks/useSoloCompletionReporting";
 import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
@@ -6,6 +6,13 @@ import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
 const recordRepetitionSoloMasteryMock = vi.hoisted(() => vi.fn());
 const completeRepetitionSoloPracticeMock = vi.hoisted(() => vi.fn());
 const completeBossSoloPracticeMock = vi.hoisted(() => vi.fn());
+const toastErrorMock = vi.hoisted(() => vi.fn());
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastErrorMock,
+  },
+}));
 
 vi.mock("convex/react", () => ({
   useMutation: (mutation: unknown) => {
@@ -167,5 +174,45 @@ describe("useSoloCompletionReporting", () => {
 
     expect(handleCorrect).toHaveBeenCalledOnce();
     expect(recordRepetitionSoloMasteryMock).not.toHaveBeenCalled();
+  });
+
+  it("tells the user when spaced-repetition completion is not saved", async () => {
+    completeRepetitionSoloPracticeMock.mockResolvedValue({ advanced: false });
+
+    renderHook(() =>
+      useSoloCompletionReporting({
+        soloPracticeSessionId: "solo_practice_1",
+        spacedRepetitionStep: 1,
+        isBossPractice: false,
+        session: buildSessionState({ completed: true }),
+        handleCorrect: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Practice finished, but your repetition progress could not be saved. Please try again from the repetition board."
+      );
+    });
+  });
+
+  it("tells the user when boss completion cannot be saved", async () => {
+    completeBossSoloPracticeMock.mockRejectedValue(new Error("Internal server error"));
+
+    renderHook(() =>
+      useSoloCompletionReporting({
+        soloPracticeSessionId: "solo_practice_1",
+        spacedRepetitionStep: null,
+        isBossPractice: true,
+        session: buildSessionState({ completed: true }),
+        handleCorrect: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Could not save boss progress. Please try again."
+      );
+    });
   });
 });

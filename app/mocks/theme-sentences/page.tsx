@@ -27,6 +27,7 @@ import type {
   GeneratedSentence,
   GeneratedWord,
 } from "@/app/api/mocks/theme-sentences/route";
+import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 
 /**
  * THROWAWAY PROTOTYPE: pick themes → AI generates natural on-topic sentences
@@ -120,7 +121,11 @@ export default function ThemeSentencesMockPage() {
       setRemovedOpen(false);
       setStage("review");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(
+        err instanceof Error
+          ? normalizePlainErrorMessage(err.message, "Could not generate sentences")
+          : "Could not generate sentences. Please try again."
+      );
     } finally {
       setLoading(false);
     }

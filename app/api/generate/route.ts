@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseGenerateRequest } from "@/lib/generate/requestValidation";
 import { handleGenerateRequest } from "./generationService";
+import { generationFailureResponse } from "./responses";
 
 export const runtime = "nodejs";
 
@@ -18,9 +19,6 @@ export async function POST(request: NextRequest) {
     return handleGenerateRequest(parsedRequest.data);
   } catch (error) {
     console.error("Generate API error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
+    return generationFailureResponse();
   }
 }

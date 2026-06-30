@@ -4,7 +4,7 @@ import { getResponseErrorMessage } from "@/lib/api/errors";
 describe("getResponseErrorMessage", () => {
   it("returns fallback text when response body is empty", async () => {
     const response = new Response("", { status: 500 });
-    await expect(getResponseErrorMessage(response)).resolves.toBe("Request failed (500)");
+    await expect(getResponseErrorMessage(response)).resolves.toBe("Something went wrong. Please try again.");
   });
 
   it("returns error field from JSON body", async () => {
@@ -30,6 +30,17 @@ describe("getResponseErrorMessage", () => {
       },
     } as unknown as Response;
 
-    await expect(getResponseErrorMessage(badResponse)).resolves.toBe("Request failed (502)");
+    await expect(getResponseErrorMessage(badResponse)).resolves.toBe(
+      "Something went wrong. Please try again."
+    );
+  });
+
+  it("cleans technical JSON errors", async () => {
+    const response = new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+    });
+    await expect(getResponseErrorMessage(response, "Could not save")).resolves.toBe(
+      "Could not save. Please try again."
+    );
   });
 });

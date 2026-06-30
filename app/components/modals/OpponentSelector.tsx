@@ -34,7 +34,7 @@ export const OpponentSelector = memo(function OpponentSelector({
       className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
       style={{
         backgroundColor: isMeSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-        borderColor: isMeSelected ? colors.cta.DEFAULT : "transparent",
+        borderColor: isMeSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
       }}
       data-testid="duel-modal-opponent-me"
     >
@@ -99,7 +99,7 @@ export const OpponentSelector = memo(function OpponentSelector({
           className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
           style={{
             backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-            borderColor: isSelected ? colors.cta.DEFAULT : "transparent",
+            borderColor: isSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
           }}
           data-testid={`duel-modal-opponent-${user._id}`}
         >

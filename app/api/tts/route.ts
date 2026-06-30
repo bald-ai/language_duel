@@ -29,6 +29,9 @@ export async function POST(request: NextRequest) {
     return generateLiveTtsResponse(text);
   } catch (error) {
     console.error("TTS error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Audio could not be generated. Please try again." },
+      { status: 500 }
+    );
   }
 }

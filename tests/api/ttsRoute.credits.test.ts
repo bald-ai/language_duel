@@ -120,7 +120,7 @@ describe("/api/tts credit accounting", () => {
     const payload = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(500);
-    expect(payload.error).toContain("TTS generation failed");
+    expect(payload.error).toBe("Audio could not be generated. Please try again.");
     expect(generateTtsAudioWithFallbackMock).toHaveBeenCalledOnce();
     expect(mutationMock).toHaveBeenNthCalledWith(1, "credits.consumeCredits", {
       creditType: "tts",

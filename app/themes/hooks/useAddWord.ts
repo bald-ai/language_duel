@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { addWord, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
+import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 
 interface AddWordState {
   isAdding: boolean;
@@ -62,7 +63,10 @@ export function useAddWord() {
         setState((prev) => ({ ...prev, isAdding: false }));
         return result.data;
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        const errorMsg =
+          error instanceof Error
+            ? normalizePlainErrorMessage(error.message, "Failed to add word")
+            : "Failed to add word. Please try again.";
         setState((prev) => ({ ...prev, isAdding: false, error: errorMsg }));
         return null;
       }

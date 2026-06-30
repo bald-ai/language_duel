@@ -256,35 +256,66 @@
         width: calc(100vw - 32px);
         max-width: 448px;
         min-width: 0;
-        height: min(640px, calc(100dvh - 32px));
-        max-height: calc(100dvh - 32px);
+        height: min(600px, calc(100dvh - 32px));
+        max-height: min(90dvh, calc(100dvh - 32px));
         min-height: 0;
         display: flex;
         flex-direction: column;
-        border: 2px solid var(--color-primary);
         border-radius: 24px;
-        padding: 20px;
-        background-image: linear-gradient(180deg, var(--color-background), var(--color-background-elevated));
-        box-shadow: 0 20px 60px rgba(251, 113, 133, 0.4);
-        backdrop-filter: blur(4px);
+        overflow: hidden;
+        background: var(--color-background-elevated);
+        box-shadow: 0 24px 70px rgba(80, 40, 15, 0.24);
       }
 
       .modal-title-row {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
         gap: 8px;
-        margin-bottom: 26px;
+        padding: 16px;
+        border-bottom: 1px solid rgba(107, 107, 107, 0.12);
         flex-shrink: 0;
       }
 
       .modal-title {
         margin: 0;
         font-family: "Fredoka", sans-serif;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
         line-height: 1.2;
         letter-spacing: 0;
+      }
+
+      .header-icon-button {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 9999px;
+        display: grid;
+        place-items: center;
+        background: transparent;
+        color: var(--color-text-muted);
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .header-icon-button:hover {
+        background: rgba(107, 107, 107, 0.08);
+        color: var(--color-text);
+      }
+
+      .header-icon-button.invisible {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .header-icon-button svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       .modal-scroll {
@@ -293,12 +324,15 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        padding-right: 2px;
+        padding: 0;
+        background: rgba(107, 107, 107, 0.035);
       }
 
       .progress-region {
         flex: 0 0 auto;
-        margin-bottom: 24px;
+        margin: 0;
+        padding: 20px 28px;
+        background: rgba(107, 107, 107, 0.035);
       }
 
       .step-content {
@@ -306,6 +340,8 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
+        padding: 24px;
+        overflow-y: auto;
         transform-origin: center top;
         will-change: opacity, transform, filter;
       }
@@ -364,16 +400,17 @@
       .crumb-dot {
         position: relative;
         z-index: 1;
-        width: 20px;
-        height: 20px;
+        width: 28px;
+        height: 28px;
         border: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
         border-radius: 9999px;
         display: grid;
         place-items: center;
         background: var(--color-background-elevated);
         color: var(--color-text-muted);
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9);
       }
 
       .crumb-step.done .crumb-dot {
@@ -389,9 +426,13 @@
         box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-cta) 16%, transparent);
       }
 
+      .crumb-step.active span:last-child {
+        color: var(--color-primary);
+      }
+
       .step-prompt {
         flex: 0 0 auto;
-        margin: 0 0 22px;
+        margin: 0 0 20px;
         color: var(--color-text-muted);
         text-align: center;
         font-size: 12px;
@@ -404,12 +445,12 @@
       .section-card {
         flex: 1;
         min-height: 0;
-        overflow: hidden;
-        border: 1.5px solid var(--color-primary-dark);
-        border-radius: 16px;
-        padding: 16px;
-        background: var(--color-background-elevated);
-        box-shadow: 0 6px 16px rgba(80, 40, 15, 0.12);
+        overflow: visible;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
       }
 
       .section-card > div {
@@ -520,12 +561,12 @@
       .row-button {
         width: 100%;
         min-width: 0;
-        border: 2px solid transparent;
-        border-radius: 12px;
-        padding: 12px 16px;
-        background: var(--color-background);
+        border: 2px solid rgba(107, 107, 107, 0.1);
+        border-radius: 16px;
+        padding: 16px;
+        background: var(--color-background-elevated);
         text-align: left;
-        transition: filter 0.15s;
+        transition: filter 0.15s, border-color 0.15s, background 0.15s;
       }
 
       .row-button:hover {
@@ -555,6 +596,10 @@
         display: flex;
         align-items: center;
         gap: 12px;
+      }
+
+      .row-inner > .row-left:last-child {
+        flex: 0 0 auto;
       }
 
       .row-text {
@@ -590,8 +635,8 @@
 
       .checkmark {
         flex-shrink: 0;
-        width: 16px;
-        height: 16px;
+        width: 24px;
+        height: 24px;
         border-radius: 9999px;
         display: grid;
         place-items: center;
@@ -600,8 +645,8 @@
       }
 
       .checkmark svg {
-        width: 10px;
-        height: 10px;
+        width: 14px;
+        height: 14px;
         fill: white;
       }
 
@@ -685,15 +730,19 @@
       }
 
       .footer {
-        margin-top: 16px;
-        min-height: 108px;
+        flex: 0 0 auto;
+        margin-top: 0;
+        min-height: 0;
+        padding: 16px;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
+        background: var(--color-background-elevated);
+        border-top: 1px solid rgba(107, 107, 107, 0.12);
       }
 
       .footer.stack-footer {
-        gap: 12px;
+        gap: 0;
       }
 
       .footer-row {
@@ -704,8 +753,8 @@
       .button {
         border: 0;
         border-radius: 16px;
-        padding: 14px 16px;
-        font-size: 14px;
+        padding: 16px;
+        font-size: 16px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.1em;
@@ -755,11 +804,6 @@
         .top-right {
           right: 16px;
         }
-
-        .modal-panel {
-          padding: 24px;
-        }
-
         .modal-title {
           font-size: 24px;
         }
@@ -848,7 +892,13 @@
         <div class="modal-center">
           <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div class="modal-title-row">
+              <button class="header-icon-button invisible" type="button" id="header-back" data-action="back" aria-label="Back">
+                <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
               <h2 class="modal-title" id="modal-title">Create Challenge</h2>
+              <button class="header-icon-button" type="button" data-action="cancel" aria-label="Close">
+                <svg viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </button>
             </div>
             <div class="modal-scroll">
               <div class="progress-region" id="progress-region"></div>
@@ -914,6 +964,7 @@
       const modal = document.getElementById("modal-backdrop");
       const openButton = document.getElementById("open-modal-button");
       const title = document.getElementById("modal-title");
+      const headerBack = document.getElementById("header-back");
       const progressRegion = document.getElementById("progress-region");
       const stepContent = document.getElementById("step-content");
       const prompt = document.getElementById("step-prompt");
@@ -958,7 +1009,7 @@
         list.push("theme");
         if (!hasTheme()) return list;
         if (!isSelfSelected()) list.push("mode");
-        list.push("difficulty");
+        if (!isRelaySelected()) list.push("difficulty");
         list.push("confirm");
         return list;
       }
@@ -970,10 +1021,6 @@
 
       function isRelaySelected() {
         return !isSelfSelected() && state.requestedMode === "relay";
-      }
-
-      function isAutoStep(step) {
-        return step === "opponent" || step === "mode" || (step === "difficulty" && !isRelaySelected());
       }
 
       function stepDirection(currentStep, nextStep) {
@@ -1117,10 +1164,6 @@
       }
 
       function renderDifficultyStep() {
-        if (isRelaySelected()) {
-          body.innerHTML = '<p class="row-subtitle" style="font-size:14px;margin:0;">Controlled by the picker</p>';
-          return;
-        }
         body.innerHTML = `
           <div class="stack">
             ${difficulties.map((difficulty) => rowButton({
@@ -1195,25 +1238,19 @@
       }
 
       function renderFooter(step, list, index) {
-        const isFirst = index <= 0;
         const isConfirm = step === "confirm";
-        const backButton = !isFirst ? '<button class="button outline" type="button" data-action="back">Back</button>' : "";
-        const cancelButton = '<button class="button outline full" type="button" data-action="cancel">Cancel</button>';
-        const nextDisabled = step === "theme" && !hasTheme();
-        const primary = isConfirm
-          ? `<button class="button primary" type="button" data-action="create" ${!hasOpponent() || !hasTheme() ? "disabled" : ""}>${isSelfSelected() ? "Start practice" : "Create Challenge"}</button>`
-          : `<button class="button primary" type="button" data-action="next" ${nextDisabled ? "disabled" : ""}>Next</button>`;
-
-        if (!isAutoStep(step)) {
-          footer.className = "footer stack-footer";
-          footer.innerHTML = `<div class="footer-row">${backButton}${primary}</div>${cancelButton}`;
-          return;
-        }
-
         footer.className = "footer";
-        footer.innerHTML = backButton
-          ? `<div class="footer-row">${backButton}<button class="button outline" style="flex:1" type="button" data-action="cancel">Cancel</button></div>`
-          : cancelButton;
+        const disabled =
+          (step === "opponent" && !hasOpponent()) ||
+          (step === "theme" && !hasTheme()) ||
+          (isConfirm && (!hasOpponent() || !hasTheme()));
+        const label = isConfirm
+          ? isSelfSelected()
+            ? "Start Practice"
+            : "Create Challenge"
+          : "Continue";
+        const action = isConfirm ? "create" : "next";
+        footer.innerHTML = `<button class="button primary full" type="button" data-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
       }
 
       function render(options = {}) {
@@ -1222,6 +1259,7 @@
         const step = activeStep();
         const index = list.indexOf(step);
         title.textContent = isSelfSelected() ? "Solo Practice" : "Create Challenge";
+        headerBack.classList.toggle("invisible", index <= 0);
         prompt.textContent = stepPrompt[step];
         renderProgress(step, list);
         renderBody(step);
@@ -1245,8 +1283,15 @@
 
       function nextStep() {
         const step = activeStep();
+        const list = steps();
+        const index = list.indexOf(step);
+        if (step === "opponent" && hasOpponent()) setStep("theme");
         if (step === "theme") advanceAfterTheme();
         if (step === "difficulty") setStep("confirm");
+        if (step === "mode") setStep(isRelaySelected() ? "confirm" : "difficulty");
+        if (index >= 0 && index < list.length - 1 && !["opponent", "theme", "mode", "difficulty"].includes(step)) {
+          setStep(list[index + 1]);
+        }
       }
 
       function backStep() {
@@ -1277,7 +1322,7 @@
         }
         if (action === "select-mode") {
           state.requestedMode = id;
-          setStep("difficulty");
+          setStep(id === "relay" ? "confirm" : "difficulty");
         }
         if (action === "select-difficulty") {
           state.selectedDifficulty = id;

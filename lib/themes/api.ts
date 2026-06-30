@@ -1,5 +1,6 @@
 import type { WordEntry } from "@/lib/types";
 import { getResponseErrorMessage } from "@/lib/api/errors";
+import { withRetry } from "@/lib/userFacingErrors";
 import { isRecord } from "@/lib/typeGuards";
 import type { GenerateRequest } from "@/lib/generate/requestValidation";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
@@ -82,31 +83,43 @@ type TypeGuard<T> = (value: unknown) => value is T;
 async function callGenerateApi<T>(
   body: Record<string, unknown>,
   validate: TypeGuard<T>,
-  expectedShape: string,
   errorPrefix: string
 ): Promise<{ success: true; data: T; prompt?: string } | { success: false; error: string }> {
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const userMessage = withRetry(errorPrefix);
+  let response: Response;
+  try {
+    response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { success: false, error: userMessage };
+  }
 
   if (!response.ok) {
-    const errorMsg = await getResponseErrorMessage(response);
+    const errorMsg = await getResponseErrorMessage(response, userMessage);
     return { success: false, error: errorMsg };
   }
 
-  const payload = parseGenerateApiEnvelope(await response.json());
+  let responseBody: unknown;
+  try {
+    responseBody = await response.json();
+  } catch {
+    return { success: false, error: userMessage };
+  }
+
+  const payload = parseGenerateApiEnvelope(responseBody);
   if (!payload) {
-    return { success: false, error: `${errorPrefix}: invalid response format` };
+    return { success: false, error: userMessage };
   }
 
   if (!payload.success) {
-    return { success: false, error: payload.error || errorPrefix };
+    return { success: false, error: payload.error || userMessage };
   }
 
   if (!validate(payload.data)) {
-    return { success: false, error: `${errorPrefix}: expected ${expectedShape}` };
+    return { success: false, error: userMessage };
   }
 
   return { success: true, data: payload.data, prompt: payload.prompt };
@@ -130,7 +143,6 @@ export async function generateTheme(params: GenerateThemeParams): Promise<Genera
       wordType: params.wordType,
     },
     isWordEntryArray,
-    "WordEntry[]",
     "Generation failed"
   );
 
@@ -169,7 +181,6 @@ export async function generateField(params: GenerateFieldParams): Promise<Genera
       customInstructions: params.customInstructions,
     },
     isGenerateFieldData,
-    "word, answer, or wrongAnswers",
     "Generation failed"
   );
 
@@ -200,7 +211,6 @@ export async function regenerateForWord(params: RegenerateForWordParams): Promis
       newWord: params.newWord,
     },
     isAnswerAndWrongsData,
-    "answer and wrongAnswers",
     "Regeneration failed"
   );
 
@@ -226,7 +236,6 @@ export async function addWord(params: AddWordParams): Promise<AddWordResult> {
       existingWords: params.existingWords,
     },
     isWordEntry,
-    "WordEntry",
     "Failed to generate word"
   );
 
@@ -255,7 +264,6 @@ export async function generateMoreWords(params: GenerateMoreWordsParams): Promis
       existingWords: params.existingWords,
     },
     isWordEntryArray,
-    "WordEntry[]",
     "Failed to generate words"
   );
 
@@ -310,7 +318,6 @@ export async function generateSentenceTheme(
       roundCount: params.roundCount,
     },
     isSentenceRoundInputArray,
-    "SentenceRoundInput[]",
     "Sentence generation failed"
   );
 
@@ -341,7 +348,6 @@ export async function addSentenceRound(
       existingSpanishSentences: params.existingSpanishSentences,
     },
     isSentenceRoundInput,
-    "SentenceRoundInput",
     "Failed to generate sentence"
   );
 
@@ -371,7 +377,6 @@ export async function generateMoreSentenceRounds(
       existingSpanishSentences: params.existingSpanishSentences,
     },
     isSentenceRoundInputArray,
-    "SentenceRoundInput[]",
     "Failed to generate sentence rounds"
   );
 

@@ -134,7 +134,7 @@ describe("duel mode picker surfaces", () => {
     );
   });
 
-  it("offers relay and hides the difficulty selector when relay is chosen", () => {
+  it("offers relay and skips the difficulty step when relay is chosen", () => {
     const onCreateChallenge = vi.fn();
     render(
       <ChallengeModal
@@ -161,12 +161,11 @@ describe("duel mode picker surfaces", () => {
 
     fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
 
-    // On the Difficulty step the preset selector is replaced by the
-    // picker-controlled note when Relay is chosen.
+    // Relay controls difficulty per turn, so choosing Relay goes straight to Review.
     expect(screen.queryByTestId("duel-modal-difficulty-easy")).not.toBeInTheDocument();
-    expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-step-confirm")).toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-review")).toHaveTextContent("Per-turn (Relay)");
 
-    fireEvent.click(screen.getByTestId("duel-modal-next"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
     expect(onCreateChallenge).toHaveBeenCalledWith(
       expect.objectContaining({ duelMode: "relay", duelDifficultyPreset: undefined })
@@ -206,9 +205,9 @@ describe("duel mode picker surfaces", () => {
     expect(relayChip).not.toBeDisabled();
 
     fireEvent.click(relayChip);
-    expect(screen.getByTestId("duel-modal-difficulty-relay-note")).toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-step-confirm")).toBeInTheDocument();
+    expect(screen.getByTestId("duel-modal-review")).toHaveTextContent("Per-turn (Relay)");
 
-    fireEvent.click(screen.getByTestId("duel-modal-next"));
     fireEvent.click(screen.getByTestId("duel-modal-create"));
     expect(onCreateChallenge).toHaveBeenCalledWith(
       expect.objectContaining({ duelMode: "relay", duelDifficultyPreset: undefined })

@@ -66,7 +66,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("expected WordEntry[]");
+    expect(result.error).toBe("Generation failed. Please try again.");
   });
 
   it("rejects malformed field data even if success=true", async () => {
@@ -88,7 +88,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("expected word, answer, or wrongAnswers");
+    expect(result.error).toBe("Generation failed. Please try again.");
   });
 
   it("rejects malformed regenerate-for-word data", async () => {
@@ -106,7 +106,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("expected answer and wrongAnswers");
+    expect(result.error).toBe("Regeneration failed. Please try again.");
   });
 
   it("accepts a valid add-word payload", async () => {
@@ -261,7 +261,21 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain("invalid response format");
+    expect(result.error).toBe("Failed to generate words. Please try again.");
+  });
+
+  it("uses plain fallback error text when fetch fails", async () => {
+    fetchMock.mockRejectedValue(new Error("Failed to fetch"));
+
+    const result = await generateMoreWords({
+      themeName: "animals",
+      wordType: "nouns",
+      count: 2,
+      existingWords: [],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Failed to generate words. Please try again.");
   });
 
   it("uses fallback error text when API returns success=false without message", async () => {

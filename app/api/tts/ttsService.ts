@@ -76,14 +76,14 @@ export async function generateLiveTtsResponse(text: string) {
     convexClient = result.client;
     ttsProvider = result.ttsProvider;
   } catch (error) {
-    return creditsFailureResponse(error, "Credit check failed");
+    return creditsFailureResponse(error, "Could not check your audio credits");
   }
 
   let creditTransaction: ConsumedCreditTransaction;
   try {
     creditTransaction = await consumeTtsCredit(convexClient);
   } catch (error) {
-    return creditsFailureResponse(error, "Credit consumption failed");
+    return creditsFailureResponse(error, "Could not use an audio credit");
   }
 
   let generatedAudio;
@@ -97,7 +97,7 @@ export async function generateLiveTtsResponse(text: string) {
     if (error instanceof Error && error.name === "AbortError") {
       console.error("[TTS] Request timed out");
       return NextResponse.json(
-        { error: "TTS request timed out" },
+        { error: "Audio took too long to generate. Please try again." },
         { status: 504 }
       );
     }
@@ -107,7 +107,7 @@ export async function generateLiveTtsResponse(text: string) {
   if (!generatedAudio) {
     await refundTtsCredit(convexClient, creditTransaction);
     return NextResponse.json(
-      { error: `TTS generation failed (${ttsProvider})` },
+      { error: "Audio could not be generated. Please try again." },
       { status: 500 }
     );
   }

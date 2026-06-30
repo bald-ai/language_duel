@@ -107,6 +107,7 @@ export function useDuelActions({
       } catch (error) {
         if (!isExpectedDuelRaceError(error)) {
           console.error("Failed to submit timeout answer:", error);
+          toast.error(getErrorMessage(error, "Could not record the timeout"));
         }
       }
     },

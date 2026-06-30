@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { DuelDifficultyPreset } from "@/lib/difficultyUtils";
 import type { DuelMode } from "@/lib/duelMode";
 import { DuelModePicker } from "./DuelModePicker";
-import { ModalShell } from "./ModalShell";
 import { ThemeSelector } from "./ThemeSelector";
 import { ChallengeRespondSurface } from "./ChallengeRespondSurface";
 import { OpponentSelector } from "./OpponentSelector";
 import { DifficultySelector } from "./DifficultySelector";
+import { CheckmarkIcon } from "./CheckmarkIcon";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 import { formatVisibleUser } from "@/lib/userDisplay";
@@ -23,6 +24,10 @@ import type {
   LobbyUser,
   PendingChallenge,
 } from "@/hooks/challengeLobby/types";
+
+const emptySubscribe = () => () => undefined;
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 interface ChallengeModalProps {
   users: LobbyUser[] | undefined;
@@ -45,35 +50,40 @@ interface ChallengeModalProps {
 // theme selection (it now scales sentence distractor count as well as the word
 // difficulty mix), gated only on a theme being picked.
 type WizardStep = "opponent" | "theme" | "mode" | "difficulty" | "confirm";
+type FlowDirection = "forward" | "back";
+type FlowPhase = "idle" | "exit" | "enter";
+
+const FLOW_EXIT_MS = 105;
+const FLOW_ENTER_MS = 210;
 
 const STEP_PROMPT: Record<WizardStep, string> = {
   opponent: "Who are you playing?",
   theme: "Pick your theme(s)",
   mode: "How do you want to play?",
-  difficulty: "Difficulty",
+  difficulty: "Choose your level",
+  confirm: "Review",
+};
+
+const STEP_LABEL: Record<WizardStep, string> = {
+  opponent: "Opponent",
+  theme: "Theme",
+  mode: "Type",
+  difficulty: "Level",
   confirm: "Review",
 };
 
 const stepPromptClassName =
-  "text-xs uppercase tracking-widest mb-3 font-bold text-center";
+  "mb-5 text-center text-xs font-bold uppercase tracking-widest";
 
-const sectionCardClassName = "rounded-2xl p-4";
-
-// Soft white "section card" sitting on the modal's warm gradient (Design 2).
-function getSectionCardStyle(colors: ThemeColors): CSSProperties {
-  return {
-    backgroundColor: colors.background.elevated,
-    border: `1.5px solid ${colors.primary.dark}`,
-    boxShadow: "0 6px 16px rgba(80, 40, 15, 0.12)",
-  };
+function shouldAnimateFlow() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// Warm vertical gradient + brighter border for the modal panel itself.
-function getChallengePanelStyle(colors: ThemeColors): CSSProperties {
-  return {
-    backgroundImage: `linear-gradient(180deg, ${colors.background.DEFAULT}, ${colors.background.elevated})`,
-    borderColor: colors.primary.DEFAULT,
-  };
+function translucent(color: string, percentage: number) {
+  return `color-mix(in srgb, ${color} ${percentage}%, transparent)`;
 }
 
 export function ChallengeModal({
@@ -99,6 +109,12 @@ export function ChallengeModal({
   // Intentionally unread when isSelfSelected; backend forces SELF_DUEL_FORCED_MODE.
   const [requestedMode, setRequestedMode] = useState<DuelMode>("pvp");
   const [stepKey, setStepKey] = useState<WizardStep>(initialOpponentId ? "theme" : "opponent");
+  const [flowAnimation, setFlowAnimation] = useState<{
+    phase: FlowPhase;
+    direction: FlowDirection;
+  }>({ phase: "idle", direction: "forward" });
+  const transitionTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const isMounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
   const isSelfSelected = isSelfDuelSelection(viewer, selectedOpponentId);
   const selectedOpponent = isSelfSelected
@@ -109,13 +125,7 @@ export function ChallengeModal({
   // user requested. Self-duels never expose Relay (handled by `isSelfSelected`).
   const selectedMode: DuelMode = requestedMode;
   const isRelaySelected = !isSelfSelected && selectedMode === "relay";
-  // The difficulty preset now shapes both word questions (progressive mix) and
-  // sentence rounds (how many stored decoys appear — decision: sentence
-  // difficulty), so it applies to every theme selection, including sentence-only
-  // duels. The Difficulty step is still gated on a theme being picked (see
-  // `steps`), and Relay renders its own "controlled by the picker" note inside
-  // the step.
-  const showDifficulty = true;
+  const hasDifficultyStep = !isRelaySelected;
 
   const hasOpponent = selectedOpponentId != null;
   const hasTheme = selectedThemeIds.length > 0;
@@ -130,6 +140,7 @@ export function ChallengeModal({
     );
   const disabledModes: Partial<Record<DuelMode, string>> | undefined =
     allSentenceThemes ? undefined : { tbt: "Needs an all-sentence deck" };
+  const isSelectedModeDisabled = !isSelfSelected && Boolean(disabledModes?.[selectedMode]);
 
   const steps = useMemo<WizardStep[]>(() => {
     const list: WizardStep[] = ["opponent"];
@@ -137,65 +148,116 @@ export function ChallengeModal({
     list.push("theme");
     if (!hasTheme) return list;
     if (!isSelfSelected) list.push("mode");
-    if (showDifficulty) list.push("difficulty");
+    if (hasDifficultyStep) list.push("difficulty");
     list.push("confirm");
     return list;
-  }, [hasOpponent, hasTheme, isSelfSelected, showDifficulty]);
+  }, [hasDifficultyStep, hasOpponent, hasTheme, isSelfSelected]);
 
   const activeStep: WizardStep = steps.includes(stepKey) ? stepKey : steps[steps.length - 1];
   const stepIndex = steps.indexOf(activeStep);
   const isFirst = stepIndex <= 0;
   const isConfirm = activeStep === "confirm";
+  const isTransitioning = flowAnimation.phase !== "idle";
+  const canCreate = hasOpponent && hasTheme && !isSelectedModeDisabled;
 
-  // Single-choice steps advance the moment a choice is tapped, so they show no
-  // Next button. The multi-select Theme step and the option-less Relay note keep
-  // an explicit Next.
-  const isAutoStep =
-    activeStep === "opponent" ||
-    activeStep === "mode" ||
-    (activeStep === "difficulty" && !isRelaySelected);
+  const clearTransitionTimers = useCallback(() => {
+    for (const timer of transitionTimersRef.current) {
+      clearTimeout(timer);
+    }
+    transitionTimersRef.current = [];
+  }, []);
 
-  const canCreate = hasOpponent && hasTheme;
+  useEffect(() => clearTransitionTimers, [clearTransitionTimers]);
+
+  const navigateToStep = useCallback(
+    (nextStep: WizardStep, direction: FlowDirection = "forward") => {
+      if (nextStep === activeStep) return;
+      clearTransitionTimers();
+      if (!shouldAnimateFlow()) {
+        setStepKey(nextStep);
+        setFlowAnimation({ phase: "idle", direction });
+        return;
+      }
+      setFlowAnimation({ phase: "exit", direction });
+      const exitTimer = setTimeout(() => {
+        setStepKey(nextStep);
+        setFlowAnimation({ phase: "enter", direction });
+        const enterTimer = setTimeout(() => {
+          setFlowAnimation({ phase: "idle", direction });
+          transitionTimersRef.current = [];
+        }, FLOW_ENTER_MS);
+        transitionTimersRef.current = [enterTimer];
+      }, FLOW_EXIT_MS);
+      transitionTimersRef.current = [exitTimer];
+    },
+    [activeStep, clearTransitionTimers]
+  );
 
   const handleSelectOpponent = (id: Id<"users">) => {
+    if (isTransitioning) return;
     setSelectedOpponentId(id);
-    setStepKey("theme");
+    navigateToStep("theme");
   };
 
   const advanceAfterTheme = () => {
     if (!isSelfDuelSelection(viewer, selectedOpponentId)) {
-      setStepKey("mode");
+      navigateToStep("mode");
       return;
     }
-    setStepKey(showDifficulty ? "difficulty" : "confirm");
+    navigateToStep("difficulty");
   };
 
   const handleSelectMode = (mode: DuelMode) => {
+    if (isTransitioning || disabledModes?.[mode]) return;
     setRequestedMode(mode);
-    setStepKey(showDifficulty ? "difficulty" : "confirm");
+    navigateToStep(mode === "relay" ? "confirm" : "difficulty");
   };
 
   const handleSelectDifficulty = (preset: DuelDifficultyPreset) => {
+    if (isTransitioning) return;
     setSelectedDifficulty(preset);
-    setStepKey("confirm");
+    navigateToStep("confirm");
   };
 
   const handleNext = () => {
+    if (isTransitioning) return;
+    if (activeStep === "opponent" && hasOpponent) {
+      navigateToStep("theme");
+      return;
+    }
     if (activeStep === "theme") {
       advanceAfterTheme();
       return;
     }
+    if (activeStep === "mode") {
+      if (isSelectedModeDisabled) return;
+      navigateToStep(isRelaySelected ? "confirm" : "difficulty");
+      return;
+    }
     if (activeStep === "difficulty") {
-      setStepKey("confirm");
+      navigateToStep("confirm");
     }
   };
 
   const handleBack = () => {
-    if (stepIndex > 0) setStepKey(steps[stepIndex - 1]);
+    if (isTransitioning || stepIndex <= 0) return;
+    navigateToStep(steps[stepIndex - 1], "back");
+  };
+
+  const handleThemeIdsChange = (themeIds: Id<"themes">[]) => {
+    setSelectedThemeIds(themeIds);
+    const nextAllSentenceThemes =
+      themeIds.length > 0 &&
+      themeIds.every((id) =>
+        themes?.some((theme) => theme._id === id && isSentenceTheme(theme))
+      );
+    if (requestedMode === "tbt" && !nextAllSentenceThemes) {
+      setRequestedMode("pvp");
+    }
   };
 
   const handleCreateChallenge = () => {
-    if (!selectedOpponentId || selectedThemeIds.length === 0) return;
+    if (!selectedOpponentId || selectedThemeIds.length === 0 || isSelectedModeDisabled) return;
     onCreateChallenge({
       opponentId: selectedOpponentId,
       themeIds: selectedThemeIds,
@@ -204,173 +266,275 @@ export function ChallengeModal({
     });
   };
 
-  const stepBody = renderStepBody({
-    activeStep,
-    colors,
-    users,
-    viewer,
-    themes,
-    selectedOpponentId,
-    selectedOpponent,
-    selectedThemeIds,
-    selectedDifficulty,
-    selectedMode,
-    isSelfSelected,
-    isRelaySelected,
-    showDifficulty,
-    disabledModes,
-    onSelectOpponent: handleSelectOpponent,
-    onThemeIdsChange: setSelectedThemeIds,
-    onSelectMode: handleSelectMode,
-    onSelectDifficulty: handleSelectDifficulty,
-    onNavigateToThemes,
-  });
-
   const ctaButtonStyle: CSSProperties = {
     backgroundImage: `linear-gradient(to bottom, ${colors.cta.light}, ${colors.cta.dark})`,
     color: "#ffffff",
     textShadow: "0 1px 3px rgba(0,0,0,0.35)",
     boxShadow: `0 8px 20px ${colors.cta.glow}`,
   };
-  const outlineButtonStyle: CSSProperties = {
-    backgroundColor: colors.background.elevated,
-    border: `1.5px solid ${colors.primary.DEFAULT}`,
-    color: colors.primary.dark,
-  };
+  const flowClassName =
+    flowAnimation.phase === "idle"
+      ? ""
+      : `duel-flow-${flowAnimation.phase}-${flowAnimation.direction}`;
+  const primaryDisabled =
+    isTransitioning ||
+    (activeStep === "opponent" && !hasOpponent) ||
+    (activeStep === "theme" && !hasTheme) ||
+    (activeStep === "mode" && isSelectedModeDisabled) ||
+    (isConfirm && (!canCreate || isCreatingChallenge || isJoiningDuel));
+  const primaryLabel = isConfirm
+    ? isCreatingChallenge
+      ? "Creating..."
+      : isSelfSelected
+      ? "Start practice"
+      : "Create Challenge"
+    : "Continue";
 
-  const backButton = !isFirst ? (
-    <button
-      type="button"
-      onClick={handleBack}
-      className="rounded-2xl py-3.5 px-5 text-sm font-bold uppercase tracking-widest transition hover:brightness-105"
-      style={outlineButtonStyle}
-      data-testid="duel-modal-back"
-    >
-      Back
-    </button>
-  ) : null;
+  if (!isMounted) {
+    return null;
+  }
 
-  const cancelClassName =
-    "rounded-2xl py-3 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed";
-  const renderCancel = (widthClassName: string) => (
-    <button
-      onClick={onClose}
-      disabled={isJoiningDuel || isCreatingChallenge}
-      className={`${widthClassName} ${cancelClassName}`}
-      style={outlineButtonStyle}
-      data-testid="duel-modal-cancel"
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] overflow-y-auto bg-black/50"
+      data-modal-shell="true"
+      data-testid="duel-modal"
     >
-      Cancel
-    </button>
-  );
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div
+          className="flex min-h-0 flex-col overflow-hidden rounded-[24px]"
+          style={{
+            width: "calc(100vw - 32px)",
+            maxWidth: 448,
+            height: "min(600px, calc(100dvh - 32px))",
+            maxHeight: "min(90dvh, calc(100dvh - 32px))",
+            backgroundColor: colors.background.elevated,
+            boxShadow: `0 24px 70px ${colors.primary.glow}`,
+          }}
+        >
+          <div
+            className="flex flex-shrink-0 items-center justify-between gap-2 border-b px-4 py-4"
+            style={{ borderColor: translucent(colors.text.muted, 12) }}
+          >
+            {!isFirst ? (
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={isTransitioning}
+                className="grid h-10 w-10 place-items-center rounded-full transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
+                style={{ color: colors.text.muted }}
+                aria-label="Back"
+                data-testid="duel-modal-back"
+              >
+                <BackIcon />
+              </button>
+            ) : (
+              <span className="h-10 w-10" aria-hidden="true" />
+            )}
 
-  const primaryAction = isConfirm ? (
-    <button
-      type="button"
-      onClick={handleCreateChallenge}
-      disabled={!canCreate || isCreatingChallenge || isJoiningDuel}
-      className="flex-1 rounded-2xl py-3.5 px-4 text-sm sm:text-base font-bold uppercase tracking-widest transition hover:brightness-110 active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-      style={ctaButtonStyle}
-      data-testid="duel-modal-create"
-    >
-      {isCreatingChallenge
-        ? "Creating..."
-        : isSelfSelected
-        ? "Start practice"
-        : "Create Challenge"}
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={handleNext}
-      disabled={activeStep === "theme" && !hasTheme}
-      className="flex-1 rounded-2xl py-3.5 px-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-      style={ctaButtonStyle}
-      data-testid="duel-modal-next"
-    >
-      Next
-    </button>
-  );
+            <h2
+              className="title-font text-center text-[22px] font-bold leading-tight"
+              style={{ color: colors.text.DEFAULT }}
+            >
+              {isSelfSelected ? "Solo Practice" : "Create Challenge"}
+            </h2>
 
-  // Footer layout:
-  //  - Steps with a primary action (Next / Create): [Back?] [primary] on top,
-  //    full-width Cancel beneath.
-  //  - Auto-advance steps (no primary): Back and Cancel sit on one row; the very
-  //    first step (no Back) shows Cancel alone.
-  const footer = !isAutoStep ? (
-    <div className="mt-4 space-y-3">
-      <div className="flex gap-3">
-        {backButton}
-        {primaryAction}
-      </div>
-      {renderCancel("w-full")}
-    </div>
-  ) : (
-    <div className="mt-4">
-      {backButton ? (
-        <div className="flex gap-3">
-          {backButton}
-          {renderCancel("flex-1")}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isJoiningDuel || isCreatingChallenge}
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
+              style={{ color: colors.text.muted }}
+              aria-label="Cancel"
+              data-testid="duel-modal-cancel"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            style={{ backgroundColor: translucent(colors.text.muted, 4) }}
+          >
+            <div
+              className="flex-shrink-0 px-7 py-5"
+              style={{ backgroundColor: translucent(colors.text.muted, 4) }}
+            >
+              <WizardProgress steps={steps} activeStep={activeStep} colors={colors} />
+            </div>
+
+            <div
+              className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6 ${flowClassName}`}
+            >
+              <p className={stepPromptClassName} style={{ color: colors.text.muted }}>
+                {STEP_PROMPT[activeStep]}
+              </p>
+
+              <section
+                className="flex min-h-0 flex-1 flex-col"
+                data-testid={`duel-modal-step-${activeStep}`}
+              >
+                <StepBody
+                  activeStep={activeStep}
+                  colors={colors}
+                  users={users}
+                  viewer={viewer}
+                  themes={themes}
+                  selectedOpponentId={selectedOpponentId}
+                  selectedOpponent={selectedOpponent}
+                  selectedThemeIds={selectedThemeIds}
+                  selectedDifficulty={selectedDifficulty}
+                  selectedMode={selectedMode}
+                  isSelfSelected={isSelfSelected}
+                  isRelaySelected={isRelaySelected}
+                  disabledModes={disabledModes}
+                  pendingChallenges={pendingChallenges}
+                  isJoiningDuel={isJoiningDuel}
+                  onSelectOpponent={handleSelectOpponent}
+                  onThemeIdsChange={handleThemeIdsChange}
+                  onSelectMode={handleSelectMode}
+                  onSelectDifficulty={handleSelectDifficulty}
+                  onAcceptChallenge={onAcceptChallenge}
+                  onDeclineChallenge={onDeclineChallenge}
+                  onNavigateToThemes={onNavigateToThemes}
+                />
+              </section>
+            </div>
+          </div>
+
+          <div
+            className={`flex-shrink-0 border-t p-4 ${flowClassName}`}
+            style={{
+              backgroundColor: colors.background.elevated,
+              borderColor: translucent(colors.text.muted, 12),
+            }}
+          >
+            <button
+              type="button"
+              onClick={isConfirm ? handleCreateChallenge : handleNext}
+              disabled={primaryDisabled}
+              className="w-full rounded-2xl px-4 py-4 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+              style={ctaButtonStyle}
+              data-testid={isConfirm ? "duel-modal-create" : "duel-modal-next"}
+            >
+              {primaryLabel}
+            </button>
+          </div>
         </div>
-      ) : (
-        renderCancel("w-full")
-      )}
-    </div>
+      </div>
+    </div>,
+    document.body
   );
+}
+
+function BackIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M15 18l-6-6 6-6"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function WizardProgress({
+  steps,
+  activeStep,
+  colors,
+}: {
+  steps: WizardStep[];
+  activeStep: WizardStep;
+  colors: ThemeColors;
+}) {
+  const activeIndex = steps.indexOf(activeStep);
 
   return (
-    <ModalShell
-      title={isSelfSelected ? "Solo Practice" : "Create Challenge"}
-      maxHeight
-      panelStyle={getChallengePanelStyle(colors)}
+    <div
+      className="grid items-start"
+      style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+      aria-label="Duel creation progress"
     >
-      <div className="flex-1 overflow-y-auto pr-0.5">
-        {activeStep === "opponent" && (
-          <div className="mb-3">
-            <ChallengeRespondSurface
-              pendingChallenges={pendingChallenges}
-              isJoiningDuel={isJoiningDuel}
-              onAcceptChallenge={onAcceptChallenge}
-              onDeclineChallenge={onDeclineChallenge}
-            />
-          </div>
-        )}
+      {steps.map((step, index) => {
+        const isDone = index < activeIndex;
+        const isActive = index === activeIndex;
+        const lineBeforeColor =
+          index <= activeIndex ? colors.primary.DEFAULT : translucent(colors.primary.DEFAULT, 24);
+        const lineAfterColor =
+          index < activeIndex ? colors.primary.DEFAULT : translucent(colors.primary.DEFAULT, 24);
+        const dotStyle: CSSProperties = isDone
+          ? {
+              backgroundColor: colors.primary.DEFAULT,
+              borderColor: colors.primary.DEFAULT,
+              color: "#ffffff",
+            }
+          : isActive
+          ? {
+              backgroundColor: colors.cta.DEFAULT,
+              borderColor: colors.cta.DEFAULT,
+              color: "#ffffff",
+              boxShadow: `0 0 0 4px ${translucent(colors.cta.DEFAULT, 16)}`,
+            }
+          : {
+              backgroundColor: colors.background.elevated,
+              borderColor: translucent(colors.primary.DEFAULT, 35),
+              color: colors.text.muted,
+              boxShadow: "0 0 0 4px rgba(255, 255, 255, 0.9)",
+            };
 
-        <div className="flex justify-center gap-1.5 mb-3" aria-hidden="true">
-          {steps.map((step, index) => (
+        return (
+          <div
+            key={step}
+            className="relative grid min-w-0 justify-items-center gap-1.5 text-center"
+            aria-current={isActive ? "step" : undefined}
+          >
+            {index > 0 && (
+              <span
+                className="absolute left-0 top-[13px] h-0.5 w-1/2"
+                style={{ backgroundColor: lineBeforeColor }}
+                aria-hidden="true"
+              />
+            )}
+            {index < steps.length - 1 && (
+              <span
+                className="absolute right-0 top-[13px] h-0.5 w-1/2"
+                style={{ backgroundColor: lineAfterColor }}
+                aria-hidden="true"
+              />
+            )}
             <span
-              key={step}
-              className="rounded-full transition-all"
-              style={{
-                width: index === stepIndex ? 10 : 8,
-                height: index === stepIndex ? 10 : 8,
-                backgroundColor:
-                  index === stepIndex
-                    ? colors.cta.DEFAULT
-                    : index < stepIndex
-                    ? colors.primary.DEFAULT
-                    : colors.text.muted,
-                opacity: index <= stepIndex ? 1 : 0.35,
-              }}
-            />
-          ))}
-        </div>
-
-        <p className={stepPromptClassName} style={{ color: colors.text.muted }}>
-          {STEP_PROMPT[activeStep]}
-        </p>
-
-        <section
-          className={sectionCardClassName}
-          style={getSectionCardStyle(colors)}
-          data-testid={`duel-modal-step-${activeStep}`}
-        >
-          {stepBody}
-        </section>
-      </div>
-
-      {footer}
-    </ModalShell>
+              className="relative z-10 grid h-7 w-7 place-items-center rounded-full border-2 text-xs font-black"
+              style={dotStyle}
+            >
+              {isDone ? <CheckmarkIcon /> : index + 1}
+            </span>
+            <span
+              className="max-w-full text-[10px] font-black uppercase leading-tight tracking-[0.04em]"
+              style={{ color: isActive ? colors.primary.dark : colors.text.muted }}
+            >
+              {STEP_LABEL[step]}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -387,19 +551,21 @@ interface StepBodyArgs {
   selectedMode: DuelMode;
   isSelfSelected: boolean;
   isRelaySelected: boolean;
-  showDifficulty: boolean;
   disabledModes?: Partial<Record<DuelMode, string>>;
+  pendingChallenges: PendingChallenge[] | undefined;
+  isJoiningDuel: boolean;
   onSelectOpponent: (id: Id<"users">) => void;
   onThemeIdsChange: (themeIds: Id<"themes">[]) => void;
   onSelectMode: (mode: DuelMode) => void;
   onSelectDifficulty: (preset: DuelDifficultyPreset) => void;
+  onAcceptChallenge: (challengeId: Id<"challenges">) => void;
+  onDeclineChallenge: (challengeId: Id<"challenges">) => void;
   onNavigateToThemes: () => void;
 }
 
-function renderStepBody(args: StepBodyArgs): ReactNode {
+function StepBody(args: StepBodyArgs): ReactNode {
   const {
     activeStep,
-    colors,
     users,
     viewer,
     themes,
@@ -408,30 +574,42 @@ function renderStepBody(args: StepBodyArgs): ReactNode {
     selectedThemeIds,
     selectedDifficulty,
     selectedMode,
-    isRelaySelected,
     disabledModes,
+    pendingChallenges,
+    isJoiningDuel,
     onSelectOpponent,
     onThemeIdsChange,
     onSelectMode,
     onSelectDifficulty,
+    onAcceptChallenge,
+    onDeclineChallenge,
     onNavigateToThemes,
   } = args;
 
   switch (activeStep) {
     case "opponent":
       return (
-        <OpponentSelector
-          users={users}
-          viewer={viewer}
-          selectedOpponentId={selectedOpponentId}
-          selectedOpponent={selectedOpponent}
-          onSelect={onSelectOpponent}
-        />
+        <div className="flex h-full min-h-0 flex-col gap-3">
+          <ChallengeRespondSurface
+            pendingChallenges={pendingChallenges}
+            isJoiningDuel={isJoiningDuel}
+            onAcceptChallenge={onAcceptChallenge}
+            onDeclineChallenge={onDeclineChallenge}
+          />
+          <OpponentSelector
+            users={users}
+            viewer={viewer}
+            selectedOpponentId={selectedOpponentId}
+            selectedOpponent={selectedOpponent}
+            onSelect={onSelectOpponent}
+          />
+        </div>
       );
     case "theme":
       return (
         <ThemeSelector
           compact
+          fillHeight
           themes={themes}
           selectedThemeIds={selectedThemeIds}
           draftThemeIds={selectedThemeIds}
@@ -453,17 +631,6 @@ function renderStepBody(args: StepBodyArgs): ReactNode {
         />
       );
     case "difficulty":
-      if (isRelaySelected) {
-        return (
-          <p
-            className="text-sm"
-            style={{ color: colors.text.muted }}
-            data-testid="duel-modal-difficulty-relay-note"
-          >
-            Controlled by the picker
-          </p>
-        );
-      }
       return (
         <DifficultySelector
           selectedDifficulty={selectedDifficulty}
@@ -485,7 +652,6 @@ function ReviewSummary({ args }: { args: StepBodyArgs }) {
     selectedOpponent,
     isSelfSelected,
     isRelaySelected,
-    showDifficulty,
   } = args;
 
   const opponentLabel = isSelfSelected
@@ -511,18 +677,20 @@ function ReviewSummary({ args }: { args: StepBodyArgs }) {
     { key: "Opponent", value: opponentLabel },
     { key: "Theme", value: themeLabel },
     { key: "Mode", value: modeLabel },
+    { key: "Difficulty", value: difficultyLabel },
   ];
-  if (showDifficulty) rows.push({ key: "Difficulty", value: difficultyLabel });
 
   return (
     <div data-testid="duel-modal-review">
       {rows.map((row, index) => (
         <div
           key={row.key}
-          className="flex items-center justify-between py-2.5"
+          className="flex items-center justify-between gap-3 py-2.5"
           style={{
             borderBottom:
-              index < rows.length - 1 ? `1px solid ${colors.primary.DEFAULT}22` : "none",
+              index < rows.length - 1
+                ? `1px solid ${translucent(colors.primary.DEFAULT, 13)}`
+                : "none",
           }}
         >
           <span
@@ -531,7 +699,11 @@ function ReviewSummary({ args }: { args: StepBodyArgs }) {
           >
             {row.key}
           </span>
-          <span className="text-sm font-bold" style={{ color: colors.text.DEFAULT }}>
+          <span
+            className="min-w-0 truncate text-right text-sm font-bold"
+            style={{ color: colors.text.DEFAULT }}
+            title={row.value}
+          >
             {row.value}
           </span>
         </div>

@@ -213,7 +213,7 @@ describe("useThemeGenerationController existing-theme Pick & Prune flow", () => 
       await hook.result.current.generateMoreModalProps.onGenerate();
     });
 
-    expect(mocks.toastError).toHaveBeenCalledWith("LLM credits exhausted");
+    expect(mocks.toastError).toHaveBeenCalledWith("You are out of AI generation credits.");
     expect(mocks.generateMoreWords).not.toHaveBeenCalled();
   });
 });

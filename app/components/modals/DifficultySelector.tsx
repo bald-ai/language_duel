@@ -30,7 +30,7 @@ export const DifficultySelector = memo(function DifficultySelector({ selectedDif
                 }
                 : {
                   backgroundColor: colors.background.DEFAULT,
-                  borderColor: "transparent",
+                  borderColor: `${colors.text.muted}1A`,
                 }
             }
             data-testid={`duel-modal-difficulty-${opt.preset}`}

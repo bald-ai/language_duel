@@ -797,6 +797,31 @@ describe("DuelSession", () => {
     expect(toastMocks.error).not.toHaveBeenCalled();
   });
 
+  it("tells the user when an unexpected timeout save fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    mutationMocks.timeoutAnswer.mockRejectedValue(new Error("Internal server error"));
+
+    render(
+      <DuelSession
+        duel={createDuel({
+          questionStartTime: 100_000 - (QUESTION_TIMER_SECONDS + 1) * 1_000,
+        })}
+        challenger={challenger}
+        opponent={opponent}
+        viewerRole="challenger"
+      />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(toastMocks.error).toHaveBeenCalledWith(
+      "Could not record the timeout. Please try again."
+    );
+  });
+
   it("does not toast stale answer races", async () => {
     mutationMocks.answer.mockRejectedValue({
       message: "Unexpected answer race",

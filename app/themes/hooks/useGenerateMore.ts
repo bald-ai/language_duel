@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { generateMoreWords, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
+import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 import { DEFAULT_GENERATE_MORE_WORD_COUNT } from "../constants";
 
 interface GenerateMoreState {
@@ -70,7 +71,10 @@ export function useGenerateMore() {
         setState((prev) => ({ ...prev, isGenerating: false, pickAndPrune: false }));
         return result.data;
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        const errorMsg =
+          error instanceof Error
+            ? normalizePlainErrorMessage(error.message, "Failed to generate words")
+            : "Failed to generate words. Please try again.";
         setState((prev) => ({
           ...prev,
           isGenerating: false,

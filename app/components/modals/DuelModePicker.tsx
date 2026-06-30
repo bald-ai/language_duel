@@ -50,7 +50,7 @@ export const DuelModePicker = memo(function DuelModePicker({
           const rowStyle: CSSProperties = isDisabled
             ? {
                 backgroundColor: colors.background.DEFAULT,
-                borderColor: "transparent",
+                borderColor: `${colors.text.muted}1A`,
                 opacity: 0.5,
               }
             : selected
@@ -60,7 +60,7 @@ export const DuelModePicker = memo(function DuelModePicker({
               }
             : {
                 backgroundColor: colors.background.DEFAULT,
-                borderColor: "transparent",
+                borderColor: `${colors.text.muted}1A`,
               };
           return (
             <button

@@ -157,7 +157,7 @@ describe("useSentenceThemeController credit gates", () => {
     });
 
     expect(result.current.isGenerateModalOpen).toBe(false);
-    expect(mocks.toastError).toHaveBeenCalledWith("LLM credits exhausted");
+    expect(mocks.toastError).toHaveBeenCalledWith("You are out of AI generation credits.");
   });
 });
 
@@ -334,7 +334,7 @@ describe("useSentenceThemeController add sentence", () => {
     });
 
     expect(result.current.isAddSentenceModalOpen).toBe(false);
-    expect(mocks.toastError).toHaveBeenCalledWith("LLM credits exhausted");
+    expect(mocks.toastError).toHaveBeenCalledWith("You are out of AI generation credits.");
   });
 });
 

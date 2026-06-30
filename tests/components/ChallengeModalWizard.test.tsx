@@ -47,10 +47,10 @@ function renderModal(overrides: Partial<Parameters<typeof ChallengeModal>[0]> = 
 }
 
 describe("ChallengeModal wizard navigation", () => {
-  it("auto-advances from Opponent to Theme without a Next button", () => {
+  it("auto-advances from Opponent to Theme while keeping one disabled Continue button", () => {
     renderModal();
-    // No Next on the single-choice Opponent step.
-    expect(screen.queryByTestId("duel-modal-next")).not.toBeInTheDocument();
+    // The prototype keeps one obvious CTA, but it stays disabled until a choice exists.
+    expect(screen.getByTestId("duel-modal-next")).toBeDisabled();
     expect(screen.getByTestId("duel-modal-step-opponent")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("duel-modal-opponent-user_2"));

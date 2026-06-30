@@ -20,21 +20,6 @@ export const DEFAULT_TIMER_DURATION = 300; // 5 minutes
 export { SOLO_INFINITE_STUDY_SECONDS } from "../lib/soloLearnTimer";
 
 // ===========================================
-// Level Probabilities (solo practice) [NOT ACTIVE] — not currently used in app, kept for future revisit.
-// ===========================================
-/** Probability of starting at Level 1 (vs Level 2) */
-export const LEVEL_1_START_PROBABILITY = 0.66;
-
-/** Probability of getting Level 2 typing mode (vs multiple choice) */
-export const LEVEL_2_TYPING_PROBABILITY = 0.5;
-
-/** After L1 correct: probability of going to L2 (vs L3) */
-export const L1_TO_L2_PROBABILITY = 0.66;
-
-/** After L2 correct: probability of staying at L2 (vs going to L3) when picking next question */
-export const L2_STAY_PROBABILITY = 0.66;
-
-// ===========================================
 // Hint System
 // ===========================================
 /** Time bonus given to hint requester (in ms) */

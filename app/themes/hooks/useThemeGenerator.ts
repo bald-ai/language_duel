@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { generateTheme, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
+import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 import {
   DEFAULT_GENERATED_WORDS_COUNT,
   DEFAULT_WORD_TYPE,
@@ -88,7 +89,10 @@ export function useThemeGenerator() {
       setState((prev) => ({ ...prev, generationMode: null }));
       return result.data;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const errorMsg =
+        error instanceof Error
+          ? normalizePlainErrorMessage(error.message, "Generation failed")
+          : "Generation failed. Please try again.";
       setState((prev) => ({ ...prev, generationMode: null, error: errorMsg }));
       return null;
     }

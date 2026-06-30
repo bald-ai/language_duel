@@ -7,6 +7,10 @@ describe("readBackendErrorCode", () => {
     expect(readBackendErrorCode({ data: { code: "CREDITS_EXHAUSTED" } })).toBe(
       "CREDITS_EXHAUSTED"
     );
+    expect(readBackendErrorCode({ data: { code: "QUESTION_HINT_ALREADY_FIRED" } })).toBe(
+      "QUESTION_HINT_ALREADY_FIRED"
+    );
+    expect(readBackendErrorCode({ data: { code: "WRONG_MODE" } })).toBe("WRONG_MODE");
   });
 
   it("ignores missing or non-string codes", () => {

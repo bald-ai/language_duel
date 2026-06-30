@@ -2,12 +2,14 @@ import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
+import { getErrorMessage } from "@/lib/errors";
 import { buildFieldSummary } from "@/lib/generate/prompts";
 import type { WordEntry } from "@/lib/types";
 import {
   LLM_FIELD_REGEN_CREDITS,
   LLM_SINGLE_WORD_REGEN_CREDITS,
 } from "@/lib/credits/constants";
+import { AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/userFacingErrors";
 import {
   applyGeneratedWordEdit,
   applyManualWordEdit,
@@ -41,7 +43,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
       return false;
     }
     if (currentUser.llmCreditsRemaining < cost) {
-      toast.error("LLM credits exhausted");
+      toast.error(AI_CREDITS_EXHAUSTED_MESSAGE);
       return false;
     }
     return true;
@@ -77,7 +79,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
         existingWords
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Generation failed");
+      toast.error(getErrorMessage(error, "Generation failed"));
     }
   }, [ensureLlmCredits, params, wordEditor]);
 
@@ -98,7 +100,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
         existingWords
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Regeneration failed");
+      toast.error(getErrorMessage(error, "Regeneration failed"));
     }
   }, [ensureLlmCredits, params, wordEditor]);
 
@@ -209,7 +211,7 @@ export function useThemeWordEditController(params: UseThemeWordEditControllerPar
         wordEditor.reset();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Regeneration failed");
+      toast.error(getErrorMessage(error, "Regeneration failed"));
     }
   }, [ensureLlmCredits, params, wordEditor]);
 

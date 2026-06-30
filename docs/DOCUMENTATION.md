@@ -109,11 +109,11 @@ Weekly goal lifecycle:
 
 ## Entry Points For AI Work
 
-- Start in [`convex/schema.ts`](/Users/michalkrsik/coding_projects/language_duel/convex/schema.ts) when you need the core data shape and the main domain entities.
-- Start in [`app/`](/Users/michalkrsik/coding_projects/language_duel/app) when the work is about user-facing routes, screens, or UI behavior.
-- Start in [`convex/`](/Users/michalkrsik/coding_projects/language_duel/convex) when the work is about backend rules, persistence, notifications, reminders, or feature flows.
-- Start in [`hooks/`](/Users/michalkrsik/coding_projects/language_duel/hooks) when the work is about client-side orchestration such as duel lobby behavior or user syncing.
-- Start in [`lib/`](/Users/michalkrsik/coding_projects/language_duel/lib) when the work is about shared pure logic, validation, scoring, theme helpers, or other reusable domain utilities.
+- Start in `convex/schema.ts` when you need the core data shape and the main domain entities.
+- Start in `app/` when the work is about user-facing routes, screens, or UI behavior.
+- Start in `convex/` when the work is about backend rules, persistence, notifications, reminders, or feature flows.
+- Start in `hooks/` when the work is about client-side orchestration such as duel lobby behavior or user syncing.
+- Start in `lib/` when the work is about shared pure logic, validation, scoring, theme helpers, or other reusable domain utilities.
 
 ## Domain Terms
 

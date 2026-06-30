@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { getErrorMessage } from "@/lib/errors";
 import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
 
 interface UseSoloCompletionReportingParams {
@@ -103,10 +105,19 @@ export function useSoloCompletionReporting({
       completedStep: spacedRepetitionStep,
     })
       .then((result) => {
-        spacedRepetitionReportStatusRef.current = result.advanced ? "done" : "idle";
+        if (result.advanced) {
+          spacedRepetitionReportStatusRef.current = "done";
+          return;
+        }
+
+        spacedRepetitionReportStatusRef.current = "done";
+        toast.error(
+          "Practice finished, but your repetition progress could not be saved. Please try again from the repetition board."
+        );
       })
-      .catch(() => {
+      .catch((error) => {
         spacedRepetitionReportStatusRef.current = "idle";
+        toast.error(getErrorMessage(error, "Could not save practice progress"));
       });
   }, [
     soloPracticeSessionId,
@@ -133,8 +144,9 @@ export function useSoloCompletionReporting({
       .then(() => {
         bossCompletionStatusRef.current = "done";
       })
-      .catch(() => {
+      .catch((error) => {
         bossCompletionStatusRef.current = "idle";
+        toast.error(getErrorMessage(error, "Could not save boss progress"));
       });
   }, [
     soloPracticeSessionId,

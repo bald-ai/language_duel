@@ -1,4 +1,9 @@
 import { readBackendErrorCode } from "../backendErrorCodes";
+import {
+  getPlainBackendErrorMessage,
+  normalizePlainErrorMessage,
+  withRetry,
+} from "../userFacingErrors";
 
 export type ApiErrorCode =
   | "AUTH_FAILED"
@@ -46,15 +51,26 @@ export function resolveApiError(
     defaultMessage: string;
   }
 ): ResolvedApiError {
+  const fallbackMessage = withRetry(options.defaultMessage);
+
   if (error instanceof ApiRouteError) {
-    return { code: error.code, message: error.message, status: error.status };
+    return {
+      code: error.code,
+      message:
+        getPlainBackendErrorMessage(error.code, error.message, fallbackMessage) ??
+        normalizePlainErrorMessage(error.message, fallbackMessage),
+      status: error.status,
+    };
   }
 
   const backendCode = readBackendErrorCode(error);
   if (isApiErrorCode(backendCode)) {
+    const rawMessage = error instanceof Error ? error.message : undefined;
     return {
       code: backendCode,
-      message: error instanceof Error && error.message ? error.message : options.defaultMessage,
+      message:
+        getPlainBackendErrorMessage(backendCode, rawMessage, fallbackMessage) ??
+        normalizePlainErrorMessage(rawMessage, fallbackMessage),
       status: STRUCTURED_ERROR_STATUS[backendCode],
     };
   }
@@ -62,14 +78,14 @@ export function resolveApiError(
   if (error instanceof Error) {
     return {
       code: options.defaultCode,
-      message: error.message || options.defaultMessage,
+      message: normalizePlainErrorMessage(error.message, fallbackMessage),
       status: options.defaultStatus,
     };
   }
 
   return {
     code: options.defaultCode,
-    message: options.defaultMessage,
+    message: fallbackMessage,
     status: options.defaultStatus,
   };
 }
