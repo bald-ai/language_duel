@@ -2,6 +2,14 @@ Disclaimer: This is an indie app currently with no users.
 
 # Language Duel Documentation
 
+## Personal notes and future ideas
+
+Personal notes and future ideas belong in `Dev/` at the project root, as individual
+`.md` files. Preserve that folder and its contents during cleanup. Do not delete,
+move, rename, or consolidate those notes into `DOCUMENTATION.md` or other
+operational documentation unless the user explicitly asks to change those notes.
+An idea saved there is for later work; saving it does not authorize implementation.
+
 ## What This App Is
 
 Language Duel is a collaborative language-learning app built around shared practice, structured play, and reusable study content. Users create and study themes, run solo practice, play duels with another person, set weekly goals together, receive notifications and reminders, and use TTS audio to hear answers.
