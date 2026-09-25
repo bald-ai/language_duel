@@ -164,9 +164,8 @@ Weekly goal lifecycle:
 
 ## How AI Should Maintain This Doc
 
-- Treat this file as the primary big-picture orientation doc for AI work in this repo.
-- Suggest updates when user-visible behavior, architecture, data-model shape, or important product decisions change.
-- Ask the user before editing this file. Do not silently rewrite it during unrelated work.
+- This file exists only for AI agents working in this repo. The user does not read or review it.
+- Agents decide what to track here and edit it without asking. Record what a future agent needs to get oriented: product intent, architecture, data-model shape, lifecycles, and decisions the code does not make obvious.
 - Keep it compact and high-signal. If information is already clear from code or tests, this file should usually point to the concept rather than restate implementation detail.
 
 ### Quality checks

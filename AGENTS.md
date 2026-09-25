@@ -2,7 +2,7 @@
 
 This file defines the shared rules for AI coding work. Optimize for clarity and fast change, and build for your future AI self.
 
-> **Note:** Project documentation lives at `docs/DOCUMENTATION.md` (not at the repo root).
+> **Note:** `docs/DOCUMENTATION.md` exists only for AI agents. Agents decide what to track there and update it without asking.
 
 ## General
 - When the user mentions a `.md` file by name (without a path), it is usually located inside the `Dev` folder. Look there first before asking for the path.
@@ -28,7 +28,7 @@ This file defines the shared rules for AI coding work. Optimize for clarity and 
 - Flag test-only code. If a helper, branch, constant, or whole file has no real caller in the running app and exists only to be exercised by tests (or kept alive with `void` suppressions, "for future use" comments, or "for parity" stubs), surface it to the user instead of shipping it. The rule mirrors "no fallback code" above — code with no real caller is dead code, regardless of whether a test touches it.
 
 ## Handoff
-- Update docs when behavior changes (short note in existing docs).
+- Update `docs/DOCUMENTATION.md` when a change affects something tracked there or worth tracking there.
 - Gate before handoff: AI must run eslint (no lint errors), `npm run typecheck`, `npx tsc --noEmit -p convex/tsconfig.json` (Convex uses a stricter `lib: ES2021` config than the root tsconfig and rejects newer APIs like `Object.hasOwn`), plus any existing tests before handing off only when code or tests changed.
 - For final handoff validation, run the full suite with `npm run test:run` so Vitest runs once and exits. Focused runs with `npm run test:run -- <test files>` are optional during implementation. Do not use `npm test` for handoff validation unless the user explicitly wants watch mode.
 - Do not run eslint, typecheck, or tests for documentation-only, prompt-only, content-only, or other non-code changes. In those cases, handoff should just state that validation was skipped because no code changed.
