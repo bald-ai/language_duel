@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useCountdown } from "@/app/goals/hooks/useCountdown";
@@ -39,6 +40,82 @@ function toLocalEndOfDayTimestamp(dateValue: string): number | null {
   return new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
 }
 
+type SelectedGoal = FunctionReturnType<typeof api.weeklyGoals.getGoalById> | undefined;
+
+function getGoalStatusPresentation(selectedGoal: SelectedGoal) {
+  const effectiveStatus = selectedGoal?.effectiveStatus;
+  return {
+    isDraft: effectiveStatus === "draft",
+    isGracePeriod: effectiveStatus === "grace_period",
+    canEditEndDate: Boolean(selectedGoal?.canEditEndDate),
+    canToggleThemeCompletion: canToggleGoalThemeCompletion({ effectiveStatus }),
+    ...getWeeklyGoalLockFlags(selectedGoal?.lockState ?? "none"),
+  };
+}
+
+function getGoalThemePermissions(selectedGoal: SelectedGoal) {
+  if (!selectedGoal) return { canAddThemes: false, hasEnoughThemesToLock: false, hasEndDate: false };
+  return {
+    canAddThemes: selectedGoal.effectiveStatus === "draft" && selectedGoal.goal.themes.length < MAX_THEMES_PER_GOAL,
+    hasEnoughThemesToLock: selectedGoal.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL,
+    hasEndDate: typeof selectedGoal.goal.endDate === "number",
+  };
+}
+
+function getGoalBossPresentation(selectedGoal: SelectedGoal) {
+  if (!selectedGoal) return { allSelectedThemesCompleted: false, miniBossDisplayStatus: "unavailable" as const, miniBossLabel: "" };
+  const allSelectedThemesCompleted = areAllThemesCompleted(selectedGoal.goal.themes, selectedGoal.mode);
+  return {
+    allSelectedThemesCompleted,
+    miniBossDisplayStatus: allSelectedThemesCompleted ? "unavailable" as const : selectedGoal.miniBossStatus ?? "unavailable",
+    miniBossLabel: allSelectedThemesCompleted ? "All themes completed - Do big boss!" : formatBossStatus(selectedGoal.miniBossStatus),
+  };
+}
+
+function getGoalDatePresentation(selectedGoal: SelectedGoal) {
+  if (!selectedGoal) return { startDate: null, endDate: null };
+  return {
+    startDate: selectedGoal.goal.lockedAt ? formatDate(selectedGoal.goal.lockedAt) : null,
+    endDate: selectedGoal.goal.endDate ? formatDate(selectedGoal.goal.endDate) : null,
+  };
+}
+
+function useGoalDeadlines(selectedGoal: SelectedGoal) {
+  const deleteAt = getGoalDeleteAt(selectedGoal?.goal.endDate);
+  const graceCountdown = useCountdown(deleteAt ?? 0);
+  const draftExpiresAt = getGoalDraftExpiresAt(selectedGoal?.goal.createdAt);
+  const draftCountdown = useCountdown(draftExpiresAt ?? 0);
+  return {
+    deleteAt, draftExpiresAt,
+    formattedGraceCountdown: formatGoalCountdown(graceCountdown.timeRemaining),
+    formattedDraftCountdown: formatGoalCountdown(draftCountdown.timeRemaining),
+  };
+}
+
+function useGoalEndDateInput(selectedGoal: SelectedGoal) {
+  const [endDateInput, setEndDateInput] = useState(() => formatDateInputValue(selectedGoal?.goal.endDate));
+  const endDate = selectedGoal?.goal.endDate;
+  const goalId = selectedGoal?.goal._id;
+  const [previousSource, setPreviousSource] = useState({ endDate, goalId });
+  if (previousSource.endDate !== endDate || previousSource.goalId !== goalId) {
+    setPreviousSource({ endDate, goalId });
+    setEndDateInput(formatDateInputValue(endDate));
+  }
+  return { endDateInput, setEndDateInput };
+}
+
+function selectThemesToAdd(goal: NonNullable<SelectedGoal>["goal"], themeIds: Id<"themes">[]) {
+  const remainingSlots = Math.max(0, MAX_THEMES_PER_GOAL - goal.themes.length);
+  const existingThemeIds = new Set(goal.themes.map(theme => theme.themeId));
+  const addedThemeIds = new Set<Id<"themes">>();
+  for (const themeId of themeIds) {
+    if (addedThemeIds.size >= remainingSlots) break;
+    if (existingThemeIds.has(themeId)) continue;
+    addedThemeIds.add(themeId);
+  }
+  return [...addedThemeIds];
+}
+
 export function useGoalsPageModel() {
   const router = useRouter();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
@@ -46,7 +123,6 @@ export function useGoalsPageModel() {
   const [creationMode, setCreationMode] = useState<"solo" | "shared">("solo");
   const [selectedPartnerId, setSelectedPartnerId] = useState<Id<"users"> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [endDateInput, setEndDateInput] = useState("");
   const [isSavingEndDate, setIsSavingEndDate] = useState(false);
 
   const friends = useQuery(api.friends.getFriends);
@@ -79,9 +155,7 @@ export function useGoalsPageModel() {
   const deleteGoal = useMutation(api.weeklyGoals.deleteGoal);
   const setGoalEndDate = useMutation(api.weeklyGoals.setGoalEndDate);
 
-  useEffect(() => {
-    setEndDateInput(formatDateInputValue(selectedGoal?.goal?.endDate));
-  }, [selectedGoal?.goal?.endDate, selectedGoal?.goal?._id]);
+  const { endDateInput, setEndDateInput } = useGoalEndDateInput(selectedGoal);
 
   useEffect(() => {
     if (!allGoals || allGoals.length === 0 || !initialLoadDone) return;
@@ -92,12 +166,7 @@ export function useGoalsPageModel() {
     }
   }, [allGoals, selectedGoal, selectedGoalId, initialLoadDone, selectGoal]);
 
-  const deleteAt = getGoalDeleteAt(selectedGoal?.goal?.endDate);
-  const graceCountdown = useCountdown(deleteAt ?? 0);
-  const formattedGraceCountdown = formatGoalCountdown(graceCountdown.timeRemaining);
-  const draftExpiresAt = getGoalDraftExpiresAt(selectedGoal?.goal?.createdAt);
-  const draftCountdown = useCountdown(draftExpiresAt ?? 0);
-  const formattedDraftCountdown = formatGoalCountdown(draftCountdown.timeRemaining);
+  const { deleteAt, draftExpiresAt, formattedGraceCountdown, formattedDraftCountdown } = useGoalDeadlines(selectedGoal);
 
   const handleCreateGoal = async () => {
     if (creationMode === "shared" && !selectedPartnerId) return;
@@ -120,19 +189,9 @@ export function useGoalsPageModel() {
   const handleAddThemes = async (themeIds: Id<"themes">[]) => {
     if (!selectedGoal?.goal) return;
     try {
-      const remainingSlots = Math.max(0, MAX_THEMES_PER_GOAL - selectedGoal.goal.themes.length);
-      const existingThemeIds = new Set(selectedGoal.goal.themes.map((theme) => theme.themeId));
-      const addedThemeIds = new Set<Id<"themes">>();
-      const addPromises: Promise<unknown>[] = [];
-
-      for (const themeId of themeIds) {
-        if (addPromises.length >= remainingSlots) break;
-        if (existingThemeIds.has(themeId) || addedThemeIds.has(themeId)) continue;
-
-        addPromises.push(addTheme({ goalId: selectedGoal.goal._id, themeId }));
-        addedThemeIds.add(themeId);
-      }
-
+      const addPromises = selectThemesToAdd(selectedGoal.goal, themeIds).map(themeId =>
+        addTheme({ goalId: selectedGoal.goal._id, themeId })
+      );
       const results = addPromises.length > 0 ? await Promise.allSettled(addPromises) : [];
       const fulfilledCount = results.filter((result) => result.status === "fulfilled").length;
       setShowThemeSelector(false);
@@ -265,36 +324,11 @@ export function useGoalsPageModel() {
   const availableFriends = friends.filter((friend) => !existingPartnerIds.has(friend.friendId));
 
   const hasGoals = allGoals.length > 0;
-  const hasGoalSelected = selectedGoal != null;
-  const effectiveStatus = selectedGoal?.effectiveStatus;
-  const isDraft = effectiveStatus === "draft";
-  const isGracePeriod = effectiveStatus === "grace_period";
-  const canAddThemes =
-    isDraft &&
-    hasGoalSelected &&
-    selectedGoal.goal.themes.length < MAX_THEMES_PER_GOAL;
-  const { viewerLocked, partnerLocked } = getWeeklyGoalLockFlags(
-    selectedGoal?.lockState ?? "none"
-  );
-  const canToggleThemeCompletion = canToggleGoalThemeCompletion({ effectiveStatus });
-  const hasEnoughThemesToLock =
-    hasGoalSelected && selectedGoal.goal.themes.length >= MIN_THEMES_TO_LOCK_GOAL;
-  const canPracticeGoalThemes = Boolean(hasEnoughThemesToLock);
-  const hasEndDate = hasGoalSelected && typeof selectedGoal.goal.endDate === "number";
-  const canEditEndDate = Boolean(selectedGoal?.canEditEndDate);
-  const allSelectedThemesCompleted = selectedGoal
-    ? areAllThemesCompleted(selectedGoal.goal.themes, selectedGoal.mode)
-    : false;
-  const miniBossDisplayStatus = allSelectedThemesCompleted
-    ? "unavailable"
-    : selectedGoal?.miniBossStatus ?? "unavailable";
-  const miniBossLabel = allSelectedThemesCompleted
-    ? "All themes completed - Do big boss!"
-    : selectedGoal
-      ? formatBossStatus(selectedGoal.miniBossStatus)
-      : "";
-  const startDate = selectedGoal?.goal?.lockedAt ? formatDate(selectedGoal.goal.lockedAt) : null;
-  const endDate = selectedGoal?.goal?.endDate ? formatDate(selectedGoal.goal.endDate) : null;
+  const { isDraft, isGracePeriod, canEditEndDate, canToggleThemeCompletion, viewerLocked, partnerLocked } = getGoalStatusPresentation(selectedGoal);
+  const { canAddThemes, hasEnoughThemesToLock, hasEndDate } = getGoalThemePermissions(selectedGoal);
+  const canPracticeGoalThemes = hasEnoughThemesToLock;
+  const { allSelectedThemesCompleted, miniBossDisplayStatus, miniBossLabel } = getGoalBossPresentation(selectedGoal);
+  const { startDate, endDate } = getGoalDatePresentation(selectedGoal);
 
   return {
     isLoading: false as const,

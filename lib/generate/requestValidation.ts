@@ -322,14 +322,7 @@ function parseFieldRequest(body: Record<string, unknown>): RegenerateFieldReques
   });
   const fieldIndex = parseFieldIndex(body.fieldIndex);
 
-  if (body.fieldType === "wrong") {
-    if (fieldIndex === undefined) {
-      throw new Error("fieldIndex is required when fieldType is \"wrong\"");
-    }
-    if (fieldIndex >= currentWrongAnswers.length) {
-      throw new Error("fieldIndex must reference an existing wrong answer");
-    }
-  }
+  validateWrongFieldIndex(body.fieldType, fieldIndex, currentWrongAnswers.length);
 
   return {
     type: "field",
@@ -521,6 +514,19 @@ function parseAddSentenceRoundRequest(
   };
 }
 
+const REQUEST_PARSERS = new Map<string, (body: Record<string, unknown>) => GenerateRequest>(
+  Object.entries({
+    theme: parseThemeRequest,
+    field: parseFieldRequest,
+    "regenerate-for-word": parseRegenerateForWordRequest,
+    "add-word": parseAddWordRequest,
+    "generate-more-words": parseGenerateMoreWordsRequest,
+    "sentence-theme": parseSentenceThemeRequest,
+    "generate-more-sentence-rounds": parseGenerateMoreSentenceRoundsRequest,
+    "add-sentence-round": parseAddSentenceRoundRequest,
+  } satisfies Record<GenerateRequest["type"], (body: Record<string, unknown>) => GenerateRequest>)
+);
+
 export function parseGenerateRequest(payload: unknown): ParseResult {
   if (!isRecord(payload)) {
     return { ok: false, error: "Request body must be an object" };
@@ -531,34 +537,24 @@ export function parseGenerateRequest(payload: unknown): ParseResult {
   }
 
   try {
-    if (payload.type === "theme") {
-      return { ok: true, data: parseThemeRequest(payload) };
-    }
-    if (payload.type === "field") {
-      return { ok: true, data: parseFieldRequest(payload) };
-    }
-    if (payload.type === "regenerate-for-word") {
-      return { ok: true, data: parseRegenerateForWordRequest(payload) };
-    }
-    if (payload.type === "add-word") {
-      return { ok: true, data: parseAddWordRequest(payload) };
-    }
-    if (payload.type === "generate-more-words") {
-      return { ok: true, data: parseGenerateMoreWordsRequest(payload) };
-    }
-    if (payload.type === "sentence-theme") {
-      return { ok: true, data: parseSentenceThemeRequest(payload) };
-    }
-    if (payload.type === "generate-more-sentence-rounds") {
-      return { ok: true, data: parseGenerateMoreSentenceRoundsRequest(payload) };
-    }
-    if (payload.type === "add-sentence-round") {
-      return { ok: true, data: parseAddSentenceRoundRequest(payload) };
-    }
-    return { ok: false, error: "Invalid request type" };
+    const parse = REQUEST_PARSERS.get(payload.type);
+    if (!parse) return { ok: false, error: "Invalid request type" };
+    return { ok: true, data: parse(payload) };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Invalid generate request";
     return { ok: false, error: message };
   }
+}
+
+function validateWrongFieldIndex(fieldType: RegenerateFieldRequest["fieldType"], fieldIndex: number | undefined, answerCount: number) {
+  if (fieldType === "wrong") {
+    if (fieldIndex === undefined) {
+      throw new Error("fieldIndex is required when fieldType is \"wrong\"");
+    }
+    if (fieldIndex >= answerCount) {
+      throw new Error("fieldIndex must reference an existing wrong answer");
+    }
+  }
+
 }

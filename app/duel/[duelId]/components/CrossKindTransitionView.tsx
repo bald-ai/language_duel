@@ -6,7 +6,8 @@ import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { CountdownControls } from "@/app/game/components/duel/CountdownControls";
 import { SpeakerIcon } from "@/app/components/icons";
 import { useTTS } from "@/hooks/useTTS";
-import { formatVisibleUser } from "@/lib/userDisplay";
+import { forRole } from "@/lib/duelRole";
+import { deriveScoreNames } from "../hooks/duelViewModelHelpers";
 import { duelCardBackground } from "./duelViewStyles";
 import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
@@ -52,47 +53,26 @@ export function CrossKindTransitionView({
   const countdownActions = useDuelCountdownActions(duel);
   const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
-  const isChallenger = viewerRole === "challenger";
-  const myScore = isChallenger ? duel.challengerScore : duel.opponentScore;
-  const theirScore = isChallenger ? duel.opponentScore : duel.challengerScore;
-  const myName = formatVisibleUser(isChallenger ? challenger : opponent, "You");
-  const theirName = formatVisibleUser(isChallenger ? opponent : challenger, "Opponent");
-
+  const { myScore, theirScore } = forRole(duel, viewerRole);
+  const { myName, theirName } = deriveScoreNames(
+    viewerRole === "challenger",
+    challenger,
+    opponent,
+  );
   const priorQuestion = duel.duelQuestions?.[transition.prevIndex];
   const priorItem = duel.sessionItems[duel.itemOrder[transition.prevIndex]];
-
-  const prompt =
-    priorQuestion?.kind === "word"
-      ? priorItem?.kind === "word"
-        ? priorItem.word
-        : ""
-      : priorQuestion?.kind === "sentence"
-      ? priorQuestion.englishPrompt
-      : "";
-  const correctAnswer =
-    priorQuestion?.kind === "word"
-      ? priorQuestion.correctOption ?? null
-      : priorQuestion?.kind === "sentence"
-      ? priorQuestion.spanishSentence ?? null
-      : null;
-  const canPlaySentenceAudio =
-    priorQuestion?.kind === "sentence" &&
-    priorItem?.kind === "sentence" &&
-    !!priorQuestion.spanishSentence &&
-    !!priorItem.ttsStorageId;
+  const { prompt, correctAnswer } = priorRoundReveal(priorQuestion, priorItem);
+  const sentenceAudio = priorSentenceAudio(priorQuestion, priorItem);
   const handlePlaySentenceAudio = () => {
-    if (
-      priorQuestion?.kind !== "sentence" ||
-      priorItem?.kind !== "sentence" ||
-      !priorQuestion.spanishSentence ||
-      !priorItem.ttsStorageId
-    ) {
-      return;
-    }
-    void playTTS(`cross-kind-sentence-${duel._id}-${transition.prevIndex}`, priorQuestion.spanishSentence, {
-      storageId: priorItem.ttsStorageId,
-      themeId: String(priorItem.themeId),
-    });
+    if (!sentenceAudio) return;
+    void playTTS(
+      `cross-kind-sentence-${duel._id}-${transition.prevIndex}`,
+      sentenceAudio.text,
+      {
+        storageId: sentenceAudio.storageId,
+        themeId: sentenceAudio.themeId,
+      },
+    );
   };
 
   return (
@@ -103,11 +83,13 @@ export function CrossKindTransitionView({
     >
       <div
         className="w-full md:max-w-md lg:max-w-lg md:rounded-2xl md:border md:shadow-2xl flex flex-col min-h-dvh md:min-h-0 md:h-[85vh] md:max-h-[800px] backdrop-blur-xl"
-        style={{
-          // Eclipse fade: solid top/bottom, see-through middle (see duelCardBackground).
-          background: duelCardBackground(colors),
-          borderColor: colors.primary.dark,
-        } as React.CSSProperties}
+        style={
+          {
+            // Eclipse fade: solid top/bottom, see-through middle (see duelCardBackground).
+            background: duelCardBackground(colors),
+            borderColor: colors.primary.dark,
+          } as React.CSSProperties
+        }
       >
         <header
           className="flex-shrink-0 flex items-center justify-between p-3 md:p-4 pt-[max(0.75rem,var(--sat))] md:pt-4 border-b"
@@ -155,7 +137,7 @@ export function CrossKindTransitionView({
             >
               {correctAnswer ?? ""}
             </p>
-            {canPlaySentenceAudio && (
+            {sentenceAudio && (
               <button
                 type="button"
                 onClick={handlePlaySentenceAudio}
@@ -170,25 +152,106 @@ export function CrossKindTransitionView({
             )}
           </div>
 
-          {duel.status !== "completed" && (
-            <div className="mt-6">
-              <CountdownControls
-                countdown={secondsLeft}
-                countdownPausedBy={duel.countdownPausedBy}
-                countdownUnpauseRequestedBy={duel.countdownUnpauseRequestedBy}
-                userRole={viewerRole}
-                countdownSkipRequestedBy={duel.countdownSkipRequestedBy ?? []}
-                onPause={countdownActions.pauseCountdown}
-                onRequestUnpause={countdownActions.requestUnpauseForControls}
-                onConfirmUnpause={countdownActions.confirmUnpauseCountdown}
-                onSkip={countdownActions.skipCountdown}
-                dataTestIdBase="cross-kind-transition"
-              />
-            </div>
-          )}
-          {duel.status === "completed" && (
-            <div className="mt-6">
-              {/*
+          <CrossKindCountdown
+            duel={duel}
+            viewerRole={viewerRole}
+            secondsLeft={secondsLeft}
+            countdownActions={countdownActions}
+            localPaused={localPaused}
+            onLocalPause={onLocalPause}
+            onLocalUnpause={onLocalUnpause}
+            onLocalSkip={onLocalSkip}
+          />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+type PriorQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
+type PriorItem = Doc<"duels">["sessionItems"][number];
+
+function priorWordReveal(
+  question: Extract<PriorQuestion, { kind: "word" }>,
+  item: PriorItem | undefined,
+) {
+  return {
+    prompt: item?.kind === "word" ? item.word : "",
+    correctAnswer: question.correctOption ?? null,
+  };
+}
+
+function priorRoundReveal(
+  question: PriorQuestion | undefined,
+  item: PriorItem | undefined,
+) {
+  if (question?.kind === "word") return priorWordReveal(question, item);
+  if (question?.kind === "sentence")
+    return {
+      prompt: question.englishPrompt,
+      correctAnswer: question.spanishSentence ?? null,
+    };
+  return { prompt: "", correctAnswer: null };
+}
+
+function priorSentenceAudio(
+  question: PriorQuestion | undefined,
+  item: PriorItem | undefined,
+) {
+  if (
+    question?.kind !== "sentence" ||
+    item?.kind !== "sentence" ||
+    !question.spanishSentence ||
+    !item.ttsStorageId
+  )
+    return null;
+  return {
+    text: question.spanishSentence,
+    storageId: item.ttsStorageId,
+    themeId: String(item.themeId),
+  };
+}
+
+function CrossKindCountdown({
+  duel,
+  viewerRole,
+  secondsLeft,
+  countdownActions,
+  localPaused,
+  onLocalPause,
+  onLocalUnpause,
+  onLocalSkip,
+}: Pick<
+  CrossKindTransitionViewProps,
+  | "duel"
+  | "viewerRole"
+  | "secondsLeft"
+  | "localPaused"
+  | "onLocalPause"
+  | "onLocalUnpause"
+  | "onLocalSkip"
+> & { countdownActions: ReturnType<typeof useDuelCountdownActions> }) {
+  return (
+    <>
+      {duel.status !== "completed" && (
+        <div className="mt-6">
+          <CountdownControls
+            countdown={secondsLeft}
+            countdownPausedBy={duel.countdownPausedBy}
+            countdownUnpauseRequestedBy={duel.countdownUnpauseRequestedBy}
+            userRole={viewerRole}
+            countdownSkipRequestedBy={duel.countdownSkipRequestedBy ?? []}
+            onPause={countdownActions.pauseCountdown}
+            onRequestUnpause={countdownActions.requestUnpauseForControls}
+            onConfirmUnpause={countdownActions.confirmUnpauseCountdown}
+            onSkip={countdownActions.skipCountdown}
+            dataTestIdBase="cross-kind-transition"
+          />
+        </div>
+      )}
+      {duel.status === "completed" && (
+        <div className="mt-6">
+          {/*
                 Final reveal: the duel is already decided, so these controls are
                 PER-PLAYER, not the shared/coordinated pause used between live
                 rounds. We reuse CountdownControls for visual consistency by
@@ -199,23 +262,21 @@ export function CrossKindTransitionView({
                 Skip is single-click (empty `countdownSkipRequestedBy`) and only
                 collapses this player's countdown. See `useCrossKindRoundTransition`.
               */}
-              <CountdownControls
-                countdown={secondsLeft}
-                countdownPausedBy={localPaused ? viewerRole : undefined}
-                countdownUnpauseRequestedBy={undefined}
-                userRole={viewerRole}
-                countdownSkipRequestedBy={[]}
-                countdownLabel="Results"
-                onPause={onLocalPause}
-                onRequestUnpause={onLocalUnpause}
-                onConfirmUnpause={onLocalUnpause}
-                onSkip={onLocalSkip}
-                dataTestIdBase="cross-kind-transition-final"
-              />
-            </div>
-          )}
+          <CountdownControls
+            countdown={secondsLeft}
+            countdownPausedBy={localPaused ? viewerRole : undefined}
+            countdownUnpauseRequestedBy={undefined}
+            userRole={viewerRole}
+            countdownSkipRequestedBy={[]}
+            countdownLabel="Results"
+            onPause={onLocalPause}
+            onRequestUnpause={onLocalUnpause}
+            onConfirmUnpause={onLocalUnpause}
+            onSkip={onLocalSkip}
+            dataTestIdBase="cross-kind-transition-final"
+          />
         </div>
-      </div>
-    </main>
+      )}
+    </>
   );
 }

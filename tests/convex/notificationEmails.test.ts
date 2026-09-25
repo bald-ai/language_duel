@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   sendNotificationEmail,
@@ -23,8 +23,6 @@ type EmailLogDoc = Pick<
   | "toUserId"
   | "trigger"
   | "challengeId"
-  | "duelId"
-  | "soloPracticeSessionId"
   | "weeklyGoalId"
   | "dedupeKey"
   | "status"
@@ -90,8 +88,6 @@ const claimNotificationSendHandler = (claimNotificationSend as unknown as {
       toUserId: Id<"users">;
       trigger: "weekly_goal_draft_expiring";
       weeklyGoalId?: Id<"weeklyGoals">;
-      duelId?: Id<"duels">;
-      soloPracticeSessionId?: Id<"soloPracticeSessions">;
       dedupeKey?: string;
     }
   ) => Promise<{ claimed: boolean; claimId?: Id<"emailNotificationLog"> }>;
@@ -163,84 +159,26 @@ describe("notification email claim-before-send", () => {
     expect(db.emailNotificationLog).toHaveLength(1);
   });
 
-  it("dedupes duel-scoped claims by duelId", async () => {
-    const db = new InMemoryDb([], [
-      {
-        _id: "email_log_1" as Id<"emailNotificationLog">,
-        _creationTime: 1,
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        status: "sent",
-        duelId: "duel_1" as Id<"duels">,
-        sentAt: 123,
-      },
-    ]);
-
-    const result = await claimNotificationSendHandler(
-      { db } as never,
-      {
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        duelId: "duel_1" as Id<"duels">,
-      }
-    );
-
-    expect(result.claimed).toBe(false);
-    expect(db.emailNotificationLog).toHaveLength(1);
+  it("rejects a log claim without the source required by its trigger", async () => {
+    const db = new InMemoryDb();
+    await expect(claimNotificationSendHandler({ db }, {
+      toUserId: "user_1" as Id<"users">,
+      trigger: "weekly_goal_draft_expiring",
+    })).rejects.toMatchObject({ data: { code: "INVALID_INPUT" } });
+    expect(db.emailNotificationLog).toEqual([]);
   });
 
-  it("uses duelId over weeklyGoalId when both are present", async () => {
-    const db = new InMemoryDb([], [
-      {
-        _id: "email_log_1" as Id<"emailNotificationLog">,
-        _creationTime: 1,
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        status: "sent",
-        duelId: "duel_1" as Id<"duels">,
-        sentAt: 123,
-      },
-    ]);
-
-    const result = await claimNotificationSendHandler(
-      { db } as never,
-      {
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        duelId: "duel_1" as Id<"duels">,
-        weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
-      }
-    );
-
-    expect(result.claimed).toBe(false);
-    expect(db.emailNotificationLog).toHaveLength(1);
+  it("respects disabled notification preferences before claiming or sending", async () => {
+    const runQuery = vi.fn().mockResolvedValueOnce(buildUser()).mockResolvedValueOnce({ ...DEFAULT_NOTIFICATION_PREFS, weeklyGoalEmailsEnabled: false });
+    const runMutation = vi.fn(); const runAction = vi.fn();
+    await expect(sendNotificationEmailHandler({ runQuery, runMutation, runAction }, { toUserId: "user_1" as Id<"users">, trigger: "weekly_goal_draft_expiring", weeklyGoalId: "goal_1" as Id<"weeklyGoals"> })).resolves.toEqual({ sent: false, reason: "disabled_by_user" });
+    expect(runMutation).not.toHaveBeenCalled(); expect(runAction).not.toHaveBeenCalled();
   });
-
-
-  it("dedupes solo-practice-scoped claims by soloPracticeSessionId", async () => {
-    const db = new InMemoryDb([], [
-      {
-        _id: "email_log_1" as Id<"emailNotificationLog">,
-        _creationTime: 1,
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        status: "sent",
-        soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
-        sentAt: 123,
-      },
-    ]);
-
-    const result = await claimNotificationSendHandler(
-      { db } as never,
-      {
-        toUserId: "user_1" as Id<"users">,
-        trigger: "weekly_goal_draft_expiring",
-        soloPracticeSessionId: "solo_practice_1" as Id<"soloPracticeSessions">,
-      }
-    );
-
-    expect(result.claimed).toBe(false);
-    expect(db.emailNotificationLog).toHaveLength(1);
+  it("does not deliver a notification when its send claim was already taken", async () => {
+    const runQuery = vi.fn().mockResolvedValueOnce(buildUser()).mockResolvedValueOnce(DEFAULT_NOTIFICATION_PREFS).mockResolvedValue(null);
+    const runMutation = vi.fn().mockResolvedValue({ claimed: false }); const runAction = vi.fn();
+    await expect(sendNotificationEmailHandler({ runQuery, runMutation, runAction }, { toUserId: "user_1" as Id<"users">, trigger: "weekly_goal_draft_expiring", weeklyGoalId: "goal_1" as Id<"weeklyGoals"> })).resolves.toEqual({ sent: false, reason: "already_sent" });
+    expect(runMutation).toHaveBeenCalledOnce(); expect(runAction).not.toHaveBeenCalled();
   });
 
   it("keeps the claim when the email send succeeds", async () => {

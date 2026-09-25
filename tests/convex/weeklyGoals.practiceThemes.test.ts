@@ -155,6 +155,16 @@ function createDb(goal: WeeklyGoalDoc, snapshots: SnapshotDoc[] = []) {
 }
 
 describe("getWeeklyGoalPracticeThemes", () => {
+  it("names a deleted live theme and refuses to start a partial practice session", async () => {
+    const db = createDb(buildGoal());
+    db.themes = db.themes.filter(theme => theme._id !== "theme_2");
+    await expect(handler(createAuthCtx(db, "creator"), { weeklyGoalId: "goal_1" as Id<"weeklyGoals"> })).resolves.toEqual({
+      ok: false,
+      message: '\"Theme 2\" is no longer available. Remove it or choose another theme before practicing.',
+    });
+    await expect(handler(createAuthCtx(db, "creator"), { weeklyGoalId: "goal_1" as Id<"weeklyGoals">, themeIds: ["theme_1" as Id<"themes">] })).resolves.toMatchObject({ ok: true, themes: [{ name: "Live Theme 1" }] });
+  });
+
   it("loads live originals before full lock and allows partner access", async () => {
     const db = createDb(buildGoal({ creatorLocked: true }));
 

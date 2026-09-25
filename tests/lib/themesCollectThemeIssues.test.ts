@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectThemeIssues, describeThemeValidationIssues } from "@/lib/themes/serverValidation";
+import { collectThemeIssues, formatThemeValidationIssue } from "@/lib/themes/serverValidation";
 
 const sixWrong = (prefix: string) =>
   Array.from({ length: 6 }, (_, j) => `${prefix}-wrong-${j}`);
@@ -20,7 +20,7 @@ describe("collectThemeIssues", () => {
     ];
 
     const issues = collectThemeIssues(words);
-    const messages = describeThemeValidationIssues(words);
+    const messages = issues.map(issue => formatThemeValidationIssue(issue));
 
     expect(issues.map((i) => i.type)).toEqual(
       expect.arrayContaining(["answer_empty", "duplicate_word"])

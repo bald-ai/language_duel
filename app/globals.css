@@ -19,7 +19,6 @@
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
 
   /* ========================================
    * SEMANTIC COLOR ROLES (use these!)
@@ -88,22 +87,6 @@ body {
  * ANIMATIONS
  * ======================================== */
 
-
-/* Glow effects */
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent),
-      0 0 40px color-mix(in srgb, var(--color-primary) 20%, transparent);
-  }
-
-  50% {
-    box-shadow: 0 0 30px color-mix(in srgb, var(--color-primary) 60%, transparent),
-      0 0 60px color-mix(in srgb, var(--color-primary) 30%, transparent);
-  }
-}
-
 /* "Look here!" flash for auth buttons when logged-out user clicks a protected action */
 @keyframes auth-hint-flash {
   0%   { transform: scale(1);   filter: brightness(1);    }
@@ -157,10 +140,6 @@ body {
   animation-delay: 500ms;
 }
 
-.delay-600 {
-  animation-delay: 600ms;
-}
-
 /* Slide down animation for notification panel */
 @keyframes slide-down-fade {
   from {
@@ -193,19 +172,6 @@ body {
 
 .animate-scale-in {
   animation: scale-in 0.15s ease-out forwards;
-}
-
-/* Slide out animation for dismissed items */
-@keyframes slide-out-right {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateX(100%);
-  }
 }
 
 /* Fade in animation for backdrop */
@@ -390,31 +356,6 @@ html {
 
 .h-dvh {
   height: 100dvh;
-}
-
-/* Prevent iOS Safari overscroll bounce on fixed backgrounds */
-@supports (-webkit-touch-callout: none) {
-  .fixed-bg-ios-fix {
-    /* Use -webkit-fill-available as fallback on iOS */
-    height: -webkit-fill-available;
-  }
-}
-
-
-/* Themed title gradients for homepage */
-.themed-title-gradient {
-  background-image: linear-gradient(135deg, var(--color-text) 0%, var(--color-neutral) 50%, var(--color-text) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-}
-
-.themed-title-accent {
-  background-image: linear-gradient(135deg, var(--color-cta) 0%, var(--color-cta-light) 50%, var(--color-cta) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* ========================================

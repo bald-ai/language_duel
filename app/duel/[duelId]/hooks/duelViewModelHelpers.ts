@@ -51,8 +51,9 @@ export function deriveHintFlags(args: {
 
   const iRequestedHint = args.hintRequestedBy === args.myRole;
   const theyRequestedHint = args.hintRequestedBy === args.theirRole;
-  const canAcceptHint = args.hasAnswered && theyRequestedHint && !args.hintAccepted;
-  const isHintProvider = args.hasAnswered && theyRequestedHint && !!args.hintAccepted;
+  const canOfferHint = args.hasAnswered && theyRequestedHint;
+  const canAcceptHint = canOfferHint && !args.hintAccepted;
+  const isHintProvider = canOfferHint && !!args.hintAccepted;
   const canEliminate =
     isHintProvider && args.eliminatedOptions.length < PVP_HINT_ELIMINATION_PICKS;
 

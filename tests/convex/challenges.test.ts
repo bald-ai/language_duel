@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   acceptChallenge,
+  getChallenge,
+  getPendingChallenges,
+  cancelChallenge,
   cleanupExpiredChallengeInvites,
   createChallenge,
   createSelfDuel,
@@ -643,5 +646,56 @@ describe("createSelfDuel", () => {
         themeIds: ["theme_missing" as Id<"themes">],
       })
     ).rejects.toMatchObject({ data: { code: "NOT_FOUND" } });
+  });
+});
+
+
+describe("challenge read and cancel boundaries", () => {
+  const call = (fn: unknown, ctx: unknown, args: Record<string, unknown> = {}): Promise<unknown> =>
+    (fn as { _handler: (ctx: unknown, args: Record<string, unknown>) => Promise<unknown> })._handler(ctx, args);
+  it.each([null, "missing", "outsider"])("does not disclose a challenge to %s", async identity => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.users.push(userDoc({ _id: "user_outsider" as Id<"users">, clerkId: "outsider" }));
+    db.challenges.push(challengeDoc());
+    await expect(call(getChallenge, createCtx(db, identity), { challengeId: "challenge_1" })).resolves.toBeNull();
+  });
+  it.each(["clerk_1", "clerk_2"])("returns the challenge to participant %s", async identity => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.challenges.push(challengeDoc());
+    await expect(call(getChallenge, createCtx(db, identity), { challengeId: "challenge_1" })).resolves.toEqual({ challenge: db.challenges[0] });
+    await expect(call(getChallenge, createCtx(db, identity), { challengeId: "missing" })).resolves.toBeNull();
+  });
+  it("lists only pending invites addressed to the viewer and projects deleted senders as null", async () => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.challenges.push(challengeDoc(), challengeDoc({ _id: "challenge_deleted" as Id<"challenges">, challengerId: "user_deleted" as Id<"users"> }), challengeDoc({ _id: "challenge_accepted" as Id<"challenges">, status: "accepted" }), challengeDoc({ _id: "challenge_outgoing" as Id<"challenges">, challengerId: "user_2" as Id<"users">, opponentId: "user_1" as Id<"users"> }));
+    const list = await call(getPendingChallenges, createCtx(db, "clerk_2")) as Array<{ challenge: ChallengeDoc; challenger: unknown }>;
+    expect(list.map(row => row.challenge._id)).toEqual(["challenge_1", "challenge_deleted"]);
+    expect(list[0].challenger).toMatchObject({ _id: "user_1" });
+    expect(list[0].challenger).not.toHaveProperty("email");
+    expect(list[1].challenger).toBeNull();
+    await expect(call(getPendingChallenges, createCtx(db, null))).resolves.toEqual([]);
+  });
+  it("cancels a pending invite and dismisses only its recipient's linked notifications", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(5000);
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.challenges.push(challengeDoc());
+    db.notifications.push(notificationDoc(), notificationDoc({ _id: "notification_read" as Id<"notifications">, status: "read" }), notificationDoc({ _id: "notification_other" as Id<"notifications">, payload: { challengeId: "challenge_other" as Id<"challenges">, duelMode: "pvp" } }));
+    await expect(call(cancelChallenge, createCtx(db, "clerk_1"), { challengeId: "challenge_1" })).resolves.toBeUndefined();
+    expect(db.challenges[0]).toMatchObject({ status: "cancelled", resolvedAt: 5000 });
+    expect(db.notifications.map(row => row.status)).toEqual(["dismissed", "dismissed", "pending"]);
+  });
+  it.each(["recipient", "accepted"])("rejects cancellation by %s without changing the invite", async state => {
+    const db = new InMemoryDb();
+    seedUsersAndTheme(db);
+    db.challenges.push(challengeDoc({ status: state === "accepted" ? "accepted" : "pending" }));
+    db.notifications.push(notificationDoc());
+    const before = structuredClone(db.challenges[0]);
+    await expect(call(cancelChallenge, createCtx(db, state === "recipient" ? "clerk_2" : "clerk_1"), { challengeId: "challenge_1" })).rejects.toThrow(state === "recipient" ? "Only challenger" : "Can only cancel pending");
+    expect(db.challenges[0]).toEqual(before);
+    expect(db.notifications[0].status).toBe("pending");
   });
 });

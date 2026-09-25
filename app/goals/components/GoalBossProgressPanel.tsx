@@ -31,7 +31,7 @@ export function GoalBossProgressPanel({
   onStartBigBoss,
 }: GoalBossProgressPanelProps) {
   const colors = useAppearanceColors();
-  const miniBossThreshold = getMiniBossUnlockThreshold(selectedGoal.goal.themes.length);
+  const guidance = bossGuidance({ selectedGoal, isDraft, allSelectedThemesCompleted });
 
   return (
     <section
@@ -118,28 +118,20 @@ export function GoalBossProgressPanel({
           </p>
         </button>
       </div>
-      {!isDraft && allSelectedThemesCompleted && (
-        <p className="text-xs" style={{ color: colors.text.muted }}>
-          All themes completed - Do big boss!
-        </p>
-      )}
-      {!isDraft && !allSelectedThemesCompleted && selectedGoal.miniBossStatus === "unavailable" && (
-        <p className="text-xs" style={{ color: colors.text.muted }}>
-          Mini boss unlocks when {miniBossThreshold} theme{miniBossThreshold === 1 ? " is" : "s are"} done.
-        </p>
-      )}
-      {!isDraft && !allSelectedThemesCompleted && selectedGoal.miniBossStatus !== "unavailable" && selectedGoal.bigBossStatus === "unavailable" && (
-        <p className="text-xs" style={{ color: colors.text.muted }}>
-          {selectedGoal.miniBossStatus === "ready"
-            ? "Tap Mini Boss to start, or complete all themes to unlock the big boss."
-            : "Complete all themes to unlock the big boss."}
-        </p>
-      )}
-      {isDraft && (
-        <p className="text-xs" style={{ color: colors.text.muted }}>
-          Lock the goal with at least {MIN_THEMES_TO_LOCK_GOAL} themes and an end date to start boss tracking.
-        </p>
-      )}
+      {guidance && <p className="text-xs" style={{ color: colors.text.muted }}>{guidance}</p>}
     </section>
   );
+}
+
+function bossGuidance({ selectedGoal, isDraft, allSelectedThemesCompleted }: Pick<GoalBossProgressPanelProps, "selectedGoal" | "isDraft" | "allSelectedThemesCompleted">): string | null {
+  if (isDraft) return `Lock the goal with at least ${MIN_THEMES_TO_LOCK_GOAL} themes and an end date to start boss tracking.`;
+  if (allSelectedThemesCompleted) return "All themes completed - Do big boss!";
+  if (selectedGoal.miniBossStatus === "unavailable") {
+    const threshold = getMiniBossUnlockThreshold(selectedGoal.goal.themes.length);
+    return `Mini boss unlocks when ${threshold} theme${threshold === 1 ? " is" : "s are"} done.`;
+  }
+  if (selectedGoal.bigBossStatus !== "unavailable") return null;
+  return selectedGoal.miniBossStatus === "ready"
+    ? "Tap Mini Boss to start, or complete all themes to unlock the big boss."
+    : "Complete all themes to unlock the big boss.";
 }

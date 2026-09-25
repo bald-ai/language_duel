@@ -44,3 +44,8 @@ describe("getResponseErrorMessage", () => {
     );
   });
 });
+
+it.each(["null", "7", '"plain"', "{}", '{"error":42}', '{"message":""}', '{"error":null,"message":"Capacity reached"}'])("handles JSON error boundary %s", async text => {
+  const expected = text.includes("Capacity reached") ? "Capacity reached" : text;
+  expect(await getResponseErrorMessage(new Response(text), "Try later")).toBe(expected);
+});

@@ -33,13 +33,3 @@ export function getThemeItemCount(theme: ThemeContentShape): number {
   }
   return theme.words?.length ?? 0;
 }
-
-/** Singular/plural label for the content unit (word vs round). */
-export function getThemeItemLabel(
-  theme: ThemeContentShape,
-  options: { plural?: boolean } = {}
-): string {
-  const plural = options.plural ?? false;
-  if (isSentenceTheme(theme)) return plural ? "rounds" : "round";
-  return plural ? "words" : "word";
-}

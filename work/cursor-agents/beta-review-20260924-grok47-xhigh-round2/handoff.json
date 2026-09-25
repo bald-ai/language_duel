@@ -1,0 +1,58 @@
+{
+  "outcome": "complete",
+  "summary": "Deeper read-only review of language_duel against checkpoint 2d075030ddca0409436bd7760cd70d4819c102db. HEAD is still that commit. Saved Istanbul metrics match all 418 current source hashes and the coverage file digest. API, Netlify, and proxy pass the 90/85/CRAP<=8 gates. Frontend, Convex, and lib do not. No approved exceptions. No production behavior regression was found in the inspected diffs. Mac, Android, and Zoomies reports are outside this review's read scope and were not opened. The earlier Zoomies NSNumber/Int32 claim is not used.",
+  "findings": [
+    "After, independently read from reports/quality/current-metrics.json (Istanbul, generated 2026-09-24T20:03:56Z, coverageFresh true, provenance digest matches coverage-final.json, 0 of 418 hashes differ from disk): frontend 61.62% lines / 54.99% branches, max CC 43, CC>8 78, max CRAP 702, CRAP>8 239; API 96.66/89.36, max CC 8, CC>8 0, max CRAP 8, CRAP>8 0; Convex 68.63/60.33, max CC 16, CC>8 29, max CRAP 210, CRAP>8 100; lib 96.32/86.29, max CC 19, CC>8 11, max CRAP 40.43, CRAP>8 22; Netlify 100/94.44, max CC 3, CRAP 3, counts>8 are 0; proxy 100/100, max CC 3, CRAP 3, counts>8 are 0. Unmapped functions 0. Fifteen declaration-only files are excluded from counters, not marked covered. Gate exit 1. HANDOFF.md matches these after numbers. Before figures in HANDOFF.md are the earlier V8 baseline and were not recomputed this pass.",
+    "Tests and mutations are fresh relative to this tree. current-tests.log: Istanbul, 187 files, 1553 passed, 0 failed, 0 skipped, exit 0, finished 22:03:55 local. lint, root typecheck, and Convex typecheck exits are 0, timestamps 22:03:39-22:03:52, before metrics at 22:03:56. Mutations results.json at 22:03:17: 60 records, 59 detected, 1 surviving (goals-duplicate-input), 0 errored, 0 timed out, 60 restored flags true. The 59 active cases' original SHA-256 values match the current files. goals-duplicate-input does not: its anchor is the pre-removal useGoalsPageModel.ts, and that name is no longer in scripts/quality-mutations.py. That matches the handoff, not a hidden survivor in the active list. Scope is that case list only.",
+    "No actionable production regression found in the inspected changed contracts. Sentence tile colors, reverse text, flying hide, elimination disable, and timer thresholds in SentenceBuildBoard.tsx match the checkpoint conditions (getTileDisplay at lines 159-165 equals the old reverse predicate). Admin deletion conditions were moved into named helpers; the completed-shared early return and partner-repetition skip remain. generateSentenceRequest/generateWordRequest still cover the same request types. Preference booleans listed at lib/notificationPreferencesDefaults.ts:45-52 are all 11 boolean fields. Word and sentence equality still compare by index, including holes as unequal, via lib/themes/arrayEquality.ts:5-8. Solo viewer role is still forced to creator before lock derivation.",
+    "Low report mismatch, not a user-facing bug: HANDOFF.md says the fake collect now snapshots rows. The inMemoryDb diff only changes unique() at tests/convex/testUtils/inMemoryDb.ts:50-55. collect() at line 48 still returns the existing result array. withIndex already filters into a new array at lines 87-100, so deleting from the source table during a for-of of that copy does not skip. That protection was not added in this diff.",
+    "Target shortfalls, separate from bugs: frontend and Convex miss both coverage gates and CRAP. Lib misses CRAP only (lines and branches pass). Largest remaining functions: useSoloSessionSource.ts:57 CC 43; ChallengeModal.tsx:89 CC 35; useCrossKindRoundTransition.ts:57 CC 33; convex/hints.ts:88 CC 16; invitationMutations.ts:33 CC 14 with coverage fraction 0 and CRAP 210; sentenceValidation.ts:208 CC 19. These were not waived. Netlify branch coverage is measured at 94.44%, not an unverified substitute. This repo has no Swift counters.",
+    "Intentional behavior already in the tree, not judged as regressions: TTS route awaits so a rejection becomes JSON 500; countdown skip returns when countdown is already 0; word editor drops stale sessions and sends the feedback just typed; theme-add uses a Set, which made the old duplicate guard redundant.",
+    "Mac Dev/quality, Android, and Zoomies reports were not read. Declared reads are only language_duel. No Zoomies NSNumber claim is made."
+  ],
+  "changes": [],
+  "decisions": [
+    "Re-read current metrics, hashes, coverage digest, test log, and mutation records instead of trusting HANDOFF.md. The after table matched.",
+    "Did not rerun tests, coverage, lint, or typecheck.",
+    "Treated complexity splits that preserve conditions as incomplete target work, not as complexity gaming bugs.",
+    "Did not inspect other product repositories. The Zoomies Int32 correction was noted and not reopened."
+  ],
+  "evidence": [
+    "reports/quality/HANDOFF.md lines 3-18; reports/quality/PROGRESS.md lines 118-123; reports/quality/quality-check.log lines 5-15; reports/quality/current-tests.log Istanbul summary 1553/1553.",
+    "reports/quality/current-coverage/source-hashes.json instrumentation istanbul, testExitCode 0, coverageSha256 fca77e75c31db5feb0c57601e7700b1d324bba00eef9b3465f23ee0f0dc90c93, matching coverage-final.json.",
+    "reports/quality/mutations/results.json: 59 detected, goals-duplicate-input surviving; that file hash differs; other mutated paths match.",
+    "app/duel/[duelId]/components/SentenceBuildBoard.tsx:93-131 and 159-165; convex/admin.ts:200-237; tests/convex/testUtils/inMemoryDb.ts:46-55; lib/notificationPreferencesDefaults.ts:45-52; app/goals/hooks/useGoalsPageModel.ts:95-116; tests/hooks/useGoalsPageModel.test.ts:146-156."
+  ],
+  "checks": [
+    {
+      "check": "Compare current-metrics sourceHashes and coverage SHA-256 to the working tree and coverage-final.json",
+      "result": "passed",
+      "detail": "418/418 source hashes match. Coverage digest matches the manifest. coverageFresh true. Gate passes false."
+    },
+    {
+      "check": "Read current-tests.log, lint/typecheck/convex exits, and mutation results versus current file hashes",
+      "result": "passed",
+      "detail": "1553 passed, 0 failed, 0 skipped. Static exits 0. 59 active mutations match current bytes. Historical survivor hash does not, as documented."
+    },
+    {
+      "check": "Diff admin conditions, sentence-board display predicates, preference keys, equality, and inMemoryDb collect",
+      "result": "passed",
+      "detail": "No contract change found in those hunks. Collect snapshot claim is not in the diff."
+    },
+    {
+      "check": "Find Mac, Android, and Zoomies reports",
+      "result": "not_run",
+      "detail": "Outside the declared read root /Users/applelevne/Documents/coding-projects/language_duel."
+    }
+  ],
+  "open_issues": [
+    "invitationMutations.ts handleArchiveCompletedGoalThemesFromNotification is still at coverage fraction 0. That is an existing Convex hole, not a change introduced in the inspected admin diff.",
+    "Most untouched frontend and Convex files, and the full notification-template body matrix, were not re-read line by line. Email equivalence JSON was not recomputed.",
+    "The active mutation list does not cover the whole repo. Unchanged high-CC functions were not mutation-tested in this review."
+  ],
+  "next_steps": [
+    "Keep the campaign incomplete until frontend and Convex reach 90% lines and 85% branches and every function in frontend, Convex, and lib has CRAP <= 8.",
+    "Do not describe the fake collect as newly snapshotted unless collect itself copies.",
+    "Leave duel, weekly-goal, generation, and TTS interface checks to the user. No agent UI run is required."
+  ]
+}

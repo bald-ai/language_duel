@@ -77,6 +77,35 @@ afterEach(() => {
 });
 
 describe("useSoloCompletionReporting", () => {
+  it("waits for mastery writes, deduplicates repeated answers, and reports completion once", async () => {
+    let finishMastery: () => void = () => { throw new Error("No mastery write pending"); };
+    recordRepetitionSoloMasteryMock.mockImplementation(() => new Promise<void>(resolve => { finishMastery = resolve; }));
+    completeRepetitionSoloPracticeMock.mockResolvedValue({ advanced: true });
+    const handleCorrect = vi.fn();
+    const props = { soloPracticeSessionId: "solo_practice_1", spacedRepetitionStep: 1, isBossPractice: false, session: buildSessionState(), handleCorrect };
+    const { result, rerender } = renderHook(useSoloCompletionReporting, { initialProps: props });
+    act(() => result.current.handleCorrectWithProgress());
+    act(() => result.current.handleCorrectWithProgress());
+    expect(recordRepetitionSoloMasteryMock).toHaveBeenCalledTimes(1);
+    expect(handleCorrect).toHaveBeenCalledTimes(2);
+    rerender({ ...props, session: buildSessionState({ completed: true, currentItemIndex: null }) });
+    expect(completeRepetitionSoloPracticeMock).not.toHaveBeenCalled();
+    await act(async () => finishMastery());
+    expect(completeRepetitionSoloPracticeMock).toHaveBeenCalledExactlyOnceWith({ soloPracticeSessionId: "solo_practice_1", completedStep: 1 });
+    rerender({ ...props, session: buildSessionState({ completed: true, currentItemIndex: null }) });
+    expect(completeRepetitionSoloPracticeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows retrying a failed mastery write", async () => {
+    recordRepetitionSoloMasteryMock.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    const props = { soloPracticeSessionId: "solo_practice_1", spacedRepetitionStep: 1, isBossPractice: false, session: buildSessionState(), handleCorrect: vi.fn() };
+    const { result } = renderHook(() => useSoloCompletionReporting(props));
+    await act(async () => result.current.handleCorrectWithProgress());
+    await act(async () => result.current.handleCorrectWithProgress());
+    expect(recordRepetitionSoloMasteryMock).toHaveBeenCalledTimes(2);
+    expect(props.handleCorrect).toHaveBeenCalledTimes(2);
+  });
+
   it("reports spaced-repetition mastery when a sentence reaches its own max level", () => {
     recordRepetitionSoloMasteryMock.mockReturnValue(new Promise(() => {}));
     const handleCorrect = vi.fn();

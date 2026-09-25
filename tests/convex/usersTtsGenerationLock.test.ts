@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { acquireTtsGenerationLock, releaseTtsGenerationLock } from "@/convex/ttsGenerationLocks";
 import { patchRow } from "./testUtils/inMemoryDb";
@@ -150,5 +150,38 @@ describe("users TTS generation lock", () => {
     const userAfter = await db.get(userId);
     expect(userAfter?.ttsGenerationLockToken).toBeUndefined();
     expect(userAfter?.ttsGenerationLockExpiresAt).toBeUndefined();
+  });
+});
+
+
+describe("TTS lock lease boundaries", () => {
+  afterEach(() => vi.useRealTimers());
+  const acquire = (acquireTtsGenerationLock as unknown as { _handler: (ctx: unknown, args: { userId: Id<"users">; token: string; lockMs?: number }) => Promise<{ expiresAt: number }> })._handler;
+  const release = (releaseTtsGenerationLock as unknown as { _handler: (ctx: unknown, args: { userId: Id<"users">; token: string }) => Promise<{ released: boolean }> })._handler;
+  const userId = "lease_user" as Id<"users">;
+  function fixture() {
+    vi.useFakeTimers(); vi.setSystemTime(2_000_000_000_000);
+    const db = new InMemoryDb();
+    db.users.push({ _id: userId, _creationTime: 1, clerkId: "clerk", email: "user@example.test" });
+    return db;
+  }
+  it.each([[undefined, 600_000], [0, 600_000], [-1, 600_000], [900_000, 600_000], [1234.9, 1234]] as const)("normalizes requested lease %s to %s milliseconds", async (lockMs, expected) => {
+    const db = fixture();
+    await expect(acquire({ db }, { userId, token: "lease", lockMs })).resolves.toEqual({ expiresAt: Date.now() + expected });
+    expect(db.users[0]).toMatchObject({ ttsGenerationLockToken: "lease", ttsGenerationLockExpiresAt: Date.now() + expected });
+  });
+  it("lets the same token renew an active lease", async () => {
+    const db = fixture(); Object.assign(db.users[0], { ttsGenerationLockToken: "same", ttsGenerationLockExpiresAt: Date.now() + 1000 });
+    await expect(acquire({ db }, { userId, token: "same", lockMs: 2000 })).resolves.toEqual({ expiresAt: Date.now() + 2000 });
+  });
+  it("allows replacement exactly at expiry", async () => {
+    const db = fixture(); Object.assign(db.users[0], { ttsGenerationLockToken: "old", ttsGenerationLockExpiresAt: Date.now() });
+    await expect(acquire({ db }, { userId, token: "replacement", lockMs: 1000 })).resolves.toEqual({ expiresAt: Date.now() + 1000 });
+    expect(db.users[0].ttsGenerationLockToken).toBe("replacement");
+  });
+  it("rejects acquisition for a deleted user but safely reports an absent release", async () => {
+    const db = fixture(); db.users.length = 0;
+    await expect(acquire({ db }, { userId, token: "lease" })).rejects.toThrow("User not found");
+    await expect(release({ db }, { userId, token: "lease" })).resolves.toEqual({ released: false });
   });
 });

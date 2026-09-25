@@ -83,47 +83,7 @@ export function Level2MultipleChoice({
         {options.map((option, idx) => {
           const isSelected = selectedIndex === idx;
           const isCorrect = option === answer;
-          const showResult = submitted;
-
-          let buttonClass = "border-2 font-medium transition-all";
-          let buttonStyle: CSSProperties = {
-            backgroundColor: colors.background.DEFAULT,
-            borderColor: colors.primary.dark,
-            color: colors.text.DEFAULT,
-          };
-
-          if (showResult) {
-            if (isCorrect) {
-              buttonStyle = {
-                backgroundColor: `${colors.status.success.DEFAULT}26`,
-                borderColor: colors.status.success.DEFAULT,
-                color: colors.status.success.light,
-              };
-            } else if (isSelected && !isCorrect) {
-              buttonStyle = {
-                backgroundColor: `${colors.status.danger.DEFAULT}26`,
-                borderColor: colors.status.danger.DEFAULT,
-                color: colors.status.danger.light,
-              };
-            } else {
-              buttonClass += " opacity-50";
-              buttonStyle = {
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: colors.primary.dark,
-                color: colors.text.muted,
-              };
-            }
-          } else if (isSelected) {
-            buttonStyle = {
-              backgroundColor: `${colors.secondary.DEFAULT}26`,
-              borderColor: colors.secondary.DEFAULT,
-              color: colors.secondary.light,
-            };
-          }
-
-          if (!submitted) {
-            buttonClass += " hover:brightness-110 cursor-pointer";
-          }
+          const { buttonClass, buttonStyle } = getOptionAppearance(colors, submitted, isSelected, isCorrect);
 
           return (
             <button
@@ -172,4 +132,55 @@ export function Level2MultipleChoice({
       )}
     </div>
   );
+}
+
+/** Result feedback takes precedence over the current selection highlight. */
+function getOptionAppearance(
+  colors: ReturnType<typeof useAppearanceColors>,
+  submitted: boolean,
+  isSelected: boolean,
+  isCorrect: boolean
+): { buttonClass: string; buttonStyle: CSSProperties } {
+
+  let buttonClass = "border-2 font-medium transition-all";
+  let buttonStyle: CSSProperties = {
+    backgroundColor: colors.background.DEFAULT,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  if (submitted) {
+    if (isCorrect) {
+      buttonStyle = {
+        backgroundColor: `${colors.status.success.DEFAULT}26`,
+        borderColor: colors.status.success.DEFAULT,
+        color: colors.status.success.light,
+      };
+    } else if (isSelected && !isCorrect) {
+      buttonStyle = {
+        backgroundColor: `${colors.status.danger.DEFAULT}26`,
+        borderColor: colors.status.danger.DEFAULT,
+        color: colors.status.danger.light,
+      };
+    } else {
+      buttonClass += " opacity-50";
+      buttonStyle = {
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+        color: colors.text.muted,
+      };
+    }
+  } else if (isSelected) {
+    buttonStyle = {
+      backgroundColor: `${colors.secondary.DEFAULT}26`,
+      borderColor: colors.secondary.DEFAULT,
+      color: colors.secondary.light,
+    };
+  }
+
+  if (!submitted) {
+    buttonClass += " hover:brightness-110 cursor-pointer";
+  }
+
+  return { buttonClass, buttonStyle };
 }

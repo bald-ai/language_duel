@@ -2,26 +2,18 @@ import { useCallback, useState } from "react";
 import { generateMoreWords, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
-import { DEFAULT_GENERATE_MORE_WORD_COUNT } from "../constants";
+import { GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT } from "../constants";
 
 interface GenerateMoreState {
   isGenerating: boolean;
-  pickAndPrune: boolean;
   error: string | null;
-  count: number;
 }
 
 export function useGenerateMore() {
   const [state, setState] = useState<GenerateMoreState>({
     isGenerating: false,
-    pickAndPrune: false,
     error: null,
-    count: DEFAULT_GENERATE_MORE_WORD_COUNT,
   });
-
-  const setCount = useCallback((count: number) => {
-    setState((prev) => ({ ...prev, count }));
-  }, []);
 
   const setError = useCallback((error: string | null) => {
     setState((prev) => ({ ...prev, error }));
@@ -30,9 +22,7 @@ export function useGenerateMore() {
   const reset = useCallback(() => {
     setState({
       isGenerating: false,
-      pickAndPrune: false,
       error: null,
-      count: DEFAULT_GENERATE_MORE_WORD_COUNT,
     });
   }, []);
 
@@ -40,13 +30,11 @@ export function useGenerateMore() {
     async (
       themeName: string,
       wordType: WordType,
-      existingWords: string[],
-      options: { countOverride?: number; pickAndPrune?: boolean } = {}
+      existingWords: string[]
     ): Promise<WordEntry[] | null> => {
       setState((prev) => ({
         ...prev,
         isGenerating: true,
-        pickAndPrune: options.pickAndPrune ?? false,
         error: null,
       }));
 
@@ -54,7 +42,7 @@ export function useGenerateMore() {
         const result = await generateMoreWords({
           themeName,
           wordType,
-          count: options.countOverride ?? state.count,
+          count: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
           existingWords,
         });
 
@@ -62,13 +50,12 @@ export function useGenerateMore() {
           setState((prev) => ({
             ...prev,
             isGenerating: false,
-            pickAndPrune: false,
             error: result.error || "Failed to generate words",
           }));
           return null;
         }
 
-        setState((prev) => ({ ...prev, isGenerating: false, pickAndPrune: false }));
+        setState((prev) => ({ ...prev, isGenerating: false }));
         return result.data;
       } catch (error) {
         const errorMsg =
@@ -78,18 +65,16 @@ export function useGenerateMore() {
         setState((prev) => ({
           ...prev,
           isGenerating: false,
-          pickAndPrune: false,
           error: errorMsg,
         }));
         return null;
       }
     },
-    [state.count]
+    []
   );
 
   return {
     ...state,
-    setCount,
     setError,
     reset,
     generate,

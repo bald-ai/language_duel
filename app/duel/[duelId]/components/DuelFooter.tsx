@@ -41,9 +41,7 @@ export function DuelFooter({
   colors,
 }: DuelFooterProps) {
   const styles = buildDuelViewStyles(colors);
-  const isPve = duelMode === "pve";
   const isAnsweringRound = phase === "answering" && !isRoundOver;
-  const confirmDisabled = !answers.selectedAnswer || answers.isLocked;
 
   return (
     <footer
@@ -52,17 +50,57 @@ export function DuelFooter({
     >
       {/* Confirm Button */}
       {!answers.hasAnswered && isAnsweringRound && (
-        <button
-          className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
-          style={getConfirmButtonStyle(colors, confirmDisabled)}
-          disabled={confirmDisabled}
-          onClick={actions.onConfirmAnswer}
-          data-testid="duel-confirm"
-        >
-          Confirm Answer
-        </button>
+        <DuelConfirmButton answers={answers} onConfirm={actions.onConfirmAnswer} colors={colors} />
       )}
 
+      <DuelRoundTools
+        status={status}
+        duelMode={duelMode}
+        phase={phase}
+        isRoundOver={isRoundOver}
+        answers={answers}
+        hints={hints}
+        sabotage={sabotage}
+        actions={actions}
+      />
+
+      {/* Waiting message */}
+      {answers.hasAnswered && isAnsweringRound && !hints.theyRequestedHint && (
+        <div
+          className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
+          style={styles.waitingMessage}
+        >
+          Waiting for opponent...
+        </div>
+      )}
+
+      {/* Final Results - shown at end, no separate screen */}
+      {status === "completed" && (
+        <FinalResultsPanel
+          myName={score.myName}
+          theirName={score.theirName}
+          myScore={score.myScore}
+          theirScore={score.theirScore}
+          onBackToHome={actions.onBackToHome}
+          duelDuration={duelDuration}
+          dataTestIdBack="duel-back-home"
+          bossType={score.bossType}
+          livesRemaining={score.livesRemaining}
+          livesTotal={score.livesTotal}
+        />
+      )}
+    </footer>
+  );
+}
+
+function DuelRoundTools({
+  status, duelMode, phase, isRoundOver, answers, hints, sabotage, actions,
+}: Pick<DuelFooterProps, "status" | "duelMode" | "phase" | "isRoundOver" | "answers" | "hints" | "sabotage" | "actions">) {
+  const isPve = duelMode === "pve";
+  const isAnsweringRound = phase === "answering" && !isRoundOver;
+
+  return (
+    <>
       {/* Cooperative-hint request UI (PvP only) */}
       {!isPve && isAnsweringRound && (
         <HintSystemUI
@@ -107,31 +145,25 @@ export function DuelFooter({
         />
       )}
 
-      {/* Waiting message */}
-      {answers.hasAnswered && isAnsweringRound && !hints.theyRequestedHint && (
-        <div
-          className="font-medium animate-pulse px-3 sm:px-4 py-1 rounded-full backdrop-blur-sm border text-sm sm:text-base"
-          style={styles.waitingMessage}
-        >
-          Waiting for opponent...
-        </div>
-      )}
+    </>
+  );
+}
 
-      {/* Final Results - shown at end, no separate screen */}
-      {status === "completed" && (
-        <FinalResultsPanel
-          myName={score.myName}
-          theirName={score.theirName}
-          myScore={score.myScore}
-          theirScore={score.theirScore}
-          onBackToHome={actions.onBackToHome}
-          duelDuration={duelDuration}
-          dataTestIdBack="duel-back-home"
-          bossType={score.bossType}
-          livesRemaining={score.livesRemaining}
-          livesTotal={score.livesTotal}
-        />
-      )}
-    </footer>
+function DuelConfirmButton({ answers, onConfirm, colors }: {
+  answers: DuelFooterProps["answers"];
+  onConfirm: DuelFooterProps["actions"]["onConfirmAnswer"];
+  colors: ThemeColors;
+}) {
+  const confirmDisabled = !answers.selectedAnswer || answers.isLocked;
+  return (
+    <button
+      className="w-full rounded-xl px-6 sm:px-10 py-2.5 sm:py-3 font-bold text-base sm:text-lg shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 border-b-4 hover:brightness-110"
+      style={getConfirmButtonStyle(colors, confirmDisabled)}
+      disabled={confirmDisabled}
+      onClick={onConfirm}
+      data-testid="duel-confirm"
+    >
+      Confirm Answer
+    </button>
   );
 }

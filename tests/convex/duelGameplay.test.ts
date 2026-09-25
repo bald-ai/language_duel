@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   answerDuel,
-  completeSpacedRepetitionDuel,
+  answerSentenceRound,
   completeSpacedRepetitionDuelInternal,
-  completeWeeklyGoalMilestoneDuel,
   completeWeeklyGoalMilestoneDuelInternal,
   confirmUnpauseCountdown,
   skipCountdown,
@@ -472,20 +471,6 @@ describe("duel lifecycle completion commands", () => {
     ) => Promise<{ completed: boolean }>;
   })._handler;
 
-  const publicBossHandler = (completeWeeklyGoalMilestoneDuel as unknown as {
-    _handler: (
-      ctx: unknown,
-      args: { duelId: Id<"duels"> }
-    ) => Promise<{ completed: boolean }>;
-  })._handler;
-
-  const publicSrHandler = (completeSpacedRepetitionDuel as unknown as {
-    _handler: (
-      ctx: unknown,
-      args: { duelId: Id<"duels"> }
-    ) => Promise<{ completed: boolean }>;
-  })._handler;
-
   it("completeWeeklyGoalMilestoneDuelInternal returns completed:false when the duel is missing", async () => {
     const db = setupCtx(duelDoc());
     const result = await internalBossHandler(createCtx(db, null), {
@@ -552,37 +537,6 @@ describe("duel lifecycle completion commands", () => {
       duelId: "duel_missing" as Id<"duels">,
     });
     expect(result).toEqual({ completed: false });
-  });
-
-  it("public completeWeeklyGoalMilestoneDuel requires an authenticated participant", async () => {
-    const db = setupCtx(duelDoc({ status: "completed" }));
-    await expect(
-      publicBossHandler(createCtx(db, null), {
-        duelId: "duel_1" as Id<"duels">,
-      })
-    ).rejects.toThrow("Unauthorized");
-  });
-
-  it("public completeSpacedRepetitionDuel requires an authenticated participant", async () => {
-    const db = setupCtx(duelDoc({ status: "completed", sourceType: "spaced_repetition" }));
-    await expect(
-      publicSrHandler(createCtx(db, null), {
-        duelId: "duel_1" as Id<"duels">,
-      })
-    ).rejects.toThrow("Unauthorized");
-  });
-
-  it("public completeWeeklyGoalMilestoneDuel is a safe no-op when the duel is not a defeated boss", async () => {
-    const db = setupCtx(duelDoc({ status: "completed", sourceType: "normal" }));
-    const result = await publicBossHandler(createCtx(db, "clerk_1"), {
-      duelId: "duel_1" as Id<"duels">,
-    });
-    expect(result).toEqual({ completed: false });
-    // Calling a second time stays a safe no-op.
-    const result2 = await publicBossHandler(createCtx(db, "clerk_1"), {
-      duelId: "duel_1" as Id<"duels">,
-    });
-    expect(result2).toEqual({ completed: false });
   });
 });
 
@@ -775,5 +729,71 @@ describe("self-duel gameplay", () => {
     });
 
     expect(db.duels[0].questionStartTime).toBe(-1_000);
+  });
+});
+
+
+describe("two-player countdown handshake", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const confirm = (confirmUnpauseCountdown as unknown as { _handler: (ctx: unknown, args: { duelId: Id<"duels"> }) => Promise<void> })._handler;
+  function fixture(overrides: Partial<DuelDoc> = {}) {
+    const db = new InMemoryDb();
+    db.users.push(userDoc(), userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }));
+    db.duels.push(duelDoc(overrides));
+    const patch = vi.spyOn(db, "patch");
+    return { db, patch, run: (clerk = "clerk_2") => confirm(createCtx(db, clerk), { duelId: "duel_1" as Id<"duels"> }) };
+  }
+  it.each([{}, { countdownPausedBy: "challenger" }] as const)("does nothing without a paused, requested handshake %j", state => {
+    const f = fixture(state);
+    return expect(f.run().then(() => f.patch.mock.calls)).resolves.toEqual([]);
+  });
+  it("rejects confirmation from the requester", async () => {
+    const f = fixture({ countdownPausedBy: "challenger", countdownUnpauseRequestedBy: "challenger", countdownPausedAt: 1500, questionStartTime: 1000 });
+    await expect(f.run("clerk_1")).rejects.toThrow("Cannot confirm your own unpause request");
+    expect(f.patch).not.toHaveBeenCalled();
+  });
+  it.each([
+    { countdownPausedAt: 1500, questionStartTime: 1000, expected: 1500 },
+    { countdownPausedAt: undefined, questionStartTime: 1000, expected: 1000 },
+    { countdownPausedAt: 1500, questionStartTime: undefined, expected: undefined },
+  ])("clears the handshake and shifts the question anchor by elapsed pause %j", async ({ expected, ...timestamps }) => {
+    vi.spyOn(Date, "now").mockReturnValue(2000);
+    const f = fixture({ countdownPausedBy: "challenger", countdownUnpauseRequestedBy: "challenger", ...timestamps });
+    await expect(f.run()).resolves.toBeUndefined();
+    expect(f.patch).toHaveBeenCalledExactlyOnceWith("duel_1", { countdownPausedBy: undefined, countdownUnpauseRequestedBy: undefined, countdownPausedAt: undefined, questionStartTime: expected });
+  });
+});
+
+describe("sentence answer mutation", () => {
+  const submit = (answerSentenceRound as unknown as { _handler: (ctx: unknown, args: { duelId: Id<"duels">; questionIndex: number; timedOut: boolean }) => Promise<unknown> })._handler;
+  function setup() {
+    const duel = duelDoc({ sessionItems: [{ kind: "sentence", englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", wordMeanings: ["I want", "coffee"], freeWordPositions: [], distractors: ["leche", "agua", "pan"], themeId: "theme_1" as Id<"themes">, themeName: "Cafe" }],
+      duelQuestions: [{ kind: "sentence", englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", tilePool: ["Quiero", "cafe", "leche"], tileMeanings: ["I want", "coffee", "milk"] }],
+      sentenceProgress: [{ questionIndex: 0, role: "challenger", placedTileIndices: [0, 1], mistakes: 0, completed: true, finalized: false, failedConfirms: 0 }],
+    });
+    const db = new InMemoryDb(); db.duels.push(duel); db.users.push(userDoc(), userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" }));
+    const patch = vi.spyOn(db, "patch"); const scheduler = vi.fn();
+    return { get duel() { return db.duels[0]; }, db, patch, scheduler, run: (clerk = "clerk_1", questionIndex = 0, timedOut = false) => submit(createCtx(db, clerk, scheduler), { duelId: duel._id, questionIndex, timedOut }) };
+  }
+  it("scores stored confirmation state once and waits for the opponent", async () => {
+    const f = setup();
+    await expect(f.run()).resolves.toMatchObject({ completed: false });
+    expect(f.duel).toMatchObject({ status: "active", challengerAnswered: true, challengerScore: 1, opponentAnswered: false });
+    expect(f.duel.sentenceProgress?.[0].finalized).toBe(true);
+    await f.run(); expect(f.patch).toHaveBeenCalledOnce(); expect(f.duel.challengerScore).toBe(1); expect(f.scheduler).not.toHaveBeenCalled();
+  });
+  it("finalizes a timed-out opponent submission with no points and retains the last valid question index", async () => {
+    const f = setup(); await f.run();
+    await expect(f.run("clerk_2", 0, true)).resolves.toMatchObject({ completed: true });
+    expect(f.duel).toMatchObject({ status: "completed", challengerScore: 1, opponentScore: 0, opponentAnswered: false, currentItemIndex: 0 });
+    expect(f.duel.sentenceProgress?.find(progress => progress.role === "opponent")).toMatchObject({ finalized: true, completed: false });
+  });
+  it("rejects a word question before recording sentence progress", async () => {
+    const f = setup(); f.duel.duelQuestions = duelDoc().duelQuestions;
+    await expect(f.run()).rejects.toThrow("Use answerDuel instead"); expect(f.patch).not.toHaveBeenCalled();
+  });
+  it("rejects stale question submissions before applying points", async () => {
+    const f = setup(); await expect(f.run("clerk_1", 1)).rejects.toThrow("question has changed");
+    expect(f.patch).not.toHaveBeenCalled(); expect(f.duel.challengerScore).toBe(0);
   });
 });

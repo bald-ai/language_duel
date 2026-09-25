@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { generateField, regenerateForWord, type WordType, type FieldType } from "@/lib/themes/api";
+import { useState, useCallback, useRef } from "react";
+import { generateField, regenerateForWord, type WordType, type FieldType, type GenerateFieldParams, type GenerateFieldResult } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { EDIT_MODES, type EditMode } from "../constants";
 import {
@@ -55,8 +55,54 @@ const initialState: WordEditorState = {
   pendingManualWord: "",
 };
 
+function projectGeneratedField(
+  result: Extract<GenerateFieldResult, { success: true }>
+): { newValue: string; wordData: WordEntry | null } {
+  switch (result.fieldType) {
+    case "word": return { newValue: result.data.word, wordData: result.data };
+    case "answer": return { newValue: result.data.answer, wordData: null };
+    case "wrong": return { newValue: result.data.wrongAnswer, wordData: null };
+  }
+}
+
+interface WordEditorGenerationContext {
+  themeName: string;
+  wordType: WordType;
+  word: WordEntry;
+  existingWords: string[];
+  overrides?: { rejectedWords?: string[]; history?: ConversationMessage[] };
+}
+
+function buildFieldGenerationRequest(
+  state: Pick<WordEditorState, "editingWrongIndex" | "rejectedWords" | "conversationHistory" | "customInstructions">,
+  field: FieldType,
+  { themeName, wordType, word, existingWords, overrides }: WordEditorGenerationContext
+): GenerateFieldParams {
+  const currentRejectedWords = overrides?.rejectedWords ?? state.rejectedWords;
+  return {
+    fieldType: field,
+    themeName,
+    wordType,
+    currentWord: word.word,
+    currentAnswer: word.answer,
+    currentWrongAnswers: word.wrongAnswers,
+    fieldIndex: state.editingWrongIndex,
+    existingWords: field === "word" ? existingWords : undefined,
+    rejectedWords: field === "word" ? currentRejectedWords : undefined,
+    history: overrides?.history ?? state.conversationHistory,
+    customInstructions: state.customInstructions,
+  };
+}
+
+function requireGeneratedField(result: GenerateFieldResult): Extract<GenerateFieldResult, { success: true }> {
+  if (!result.success) throw new Error(result.error);
+  return result;
+}
+
 export function useWordEditor() {
   const [state, setState] = useState<WordEditorState>(initialState);
+  // A response belongs to the edit that launched it, even if another field opens.
+  const editSessionRef = useRef(0);
 
   const startEdit = useCallback(
     (
@@ -65,6 +111,7 @@ export function useWordEditor() {
       currentValue: string,
       wrongIndex?: number
     ) => {
+      editSessionRef.current += 1;
       setState({
         ...initialState,
         editingWordIndex: wordIndex,
@@ -80,6 +127,7 @@ export function useWordEditor() {
   );
 
   const reset = useCallback(() => {
+    editSessionRef.current += 1;
     setState(initialState);
   }, []);
 
@@ -146,56 +194,33 @@ export function useWordEditor() {
       wordType: WordType,
       word: WordEntry,
       existingWords: string[],
-      overrideRejectedWords?: string[]
+      overrides?: { rejectedWords?: string[]; history?: ConversationMessage[] }
     ): Promise<boolean> => {
       if (state.editingWordIndex === null || !state.editingField) return false;
 
+      const editSession = editSessionRef.current;
       setState((prev) => ({ ...prev, isGenerating: true }));
 
-      const currentRejectedWords = overrideRejectedWords ?? state.rejectedWords;
-
       try {
-        const result = await generateField({
-          fieldType: state.editingField,
-          themeName,
-          wordType,
-          currentWord: word.word,
-          currentAnswer: word.answer,
-          currentWrongAnswers: word.wrongAnswers,
-          fieldIndex: state.editingWrongIndex,
-          existingWords: state.editingField === "word" ? existingWords : undefined,
-          rejectedWords: state.editingField === "word" ? currentRejectedWords : undefined,
-          history: state.conversationHistory,
+        const result = await generateField(buildFieldGenerationRequest({
+          editingWrongIndex: state.editingWrongIndex,
+          rejectedWords: state.rejectedWords,
+          conversationHistory: state.conversationHistory,
           customInstructions: state.customInstructions,
-        });
+        }, state.editingField, {
+          themeName, wordType, word, existingWords, overrides,
+        }));
 
-        if (!result.success || !result.data) {
-          setState((prev) => ({ ...prev, isGenerating: false }));
-          throw new Error(result.error || "Generation failed");
-        }
-
-        let newValue = "";
-        let wordData: WordEntry | null = null;
-
-        if (state.editingField === "word" && result.data.word) {
-          newValue = result.data.word;
-          wordData = {
-            word: result.data.word,
-            answer: result.data.answer || word.answer,
-            wrongAnswers: result.data.wrongAnswers || word.wrongAnswers,
-          };
-        } else if (state.editingField === "answer" && result.data.answer) {
-          newValue = result.data.answer;
-        } else if (result.data.wrongAnswer) {
-          newValue = result.data.wrongAnswer;
-        }
+        if (editSession !== editSessionRef.current) return false;
+        const generatedData = requireGeneratedField(result);
+        const { newValue, wordData } = projectGeneratedField(generatedData);
 
         setState((prev) => ({
           ...prev,
           isGenerating: false,
           generatedValue: newValue,
           generatedWordData: wordData,
-          currentPrompt: result.prompt || prev.currentPrompt,
+          currentPrompt: generatedData.prompt || prev.currentPrompt,
           editMode: EDIT_MODES.GENERATE,
           conversationHistory: [
             ...prev.conversationHistory,
@@ -205,6 +230,7 @@ export function useWordEditor() {
 
         return true;
       } catch (error) {
+        if (editSession !== editSessionRef.current) return false;
         setState((prev) => ({ ...prev, isGenerating: false }));
         throw error;
       }
@@ -220,6 +246,7 @@ export function useWordEditor() {
       existingWords: string[]
     ): Promise<boolean> => {
       let updatedRejectedWords = state.rejectedWords;
+      let updatedHistory = state.conversationHistory;
 
       // For word regeneration, track the rejected word
       if (state.editingField === "word" && state.generatedValue) {
@@ -230,19 +257,16 @@ export function useWordEditor() {
       // Add user feedback to history (for non-word fields)
       if (state.editingField !== "word") {
         const feedback = state.userFeedback.trim() || "Please generate a different option";
-        setState((prev) => ({
-          ...prev,
-          conversationHistory: [
-            ...prev.conversationHistory,
-            { role: "user" as const, content: feedback },
-          ],
-          userFeedback: "",
-        }));
+        updatedHistory = [...state.conversationHistory, { role: "user", content: feedback }];
+        setState((prev) => ({ ...prev, conversationHistory: updatedHistory, userFeedback: "" }));
       }
 
-      return generate(themeName, wordType, word, existingWords, updatedRejectedWords);
+      return generate(themeName, wordType, word, existingWords, {
+        rejectedWords: updatedRejectedWords,
+        history: updatedHistory,
+      });
     },
-    [state.editingField, state.generatedValue, state.rejectedWords, state.userFeedback, generate]
+    [state.editingField, state.generatedValue, state.rejectedWords, state.userFeedback, state.conversationHistory, generate]
   );
 
   const regenerateAnswersForWord = useCallback(
@@ -250,6 +274,7 @@ export function useWordEditor() {
       themeName: string,
       wordType: WordType
     ): Promise<{ answer: string; wrongAnswers: string[] } | null> => {
+      const editSession = editSessionRef.current;
       setState((prev) => ({ ...prev, isRegenerating: true }));
 
       try {
@@ -259,6 +284,7 @@ export function useWordEditor() {
           newWord: state.pendingManualWord,
         });
 
+        if (editSession !== editSessionRef.current) return null;
         setState((prev) => ({ ...prev, isRegenerating: false }));
 
         if (!result.success || !result.data) {
@@ -267,6 +293,7 @@ export function useWordEditor() {
 
         return result.data;
       } catch (error) {
+        if (editSession !== editSessionRef.current) return null;
         setState((prev) => ({ ...prev, isRegenerating: false }));
         throw error;
       }

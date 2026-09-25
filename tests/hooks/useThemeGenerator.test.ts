@@ -15,7 +15,7 @@ describe("useThemeGenerator", () => {
     generateThemeMock.mockReset();
   });
 
-  it("uses current slider word count for standard generation", async () => {
+  it("requests twenty words for review with the entered prompt", async () => {
     generateThemeMock.mockResolvedValue({
       success: true,
       data: [{ word: "dog", answer: "perro", wrongAnswers: ["gato", "casa", "mesa"] }],
@@ -25,24 +25,23 @@ describe("useThemeGenerator", () => {
 
     act(() => {
       result.current.setThemeName("Animals");
-      result.current.setThemePrompt("home pets");
-      result.current.setWordCount(12);
+      result.current.setThemePrompt("  home pets  ");
     });
 
     await act(async () => {
-      await result.current.generate({ mode: "standard" });
+      await result.current.generate();
     });
 
     expect(generateThemeMock).toHaveBeenCalledWith({
       themeName: "Animals",
       themePrompt: "home pets",
       wordType: "nouns",
-      wordCount: 12,
+      wordCount: 20,
     });
-    expect(result.current.generationMode).toBeNull();
+    expect(result.current.isGenerating).toBe(false);
   });
 
-  it("uses override count for Pick & Prune and keeps slider value unchanged", async () => {
+  it("omits an empty optional prompt and resets after generation", async () => {
     generateThemeMock.mockResolvedValue({
       success: true,
       data: [{ word: "dog", answer: "perro", wrongAnswers: ["gato", "casa", "mesa"] }],
@@ -52,11 +51,10 @@ describe("useThemeGenerator", () => {
 
     act(() => {
       result.current.setThemeName("Animals");
-      result.current.setWordCount(7);
     });
 
     await act(async () => {
-      await result.current.generate({ wordCountOverride: 20, mode: "pick-and-prune" });
+      await result.current.generate();
     });
 
     expect(generateThemeMock).toHaveBeenCalledWith({
@@ -65,7 +63,28 @@ describe("useThemeGenerator", () => {
       wordType: "nouns",
       wordCount: 20,
     });
-    expect(result.current.wordCount).toBe(7);
+    act(() => result.current.reset());
+    expect(result.current).toMatchObject({ themeName: "", themePrompt: "", wordType: "nouns", isGenerating: false, error: null });
+  });
+
+  it("does not request words for a blank theme name", async () => {
+    const { result } = renderHook(useThemeGenerator);
+    act(() => result.current.setThemeName("   "));
+    await act(async () => { await expect(result.current.generate()).resolves.toBeNull(); });
+    expect(generateThemeMock).not.toHaveBeenCalled();
+    expect(result.current.isGenerating).toBe(false);
+  });
+
+  it.each([new Error("Offline"), "Offline"])("preserves inputs and permits a retry after a thrown failure: %s", async failure => {
+    generateThemeMock.mockRejectedValueOnce(failure).mockResolvedValueOnce({ success: true, data: [{ word: "run", answer: "correr", wrongAnswers: ["comer"] }] });
+    const { result } = renderHook(useThemeGenerator);
+    act(() => { result.current.setThemeName("Actions"); result.current.setThemePrompt("everyday"); result.current.setWordType("verbs"); });
+    await act(async () => { await expect(result.current.generate()).resolves.toBeNull(); });
+    expect(result.current).toMatchObject({ isGenerating: false, themeName: "Actions", themePrompt: "everyday", wordType: "verbs" });
+    expect(result.current.error).toBe(failure instanceof Error ? "Offline" : "Generation failed. Please try again.");
+    await act(async () => { await expect(result.current.generate()).resolves.toEqual([{ word: "run", answer: "correr", wrongAnswers: ["comer"] }]); });
+    expect(result.current.error).toBeNull();
+    expect(generateThemeMock).toHaveBeenLastCalledWith({ themeName: "Actions", themePrompt: "everyday", wordType: "verbs", wordCount: 20 });
   });
 
   it("preserves inputs and exposes error on generation failure", async () => {
@@ -79,18 +98,15 @@ describe("useThemeGenerator", () => {
     act(() => {
       result.current.setThemeName("Animals");
       result.current.setThemePrompt("pets only");
-      result.current.setWordCount(9);
     });
 
     await act(async () => {
-      await result.current.generate({ mode: "pick-and-prune", wordCountOverride: 20 });
+      await result.current.generate();
     });
 
     expect(result.current.error).toBe("Generation failed");
     expect(result.current.themeName).toBe("Animals");
     expect(result.current.themePrompt).toBe("pets only");
-    expect(result.current.wordCount).toBe(9);
-    expect(result.current.generationMode).toBeNull();
     expect(result.current.isGenerating).toBe(false);
   });
 });

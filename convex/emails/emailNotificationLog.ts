@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   internalQuery,
   internalMutation,
@@ -14,8 +14,6 @@ type EmailNotificationLogLookupArgs = {
   toUserId: Id<"users">;
   trigger: NotificationEmailTrigger;
   challengeId?: Id<"challenges">;
-  duelId?: Id<"duels">;
-  soloPracticeSessionId?: Id<"soloPracticeSessions">;
   weeklyGoalId?: Id<"weeklyGoals">;
   dedupeKey?: string;
 };
@@ -32,61 +30,30 @@ async function findEmailNotificationLog(
   ctx: Pick<QueryCtx, "db">,
   args: EmailNotificationLogLookupArgs
 ) {
-  if (args.weeklyGoalId && args.dedupeKey) {
-    return await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_weeklyGoal_dedupeKey", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("weeklyGoalId", args.weeklyGoalId)
-          .eq("dedupeKey", args.dedupeKey)
-      )
+  if (args.trigger === "immediate_challenge_invite") {
+    const challengeId = args.challengeId;
+    if (!challengeId) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge email log requires challengeId" });
+    }
+    return ctx.db.query("emailNotificationLog")
+      .withIndex("by_user_trigger_challenge", q =>
+        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("challengeId", challengeId))
       .first();
   }
-
-  if (args.challengeId) {
-    return await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_challenge", (q) =>
-        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("challengeId", args.challengeId)
-      )
+  const weeklyGoalId = args.weeklyGoalId;
+  if (!weeklyGoalId) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly goal email log requires weeklyGoalId" });
+  }
+  if (args.dedupeKey) {
+    return ctx.db.query("emailNotificationLog")
+      .withIndex("by_user_trigger_weeklyGoal_dedupeKey", q =>
+        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger)
+          .eq("weeklyGoalId", weeklyGoalId).eq("dedupeKey", args.dedupeKey))
       .first();
   }
-
-  if (args.duelId) {
-    return await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_duel", (q) =>
-        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("duelId", args.duelId)
-      )
-      .first();
-  }
-
-  if (args.soloPracticeSessionId) {
-    return await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_soloPracticeSession", (q) =>
-        q
-          .eq("toUserId", args.toUserId)
-          .eq("trigger", args.trigger)
-          .eq("soloPracticeSessionId", args.soloPracticeSessionId)
-      )
-      .first();
-  }
-
-  if (args.weeklyGoalId) {
-    return await ctx.db
-      .query("emailNotificationLog")
-      .withIndex("by_user_trigger_weeklyGoal", (q) =>
-        q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("weeklyGoalId", args.weeklyGoalId)
-      )
-      .first();
-  }
-
-  return await ctx.db
-    .query("emailNotificationLog")
-    .withIndex("by_user_trigger", (q) => q.eq("toUserId", args.toUserId).eq("trigger", args.trigger))
+  return ctx.db.query("emailNotificationLog")
+    .withIndex("by_user_trigger_weeklyGoal", q =>
+      q.eq("toUserId", args.toUserId).eq("trigger", args.trigger).eq("weeklyGoalId", weeklyGoalId))
     .first();
 }
 
@@ -95,8 +62,6 @@ export const checkNotificationSent = internalQuery({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    duelId: v.optional(v.id("duels")),
-    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     dedupeKey: v.optional(v.string()),
   },
@@ -110,8 +75,6 @@ export const claimNotificationSend = internalMutation({
     toUserId: v.id("users"),
     trigger: emailNotificationTriggerValidator,
     challengeId: v.optional(v.id("challenges")),
-    duelId: v.optional(v.id("duels")),
-    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     dedupeKey: v.optional(v.string()),
   },
@@ -142,8 +105,6 @@ export const claimNotificationSend = internalMutation({
       trigger: args.trigger,
       status: "pending",
       challengeId: args.challengeId,
-      duelId: args.duelId,
-      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       dedupeKey: args.dedupeKey,
       claimedAt: now,

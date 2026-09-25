@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { loadThemeWithViewerAccess } from "./themeAccess";
+import { createThemeAccessLoader } from "./themeAccess";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
@@ -18,9 +18,8 @@ export async function resolveAccessibleThemes(
     });
   }
 
-  const themes = await Promise.all(
-    orderedThemeIds.map((themeId) => loadThemeWithViewerAccess(ctx, userId, themeId))
-  );
+  const loadTheme = createThemeAccessLoader(ctx, userId);
+  const themes = await Promise.all(orderedThemeIds.map(loadTheme));
   if (themes.some((theme) => !theme)) {
     throw new ConvexError({
       code: "NOT_FOUND",

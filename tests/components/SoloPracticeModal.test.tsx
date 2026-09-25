@@ -102,3 +102,52 @@ describe("SoloPracticeModal Solo Practice mode", () => {
     expect(screen.getByText("3 items total")).toBeInTheDocument();
   });
 });
+
+it("starts learning from available initial themes and uses the chosen timer", () => {
+  const onContinue = vi.fn();
+  renderSoloPracticeModal({ initialThemeIds: ["missing", "theme_1"] as Id<"themes">[], onContinue });
+  expect(screen.queryByText("Select one or more themes to practice.")).toBeNull();
+  expect(screen.getByText("Food")).toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("solo-modal-timer-900"));
+  fireEvent.click(screen.getByTestId("solo-modal-continue"));
+  expect(onContinue).toHaveBeenCalledExactlyOnceWith(["theme_1"], "learn_practice", 900);
+});
+
+it("returns to selection, clears the draft and resets the mode for the next selection", () => {
+  const onContinue = vi.fn();
+  renderSoloPracticeModal({ initialThemeIds: ["theme_1"] as Id<"themes">[], initialMode: "practice_only", onContinue });
+  expect(screen.queryByTestId("solo-modal-timer-600")).toBeNull();
+  fireEvent.click(screen.getByTestId("solo-modal-back"));
+  expect((screen.getByTestId("theme-selector-confirm") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByTestId("theme-selector-confirm"));
+  expect(onContinue).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId("theme-selector-item-theme_3"));
+  fireEvent.click(screen.getByTestId("theme-selector-confirm"));
+  expect(screen.queryByTestId("solo-modal-timer-600")).not.toBeNull();
+  fireEvent.click(screen.getByTestId("solo-modal-continue"));
+  expect(onContinue).toHaveBeenCalledExactlyOnceWith(["theme_3"], "learn_practice", 600);
+});
+
+it("allows switching from practice to unlimited study and closing from the mode screen", () => {
+  const onContinue = vi.fn(), onClose = vi.fn();
+  renderSoloPracticeModal({ initialThemeIds: ["theme_1", "theme_2"] as Id<"themes">[], initialMode: "practice_only", onContinue, onClose });
+  expect(screen.getByText("2 themes selected")).toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("solo-modal-mode-learn-test"));
+  fireEvent.click(screen.getByTestId("solo-modal-timer-infinite"));
+  fireEvent.click(screen.getByTestId("solo-modal-continue"));
+  expect(onContinue).toHaveBeenCalledExactlyOnceWith(["theme_1", "theme_2"], "learn_practice", 999_999_999);
+  fireEvent.click(screen.getByTestId("solo-modal-cancel"));
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
+it("waits for themes, rejects unavailable initial choices and exposes cancel/create actions", () => {
+  const onClose = vi.fn(), onNavigateToThemes = vi.fn();
+  const view = renderSoloPracticeModal({ themes: undefined, initialThemeIds: ["missing"] as Id<"themes">[], onClose, onNavigateToThemes });
+  expect(screen.getByText("Loading themes...")).toBeInTheDocument();
+  expect((screen.getByTestId("theme-selector-confirm") as HTMLButtonElement).disabled).toBe(true);
+  view.rerender(<SoloPracticeModal themes={[]} initialThemeIds={["missing"] as Id<"themes">[]} onContinue={vi.fn()} onClose={onClose} onNavigateToThemes={onNavigateToThemes} />);
+  fireEvent.click(screen.getByTestId("theme-selector-create"));
+  expect(onNavigateToThemes).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByTestId("solo-modal-cancel"));
+  expect(onClose).toHaveBeenCalledOnce();
+});

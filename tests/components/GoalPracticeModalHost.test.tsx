@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { GoalPracticeModalHost } from "@/app/goals/components/GoalPracticeModalHost";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -89,4 +89,31 @@ describe("GoalPracticeModalHost", () => {
     expect(sentence?.itemCount).toBe(1);
     expect(props.initialDraftThemeIds).toContain("theme_sentence");
   });
+});
+
+
+it("shows loading until the query resolves and allows closing a failed practice source", () => {
+  const onClose = vi.fn();
+  const props = { goalId: "goal_1" as Id<"weeklyGoals">, onContinue: vi.fn(), onClose };
+  const view = render(<GoalPracticeModalHost {...props} weeklyGoalPracticeThemes={undefined} />);
+  expect(screen.queryByText("Loading goal themes...")).not.toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(soloModalProps).not.toHaveBeenCalled();
+  view.rerender(<GoalPracticeModalHost {...props} weeklyGoalPracticeThemes={{ ok: false, message: "Theme no longer available" }} />);
+  expect(screen.queryByText("Theme no longer available")).not.toBeNull();
+  expect(screen.queryByText("Loading goal themes...")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
+it("explains snapshot practice and retains the supplied launch and close actions", () => {
+  const onContinue = vi.fn(), onClose = vi.fn();
+  render(<GoalPracticeModalHost goalId={"goal_1" as Id<"weeklyGoals">} onContinue={onContinue} onClose={onClose}
+    weeklyGoalPracticeThemes={{ ok: true, weeklyGoalId: "goal_1" as Id<"weeklyGoals">, source: "snapshot", themes: [wordTheme, sentenceTheme] }} />);
+  const props = soloModalProps.mock.calls[0][0];
+  expect(props.themeSelectorNotice).toContain("snapshot taken when this goal was locked");
+  expect(props.forceThemeSelectorFirst).toBe(true);
+  expect(props.hideCreateThemeButton).toBe(true);
+  expect(props.onContinue).toBe(onContinue);
+  expect(props.onClose).toBe(onClose);
 });

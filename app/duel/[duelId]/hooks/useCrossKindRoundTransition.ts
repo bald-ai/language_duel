@@ -67,45 +67,8 @@ export function useCrossKindRoundTransition(
   // (server-coordinated) pause used between live rounds.
   const [localPaused, setLocalPaused] = useState(false);
 
-  const indexAdvanced = duel.currentItemIndex > baseline.index;
-  const justCompleted = baseline.status === "active" && duel.status === "completed";
-  const priorIndex = indexAdvanced ? baseline.index : duel.currentItemIndex;
-  const priorQuestion = duel.duelQuestions?.[priorIndex];
-  const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
-  const involvesSentence =
-    priorQuestion?.kind === "sentence" ||
-    (indexAdvanced && currentQuestion?.kind === "sentence");
-  const diffTransition: CrossKindTransition | null =
-    (indexAdvanced || justCompleted) &&
-    involvesSentence &&
-    (priorQuestion?.kind === "word" || priorQuestion?.kind === "sentence")
-      ? { prevIndex: priorIndex, prevKind: priorQuestion.kind }
-      : null;
-
   const countdownPausedBy = duel.countdownPausedBy;
-
-  // Refresh-safety for paused transitions. A reload wipes the in-memory
-  // baseline, so `diffTransition` sees no advance (baseline already equals the
-  // advanced index) and routing would drop the player straight into the next
-  // round — bypassing a pause the peer is still holding. The pause is the one
-  // piece of transition state the server persists (`countdownPausedBy`), and a
-  // paused countdown only ever exists mid-transition, so re-derive the held
-  // transition from it: the paused round is always the advance INTO
-  // `currentItemIndex` (rounds advance by one). Word->word stays the standard
-  // phase machine's job, so this only fires when a sentence is involved.
-  const pausedPriorIndex = duel.currentItemIndex - 1;
-  const pausedPriorQuestion = duel.duelQuestions?.[pausedPriorIndex];
-  const pausedTransition: CrossKindTransition | null =
-    !diffTransition &&
-    Boolean(countdownPausedBy) &&
-    duel.status === "active" &&
-    pausedPriorIndex >= 0 &&
-    (pausedPriorQuestion?.kind === "sentence" || currentQuestion?.kind === "sentence") &&
-    (pausedPriorQuestion?.kind === "word" || pausedPriorQuestion?.kind === "sentence")
-      ? { prevIndex: pausedPriorIndex, prevKind: pausedPriorQuestion.kind }
-      : null;
-
-  const transition = diffTransition ?? pausedTransition;
+  const transition = observedTransition(duel, baseline) ?? pausedTransition(duel);
   const transitionKey = transition
     ? `${transition.prevIndex}:${transition.prevKind}`
     : null;
@@ -129,17 +92,21 @@ export function useCrossKindRoundTransition(
 
   // Restart the per-second countdown whenever a new cross-kind transition opens.
   const prevTransitionKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (transitionKey && transitionKey !== prevTransitionKeyRef.current) {
-      setSecondsLeft(TRANSITION_COUNTDOWN_SECONDS);
-    }
-    prevTransitionKeyRef.current = transitionKey;
-  }, [transitionKey]);
-
   // Single timer: tick the countdown down and resolve the transition at zero.
   // Frozen while paused so the transition view honors `countdownPausedBy`.
   useEffect(() => {
-    if (!transitionKey || countdownPausedBy || localPaused) return;
+    if (!transitionKey) {
+      prevTransitionKeyRef.current = null;
+      return;
+    }
+    if (transitionKey !== prevTransitionKeyRef.current) {
+      prevTransitionKeyRef.current = transitionKey;
+      if (secondsLeft !== TRANSITION_COUNTDOWN_SECONDS) {
+        setSecondsLeft(TRANSITION_COUNTDOWN_SECONDS);
+        return;
+      }
+    }
+    if (countdownPausedBy || localPaused) return;
     if (secondsLeft > 0) {
       const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
       return () => clearTimeout(timer);
@@ -176,4 +143,31 @@ export function useCrossKindRoundTransition(
   return transition
     ? { transition, secondsLeft, localPaused, onLocalPause, onLocalUnpause, onLocalSkip }
     : null;
+}
+
+/** Identify a reveal from an observed index advance or final completion. */
+function observedTransition(
+  duel: Doc<"duels">,
+  baseline: { index: number; status: Doc<"duels">["status"] }
+): CrossKindTransition | null {
+  const indexAdvanced = duel.currentItemIndex > baseline.index;
+  const justCompleted = baseline.status === "active" && duel.status === "completed";
+  if (!indexAdvanced && !justCompleted) return null;
+  const priorIndex = indexAdvanced ? baseline.index : duel.currentItemIndex;
+  return sentenceTransitionAt(duel, priorIndex, indexAdvanced);
+}
+
+/** A persisted mid-transition pause must also survive a page reload. */
+function pausedTransition(duel: Doc<"duels">): CrossKindTransition | null {
+  if (!duel.countdownPausedBy || duel.status !== "active" || duel.currentItemIndex < 1) return null;
+  return sentenceTransitionAt(duel, duel.currentItemIndex - 1, true);
+}
+
+function sentenceTransitionAt(duel: Doc<"duels">, priorIndex: number, indexAdvanced: boolean): CrossKindTransition | null {
+  const prior = duel.duelQuestions?.[priorIndex];
+  const current = duel.duelQuestions?.[duel.currentItemIndex];
+  if (!prior) return null;
+  if (prior.kind === "sentence") return { prevIndex: priorIndex, prevKind: prior.kind };
+  if (indexAdvanced && current?.kind === "sentence") return { prevIndex: priorIndex, prevKind: prior.kind };
+  return null;
 }

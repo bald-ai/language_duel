@@ -23,7 +23,6 @@ import type * as emails_reminderPlanners from "../emails/reminderPlanners.js";
 import type * as friends from "../friends.js";
 import type * as gameplay from "../gameplay.js";
 import type * as helpers_auth from "../helpers/auth.js";
-import type * as helpers_index from "../helpers/index.js";
 import type * as helpers_permissions from "../helpers/permissions.js";
 import type * as helpers_relationshipPolicy from "../helpers/relationshipPolicy.js";
 import type * as helpers_resolveAccessibleThemes from "../helpers/resolveAccessibleThemes.js";
@@ -108,7 +107,6 @@ declare const fullApi: ApiFromModules<{
   friends: typeof friends;
   gameplay: typeof gameplay;
   "helpers/auth": typeof helpers_auth;
-  "helpers/index": typeof helpers_index;
   "helpers/permissions": typeof helpers_permissions;
   "helpers/relationshipPolicy": typeof helpers_relationshipPolicy;
   "helpers/resolveAccessibleThemes": typeof helpers_resolveAccessibleThemes;

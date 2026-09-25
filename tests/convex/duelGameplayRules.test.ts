@@ -135,3 +135,49 @@ describe("duel gameplay rules", () => {
     expect(shouldCompleteSpacedRepetitionDuel(spacedRepetitionDuel)).toBe(true);
   });
 });
+
+describe("word duel score and progress contracts", () => {
+  for (const duelMode of ["pvp", "pve"] as const) {
+    for (const playerRole of ["challenger", "opponent"] as const) {
+      it.each([true, false])(`${duelMode} ${playerRole} scores once (correct=%s)`, correct => {
+        const duel = duelDoc({ duelMode, challengerScore: 5, opponentScore: 8 });
+        const selectedAnswer = correct ? "gato" : "perro";
+        const params = { duel, playerRole, isChallenger: playerRole === "challenger", selectedAnswer, questionIndex: 0 };
+        const patch = buildAnswerPatch(params);
+        expect(patch).toEqual(playerRole === "challenger"
+          ? { challengerAnswered: true, challengerScore: correct ? 6 : 5, challengerLastAnswer: selectedAnswer }
+          : { opponentAnswered: true, opponentScore: correct ? 9 : 8, opponentLastAnswer: selectedAnswer });
+        expect(buildAnswerPatch({ ...params, duel: { ...duel, ...patch } })).toEqual({});
+        expect(buildTimeoutPatch({ ...params, duel: { ...duel, ...patch } })).toEqual({});
+        expect(duel.challengerScore).toBe(5);
+        expect(duel.opponentScore).toBe(8);
+      });
+    }
+  }
+  it.each([[false, false, false], [true, false, false], [false, true, false], [true, true, true]])("requires both answers %s/%s", (challengerAnswered, opponentAnswered, expected) => {
+    expect(haveBothPlayersAnswered(duelDoc({ challengerAnswered, opponentAnswered }))).toBe(expected);
+  });
+  it.each(["challenger", "opponent"] as const)("ends a failed boss attempt on %s timeout without awarding score", playerRole => {
+    const duel = duelDoc({ sourceType: "boss", weeklyGoalId: "goal" as Id<"weeklyGoals">, bossType: "big", livesRemaining: 1,
+      challengerScore: 5, opponentScore: 8 });
+    const patch = buildTimeoutPatch({ duel, playerRole, isChallenger: playerRole === "challenger" });
+    expect(patch.status).toBe("completed");
+    expect(patch.livesRemaining).toBe(0);
+    expect(patch).not.toHaveProperty("challengerScore");
+    expect(patch).not.toHaveProperty("opponentScore");
+    expect(patch).toHaveProperty("questionStartTime", undefined);
+    expect(shouldCompleteWeeklyGoalBoss({ ...duel, ...patch })).toBe(false);
+  });
+  it("clamps final indexes to an actual question and clears timer/hint state", () => {
+    const duel = duelDoc();
+    for (const [nextIndex, expected] of [[0, 0], [1, 0], [5, 4]]) {
+      const patch = buildFinalCompletionPatch(duel, nextIndex);
+      expect(patch.currentItemIndex).toBe(expected);
+      expect(patch).toHaveProperty("questionTimerPausedAt", undefined);
+      expect(patch).toHaveProperty("currentQuestionTimerBonusSeconds", undefined);
+      expect(patch).toHaveProperty("eliminatedOptions", undefined);
+      expect(patch).not.toHaveProperty("hintPoolUsed");
+      expect(patch).not.toHaveProperty("sentenceHintPoolUsed");
+    }
+  });
+});

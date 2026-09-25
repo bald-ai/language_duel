@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
+  challengeToDuelSourceFields,
   buildChallengeInvite,
   buildDuelSession,
   buildSoloPracticeSession,
@@ -347,5 +348,43 @@ describe("session creation helpers", () => {
         createdAt: 1,
       })
     ).toThrow("Solo practice requires at least one session item");
+  });
+});
+
+describe("session source field boundaries", () => {
+  it.each([
+    [{ sourceType: "normal" }, { sourceType: "normal" }],
+    [{ sourceType: "boss", weeklyGoalId: "goal", bossType: "big" }, { sourceType: "boss", weeklyGoalId: "goal", bossType: "big" }],
+    [{ sourceType: "spaced_repetition", weeklyGoalId: "goal", spacedRepetitionStep: 2 }, { sourceType: "spaced_repetition", weeklyGoalId: "goal", spacedRepetitionStep: 2 }],
+  ])("narrows %j to its valid duel source", (input, expected) => {
+    expect(challengeToDuelSourceFields(input as Parameters<typeof challengeToDuelSourceFields>[0])).toEqual(expected);
+  });
+  it.each([
+    { sourceType: "boss" }, { sourceType: "boss", weeklyGoalId: "goal" },
+    { sourceType: "spaced_repetition" }, { sourceType: "spaced_repetition", weeklyGoalId: "goal" },
+  ])("rejects missing challenge source fields %j", source => {
+    expect(() => challengeToDuelSourceFields(source as Parameters<typeof challengeToDuelSourceFields>[0])).toThrow(/missing source fields/);
+  });
+  it.each([
+    [{ sourceType: "normal", weeklyGoalId: "goal" }, "Normal duel sessions cannot include"],
+    [{ sourceType: "normal", bossType: "mini" }, "Normal duel sessions cannot include"],
+    [{ sourceType: "normal", spacedRepetitionStep: 0 }, "Normal duel sessions cannot include"],
+    [{ sourceType: "boss", bossType: "mini" }, "require weeklyGoalId"],
+    [{ sourceType: "boss", weeklyGoalId: "goal" }, "require bossType"],
+    [{ sourceType: "boss", weeklyGoalId: "goal", bossType: "mini", spacedRepetitionStep: 1 }, "cannot include spacedRepetitionStep"],
+    [{ sourceType: "spaced_repetition", weeklyGoalId: "goal" }, "require spacedRepetitionStep"],
+    [{ sourceType: "spaced_repetition", weeklyGoalId: "goal", spacedRepetitionStep: 1, bossType: "mini" }, "cannot include bossType"],
+  ])("rejects inconsistent duel source %j", (source, message) => {
+    expect(() => buildDuelSession({ challengerId: "a", opponentId: "b", duelMode: "pvp", createdAt: 1, sessionItems, ...source } as Parameters<typeof buildDuelSession>[0])).toThrow(message as string);
+  });
+  it.each([
+    [{ sourceType: "weekly_goal", bossType: "mini" }, "cannot include boss or repetition fields"],
+    [{ sourceType: "weekly_goal", spacedRepetitionStep: 1 }, "cannot include boss or repetition fields"],
+    [{ sourceType: "boss" }, "requires bossType"],
+    [{ sourceType: "boss", bossType: "big", spacedRepetitionStep: 1 }, "cannot include spacedRepetitionStep"],
+    [{ sourceType: "spaced_repetition", bossType: "big", spacedRepetitionStep: 1 }, "cannot include bossType"],
+    [{ sourceType: "spaced_repetition" }, "requires spacedRepetitionStep"],
+  ])("rejects inconsistent solo source %j", (source, message) => {
+    expect(() => buildSoloPracticeSession({ userId: "user", weeklyGoalId: "goal", sessionItems, startsInLearning: false, createdAt: 1, ...source } as Parameters<typeof buildSoloPracticeSession>[0])).toThrow(message as string);
   });
 });

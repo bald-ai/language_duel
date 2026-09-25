@@ -17,7 +17,7 @@ interface GenerateThemeModalProps {
   themeName: string;
   themePrompt: string;
   wordType: WordType;
-  generationMode: "standard" | "pick-and-prune" | null;
+  isGenerating: boolean;
   error?: string | null;
   onThemeNameChange: (name: string) => void;
   onThemePromptChange: (prompt: string) => void;
@@ -31,7 +31,7 @@ export function GenerateThemeModal({
   themeName,
   themePrompt,
   wordType,
-  generationMode,
+  isGenerating,
   error,
   onThemeNameChange,
   onThemePromptChange,
@@ -41,8 +41,6 @@ export function GenerateThemeModal({
 }: GenerateThemeModalProps) {
   const colors = useAppearanceColors();
   if (!isOpen) return null;
-
-  const isGenerating = generationMode !== null;
 
   return (
     <ModalShell title="New Theme" dataTestId="theme-generate-modal">
@@ -119,9 +117,7 @@ export function GenerateThemeModal({
             style={{ borderColor: colors.cta.light }}
           />
           <p className="text-sm" style={{ color: colors.text.muted }}>
-            {generationMode === "pick-and-prune"
-              ? `Generating ${PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
-              : "Generating words... This may take a moment."}
+            {`Generating ${PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`}
           </p>
         </div>
       )}

@@ -152,14 +152,7 @@ export async function loadLaunchPreviewForUser(
   weeklyGoalId: Id<"weeklyGoals">
 ) {
   const goal = await ctx.db.get(weeklyGoalId);
-  if (
-    !goal ||
-    goal.status !== "completed" ||
-    typeof goal.completedAt !== "number" ||
-    !isGoalParticipant(goal, userId)
-  ) {
-    return null;
-  }
+  if (!isCompletedParticipantGoal(goal, userId)) return null;
 
   const record = await getRepetitionRecord(ctx, weeklyGoalId, userId);
   if (!record) return null;
@@ -195,3 +188,7 @@ export async function loadLaunchPreviewForUser(
 }
 
 export { EMPTY_BOARD };
+
+function isCompletedParticipantGoal(goal: Doc<"weeklyGoals"> | null, userId: Id<"users">): goal is Doc<"weeklyGoals"> & { completedAt: number } {
+  return goal !== null && goal.status === "completed" && typeof goal.completedAt === "number" && isGoalParticipant(goal, userId);
+}

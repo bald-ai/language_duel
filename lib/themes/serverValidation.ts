@@ -50,43 +50,28 @@ export type ThemeValidationIssue =
       secondWord: string;
     };
 
-export function formatThemeValidationIssue(
-  issue: ThemeValidationIssue,
-  options?: { wordLabel?: string }
-): string {
-  const wordLabel = options?.wordLabel;
-  const labelFor = (index: number) => wordLabel ?? `Word ${index + 1}`;
-
-  if (issue.type === "word_empty") {
-    return `${labelFor(issue.wordIndex)}: word must be at least 1 character`;
-  }
-  if (issue.type === "word_too_long") {
-    return `${labelFor(issue.wordIndex)}: word must be at most ${THEME_WORD_INPUT_MAX_LENGTH} characters`;
-  }
-  if (issue.type === "answer_empty") {
-    return `${labelFor(issue.wordIndex)}: answer must be at least 1 character`;
-  }
-  if (issue.type === "answer_too_long") {
-    return `${labelFor(issue.wordIndex)}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`;
-  }
-  if (issue.type === "wrong_answer_empty") {
-    return `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at least 1 character`;
-  }
-  if (issue.type === "wrong_answer_too_long") {
-    return `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`;
-  }
-  if (issue.type === "wrong_answer_count") {
-    return THEME_MIN_WRONG_ANSWER_COUNT === THEME_MAX_WRONG_ANSWER_COUNT
+type ThemeIssueFormatters = {
+  [K in ThemeValidationIssue["type"]]: (issue: Extract<ThemeValidationIssue, { type: K }>, labelFor: (index: number) => string) => string;
+};
+const themeIssueFormatters: ThemeIssueFormatters = {
+  word_empty: (issue, labelFor) => `${labelFor(issue.wordIndex)}: word must be at least 1 character`,
+  word_too_long: (issue, labelFor) => `${labelFor(issue.wordIndex)}: word must be at most ${THEME_WORD_INPUT_MAX_LENGTH} characters`,
+  answer_empty: (issue, labelFor) => `${labelFor(issue.wordIndex)}: answer must be at least 1 character`,
+  answer_too_long: (issue, labelFor) => `${labelFor(issue.wordIndex)}: answer must be at most ${THEME_ANSWER_INPUT_MAX_LENGTH} characters`,
+  wrong_answer_empty: (issue, labelFor) => `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at least 1 character`,
+  wrong_answer_too_long: (issue, labelFor) => `${labelFor(issue.wordIndex)}: wrong answer ${issue.wrongIndex + 1} must be at most ${THEME_WRONG_ANSWER_INPUT_MAX_LENGTH} characters`,
+  wrong_answer_count: (issue, labelFor) => THEME_MIN_WRONG_ANSWER_COUNT === THEME_MAX_WRONG_ANSWER_COUNT
       ? `${labelFor(issue.wordIndex)}: wrong answers must contain exactly ${THEME_MAX_WRONG_ANSWER_COUNT} items`
-      : `${labelFor(issue.wordIndex)}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`;
-  }
-  if (issue.type === "wrong_answer_matches_correct") {
-    return `${labelFor(issue.wordIndex)}: wrong answer "${issue.wrongAnswer}" matches the correct answer "${issue.answer}" after normalization.`;
-  }
-  if (issue.type === "duplicate_wrong_answer") {
-    return `${labelFor(issue.wordIndex)}: wrong answers "${issue.firstWrongAnswer}" and "${issue.secondWrongAnswer}" are duplicates after normalization.`;
-  }
-  return `Words ${issue.firstWordIndex + 1} and ${issue.secondWordIndex + 1}: "${issue.firstWord}" and "${issue.secondWord}" are duplicates after normalization.`;
+      : `${labelFor(issue.wordIndex)}: wrong answers must contain ${THEME_MIN_WRONG_ANSWER_COUNT}-${THEME_MAX_WRONG_ANSWER_COUNT} items`,
+  wrong_answer_matches_correct: (issue, labelFor) => `${labelFor(issue.wordIndex)}: wrong answer "${issue.wrongAnswer}" matches the correct answer "${issue.answer}" after normalization.`,
+  duplicate_wrong_answer: (issue, labelFor) => `${labelFor(issue.wordIndex)}: wrong answers "${issue.firstWrongAnswer}" and "${issue.secondWrongAnswer}" are duplicates after normalization.`,
+  duplicate_word: (issue) => `Words ${issue.firstWordIndex + 1} and ${issue.secondWordIndex + 1}: "${issue.firstWord}" and "${issue.secondWord}" are duplicates after normalization.`,
+};
+
+export function formatThemeValidationIssue(issue: ThemeValidationIssue, options?: { wordLabel?: string }): string {
+  const labelFor = (index: number) => options?.wordLabel ?? `Word ${index + 1}`;
+  const format = themeIssueFormatters[issue.type] as (value: ThemeValidationIssue, label: typeof labelFor) => string;
+  return format(issue, labelFor);
 }
 
 /**
@@ -98,21 +83,7 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
   const seenWords = new Map<string, { index: number; word: string }>();
 
   words.forEach((word, wordIndex) => {
-    const rawWord = typeof word.word === "string" ? word.word : "";
-    const trimmedWord = rawWord.trim();
-    if (trimmedWord.length < 1) {
-      issues.push({ type: "word_empty", wordIndex });
-    } else if (trimmedWord.length > THEME_WORD_INPUT_MAX_LENGTH) {
-      issues.push({ type: "word_too_long", wordIndex });
-    }
-
-    const rawAnswer = typeof word.answer === "string" ? word.answer : "";
-    const trimmedAnswer = rawAnswer.trim();
-    if (trimmedAnswer.length < 1) {
-      issues.push({ type: "answer_empty", wordIndex });
-    } else if (trimmedAnswer.length > THEME_ANSWER_INPUT_MAX_LENGTH) {
-      issues.push({ type: "answer_too_long", wordIndex });
-    }
+    const { rawWord, trimmedWord, rawAnswer, trimmedAnswer } = collectWordTextIssues(word, wordIndex, issues);
 
     const wrongAnswers = Array.isArray(word.wrongAnswers) ? word.wrongAnswers : [];
     if (
@@ -188,10 +159,6 @@ export function collectThemeIssues(words: ThemeWordInput[]): ThemeValidationIssu
   return issues;
 }
 
-export function describeThemeValidationIssues(words: ThemeWordInput[]): string[] {
-  return collectThemeIssues(words).map((issue) => formatThemeValidationIssue(issue));
-}
-
 function ensureLength(params: {
   value: string;
   field: string;
@@ -255,4 +222,24 @@ export function normalizeSaveRequestId(saveRequestId: string): string {
     min: 1,
     max: THEME_SAVE_REQUEST_ID_MAX_LENGTH,
   });
+}
+
+function collectWordTextIssues(word: ThemeWordInput, wordIndex: number, issues: ThemeValidationIssue[]) {
+    const rawWord = typeof word.word === "string" ? word.word : "";
+    const trimmedWord = rawWord.trim();
+    if (trimmedWord.length < 1) {
+      issues.push({ type: "word_empty", wordIndex });
+    } else if (trimmedWord.length > THEME_WORD_INPUT_MAX_LENGTH) {
+      issues.push({ type: "word_too_long", wordIndex });
+    }
+
+    const rawAnswer = typeof word.answer === "string" ? word.answer : "";
+    const trimmedAnswer = rawAnswer.trim();
+    if (trimmedAnswer.length < 1) {
+      issues.push({ type: "answer_empty", wordIndex });
+    } else if (trimmedAnswer.length > THEME_ANSWER_INPUT_MAX_LENGTH) {
+      issues.push({ type: "answer_too_long", wordIndex });
+    }
+
+  return { rawWord, trimmedWord, rawAnswer, trimmedAnswer };
 }

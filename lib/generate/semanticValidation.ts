@@ -63,46 +63,41 @@ function validateValueLength(params: {
   return [];
 }
 
-function validateWordTypeAnswerValue(params: {
-  value: string;
-  wordType: WordType;
-  role: WordTypeRole;
-  label: string;
-}): string[] {
-  const wordType = params.wordType;
-  const value = params.value.trim();
+type WordTypeValue = { value: string; wordType: WordType; role: WordTypeRole; label: string };
+
+function validateVerbValue(value: string, role: WordTypeRole, label: string, fieldLabel: string): string[] {
   const issues: string[] = [];
-
-  if (wordType === "nouns") {
-    if (!startsWithDefiniteArticle(value)) {
-      issues.push(`${params.label}: ${params.role === "answer" ? "answer" : "wrong answer"} must include a definite article (el/la/los/las).`);
-    }
-    return issues;
+  if (!looksLikeSpanishInfinitive(value)) {
+    issues.push(`${fieldLabel} must be a Spanish infinitive ending in -ar, -er, or -ir.`);
   }
-
-  if (startsWithDefiniteArticle(value)) {
-    issues.push(`${params.label}: ${params.role === "answer" ? "answer" : "wrong answer"} must not include an article.`);
+  if (role === "wrongAnswer" && hasCorrectAnswerMarker(value)) {
+    issues.push(`${label}: wrong answer must not include the "(Irr)" or "*" marker.`);
   }
-
-  if (wordType === "verbs") {
-    if (!looksLikeSpanishInfinitive(value)) {
-      issues.push(`${params.label}: ${params.role === "answer" ? "answer" : "wrong answer"} must be a Spanish infinitive ending in -ar, -er, or -ir.`);
-    }
-    if (params.role === "wrongAnswer" && hasCorrectAnswerMarker(value)) {
-      issues.push(`${params.label}: wrong answer must not include the "(Irr)" or "*" marker.`);
-    }
-    return issues;
-  }
-
-  if (hasCorrectAnswerMarker(value)) {
-    issues.push(`${params.label}: ${params.role === "answer" ? "answer" : "wrong answer"} must not include the "(Irr)" or "*" marker.`);
-  }
-
-  if ((wordType === "adjectives" || wordType === "adverbs") && hasObviousPluralForm(value)) {
-    issues.push(`${params.label}: ${params.role === "answer" ? "answer" : "wrong answer"} must not use an obvious plural form.`);
-  }
-
   return issues;
+}
+
+function validateNonVerbValue(value: string, wordType: WordType, fieldLabel: string): string[] {
+  const issues: string[] = [];
+  if (hasCorrectAnswerMarker(value)) {
+    issues.push(`${fieldLabel} must not include the "(Irr)" or "*" marker.`);
+  }
+  if ((wordType === "adjectives" || wordType === "adverbs") && hasObviousPluralForm(value)) {
+    issues.push(`${fieldLabel} must not use an obvious plural form.`);
+  }
+  return issues;
+}
+
+function validateWordTypeAnswerValue(params: WordTypeValue): string[] {
+  const { wordType, role, label } = params;
+  const value = params.value.trim();
+  const fieldLabel = `${label}: ${role === "answer" ? "answer" : "wrong answer"}`;
+  if (wordType === "nouns") {
+    return startsWithDefiniteArticle(value) ? [] : [`${fieldLabel} must include a definite article (el/la/los/las).`];
+  }
+  const issues = startsWithDefiniteArticle(value) ? [`${fieldLabel} must not include an article.`] : [];
+  return [...issues, ...(wordType === "verbs"
+    ? validateVerbValue(value, role, label, fieldLabel)
+    : validateNonVerbValue(value, wordType, fieldLabel))];
 }
 
 export function validateGeneratedTheme(words: ThemeWordInput[], wordType: WordType): string[] {

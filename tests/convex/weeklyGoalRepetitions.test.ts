@@ -937,6 +937,36 @@ describe("weekly goal spaced repetition", () => {
     });
   });
 
+  it.each(["missing", "locked"])("does not advance a duel when its goal is %s", async scenario => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const db = new InMemoryDb();
+    if (scenario === "locked") db.weeklyGoals.push(completedGoal({ status: "locked", completedAt: undefined }));
+    db.weeklyGoalRepetitions.push(repetitionDoc());
+    const patch = vi.spyOn(db, "patch");
+    await completeRepetitionDuel({ db } as never, duelDoc() as Doc<"duels">, READY_NOW);
+    expect(patch).not.toHaveBeenCalled(); expect(db.weeklyGoalRepetitions[0].completedSteps).toEqual([]);
+  });
+  it.each(["record", "snapshot"])("refuses to start repetition practice without its %s", async missing => {
+    vi.spyOn(Date, "now").mockReturnValue(READY_NOW);
+    const db = new InMemoryDb(); seedCompletedGoal(db);
+    if (missing === "record") db.weeklyGoalRepetitions.length = 0; else db.weeklyGoalThemeSnapshots.length = 0;
+    const insert = vi.spyOn(db, "insert");
+    const handler = (startRepetitionSoloPractice as unknown as { _handler: (ctx: unknown, args: { weeklyGoalId: Id<"weeklyGoals"> }) => Promise<unknown> })._handler;
+    await expect(handler(createCtx(db, "clerk_1"), { weeklyGoalId: "goal_1" as Id<"weeklyGoals"> })).rejects.toThrow(missing === "record" ? "not ready yet" : "snapshot");
+    expect(insert).not.toHaveBeenCalled(); expect(db.soloPracticeSessions).toEqual([]);
+  });
+
+  it("does not advance either participant after a repetition duel loses its last life", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const db = new InMemoryDb();
+    seedCompletedGoal(db);
+    const before = structuredClone(db.weeklyGoalRepetitions);
+    const patch = vi.spyOn(db, "patch");
+    await completeRepetitionDuel({ db } as never, duelDoc({ livesRemaining: 0 }) as Doc<"duels">, READY_NOW);
+    expect(patch).not.toHaveBeenCalled();
+    expect(db.weeklyGoalRepetitions).toEqual(before);
+  });
+
   it("completeRepetitionDuel advances both participants with duel completion metadata", async () => {
     const db = new InMemoryDb();
     db.weeklyGoals.push(completedGoal());

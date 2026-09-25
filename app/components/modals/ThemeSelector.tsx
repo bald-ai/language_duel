@@ -28,16 +28,26 @@ function groupThemesByContentType(themes: ModalTheme[]): ThemeGroup[] {
     { contentType: "sentence", label: "Sentences", themes: [] },
   ];
   for (const theme of themes) {
-    const group = groups.find((candidate) => candidate.contentType === theme.contentType);
+    const group = groups.find(
+      (candidate) => candidate.contentType === theme.contentType,
+    );
     group?.themes.push(theme);
   }
   return groups.filter((group) => group.themes.length > 0);
 }
 
-function formatThemeItemCount(count: number, contentType: ThemeContentType): string {
-  const unit = contentType === "sentence"
-    ? (count === 1 ? "round" : "rounds")
-    : (count === 1 ? "word" : "words");
+function formatThemeItemCount(
+  count: number,
+  contentType: ThemeContentType,
+): string {
+  const unit =
+    contentType === "sentence"
+      ? count === 1
+        ? "round"
+        : "rounds"
+      : count === 1
+        ? "word"
+        : "words";
   return `${count} ${unit}`;
 }
 
@@ -58,7 +68,10 @@ function ThemeGroupHeader({
   const dotColor = isSentence ? colors.secondary.DEFAULT : colors.text.muted;
   const labelColor = isSentence ? colors.secondary.dark : colors.text.muted;
   return (
-    <div className="flex items-center gap-2 px-1 pt-1 pb-1.5" data-testid={dataTestId}>
+    <div
+      className="flex items-center gap-2 px-1 pt-1 pb-1.5"
+      data-testid={dataTestId}
+    >
       <span
         className="w-2 h-2 rounded-full flex-shrink-0"
         style={{ backgroundColor: dotColor }}
@@ -109,24 +122,25 @@ export function ThemeSelector({
   selectedThemeIds,
   onConfirmSelection,
   onCreateTheme,
-  emptyMessage = "No themes available yet.",
-  confirmLabel = "Confirm Themes",
+  emptyMessage,
+  confirmLabel,
   draftThemeIds: controlledDraftThemeIds,
   onDraftThemeIdsChange,
-  hideConfirmButton = false,
-  hideCreateThemeButton = false,
+  hideConfirmButton,
+  hideCreateThemeButton,
   compact = false,
-  fillHeight = false,
+  fillHeight,
   itemTestIdPrefix = "theme-selector-item",
 }: ThemeSelectorProps) {
   const colors = useAppearanceColors();
-  const [internalDraftThemeIds, setInternalDraftThemeIds] = useState<Id<"themes">[]>(selectedThemeIds);
+  const [internalDraftThemeIds, setInternalDraftThemeIds] =
+    useState<Id<"themes">[]>(selectedThemeIds);
   const draftThemeIds = controlledDraftThemeIds ?? internalDraftThemeIds;
   const setDraftThemeIds = onDraftThemeIdsChange ?? setInternalDraftThemeIds;
   const goalThemeIds = useWeeklyGoalThemeIds();
   const themeGroups = useMemo(
     () => (themes ? groupThemesByContentType(themes) : []),
-    [themes]
+    [themes],
   );
 
   const handleToggleTheme = (themeId: Id<"themes">) => {
@@ -136,127 +150,232 @@ export function ThemeSelector({
     setDraftThemeIds(nextThemeIds);
   };
 
-  if (!themes) {
-    return (
-      <div
-        className={`text-center border-2 rounded-2xl ${compact ? "p-4" : "p-6"}`}
-        style={{
-          backgroundColor: colors.background.DEFAULT,
-          borderColor: colors.primary.dark,
-        }}
-      >
-        <p className="text-sm" style={{ color: colors.text.muted }}>
-          Loading themes...
-        </p>
-      </div>
-    );
-  }
-
+  if (!themes)
+    return <ThemeSelectorLoading colors={colors} compact={compact} />;
   if (themes.length === 0) {
     return (
-      <div
-        className={`text-center border-2 rounded-2xl ${compact ? "p-4" : "p-6"}`}
-        style={{
-          backgroundColor: colors.background.DEFAULT,
-          borderColor: colors.primary.dark,
-        }}
-      >
-        <p className={`text-sm ${compact ? "mb-3" : "mb-4"}`} style={{ color: colors.text.muted }}>
-          {emptyMessage}
-        </p>
-        {!hideCreateThemeButton && (
-          <button
-            onClick={onCreateTheme}
-            className={`border-2 rounded-xl py-2 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 ${
-              compact ? "px-4" : "w-full"
-            }`}
-            style={{
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.primary.dark,
-              color: colors.text.DEFAULT,
-            }}
-            data-testid="theme-selector-create"
-          >
-            {compact ? "Create Theme" : "Create your first theme"}
-          </button>
-        )}
-      </div>
+      <ThemeSelectorEmpty
+        colors={colors}
+        compact={compact}
+        emptyMessage={emptyMessage}
+        hideCreateThemeButton={hideCreateThemeButton}
+        onCreateTheme={onCreateTheme}
+      />
     );
   }
-
-  // Dense, scroll-capped list with a "Selected:" summary footer (embedded usage).
-  if (compact) {
-    const selectedThemes = themes.filter((theme) => draftThemeIds.includes(theme._id));
+  const listProps = {
+    colors,
+    themeGroups,
+    draftThemeIds,
+    goalThemeIds,
+    handleToggleTheme,
+    itemTestIdPrefix,
+  };
+  if (compact)
     return (
-      <div className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}>
-        <div
-          className={`overflow-y-auto space-y-2 pr-0.5 ${
-            fillHeight ? "min-h-0 flex-1" : "max-h-52"
-          }`}
-        >
-          {themeGroups.map((group) => (
-            <Fragment key={group.contentType}>
-              <ThemeGroupHeader
-                label={group.label}
-                contentType={group.contentType}
-                colors={colors}
-                dataTestId={`${itemTestIdPrefix}-group-${group.contentType}`}
-              />
-              {group.themes.map((theme) => {
-                const isSelected = draftThemeIds.includes(theme._id);
-                return (
-                  <button
-                    key={theme._id}
-                    onClick={() => handleToggleTheme(theme._id)}
-                    className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
-                    style={{
-                      backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-                      borderColor: isSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
-                    }}
-                    data-testid={`${itemTestIdPrefix}-${theme._id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div
-                          className="font-semibold text-sm truncate flex-1 min-w-0"
-                          style={{ color: isSelected ? colors.cta.dark : colors.text.DEFAULT }}
-                          title={theme.name}
-                        >
-                          {theme.name}
-                        </div>
-                        {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
-                      </div>
-                      <div className="text-xs" style={{ color: colors.text.muted }}>
-                        {formatThemeItemCount(theme.itemCount, theme.contentType)}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <div
-                        className="w-4 h-4 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: colors.cta.DEFAULT }}
-                      >
-                        <ThemeCheckmark className="w-2.5 h-2.5" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
-        {selectedThemes.length > 0 && (
-          <div className="pt-2.5 text-center text-xs" style={{ color: colors.text.muted }}>
-            Selected: <span style={{ color: colors.cta.dark }}>
-              {selectedThemes.length === 1
-                ? selectedThemes[0].name
-                : `${selectedThemes.length} themes`}
-            </span>
-          </div>
-        )}
-      </div>
+      <CompactThemeList
+        {...listProps}
+        themes={themes}
+        fillHeight={fillHeight}
+      />
     );
-  }
+  return (
+    <SpaciousThemeList
+      {...listProps}
+      hideConfirmButton={hideConfirmButton}
+      onConfirmSelection={onConfirmSelection}
+      confirmLabel={confirmLabel}
+    />
+  );
+}
 
+type EmptyProps = Pick<ThemeSelectorProps, "onCreateTheme"> & {
+  colors: ThemeColors;
+  compact: boolean;
+  emptyMessage?: string;
+  hideCreateThemeButton?: boolean;
+};
+function ThemeSelectorLoading({
+  colors,
+  compact,
+}: Pick<EmptyProps, "colors" | "compact">) {
+  return (
+    <div
+      className={`text-center border-2 rounded-2xl ${compact ? "p-4" : "p-6"}`}
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      <p className="text-sm" style={{ color: colors.text.muted }}>
+        Loading themes...
+      </p>
+    </div>
+  );
+}
+
+function ThemeSelectorEmpty({
+  colors,
+  compact,
+  emptyMessage = "No themes available yet.",
+  hideCreateThemeButton = false,
+  onCreateTheme,
+}: EmptyProps) {
+  return (
+    <div
+      className={`text-center border-2 rounded-2xl ${compact ? "p-4" : "p-6"}`}
+      style={{
+        backgroundColor: colors.background.DEFAULT,
+        borderColor: colors.primary.dark,
+      }}
+    >
+      <p
+        className={`text-sm ${compact ? "mb-3" : "mb-4"}`}
+        style={{ color: colors.text.muted }}
+      >
+        {emptyMessage}
+      </p>
+      {!hideCreateThemeButton && (
+        <button
+          onClick={onCreateTheme}
+          className={`border-2 rounded-xl py-2 text-sm font-bold uppercase tracking-widest transition hover:brightness-110 ${
+            compact ? "px-4" : "w-full"
+          }`}
+          style={{
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.primary.dark,
+            color: colors.text.DEFAULT,
+          }}
+          data-testid="theme-selector-create"
+        >
+          {compact ? "Create Theme" : "Create your first theme"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+type ThemeListProps = {
+  colors: ThemeColors;
+  themeGroups: ThemeGroup[];
+  draftThemeIds: Id<"themes">[];
+  goalThemeIds: Set<string>;
+  handleToggleTheme: (id: Id<"themes">) => void;
+  itemTestIdPrefix: string;
+};
+function CompactThemeList({
+  colors,
+  themeGroups,
+  draftThemeIds,
+  goalThemeIds,
+  handleToggleTheme,
+  itemTestIdPrefix,
+  themes,
+  fillHeight = false,
+}: ThemeListProps & { themes: ModalTheme[]; fillHeight?: boolean }) {
+  const selectedThemes = themes.filter((theme) =>
+    draftThemeIds.includes(theme._id),
+  );
+  return (
+    <div className={fillHeight ? "flex h-full min-h-0 flex-col" : ""}>
+      <div
+        className={`overflow-y-auto space-y-2 pr-0.5 ${
+          fillHeight ? "min-h-0 flex-1" : "max-h-52"
+        }`}
+      >
+        {themeGroups.map((group) => (
+          <Fragment key={group.contentType}>
+            <ThemeGroupHeader
+              label={group.label}
+              contentType={group.contentType}
+              colors={colors}
+              dataTestId={`${itemTestIdPrefix}-group-${group.contentType}`}
+            />
+            {group.themes.map((theme) => {
+              const isSelected = draftThemeIds.includes(theme._id);
+              return (
+                <button
+                  key={theme._id}
+                  onClick={() => handleToggleTheme(theme._id)}
+                  className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
+                  style={{
+                    backgroundColor: isSelected
+                      ? `${colors.cta.DEFAULT}1A`
+                      : colors.background.DEFAULT,
+                    borderColor: isSelected
+                      ? colors.cta.DEFAULT
+                      : `${colors.text.muted}1A`,
+                  }}
+                  data-testid={`${itemTestIdPrefix}-${theme._id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div
+                        className="font-semibold text-sm truncate flex-1 min-w-0"
+                        style={{
+                          color: isSelected
+                            ? colors.cta.dark
+                            : colors.text.DEFAULT,
+                        }}
+                        title={theme.name}
+                      >
+                        {theme.name}
+                      </div>
+                      {goalThemeIds.has(theme._id) && <WeeklyGoalThemeMarker />}
+                    </div>
+                    <div
+                      className="text-xs"
+                      style={{ color: colors.text.muted }}
+                    >
+                      {formatThemeItemCount(theme.itemCount, theme.contentType)}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: colors.cta.DEFAULT }}
+                    >
+                      <ThemeCheckmark className="w-2.5 h-2.5" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
+      {selectedThemes.length > 0 && (
+        <div
+          className="pt-2.5 text-center text-xs"
+          style={{ color: colors.text.muted }}
+        >
+          Selected:{" "}
+          <span style={{ color: colors.cta.dark }}>
+            {selectedThemes.length === 1
+              ? selectedThemes[0].name
+              : `${selectedThemes.length} themes`}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SpaciousThemeList({
+  colors,
+  themeGroups,
+  draftThemeIds,
+  goalThemeIds,
+  handleToggleTheme,
+  itemTestIdPrefix,
+  hideConfirmButton = false,
+  onConfirmSelection,
+  confirmLabel = "Confirm Themes",
+}: ThemeListProps & {
+  hideConfirmButton?: boolean;
+  onConfirmSelection: ThemeSelectorProps["onConfirmSelection"];
+  confirmLabel?: string;
+}) {
   // Spacious card list with an optional confirm button (standalone usage).
   return (
     <div className="space-y-3 pb-2">
@@ -307,7 +426,9 @@ export function ThemeSelector({
                     : "transparent",
                 }}
               >
-                {draftThemeIds.includes(theme._id) && <ThemeCheckmark className="w-3.5 h-3.5" />}
+                {draftThemeIds.includes(theme._id) && (
+                  <ThemeCheckmark className="w-3.5 h-3.5" />
+                )}
               </div>
             </button>
           ))}

@@ -132,8 +132,7 @@ const duelStatusValidator = v.union(
 const soloPracticeStatusValidator = v.union(
   v.literal("learning"),
   v.literal("practicing"),
-  v.literal("completed"),
-  v.literal("stopped")
+  v.literal("completed")
 );
 
 const duelSourceTypeValidator = v.union(
@@ -258,11 +257,6 @@ const duelQuestionValidator = v.union(
   duelWordQuestionValidator,
   duelSentenceQuestionValidator
 );
-
-const playerStatsValidator = v.object({
-  questionsAnswered: v.number(),
-  correctAnswers: v.number(),
-});
 
 export const sabotageEffectValidator = v.union(
   v.literal(SABOTAGE_EFFECTS[0]),
@@ -415,9 +409,7 @@ export default defineSchema({
     status: v.union(v.literal("consumed"), v.literal("refunded")),
     createdAt: v.number(),
     refundedAt: v.optional(v.number()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_status", ["userId", "status"]),
+  }),
 
   // -------------------------------------------
   // Themes Table
@@ -456,7 +448,6 @@ export default defineSchema({
     )
   )
     .index("by_owner", ["ownerId"])
-    .index("by_visibility", ["visibility"])
     .index("by_visibility_owner", ["visibility", "ownerId"])
     .index("by_owner_save_request", ["ownerId", "saveRequestId"]),
 
@@ -602,8 +593,6 @@ export default defineSchema({
   })
     .index("by_challenger", ["challengerId"])
     .index("by_opponent", ["opponentId"])
-    .index("by_opponent_status", ["opponentId", "status"])
-    .index("by_status", ["status"])
     .index("by_weeklyGoalId", ["weeklyGoalId"]),
 
   // -------------------------------------------
@@ -618,14 +607,12 @@ export default defineSchema({
     sourceType: soloPracticeSourceTypeValidator,
     status: soloPracticeStatusValidator,
     completedAt: v.optional(v.number()),
-    finalStats: v.optional(playerStatsValidator),
     masteredItemIndices: v.optional(v.array(v.number())),
     progressUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_weeklyGoalId", ["weeklyGoalId"])
-    .index("by_user_status", ["userId", "status"]),
+    .index("by_weeklyGoalId", ["weeklyGoalId"]),
 
   // -------------------------------------------
   // Weekly Goals Table
@@ -654,7 +641,6 @@ export default defineSchema({
   })
     .index("by_creator", ["creatorId"])
     .index("by_partner", ["partnerId"])
-    .index("by_status", ["status"])
     .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_status_endDate", ["status", "endDate"]),
 
@@ -711,7 +697,6 @@ export default defineSchema({
   )
     .index("by_weeklyGoal", ["weeklyGoalId"])
     .index("by_weeklyGoal_order", ["weeklyGoalId", "order"])
-    .index("by_weeklyGoal_originalTheme", ["weeklyGoalId", "originalThemeId"])
     .index("by_originalTheme", ["originalThemeId"]),
 
   // -------------------------------------------
@@ -765,8 +750,6 @@ export default defineSchema({
     trigger: emailNotificationTriggerValidator,
     status: v.union(v.literal("pending"), v.literal("sent"), v.literal("failed")),
     challengeId: v.optional(v.id("challenges")),
-    duelId: v.optional(v.id("duels")),
-    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     dedupeKey: v.optional(v.string()),
     claimedAt: v.optional(v.number()),
@@ -781,12 +764,5 @@ export default defineSchema({
       "dedupeKey",
     ])
     .index("by_user_trigger_challenge", ["toUserId", "trigger", "challengeId"])
-    .index("by_user_trigger_duel", ["toUserId", "trigger", "duelId"])
-    .index("by_user_trigger_soloPracticeSession", [
-      "toUserId",
-      "trigger",
-      "soloPracticeSessionId",
-    ])
-    .index("by_user_trigger", ["toUserId", "trigger"])
     .index("by_sentAt", ["sentAt"]),
 });

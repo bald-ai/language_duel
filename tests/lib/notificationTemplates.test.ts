@@ -177,3 +177,28 @@ describe("getSubjectForTrigger", () => {
     expect(subject).toContain("Alice");
   });
 });
+
+describe("solo and optional email fields", () => {
+  it.each([
+    ["weekly_goal_daily_reminder", "Weekly goal countdown"],
+    ["weekly_goal_grace_period_reminder", "Grace period, but still winnable"],
+    ["weekly_goal_reminder_1", "The clock is ticking!"],
+    ["weekly_goal_reminder_2", "This is it -- final stretch!"],
+  ] as const)("renders %s without inventing a partner", (trigger, heading) => {
+    const { html } = renderNotificationEmail(trigger, { mode: "solo", recipientName: "Learner", completedCount: 2, totalCount: 4 }, { appUrl: "https://example.test" });
+    expect(html).toContain(heading);
+    expect(html).toContain("<strong>2/4</strong>");
+    expect(html).not.toContain("your rival");
+    expect(html).not.toContain("undefined");
+  });
+  it.each(NOTIFICATION_EMAIL_TRIGGERS)("renders missing optional data for %s", trigger => {
+    const { html, subject } = renderNotificationEmail(trigger, { recipientName: "Learner" }, { appUrl: 'https://example.test/?a="b"&c=1' });
+    expect(subject).not.toContain("undefined");
+    expect(html).not.toContain("undefined");
+    expect(html).toContain('href="https://example.test/?a=&quot;b&quot;&amp;c=1"');
+    expect(html).toContain("Open Language Duel");
+  });
+  it("uses the ends-today subject at zero hours", () => {
+    expect(getSubjectForTrigger("weekly_goal_daily_reminder", { recipientName: "Learner", hoursLeft: 0 })).toBe("Weekly goal ends today");
+  });
+});

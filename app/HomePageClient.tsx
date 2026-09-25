@@ -194,14 +194,14 @@ export default function Home() {
 
               {showExperimentalFeatures && (
                 <>
-                  <div className="animate-slide-up delay-700">
+                  <div className="animate-slide-up [animation-delay:700ms]">
                     <MenuButton onClick={() => setShowMockFeaturesMenu(true)} dataTestId="home-mock-features">
                       <MockFeaturesIcon />
                       Mock Features
                     </MenuButton>
                   </div>
 
-                  <div className="animate-slide-up delay-700">
+                  <div className="animate-slide-up [animation-delay:700ms]">
                     <MenuButton onClick={() => guardAuth(() => router.push("/mock-online"))} dataTestId="home-online-mock-features">
                       <OnlineMockIcon />
                       Online Mock Features

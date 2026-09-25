@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cssVarColors as cssColors } from "@/app/components/themeCssVars";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import type { SessionWordItem } from "@/lib/sessionItems";
@@ -16,7 +17,10 @@ import {
 const LEVEL_0_GREY = "#9CA3AF";
 const LEVEL_0_GREY_DARK = "#6B7280";
 
-const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: string; backgroundColor: string }> = {
+const levelBadgeStyles: Record<
+  0 | 1 | 2 | 3,
+  { color: string; borderColor: string; backgroundColor: string }
+> = {
   0: {
     color: LEVEL_0_GREY,
     borderColor: LEVEL_0_GREY_DARK,
@@ -113,115 +117,195 @@ export function SoloQuestion({
       {session.questionLevel !== 0 && (
         <div className="text-center mb-6">
           {themeLabel}
-          <div className="text-3xl font-bold" style={{ color: colors.text.DEFAULT }}>
+          <div
+            className="text-3xl font-bold"
+            style={{ color: colors.text.DEFAULT }}
+          >
             {cueText}
           </div>
-          <div className="text-xs uppercase tracking-widest mt-2" style={{ color: colors.text.muted }}>
+          <div
+            className="text-xs uppercase tracking-widest mt-2"
+            style={{ color: colors.text.muted }}
+          >
             {helperText}
           </div>
         </div>
       )}
 
       {showFeedback && (
-        <div
-          className="text-center py-4 mb-4 rounded-2xl border-2"
-          style={
-            feedbackCorrect
-              ? {
-                  borderColor: colors.status.success.DEFAULT,
-                  backgroundColor: `${colors.status.success.DEFAULT}26`,
-                  color: colors.status.success.light,
-                }
-              : {
-                  borderColor: colors.status.danger.DEFAULT,
-                  backgroundColor: `${colors.status.danger.DEFAULT}26`,
-                  color: colors.status.danger.light,
-                }
-          }
-        >
-          <div className="text-2xl font-bold mb-2">
-            {feedbackCorrect ? "Correct" : "Wrong"}
-          </div>
-          {feedbackAnswer && (
-            <div className="text-base" style={{ color: colors.text.DEFAULT }}>
-              Answer: <span className="font-bold">{feedbackAnswer}</span>
-            </div>
-          )}
-        </div>
+        <SoloAnswerFeedback
+          feedbackCorrect={feedbackCorrect}
+          feedbackAnswer={feedbackAnswer}
+        />
       )}
 
       {!showFeedback && (
-        <>
-          {session.questionLevel === 0 && (
-            <>
-              {themeLabel}
-              <Level0Input
-                key={questionKey}
-                word={currentWord.word}
-                answer={currentWord.answer}
-                onGotIt={onLevel0GotIt}
-                onNotYet={onLevel0NotYet}
-                dataTestIdBase="solo-practice-level0"
-              />
-            </>
-          )}
-
-          {session.questionLevel === 1 && session.translationDirection === "forward" && (
-            <Level1Input
-              key={questionKey}
-              answer={expectedAnswer}
-              onCorrect={onCorrect}
-              onSkip={onIncorrect}
-              dataTestIdBase="solo-practice-level1"
-            />
-          )}
-
-          {session.questionLevel === 1 && session.translationDirection === "reverse" && (
-            <Level2TypingInput
-              key={questionKey}
-              answer={expectedAnswer}
-              onCorrect={onCorrect}
-              onWrong={onIncorrect}
-              onSkip={onIncorrect}
-              dataTestIdBase="solo-practice-level1-reverse"
-            />
-          )}
-
-          {session.questionLevel === 2 && session.level2Mode === "typing" && (
-            <Level2TypingInput
-              key={questionKey}
-              answer={expectedAnswer}
-              onCorrect={onCorrect}
-              onWrong={onIncorrect}
-              onSkip={onIncorrect}
-              dataTestIdBase="solo-practice-level2-typing"
-            />
-          )}
-
-          {session.questionLevel === 2 && session.level2Mode === "multiple_choice" && (
-            <Level2MultipleChoice
-              key={questionKey}
-              answer={expectedAnswer}
-              wrongAnswers={currentWord.wrongAnswers}
-              onCorrect={onCorrect}
-              onWrong={onIncorrect}
-              onSkip={onIncorrect}
-              dataTestIdBase="solo-practice-level2-mc"
-            />
-          )}
-
-          {session.questionLevel === 3 && (
-            <Level3Input
-              key={questionKey}
-              answer={expectedAnswer}
-              onCorrect={onCorrect}
-              onWrong={onIncorrect}
-              onSkip={onIncorrect}
-              dataTestIdBase="solo-practice-level3"
-            />
-          )}
-        </>
+        <SoloLevelInput
+          session={session}
+          currentWord={currentWord}
+          questionKey={questionKey}
+          themeLabel={themeLabel}
+          expectedAnswer={expectedAnswer}
+          onCorrect={onCorrect}
+          onIncorrect={onIncorrect}
+          onLevel0GotIt={onLevel0GotIt}
+          onLevel0NotYet={onLevel0NotYet}
+        />
       )}
     </section>
+  );
+}
+
+function SoloAnswerFeedback({
+  feedbackCorrect,
+  feedbackAnswer,
+}: Pick<SoloQuestionProps, "feedbackCorrect" | "feedbackAnswer">) {
+  const colors = useAppearanceColors();
+  return (
+    <div
+      className="text-center py-4 mb-4 rounded-2xl border-2"
+      style={
+        feedbackCorrect
+          ? {
+              borderColor: colors.status.success.DEFAULT,
+              backgroundColor: `${colors.status.success.DEFAULT}26`,
+              color: colors.status.success.light,
+            }
+          : {
+              borderColor: colors.status.danger.DEFAULT,
+              backgroundColor: `${colors.status.danger.DEFAULT}26`,
+              color: colors.status.danger.light,
+            }
+      }
+    >
+      <div className="text-2xl font-bold mb-2">
+        {feedbackCorrect ? "Correct" : "Wrong"}
+      </div>
+      {feedbackAnswer && (
+        <div className="text-base" style={{ color: colors.text.DEFAULT }}>
+          Answer: <span className="font-bold">{feedbackAnswer}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+type LevelInputProps = Pick<
+  SoloQuestionProps,
+  | "session"
+  | "currentWord"
+  | "expectedAnswer"
+  | "onCorrect"
+  | "onIncorrect"
+  | "onLevel0GotIt"
+  | "onLevel0NotYet"
+> & { questionKey: string; themeLabel: ReactNode };
+function SoloLevelInput(props: LevelInputProps) {
+  const {
+    session,
+    currentWord,
+    questionKey,
+    themeLabel,
+    expectedAnswer,
+    onCorrect,
+    onIncorrect,
+    onLevel0GotIt,
+    onLevel0NotYet,
+  } = props;
+  return (
+    <>
+      {session.questionLevel === 0 && (
+        <>
+          {themeLabel}
+          <Level0Input
+            key={questionKey}
+            word={currentWord.word}
+            answer={currentWord.answer}
+            onGotIt={onLevel0GotIt}
+            onNotYet={onLevel0NotYet}
+            dataTestIdBase="solo-practice-level0"
+          />
+        </>
+      )}
+
+      {session.questionLevel === 1 && <SoloLevelOneInput {...props} />}
+      {session.questionLevel === 2 && <SoloLevelTwoInput {...props} />}
+      {session.questionLevel === 3 && (
+        <Level3Input
+          key={questionKey}
+          answer={expectedAnswer}
+          onCorrect={onCorrect}
+          onWrong={onIncorrect}
+          onSkip={onIncorrect}
+          dataTestIdBase="solo-practice-level3"
+        />
+      )}
+    </>
+  );
+}
+function SoloLevelOneInput({
+  session,
+  questionKey,
+  expectedAnswer,
+  onCorrect,
+  onIncorrect,
+}: LevelInputProps) {
+  return (
+    <>
+      {session.translationDirection === "forward" && (
+        <Level1Input
+          key={questionKey}
+          answer={expectedAnswer}
+          onCorrect={onCorrect}
+          onSkip={onIncorrect}
+          dataTestIdBase="solo-practice-level1"
+        />
+      )}
+
+      {session.translationDirection === "reverse" && (
+        <Level2TypingInput
+          key={questionKey}
+          answer={expectedAnswer}
+          onCorrect={onCorrect}
+          onWrong={onIncorrect}
+          onSkip={onIncorrect}
+          dataTestIdBase="solo-practice-level1-reverse"
+        />
+      )}
+    </>
+  );
+}
+function SoloLevelTwoInput({
+  session,
+  currentWord,
+  questionKey,
+  expectedAnswer,
+  onCorrect,
+  onIncorrect,
+}: LevelInputProps) {
+  return (
+    <>
+      {session.level2Mode === "typing" && (
+        <Level2TypingInput
+          key={questionKey}
+          answer={expectedAnswer}
+          onCorrect={onCorrect}
+          onWrong={onIncorrect}
+          onSkip={onIncorrect}
+          dataTestIdBase="solo-practice-level2-typing"
+        />
+      )}
+
+      {session.level2Mode === "multiple_choice" && (
+        <Level2MultipleChoice
+          key={questionKey}
+          answer={expectedAnswer}
+          wrongAnswers={currentWord.wrongAnswers}
+          onCorrect={onCorrect}
+          onWrong={onIncorrect}
+          onSkip={onIncorrect}
+          dataTestIdBase="solo-practice-level2-mc"
+        />
+      )}
+    </>
   );
 }

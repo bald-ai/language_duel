@@ -55,3 +55,27 @@ describe("NicknameEditor", () => {
     });
   });
 });
+
+
+it("starts with an empty nickname, clears errors while editing, and preserves a rejected value", async () => {
+  const onUpdate = vi.fn().mockResolvedValue(false), onClearError = vi.fn();
+  const props = { isUpdating: false, error: "Already taken", onUpdate, onClearError };
+  const view = render(<NicknameEditor {...props} />);
+  const input = screen.getByTestId("settings-nickname-input") as HTMLInputElement;
+  const submit = screen.getByTestId("settings-nickname-submit") as HTMLButtonElement;
+  expect(input.value).toBe("");
+  expect(submit.disabled).toBe(true);
+  expect(screen.queryByText("Already taken")).not.toBeNull();
+  fireEvent.change(input, { target: { value: "   " } });
+  fireEvent.submit(input.closest("form")!);
+  expect(onUpdate).not.toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: "  NewName  " } });
+  expect(onClearError).toHaveBeenCalledTimes(2);
+  fireEvent.click(submit);
+  await waitFor(() => expect(onUpdate).toHaveBeenCalledExactlyOnceWith("NewName"));
+  expect(input.value).toBe("  NewName  ");
+  view.rerender(<NicknameEditor {...props} isUpdating />);
+  expect(input.disabled).toBe(true);
+  expect(submit.disabled).toBe(true);
+  expect(submit.textContent).toBe("Updating...");
+});

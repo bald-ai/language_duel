@@ -1,3 +1,4 @@
+import { moveReviewItem, sortReviewItems } from "../lib/pickAndPruneItems";
 import { useCallback, useMemo, useReducer } from "react";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 
@@ -14,8 +15,8 @@ export type PickAndPruneRound = {
 };
 
 type PickAndPruneSentenceState = {
-  activeRounds: PickAndPruneRound[];
-  removedRounds: PickAndPruneRound[];
+  activeItems: PickAndPruneRound[];
+  removedItems: PickAndPruneRound[];
   removedOpen: boolean;
   showDiscardConfirm: boolean;
 };
@@ -25,13 +26,12 @@ type PickAndPruneSentenceAction =
   | { type: "remove-round"; id: string }
   | { type: "restore-round"; id: string }
   | { type: "set-removed-open"; open: boolean }
-  | { type: "request-discard" }
-  | { type: "cancel-discard" }
+  | { type: "set-discard-confirm"; open: boolean }
   | { type: "clear" };
 
 const INITIAL_STATE: PickAndPruneSentenceState = {
-  activeRounds: [],
-  removedRounds: [],
+  activeItems: [],
+  removedItems: [],
   removedOpen: false,
   showDiscardConfirm: false,
 };
@@ -44,10 +44,6 @@ function createPickAndPruneRoundId(): string {
   return `pick-and-prune-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function sortByOriginalIndex(rounds: PickAndPruneRound[]): PickAndPruneRound[] {
-  return [...rounds].sort((left, right) => left.originalIndex - right.originalIndex);
-}
-
 function pickAndPruneSentenceReducer(
   state: PickAndPruneSentenceState,
   action: PickAndPruneSentenceAction
@@ -55,35 +51,19 @@ function pickAndPruneSentenceReducer(
   switch (action.type) {
     case "initialize":
       return {
-        activeRounds: action.rounds,
-        removedRounds: [],
+        activeItems: action.rounds,
+        removedItems: [],
         removedOpen: false,
         showDiscardConfirm: false,
       };
-    case "remove-round": {
-      const roundToRemove = state.activeRounds.find((round) => round.id === action.id);
-      if (!roundToRemove) return state;
-      return {
-        ...state,
-        activeRounds: state.activeRounds.filter((round) => round.id !== action.id),
-        removedRounds: sortByOriginalIndex([...state.removedRounds, roundToRemove]),
-      };
-    }
-    case "restore-round": {
-      const roundToRestore = state.removedRounds.find((round) => round.id === action.id);
-      if (!roundToRestore) return state;
-      return {
-        ...state,
-        removedRounds: state.removedRounds.filter((round) => round.id !== action.id),
-        activeRounds: sortByOriginalIndex([...state.activeRounds, roundToRestore]),
-      };
-    }
+    case "remove-round":
+      return moveReviewItem(state, action.id, false);
+    case "restore-round":
+      return moveReviewItem(state, action.id, true);
     case "set-removed-open":
       return { ...state, removedOpen: action.open };
-    case "request-discard":
-      return { ...state, showDiscardConfirm: true };
-    case "cancel-discard":
-      return { ...state, showDiscardConfirm: false };
+    case "set-discard-confirm":
+      return { ...state, showDiscardConfirm: action.open };
     case "clear":
       return INITIAL_STATE;
     default:
@@ -116,11 +96,11 @@ export function usePickAndPruneSentence() {
   }, []);
 
   const requestDiscard = useCallback(() => {
-    dispatch({ type: "request-discard" });
+    dispatch({ type: "set-discard-confirm", open: true });
   }, []);
 
   const cancelDiscard = useCallback(() => {
-    dispatch({ type: "cancel-discard" });
+    dispatch({ type: "set-discard-confirm", open: false });
   }, []);
 
   const clear = useCallback(() => {
@@ -128,16 +108,16 @@ export function usePickAndPruneSentence() {
   }, []);
 
   const getActiveRounds = useCallback((): SentenceRoundInput[] => {
-    return sortByOriginalIndex(state.activeRounds).map((entry) => entry.round);
-  }, [state.activeRounds]);
+    return sortReviewItems(state.activeItems).map((entry) => entry.round);
+  }, [state.activeItems]);
 
   const sortedActiveRounds = useMemo(
-    () => sortByOriginalIndex(state.activeRounds),
-    [state.activeRounds]
+    () => sortReviewItems(state.activeItems),
+    [state.activeItems]
   );
   const sortedRemovedRounds = useMemo(
-    () => sortByOriginalIndex(state.removedRounds),
-    [state.removedRounds]
+    () => sortReviewItems(state.removedItems),
+    [state.removedItems]
   );
 
   return {

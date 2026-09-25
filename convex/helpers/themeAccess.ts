@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { hasThemeAccess } from "../../lib/themeAccess";
+import { loadFriendshipsBetweenUsers } from "./relationshipPolicy";
 
 type CtxWithDb = QueryCtx | MutationCtx;
 
@@ -9,17 +10,34 @@ export async function loadThemeWithViewerAccess(
   userId: Id<"users">,
   themeId: Id<"themes">
 ): Promise<Doc<"themes"> | null> {
-  const theme = await ctx.db.get(themeId);
-  if (!theme) return null;
-
-  return await canViewTheme(ctx, userId, theme) ? theme : null;
+  return createThemeAccessLoader(ctx, userId)(themeId);
 }
 
-export async function canViewTheme(
-  ctx: CtxWithDb,
-  userId: Id<"users">,
-  theme: Doc<"themes">
-): Promise<boolean> {
+/** Cache only within one query/mutation, so multiple themes share access reads. */
+export function createThemeAccessLoader(ctx: CtxWithDb, userId: Id<"users">) {
+  let history: ReturnType<typeof loadThemeAccessHistory> | undefined;
+  const friendshipsByOwner = new Map<Id<"users">, ReturnType<typeof loadFriendshipsBetweenUsers>>();
+  return async (themeId: Id<"themes">): Promise<Doc<"themes"> | null> => {
+    const theme = await ctx.db.get(themeId);
+    if (!theme || theme.ownerId === userId) return theme;
+    history ??= loadThemeAccessHistory(ctx, userId);
+    const access = {
+      userId,
+      theme: { themeId: theme._id, ownerId: theme.ownerId, visibility: theme.visibility },
+      ...await history,
+    };
+    if (hasThemeAccess({ ...access, friendships: [] })) return theme;
+    if (theme.visibility !== "shared" || !theme.ownerId) return null;
+    let friendships = friendshipsByOwner.get(theme.ownerId);
+    if (!friendships) {
+      friendships = loadFriendshipsBetweenUsers(ctx, userId, theme.ownerId);
+      friendshipsByOwner.set(theme.ownerId, friendships);
+    }
+    return hasThemeAccess({ ...access, friendships: await friendships }) ? theme : null;
+  };
+}
+
+async function loadThemeAccessHistory(ctx: CtxWithDb, userId: Id<"users">) {
   const [
     challengesAsChallenger,
     challengesAsOpponent,
@@ -28,8 +46,6 @@ export async function canViewTheme(
     soloPracticeSessions,
     goalsAsCreator,
     goalsAsPartner,
-    friendshipsFromUser,
-    friendshipsToUser,
   ] = await Promise.all([
     ctx.db
       .query("challenges")
@@ -59,29 +75,9 @@ export async function canViewTheme(
       .query("weeklyGoals")
       .withIndex("by_partner", (q) => q.eq("partnerId", userId))
       .collect(),
-    theme.ownerId
-      ? ctx.db
-          .query("friends")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .filter((q) => q.eq(q.field("friendId"), theme.ownerId!))
-          .collect()
-      : Promise.resolve([]),
-    theme.ownerId
-      ? ctx.db
-          .query("friends")
-          .withIndex("by_user", (q) => q.eq("userId", theme.ownerId!))
-          .filter((q) => q.eq(q.field("friendId"), userId))
-          .collect()
-      : Promise.resolve([]),
   ]);
 
-  return hasThemeAccess({
-    userId,
-    theme: {
-      themeId: theme._id,
-      ownerId: theme.ownerId,
-      visibility: theme.visibility,
-    },
+  return {
     challenges: [...challengesAsChallenger, ...challengesAsOpponent].map((challenge) => ({
       challengerId: challenge.challengerId,
       opponentId: challenge.opponentId,
@@ -102,9 +98,5 @@ export async function canViewTheme(
       status: goal.status,
       themeIds: goal.themes.map((goalTheme) => goalTheme.themeId),
     })),
-    friendships: [...friendshipsFromUser, ...friendshipsToUser].map((friendship) => ({
-      userId: friendship.userId,
-      friendId: friendship.friendId,
-    })),
-  });
+  };
 }

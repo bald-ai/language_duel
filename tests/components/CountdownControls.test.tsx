@@ -136,4 +136,28 @@ describe("CountdownControls", () => {
 
     expect(screen.queryByTestId("duel-countdown-skip")).not.toBeInTheDocument();
   });
+  it("uses opponent perspective for skip requests and disables repeated skips", () => {
+    const skip = vi.fn();
+    const props = { countdown: 2, countdownPausedBy: undefined, countdownUnpauseRequestedBy: undefined, userRole: "opponent" as const, onPause: vi.fn(), onRequestUnpause: vi.fn(), onConfirmUnpause: vi.fn(), onSkip: skip, dataTestIdBase: "countdown", countdownLabel: "Results" };
+    const view = render(<CountdownControls {...props} countdownSkipRequestedBy={["challenger"]} />);
+    expect(screen.getByText("Results in 2...")).toBeInTheDocument();
+    expect(screen.getByText("Opponent wants to skip!")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("countdown-skip")); expect(skip).toHaveBeenCalledOnce();
+    view.rerender(<CountdownControls {...props} countdownSkipRequestedBy={["challenger", "opponent"]} />);
+    expect((screen.getByTestId("countdown-skip") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId("countdown-skip")); expect(skip).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Opponent wants to skip!")).toBeNull();
+    expect(screen.queryByText("Waiting for opponent to skip...")).toBeNull();
+  });
+  it.each([undefined, "opponent", "challenger"])("renders paused controls without optional test IDs for request=%s", request => {
+    const resume = vi.fn(); const confirm = vi.fn();
+    render(<CountdownControls countdown={3} countdownPausedBy="challenger" countdownUnpauseRequestedBy={request} userRole="opponent" onPause={vi.fn()} onRequestUnpause={resume} onConfirmUnpause={confirm} />);
+    const button = screen.getByRole("button");
+    expect(button).not.toHaveAttribute("data-testid");
+    fireEvent.click(button);
+    expect(resume).toHaveBeenCalledTimes(request === undefined ? 1 : 0);
+    expect(confirm).toHaveBeenCalledTimes(request === "challenger" ? 1 : 0);
+    expect((button as HTMLButtonElement).disabled).toBe(request === "opponent");
+  });
+
 });

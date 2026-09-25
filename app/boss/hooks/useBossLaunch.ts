@@ -1,0 +1,106 @@
+"use client";
+
+import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { buildSoloUrl } from "@/lib/soloNavigation";
+import { getErrorMessage } from "@/lib/errors";
+import type { BossType } from "@/lib/limitedLives";
+import { type DuelMode } from "@/lib/duelMode";
+
+function isBossType(value: string): value is BossType {
+  return value === "mini" || value === "big";
+}
+
+export function useBossLaunch() {
+  const params = useParams();
+  const router = useRouter();
+  const [isStartingDuel, setIsStartingDuel] = useState(false);
+  const [isStartingPractice, setIsStartingPractice] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<DuelMode>("pvp");
+
+  const { goalId, bossType } = parseBossLaunchParams(params);
+
+  const preview = useQuery(
+    api.weeklyGoals.getBossLaunchPreview,
+    goalId && bossType
+      ? { goalId: goalId as Id<"weeklyGoals">, bossType }
+      : "skip",
+  );
+  const createBossChallenge = useMutation(api.weeklyGoals.createBossChallenge);
+  const startBossSoloPractice = useMutation(
+    api.weeklyGoals.startBossSoloPractice,
+  );
+  const selectedBossStatus = preview?.selectedBossStatus;
+  const isSoloGoal = preview?.mode === "solo";
+  const bossTitle = bossType === "mini" ? "Mini Boss" : "Big Boss";
+  const bossFraming = bossType === "mini" ? "Checkpoint" : "Final Boss";
+  const canStart = selectedBossStatus === "ready";
+
+  const handleChallengePartner = async () => {
+    if (!goalId || !bossType) return;
+    setIsStartingDuel(true);
+    try {
+      await createBossChallenge({
+        goalId: goalId as Id<"weeklyGoals">,
+        bossType,
+        duelMode: selectedMode,
+      });
+      toast.success("Boss challenge sent.");
+      router.push("/goals");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to start boss duel"));
+    } finally {
+      setIsStartingDuel(false);
+    }
+  };
+
+  const handlePracticeSolo = async () => {
+    if (!goalId || !bossType) return;
+    setIsStartingPractice(true);
+    try {
+      const soloPracticeSessionId = await startBossSoloPractice({
+        goalId: goalId as Id<"weeklyGoals">,
+        bossType,
+      });
+      router.push(
+        buildSoloUrl(String(soloPracticeSessionId), "learn_practice", {
+          soloPracticeSessionId,
+        }),
+      );
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to start practice"));
+    } finally {
+      setIsStartingPractice(false);
+    }
+  };
+
+  return {
+    preview,
+    bossType,
+    selectedBossStatus,
+    isSoloGoal,
+    bossTitle,
+    bossFraming,
+    canStart,
+    selectedMode,
+    setSelectedMode,
+    isStartingDuel,
+    isStartingPractice,
+    handleChallengePartner,
+    handlePracticeSolo,
+    goBack: () => router.push("/goals"),
+  };
+}
+
+function parseBossLaunchParams(params: ReturnType<typeof useParams>) {
+  const goalId = typeof params.goalId === "string" ? params.goalId : "";
+  const bossTypeParam =
+    typeof params.bossType === "string" ? params.bossType : "";
+  const bossType = isBossType(bossTypeParam) ? bossTypeParam : null;
+
+  return { goalId, bossType };
+}

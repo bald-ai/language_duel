@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthenticatedUser } from "../helpers/auth";
 import { buildSoloPracticeSession } from "../helpers/sessionCreation";
 import {
@@ -10,7 +10,7 @@ import {
 
 export async function startRepetitionSoloPracticeForCurrentUser(
   ctx: MutationCtx,
-  weeklyGoalId: Id<"weeklyGoals">
+  weeklyGoalId: Id<"weeklyGoals">,
 ): Promise<Id<"soloPracticeSessions">> {
   const { user } = await getAuthenticatedUser(ctx);
   const now = Date.now();
@@ -31,7 +31,7 @@ export async function startRepetitionSoloPracticeForCurrentUser(
       spacedRepetitionStep: step,
       startsInLearning: true,
       createdAt: now,
-    })
+    }),
   );
 }
 
@@ -40,62 +40,31 @@ export async function completeRepetitionSoloPracticeForCurrentUser(
   args: {
     soloPracticeSessionId: Id<"soloPracticeSessions">;
     completedStep: number;
-  }
+  },
 ): Promise<{ advanced: boolean }> {
   const { user } = await getAuthenticatedUser(ctx);
   const now = Date.now();
   const session = await ctx.db.get(args.soloPracticeSessionId);
   if (
-    !session ||
-    session.sourceType !== "spaced_repetition" ||
-    typeof session.spacedRepetitionStep !== "number" ||
-    session.userId !== user._id
+    !isOwnedRepetitionSession(session, user._id) ||
+    typeof session.spacedRepetitionStep !== "number"
   ) {
     console.warn(
       "Skipping spaced repetition solo completion: session is not a matching SR session.",
-      { soloPracticeSessionId: args.soloPracticeSessionId }
+      { soloPracticeSessionId: args.soloPracticeSessionId },
     );
     return { advanced: false };
   }
   if (session.status === "completed") {
     console.warn(
       "Skipping spaced repetition solo completion: session is already completed.",
-      { soloPracticeSessionId: args.soloPracticeSessionId }
+      { soloPracticeSessionId: args.soloPracticeSessionId },
     );
     return { advanced: false };
   }
 
-  const itemCount = session.sessionItems.length;
-  const masteredItemIndices = new Set(session.masteredItemIndices ?? []);
-  const hasServerOwnedCompletion = session.sessionItems.every((_, index) =>
-    masteredItemIndices.has(index)
-  );
-  if (!hasServerOwnedCompletion) {
-    console.warn(
-      "Skipping spaced repetition solo completion: server progress is incomplete.",
-      {
-        soloPracticeSessionId: args.soloPracticeSessionId,
-        masteredCount: masteredItemIndices.size,
-        itemCount,
-      }
-    );
+  if (!canCompleteSoloRepetition(session, args.completedStep))
     return { advanced: false };
-  }
-
-  if (
-    !Number.isInteger(args.completedStep) ||
-    args.completedStep !== session.spacedRepetitionStep
-  ) {
-    console.warn(
-      "Skipping spaced repetition solo completion: completed step mismatch.",
-      {
-        soloPracticeSessionId: args.soloPracticeSessionId,
-        completedStep: args.completedStep,
-        expectedStep: session.spacedRepetitionStep,
-      }
-    );
-    return { advanced: false };
-  }
 
   const goal = await ctx.db.get(session.weeklyGoalId);
   if (!goal || goal.status !== "completed") {
@@ -104,7 +73,7 @@ export async function completeRepetitionSoloPracticeForCurrentUser(
       {
         soloPracticeSessionId: args.soloPracticeSessionId,
         weeklyGoalId: session.weeklyGoalId,
-      }
+      },
     );
     return { advanced: false };
   }
@@ -132,14 +101,12 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   args: {
     soloPracticeSessionId: Id<"soloPracticeSessions">;
     itemIndex: number;
-  }
+  },
 ): Promise<{ masteredCount: number; totalCount: number }> {
   const { user } = await getAuthenticatedUser(ctx);
   const session = await ctx.db.get(args.soloPracticeSessionId);
   if (
-    !session ||
-    session.sourceType !== "spaced_repetition" ||
-    session.userId !== user._id ||
+    !isOwnedRepetitionSession(session, user._id) ||
     session.status === "completed"
   ) {
     throw new ConvexError({
@@ -148,19 +115,10 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
     });
   }
 
-  if (
-    !Number.isInteger(args.itemIndex) ||
-    args.itemIndex < 0 ||
-    args.itemIndex >= session.sessionItems.length
-  ) {
-    throw new ConvexError({
-      code: "INVALID_INPUT",
-      message: "Invalid solo practice item index.",
-    });
-  }
+  validateMasteryIndex(args.itemIndex, session.sessionItems.length);
 
   const masteredItemIndices = Array.from(
-    new Set([...(session.masteredItemIndices ?? []), args.itemIndex])
+    new Set([...(session.masteredItemIndices ?? []), args.itemIndex]),
   ).sort((a, b) => a - b);
   const now = Date.now();
 
@@ -170,29 +128,97 @@ export async function recordRepetitionSoloMasteryForCurrentUser(
   });
 
   if (masteredItemIndices.length === session.sessionItems.length) {
-    const goal = await ctx.db.get(session.weeklyGoalId);
-    if (
-      goal?.status === "completed" &&
-      typeof session.spacedRepetitionStep === "number"
-    ) {
-      await advanceUserIfReady({
-        ctx,
-        goal,
-        userId: user._id,
-        completedVia: "solo_practice",
-        soloPracticeSessionId: args.soloPracticeSessionId,
-        expectedStep: session.spacedRepetitionStep,
-        now,
-      });
-      await ctx.db.patch(args.soloPracticeSessionId, {
-        status: "completed",
-        completedAt: now,
-      });
-    }
+    await completeMasteredRepetition(ctx, session, now);
   }
 
   return {
     masteredCount: masteredItemIndices.length,
     totalCount: session.sessionItems.length,
   };
+}
+
+/** Completion uses persisted mastery and the session's assigned step. */
+function canCompleteSoloRepetition(
+  session: Doc<"soloPracticeSessions">,
+  completedStep: number,
+): boolean {
+  const itemCount = session.sessionItems.length;
+  const masteredItemIndices = new Set(session.masteredItemIndices ?? []);
+  const hasServerOwnedCompletion = session.sessionItems.every((_, index) =>
+    masteredItemIndices.has(index),
+  );
+  if (!hasServerOwnedCompletion) {
+    console.warn(
+      "Skipping spaced repetition solo completion: server progress is incomplete.",
+      {
+        soloPracticeSessionId: session._id,
+        masteredCount: masteredItemIndices.size,
+        itemCount,
+      },
+    );
+    return false;
+  }
+
+  if (
+    !Number.isInteger(completedStep) ||
+    completedStep !== session.spacedRepetitionStep
+  ) {
+    console.warn(
+      "Skipping spaced repetition solo completion: completed step mismatch.",
+      {
+        soloPracticeSessionId: session._id,
+        completedStep: completedStep,
+        expectedStep: session.spacedRepetitionStep,
+      },
+    );
+    return false;
+  }
+
+  return true;
+}
+
+function validateMasteryIndex(itemIndex: number, itemCount: number) {
+  if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= itemCount) {
+    throw new ConvexError({
+      code: "INVALID_INPUT",
+      message: "Invalid solo practice item index.",
+    });
+  }
+}
+
+async function completeMasteredRepetition(
+  ctx: MutationCtx,
+  session: Doc<"soloPracticeSessions">,
+  now: number,
+) {
+  const goal = await ctx.db.get(session.weeklyGoalId);
+  if (
+    goal?.status === "completed" &&
+    typeof session.spacedRepetitionStep === "number"
+  ) {
+    await advanceUserIfReady({
+      ctx,
+      goal,
+      userId: session.userId,
+      completedVia: "solo_practice",
+      soloPracticeSessionId: session._id,
+      expectedStep: session.spacedRepetitionStep,
+      now,
+    });
+    await ctx.db.patch(session._id, {
+      status: "completed",
+      completedAt: now,
+    });
+  }
+}
+
+function isOwnedRepetitionSession(
+  session: Doc<"soloPracticeSessions"> | null,
+  userId: Id<"users">,
+): session is Doc<"soloPracticeSessions"> {
+  return (
+    !!session &&
+    session.sourceType === "spaced_repetition" &&
+    session.userId === userId
+  );
 }

@@ -21,10 +21,7 @@ import {
   SENTENCE_PVP_SINGLE_FAIL_POINTS,
   SENTENCE_PVP_FLOOR_POINTS,
 } from "../../lib/themes/sentenceConstants";
-import {
-  getLimitedLivesMissPatch,
-  isBossAttempt,
-} from "./duelScoringRules";
+import { getLimitedLivesMissPatch, isBossAttempt } from "./duelScoringRules";
 import { mirrorPatchForSelfDuel } from "./selfDuelMirror";
 import type { PlayerRole } from "../helpers/auth";
 import { TIMEOUT_ANSWER } from "../constants";
@@ -39,21 +36,21 @@ export type SentenceProgressEntry = NonNullable<
 export function findSentenceProgress(
   duel: Pick<Doc<"duels">, "sentenceProgress">,
   questionIndex: number,
-  role: PlayerRole
+  role: PlayerRole,
 ): SentenceProgressEntry | undefined {
   return (duel.sentenceProgress ?? []).find(
-    (entry) => entry.questionIndex === questionIndex && entry.role === role
+    (entry) => entry.questionIndex === questionIndex && entry.role === role,
   );
 }
 
 function replaceSentenceProgress(
   duel: Pick<Doc<"duels">, "sentenceProgress">,
-  next: SentenceProgressEntry
+  next: SentenceProgressEntry,
 ): SentenceProgressEntry[] {
   const all = duel.sentenceProgress ?? [];
   const filtered = all.filter(
     (entry) =>
-      !(entry.questionIndex === next.questionIndex && entry.role === next.role)
+      !(entry.questionIndex === next.questionIndex && entry.role === next.role),
   );
   return [...filtered, next];
 }
@@ -73,20 +70,12 @@ export function applySentenceTap(params: {
   tileIndex: number;
 }): { patch: Partial<Doc<"duels">>; accepted: boolean } {
   const { duel, questionIndex, role, tileIndex } = params;
-  const question = duel.duelQuestions?.[questionIndex];
-  if (!question || question.kind !== "sentence") {
-    throw new ConvexError({
-      code: "WRONG_QUESTION_KIND",
-      message: "tapSentenceTile only applies to sentence positions",
-    });
-  }
-
+  const question = requireSentenceQuestion(
+    duel,
+    questionIndex,
+    "tapSentenceTile only applies to sentence positions",
+  );
   const existing = findSentenceProgress(duel, questionIndex, role);
-  if (existing?.finalized) {
-    // Already finalized — taps are ignored.
-    return { patch: {}, accepted: false };
-  }
-
   const current: SentenceProgressEntry = existing ?? {
     questionIndex,
     role,
@@ -96,13 +85,7 @@ export function applySentenceTap(params: {
     finalized: false,
   };
 
-  if (current.completed) {
-    return { patch: {}, accepted: false };
-  }
-  if (tileIndex < 0 || tileIndex >= question.tilePool.length) {
-    return { patch: {}, accepted: false };
-  }
-  if (current.placedTileIndices.includes(tileIndex)) {
+  if (!canPlaceSentenceTile(current, tileIndex, question.tilePool.length)) {
     return { patch: {}, accepted: false };
   }
 
@@ -145,7 +128,7 @@ export function applySentenceTap(params: {
 
 function emptySentenceEntry(
   questionIndex: number,
-  role: PlayerRole
+  role: PlayerRole,
 ): SentenceProgressEntry {
   return {
     questionIndex,
@@ -158,15 +141,30 @@ function emptySentenceEntry(
   };
 }
 
-function requireSentenceQuestion(duel: Doc<"duels">, questionIndex: number) {
+function requireSentenceQuestion(
+  duel: Doc<"duels">,
+  questionIndex: number,
+  message = "This duel position is not a sentence round",
+) {
   const question = duel.duelQuestions?.[questionIndex];
   if (!question || question.kind !== "sentence") {
     throw new ConvexError({
       code: "WRONG_QUESTION_KIND",
-      message: "This duel position is not a sentence round",
+      message,
     });
   }
   return question;
+}
+
+/** Both placement models require an editable board and a fresh pool index. */
+function canPlaceSentenceTile(
+  current: SentenceProgressEntry,
+  tileIndex: number,
+  poolLength: number,
+): boolean {
+  if (current.finalized || current.completed) return false;
+  if (tileIndex < 0 || tileIndex >= poolLength) return false;
+  return !current.placedTileIndices.includes(tileIndex);
 }
 
 /**
@@ -186,14 +184,8 @@ export function appendSentenceTile(params: {
   const question = requireSentenceQuestion(duel, questionIndex);
 
   const existing = findSentenceProgress(duel, questionIndex, role);
-  if (existing?.finalized) return { patch: {}, accepted: false };
-
   const current = existing ?? emptySentenceEntry(questionIndex, role);
-  if (current.completed) return { patch: {}, accepted: false };
-  if (tileIndex < 0 || tileIndex >= question.tilePool.length) {
-    return { patch: {}, accepted: false };
-  }
-  if (current.placedTileIndices.includes(tileIndex)) {
+  if (!canPlaceSentenceTile(current, tileIndex, question.tilePool.length)) {
     return { patch: {}, accepted: false };
   }
 
@@ -225,7 +217,8 @@ export function removeLastSentenceTile(params: {
   requireSentenceQuestion(duel, questionIndex);
 
   const existing = findSentenceProgress(duel, questionIndex, role);
-  if (!existing || existing.finalized || existing.completed) return { patch: {} };
+  if (!existing || existing.finalized || existing.completed)
+    return { patch: {} };
   if (existing.placedTileIndices.length === 0) return { patch: {} };
 
   const next: SentenceProgressEntry = {
@@ -246,7 +239,8 @@ export function clearSentenceBoard(params: {
   requireSentenceQuestion(duel, questionIndex);
 
   const existing = findSentenceProgress(duel, questionIndex, role);
-  if (!existing || existing.finalized || existing.completed) return { patch: {} };
+  if (!existing || existing.finalized || existing.completed)
+    return { patch: {} };
   if (existing.placedTileIndices.length === 0) return { patch: {} };
 
   const next: SentenceProgressEntry = { ...existing, placedTileIndices: [] };
@@ -282,18 +276,14 @@ export function confirmSentenceRound(params: {
 
   const existing = findSentenceProgress(duel, questionIndex, role);
   const current = existing ?? emptySentenceEntry(questionIndex, role);
-  const failedConfirms = current.failedConfirms ?? 0;
+  const { failedConfirms } = sentenceSubmission(current);
 
   // Finalized or already-correct rounds are idempotent: re-derive the mask from
   // the current board without changing state.
-  const correctTokens = tokenizeSpanishSentence(question.spanishSentence);
-  const correctnessMask = current.placedTileIndices.map((tileIndex, position) => {
-    const expected = correctTokens[position];
-    if (expected === undefined) return false;
-    const placed = question.tilePool[tileIndex];
-    if (placed === undefined) return false;
-    return normalizeForComparison(placed) === normalizeForComparison(expected);
-  });
+  const { correctnessMask, allMatch } = evaluateSentenceBoard(
+    question,
+    current.placedTileIndices,
+  );
 
   if (current.finalized || current.completed) {
     return {
@@ -310,10 +300,6 @@ export function confirmSentenceRound(params: {
     };
   }
 
-  const allMatch =
-    current.placedTileIndices.length === correctTokens.length &&
-    correctnessMask.every(Boolean);
-
   if (allMatch) {
     const next: SentenceProgressEntry = { ...current, completed: true };
     return {
@@ -325,13 +311,7 @@ export function confirmSentenceRound(params: {
   // Penalty-stacking guard: re-confirming the exact same wrong board (a
   // double-click or repeated tap) must not increment failedConfirms again.
   // Only a board that differs from the last failed Confirm counts as a new try.
-  const lastFailed = current.lastFailedConfirmTileIndices;
-  const sameAsLastFailed =
-    lastFailed !== undefined &&
-    lastFailed.length === current.placedTileIndices.length &&
-    lastFailed.every((value, i) => value === current.placedTileIndices[i]);
-
-  if (sameAsLastFailed) {
+  if (repeatsFailedConfirmation(current)) {
     return {
       patch: {},
       result: { correctnessMask, completed: false, failedConfirms },
@@ -354,11 +334,42 @@ export function confirmSentenceRound(params: {
   };
 }
 
+/** Compare each occupied slot and require the whole target length for completion. */
+function evaluateSentenceBoard(
+  question: ReturnType<typeof requireSentenceQuestion>,
+  placedTileIndices: number[],
+) {
+  const correctTokens = tokenizeSpanishSentence(question.spanishSentence);
+  const correctnessMask = placedTileIndices.map((tileIndex, position) => {
+    const expected = correctTokens[position];
+    if (expected === undefined) return false;
+    const placed = question.tilePool[tileIndex];
+    if (placed === undefined) return false;
+    return normalizeForComparison(placed) === normalizeForComparison(expected);
+  });
+
+  return {
+    correctnessMask,
+    allMatch:
+      placedTileIndices.length === correctTokens.length &&
+      correctnessMask.every(Boolean),
+  };
+}
+
+function repeatsFailedConfirmation(current: SentenceProgressEntry): boolean {
+  const lastFailed = current.lastFailedConfirmTileIndices;
+  return (
+    lastFailed !== undefined &&
+    lastFailed.length === current.placedTileIndices.length &&
+    lastFailed.every((value, i) => value === current.placedTileIndices[i])
+  );
+}
+
 /** Mark a progress row finalized so further taps are rejected. */
 export function finalizeSentenceProgress(
   duel: Pick<Doc<"duels">, "sentenceProgress">,
   questionIndex: number,
-  role: PlayerRole
+  role: PlayerRole,
 ): Partial<Doc<"duels">> {
   const existing = findSentenceProgress(duel, questionIndex, role);
   const base: SentenceProgressEntry = existing ?? {
@@ -371,7 +382,10 @@ export function finalizeSentenceProgress(
   };
   if (base.finalized) return {};
   return {
-    sentenceProgress: replaceSentenceProgress(duel, { ...base, finalized: true }),
+    sentenceProgress: replaceSentenceProgress(duel, {
+      ...base,
+      finalized: true,
+    }),
   };
 }
 
@@ -387,7 +401,9 @@ export interface PvpSentenceSubmission {
  * is −1; positive points require a correct Confirm. See the table on
  * `SENTENCE_PVP_*` in `sentenceConstants.ts`.
  */
-export function scorePvpSentenceSubmission(submission: PvpSentenceSubmission): number {
+export function scorePvpSentenceSubmission(
+  submission: PvpSentenceSubmission,
+): number {
   const { completed, failedConfirms } = submission;
   if (completed) {
     if (failedConfirms === 0) return SENTENCE_PVP_CLEAN_CONFIRM_POINTS;
@@ -423,18 +439,24 @@ export function buildSentenceAnswerPatch(params: {
     : duel.opponentAnswered;
   if (alreadyAnswered) return {};
 
-  const finalizePatch = finalizeSentenceProgress(duel, questionIndex, playerRole);
+  const finalizePatch = finalizeSentenceProgress(
+    duel,
+    questionIndex,
+    playerRole,
+  );
 
   // Build-and-confirm is the only sentence model (PvE / PvP / self unified).
   // Score off the failed-Confirm ladder: `completed` is set only by a correct
   // Confirm, so a timeout naturally lands on the not-completed rows. A boss / SR
   // attempt is lives-tracked, so an unsolved round costs one life (a correct
   // Confirm costs none); plain duels are not lives attempts, so that is a no-op.
-  const entry = findSentenceProgress(duel, questionIndex, playerRole);
-  const completed = entry?.completed ?? false;
-  const failedConfirms = entry?.failedConfirms ?? 0;
+  const { completed, failedConfirms } = sentenceSubmission(
+    findSentenceProgress(duel, questionIndex, playerRole),
+  );
   const earned = scorePvpSentenceSubmission({ completed, failedConfirms });
-  const livesPatch = completed ? {} : getLimitedLivesMissPatch(duel, playerRole);
+  const livesPatch = completed
+    ? {}
+    : getLimitedLivesMissPatch(duel, playerRole);
   const lastAnswerMarker = completed
     ? `sentence:confirms=${failedConfirms}`
     : TIMEOUT_ANSWER;
@@ -456,8 +478,18 @@ export function buildSentenceAnswerPatch(params: {
             ...livesPatch,
           }),
     },
-    duel
+    duel,
   );
+}
+
+/** An untouched round is an incomplete submission with no failed confirms. */
+function sentenceSubmission(
+  entry: SentenceProgressEntry | undefined,
+): PvpSentenceSubmission {
+  return {
+    completed: entry?.completed ?? false,
+    failedConfirms: entry?.failedConfirms ?? 0,
+  };
 }
 
 export function validateTimedOutFlag(timedOut: unknown) {

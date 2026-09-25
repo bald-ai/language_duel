@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  isWordAnswerFeedbackVisible,
+  canPlayWordAnswerAudio,
+} from "@/lib/duel/wordAnswerDisclosure";
+import type { ThemeColors } from "@/lib/appearance";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import {
   TIMER_DANGER_THRESHOLD,
@@ -114,7 +119,11 @@ export interface DuelViewProps {
     onConfirmUnpause: () => void;
     onSkipCountdown: () => void;
     onPlayAudio: () => void;
-    onOptionClick: (answer: string, canEliminateThis: boolean, isEliminated: boolean) => void;
+    onOptionClick: (
+      answer: string,
+      canEliminateThis: boolean,
+      isEliminated: boolean,
+    ) => void;
     onConfirmAnswer: () => void;
     onRequestHint: () => void;
     onAcceptHint: () => void;
@@ -146,48 +155,15 @@ export function DuelView({
   const colors = useAppearanceColors();
   const styles = buildDuelViewStyles(colors);
 
-  const canShowAnswerFeedback =
-    answers.correctAnswer !== null && answers.hasNoneOption !== null;
-  const isShowingFeedback =
-    canShowAnswerFeedback &&
-    (answers.hasAnswered || answers.isLocked || !!round.frozenData || status === "completed");
-  const inTransition = phase === "transition" && !!round.frozenData;
-  // There is an answer area to show whenever a question is on screen: the live
-  // word (round not over) or the frozen snapshot during the transition.
-  const showAnswerArea = !!round.frozenData || !isRoundOver;
-  const showListenButton =
-    canShowAnswerFeedback &&
-    (answers.hasAnswered || answers.isLocked || inTransition) &&
-    showAnswerArea;
-
-  const timerIsDanger =
-    timer.questionTimer !== null && timer.questionTimer <= TIMER_DANGER_THRESHOLD;
-  const timerIsWarning =
-    timer.questionTimer !== null && timer.questionTimer <= TIMER_WARNING_THRESHOLD;
-  const timerColor = timerIsDanger
-    ? colors.status.danger.light
-    : timerIsWarning
-      ? colors.status.warning.light
-      : colors.text.DEFAULT;
-
-  const optionContext: OptionContext = {
-    answer: "",
-    selectedAnswer: answers.selectedAnswer,
-    correctAnswer: answers.correctAnswer,
-    hasNoneOption: answers.hasNoneOption,
-    isShowingFeedback,
-    eliminatedOptions: answers.eliminatedOptions,
-    canEliminate: hints.canEliminate,
-    opponentAnswer: answers.opponentLastAnswer,
-    showOpponentPick: !!round.frozenData || status === "completed",
-  };
-
   return (
     <main
       className="min-h-dvh md:flex md:items-center md:justify-center md:p-6 lg:p-8"
       style={{ color: colors.text.DEFAULT }}
     >
-      <SabotageRenderer effect={sabotage.activeSabotage} phase={sabotage.sabotagePhase} />
+      <SabotageRenderer
+        effect={sabotage.activeSabotage}
+        phase={sabotage.sabotagePhase}
+      />
 
       {/* Game Container - full screen on mobile, centered card on desktop */}
       <div
@@ -242,74 +218,25 @@ export function DuelView({
             </div>
           )}
 
-          {/* Timer OR Countdown controls */}
-          <div className="mb-4 text-center">
-            {/* Timer during answering phase */}
-            {timer.questionTimer !== null && phase === "answering" && (
-              <div className="flex items-center justify-center gap-2">
-                <span
-                  className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
-                  style={{ color: timerColor }}
-                >
-                  {Math.max(0, Math.ceil(timer.questionTimer - 1))}
-                </span>
-                <span className="text-xs" style={styles.mutedText}>
-                  sec
-                  {timer.questionTimerPausedAt && (
-                    <span className="block" style={{ color: colors.secondary.light }}>
-                      Paused
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-
-            {/* Countdown controls during transition */}
-            {countdown.value !== null && round.frozenData && (
-              <CountdownControls
-                countdown={countdown.value}
-                countdownPausedBy={countdown.pausedBy}
-                countdownUnpauseRequestedBy={countdown.unpauseRequestedBy}
-                userRole={countdown.userRole}
-                onPause={actions.onPauseCountdown}
-                onRequestUnpause={actions.onRequestUnpause}
-                onConfirmUnpause={actions.onConfirmUnpause}
-                countdownSkipRequestedBy={countdown.skipRequestedBy}
-                onSkip={actions.onSkipCountdown}
-                dataTestIdBase="duel-countdown"
-              />
-            )}
-          </div>
-
-          {/* TTS Listen button */}
-          {showListenButton && (
-            <button
-              onClick={actions.onPlayAudio}
-              disabled={audio.isPlaying}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${audio.isPlaying ? "cursor-not-allowed" : "hover:brightness-110"
-                }`}
-              style={getListenButtonStyle(colors, audio.isPlaying)}
-              data-testid="duel-listen"
-            >
-              <span className="text-lg">{audio.isPlaying ? "🔊" : "🔈"}</span>
-              <span>{audio.isPlaying ? "Playing..." : "Listen"}</span>
-            </button>
-          )}
-
-          {/* Answer Options */}
-          {showAnswerArea && (
-            <DuelAnswerGrid
-              answers={answers.shuffledAnswers}
-              optionContext={optionContext}
-              activeSabotage={sabotage.activeSabotage}
-              onOptionClick={actions.onOptionClick}
-              showTypeReveal={answers.isRevealing && !!round.frozenData}
-              typedText={answers.typedText}
-              revealComplete={answers.revealComplete}
-              hasNoneOption={answers.hasNoneOption === true}
-              isShowingFeedback={isShowingFeedback}
-            />
-          )}
+          <WordDuelTiming
+            phase={phase}
+            timer={timer}
+            countdown={countdown}
+            round={round}
+            actions={actions}
+            colors={colors}
+          />
+          <WordDuelAnswerArea
+            status={status}
+            phase={phase}
+            isRoundOver={isRoundOver}
+            round={round}
+            answers={answers}
+            hints={hints}
+            sabotage={sabotage}
+            actions={actions}
+            audio={audio}
+          />
         </div>
 
         <DuelFooter
@@ -327,5 +254,171 @@ export function DuelView({
         />
       </div>
     </main>
+  );
+}
+
+function WordDuelAnswerArea({
+  status,
+  phase,
+  isRoundOver,
+  round,
+  answers,
+  hints,
+  sabotage,
+  actions,
+  audio,
+}: Pick<
+  DuelViewProps,
+  | "status"
+  | "phase"
+  | "isRoundOver"
+  | "round"
+  | "answers"
+  | "hints"
+  | "sabotage"
+  | "actions"
+  | "audio"
+>) {
+  const colors = useAppearanceColors();
+  // Keep the completed round visible while its frozen snapshot is displayed.
+  if (!round.frozenData && isRoundOver) return null;
+  const isShowingFeedback = isWordAnswerFeedbackVisible(
+    answers,
+    !!round.frozenData,
+    status,
+  );
+  const showListenButton = canPlayWordAnswerAudio(
+    answers,
+    !!round.frozenData,
+    phase,
+  );
+
+  const optionContext: OptionContext = {
+    answer: "",
+    selectedAnswer: answers.selectedAnswer,
+    correctAnswer: answers.correctAnswer,
+    hasNoneOption: answers.hasNoneOption,
+    isShowingFeedback,
+    eliminatedOptions: answers.eliminatedOptions,
+    canEliminate: hints.canEliminate,
+    opponentAnswer: answers.opponentLastAnswer,
+    showOpponentPick: !!round.frozenData || status === "completed",
+  };
+
+  return (
+    <>
+      {/* TTS Listen button */}
+      {showListenButton && (
+        <WordDuelListenButton
+          audio={audio}
+          onPlayAudio={actions.onPlayAudio}
+          colors={colors}
+        />
+      )}
+
+      {/* Answer Options */}
+      <DuelAnswerGrid
+        answers={answers.shuffledAnswers}
+        optionContext={optionContext}
+        activeSabotage={sabotage.activeSabotage}
+        onOptionClick={actions.onOptionClick}
+        showTypeReveal={answers.isRevealing && !!round.frozenData}
+        typedText={answers.typedText}
+        revealComplete={answers.revealComplete}
+        hasNoneOption={answers.hasNoneOption === true}
+        isShowingFeedback={isShowingFeedback}
+      />
+    </>
+  );
+}
+
+function WordDuelListenButton({
+  audio,
+  onPlayAudio,
+  colors,
+}: {
+  audio: DuelViewProps["audio"];
+  onPlayAudio: () => void;
+  colors: ThemeColors;
+}) {
+  return (
+    <button
+      onClick={onPlayAudio}
+      disabled={audio.isPlaying}
+      className={`flex items-center gap-2 px-5 py-2 rounded-xl font-bold transition-all border-2 shadow-lg active:scale-95 mb-5 text-sm ${
+        audio.isPlaying ? "cursor-not-allowed" : "hover:brightness-110"
+      }`}
+      style={getListenButtonStyle(colors, audio.isPlaying)}
+      data-testid="duel-listen"
+    >
+      <span className="text-lg">{audio.isPlaying ? "🔊" : "🔈"}</span>
+      <span>{audio.isPlaying ? "Playing..." : "Listen"}</span>
+    </button>
+  );
+}
+
+function getWordDuelTimerColor(colors: ThemeColors, seconds: number): string {
+  if (seconds <= TIMER_DANGER_THRESHOLD) return colors.status.danger.light;
+  if (seconds <= TIMER_WARNING_THRESHOLD) return colors.status.warning.light;
+  return colors.text.DEFAULT;
+}
+
+function WordDuelTimer({
+  phase,
+  timer,
+  colors,
+}: Pick<DuelViewProps, "phase" | "timer"> & { colors: ThemeColors }) {
+  if (timer.questionTimer === null || phase !== "answering") return null;
+  const timerIsDanger = timer.questionTimer <= TIMER_DANGER_THRESHOLD;
+  const timerColor = getWordDuelTimerColor(colors, timer.questionTimer);
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <span
+        className={`text-4xl font-bold tabular-nums ${timerIsDanger ? "animate-pulse" : ""}`}
+        style={{ color: timerColor }}
+      >
+        {Math.max(0, Math.ceil(timer.questionTimer - 1))}
+      </span>
+      <span className="text-xs" style={{ color: colors.text.muted }}>
+        sec
+        {timer.questionTimerPausedAt && (
+          <span className="block" style={{ color: colors.secondary.light }}>
+            Paused
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function WordDuelTiming({
+  phase,
+  timer,
+  countdown,
+  round,
+  actions,
+  colors,
+}: Pick<
+  DuelViewProps,
+  "phase" | "timer" | "countdown" | "round" | "actions"
+> & { colors: ThemeColors }) {
+  return (
+    <div className="mb-4 text-center">
+      <WordDuelTimer phase={phase} timer={timer} colors={colors} />
+      {countdown.value !== null && round.frozenData && (
+        <CountdownControls
+          countdown={countdown.value}
+          countdownPausedBy={countdown.pausedBy}
+          countdownUnpauseRequestedBy={countdown.unpauseRequestedBy}
+          userRole={countdown.userRole}
+          onPause={actions.onPauseCountdown}
+          onRequestUnpause={actions.onRequestUnpause}
+          onConfirmUnpause={actions.onConfirmUnpause}
+          countdownSkipRequestedBy={countdown.skipRequestedBy}
+          onSkip={actions.onSkipCountdown}
+          dataTestIdBase="duel-countdown"
+        />
+      )}
+    </div>
   );
 }

@@ -128,3 +128,15 @@ describe("generate prompt word type rules", () => {
     );
   });
 });
+
+it.each([undefined, [], ["cat", "dog"]])("keeps existing word exclusions %j in a replacement prompt", existing => {
+  const prompt = buildFieldSystemPrompt("word", "Animals", "bird", "pajaro", [], "nouns", undefined, existing, ["fish"]);
+  expect(prompt).toContain(`EXISTING WORDS (DO NOT DUPLICATE): ${existing?.length ? "cat, dog" : "(none)"}`);
+  expect(prompt).toContain("REJECTED SUGGESTIONS (DO NOT REPEAT): fish");
+  expect(prompt).toContain('Replace "bird"');
+});
+it.each([undefined, []])("omits empty rejected word lists %j", rejected => {
+  const prompt = buildFieldSystemPrompt("word", "Movement", "go", "ir", [], "verbs", undefined, [], rejected);
+  expect(prompt).not.toContain("REJECTED SUGGESTIONS");
+  expect(prompt).toContain('Wrong answers must NOT include the "(Irr)" or "*" markers');
+});

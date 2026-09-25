@@ -23,27 +23,24 @@ function creditMessage(rawMessage?: string): string {
   return "You are out of credits for this action.";
 }
 
+const backendMessages: Record<string, string> = {
+  AUTH_FAILED: "Please sign in and try again.",
+  CONFIG_ERROR: "This feature is not set up correctly yet. Please try again later.",
+  INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
+  INVALID_IDENTITY: "Your sign-in is missing required account details. Please sign out and sign in again.",
+};
+
 export function getPlainBackendErrorMessage(
   code: BackendErrorCode | string,
   rawMessage?: string,
   fallback = GENERIC_USER_ERROR_MESSAGE
 ): string | null {
+  if (Object.prototype.hasOwnProperty.call(backendMessages, code)) return backendMessages[code];
   switch (code) {
-    case "AUTH_FAILED":
-      return "Please sign in and try again.";
-    case "CONFIG_ERROR":
-      return "This feature is not set up correctly yet. Please try again later.";
     case "CREDITS_EXHAUSTED":
       return creditMessage(rawMessage);
-    case "INTERNAL_ERROR":
-      return "Something went wrong on our side. Please try again.";
-    case "INVALID_IDENTITY":
-      return "Your sign-in is missing required account details. Please sign out and sign in again.";
     case "NOT_AUTHORIZED":
-      if (rawMessage && !/^(not authorized|unauthorized)$/i.test(rawMessage.trim())) {
-        return normalizePlainErrorMessage(rawMessage, fallback);
-      }
-      return "You do not have permission to do that.";
+      return permissionMessage(rawMessage, fallback);
     case "NOT_FOUND":
       return rawMessage
         ? normalizePlainErrorMessage(rawMessage, fallback)
@@ -62,13 +59,8 @@ export function normalizePlainErrorMessage(
   const trimmed = message?.trim();
   if (!trimmed) return withRetry(fallback);
 
-  if (/llm credits exhausted/i.test(trimmed)) return AI_CREDITS_EXHAUSTED_MESSAGE;
-  if (/tts credits exhausted/i.test(trimmed)) return AUDIO_CREDITS_EXHAUSTED_MESSAGE;
-  if (/^unauthorized$/i.test(trimmed)) return "Please sign in and try again.";
-  if (/^not authorized$/i.test(trimmed)) return "You do not have permission to do that.";
-  if (/convex url not configured/i.test(trimmed)) {
-    return "This feature is not set up correctly yet. Please try again later.";
-  }
+  const translation = plainMessageTranslations.find(([pattern]) => pattern.test(trimmed));
+  if (translation) return translation[1];
 
   const technicalPatterns = [
     /^internal server error$/i,
@@ -84,4 +76,19 @@ export function normalizePlainErrorMessage(
   }
 
   return trimmed;
+}
+
+const plainMessageTranslations: ReadonlyArray<readonly [RegExp, string]> = [
+  [/llm credits exhausted/i, AI_CREDITS_EXHAUSTED_MESSAGE],
+  [/tts credits exhausted/i, AUDIO_CREDITS_EXHAUSTED_MESSAGE],
+  [/^unauthorized$/i, "Please sign in and try again."],
+  [/^not authorized$/i, "You do not have permission to do that."],
+  [/convex url not configured/i, "This feature is not set up correctly yet. Please try again later."],
+];
+
+function permissionMessage(rawMessage: string | undefined, fallback: string): string {
+  if (rawMessage && !/^(not authorized|unauthorized)$/i.test(rawMessage.trim())) {
+    return normalizePlainErrorMessage(rawMessage, fallback);
+  }
+  return "You do not have permission to do that.";
 }

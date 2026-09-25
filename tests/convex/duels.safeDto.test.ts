@@ -36,11 +36,11 @@ class InMemoryDb {
   }
 }
 
-function createCtx(db: InMemoryDb, subject = "clerk_challenger") {
+function createCtx(db: InMemoryDb, subject: string | null = "clerk_challenger") {
   return {
     db,
     auth: {
-      getUserIdentity: async () => ({ subject }),
+      getUserIdentity: async () => subject === null ? null : ({ subject }),
     },
   };
 }
@@ -126,6 +126,33 @@ const getDuelHandler = (getDuel as unknown as {
 })._handler;
 
 describe("duels.getDuel viewer-safe DTO", () => {
+  it.each(["signed out", "unknown user", "outsider", "missing duel"])("returns null for %s without disclosing session data", async state => {
+    const users = [userDoc({}), userDoc({ _id: "outsider" as Id<"users">, clerkId: "outsider" })];
+    const db = new InMemoryDb(users, [themeDoc()], state === "missing duel" ? [] : [duelDoc()]);
+    const subject = state === "signed out" ? null : state === "unknown user" ? "missing" : state === "outsider" ? "outsider" : "clerk_challenger";
+    await expect(getDuelHandler(createCtx(db, subject), { duelId: "duel_1" as Id<"duels"> })).resolves.toBeNull();
+  });
+
+  it.each(["challenger", "opponent"] as const)("keeps the %s viewer's safe data when the other user was deleted", async role => {
+    const viewer = role === "challenger" ? userDoc({}) : userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent", name: "Opponent" });
+    const db = new InMemoryDb([viewer], [themeDoc()], [duelDoc()]);
+    const result = await getDuelHandler(createCtx(db, viewer.clerkId), { duelId: "duel_1" as Id<"duels"> });
+    expect(result).toMatchObject({ viewerRole: role, viewer: { _id: viewer._id }, [role]: { _id: viewer._id } });
+    expect(result).toHaveProperty(role === "challenger" ? "opponent" : "challenger", null);
+  });
+
+  it.each(["active", "completed", "stopped"] as const)("reveals past/current/future answers according to %s status and the opponent's answer", async status => {
+    const base = duelDoc();
+    const duel = duelDoc({ status, currentItemIndex: 1, opponentAnswered: true, challengerAnswered: false,
+      sessionItems: Array.from({ length: 3 }, () => ({ ...base.sessionItems[0] })),
+      duelQuestions: Array.from({ length: 3 }, () => ({ ...base.duelQuestions![0] })), itemOrder: [0, 1, 2],
+    });
+    const db = new InMemoryDb([userDoc({}), userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" })], [themeDoc()], [duel]);
+    const result = await getDuelHandler(createCtx(db, "clerk_opponent"), { duelId: duel._id });
+    expect((result?.duel.duelQuestions as ViewerSafeQuestion[]).map(q => q.answerRevealedToViewer)).toEqual(status === "active" ? [true, true, false] : [true, true, true]);
+    expect(result?.duel.sessionItems.map(item => item.kind === "word" ? item.answer : item.spanishSentence)).toEqual(status === "active" ? ["gato", "gato", ""] : ["gato", "gato", "gato"]);
+  });
+
   it("hides answer keys before the viewer has answered", async () => {
     const db = new InMemoryDb(
       [

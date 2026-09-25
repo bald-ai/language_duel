@@ -41,9 +41,6 @@ vi.mock("@/app/solo/[sessionId]/hooks/useSoloSession", () => ({
   useSoloSession: (...args: unknown[]) => useSoloSessionMock(...args),
 }));
 
-vi.mock("@/app/solo/[sessionId]/components/CompletionScreen", () => ({
-  CompletionScreen: () => <div data-testid="completion-screen">Complete</div>,
-}));
 
 vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
@@ -450,4 +447,19 @@ describe("SoloPracticePage", () => {
     expect(screen.getByText("Answer:")).toBeInTheDocument();
     expect(screen.getByText("to speak")).toBeInTheDocument();
   });
+  it("replaces the active question with completed totals and returns home", () => {
+    useSoloSessionMock.mockReturnValue(createHookReturn({
+      session: buildSessionState({ completed: true, activePool: [], questionsAnswered: 7, correctAnswers: 5 }),
+      elapsedTime: 125, masteredCount: 1,
+    }));
+    render(<SoloPracticePage />);
+    expect(screen.queryByText("Practice Complete")).not.toBeNull();
+    expect(screen.queryByTestId("solo-practice-level1")).toBeNull();
+    expect(screen.queryByTestId("solo-practice-exit")).toBeNull();
+    expect(screen.getByText("Questions").nextElementSibling?.textContent).toBe("7");
+    expect(screen.getByText("Total Time").nextElementSibling?.textContent).toBe("2:05");
+    fireEvent.click(screen.getByTestId("solo-practice-complete-back"));
+    expect(pushMock).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
 });

@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DuelAnswerGrid } from "@/app/duel/[duelId]/components/DuelAnswerGrid";
 import type { OptionContext } from "@/app/duel/[duelId]/components/AnswerOptionButton";
-import { BOUNCE_FLY_SCALE, BUTTON_WIDTH } from "@/lib/sabotage/constants";
+import { BOUNCE_FLY_SCALE, BUTTON_WIDTH, TRAMPOLINE_FLY_SCALE, TRAMPOLINE_SHAKE_MS } from "@/lib/sabotage/constants";
 
 function optionContext(overrides: Partial<OptionContext> = {}): OptionContext {
   return {
@@ -62,5 +62,27 @@ describe("DuelAnswerGrid sabotage bounds", () => {
     expect(Number.parseFloat(flyingOption.style.left)).toBeLessThanOrEqual(
       measuredWidth - BUTTON_WIDTH * BOUNCE_FLY_SCALE
     );
+  });
+
+  it("shakes then launches trampoline answers while preserving answer selection", () => {
+    let frame: FrameRequestCallback = () => { throw new Error("No animation frame scheduled"); };
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { frame = callback; return 1; });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    vi.spyOn(performance, "now").mockReturnValue(0);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 360, height: 640 } as DOMRect);
+    const onOptionClick = vi.fn();
+    render(<DuelAnswerGrid answers={["gato", "perro"]} optionContext={optionContext()} activeSabotage="trampoline"
+      onOptionClick={onOptionClick} showTypeReveal={false} typedText="" revealComplete hasNoneOption={false} isShowingFeedback={false} />);
+    act(() => frame(0));
+    const flyer = screen.queryByTestId("duel-answer-1-fly");
+    expect(flyer).not.toBeNull();
+    expect(flyer!.style.transform).toBe("scale(1)");
+    const initialLeft = flyer!.style.left;
+    act(() => frame(TRAMPOLINE_SHAKE_MS / 2));
+    expect(flyer!.style.left).not.toBe(initialLeft);
+    act(() => frame(TRAMPOLINE_SHAKE_MS));
+    expect(flyer!.style.transform).toBe(`scale(${TRAMPOLINE_FLY_SCALE})`);
+    fireEvent.click(flyer!);
+    expect(onOptionClick).toHaveBeenCalledExactlyOnceWith("perro", false, false);
   });
 });

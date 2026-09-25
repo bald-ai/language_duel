@@ -88,6 +88,7 @@ describe("themes api response validation", () => {
     });
 
     expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected a rejected response");
     expect(result.error).toBe("Generation failed. Please try again.");
   });
 

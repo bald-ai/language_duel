@@ -76,16 +76,6 @@ export const getTheme = query({
   },
 });
 
-export const getThemeForViewer = internalQuery({
-  args: {
-    themeId: v.id("themes"),
-    viewerId: v.id("users"),
-  },
-  handler: async (ctx, args): Promise<Doc<"themes"> | null> => {
-    return await loadThemeWithViewerAccess(ctx, args.viewerId, args.themeId);
-  },
-});
-
 export const getThemeForStoredTtsEditor = internalQuery({
   args: {
     themeId: v.id("themes"),

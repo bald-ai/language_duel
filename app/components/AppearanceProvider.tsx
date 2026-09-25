@@ -87,13 +87,3 @@ export function useAppearanceColors() {
 
   return context.colors;
 }
-
-export function useAppearanceButtonStyles() {
-  const context = useContext(ColorSetContext);
-
-  if (!context) {
-    throw new Error("useAppearanceButtonStyles must be used within AppearanceProvider");
-  }
-
-  return context.buttonStyles;
-}

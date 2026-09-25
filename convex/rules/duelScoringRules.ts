@@ -52,19 +52,21 @@ export function hasLivesLeft(duel: Doc<"duels">): boolean {
 
 export function getLimitedLivesMissPatch(
   duel: Doc<"duels">,
-  playerRole: "challenger" | "opponent"
+  playerRole: "challenger" | "opponent",
 ): Partial<Doc<"duels">> {
   if (!isLivesAttempt(duel)) {
     return {};
   }
 
-  const nextLives = typeof duel.livesRemaining === "number"
-    ? Math.max(0, duel.livesRemaining - 1)
-    : undefined;
+  const nextLives =
+    typeof duel.livesRemaining === "number"
+      ? Math.max(0, duel.livesRemaining - 1)
+      : undefined;
 
-  const patch: Partial<Doc<"duels">> = playerRole === "challenger"
-    ? { challengerPerfectRun: false }
-    : { opponentPerfectRun: false };
+  const patch: Partial<Doc<"duels">> =
+    playerRole === "challenger"
+      ? { challengerPerfectRun: false }
+      : { opponentPerfectRun: false };
 
   if (nextLives === undefined) {
     return patch;
@@ -79,11 +81,14 @@ export function getLimitedLivesMissPatch(
 
 export function getDuelQuestionOrThrow(
   duel: Doc<"duels">,
-  questionIndex = duel.currentItemIndex
+  questionIndex = duel.currentItemIndex,
 ) {
   const question = duel.duelQuestions?.[questionIndex];
   if (!question) {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
+    throw new ConvexError({
+      code: "INTERNAL_ERROR",
+      message: "Duel question data is missing",
+    });
   }
   return question;
 }
@@ -96,28 +101,23 @@ export function getDuelQuestionOrThrow(
  */
 export function requireWordDuelQuestion(
   duel: Doc<"duels">,
-  questionIndex = duel.currentItemIndex
+  questionIndex = duel.currentItemIndex,
 ) {
   const question = getDuelQuestionOrThrow(duel, questionIndex);
   if (question.kind !== "word") {
     throw new ConvexError({
       code: "WRONG_QUESTION_KIND",
-      message: "This duel position is a sentence round. Use answerSentenceRound instead.",
+      message:
+        "This duel position is a sentence round. Use answerSentenceRound instead.",
     });
   }
   return question;
 }
 
 export function getHintProviderBonusPatch(
-  duel: Doc<"duels">
+  duel: Doc<"duels">,
 ): Partial<Doc<"duels">> {
-  if (
-    duel.hintAccepted !== true ||
-    !duel.hintRequestedBy ||
-    (duel.eliminatedOptions?.length || 0) === 0
-  ) {
-    return {};
-  }
+  if (!hasAcceptedHintEliminations(duel)) return {};
 
   // Hint provider bonus is a word-only mechanic; the hint pool itself doesn't
   // mount on sentence rounds (plan decision: mixed session behavior). If we
@@ -126,14 +126,31 @@ export function getHintProviderBonusPatch(
   if (currentQuestion.kind !== "word") {
     return {};
   }
-  const requesterLastAnswer = duel.hintRequestedBy === "challenger"
-    ? duel.challengerLastAnswer
-    : duel.opponentLastAnswer;
+  const requesterLastAnswer =
+    duel.hintRequestedBy === "challenger"
+      ? duel.challengerLastAnswer
+      : duel.opponentLastAnswer;
 
   if (requesterLastAnswer !== currentQuestion.correctOption) {
     return {};
   }
 
+  return hintProviderScorePatch(duel);
+}
+
+function hasAcceptedHintEliminations(duel: Doc<"duels">): boolean {
+  if (
+    duel.hintAccepted !== true ||
+    !duel.hintRequestedBy ||
+    (duel.eliminatedOptions?.length || 0) === 0
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function hintProviderScorePatch(duel: Doc<"duels">): Partial<Doc<"duels">> {
   if (duel.hintRequestedBy === "challenger") {
     return {
       opponentScore: (duel.opponentScore || 0) + HINT_PROVIDER_BONUS,

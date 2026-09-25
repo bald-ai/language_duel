@@ -23,25 +23,10 @@ export async function listWeeklyGoalThemeSnapshots(
   return [...snapshots].sort((left, right) => left.order - right.order);
 }
 
-export async function getWeeklyGoalThemeSnapshot(
-  ctx: CtxWithDb,
-  weeklyGoalId: Id<"weeklyGoals">,
-  originalThemeId: Id<"themes">
-): Promise<WeeklyGoalThemeSnapshot | null> {
-  const snapshot = await ctx.db
-    .query("weeklyGoalThemeSnapshots")
-    .withIndex("by_weeklyGoal_originalTheme", (q) =>
-      q.eq("weeklyGoalId", weeklyGoalId).eq("originalThemeId", originalThemeId)
-    )
-    .unique();
-
-  return snapshot ?? null;
-}
-
 export async function deleteWeeklyGoalThemeSnapshots(
   ctx: MutationCtx,
   weeklyGoalId: Id<"weeklyGoals">
-): Promise<void> {
+): Promise<number> {
   const snapshots = await listWeeklyGoalThemeSnapshots(ctx, weeklyGoalId);
   const storageIdsByThemeId = new Map<Id<"themes">, Set<Id<"_storage">>>();
 
@@ -68,6 +53,7 @@ export async function deleteWeeklyGoalThemeSnapshots(
       "[Theme TTS] Failed to delete snapshot orphan storage file:"
     );
   }
+  return snapshots.length;
 }
 
 export async function createWeeklyGoalThemeSnapshots(
@@ -182,14 +168,4 @@ export async function loadWeeklyGoalSessionThemesByThemeIds(
   }
 
   return loadStrictWeeklyGoalSnapshotSessionThemesByThemeIds(ctx, goal, themeIds);
-}
-
-export async function listSnapshotsByOriginalThemeId(
-  ctx: CtxWithDb,
-  originalThemeId: Id<"themes">
-): Promise<WeeklyGoalThemeSnapshot[]> {
-  return await ctx.db
-    .query("weeklyGoalThemeSnapshots")
-    .withIndex("by_originalTheme", (q) => q.eq("originalThemeId", originalThemeId))
-    .collect();
 }

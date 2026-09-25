@@ -27,38 +27,13 @@ export const OpponentSelector = memo(function OpponentSelector({
   const meRowVisible = viewer != null;
   const isMeSelected = meRowVisible && selectedOpponentId === viewer._id;
 
-  const meRow = meRowVisible ? (
-    <button
-      key="self"
-      onClick={() => onSelect(viewer._id)}
-      className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
-      style={{
-        backgroundColor: isMeSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-        borderColor: isMeSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
-      }}
-      data-testid="duel-modal-opponent-me"
-    >
-      <div className="min-w-0">
-        <div
-          className="font-semibold text-sm truncate"
-          style={{ color: isMeSelected ? colors.cta.dark : colors.text.DEFAULT }}
-          title="Solo practice"
-        >
-          Solo practice
-        </div>
-        <div className="text-xs" style={{ color: colors.text.muted }}>
-          Duel yourself — practice mode
-        </div>
-      </div>
-      {isMeSelected && (
-        <div
-          className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
-          style={{ backgroundColor: colors.cta.DEFAULT }}
-        >
-          <CheckmarkIcon />
-        </div>
-      )}
-    </button>
+  const meRow = viewer ? (
+    <SelfOpponentRow
+      viewer={viewer}
+      isMeSelected={isMeSelected}
+      onSelect={onSelect}
+      colors={colors}
+    />
   ) : null;
 
   const friendsBody = (() => {
@@ -98,14 +73,20 @@ export const OpponentSelector = memo(function OpponentSelector({
           onClick={() => onSelect(user._id)}
           className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
           style={{
-            backgroundColor: isSelected ? `${colors.cta.DEFAULT}1A` : colors.background.DEFAULT,
-            borderColor: isSelected ? colors.cta.DEFAULT : `${colors.text.muted}1A`,
+            backgroundColor: isSelected
+              ? `${colors.cta.DEFAULT}1A`
+              : colors.background.DEFAULT,
+            borderColor: isSelected
+              ? colors.cta.DEFAULT
+              : `${colors.text.muted}1A`,
           }}
           data-testid={`duel-modal-opponent-${user._id}`}
         >
           <div
             className="font-semibold text-sm truncate"
-            style={{ color: isSelected ? colors.cta.dark : colors.text.DEFAULT }}
+            style={{
+              color: isSelected ? colors.cta.dark : colors.text.DEFAULT,
+            }}
             title={formatVisibleUser(user, "Unknown")}
           >
             {formatVisibleUser(user, "Unknown")}
@@ -140,9 +121,62 @@ export const OpponentSelector = memo(function OpponentSelector({
           className="pt-2.5 text-center text-xs"
           style={{ color: colors.text.muted }}
         >
-          Selected: <span style={{ color: colors.cta.dark }}>{selectedLabel}</span>
+          Selected:{" "}
+          <span style={{ color: colors.cta.dark }}>{selectedLabel}</span>
         </div>
       )}
     </div>
   );
 });
+
+function SelfOpponentRow({
+  viewer,
+  isMeSelected,
+  onSelect,
+  colors,
+}: {
+  viewer: LobbyUser;
+  isMeSelected: boolean;
+  onSelect: OpponentSelectorProps["onSelect"];
+  colors: ReturnType<typeof useAppearanceColors>;
+}) {
+  return (
+    <button
+      key="self"
+      onClick={() => onSelect(viewer._id)}
+      className="w-full text-left px-4 py-3 rounded-xl border-2 transition hover:brightness-[0.97] flex items-center justify-between"
+      style={{
+        backgroundColor: isMeSelected
+          ? `${colors.cta.DEFAULT}1A`
+          : colors.background.DEFAULT,
+        borderColor: isMeSelected
+          ? colors.cta.DEFAULT
+          : `${colors.text.muted}1A`,
+      }}
+      data-testid="duel-modal-opponent-me"
+    >
+      <div className="min-w-0">
+        <div
+          className="font-semibold text-sm truncate"
+          style={{
+            color: isMeSelected ? colors.cta.dark : colors.text.DEFAULT,
+          }}
+          title="Solo practice"
+        >
+          Solo practice
+        </div>
+        <div className="text-xs" style={{ color: colors.text.muted }}>
+          Duel yourself — practice mode
+        </div>
+      </div>
+      {isMeSelected && (
+        <div
+          className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+          style={{ backgroundColor: colors.cta.DEFAULT }}
+        >
+          <CheckmarkIcon />
+        </div>
+      )}
+    </button>
+  );
+}

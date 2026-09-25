@@ -20,6 +20,13 @@ export function formatPaddedHandle(user: VisibleUser | null | undefined): string
   return `${nickname}#${user.discriminator.toString().padStart(4, "0")}`;
 }
 
+function formatEmailLabel(value: string | null | undefined): string | null {
+  const email = clean(value);
+  if (!email) return null;
+  const [prefix] = email.split("@");
+  return clean(prefix) ?? email;
+}
+
 export function formatVisibleUser(
   user: VisibleUser | null | undefined,
   fallback = UNKNOWN_USER_LABEL
@@ -33,15 +40,7 @@ export function formatVisibleUser(
   const name = clean(user?.name);
   if (name) return name;
 
-  const email = clean(user?.email);
-  if (email) {
-    const [prefix] = email.split("@");
-    const cleanPrefix = clean(prefix);
-    if (cleanPrefix) return cleanPrefix;
-    return email;
-  }
-
-  return fallback;
+  return formatEmailLabel(user?.email) ?? fallback;
 }
 
 export function getVisibleUserInitials(

@@ -1,5 +1,6 @@
 "use client";
 
+import type { SessionItem } from "@/lib/sessionItems";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { formatDuration } from "@/lib/displayFormat";
@@ -30,7 +31,6 @@ import { useTTS } from "@/hooks/useTTS";
  * delegated to {@link SoloStatusScreen}.
  */
 export default function SoloPracticePage() {
-  const colors = useAppearanceColors();
   const router = useRouter();
   const source = useSoloSessionSource({ loadingMessage: "Loading practice..." });
   const {
@@ -51,23 +51,8 @@ export default function SoloPracticePage() {
     [confidenceParam]
   );
 
-  // Session state management (extracted hook)
-  const {
-    session,
-    showFeedback,
-    feedbackCorrect,
-    feedbackAnswer,
-    elapsedTime,
-    handleCorrect,
-    handleIncorrect,
-    handleLevel0GotIt,
-    handleLevel0NotYet,
-    currentItem,
-    masteredCount,
-  } = useSoloSession({
-    items: sessionItems,
-    initialConfidenceByItemIndex,
-  });
+  const practice = useSoloSession({ items: sessionItems, initialConfidenceByItemIndex });
+  const { session, handleCorrect, currentItem } = practice;
 
   const { handleCorrectWithProgress } = useSoloCompletionReporting({
     soloPracticeSessionId,
@@ -137,14 +122,44 @@ export default function SoloPracticePage() {
     );
   }
 
+  return (
+    <SoloPracticeContent
+      practice={practice} currentItem={currentItem} itemCount={sessionItems.length}
+      themeSummary={themeSummary} returnLabel={returnLabel} hasMultipleThemes={hasMultipleThemes}
+      handleExit={handleExit} handleCorrectWithProgress={handleCorrectWithProgress}
+      playingWordKey={playingWordKey} playSentenceAudio={playSentenceAudio}
+    />
+  );
+}
+
+function SoloPracticeContent({
+  practice, currentItem, itemCount, themeSummary, returnLabel, hasMultipleThemes,
+  handleExit, handleCorrectWithProgress, playingWordKey, playSentenceAudio,
+}: {
+  practice: ReturnType<typeof useSoloSession>;
+  currentItem: SessionItem;
+  itemCount: number;
+  themeSummary: string;
+  returnLabel: string;
+  hasMultipleThemes: boolean;
+  handleExit: () => void;
+  handleCorrectWithProgress: ReturnType<typeof useSoloCompletionReporting>["handleCorrectWithProgress"];
+  playingWordKey: string | null;
+  playSentenceAudio: (key: string, text: string, storageId?: string, themeId?: string) => void;
+}) {
+  const colors = useAppearanceColors();
+  const {
+    session, showFeedback, feedbackCorrect, feedbackAnswer, elapsedTime,
+    handleIncorrect, handleLevel0GotIt, handleLevel0NotYet, masteredCount,
+  } = practice;
   const baseCardStyle = {
     backgroundColor: colors.background.elevated,
     borderColor: colors.primary.dark,
     boxShadow: `0 18px 45px ${colors.primary.glow}`,
   };
 
-  const progressPercentage = sessionItems.length
-    ? Math.min(100, (masteredCount / sessionItems.length) * 100)
+  const progressPercentage = itemCount
+    ? Math.min(100, (masteredCount / itemCount) * 100)
     : 0;
 
   const themePill = (
@@ -213,7 +228,7 @@ export default function SoloPracticePage() {
     <CompletionScreen
       questionsAnswered={session.questionsAnswered}
       correctAnswers={session.correctAnswers}
-      totalItems={sessionItems.length}
+      totalItems={itemCount}
       totalDuration={elapsedTime}
       onExit={handleExit}
       exitLabel={returnLabel}
@@ -250,7 +265,7 @@ export default function SoloPracticePage() {
               Mastered
             </div>
             <div className="mt-1 text-lg font-semibold" style={{ color: colors.text.DEFAULT }}>
-              {masteredCount} / {sessionItems.length}
+              {masteredCount} / {itemCount}
             </div>
             <div className="text-xs" style={{ color: colors.text.muted }}>
               Pool {session.activePool.length} active

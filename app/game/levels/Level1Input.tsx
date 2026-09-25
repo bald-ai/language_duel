@@ -206,10 +206,9 @@ export function Level1Input({
           fontFamily: "system-ui, -apple-system, sans-serif",
         };
 
-        const incorrectUnderlineColor = "#DC2626";
-        const underlineColor = hasTypedChar
-          ? (isCorrect ? colors.status.success.DEFAULT : incorrectUnderlineColor)
-          : colors.primary.dark;
+        const underlineColor = getLetterUnderlineColor(
+          hasTypedChar, isCorrect, colors.status.success.DEFAULT, colors.primary.dark
+        );
 
         const hintButtonStyle = {
           backgroundColor: colors.background.elevated,
@@ -312,4 +311,9 @@ export function Level1Input({
       </button>
     </div>
   );
+}
+
+function getLetterUnderlineColor(hasTypedChar: boolean, isCorrect: boolean, correctColor: string, emptyColor: string): string {
+  if (!hasTypedChar) return emptyColor;
+  return isCorrect ? correctColor : "#DC2626";
 }

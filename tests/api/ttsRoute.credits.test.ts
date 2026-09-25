@@ -131,6 +131,36 @@ describe("/api/tts credit accounting", () => {
     });
   });
 
+  it("refunds once on timeout and returns a retryable response", async () => {
+    generateTtsAudioWithFallbackMock.mockRejectedValueOnce(Object.assign(new Error("timeout"), { name: "AbortError" }));
+    const response = await postTts();
+    expect(response.status).toBe(504);
+    expect(await response.json()).toEqual({ error: "Audio took too long to generate. Please try again." });
+    expect(mutationMock).toHaveBeenCalledTimes(2);
+    expect(mutationMock).toHaveBeenLastCalledWith("credits.refundConsumedCredits", { creditTransactionId: "creditTransaction_1" });
+  });
+
+  it("refunds unexpected provider errors before returning failure", async () => {
+    generateTtsAudioWithFallbackMock.mockRejectedValueOnce(new Error("provider disconnected"));
+    await expect(postTts()).resolves.toMatchObject({ status: 500 });
+    expect(mutationMock).toHaveBeenCalledTimes(2);
+    expect(mutationMock).toHaveBeenLastCalledWith("credits.refundConsumedCredits", { creditTransactionId: "creditTransaction_1" });
+  });
+
+  it("does not mask the timeout response when the refund service fails", async () => {
+    mutationMock.mockResolvedValueOnce({ creditTransactionId: "creditTransaction_1" }).mockRejectedValueOnce(new Error("refund unavailable"));
+    generateTtsAudioWithFallbackMock.mockRejectedValueOnce(Object.assign(new Error("timeout"), { name: "AbortError" }));
+    expect((await postTts()).status).toBe(504);
+    expect(mutationMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a missing user before consuming credit", async () => {
+    queryMock.mockResolvedValueOnce(null);
+    expect((await postTts()).status).toBe(401);
+    expect(mutationMock).not.toHaveBeenCalled();
+    expect(generateTtsAudioWithFallbackMock).not.toHaveBeenCalled();
+  });
+
   it("consumes TTS credits before calling the provider on success", async () => {
     generateTtsAudioWithFallbackMock.mockResolvedValueOnce({
       audioBuffer: new Uint8Array([1, 2, 3]).buffer,
@@ -141,6 +171,9 @@ describe("/api/tts credit accounting", () => {
     const response = await postTts();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("audio/wav");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
     expect(mutationMock).toHaveBeenCalledTimes(1);
     expect(generateTtsAudioWithFallbackMock).toHaveBeenCalledOnce();
     expect(mutationMock.mock.invocationCallOrder[0]).toBeLessThan(

@@ -41,58 +41,7 @@ export function GoalsPageContent() {
     );
   }
 
-  const {
-    allGoals,
-    allSelectedThemesCompleted,
-    availableFriends,
-    canAddThemes,
-    canEditEndDate,
-    canPracticeGoalThemes,
-    canToggleThemeCompletion,
-    creationMode,
-    deleteAt,
-    draftExpiresAt,
-    endDate,
-    endDateInput,
-    formattedDraftCountdown,
-    formattedGraceCountdown,
-    handleAddThemes,
-    handleContinuePractice,
-    handleCreateGoal,
-    handleDelete,
-    handleLock,
-    handlePracticeGoalThemes,
-    handleRemoveTheme,
-    handleSaveEndDate,
-    handleToggleCompletion,
-    hasEndDate,
-    hasEnoughThemesToLock,
-    hasGoals,
-    hideCreateGoal,
-    isCreating,
-    isDraft,
-    isGracePeriod,
-    isSavingEndDate,
-    miniBossDisplayStatus,
-    miniBossLabel,
-    partnerLocked,
-    selectedGoal,
-    selectedGoalId,
-    selectedPartnerId,
-    selectGoal,
-    setCreationMode,
-    setEndDateInput,
-    setSelectedPartnerId,
-    setShowPracticeModal,
-    setShowThemeSelector,
-    showCreateGoal,
-    showCreationFlow,
-    showPracticeModal,
-    showThemeSelector,
-    startDate,
-    viewerLocked,
-    weeklyGoalPracticeThemes,
-  } = model;
+  const { selectedGoal, showCreationFlow } = model;
 
   return (
     <ThemedPage className="px-4 py-6">
@@ -129,30 +78,117 @@ export function GoalsPageContent() {
           </h1>
         </header>
 
-        {hasGoals && (
-          <GoalSwitcher
-            goals={allGoals}
-            selectedId={selectedGoalId}
-            onSelect={selectGoal}
-            onCreateNew={showCreateGoal}
-          />
-        )}
-
-        {(!hasGoals || showCreationFlow) && (
-          <GoalCreationPanel
-            availableFriends={availableFriends}
-            creationMode={creationMode}
-            selectedPartnerId={selectedPartnerId}
-            isCreating={isCreating}
-            showCancel={showCreationFlow}
-            onCreationModeChange={setCreationMode}
-            onPartnerSelect={setSelectedPartnerId}
-            onCancel={hideCreateGoal}
-            onCreate={handleCreateGoal}
-          />
-        )}
+        <GoalSelectionControls model={model} />
 
         {selectedGoal && !showCreationFlow && (
+          <SelectedGoalDetails model={model} selectedGoal={selectedGoal} />
+        )}
+
+        <GoalModals model={model} />
+
+        <BackButton onClick={() => router.push("/")} label="Back to Menu" dataTestId="goals-back-menu" />
+      </div>
+    </ThemedPage>
+  );
+}
+
+type GoalsPageModel = Extract<ReturnType<typeof useGoalsPageModel>, { isLoading: false }>;
+type GoalDetailsProps = { model: GoalsPageModel; selectedGoal: NonNullable<GoalsPageModel["selectedGoal"]> };
+
+function GoalThemeControls({ model, selectedGoal }: GoalDetailsProps) {
+  const { canAddThemes, isDraft, setShowThemeSelector } = model;
+  const colors = useAppearanceColors();
+  return (
+<>
+            {canAddThemes && (
+              <button
+                onClick={() => setShowThemeSelector(true)}
+                className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-bold uppercase tracking-wide transition-all hover:opacity-80"
+                style={{
+                  borderColor: colors.primary.dark,
+                  color: colors.text.DEFAULT,
+                  backgroundColor: `${colors.background.elevated}CC`,
+                }}
+                data-testid="goals-add-theme"
+              >
+                + Add Theme ({selectedGoal.goal.themes.length}/{MAX_THEMES_PER_GOAL})
+              </button>
+            )}
+
+            {isDraft && selectedGoal.goal.themes.length >= MAX_THEMES_PER_GOAL && (
+              <p
+                className="text-center text-sm"
+                style={{ color: colors.text.muted }}
+              >
+                Maximum themes reached ({MAX_THEMES_PER_GOAL}/{MAX_THEMES_PER_GOAL})
+              </p>
+            )}
+
+</>
+  );
+}
+
+function GoalLockRequirements({ model }: { model: GoalsPageModel }) {
+  const { hasEndDate, hasEnoughThemesToLock } = model;
+  const colors = useAppearanceColors();
+  return (
+<>
+                {(!hasEnoughThemesToLock || !hasEndDate) && (
+                  <p className="text-center text-sm" style={{ color: colors.text.muted }}>
+                    {!hasEnoughThemesToLock
+                      ? `Add at least ${MIN_THEMES_TO_LOCK_GOAL} themes before locking.`
+                      : "Choose an end date before locking."}
+                  </p>
+                )}</>
+  );
+}
+
+function GoalLockControls({ model, selectedGoal }: GoalDetailsProps) {
+  const { handleLock, isDraft, partnerLocked, viewerLocked } = model;
+  return (
+<>
+            {isDraft && !viewerLocked && (
+              <>
+                <LockButton
+                  mode={selectedGoal.mode}
+                  partnerLocked={partnerLocked}
+                  onLock={handleLock}
+                />
+                <GoalLockRequirements model={model} />
+              </>
+            )}
+
+</>
+  );
+}
+
+function GoalPartnerWait({ model, selectedGoal }: GoalDetailsProps) {
+  const { isDraft, partnerLocked, viewerLocked } = model;
+  const colors = useAppearanceColors();
+  return (
+<>
+            {isDraft && selectedGoal.mode === "shared" && viewerLocked && !partnerLocked && (
+              <div
+                className="text-center py-4 rounded-xl border-2"
+                style={{
+                  backgroundColor: colors.background.DEFAULT,
+                  borderColor: colors.primary.dark,
+                }}
+              >
+                <p style={{ color: colors.text.muted }}>
+                  Waiting for partner to lock...
+                </p>
+              </div>
+            )}
+</>
+  );
+}
+
+function SelectedGoalDetails({ model, selectedGoal }: GoalDetailsProps) {
+  const { allSelectedThemesCompleted, canEditEndDate, canPracticeGoalThemes, canToggleThemeCompletion, deleteAt, draftExpiresAt, endDate, endDateInput, formattedDraftCountdown, formattedGraceCountdown, handleDelete, handlePracticeGoalThemes, handleRemoveTheme, handleSaveEndDate, handleToggleCompletion, isDraft, isGracePeriod, isSavingEndDate, miniBossDisplayStatus, miniBossLabel, setEndDateInput, startDate } = model;
+  const colors = useAppearanceColors();
+  const router = useRouter();
+  return (
           <>
             <GoalParticipantsPanel
               selectedGoal={selectedGoal}
@@ -208,62 +244,13 @@ export function GoalsPageContent() {
               onRemove={handleRemoveTheme}
             />
 
-            {canAddThemes && (
-              <button
-                onClick={() => setShowThemeSelector(true)}
-                className="w-full py-3 rounded-xl border-2 border-dashed text-sm font-bold uppercase tracking-wide transition-all hover:opacity-80"
-                style={{
-                  borderColor: colors.primary.dark,
-                  color: colors.text.DEFAULT,
-                  backgroundColor: `${colors.background.elevated}CC`,
-                }}
-                data-testid="goals-add-theme"
-              >
-                + Add Theme ({selectedGoal.goal.themes.length}/{MAX_THEMES_PER_GOAL})
-              </button>
-            )}
+            <GoalThemeControls model={model} selectedGoal={selectedGoal} />
 
-            {isDraft && selectedGoal.goal.themes.length >= MAX_THEMES_PER_GOAL && (
-              <p
-                className="text-center text-sm"
-                style={{ color: colors.text.muted }}
-              >
-                Maximum themes reached ({MAX_THEMES_PER_GOAL}/{MAX_THEMES_PER_GOAL})
-              </p>
-            )}
-
-            {isDraft && !viewerLocked && (
-              <>
-                <LockButton
-                  mode={selectedGoal.mode}
-                  partnerLocked={partnerLocked}
-                  onLock={handleLock}
-                />
-                {(!hasEnoughThemesToLock || !hasEndDate) && (
-                  <p className="text-center text-sm" style={{ color: colors.text.muted }}>
-                    {!hasEnoughThemesToLock
-                      ? `Add at least ${MIN_THEMES_TO_LOCK_GOAL} themes before locking.`
-                      : "Choose an end date before locking."}
-                  </p>
-                )}
-              </>
-            )}
+            <GoalLockControls model={model} selectedGoal={selectedGoal} />
 
             <DeleteGoalButton onDelete={handleDelete} />
 
-            {isDraft && selectedGoal.mode === "shared" && viewerLocked && !partnerLocked && (
-              <div
-                className="text-center py-4 rounded-xl border-2"
-                style={{
-                  backgroundColor: colors.background.DEFAULT,
-                  borderColor: colors.primary.dark,
-                }}
-              >
-                <p style={{ color: colors.text.muted }}>
-                  Waiting for partner to lock...
-                </p>
-              </div>
-            )}
+            <GoalPartnerWait model={model} selectedGoal={selectedGoal} />
 
             {isGracePeriod && (
               <div
@@ -282,8 +269,13 @@ export function GoalsPageContent() {
               </div>
             )}
           </>
-        )}
+  );
+}
 
+function GoalModals({ model }: { model: GoalsPageModel }) {
+  const { handleAddThemes, handleContinuePractice, selectedGoal, setShowPracticeModal, setShowThemeSelector, showPracticeModal, showThemeSelector, weeklyGoalPracticeThemes } = model;
+  return (
+<>
         {showThemeSelector && selectedGoal?.goal && (
           <GoalThemeSelector
             goalId={selectedGoal.goal._id}
@@ -301,9 +293,36 @@ export function GoalsPageContent() {
             onClose={() => setShowPracticeModal(false)}
           />
         )}
+</>
+  );
+}
 
-        <BackButton onClick={() => router.push("/")} label="Back to Menu" dataTestId="goals-back-menu" />
-      </div>
-    </ThemedPage>
+function GoalSelectionControls({ model }: { model: GoalsPageModel }) {
+  const { allGoals, availableFriends, creationMode, handleCreateGoal, hasGoals, hideCreateGoal, isCreating, selectedGoalId, selectedPartnerId, selectGoal, setCreationMode, setSelectedPartnerId, showCreateGoal, showCreationFlow } = model;
+  return (
+<>
+        {hasGoals && (
+          <GoalSwitcher
+            goals={allGoals}
+            selectedId={selectedGoalId}
+            onSelect={selectGoal}
+            onCreateNew={showCreateGoal}
+          />
+        )}
+
+        {(!hasGoals || showCreationFlow) && (
+          <GoalCreationPanel
+            availableFriends={availableFriends}
+            creationMode={creationMode}
+            selectedPartnerId={selectedPartnerId}
+            isCreating={isCreating}
+            showCancel={showCreationFlow}
+            onCreationModeChange={setCreationMode}
+            onPartnerSelect={setSelectedPartnerId}
+            onCancel={hideCreateGoal}
+            onCreate={handleCreateGoal}
+          />
+        )}
+</>
   );
 }

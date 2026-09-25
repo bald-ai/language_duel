@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { getAuthenticatedUser } from "../helpers/auth";
 import {
   dismissNotificationById,
@@ -53,32 +53,9 @@ export async function handleArchiveCompletedGoalThemesFromNotification(
     return { archivedCount: 0 };
   }
 
-  if (goal.mode === "solo" && payload.event !== "goal_completed_solo") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid solo completed goal notification" });
-  }
-  if (goal.mode === "shared" && payload.event !== "goal_completed") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid shared completed goal notification" });
-  }
-
-  if (goal.status !== "completed") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Weekly goal is not completed" });
-  }
-
+  validateCompletedGoalNotification(goal, payload.event);
   const currentArchived = user.archivedThemeIds || [];
-  const archivedThemeIdSet = new Set(currentArchived.map((id) => String(id)));
-  const seenGoalThemeIds = new Set<string>();
-  const newlyArchivedThemeIds: Id<"themes">[] = [];
-
-  for (const goalTheme of goal.themes) {
-    const themeIdKey = String(goalTheme.themeId);
-    if (seenGoalThemeIds.has(themeIdKey)) continue;
-    seenGoalThemeIds.add(themeIdKey);
-
-    if (!archivedThemeIdSet.has(themeIdKey)) {
-      newlyArchivedThemeIds.push(goalTheme.themeId);
-      archivedThemeIdSet.add(themeIdKey);
-    }
-  }
+  const newlyArchivedThemeIds = getUnarchivedGoalThemeIds(goal, currentArchived);
 
   if (newlyArchivedThemeIds.length > 0) {
     await ctx.db.patch(user._id, {
@@ -142,4 +119,30 @@ export async function handleDeclineWeeklyGoalInvitation(
   await deleteGoalAndRelatedData(ctx, goal);
 
   return { success: true };
+}
+
+function validateCompletedGoalNotification(goal: Doc<"weeklyGoals">, event: string) {
+  if (goal.mode === "solo" && event !== "goal_completed_solo") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid solo completed goal notification" });
+  }
+  if (goal.mode === "shared" && event !== "goal_completed") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Invalid shared completed goal notification" });
+  }
+
+  if (goal.status !== "completed") {
+    throw new ConvexError({ code: "INVALID_STATE", message: "Weekly goal is not completed" });
+  }
+
+}
+
+/** Keep the goal's first occurrence order while preserving existing archives. */
+function getUnarchivedGoalThemeIds(goal: Doc<"weeklyGoals">, archived: Id<"themes">[]): Id<"themes">[] {
+  const archivedIds = new Set(archived.map(String));
+  const added: Id<"themes">[] = [];
+  for (const { themeId } of goal.themes) {
+    if (archivedIds.has(String(themeId))) continue;
+    added.push(themeId);
+    archivedIds.add(String(themeId));
+  }
+  return added;
 }

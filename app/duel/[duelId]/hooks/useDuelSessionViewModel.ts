@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { NONE_OF_ABOVE } from "@/lib/answerShuffle";
 import { forRole } from "@/lib/duelRole";
 import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
-import type { DuelViewProps } from "../components/DuelView";
+import type { DuelViewProps, FrozenData } from "../components/DuelView";
 import { deriveHintFlags, deriveScoreNames } from "./duelViewModelHelpers";
 import {
   isWordQuestion,
@@ -14,6 +14,7 @@ import {
   requireWordSessionItem,
   type ViewerSafeDuelQuestion,
   type ViewerSafeWordQuestion,
+  type ViewerSafeWordSessionItem,
 } from "./duelSessionTypes";
 import { useDuelActions } from "./useDuelActions";
 import { useDuelPhaseState } from "./useDuelPhaseState";
@@ -64,9 +65,7 @@ export function useDuelSessionViewModel({
 
   const items = duel.sessionItems;
   const itemOrder = duel.itemOrder;
-  const isCompleted = duel.status === "completed";
-  const rawIndex = duel.currentItemIndex ?? 0;
-  const index = isCompleted && items.length > 0 ? items.length - 1 : rawIndex;
+  const { index, currentQuestion, currentSessionWord } = currentWordRound(duel);
   const roleView = forRole(duel, viewerRole);
   const {
     myScore,
@@ -138,26 +137,6 @@ export function useDuelSessionViewModel({
     }
   }, [duel.status, router]);
 
-  const actualItemIndex = itemOrder[index];
-  // The standard view-model is word-only; the page already routes sentence
-  // positions to a dedicated SentenceRoundView, so this narrow is the place we
-  // assert "we should only be here for word positions". Exception: a completed
-  // duel whose last position is a sentence still lands here (the page routes
-  // completion to the standard final-results card, not to SentenceRoundView).
-  // In that case we provide a safe placeholder — the completed view renders
-  // final results, not per-question UI, so these values are not displayed.
-  const rawCurrentQuestion = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
-  const currentQuestion: ViewerSafeWordQuestion =
-    isCompleted && !isWordQuestion(rawCurrentQuestion)
-      ? COMPLETED_PLACEHOLDER_WORD_QUESTION
-      : requireWordQuestion(rawCurrentQuestion);
-  const rawCurrentSessionItem = items[actualItemIndex];
-  const currentSessionWord =
-    !rawCurrentSessionItem || (isCompleted && rawCurrentSessionItem.kind !== "word")
-      ? null
-      : requireWordSessionItem(rawCurrentSessionItem);
-  // No current word means the server has advanced past the last question and we
-  // are waiting for the duel to flip to "completed".
   const isRoundOver = !currentSessionWord;
 
   const isChallenger = viewerRole === "challenger";
@@ -165,48 +144,27 @@ export function useDuelSessionViewModel({
 
   const hasAnswered = getHasAnsweredForIndex(index, myAnswered);
   const eliminatedOptions = duel.eliminatedOptions || [];
-  const answerRevealedToViewer = currentQuestion.answerRevealedToViewer === true;
-  const liveCorrectAnswer = answerRevealedToViewer
-    ? currentSessionWord?.answer ?? null
-    : null;
-  const liveHasNoneOption = answerRevealedToViewer
-    ? currentQuestion.correctOption === NONE_OF_ABOVE
-    : null;
+  const displayed =
+    frozenData ??
+    liveWordPresentation({
+      currentQuestion,
+      currentSessionWord,
+      index,
+      selectedAnswer,
+      theirLastAnswer,
+    });
+  const displayedIndex = displayed.itemIndex;
 
-  // The question currently on screen: the frozen snapshot during the transition,
-  // otherwise the live question. Resolved once, here, instead of branching at
-  // every use site in the view.
-  const displayedWord = frozenData ? frozenData.word : currentSessionWord?.word ?? "";
-  const displayedIndex = frozenData ? frozenData.itemIndex : index;
-  const displayedAnswers = frozenData ? frozenData.shuffledAnswers : currentQuestion.options;
-  const displayedSelected = frozenData ? frozenData.selectedAnswer : selectedAnswer;
-  const displayedCorrect = frozenData ? frozenData.correctAnswer : liveCorrectAnswer;
-  const displayedHasNone = frozenData ? frozenData.hasNoneOption : liveHasNoneOption;
-  const displayedDifficulty = frozenData
-    ? frozenData.difficulty
-    : { level: currentQuestion.difficulty, points: currentQuestion.points };
-  const displayedOpponentAnswer = frozenData
-    ? frozenData.opponentAnswer
-    : theirLastAnswer ?? null;
+  const sourceThemeName = sourceThemeNameForRound(
+    items,
+    itemOrder,
+    displayedIndex,
+  );
 
-  const sourceThemeName = useMemo(() => {
-    const hasMultipleThemes =
-      new Set(items.map((sessionItem) => String(sessionItem.themeId))).size > 1;
-    if (!hasMultipleThemes) return null;
-    const visibleItemIndex = itemOrder[displayedIndex];
-    const visibleItem = items[visibleItemIndex];
-    const themeName = (visibleItem as { themeName?: string } | undefined)?.themeName;
-    return typeof themeName === "string" ? themeName : null;
-  }, [items, itemOrder, displayedIndex]);
-
-  // True once the viewer has already sent a sabotage during the current
-  // question. `theirSabotage` is the sabotage the viewer sent to the opponent;
-  // a timestamp at/after the current question's start means it belongs to this
-  // question. One sabotage per question per player is enforced server-side.
-  const hasSentSabotageThisQuestion =
-    typeof duel.questionStartTime === "number" &&
-    typeof theirSabotage?.timestamp === "number" &&
-    theirSabotage.timestamp >= duel.questionStartTime;
+  const hasSentSabotageThisQuestion = hasSentSabotageForQuestion(
+    duel.questionStartTime,
+    theirSabotage,
+  );
 
   const hints = deriveHintFlags({
     isPve,
@@ -218,7 +176,11 @@ export function useDuelSessionViewModel({
     myRole: viewerRole,
     theirRole,
   });
-  const { myName, theirName } = deriveScoreNames(isChallenger, challenger, opponent);
+  const { myName, theirName } = deriveScoreNames(
+    isChallenger,
+    challenger,
+    opponent,
+  );
 
   const handleConfirmAnswer = () => {
     if (!selectedAnswer) return;
@@ -228,7 +190,7 @@ export function useDuelSessionViewModel({
   const handleOptionClick = (
     ans: string,
     canEliminateThis: boolean,
-    isEliminated: boolean
+    isEliminated: boolean,
   ) => {
     if (phase !== "answering") return;
     if (canEliminateThis) {
@@ -251,10 +213,10 @@ export function useDuelSessionViewModel({
     round: {
       itemCount: items.length,
       index: displayedIndex,
-      word: displayedWord,
+      word: displayed.word,
       sourceThemeName,
       frozenData,
-      difficulty: displayedDifficulty,
+      difficulty: displayed.difficulty,
       duelDuration,
       hintReveal: duel.currentQuestionHintReveal,
     },
@@ -270,12 +232,12 @@ export function useDuelSessionViewModel({
       userRole: viewerRole,
     },
     answers: {
-      shuffledAnswers: displayedAnswers,
-      selectedAnswer: displayedSelected,
-      correctAnswer: displayedCorrect,
-      hasNoneOption: displayedHasNone,
+      shuffledAnswers: displayed.shuffledAnswers,
+      selectedAnswer: displayed.selectedAnswer,
+      correctAnswer: displayed.correctAnswer,
+      hasNoneOption: displayed.hasNoneOption,
       eliminatedOptions,
-      opponentLastAnswer: displayedOpponentAnswer,
+      opponentLastAnswer: displayed.opponentAnswer,
       isRevealing,
       typedText,
       revealComplete,
@@ -325,4 +287,106 @@ export function useDuelSessionViewModel({
     },
     audio: { isPlaying: actions.isPlayingAudio },
   };
+}
+
+/** Select the actual last round for final results; active play uses the server cursor. */
+function currentWordRound(duel: Doc<"duels">) {
+  const isCompleted = duel.status === "completed";
+  const rawIndex = duel.currentItemIndex ?? 0;
+  const index =
+    isCompleted && duel.sessionItems.length > 0
+      ? duel.sessionItems.length - 1
+      : rawIndex;
+  return {
+    index,
+    currentQuestion: displayedWordQuestion(duel, index, isCompleted),
+    currentSessionWord: displayedWordItem(duel, index, isCompleted),
+  };
+}
+
+function displayedWordQuestion(
+  duel: Doc<"duels">,
+  index: number,
+  isCompleted: boolean,
+): ViewerSafeWordQuestion {
+  const question = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
+  // A sentence-last completion uses this view only for its final-results card.
+  return isCompleted && !isWordQuestion(question)
+    ? COMPLETED_PLACEHOLDER_WORD_QUESTION
+    : requireWordQuestion(question);
+}
+
+function displayedWordItem(
+  duel: Doc<"duels">,
+  index: number,
+  isCompleted: boolean,
+): ViewerSafeWordSessionItem | null {
+  const item = duel.sessionItems[duel.itemOrder[index]];
+  if (!item || (isCompleted && item.kind !== "word")) return null;
+  return requireWordSessionItem(item);
+}
+
+/** Match the frozen snapshot shape so every displayed field comes from the same round. */
+function liveWordPresentation({
+  currentQuestion,
+  currentSessionWord,
+  index,
+  selectedAnswer,
+  theirLastAnswer,
+}: {
+  currentQuestion: ViewerSafeWordQuestion;
+  currentSessionWord: ViewerSafeWordSessionItem | null;
+  index: number;
+  selectedAnswer: string | null;
+  theirLastAnswer: string | null | undefined;
+}): FrozenData {
+  return {
+    word: currentSessionWord?.word ?? "",
+    ...revealedWordAnswer(currentQuestion, currentSessionWord),
+    shuffledAnswers: currentQuestion.options,
+    selectedAnswer,
+    opponentAnswer: theirLastAnswer ?? null,
+    itemIndex: index,
+    difficulty: {
+      level: currentQuestion.difficulty,
+      points: currentQuestion.points,
+    },
+  };
+}
+
+function revealedWordAnswer(
+  question: ViewerSafeWordQuestion,
+  word: ViewerSafeWordSessionItem | null,
+) {
+  const revealed = question.answerRevealedToViewer === true;
+  return {
+    correctAnswer: revealed ? (word?.answer ?? null) : null,
+    hasNoneOption: revealed ? question.correctOption === NONE_OF_ABOVE : null,
+  };
+}
+
+function hasSentSabotageForQuestion(
+  questionStartTime: number | undefined,
+  theirSabotage: Doc<"duels">["opponentSabotage"],
+) {
+  return (
+    typeof questionStartTime === "number" &&
+    typeof theirSabotage?.timestamp === "number" &&
+    theirSabotage.timestamp >= questionStartTime
+  );
+}
+
+function sourceThemeNameForRound(
+  items: Doc<"duels">["sessionItems"],
+  itemOrder: number[],
+  displayedIndex: number,
+) {
+  const hasMultipleThemes =
+    new Set(items.map((sessionItem) => String(sessionItem.themeId))).size > 1;
+  if (!hasMultipleThemes) return null;
+  const visibleItemIndex = itemOrder[displayedIndex];
+  const visibleItem = items[visibleItemIndex];
+  const themeName = (visibleItem as { themeName?: string } | undefined)
+    ?.themeName;
+  return typeof themeName === "string" ? themeName : null;
 }

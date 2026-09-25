@@ -1,20 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { calculateAccuracy, calculateMaxScore, calculateSuccessRate } from "@/lib/scoring";
-import { calculateDuelDifficultyDistribution } from "@/lib/difficultyUtils";
+import { calculateAccuracy } from "@/lib/scoring";
 
 describe("scoring", () => {
-  it("calculateMaxScore sums difficulty points", () => {
-    const distribution = calculateDuelDifficultyDistribution(3, "easy");
-    expect(calculateMaxScore(3, distribution)).toBe(3.5);
-  });
-
-  it("calculateSuccessRate handles zero maxScore", () => {
-    expect(calculateSuccessRate(5, 0)).toBe(0);
-  });
-
-  it("calculateSuccessRate rounds to nearest percent", () => {
-    expect(calculateSuccessRate(7, 10)).toBe(70);
-  });
 
   it("calculateAccuracy handles zero total", () => {
     expect(calculateAccuracy(3, 0)).toBe(0);

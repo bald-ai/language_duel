@@ -1,12 +1,14 @@
 "use client";
 
+import type { CSSProperties } from "react";
+import type { ThemeColors } from "@/lib/appearance";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { cssVarColors as cssColors } from "@/app/components/themeCssVars";
 import {
   buildSoloSentenceCloze,
-  isSoloSentenceTokenMatch,
-  validateSoloSentenceClozeAnswer,
+  evaluateSoloSentencePlacement,
+  type SoloSentencePlacement,
   type SoloSentenceBankChip,
 } from "@/lib/soloSentenceRuntime";
 import {
@@ -14,6 +16,7 @@ import {
   getSentenceTilePoolFontSizeClass,
 } from "@/lib/sentenceGameplay/displayTile";
 import { getListenButtonStyle } from "@/lib/sentenceGameplay/listenButton";
+import { useSentenceClozeKeyboard } from "../hooks/useSentenceClozeKeyboard";
 import { Level0Input } from "@/app/game/levels";
 import { SpeakerIcon } from "@/app/components/icons";
 import type { SessionSentenceItem } from "@/lib/sessionItems";
@@ -45,11 +48,6 @@ const levelBadgeStyles: Record<0 | 1 | 2 | 3, { color: string; borderColor: stri
   },
 };
 
-interface FilledBlank {
-  blankPosition: number;
-  chip: SoloSentenceBankChip;
-}
-
 interface SentenceClozeQuestionProps {
   session: SoloSessionState;
   currentSentence: SessionSentenceItem;
@@ -76,10 +74,7 @@ export function SentenceClozeQuestion({
     () => buildSoloSentenceCloze(currentSentence, session.questionLevel),
     [currentSentence, session.questionLevel]
   );
-  const bankFontSizeClass = getSentenceTilePoolFontSizeClass(
-    cloze.bank.map((chip) => chip.text)
-  );
-  const [filledBlanks, setFilledBlanks] = useState<FilledBlank[]>([]);
+  const [filledBlanks, setFilledBlanks] = useState<SoloSentencePlacement[]>([]);
   const [wrongChipId, setWrongChipId] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
 
@@ -89,21 +84,6 @@ export function SentenceClozeQuestion({
   // incorrect (stays put). One-shot locked so the auto-advance delay can't be
   // double-clicked into a double answer.
   const isRecognition = session.questionLevel === 0;
-  const [recognitionLocked, setRecognitionLocked] = useState(false);
-  const showRecognitionListen = isRecognition && !!currentSentence.ttsStorageId;
-  const listenDisabled = isTTSDisabled || isTTSPlaying;
-
-  const handleRecognitionGotIt = () => {
-    if (recognitionLocked) return;
-    setRecognitionLocked(true);
-    onCorrect();
-  };
-  const handleRecognitionNotYet = () => {
-    if (recognitionLocked) return;
-    setRecognitionLocked(true);
-    onIncorrect();
-  };
-
   const usedChipIds = useMemo(
     () => new Set(filledBlanks.map((entry) => entry.chip.id)),
     [filledBlanks]
@@ -120,19 +100,17 @@ export function SentenceClozeQuestion({
     (chip: SoloSentenceBankChip) => {
       if (isLocked || usedChipIds.has(chip.id) || nextBlankPosition === null) return;
 
-      const expectedToken = cloze.tokens[nextBlankPosition]?.text;
-      if (!expectedToken || !isSoloSentenceTokenMatch(chip.text, expectedToken)) {
+      const placement = evaluateSoloSentencePlacement({
+        spanishSentence: currentSentence.spanishSentence,
+        cloze, filledBlanks, blankPosition: nextBlankPosition, chip,
+      });
+      if (!placement.correct) {
         setWrongChipId(chip.id);
         setIsLocked(true);
         onIncorrect();
         return;
       }
-
-      const nextFilledBlanks = [
-        ...filledBlanks,
-        { blankPosition: nextBlankPosition, chip },
-      ];
-      setFilledBlanks(nextFilledBlanks);
+      setFilledBlanks(placement.filledBlanks);
 
       // Move the keyboard highlight onto the next still-available chip so the
       // learner can keep building with Enter alone.
@@ -141,13 +119,7 @@ export function SentenceClozeQuestion({
       const nextAvailable = cloze.bank.findIndex((candidate) => !newUsed.has(candidate.id));
       setSelectedChipIndex(nextAvailable === -1 ? 0 : nextAvailable);
 
-      if (
-        validateSoloSentenceClozeAnswer({
-          spanishSentence: currentSentence.spanishSentence,
-          blankPositions: cloze.blankPositions,
-          filledTokens: nextFilledBlanks.map((entry) => entry.chip.text),
-        })
-      ) {
+      if (placement.complete) {
         setIsLocked(true);
         onCorrect();
       }
@@ -164,42 +136,14 @@ export function SentenceClozeQuestion({
     ]
   );
 
-  // Arrow keys traverse the available chips; Enter confirms (places) the
-  // selected one. Inactive during recognition (Level 0 has its own keyboard
-  // handling) and once the question is locked.
-  useEffect(() => {
-    if (isRecognition || isLocked) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const available = cloze.bank
-        .map((chip, index) => ({ chip, index }))
-        .filter(({ chip }) => !usedChipIds.has(chip.id))
-        .map(({ index }) => index);
-      if (available.length === 0) return;
-
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelectedChipIndex((prev) => {
-          const position = available.indexOf(prev);
-          return available[(position + 1) % available.length];
-        });
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelectedChipIndex((prev) => {
-          const position = available.indexOf(prev);
-          const base = position === -1 ? available.length : position;
-          return available[(base - 1 + available.length) % available.length];
-        });
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        const chip = cloze.bank[selectedChipIndex];
-        if (chip && !usedChipIds.has(chip.id)) placeChip(chip);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecognition, isLocked, cloze.bank, usedChipIds, selectedChipIndex, placeChip]);
+  useSentenceClozeKeyboard({
+    disabled: isRecognition || isLocked,
+    bank: cloze.bank,
+    usedChipIds,
+    selectedChipIndex,
+    setSelectedChipIndex,
+    placeChip,
+  });
 
   // Focus the cloze container on mount so keyboard navigation works immediately.
   useEffect(() => {
@@ -242,30 +186,8 @@ export function SentenceClozeQuestion({
       ) : null}
 
       {isRecognition ? (
-        <>
-          <Level0Input
-            word={currentSentence.englishPrompt}
-            answer={currentSentence.spanishSentence}
-            onGotIt={handleRecognitionGotIt}
-            onNotYet={handleRecognitionNotYet}
-            dataTestIdBase="solo-practice-sentence-level0"
-          />
-          {showRecognitionListen && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={listenDisabled ? undefined : onPlayTTS}
-                disabled={listenDisabled}
-                className="inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                style={getListenButtonStyle(colors, isTTSPlaying)}
-                data-testid="solo-practice-sentence-listen"
-              >
-                <SpeakerIcon className="h-4 w-4" />
-                <span>{isTTSPlaying ? "Playing..." : "Listen"}</span>
-              </button>
-            </div>
-          )}
-        </>
+        <SentenceRecognition currentSentence={currentSentence} onCorrect={onCorrect} onIncorrect={onIncorrect}
+          isTTSPlaying={isTTSPlaying} isTTSDisabled={isTTSDisabled} onPlayTTS={onPlayTTS} />
       ) : (
         <div ref={containerRef} tabIndex={0} className="outline-none">
           <div className="text-center mb-5">
@@ -334,57 +256,8 @@ export function SentenceClozeQuestion({
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3" data-testid="solo-practice-sentence-bank">
-            {cloze.bank.map((chip, chipIndex) => {
-              const isUsed = usedChipIds.has(chip.id);
-              const isWrong = wrongChipId === chip.id;
-              const isSelected = !isUsed && !isWrong && selectedChipIndex === chipIndex;
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => placeChip(chip)}
-                  disabled={isUsed || isLocked}
-                  className={`min-h-[4.5rem] rounded-2xl border-2 px-3 py-2 font-bold transition active:scale-[0.98] ${bankFontSizeClass} ${
-                    isWrong ? "solo-sentence-chip-wrong" : ""
-                  }`}
-                  style={{
-                    backgroundColor: isUsed
-                      ? `${colors.status.success.DEFAULT}26`
-                      : isSelected
-                        ? `${colors.secondary.DEFAULT}26`
-                        : colors.background.DEFAULT,
-                    borderColor: isWrong
-                      ? colors.status.danger.DEFAULT
-                      : isUsed
-                        ? colors.status.success.DEFAULT
-                        : isSelected
-                          ? colors.secondary.DEFAULT
-                          : colors.primary.dark,
-                    color: isUsed ? colors.status.success.light : colors.text.DEFAULT,
-                    opacity: isUsed ? 0.65 : 1,
-                    boxShadow: isSelected ? `0 0 0 3px ${colors.secondary.DEFAULT}40` : undefined,
-                    cursor: isUsed || isLocked ? "not-allowed" : "pointer",
-                  }}
-                  data-testid={`solo-practice-sentence-chip-${chip.tokenIndex}`}
-                >
-                  <span className="block leading-tight">
-                    {formatSentenceTileForDisplay(chip.text)}
-                  </span>
-                  {chip.meaning && (
-                    <span
-                      className="mt-1 block text-[11px] font-semibold leading-tight"
-                      style={{ color: colors.text.muted }}
-                      data-testid={`solo-practice-sentence-chip-${chip.tokenIndex}-meaning`}
-                    >
-                      {chip.meaning}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <SentenceChipBank bank={cloze.bank} usedChipIds={usedChipIds} wrongChipId={wrongChipId}
+            selectedChipIndex={selectedChipIndex} isLocked={isLocked} placeChip={placeChip} />
 
           {/* Navigation hint, matching the word levels. */}
           <div className="mt-4 text-center text-xs" style={{ color: colors.text.muted }}>
@@ -392,6 +265,105 @@ export function SentenceClozeQuestion({
           </div>
         </div>
       )}
+
+    </section>
+  );
+}
+
+function SentenceRecognition({ currentSentence, onCorrect, onIncorrect, isTTSPlaying, isTTSDisabled, onPlayTTS }:
+  Pick<SentenceClozeQuestionProps, "currentSentence" | "onCorrect" | "onIncorrect" | "isTTSPlaying" | "isTTSDisabled" | "onPlayTTS">) {
+  const colors = useAppearanceColors();
+  const [recognitionLocked, setRecognitionLocked] = useState(false);
+  const showRecognitionListen = !!currentSentence.ttsStorageId;
+  const listenDisabled = isTTSDisabled || isTTSPlaying;
+
+  const handleRecognitionGotIt = () => {
+    if (recognitionLocked) return;
+    setRecognitionLocked(true);
+    onCorrect();
+  };
+  const handleRecognitionNotYet = () => {
+    if (recognitionLocked) return;
+    setRecognitionLocked(true);
+    onIncorrect();
+  };
+
+  return (
+    <>
+      <Level0Input
+        word={currentSentence.englishPrompt}
+        answer={currentSentence.spanishSentence}
+        onGotIt={handleRecognitionGotIt}
+        onNotYet={handleRecognitionNotYet}
+        dataTestIdBase="solo-practice-sentence-level0"
+      />
+      {showRecognitionListen && (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={listenDisabled ? undefined : onPlayTTS}
+            disabled={listenDisabled}
+            className="inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            style={getListenButtonStyle(colors, isTTSPlaying)}
+            data-testid="solo-practice-sentence-listen"
+          >
+            <SpeakerIcon className="h-4 w-4" />
+            <span>{isTTSPlaying ? "Playing..." : "Listen"}</span>
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SentenceChipBank({ bank, usedChipIds, wrongChipId, selectedChipIndex, isLocked, placeChip }: {
+  bank: SoloSentenceBankChip[];
+  usedChipIds: ReadonlySet<string>;
+  wrongChipId: string | null;
+  selectedChipIndex: number;
+  isLocked: boolean;
+  placeChip: (chip: SoloSentenceBankChip) => void;
+}) {
+  const colors = useAppearanceColors();
+  const bankFontSizeClass = getSentenceTilePoolFontSizeClass(bank.map((chip) => chip.text));
+  return (
+    <>
+      <div className="mt-5 grid grid-cols-2 gap-3" data-testid="solo-practice-sentence-bank">
+        {bank.map((chip, chipIndex) => {
+          const isUsed = usedChipIds.has(chip.id);
+          const isWrong = wrongChipId === chip.id;
+          const isSelected = !isUsed && !isWrong && selectedChipIndex === chipIndex;
+          const disabled = isUsed || isLocked;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              tabIndex={-1}
+              onClick={() => placeChip(chip)}
+              disabled={disabled}
+              className={`min-h-[4.5rem] rounded-2xl border-2 px-3 py-2 font-bold transition active:scale-[0.98] ${bankFontSizeClass} ${
+                isWrong ? "solo-sentence-chip-wrong" : ""
+              }`}
+              style={getSentenceChipStyle(colors, isUsed, isWrong, isSelected, disabled)}
+              data-testid={`solo-practice-sentence-chip-${chip.tokenIndex}`}
+            >
+              <span className="block leading-tight">
+                {formatSentenceTileForDisplay(chip.text)}
+              </span>
+              {chip.meaning && (
+                <span
+                  className="mt-1 block text-[11px] font-semibold leading-tight"
+                  style={{ color: colors.text.muted }}
+                  data-testid={`solo-practice-sentence-chip-${chip.tokenIndex}-meaning`}
+                >
+                  {chip.meaning}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <style jsx>{`
         .solo-sentence-chip-wrong {
           animation: soloSentenceChipWrong 420ms ease-in-out both;
@@ -405,6 +377,25 @@ export function SentenceClozeQuestion({
           80% { transform: translateX(4px); }
         }
       `}</style>
-    </section>
+    </>
   );
+}
+
+function getSentenceChipBorderColor(colors: ThemeColors, isUsed: boolean, isWrong: boolean, isSelected: boolean) {
+  if (isWrong) return colors.status.danger.DEFAULT;
+  if (isUsed) return colors.status.success.DEFAULT;
+  return isSelected ? colors.secondary.DEFAULT : colors.primary.dark;
+}
+
+function getSentenceChipStyle(colors: ThemeColors, isUsed: boolean, isWrong: boolean, isSelected: boolean, disabled: boolean): CSSProperties {
+  return {
+    backgroundColor: isUsed
+      ? `${colors.status.success.DEFAULT}26`
+      : isSelected ? `${colors.secondary.DEFAULT}26` : colors.background.DEFAULT,
+    borderColor: getSentenceChipBorderColor(colors, isUsed, isWrong, isSelected),
+    color: isUsed ? colors.status.success.light : colors.text.DEFAULT,
+    opacity: isUsed ? 0.65 : 1,
+    boxShadow: isSelected ? `0 0 0 3px ${colors.secondary.DEFAULT}40` : undefined,
+    cursor: disabled ? "not-allowed" : "pointer",
+  };
 }

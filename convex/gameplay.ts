@@ -383,25 +383,6 @@ async function runSpacedRepetitionCompletion(
   return { completed: true };
 }
 
-// Public named lifecycle commands (kept for explicit retry/manual recovery).
-// Default code path triggers them via the scheduler from the answer flow so
-// completion does not depend on the client staying connected.
-export const completeWeeklyGoalMilestoneDuel = mutation({
-  args: { duelId: v.id("duels") },
-  handler: async (ctx, { duelId }) => {
-    const { duel } = await getDuelParticipant(ctx, duelId);
-    return runWeeklyGoalMilestoneCompletion(ctx, duel);
-  },
-});
-
-export const completeSpacedRepetitionDuel = mutation({
-  args: { duelId: v.id("duels") },
-  handler: async (ctx, { duelId }) => {
-    const { duel } = await getDuelParticipant(ctx, duelId);
-    return runSpacedRepetitionCompletion(ctx, duel);
-  },
-});
-
 // Internal lifecycle commands invoked by the scheduler so completion is
 // guaranteed even if the answering client closes the tab mid-finalization.
 export const completeWeeklyGoalMilestoneDuelInternal = internalMutation({

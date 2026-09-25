@@ -82,26 +82,6 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
   const currentColor = CONFIDENCE_COLORS[currentValue];
   const currentBg = CONFIDENCE_COLORS_LIGHT[currentValue];
 
-  const stepBtnClass = `
-    w-10 h-10 text-xl
-    font-bold
-    rounded-xl
-    border-2
-    flex items-center justify-center
-    leading-none
-    transition-all
-    duration-150
-    cursor-pointer hover:brightness-110 active:scale-95
-  `;
-
-  const stepBtnStyle = (disabled: boolean) => ({
-    backgroundColor: colors.background.elevated,
-    borderColor: colors.primary.dark,
-    color: colors.primary.dark,
-    opacity: disabled ? 0.35 : 1,
-    cursor: disabled ? "not-allowed" : "pointer",
-  });
-
   const boxStyle = {
     backgroundColor: currentBg,
     borderColor: currentColor,
@@ -115,17 +95,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
       className="flex items-center gap-2"
       data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-control` : undefined}
     >
-      <button
-        type="button"
-        onClick={decrement}
-        disabled={atMin}
-        aria-label="Decrease confidence"
-        data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-decrement` : undefined}
-        className={stepBtnClass}
-        style={stepBtnStyle(atMin)}
-      >
-        −
-      </button>
+      <ConfidenceStepButton action="decrement" onClick={decrement} disabled={atMin} dataTestIdPrefix={dataTestIdPrefix} />
 
       <div
         className="w-16 h-10 text-xl relative overflow-hidden rounded-xl border-2 font-bold select-none"
@@ -151,17 +121,7 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={increment}
-        disabled={atMax}
-        aria-label="Increase confidence"
-        data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-increment` : undefined}
-        className={stepBtnClass}
-        style={stepBtnStyle(atMax)}
-      >
-        +
-      </button>
+      <ConfidenceStepButton action="increment" onClick={increment} disabled={atMax} dataTestIdPrefix={dataTestIdPrefix} />
 
       <style jsx>{`
         .conf-slide-num {
@@ -206,3 +166,45 @@ export const ConfidenceSlider = memo(function ConfidenceSlider({
 });
 
 ConfidenceSlider.displayName = "ConfidenceSlider";
+
+function ConfidenceStepButton({ action, onClick, disabled, dataTestIdPrefix }: {
+  action: "decrement" | "increment";
+  onClick: () => void;
+  disabled: boolean;
+  dataTestIdPrefix: ConfidenceSliderProps["dataTestIdPrefix"];
+}) {
+  const colors = useAppearanceColors();
+  const stepBtnClass = `
+    w-10 h-10 text-xl
+    font-bold
+    rounded-xl
+    border-2
+    flex items-center justify-center
+    leading-none
+    transition-all
+    duration-150
+    cursor-pointer hover:brightness-110 active:scale-95
+  `;
+
+  const stepBtnStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.primary.dark,
+    opacity: disabled ? 0.35 : 1,
+    cursor: disabled ? "not-allowed" : "pointer",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={action === "decrement" ? "Decrease confidence" : "Increase confidence"}
+      data-testid={dataTestIdPrefix ? `${dataTestIdPrefix}-${action}` : undefined}
+      className={stepBtnClass}
+      style={stepBtnStyle}
+    >
+      {action === "decrement" ? "−" : "+"}
+    </button>
+  );
+}

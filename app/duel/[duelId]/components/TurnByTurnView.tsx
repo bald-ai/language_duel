@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,20 +11,14 @@ import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { Scoreboard } from "@/app/game/components/duel/Scoreboard";
 import { formatVisibleUser } from "@/lib/userDisplay";
 import { getErrorMessage } from "@/lib/errors";
-import { TBT_BOARD_ROLE } from "@/lib/duel/tbtEngine";
-import {
-  TBT_QUESTION_TIMEOUT_MS,
-  TBT_QUESTION_TIMEOUT_SECONDS,
-} from "@/lib/duelConstants";
-import {
-  clampTimerSeconds,
-  getEffectiveQuestionStartTime,
-} from "@/lib/duelTiming";
+import { TBT_BOARD_ROLE, otherRole } from "@/lib/duel/tbtEngine";
+import { useTbtQuestionClock } from "../hooks/useTbtQuestionClock";
 import { buildDuelViewStyles } from "./duelViewStyles";
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
 import {
   isSentenceQuestion,
   type ViewerSafeDuelQuestion,
+  type ViewerSafeSentenceQuestion,
 } from "../hooks/duelSessionTypes";
 import type { DuelPlayerSummary } from "../hooks/useDuelSessionViewModel";
 
@@ -57,77 +51,43 @@ export function TurnByTurnView({
   const styles = buildDuelViewStyles(colors);
   const router = useRouter();
   const tap = useMutation(api.tbtDuel.tbtTap);
-  const questionTimeout = useMutation(api.tbtDuel.tbtQuestionTimeout);
   const stopDuel = useMutation(api.duels.stopDuel);
 
   const isCompleted = duel.status === "completed";
   const questionIndex = duel.currentItemIndex;
-  const total = duel.duelQuestions?.length ?? 0;
   const question = duel.duelQuestions?.[questionIndex] as
     | ViewerSafeDuelQuestion
     | undefined;
 
   const currentTurn = duel.tbtTurn;
-  const myTurn = !isCompleted && currentTurn === viewerRole;
 
   // Both scores move in lockstep (a finished sentence is +1 to each), so either
   // one is "sentences the pair built together".
   const built = duel.challengerScore;
 
-  const isChallenger = viewerRole === "challenger";
-  const myName = formatVisibleUser(isChallenger ? challenger : opponent, "You");
+  const participants = { challenger, opponent };
+  const myName = formatVisibleUser(participants[viewerRole], "You");
   const partnerName = formatVisibleUser(
-    isChallenger ? opponent : challenger,
-    "Your partner"
+    participants[otherRole(viewerRole)],
+    "Your partner",
   );
-
-  // One shared clock for the WHOLE sentence (not per turn), anchored on
-  // `questionStartTime` — the same timing the word/sentence duels use, so the
-  // pause/transition handling comes for free. When it hits zero we nudge the
-  // server via `tbtQuestionTimeout` (idempotent + self-verifying; either client
-  // can drive it). Re-keyed by `questionIndex` so it fires once per sentence.
-  const questionStartTime = duel.questionStartTime;
-  const [secondsLeft, setSecondsLeft] = useState(TBT_QUESTION_TIMEOUT_SECONDS);
-  const firedForRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (isCompleted || questionStartTime === undefined) return;
-    const tick = () => {
-      const effectiveStart = getEffectiveQuestionStartTime(
-        questionStartTime,
-        questionIndex
-      );
-      const remainingMs = effectiveStart + TBT_QUESTION_TIMEOUT_MS - Date.now();
-      setSecondsLeft(
-        clampTimerSeconds(Math.ceil(remainingMs / 1000), TBT_QUESTION_TIMEOUT_SECONDS)
-      );
-      if (remainingMs <= 0 && firedForRef.current !== questionIndex) {
-        firedForRef.current = questionIndex;
-        questionTimeout({ duelId: duel._id, questionIndex }).catch(() => {
-          // Best-effort; retry on the next sentence (the peer client can also
-          // drive it, and the server self-verifies the window).
-          firedForRef.current = null;
-        });
-      }
-    };
-    tick();
-    const id = window.setInterval(tick, 250);
-    return () => window.clearInterval(id);
-  }, [questionStartTime, questionIndex, isCompleted, duel._id, questionTimeout]);
+  const secondsLeft = useTbtQuestionClock(duel);
 
   const handleTap = useCallback(
     (tileIndex: number) => {
       tap({ duelId: duel._id, tileIndex }).catch((error) =>
-        toast.error(getErrorMessage(error, "Could not place tile"))
+        toast.error(getErrorMessage(error, "Could not place tile")),
       );
     },
-    [tap, duel._id]
+    [tap, duel._id],
   );
 
   const handleExit = useCallback(() => {
     void stopDuel({ duelId: duel._id })
       .then(() => router.push("/"))
-      .catch((error) => toast.error(getErrorMessage(error, "Could not exit duel")));
+      .catch((error) =>
+        toast.error(getErrorMessage(error, "Could not exit duel")),
+      );
   }, [duel._id, router, stopDuel]);
 
   // Shared chrome — scoreboard + Exit, matching `SentenceRoundView`. Both score
@@ -195,7 +155,7 @@ export function TurnByTurnView({
         >
           Back to Home
         </button>
-      </div>
+      </div>,
     );
   }
 
@@ -206,7 +166,7 @@ export function TurnByTurnView({
         style={{ color: colors.text.muted }}
       >
         Loading…
-      </div>
+      </div>,
     );
   }
 
@@ -218,29 +178,92 @@ export function TurnByTurnView({
         data-testid="tbt-state-error"
       >
         Tag Team duel is missing turn data.
-      </div>
+      </div>,
     );
   }
 
-  const sharedRow = (duel.sentenceProgress ?? []).find(
-    (row) => row.questionIndex === questionIndex && row.role === TBT_BOARD_ROLE
+  return renderShell(
+    <TbtSentenceBoard
+      duel={duel}
+      question={question}
+      viewerRole={viewerRole}
+      partnerName={partnerName}
+      secondsLeft={secondsLeft}
+      onTap={handleTap}
+    />,
   );
-  const placedTileIndices = sharedRow?.placedTileIndices ?? [];
+}
 
-  // Every placed tile is correct by construction: a wrong tap places nothing
-  // and just passes the turn. So mark them all correct and let the board paint
-  // them green (this also drops the PvP "peel back" red highlight on the last
-  // tile, which has no meaning here).
-  const correctnessMask = placedTileIndices.map(() => true);
+function TbtSentenceBoard({
+  duel,
+  question,
+  viewerRole,
+  partnerName,
+  secondsLeft,
+  onTap,
+}: {
+  duel: Doc<"duels">;
+  question: ViewerSafeSentenceQuestion;
+  viewerRole: TurnByTurnViewProps["viewerRole"];
+  partnerName: string;
+  secondsLeft: number;
+  onTap: (tileIndex: number) => void;
+}) {
+  const questionIndex = duel.currentItemIndex;
+  const total = duel.duelQuestions?.length ?? 0;
+  const myTurn = duel.tbtTurn === viewerRole;
+  const { placedTileIndices, correctnessMask } = sharedBoardProgress(duel);
 
   // The sentence question carries no theme label — it lives on the matching
-  // session item. Read it defensively (we only need the optional display label).
-  const sessionItem = duel.sessionItems[duel.itemOrder[questionIndex]] as unknown as
-    | { themeName?: string }
-    | undefined;
+  // session item. Read its typed display label.
+  const sessionItem = duel.sessionItems[
+    duel.itemOrder[questionIndex]
+  ];
   const themeName = sessionItem?.themeName ?? "";
 
-  const turnBanner = (
+  return (
+    <SentenceBuildBoard
+      roundLabel={`Sentence ${questionIndex + 1} of ${total}`}
+      themeName={themeName}
+      englishPrompt={question.englishPrompt}
+      tilePool={question.tilePool}
+      tileMeanings={question.tileMeanings}
+      placedTileIndices={placedTileIndices}
+      correctnessMask={correctnessMask}
+      lastWrongTileIndex={duel.tbtLastWrongTileIndex ?? null}
+      secondsLeft={secondsLeft}
+      showTimer
+      locked={!myTurn}
+      showActions={false}
+      confirmDisabled
+      onTileClick={onTap}
+      onConfirm={() => {}}
+      onReset={() => {}}
+      belowActions={
+        <TbtTurnBanner
+          myTurn={myTurn}
+          partnerName={partnerName}
+          built={duel.challengerScore}
+          total={total}
+        />
+      }
+    />
+  );
+}
+
+function TbtTurnBanner({
+  myTurn,
+  partnerName,
+  built,
+  total,
+}: {
+  myTurn: boolean;
+  partnerName: string;
+  built: number;
+  total: number;
+}) {
+  const colors = useAppearanceColors();
+  return (
     <div
       style={{
         display: "flex",
@@ -257,9 +280,7 @@ export function TurnByTurnView({
           color: myTurn ? colors.primary.DEFAULT : colors.text.muted,
         }}
       >
-        {myTurn
-          ? "Your turn — place the next tile"
-          : `${partnerName}'s turn…`}
+        {myTurn ? "Your turn — place the next tile" : `${partnerName}'s turn…`}
       </div>
       <div style={{ fontSize: 13, color: colors.text.muted }}>
         Built together: {built}
@@ -267,26 +288,20 @@ export function TurnByTurnView({
       </div>
     </div>
   );
+}
 
-  return renderShell(
-    <SentenceBuildBoard
-      roundLabel={`Sentence ${questionIndex + 1} of ${total}`}
-      themeName={themeName}
-      englishPrompt={question.englishPrompt}
-      tilePool={question.tilePool}
-      tileMeanings={question.tileMeanings}
-      placedTileIndices={placedTileIndices}
-      correctnessMask={correctnessMask}
-      lastWrongTileIndex={duel.tbtLastWrongTileIndex ?? null}
-      secondsLeft={secondsLeft}
-      showTimer
-      locked={!myTurn}
-      showActions={false}
-      confirmDisabled
-      onTileClick={handleTap}
-      onConfirm={() => {}}
-      onReset={() => {}}
-      belowActions={turnBanner}
-    />
+function sharedBoardProgress(duel: Doc<"duels">) {
+  const questionIndex = duel.currentItemIndex;
+  const sharedRow = (duel.sentenceProgress ?? []).find(
+    (row) => row.questionIndex === questionIndex && row.role === TBT_BOARD_ROLE,
   );
+  const placedTileIndices = sharedRow?.placedTileIndices ?? [];
+
+  // Every placed tile is correct by construction: a wrong tap places nothing
+  // and just passes the turn. So mark them all correct and let the board paint
+  // them green (this also drops the PvP "peel back" red highlight on the last
+  // tile, which has no meaning here).
+  const correctnessMask = placedTileIndices.map(() => true);
+
+  return { placedTileIndices, correctnessMask };
 }

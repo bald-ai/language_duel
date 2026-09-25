@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { HINT_TIME_BONUS_MS } from "@/convex/constants";
 import { acceptHint, eliminateOption, requestHint } from "@/convex/hints";
 import { createIndexedQuery, patchRow } from "./testUtils/inMemoryDb";
 
@@ -159,5 +160,85 @@ describe("PvP hint mode guards", () => {
         option: "dog",
       })
     ).rejects.toThrow("eliminateOption is only available in PVP duels");
+  });
+});
+
+describe("PvP hint lifecycle and rejected writes", () => {
+  it.each([
+    [{ status: "completed" }, "Duel is not active"],
+    [{ challengerAnswered: true }, "You already answered"],
+    [{ opponentAnswered: false }, "Opponent hasn't answered yet"],
+    [{ hintRequestedBy: "opponent" }, "Hint already requested"],
+  ] as const)("rejects request %j without changing the duel", async (override, message) => {
+    const db = dbWithDuel(duelDoc(override));
+    const before = structuredClone(db.duels);
+    await expect(requestHintHandler(createCtx(db), { duelId: db.duels[0]._id })).rejects.toThrow(message);
+    expect(db.duels).toEqual(before);
+  });
+
+  it.each([
+    [{ status: "completed" }, "Duel is not active"],
+    [{ challengerAnswered: false }, "You haven't answered yet"],
+    [{ hintRequestedBy: "challenger" }, "No hint request from opponent"],
+    [{ hintAccepted: true }, "Hint already accepted"],
+  ] as const)("rejects acceptance %j without changing the duel", async (override, message) => {
+    const db = dbWithDuel(duelDoc({ challengerAnswered: true, hintRequestedBy: "opponent", ...override }));
+    const before = structuredClone(db.duels);
+    await expect(acceptHintHandler(createCtx(db), { duelId: db.duels[0]._id })).rejects.toThrow(message);
+    expect(db.duels).toEqual(before);
+  });
+
+  it.each([
+    [{ status: "completed" }, "dog", "Duel is not active"],
+    [{ hintRequestedBy: "opponent" }, "dog", "You are not the hint provider"],
+    [{ hintAccepted: false }, "dog", "Hint not accepted yet"],
+    [{ duelQuestions: [] }, "dog", "Duel question data is missing"],
+    [{}, "absent", "Invalid option"],
+    [{}, "cat", "Cannot eliminate the correct answer"],
+    [{ eliminatedOptions: ["dog"] }, "dog", "Option already eliminated"],
+    [{ eliminatedOptions: ["bird", "fish"] }, "dog", "Maximum 2 options can be eliminated"],
+  ] as const)("rejects elimination %j/%s without a write", async (override, option, message) => {
+    const db = dbWithDuel(duelDoc({ hintRequestedBy: "challenger", hintAccepted: true, ...override } as Partial<DuelDoc>));
+    const before = structuredClone(db.duels);
+    await expect(eliminateOptionHandler(createCtx(db, "clerk_2"), { duelId: db.duels[0]._id, option })).rejects.toThrow(message);
+    expect(db.duels).toEqual(before);
+  });
+
+  it("adds the time bonus once, holds for the first pick, and resumes after two", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(10_000);
+    try {
+      const db = dbWithDuel(duelDoc());
+      const args = { duelId: db.duels[0]._id };
+      await requestHintHandler(createCtx(db), args);
+      await acceptHintHandler(createCtx(db, "clerk_2"), args);
+      expect(db.duels[0]).toMatchObject({ hintAccepted: true, eliminatedOptions: [], questionTimerPausedAt: 10_000, questionTimerPausedBy: "opponent", questionStartTime: 1_000 + HINT_TIME_BONUS_MS });
+      clock.mockReturnValue(12_000);
+      await eliminateOptionHandler(createCtx(db, "clerk_2"), { ...args, option: "dog" });
+      expect(db.duels[0]).toMatchObject({ eliminatedOptions: ["dog"], questionTimerPausedAt: 10_000 });
+      clock.mockReturnValue(14_000);
+      await eliminateOptionHandler(createCtx(db, "clerk_2"), { ...args, option: "bird" });
+      expect(db.duels[0]).toMatchObject({ eliminatedOptions: ["dog", "bird"], questionStartTime: 5_000 + HINT_TIME_BONUS_MS });
+      expect(db.duels[0].questionTimerPausedAt).toBeUndefined();
+      expect(db.duels[0].questionTimerPausedBy).toBeUndefined();
+    } finally { clock.mockRestore(); }
+  });
+
+  it("anchors an accepted hint to now when the question has no start timestamp", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(50_000);
+    try {
+      const db = dbWithDuel(duelDoc({ questionStartTime: undefined, hintRequestedBy: "challenger" }));
+      await acceptHintHandler(createCtx(db, "clerk_2"), { duelId: db.duels[0]._id });
+      expect(db.duels[0].questionStartTime).toBe(50_000 + HINT_TIME_BONUS_MS);
+    } finally { clock.mockRestore(); }
+  });
+
+  it.each([undefined, 0, 5_000])("resumes with pause timestamp %s and no question timestamp", async (pausedAt) => {
+    const db = dbWithDuel(duelDoc({ questionStartTime: undefined, questionTimerPausedAt: pausedAt,
+      questionTimerPausedBy: "opponent", hintRequestedBy: "challenger", hintAccepted: true, eliminatedOptions: ["dog"] }));
+    await eliminateOptionHandler(createCtx(db, "clerk_2"), { duelId: db.duels[0]._id, option: "bird" });
+    expect(db.duels[0].questionStartTime).toBeUndefined();
+    expect(db.duels[0].questionTimerPausedAt).toBeUndefined();
+    expect(db.duels[0].questionTimerPausedBy).toBeUndefined();
+    expect(db.duels[0].eliminatedOptions).toEqual(["dog", "bird"]);
   });
 });

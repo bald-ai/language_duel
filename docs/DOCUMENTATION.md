@@ -27,7 +27,7 @@ The direction is still evolving. AI should treat this thesis as the current best
 ## Core User Experiences
 
 - Manage themes: A user creates, edits, generates, shares, archives, and sometimes collaborates on themes. Themes are the core content unit that feeds study, solo practice, duels, and weekly goals.
-- Generate themes: AI-generated theme content uses Pick & Prune first, so users review generated words or sentence rounds and keep only the useful entries before the content becomes a draft or is appended to an existing theme.
+- Generate themes: Sentence batch generation always enters Pick & Prune; the unused direct append controller action has been removed. AI-generated theme content uses Pick & Prune first, so users review generated words or sentence rounds and keep only the useful entries before the content becomes a draft or is appended to an existing theme.
 - Solo practice: A user practices against the app without needing another player. The ad-hoc Learn + Practice flow, weekly-goal solo practice, boss solo practice, and spaced repetition all support word themes, sentence themes, or mixed selections. Sentence practice uses a fill-the-blanks ladder where higher levels blank more of the sentence until the user builds the whole sentence.
 - Start or join a duel: Two users accept a challenge and practice together. In practice this can be synchronous in-app play or a structure that supports learning together in real life.
 - Duel modes: New challenges choose `PvP`, `PvE`, `Relay`, or `Tag Team`. PvP is the competitive mode with sabotages and request-hint mechanics. PvE is the cooperative mode with a shared hint pool. Relay is the turn-based hand-off mode where one player picks the next round from the remaining content and the other player answers it, then roles swap. Tag Team is the shared sentence-board mode where players alternate placing the next tile together.
@@ -63,12 +63,12 @@ Important relationships:
 
 Theme generation lifecycle:
 
-- User-visible AI generation is review-first through Pick & Prune. For a new word theme it requests `20` generated words, shows them in a review screen, lets the user remove and restore entries, and only creates the unsaved theme draft from the kept words.
+- Word batch generation always uses Pick & Prune; unused direct-generation modes and their count controls have been removed. For a new word theme it requests `20` generated words, shows them in a review screen, lets the user remove and restore entries, and only creates the unsaved theme draft from the kept words.
 - Adding generated words to an existing theme also opens Pick & Prune first. It over-generates `10` words, opens the same review screen, and appends only the kept words to the current local theme words.
 - Removed Pick & Prune words are not deleted from a saved theme because the review happens before the new generated words are saved. The removed list is just a temporary review bucket.
 - Continuing Pick & Prune requires at least one kept word. Discarding a new-theme Pick & Prune review drops the generated list and returns to the theme list; discarding an existing-theme review returns to the theme detail without appending anything.
 - Sentence themes use the same review-first flow. Generating a sentence theme over-generates rounds (2× the requested count) and opens a sentence Pick & Prune review (each row shows the English prompt and Spanish answer with remove/restore) before the kept rounds open in the sentence editor. Adding generated sentence rounds to an existing theme opens that same review screen before appending kept rounds.
-- Generated content is validated through the shared theme-generation API and semantic validation rules before it reaches the review or draft flow.
+- Generated content is validated through the shared theme-generation API and semantic validation rules before it reaches the review or draft flow. Word-field editing also requires a complete response for the requested field: a word includes its answer and wrong answers, an answer includes its text, and a wrong answer includes its text. Incomplete responses show a generation error and preserve the current edit for retry.
 
 Duel mode lifecycle:
 
@@ -168,3 +168,43 @@ Weekly goal lifecycle:
 - Suggest updates when user-visible behavior, architecture, data-model shape, or important product decisions change.
 - Ask the user before editing this file. Do not silently rewrite it during unrelated work.
 - Keep it compact and high-signal. If information is already clear from code or tests, this file should usually point to the concept rather than restate implementation detail.
+
+### Automated quality campaign
+
+`npm run quality:check` runs the full automated suite with all handwritten app,
+hooks, lib, Convex, API, Netlify, and proxy code included in coverage. It records
+source hashes and applies separate component targets of 90% lines / 85% branches
+and function CRAP <=8. It currently fails while the campaign's remaining gaps
+are open; see `reports/quality/PROGRESS.md` and machine-readable metrics there.
+`npm run quality:mutations` runs the documented sequential mutation sample,
+restoring each source file before moving on. Run ordinary tests afterward.
+
+Regression fixes covered by this campaign: a mutual countdown skip clears its
+completed countdown; asynchronous TTS failures return the intended JSON error
+after refund handling; word-field regeneration includes the current feedback;
+late word-generation results cannot overwrite a cancelled or different edit.
+These are automated code-level checks. Real app/device interaction is reserved
+for the maintainer.
+
+Quality checks retain Istanbul counters and their source/provider/digest manifest in
+`reports/quality/current-coverage/`. `quality:metrics` checks those retained inputs;
+changed source or replaced counters invalidates freshness. The whole-component
+90% line / 85% branch / CRAP <=8 campaign remains incomplete. Goal date editing
+keeps local edits until the selected goal or its persisted end date changes.
+
+Cross-kind duel reveals initialize a fresh countdown before resolving it, including
+when the previous reveal finished at zero. Word-theme audio generation discards
+late responses after the selection changes, local edits begin, or the editor
+unmounts, so the refreshed theme cannot replace a different selection or newer
+edits. Word and sentence theme headers share their naming, sharing, and audio
+controls; each retains its own add-item action.
+
+### Audit cleanup (September 2026)
+
+- Word and sentence theme audio generation share one lifecycle. Results from a previous selection or from before local edits are ignored after both generation and refresh.
+- Theme access keeps its ownership, session, draft-goal, and friend-sharing rules. Owned themes skip relationship reads; batch selections reuse history and friendship reads within the request.
+- Account deletion cleans up unreferenced audio for removed themes and goal snapshots while preserving audio referenced by retained snapshots. Storage cleanup requires the actual mutation storage API.
+- Duel goal completion uses the scheduled internal mutations. Unused public recovery and direct friend-request resolution mutations were removed; friend requests resolve through their notifications.
+- Email logs are scoped to challenges or weekly goals. Missing required source context is rejected; unused duel/session scopes and broad trigger-only deduplication were removed.
+- Obsolete helper APIs, unused schema indexes, the unused solo final-stats field/status, and starter assets were removed. Validation tests exercise the production collectors and analyzers.
+- Sentence repair cards describe missing/misaligned meanings and invalid free-word positions explicitly.

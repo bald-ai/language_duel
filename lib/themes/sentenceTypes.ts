@@ -41,10 +41,3 @@ export interface SentenceRoundInput {
 /** Two theme content types: word themes and sentence themes. */
 export const THEME_CONTENT_TYPES = ["word", "sentence"] as const;
 export type ThemeContentType = (typeof THEME_CONTENT_TYPES)[number];
-
-export function isThemeContentType(value: unknown): value is ThemeContentType {
-  return (
-    typeof value === "string" &&
-    (THEME_CONTENT_TYPES as readonly string[]).includes(value)
-  );
-}

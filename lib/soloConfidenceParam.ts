@@ -11,6 +11,10 @@ export function encodeConfidenceParam(
   return JSON.stringify(confidenceByWordIndex);
 }
 
+function isMasteryLevel(value: unknown): value is SoloMasteryLevel {
+  return typeof value === "number" && [0, 1, 2, 3].includes(value);
+}
+
 export function decodeConfidenceParam(
   raw: string | null
 ): Record<number, SoloMasteryLevel> | null {
@@ -24,9 +28,8 @@ export function decodeConfidenceParam(
     for (const [key, value] of Object.entries(record)) {
       const wordIndex = Number(key);
       if (!Number.isFinite(wordIndex)) continue;
-      if (typeof value !== "number") continue;
-      if (![0, 1, 2, 3].includes(value)) continue;
-      levels[wordIndex] = value as SoloMasteryLevel;
+      if (!isMasteryLevel(value)) continue;
+      levels[wordIndex] = value;
     }
     return levels;
   } catch {

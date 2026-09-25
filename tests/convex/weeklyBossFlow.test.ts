@@ -36,6 +36,7 @@ type GoalDoc = Pick<
   | "_id"
   | "_creationTime"
   | "creatorId"
+  | "mode"
   | "partnerId"
   | "themes"
   | "creatorLocked"
@@ -347,6 +348,7 @@ function readyMiniBossGoal(overrides: Partial<GoalDoc> = {}): GoalDoc {
     _creationTime: 1,
     creatorId: "user_1" as Id<"users">,
     partnerId: "user_2" as Id<"users">,
+    mode: "shared",
     themes: [
       {
         themeId: "theme_1" as Id<"themes">,
@@ -631,6 +633,31 @@ describe("weekly boss flow", () => {
       bossType: "mini",
       duelMode: "pvp",
     })).rejects.toThrow("This partner is no longer available. You can still practice solo.");
+  });
+
+  it.each([
+    ["missing", "Goal not found"],
+    ["outsider", "Not authorized"],
+    ["draft", "This goal is not playable"],
+    ["unfinished", "This boss is not ready yet"],
+  ] as const)("rejects %s boss practice before creating a session", async (scenario, message) => {
+    vi.spyOn(Date, "now").mockReturnValue(6_000);
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ _id: (scenario === "outsider" ? "user_3" : "user_1") as Id<"users">, clerkId: "clerk_1" }));
+    if (scenario !== "missing") {
+      db.weeklyGoals.push(readyMiniBossGoal(scenario === "draft" ? { status: "draft" } : {}));
+    }
+    addLockedGoalSnapshots(db);
+    const insert = vi.spyOn(db, "insert");
+    const handler = (startBossSoloPractice as unknown as {
+      _handler: (ctx: unknown, args: { goalId: Id<"weeklyGoals">; bossType: "mini" | "big" }) => Promise<unknown>;
+    })._handler;
+    await expect(handler(createCtx(db, "clerk_1"), {
+      goalId: "goal_1" as Id<"weeklyGoals">,
+      bossType: scenario === "unfinished" ? "big" : "mini",
+    })).rejects.toThrow(message);
+    expect(insert).not.toHaveBeenCalled();
+    expect(db.soloPracticeSessions).toEqual([]);
   });
 
   it("startBossSoloPractice creates a solo-practice session, not a challenge", async () => {

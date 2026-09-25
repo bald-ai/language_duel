@@ -76,7 +76,7 @@ function setCurrentUserCredits(llmCreditsRemaining: number) {
   };
 }
 
-const sentenceRounds: SentenceRoundInput[] = [
+const sentenceRounds: (SentenceRoundInput & { wordMeanings: string[]; freeWordPositions: number[] })[] = [
   {
     englishPrompt: "The cat sleeps",
     spanishSentence: "El gato duerme",
@@ -109,6 +109,27 @@ describe("useSentenceThemeController TTS generation guard", () => {
   beforeEach(() => {
     resetMockFns();
     setCurrentUserCredits(100);
+  });
+
+  it("does not request audio for a read-only theme", async () => {
+    const { result } = renderHook(() => useSentenceThemeController({ onAfterCancel: vi.fn(), onAfterSave: vi.fn() }));
+    act(() => result.current.openSavedTheme(makeSavedSentenceTheme({ isOwner: false, canEdit: false })));
+    await act(async () => result.current.handleGenerateSentenceTTS());
+    expect(mocks.generateThemeTTS).not.toHaveBeenCalled();
+    expect(mocks.convexQuery).not.toHaveBeenCalled();
+    expect(result.current.isGeneratingTTS).toBe(false);
+  });
+
+  it("asks to save a reviewed sentence draft before generating its audio", async () => {
+    mocks.generateSentenceTheme.mockResolvedValue({ success: true, data: sentenceRounds });
+    const { result } = renderHook(() => useSentenceThemeController({ onAfterCancel: vi.fn(), onAfterSave: vi.fn() }));
+    await act(async () => result.current.generateAndReview({ themeName: "Animals", themePrompt: "", targetRoundCount: 5 }));
+    act(() => result.current.reviewProps.onContinue());
+    expect(result.current.selectedState?.kind).toBe("unsaved");
+    await act(async () => result.current.handleGenerateSentenceTTS());
+    expect(mocks.toastError).toHaveBeenCalledWith("Save the theme first before generating TTS");
+    expect(mocks.generateThemeTTS).not.toHaveBeenCalled();
+    expect(mocks.convexQuery).not.toHaveBeenCalled();
   });
 
   it("blocks sentence TTS generation when the saved theme title has unsaved edits", async () => {
@@ -563,5 +584,126 @@ describe("useSentenceThemeController free words", () => {
       "placeholder",
     ]);
     expect(result.current.localRounds[0]?.freeWordPositions).toEqual([]);
+  });
+});
+
+describe("sentence field editing and audio refresh", () => {
+  beforeEach(() => { resetMockFns(); setCurrentUserCredits(100); });
+  function setup(theme = makeSavedSentenceTheme()) {
+    const onAfterSave = vi.fn();
+    const hook = renderHook(() => useSentenceThemeController({ onAfterSave, onAfterCancel: vi.fn() }));
+    act(() => hook.result.current.openSavedTheme(theme));
+    return { ...hook, onAfterSave };
+  }
+  it.each(["english", "spanish"] as const)("preserves audio and curated meanings for an unchanged %s field", field => {
+    const { result } = setup();
+    act(() => result.current.handleEditField(0, field));
+    expect(result.current.editField?.initialValue).toBe(field === "english" ? sentenceRounds[0].englishPrompt : sentenceRounds[0].spanishSentence);
+    act(() => result.current.handleEditFieldSave(result.current.editField!.initialValue));
+    expect(result.current.localRounds).toEqual(sentenceRounds); expect(result.current.editField).toBeNull();
+  });
+  it("resets meanings and audio after an English edit but preserves the free Spanish words", () => {
+    const { result } = setup();
+    act(() => result.current.handleEditField(0, "english"));
+    act(() => result.current.handleEditFieldSave("A sleeping cat"));
+    expect(result.current.localRounds[0]).toEqual({ englishPrompt: "A sleeping cat", spanishSentence: "El gato duerme", wordMeanings: ["placeholder", "placeholder", "placeholder"], freeWordPositions: [1], distractors: sentenceRounds[0].distractors });
+    expect(sentenceRounds[0].ttsStorageId).toBe("storage_1");
+  });
+  it("keeps free words when only Spanish whitespace changes but invalidates the old audio", () => {
+    const { result } = setup();
+    act(() => result.current.handleEditField(0, "spanish"));
+    act(() => result.current.handleEditFieldSave("El  gato duerme"));
+    expect(result.current.localRounds[0]).toMatchObject({ spanishSentence: "El  gato duerme", freeWordPositions: [1] });
+    expect(result.current.localRounds[0].ttsStorageId).toBeUndefined();
+  });
+  it.each([undefined, 2])("changes distractor %s while retaining audio and meanings", index => {
+    const { result } = setup();
+    act(() => result.current.handleEditField(0, "distractor", index));
+    expect(result.current.editField?.initialValue).toBe(sentenceRounds[0].distractors[index ?? 0]);
+    act(() => result.current.handleEditFieldSave("nuevo"));
+    const expected = [...sentenceRounds[0].distractors]; expected[index ?? 0] = "nuevo";
+    expect(result.current.localRounds[0]).toEqual({ ...sentenceRounds[0], distractors: expected });
+  });
+  it("allows editing a round before it has generated audio", () => {
+    const { ttsStorageId: _audio, ...round } = sentenceRounds[0];
+    const { result } = setup(makeSavedSentenceTheme({ sentenceRounds: [round] }));
+    act(() => result.current.handleEditField(0, "english"));
+    act(() => result.current.handleEditFieldSave("Changed prompt"));
+    expect(result.current.localRounds[0].englishPrompt).toBe("Changed prompt");
+    expect(result.current.localRounds[0].ttsStorageId).toBeUndefined();
+  });
+  it.each([
+    [{ alreadyUpToDate: true, applied: 0, totalMissing: 0, failed: 0, skippedStale: 0, skippedForCredits: 0 }, "success", "TTS is already up to date"],
+    [{ alreadyUpToDate: false, applied: 1, totalMissing: 1, failed: 0, skippedStale: 0, skippedForCredits: 0 }, "success", "Generated TTS for 1 sentences"],
+    [{ alreadyUpToDate: false, applied: 0, totalMissing: 1, failed: 1, skippedStale: 0, skippedForCredits: 0 }, "warning", "TTS generated with issues. Applied 0/1."],
+    [{ alreadyUpToDate: false, applied: 0, totalMissing: 1, failed: 0, skippedStale: 1, skippedForCredits: 0 }, "warning", "TTS generated with issues. Applied 0/1."],
+    [{ alreadyUpToDate: false, applied: 0, totalMissing: 1, failed: 0, skippedStale: 0, skippedForCredits: 1 }, "warning", "TTS generated with issues. Applied 0/1."],
+  ] as const)("refreshes saved audio and reports %j", async (response, severity, message) => {
+    mocks.generateThemeTTS.mockResolvedValue(response);
+    const refreshedRounds = [{ ...sentenceRounds[0], ttsStorageId: "fresh" as Id<"_storage"> }];
+    mocks.convexQuery.mockResolvedValue(makeSavedSentenceTheme({ sentenceRounds: refreshedRounds }));
+    const { result } = setup();
+    await act(async () => result.current.handleGenerateSentenceTTS());
+    expect(mocks.generateThemeTTS).toHaveBeenCalledExactlyOnceWith({ themeId: "theme_1" });
+    expect(result.current.localRounds).toEqual(refreshedRounds);
+    expect(result.current.isTTSUpToDate).toBe(true); expect(result.current.isGeneratingTTS).toBe(false);
+    expect(severity === "success" ? mocks.toastSuccess : mocks.toastWarning).toHaveBeenCalledWith(message);
+    act(() => result.current.handlePlaySentenceTTS(0, "El gato duerme", "fresh" as Id<"_storage">));
+    expect(mocks.playTTS).toHaveBeenCalledWith("sentence-round-tts-0", "El gato duerme", { storageId: "fresh", themeId: "theme_1" });
+  });
+  it("releases a failed generation and keeps the current rounds", async () => {
+    mocks.generateThemeTTS.mockRejectedValue(new Error("Audio unavailable"));
+    const { result } = setup();
+    await act(async () => result.current.handleGenerateSentenceTTS());
+    expect(result.current.isGeneratingTTS).toBe(false); expect(result.current.localRounds).toEqual(sentenceRounds);
+    expect(mocks.toastError).toHaveBeenCalledWith("Audio unavailable"); expect(mocks.convexQuery).not.toHaveBeenCalled();
+  });
+  it("keeps the editor open after a failed save and closes only when retry succeeds", async () => {
+    mocks.mutation.mockRejectedValueOnce(new Error("Save unavailable")).mockResolvedValueOnce(undefined);
+    const { result, onAfterSave } = setup();
+    act(() => result.current.handleThemeNameChange("RENAMED"));
+    await act(async () => result.current.handleSave());
+    expect(result.current.selectedTheme?.name).toBe("RENAMED"); expect(result.current.isSaving).toBe(false);
+    expect(onAfterSave).not.toHaveBeenCalled(); expect(mocks.toastError).toHaveBeenCalledWith("Save unavailable");
+    await act(async () => result.current.handleSave());
+    expect(mocks.mutation).toHaveBeenLastCalledWith({ themeId: "theme_1", name: "RENAMED", sentenceRounds });
+    expect(result.current.selectedState).toBeNull(); expect(onAfterSave).toHaveBeenCalledOnce();
+  });
+});
+
+describe("sentence audio responses after the editor changes", () => {
+  beforeEach(() => { resetMockFns(); setCurrentUserCredits(100); });
+
+  it.each(["generation", "refresh"])("keeps the new selection when the old %s finishes", async stage => {
+    let finish!: (value: unknown) => void;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const response = { applied: 1, totalMissing: 1, failed: 0, skippedStale: 0, skippedForCredits: 0 };
+    mocks.generateThemeTTS.mockReturnValue(stage === "generation" ? pending : Promise.resolve(response));
+    mocks.convexQuery.mockReturnValue(stage === "refresh" ? pending : Promise.resolve(makeSavedSentenceTheme()));
+    const { result } = renderHook(() => useSentenceThemeController({ onAfterSave: vi.fn(), onAfterCancel: vi.fn() }));
+    act(() => result.current.openSavedTheme(makeSavedSentenceTheme()));
+    let work!: Promise<void>;
+    await act(async () => { work = result.current.handleGenerateSentenceTTS(); await Promise.resolve(); });
+    const other = makeSavedSentenceTheme({ _id: "other" as Id<"themes">, name: "OTHER" });
+    act(() => { result.current.handleCancel(); result.current.openSavedTheme(other); });
+    await act(async () => { finish(stage === "generation" ? response : makeSavedSentenceTheme()); await work; });
+    expect(result.current.selectedState).toEqual({ kind: "saved", theme: other });
+    expect(result.current.localRounds).toEqual(sentenceRounds);
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(result.current.isGeneratingTTS).toBe(false);
+  });
+
+  it("preserves edits made while audio is generating", async () => {
+    let finish!: (value: unknown) => void;
+    mocks.generateThemeTTS.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const { result } = renderHook(() => useSentenceThemeController({ onAfterSave: vi.fn(), onAfterCancel: vi.fn() }));
+    act(() => result.current.openSavedTheme(makeSavedSentenceTheme()));
+    let work!: Promise<void>;
+    act(() => { work = result.current.handleGenerateSentenceTTS(); });
+    act(() => result.current.handleThemeNameChange("EDITED"));
+    await act(async () => { finish({ applied: 1 }); await work; });
+    expect(result.current.selectedTheme?.name).toBe("EDITED");
+    expect(mocks.convexQuery).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 });

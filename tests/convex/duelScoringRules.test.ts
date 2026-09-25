@@ -16,6 +16,8 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     themeIds: ["theme_1" as Id<"themes">],
     sessionItems: [
       {
+        kind: "word",
+        themeName: "Animals",
         word: "cat",
         answer: "gato",
         wrongAnswers: ["perro", "mesa", "casa"],
@@ -31,6 +33,10 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
       },
     ],
     sourceType: "normal",
+    duelMode: "pvp",
+    hintPoolUsed: [],
+    sentenceHintPoolUsed: [],
+    currentQuestionHintFired: false,
     status: "active",
     createdAt: 1,
     currentItemIndex: 0,
@@ -42,7 +48,7 @@ function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     questionStartTime: 1,
     seed: 123,
     ...overrides,
-  } as Doc<"duels">;
+  };
 }
 
 describe("duel scoring rules", () => {
@@ -110,4 +116,27 @@ describe("duel scoring rules", () => {
     });
     expect(getHintProviderBonusPatch(wrongRequester)).toEqual({});
   });
+});
+
+
+it.each([
+  { hintAccepted: false },
+  { hintRequestedBy: undefined },
+  { eliminatedOptions: undefined },
+  { eliminatedOptions: [] },
+] satisfies Partial<Doc<"duels">>[])("does not award a bonus without an accepted, applied hint (%#)", overrides => {
+  const duel = duelDoc({ hintAccepted: true, hintRequestedBy: "opponent", eliminatedOptions: ["mesa"], opponentLastAnswer: "gato", ...overrides });
+  expect(getHintProviderBonusPatch(duel)).toEqual({});
+});
+
+it.each([0, 3])("awards the challenger provider from an opponent request at score %i", score => {
+  const duel = duelDoc({ hintAccepted: true, hintRequestedBy: "opponent", eliminatedOptions: ["mesa"], opponentLastAnswer: "gato", challengerScore: score });
+  expect(getHintProviderBonusPatch(duel)).toEqual({ challengerScore: score + 0.5 });
+});
+
+it("awards a provider starting at zero and ignores sentence-round bonuses", () => {
+  const duel = duelDoc({ hintAccepted: true, hintRequestedBy: "challenger", eliminatedOptions: ["mesa"], challengerLastAnswer: "gato" });
+  expect(getHintProviderBonusPatch(duel)).toEqual({ opponentScore: 0.5 });
+  duel.duelQuestions = [{ kind: "sentence", englishPrompt: "I eat", spanishSentence: "Yo como", tilePool: ["Yo", "como"], tileMeanings: [null, null] }];
+  expect(getHintProviderBonusPatch(duel)).toEqual({});
 });

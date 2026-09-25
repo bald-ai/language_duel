@@ -206,100 +206,8 @@ export function collectSentenceRoundIssues(
   const seenSpanish = new Map<string, { index: number; spanish: string }>();
 
   rounds.forEach((round, roundIndex) => {
-    const rawEnglish = typeof round.englishPrompt === "string" ? round.englishPrompt : "";
-    const trimmedEnglish = rawEnglish.trim();
-    if (trimmedEnglish.length < 1) {
-      issues.push({ type: "english_empty", roundIndex });
-    } else if (trimmedEnglish.length > SENTENCE_ENGLISH_PROMPT_MAX_LENGTH) {
-      issues.push({ type: "english_too_long", roundIndex });
-    }
-
-    const rawSpanish = typeof round.spanishSentence === "string" ? round.spanishSentence : "";
-    const trimmedSpanish = rawSpanish.trim();
-    if (trimmedSpanish.length < 1) {
-      issues.push({ type: "spanish_empty", roundIndex });
-    } else {
-      const forbidden = findForbiddenPunctuation(trimmedSpanish);
-      if (forbidden !== null) {
-        issues.push({
-          type: "spanish_forbidden_punctuation",
-          roundIndex,
-          character: forbidden,
-        });
-      }
-
-      const tokens = tokenizeSpanishSentence(trimmedSpanish);
-      if (tokens.length < SENTENCE_MIN_TOKENS) {
-        issues.push({
-          type: "spanish_too_few_tokens",
-          roundIndex,
-          tokenCount: tokens.length,
-        });
-      } else if (tokens.length > SENTENCE_MAX_TOKENS) {
-        issues.push({
-          type: "spanish_too_many_tokens",
-          roundIndex,
-          tokenCount: tokens.length,
-        });
-      }
-
-      tokens.forEach((token, tokenIndex) => {
-        if (token.length > SENTENCE_SPANISH_TOKEN_MAX_LENGTH) {
-          issues.push({
-            type: "spanish_token_too_long",
-            roundIndex,
-            tokenIndex,
-            token,
-          });
-        }
-      });
-
-      const rawWordMeanings = round.wordMeanings;
-      if (rawWordMeanings === undefined) {
-        if (options.requireWordMeanings) {
-          issues.push({ type: "word_meanings_missing", roundIndex });
-        }
-      } else if (!Array.isArray(rawWordMeanings)) {
-        issues.push({
-          type: "word_meanings_count",
-          roundIndex,
-          expectedCount: tokens.length,
-          actualCount: 0,
-        });
-      } else if (rawWordMeanings.length !== tokens.length) {
-        issues.push({
-          type: "word_meanings_count",
-          roundIndex,
-          expectedCount: tokens.length,
-          actualCount: rawWordMeanings.length,
-        });
-      }
-
-      const rawFreeWordPositions = round.freeWordPositions;
-      if (rawFreeWordPositions !== undefined) {
-        if (!Array.isArray(rawFreeWordPositions)) {
-          issues.push({
-            type: "free_word_position_invalid",
-            roundIndex,
-            positionIndex: 0,
-            position: rawFreeWordPositions,
-            tokenCount: tokens.length,
-          });
-        } else {
-          rawFreeWordPositions.forEach((position, positionIndex) => {
-            if (!Number.isInteger(position) || position < 0 || position >= tokens.length) {
-              issues.push({
-                type: "free_word_position_invalid",
-                roundIndex,
-                positionIndex,
-                position,
-                tokenCount: tokens.length,
-              });
-            }
-          });
-        }
-      }
-    }
+    collectEnglishIssues(round, roundIndex, issues);
+    const trimmedSpanish = collectSpanishIssues(round, roundIndex, options, issues);
 
     const rawDistractors = Array.isArray(round.distractors) ? round.distractors : [];
     if (rawDistractors.length !== SENTENCE_DISTRACTOR_COUNT) {
@@ -331,39 +239,8 @@ export function collectSentenceRoundIssues(
         issues.push({ type: "distractor_has_space", roundIndex, distractorIndex });
       }
 
-      const normalized = normalizeForComparison(trimmedDistractor);
-      if (normalized === "") return;
-
-      const normalizedPunctuationless = normalizeForDistractorComparison(trimmedDistractor);
-      if (
-        normalizedPunctuationless !== "" &&
-        correctWordsByPunctuationless.has(normalizedPunctuationless)
-      ) {
-        const matchedToken = tokenizeSpanishSentence(trimmedSpanish).find(
-          (token) => normalizeForDistractorComparison(token) === normalizedPunctuationless
-        );
-        issues.push({
-          type: "distractor_matches_correct",
-          roundIndex,
-          distractorIndex,
-          distractor: trimmedDistractor,
-          matchedCorrectWord: matchedToken ?? trimmedDistractor,
-        });
-      }
-
-      const existing = seenDistractors.get(normalized);
-      if (existing) {
-        issues.push({
-          type: "distractor_duplicate",
-          roundIndex,
-          firstDistractorIndex: existing.index,
-          secondDistractorIndex: distractorIndex,
-          firstValue: existing.value,
-          secondValue: trimmedDistractor,
-        });
-      } else {
-        seenDistractors.set(normalized, { index: distractorIndex, value: trimmedDistractor });
-      }
+      collectDistractorIdentityIssues(trimmedDistractor, distractorIndex, roundIndex,
+        trimmedSpanish, correctWordsByPunctuationless, seenDistractors, issues);
     });
 
     if (trimmedSpanish !== "") {
@@ -386,48 +263,34 @@ export function collectSentenceRoundIssues(
   return issues;
 }
 
-export function formatSentenceRoundIssue(issue: SentenceRoundIssue): string {
-  const label = (roundIndex: number) => `Sentence ${roundIndex + 1}`;
-  switch (issue.type) {
-    case "english_empty":
-      return `${label(issue.roundIndex)}: English prompt must be at least 1 character`;
-    case "english_too_long":
-      return `${label(issue.roundIndex)}: English prompt must be at most ${SENTENCE_ENGLISH_PROMPT_MAX_LENGTH} characters`;
-    case "spanish_empty":
-      return `${label(issue.roundIndex)}: Spanish sentence must be at least 1 character`;
-    case "spanish_too_few_tokens":
-      return `${label(issue.roundIndex)}: Spanish sentence must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} words (got ${issue.tokenCount})`;
-    case "spanish_too_many_tokens":
-      return `${label(issue.roundIndex)}: Spanish sentence must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} words (got ${issue.tokenCount})`;
-    case "spanish_token_too_long":
-      return `${label(issue.roundIndex)}: Spanish word "${issue.token}" must be at most ${SENTENCE_SPANISH_TOKEN_MAX_LENGTH} characters`;
-    case "spanish_forbidden_punctuation":
-      return `${label(issue.roundIndex)}: Spanish sentence must not contain "${issue.character}"`;
-    case "word_meanings_missing":
-      return `${label(issue.roundIndex)}: word meanings must be generated for each Spanish word`;
-    case "word_meanings_count":
-      return `${label(issue.roundIndex)}: word meanings must match the Spanish word count (${issue.expectedCount}, got ${issue.actualCount})`;
-    case "free_word_position_invalid":
-      return `${label(issue.roundIndex)}: free word position ${issue.positionIndex + 1} must be a valid Spanish word index (got ${String(issue.position)})`;
-    case "distractor_count":
-      return `${label(issue.roundIndex)}: must have exactly ${SENTENCE_DISTRACTOR_COUNT} distractors (got ${issue.actualCount})`;
-    case "distractor_empty":
-      return `${label(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be at least 1 character`;
-    case "distractor_too_long":
-      return `${label(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be at most ${SENTENCE_DISTRACTOR_MAX_LENGTH} characters`;
-    case "distractor_has_space":
-      return `${label(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be a single word (no spaces)`;
-    case "distractor_duplicate":
-      return `${label(issue.roundIndex)}: distractors "${issue.firstValue}" and "${issue.secondValue}" are duplicates after normalization`;
-    case "distractor_matches_correct":
-      return `${label(issue.roundIndex)}: distractor "${issue.distractor}" matches correct word "${issue.matchedCorrectWord}" after normalization`;
-    case "duplicate_round":
-      return `Sentences ${issue.firstRoundIndex + 1} and ${issue.secondRoundIndex + 1}: "${issue.firstSpanish}" and "${issue.secondSpanish}" are duplicates after normalization`;
-  }
-}
+type SentenceIssueFormatters = {
+  [K in SentenceRoundIssue["type"]]: (issue: Extract<SentenceRoundIssue, { type: K }>) => string;
+};
+const sentenceLabel = (roundIndex: number) => `Sentence ${roundIndex + 1}`;
+const sentenceIssueFormatters: SentenceIssueFormatters = {
+  english_empty: (issue) => `${sentenceLabel(issue.roundIndex)}: English prompt must be at least 1 character`,
+  english_too_long: (issue) => `${sentenceLabel(issue.roundIndex)}: English prompt must be at most ${SENTENCE_ENGLISH_PROMPT_MAX_LENGTH} characters`,
+  spanish_empty: (issue) => `${sentenceLabel(issue.roundIndex)}: Spanish sentence must be at least 1 character`,
+  spanish_too_few_tokens: (issue) => `${sentenceLabel(issue.roundIndex)}: Spanish sentence must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} words (got ${issue.tokenCount})`,
+  spanish_too_many_tokens: (issue) => `${sentenceLabel(issue.roundIndex)}: Spanish sentence must have ${SENTENCE_MIN_TOKENS}-${SENTENCE_MAX_TOKENS} words (got ${issue.tokenCount})`,
+  spanish_token_too_long: (issue) => `${sentenceLabel(issue.roundIndex)}: Spanish word "${issue.token}" must be at most ${SENTENCE_SPANISH_TOKEN_MAX_LENGTH} characters`,
+  spanish_forbidden_punctuation: (issue) => `${sentenceLabel(issue.roundIndex)}: Spanish sentence must not contain "${issue.character}"`,
+  word_meanings_missing: (issue) => `${sentenceLabel(issue.roundIndex)}: word meanings must be generated for each Spanish word`,
+  word_meanings_count: (issue) => `${sentenceLabel(issue.roundIndex)}: word meanings must match the Spanish word count (${issue.expectedCount}, got ${issue.actualCount})`,
+  free_word_position_invalid: (issue) => `${sentenceLabel(issue.roundIndex)}: free word position ${issue.positionIndex + 1} must be a valid Spanish word index (got ${String(issue.position)})`,
+  distractor_count: (issue) => `${sentenceLabel(issue.roundIndex)}: must have exactly ${SENTENCE_DISTRACTOR_COUNT} distractors (got ${issue.actualCount})`,
+  distractor_empty: (issue) => `${sentenceLabel(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be at least 1 character`,
+  distractor_too_long: (issue) => `${sentenceLabel(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be at most ${SENTENCE_DISTRACTOR_MAX_LENGTH} characters`,
+  distractor_has_space: (issue) => `${sentenceLabel(issue.roundIndex)}: distractor ${issue.distractorIndex + 1} must be a single word (no spaces)`,
+  distractor_duplicate: (issue) => `${sentenceLabel(issue.roundIndex)}: distractors "${issue.firstValue}" and "${issue.secondValue}" are duplicates after normalization`,
+  distractor_matches_correct: (issue) => `${sentenceLabel(issue.roundIndex)}: distractor "${issue.distractor}" matches correct word "${issue.matchedCorrectWord}" after normalization`,
+  duplicate_round: (issue) => `Sentences ${issue.firstRoundIndex + 1} and ${issue.secondRoundIndex + 1}: "${issue.firstSpanish}" and "${issue.secondSpanish}" are duplicates after normalization`,
+};
 
-export function describeSentenceRoundIssues(rounds: SentenceRoundInput[]): string[] {
-  return collectSentenceRoundIssues(rounds).map(formatSentenceRoundIssue);
+export function formatSentenceRoundIssue(issue: SentenceRoundIssue): string {
+  // The discriminant selects the formatter accepting this exact issue variant.
+  const format = sentenceIssueFormatters[issue.type] as (value: SentenceRoundIssue) => string;
+  return format(issue);
 }
 
 /**
@@ -495,4 +358,153 @@ export function validateGeneratedSentenceRoundsAgainstExisting(
       `Sentence ${index + 1}: generated sentence "${round.spanishSentence}" duplicates an existing sentence "${match}" after normalization.`,
     ];
   });
+}
+
+function collectEnglishIssues(round: SentenceRoundInput, roundIndex: number, issues: SentenceRoundIssue[]) {
+    const rawEnglish = typeof round.englishPrompt === "string" ? round.englishPrompt : "";
+    const trimmedEnglish = rawEnglish.trim();
+    if (trimmedEnglish.length < 1) {
+      issues.push({ type: "english_empty", roundIndex });
+    } else if (trimmedEnglish.length > SENTENCE_ENGLISH_PROMPT_MAX_LENGTH) {
+      issues.push({ type: "english_too_long", roundIndex });
+    }
+
+}
+
+function collectSpanishIssues(round: SentenceRoundInput, roundIndex: number, options: SentenceRoundIssueOptions, issues: SentenceRoundIssue[]): string {
+    const rawSpanish = typeof round.spanishSentence === "string" ? round.spanishSentence : "";
+    const trimmedSpanish = rawSpanish.trim();
+    if (trimmedSpanish.length < 1) {
+      issues.push({ type: "spanish_empty", roundIndex });
+    } else {
+      const forbidden = findForbiddenPunctuation(trimmedSpanish);
+      if (forbidden !== null) {
+        issues.push({
+          type: "spanish_forbidden_punctuation",
+          roundIndex,
+          character: forbidden,
+        });
+      }
+
+      const tokens = tokenizeSpanishSentence(trimmedSpanish);
+      if (tokens.length < SENTENCE_MIN_TOKENS) {
+        issues.push({
+          type: "spanish_too_few_tokens",
+          roundIndex,
+          tokenCount: tokens.length,
+        });
+      } else if (tokens.length > SENTENCE_MAX_TOKENS) {
+        issues.push({
+          type: "spanish_too_many_tokens",
+          roundIndex,
+          tokenCount: tokens.length,
+        });
+      }
+
+      tokens.forEach((token, tokenIndex) => {
+        if (token.length > SENTENCE_SPANISH_TOKEN_MAX_LENGTH) {
+          issues.push({
+            type: "spanish_token_too_long",
+            roundIndex,
+            tokenIndex,
+            token,
+          });
+        }
+      });
+
+      collectMeaningIssues(round, roundIndex, tokens.length, options, issues);
+      collectFreePositionIssues(round, roundIndex, tokens.length, issues);
+    }
+    return trimmedSpanish;
+}
+
+function collectMeaningIssues(round: SentenceRoundInput, roundIndex: number, tokenCount: number, options: SentenceRoundIssueOptions, issues: SentenceRoundIssue[]) {
+      const rawWordMeanings = round.wordMeanings;
+      if (rawWordMeanings === undefined) {
+        if (options.requireWordMeanings) {
+          issues.push({ type: "word_meanings_missing", roundIndex });
+        }
+      } else if (!Array.isArray(rawWordMeanings)) {
+        issues.push({
+          type: "word_meanings_count",
+          roundIndex,
+          expectedCount: tokenCount,
+          actualCount: 0,
+        });
+      } else if (rawWordMeanings.length !== tokenCount) {
+        issues.push({
+          type: "word_meanings_count",
+          roundIndex,
+          expectedCount: tokenCount,
+          actualCount: rawWordMeanings.length,
+        });
+      }
+
+}
+
+function collectFreePositionIssues(round: SentenceRoundInput, roundIndex: number, tokenCount: number, issues: SentenceRoundIssue[]) {
+      const rawFreeWordPositions = round.freeWordPositions;
+      if (rawFreeWordPositions !== undefined) {
+        if (!Array.isArray(rawFreeWordPositions)) {
+          issues.push({
+            type: "free_word_position_invalid",
+            roundIndex,
+            positionIndex: 0,
+            position: rawFreeWordPositions,
+            tokenCount: tokenCount,
+          });
+        } else {
+          rawFreeWordPositions.forEach((position, positionIndex) => {
+            if (!Number.isInteger(position) || position < 0 || position >= tokenCount) {
+              issues.push({
+                type: "free_word_position_invalid",
+                roundIndex,
+                positionIndex,
+                position,
+                tokenCount: tokenCount,
+              });
+            }
+          });
+        }
+      }
+}
+
+function collectDistractorIdentityIssues(
+  trimmedDistractor: string, distractorIndex: number, roundIndex: number,
+  trimmedSpanish: string, correctWordsByPunctuationless: Set<string>,
+  seenDistractors: Map<string, { index: number; value: string }>, issues: SentenceRoundIssue[]
+) {
+      const normalized = normalizeForComparison(trimmedDistractor);
+      if (normalized === "") return;
+
+      const normalizedPunctuationless = normalizeForDistractorComparison(trimmedDistractor);
+      if (
+        normalizedPunctuationless !== "" &&
+        correctWordsByPunctuationless.has(normalizedPunctuationless)
+      ) {
+        const matchedToken = tokenizeSpanishSentence(trimmedSpanish).find(
+          (token) => normalizeForDistractorComparison(token) === normalizedPunctuationless
+        );
+        issues.push({
+          type: "distractor_matches_correct",
+          roundIndex,
+          distractorIndex,
+          distractor: trimmedDistractor,
+          matchedCorrectWord: matchedToken ?? trimmedDistractor,
+        });
+      }
+
+      const existing = seenDistractors.get(normalized);
+      if (existing) {
+        issues.push({
+          type: "distractor_duplicate",
+          roundIndex,
+          firstDistractorIndex: existing.index,
+          secondDistractorIndex: distractorIndex,
+          firstValue: existing.value,
+          secondValue: trimmedDistractor,
+        });
+      } else {
+        seenDistractors.set(normalized, { index: distractorIndex, value: trimmedDistractor });
+      }
 }

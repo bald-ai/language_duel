@@ -4,7 +4,6 @@
  * creation (`buildSentenceQuestionSnapshot`) and pinned on the duel doc.
  */
 
-import type { Id } from "../types";
 
 /**
  * The pre-shuffled tile pool plus the canonical solution for one sentence
@@ -30,33 +29,3 @@ export interface SentenceRoundResult {
   completed: boolean;
   mistakes: number;
 }
-
-/**
- * The deduplicated tile pool layout. Server pre-shuffles; client renders.
- * Tile indices are local to this pool — identical-text tiles are
- * interchangeable (decision: if a correct word repeats, any identical
- * available tile can satisfy the next matching slot).
- */
-export interface SentenceTilePool {
-  /** The shuffled tile strings, identical-text tiles allowed. */
-  tiles: string[];
-}
-
-/**
- * Bookkeeping for a per-position sentence round on a duel session. Empty until
- * a player begins / submits the round. Persisted parallel to the existing
- * per-player answer fields.
- */
-export interface SentenceParticipantResult {
-  /** Position into itemOrder, matches `duelQuestions[index]`. */
-  position: number;
-  /** How many wrong tile taps this player accumulated on this round. */
-  mistakes: number;
-  /** Whether the player completed the sentence (vs timed out / abandoned). */
-  completed: boolean;
-}
-
-export type SentenceQuestionPosition = {
-  themeId: Id<"themes">;
-  themeName: string;
-};

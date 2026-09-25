@@ -278,3 +278,27 @@ describe("ThemeDetail behavior", () => {
     expect(screen.getByTestId("theme-word-0-wrong-0")).toHaveAttribute("data-invalid", "true");
   });
 });
+
+it("keeps read-only word fields and unavailable audio disabled", () => {
+  const onEditWord = vi.fn();
+  const onPlayWordTTS = vi.fn();
+  makeProps({ theme: { ...baseTheme, isOwner: false, canEdit: false }, onEditWord, onPlayWordTTS });
+  for (const field of ["word", "answer", "wrong-0", "play-tts"]) {
+    const button = screen.getByTestId(`theme-word-0-${field}`) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+  }
+  expect(screen.queryByTestId("theme-word-0-delete")).toBeNull();
+  expect(onEditWord).not.toHaveBeenCalled();
+  expect(onPlayWordTTS).not.toHaveBeenCalled();
+});
+
+it("shows the playing indicator and routes playback for the selected saved word", () => {
+  const onPlayWordTTS = vi.fn();
+  const storageId = "saved_audio" as Id<"_storage">;
+  makeProps({ playingWordKey: "theme-word-tts-0", onPlayWordTTS, localWords: [{ word: "cat", answer: "gato", wrongAnswers: ["perro", "casa", "mesa"], ttsStorageId: storageId }] });
+  const button = screen.getByTestId("theme-word-0-play-tts");
+  expect(button.querySelectorAll("path")).toHaveLength(1);
+  fireEvent.click(button);
+  expect(onPlayWordTTS).toHaveBeenCalledExactlyOnceWith(0, "gato", storageId);
+});

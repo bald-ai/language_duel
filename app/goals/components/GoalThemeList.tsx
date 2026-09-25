@@ -58,13 +58,17 @@ export function GoalThemeList({
         borderColor: colors.primary.dark,
       }}
     >
-      {themes.map((theme, index) => {
-        const viewerCompleted =
-          mode === "solo" || viewerRole === "creator"
-            ? theme.creatorCompleted
-            : theme.partnerCompleted === true;
-        const partnerCompleted =
-          viewerRole === "creator" ? theme.partnerCompleted === true : theme.creatorCompleted;
+      {themes.map((theme, index) => <GoalThemeRow key={theme.themeId} theme={theme} index={index}
+        count={themes.length} mode={mode} viewerRole={viewerRole} isEditing={isEditing}
+        canToggle={canToggle} onToggle={onToggle} onRemove={onRemove} />)}
+    </section>
+  );
+}
+
+type GoalThemeRowProps = Omit<GoalThemeListProps, "themes"> & { theme: GoalTheme; index: number; count: number };
+function GoalThemeRow({ theme, index, count, mode, viewerRole, isEditing, canToggle, onToggle, onRemove }: GoalThemeRowProps) {
+  const colors = useAppearanceColors();
+        const { viewerCompleted, partnerCompleted } = completionForViewer(theme, mode, viewerRole);
         const bothCompleted = isGoalThemeCompleted(theme, mode);
 
         return (
@@ -73,7 +77,7 @@ export function GoalThemeList({
             className="flex items-center gap-3 px-4 py-3"
             style={{
               borderBottom:
-                index < themes.length - 1
+                index < count - 1
                   ? `1px solid ${colors.primary.dark}`
                   : undefined,
               backgroundColor: bothCompleted ? `${colors.status.success.DEFAULT}10` : undefined,
@@ -102,62 +106,11 @@ export function GoalThemeList({
                 {theme.themeName}
               </p>
               {/* Completion indicators */}
-              <div className="flex items-center gap-2 text-xs mt-0.5">
-                <span
-                  style={{
-                    color: viewerCompleted
-                      ? colors.status.success.DEFAULT
-                      : colors.text.muted,
-                  }}
-                >
-                  You: {viewerCompleted ? "✓" : "—"}
-                </span>
-                {mode === "shared" && (
-                  <span
-                    style={{
-                      color: partnerCompleted
-                        ? colors.status.success.DEFAULT
-                        : colors.text.muted,
-                    }}
-                  >
-                    Partner: {partnerCompleted ? "✓" : "—"}
-                  </span>
-                )}
-              </div>
+              <CompletionStatus mode={mode} viewerCompleted={viewerCompleted} partnerCompleted={partnerCompleted} />
             </div>
 
             {/* Checkbox for completion */}
-            <button
-              onClick={() => onToggle(theme.themeId)}
-              disabled={!canToggle}
-              className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all hover:scale-105"
-              style={{
-                borderColor: viewerCompleted
-                  ? colors.status.success.DEFAULT
-                  : colors.primary.dark,
-                backgroundColor: viewerCompleted
-                  ? colors.status.success.DEFAULT
-                  : "transparent",
-              }}
-              title={
-                !canToggle
-                  ? "Theme progress can no longer be changed"
-                  : viewerCompleted
-                    ? "Mark incomplete"
-                    : "Mark complete"
-              }
-              data-testid={`goal-theme-toggle-${theme.themeId}`}
-            >
-              {viewerCompleted && (
-                <svg className="w-5 h-5" fill="white" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </button>
+            <GoalCompletionToggle themeId={theme.themeId} viewerCompleted={viewerCompleted} canToggle={canToggle} onToggle={onToggle} />
 
             {/* Delete button (only in draft mode) */}
             {isEditing && (
@@ -188,7 +141,80 @@ export function GoalThemeList({
             )}
           </div>
         );
-      })}
-    </section>
+
+}
+
+function completionForViewer(theme: GoalTheme, mode: GoalThemeListProps["mode"], viewerRole: GoalThemeListProps["viewerRole"]) {
+        const viewerCompleted =
+          mode === "solo" || viewerRole === "creator"
+            ? theme.creatorCompleted
+            : theme.partnerCompleted === true;
+        const partnerCompleted =
+          viewerRole === "creator" ? theme.partnerCompleted === true : theme.creatorCompleted;
+  return { viewerCompleted, partnerCompleted };
+}
+
+function CompletionStatus({ mode, viewerCompleted, partnerCompleted }: { mode: GoalThemeListProps["mode"]; viewerCompleted: boolean; partnerCompleted: boolean }) {
+  const colors = useAppearanceColors();
+  return (
+              <div className="flex items-center gap-2 text-xs mt-0.5">
+                <span
+                  style={{
+                    color: viewerCompleted
+                      ? colors.status.success.DEFAULT
+                      : colors.text.muted,
+                  }}
+                >
+                  You: {viewerCompleted ? "✓" : "—"}
+                </span>
+                {mode === "shared" && (
+                  <span
+                    style={{
+                      color: partnerCompleted
+                        ? colors.status.success.DEFAULT
+                        : colors.text.muted,
+                    }}
+                  >
+                    Partner: {partnerCompleted ? "✓" : "—"}
+                  </span>
+                )}
+              </div>
+  );
+}
+
+function GoalCompletionToggle({ themeId, viewerCompleted, canToggle, onToggle }: Pick<GoalThemeListProps, "canToggle" | "onToggle"> & { themeId: Id<"themes">; viewerCompleted: boolean }) {
+  const colors = useAppearanceColors();
+  return (
+            <button
+              onClick={() => onToggle(themeId)}
+              disabled={!canToggle}
+              className="w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all hover:scale-105"
+              style={{
+                borderColor: viewerCompleted
+                  ? colors.status.success.DEFAULT
+                  : colors.primary.dark,
+                backgroundColor: viewerCompleted
+                  ? colors.status.success.DEFAULT
+                  : "transparent",
+              }}
+              title={
+                !canToggle
+                  ? "Theme progress can no longer be changed"
+                  : viewerCompleted
+                    ? "Mark incomplete"
+                    : "Mark complete"
+              }
+              data-testid={`goal-theme-toggle-${themeId}`}
+            >
+              {viewerCompleted && (
+                <svg className="w-5 h-5" fill="white" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </button>
   );
 }

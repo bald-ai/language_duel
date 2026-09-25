@@ -150,3 +150,23 @@ describe("hintPool.fireHint", () => {
     ).rejects.toThrow("fireHint is only available in PVE duels");
   });
 });
+
+it.each([
+  [{ status: "completed" }, "Duel is not active"],
+  [{ hintPoolUsed: ["anagram"] }, "This hint has already been used"],
+  [{ duelQuestions: undefined }, "Duel question data is missing"],
+  [{ duelQuestions: [{ kind: "sentence", englishPrompt: "Coffee please", spanishSentence: "Cafe porfavor", tilePool: ["Cafe", "porfavor"], tileMeanings: [null, null] }] }, "Hints are not available on sentence rounds"],
+] satisfies [Partial<DuelDoc>, string][])("rejects invalid word hint state without writes (%#)", async (overrides, message) => {
+  const db = new InMemoryDb([userDoc({})], [duelDoc(overrides)]);
+  const before = structuredClone(db.duels);
+  await expect(fireHintHandler(createCtx(db), { duelId: "duel_1" as Id<"duels">, hintType: "anagram" })).rejects.toThrow(message);
+  expect(db.duels).toEqual(before);
+});
+
+it("retains existing eliminations and adds the full time hint bonus", async () => {
+  const db = new InMemoryDb([userDoc({})], [duelDoc({ eliminatedOptions: ["dog"] })]);
+  await fireHintHandler(createCtx(db), { duelId: "duel_1" as Id<"duels">, hintType: "plus_ten_seconds" });
+  expect(db.duels[0].eliminatedOptions).toEqual(["dog"]);
+  expect(db.duels[0].questionStartTime).toBe(16_000);
+  expect(db.duels[0].hintPoolUsed).toEqual(["plus_ten_seconds"]);
+});

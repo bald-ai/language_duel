@@ -5,7 +5,11 @@
  * the both-answered advance used by PvP/PvE.
  */
 
-import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import {
+  mutation,
+  internalMutation,
+  type MutationCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
@@ -32,7 +36,10 @@ import {
 
 function assertActive(duel: Doc<"duels">) {
   if (duel.status !== "active") {
-    throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
+    throw new ConvexError({
+      code: "DUEL_NOT_ACTIVE",
+      message: "Duel is not active",
+    });
   }
 }
 
@@ -45,13 +52,30 @@ async function applyRelayHandoff(
   ctx: MutationCtx,
   duelId: Id<"duels">,
   duel: Doc<"duels">,
-  patch: Partial<Doc<"duels">>
+  patch: Partial<Doc<"duels">>,
 ) {
   const finished = isRelayFinished({ ...duel, ...patch });
   await ctx.db.patch(
     duelId,
-    finished ? { ...patch, status: "completed" as const } : patch
+    finished ? { ...patch, status: "completed" as const } : patch,
   );
+}
+
+function isPendingRelayAnswer(
+  duel: Doc<"duels">,
+  expectedAssignedIndex: number | undefined,
+): boolean {
+  if (duel.duelMode !== "relay") return false;
+  if (duel.status !== "active") return false;
+  if (duel.relayPhase !== "answer") return false;
+  if (duel.relayAssignedIndex === undefined) return false;
+  if (
+    expectedAssignedIndex !== undefined &&
+    duel.relayAssignedIndex !== expectedAssignedIndex
+  ) {
+    return false;
+  }
+  return true;
 }
 
 async function resolveRelayTimeoutIfStale(
@@ -62,18 +86,9 @@ async function resolveRelayTimeoutIfStale(
     expectedAssignedIndex: number | undefined;
     requireWindowElapsed: boolean;
     cancelScheduled: boolean;
-  }
+  },
 ) {
-  if (duel.duelMode !== "relay") return;
-  if (duel.status !== "active") return;
-  if (duel.relayPhase !== "answer") return;
-  if (duel.relayAssignedIndex === undefined) return;
-  if (
-    opts.expectedAssignedIndex !== undefined &&
-    duel.relayAssignedIndex !== opts.expectedAssignedIndex
-  ) {
-    return;
-  }
+  if (!isPendingRelayAnswer(duel, opts.expectedAssignedIndex)) return;
   if (opts.requireWindowElapsed) {
     const startedAt = duel.relayAnswerStartedAt ?? 0;
     // Sentence positions get the longer 60s window; words keep 21s.
@@ -98,35 +113,8 @@ export const relayPick = mutation({
     assertDuelMode(duel, "relay", "relayPick");
     assertActive(duel);
 
-    if (duel.relayPhase !== "pick") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the pick phase" });
-    }
-    if (playerRole !== duel.relayPicker) {
-      throw new ConvexError({
-        code: "NOT_AUTHORIZED",
-        message: "Only the picker can hand over a round",
-      });
-    }
-    if (!relayRemainingPositions(duel).includes(position)) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "That round is no longer available" });
-    }
-
-    // 🔥 hard-upgrade is disabled on sentence positions in v1 (decision #3):
-    // keeping sentences at a fixed pool is what makes the served board equal the
-    // validated board (plan R1). The toggle is also hidden client-side.
-    const pickedItem = duel.sessionItems[duel.itemOrder[position]];
-    const isSentence = pickedItem?.kind === "sentence";
-    if (hardUpgrade && isSentence) {
-      throw new ConvexError({
-        code: "INVALID_STATE",
-        message: "Sentence rounds can't be hard-upgraded",
-      });
-    }
-    if (hardUpgrade) {
-      if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
-        throw new ConvexError({ code: "INVALID_STATE", message: "No hard-upgrade budget left" });
-      }
-    }
+    validateRelayPick(duel, playerRole, position);
+    validateRelayHardUpgrade(duel, playerRole, position, hardUpgrade);
 
     const now = Date.now();
     const pickPatch = buildRelayPickPatch({ duel, position, hardUpgrade, now });
@@ -138,7 +126,7 @@ export const relayPick = mutation({
     const scheduledId = await ctx.scheduler.runAfter(
       windowMs,
       internal.relayDuel.relayTimeoutInternal,
-      { duelId, expectedAssignedIndex: position }
+      { duelId, expectedAssignedIndex: position },
     );
 
     await ctx.db.patch(duelId, {
@@ -159,7 +147,10 @@ export const relayAnswer = mutation({
     assertActive(duel);
 
     if (duel.relayPhase !== "answer") {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the answer phase" });
+      throw new ConvexError({
+        code: "INVALID_STATE",
+        message: "Relay is not in the answer phase",
+      });
     }
     if (playerRole !== relayAnswerer(duel)) {
       throw new ConvexError({
@@ -169,7 +160,10 @@ export const relayAnswer = mutation({
     }
     const served = relayServedQuestion(duel);
     if (served === undefined) {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
+      throw new ConvexError({
+        code: "INTERNAL_ERROR",
+        message: "Relay question data is missing",
+      });
     }
     // `relayAnswer` is the word-only MC path. Sentence positions route through
     // `relaySentenceConfirm` instead, so a sentence served question here means a
@@ -177,7 +171,8 @@ export const relayAnswer = mutation({
     if (served.kind !== "word") {
       throw new ConvexError({
         code: "WRONG_QUESTION_KIND",
-        message: "Sentence relay positions are answered via relaySentenceConfirm",
+        message:
+          "Sentence relay positions are answered via relaySentenceConfirm",
       });
     }
 
@@ -199,12 +194,15 @@ export const relayAnswer = mutation({
 function assertRelaySentenceTurn(
   duel: Doc<"duels">,
   playerRole: PlayerRole,
-  action: string
+  action: string,
 ): number {
   assertDuelMode(duel, "relay", action);
   assertActive(duel);
   if (duel.relayPhase !== "answer") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Relay is not in the answer phase" });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Relay is not in the answer phase",
+    });
   }
   if (playerRole !== relayAnswerer(duel)) {
     throw new ConvexError({
@@ -220,7 +218,10 @@ function assertRelaySentenceTurn(
     });
   }
   if (duel.relayAssignedIndex === undefined) {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Relay question data is missing" });
+    throw new ConvexError({
+      code: "INTERNAL_ERROR",
+      message: "Relay question data is missing",
+    });
   }
   return duel.relayAssignedIndex;
 }
@@ -233,8 +234,17 @@ export const relaySentenceTap = mutation({
   args: { duelId: v.id("duels"), tileIndex: v.number() },
   handler: async (ctx, { duelId, tileIndex }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceTap");
-    const { patch } = appendSentenceTile({ duel, questionIndex, role: playerRole, tileIndex });
+    const questionIndex = assertRelaySentenceTurn(
+      duel,
+      playerRole,
+      "relaySentenceTap",
+    );
+    const { patch } = appendSentenceTile({
+      duel,
+      questionIndex,
+      role: playerRole,
+      tileIndex,
+    });
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(duelId, patch);
     }
@@ -245,8 +255,16 @@ export const relaySentenceRemoveLast = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceRemoveLast");
-    const { patch } = removeLastSentenceTile({ duel, questionIndex, role: playerRole });
+    const questionIndex = assertRelaySentenceTurn(
+      duel,
+      playerRole,
+      "relaySentenceRemoveLast",
+    );
+    const { patch } = removeLastSentenceTile({
+      duel,
+      questionIndex,
+      role: playerRole,
+    });
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(duelId, patch);
     }
@@ -257,8 +275,16 @@ export const relaySentenceReset = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceReset");
-    const { patch } = clearSentenceBoard({ duel, questionIndex, role: playerRole });
+    const questionIndex = assertRelaySentenceTurn(
+      duel,
+      playerRole,
+      "relaySentenceReset",
+    );
+    const { patch } = clearSentenceBoard({
+      duel,
+      questionIndex,
+      role: playerRole,
+    });
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(duelId, patch);
     }
@@ -277,7 +303,11 @@ export const relaySentenceConfirm = mutation({
   args: { duelId: v.id("duels") },
   handler: async (ctx, { duelId }) => {
     const { duel, playerRole } = await getDuelParticipant(ctx, duelId);
-    const questionIndex = assertRelaySentenceTurn(duel, playerRole, "relaySentenceConfirm");
+    const questionIndex = assertRelaySentenceTurn(
+      duel,
+      playerRole,
+      "relaySentenceConfirm",
+    );
 
     const { patch: progressPatch, result } = confirmSentenceRound({
       duel,
@@ -372,3 +402,54 @@ export const relayTimeoutInternal = internalMutation({
     });
   },
 });
+
+function validateRelayPick(
+  duel: Doc<"duels">,
+  playerRole: PlayerRole,
+  position: number,
+) {
+  if (duel.relayPhase !== "pick") {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Relay is not in the pick phase",
+    });
+  }
+  if (playerRole !== duel.relayPicker) {
+    throw new ConvexError({
+      code: "NOT_AUTHORIZED",
+      message: "Only the picker can hand over a round",
+    });
+  }
+  if (!relayRemainingPositions(duel).includes(position)) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "That round is no longer available",
+    });
+  }
+}
+
+function validateRelayHardUpgrade(
+  duel: Doc<"duels">,
+  playerRole: PlayerRole,
+  position: number,
+  hardUpgrade: boolean,
+) {
+  if (!hardUpgrade) return;
+  // 🔥 hard-upgrade is disabled on sentence positions in v1 (decision #3):
+  // keeping sentences at a fixed pool is what makes the served board equal the
+  // validated board (plan R1). The toggle is also hidden client-side.
+  const pickedItem = duel.sessionItems[duel.itemOrder[position]];
+  const isSentence = pickedItem?.kind === "sentence";
+  if (isSentence) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Sentence rounds can't be hard-upgraded",
+    });
+  }
+  if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "No hard-upgrade budget left",
+    });
+  }
+}

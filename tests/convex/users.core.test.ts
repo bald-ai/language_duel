@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { consumeCredits } from "@/convex/credits";
 import {
@@ -425,5 +425,49 @@ describe("users core handlers", () => {
 
     expect((db.users[0]?.lastSeenAt ?? 0) >= before).toBe(true);
     expect((db.users[0]?.lastSeenAt ?? 0) <= after).toBe(true);
+  });
+});
+
+it.each([
+  [undefined, "NewPlayer"],
+  ["!!!", "NewPlayer"],
+  ["Ab", "NewPlayer"],
+  ["Alpha_Name-123", "Alpha_Name123"],
+  ["abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrst"],
+])("creates a valid nickname from identity name %s", async (name, nickname) => {
+  const db = new InMemoryDb();
+  const id = await callConvex(syncUser, createTrustedIdentityCtx(db, { subject: "clerk_1", email: "trusted@example.com", name }), { clerkId: "clerk_1" });
+  expect(db.users.find(user => user._id === id)?.nickname).toBe(nickname);
+});
+
+
+describe("nickname discriminator allocation", () => {
+  it("retries random collisions before assigning an unused discriminator", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ nickname: "Original" }), userDoc({ _id: "collision" as Id<"users">, clerkId: "collision", nickname: "Chosen", discriminator: 1000 }));
+    const random = vi.spyOn(Math, "random").mockReturnValueOnce(0).mockReturnValue(0.5);
+    try {
+      await expect(callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "Chosen" })).resolves.toEqual({ nickname: "Chosen", discriminator: 5500 });
+      expect(random).toHaveBeenCalledTimes(2);
+      expect(db.users[0]).toMatchObject({ nickname: "Chosen", discriminator: 5500 });
+    } finally { random.mockRestore(); }
+  });
+  it("finds the first available discriminator after random attempts are exhausted", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ nickname: "Original" }), userDoc({ _id: "collision" as Id<"users">, clerkId: "collision", nickname: "Chosen", discriminator: 1000 }));
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await expect(callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "Chosen" })).resolves.toEqual({ nickname: "Chosen", discriminator: 1001 });
+      expect(random).toHaveBeenCalledTimes(9000);
+    } finally { random.mockRestore(); }
+  });
+  it("reports exhaustion without changing the current nickname", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ nickname: "Original", discriminator: 1234 }), ...Array.from({ length: 9000 }, (_, i) => userDoc({ _id: `taken_${i}` as Id<"users">, clerkId: `taken_${i}`, nickname: "Chosen", discriminator: 1000 + i })));
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      await expect(callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "Chosen" })).rejects.toThrow("No available discriminators");
+      expect(db.users[0]).toMatchObject({ nickname: "Original", discriminator: 1234 });
+    } finally { random.mockRestore(); }
   });
 });

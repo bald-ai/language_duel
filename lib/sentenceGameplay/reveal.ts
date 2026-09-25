@@ -40,15 +40,7 @@ export function computeRevealBadgeView(
   revealedTiles: SentenceTileReveal[],
   placedTileIndices: number[]
 ): RevealBadgeView {
-  // Per revealed tile, the slots it can fill (a duplicate word fills several).
-  const slotsByTile = new Map<number, number[]>();
-  for (const { position, tileIndices } of revealedTiles) {
-    for (const tileIndex of tileIndices) {
-      const slots = slotsByTile.get(tileIndex);
-      if (slots) slots.push(position);
-      else slotsByTile.set(tileIndex, [position]);
-    }
-  }
+  const slotsByTile = groupRevealedSlots(revealedTiles);
 
   const badgeByTileIndex = new Map<number, RevealBadge>();
   const nextOpenPosition = placedTileIndices.length;
@@ -72,4 +64,18 @@ export function computeRevealBadgeView(
   }
 
   return { badgeByTileIndex, pulseTileIndex };
+}
+
+function groupRevealedSlots(revealedTiles: SentenceTileReveal[]): Map<number, number[]> {
+  // Per revealed tile, the slots it can fill (a duplicate word fills several).
+  const slotsByTile = new Map<number, number[]>();
+  for (const { position, tileIndices } of revealedTiles) {
+    for (const tileIndex of tileIndices) {
+      const slots = slotsByTile.get(tileIndex);
+      if (slots) slots.push(position);
+      else slotsByTile.set(tileIndex, [position]);
+    }
+  }
+
+  return slotsByTile;
 }

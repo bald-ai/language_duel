@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return generateLiveTtsResponse(text);
+    return await generateLiveTtsResponse(text);
   } catch (error) {
     console.error("TTS error:", error);
     return NextResponse.json(

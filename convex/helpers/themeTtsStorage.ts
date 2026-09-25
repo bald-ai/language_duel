@@ -4,14 +4,6 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 type CtxWithDb = QueryCtx | MutationCtx;
 type WordWithOptionalTts = { ttsStorageId?: Id<"_storage"> };
 
-function getStorageApi(ctx: MutationCtx): { delete: (id: Id<"_storage">) => Promise<void> } | null {
-  const storage = (ctx as MutationCtx & {
-    storage?: { delete: (id: Id<"_storage">) => Promise<void> };
-  }).storage;
-
-  return storage ?? null;
-}
-
 export function collectTtsStorageIds(
   words: WordWithOptionalTts[]
 ): Set<Id<"_storage">> {
@@ -80,11 +72,6 @@ export async function deleteStorageIdsSafely(
   storageIds: Iterable<Id<"_storage">>,
   errorLabel: string
 ): Promise<void> {
-  const storage = getStorageApi(ctx);
-  if (!storage) {
-    return;
-  }
-
   const uniqueStorageIds = Array.from(new Set(storageIds));
   if (uniqueStorageIds.length === 0) {
     return;
@@ -93,7 +80,7 @@ export async function deleteStorageIdsSafely(
   await Promise.all(
     uniqueStorageIds.map(async (storageId) => {
       try {
-        await storage.delete(storageId);
+        await ctx.storage.delete(storageId);
       } catch (error) {
         console.error(errorLabel, storageId, error);
       }

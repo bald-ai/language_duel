@@ -294,38 +294,6 @@ export const sendFriendRequest = mutation({
 });
 
 /**
- * Accept a friend request
- */
-export const acceptFriendRequest = mutation({
-  args: {
-    requestId: v.id("friendRequests"),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    await acceptFriendRequestCore(ctx, args.requestId, user._id);
-
-    return { success: true };
-  },
-});
-
-/**
- * Reject a friend request
- */
-export const rejectFriendRequest = mutation({
-  args: {
-    requestId: v.id("friendRequests"),
-  },
-  handler: async (ctx, args) => {
-    const { user } = await getAuthenticatedUser(ctx);
-
-    await rejectFriendRequestCore(ctx, args.requestId, user._id);
-
-    return { success: true };
-  },
-});
-
-/**
  * Remove a friend (unfriend)
  */
 export const removeFriend = mutation({

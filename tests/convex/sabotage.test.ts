@@ -122,6 +122,16 @@ describe("sendSabotage", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects sabotage after the duel has completed without spending a charge", async () => {
+    const db = seedDb({ status: "completed", challengerSabotagesUsed: 1 });
+    const patch = vi.spyOn(db, "patch");
+    await expect(handler(createCtx(db, "clerk_1"), {
+      duelId: "duel_1" as Id<"duels">, effect: "sticky",
+    })).rejects.toThrow("Duel is not active");
+    expect(patch).not.toHaveBeenCalled();
+    expect(db.duels[0].challengerSabotagesUsed).toBe(1);
+  });
+
   it("patches the opponent side when challenger sends sabotage", async () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = seedDb({ challengerSabotagesUsed: 1 });

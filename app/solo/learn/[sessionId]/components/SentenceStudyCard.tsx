@@ -81,33 +81,20 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
 
   const tokens = useMemo(
     () => tokenizeSpanishSentence(sentence.spanishSentence),
-    [sentence.spanishSentence]
+    [sentence.spanishSentence],
   );
   const allPositions = useMemo(() => tokens.map((_, i) => i), [tokens]);
 
-  const revealedSet = useMemo(() => new Set(revealedPositions), [revealedPositions]);
+  const revealedSet = useMemo(
+    () => new Set(revealedPositions),
+    [revealedPositions],
+  );
   const hintsRemaining = Math.max(0, tokens.length - revealedSet.size);
-  const isFullyRevealed = tokens.length > 0 && revealedSet.size >= tokens.length;
-  const handleRevealToggle = isFullyRevealed ? onHide : () => onRevealAll(allPositions);
-
-  const hasStoredTTS = !!sentence.ttsStorageId;
-  const ttsDisabled = !hasStoredTTS || isTTSDisabled;
-  const ttsStyle = isTTSPlaying
-      ? playingButtonStyleConst
-      : ttsDisabled
-        ? disabledButtonStyleConst
-        : iconButtonStyleConst;
-
-  const hiddenTokenStyle = {
-    backgroundColor: colors.background.elevated,
-    borderColor: colors.neutral.dark,
-    color: colors.text.muted,
-  };
-  const shownTokenStyle = {
-    backgroundColor: colors.background.elevated,
-    borderColor: colors.primary.dark,
-    color: colors.text.DEFAULT,
-  };
+  const isFullyRevealed =
+    tokens.length > 0 && revealedSet.size >= tokens.length;
+  const handleRevealToggle = isFullyRevealed
+    ? onHide
+    : () => onRevealAll(allPositions);
 
   return (
     <div
@@ -129,59 +116,14 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="min-w-0 text-center">
-          {showThemeLabel && (
-            <div
-              className="mb-2 text-[10px] font-bold uppercase tracking-widest"
-              style={{ color: colors.text.muted }}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-theme` : undefined}
-            >
-              {sentence.themeName}
-            </div>
-          )}
-          <div
-            className="px-8 text-base font-semibold leading-snug"
-            style={{ color: colors.text.DEFAULT }}
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-english` : undefined}
-          >
-            {sentence.englishPrompt}
-          </div>
-
-          <div
-            className="mt-3 flex min-h-[34px] flex-wrap items-center justify-center gap-1.5"
-            onMouseDown={(event) => event.stopPropagation()}
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-spanish` : undefined}
-          >
-            {tokens.map((token, index) =>
-              revealedSet.has(index) ? (
-                <span
-                  key={index}
-                  className="rounded-[10px] border-2 px-2.5 py-1.5 text-[15px] font-semibold leading-none"
-                  style={shownTokenStyle}
-                  data-testid={
-                    dataTestIdBase ? `${dataTestIdBase}-token-${index}` : undefined
-                  }
-                >
-                  {token}
-                </span>
-              ) : (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => onRevealToken(index)}
-                  aria-label={`Reveal word ${index + 1}`}
-                  className="min-w-[54px] rounded-[10px] border-2 px-2.5 py-1.5 text-[15px] font-semibold leading-none tracking-[2px] transition hover:brightness-105"
-                  style={hiddenTokenStyle}
-                  data-testid={
-                    dataTestIdBase ? `${dataTestIdBase}-token-${index}` : undefined
-                  }
-                >
-                  •••
-                </button>
-              )
-            )}
-          </div>
-        </div>
+        <SentenceStudyPrompt
+          sentence={sentence}
+          showThemeLabel={showThemeLabel}
+          tokens={tokens}
+          revealedSet={revealedSet}
+          onRevealToken={onRevealToken}
+          dataTestIdBase={dataTestIdBase}
+        />
 
         <div
           className="flex flex-col items-center gap-1.5 border-t pt-2"
@@ -198,7 +140,9 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
             value={confidence}
             onChange={onConfidenceChange}
             maxLevel={maxConfidenceLevel}
-            dataTestIdPrefix={dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined}
+            dataTestIdPrefix={
+              dataTestIdBase ? `${dataTestIdBase}-confidence` : undefined
+            }
           />
         </div>
 
@@ -206,8 +150,14 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
           <div className="flex flex-col items-center gap-0.5">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold tabular-nums"
-              style={hintsRemaining > 0 ? hintCounterActiveStyle : hintCounterEmptyStyle}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-hints-remaining` : undefined}
+              style={
+                hintsRemaining > 0
+                  ? hintCounterActiveStyle
+                  : hintCounterEmptyStyle
+              }
+              data-testid={
+                dataTestIdBase ? `${dataTestIdBase}-hints-remaining` : undefined
+              }
             >
               {hintsRemaining}
             </div>
@@ -219,51 +169,19 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-0.5">
-            <button
-              type="button"
-              onClick={handleRevealToggle}
-              aria-label={isFullyRevealed ? "Hide sentence" : "Reveal sentence"}
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 transition hover:brightness-110"
-              style={iconButtonStyleConst}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
-            >
-              {isFullyRevealed ? (
-                <EyeSlashIcon className="h-4 w-4" />
-              ) : (
-                <EyeIcon className="h-4 w-4" />
-              )}
-            </button>
-            <span
-              className="text-[9px] font-semibold uppercase leading-none tracking-wide"
-              style={{ color: colors.text.muted }}
-            >
-              {isFullyRevealed ? "Hide" : "Reveal"}
-            </span>
-          </div>
+          <SentenceRevealControl
+            isFullyRevealed={isFullyRevealed}
+            onToggle={handleRevealToggle}
+            dataTestIdBase={dataTestIdBase}
+          />
 
-          <div className="flex flex-col items-center gap-0.5">
-            <button
-              type="button"
-              onClick={ttsDisabled ? undefined : onPlayTTS}
-              disabled={ttsDisabled}
-              aria-label="Listen"
-              title={hasStoredTTS ? undefined : "Sentence audio has not been generated"}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 transition ${
-                ttsDisabled ? "cursor-not-allowed" : "cursor-pointer hover:brightness-110"
-              }`}
-              style={ttsStyle}
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
-            >
-              <SpeakerIcon className="h-4 w-4" />
-            </button>
-            <span
-              className="text-[9px] font-semibold uppercase leading-none tracking-wide"
-              style={{ color: colors.text.muted }}
-            >
-              Listen
-            </span>
-          </div>
+          <SentenceStudyAudio
+            sentence={sentence}
+            isTTSPlaying={isTTSPlaying}
+            isTTSDisabled={isTTSDisabled}
+            onPlayTTS={onPlayTTS}
+            dataTestIdBase={dataTestIdBase}
+          />
         </div>
       </div>
     </div>
@@ -271,3 +189,166 @@ export const SentenceStudyCard = memo(function SentenceStudyCard({
 });
 
 SentenceStudyCard.displayName = "SentenceStudyCard";
+
+function SentenceStudyAudio({
+  sentence,
+  isTTSPlaying,
+  isTTSDisabled,
+  onPlayTTS,
+  dataTestIdBase,
+}: Pick<
+  SentenceStudyCardProps,
+  "sentence" | "isTTSPlaying" | "isTTSDisabled" | "onPlayTTS" | "dataTestIdBase"
+>) {
+  const colors = useAppearanceColors();
+  const hasStoredTTS = !!sentence.ttsStorageId;
+  const ttsDisabled = !hasStoredTTS || isTTSDisabled;
+  const ttsStyle = isTTSPlaying
+    ? playingButtonStyleConst
+    : ttsDisabled
+      ? disabledButtonStyleConst
+      : iconButtonStyleConst;
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        type="button"
+        onClick={ttsDisabled ? undefined : onPlayTTS}
+        disabled={ttsDisabled}
+        aria-label="Listen"
+        title={
+          hasStoredTTS ? undefined : "Sentence audio has not been generated"
+        }
+        className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 transition ${
+          ttsDisabled
+            ? "cursor-not-allowed"
+            : "cursor-pointer hover:brightness-110"
+        }`}
+        style={ttsStyle}
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-tts` : undefined}
+      >
+        <SpeakerIcon className="h-4 w-4" />
+      </button>
+      <span
+        className="text-[9px] font-semibold uppercase leading-none tracking-wide"
+        style={{ color: colors.text.muted }}
+      >
+        Listen
+      </span>
+    </div>
+  );
+}
+function SentenceRevealControl({
+  isFullyRevealed,
+  onToggle,
+  dataTestIdBase,
+}: {
+  isFullyRevealed: boolean;
+  onToggle: () => void;
+  dataTestIdBase?: string;
+}) {
+  const colors = useAppearanceColors();
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={isFullyRevealed ? "Hide sentence" : "Reveal sentence"}
+        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border-2 transition hover:brightness-110"
+        style={iconButtonStyleConst}
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-reveal` : undefined}
+      >
+        {isFullyRevealed ? (
+          <EyeSlashIcon className="h-4 w-4" />
+        ) : (
+          <EyeIcon className="h-4 w-4" />
+        )}
+      </button>
+      <span
+        className="text-[9px] font-semibold uppercase leading-none tracking-wide"
+        style={{ color: colors.text.muted }}
+      >
+        {isFullyRevealed ? "Hide" : "Reveal"}
+      </span>
+    </div>
+  );
+}
+
+function SentenceStudyPrompt({
+  sentence,
+  showThemeLabel,
+  tokens,
+  revealedSet,
+  onRevealToken,
+  dataTestIdBase,
+}: Pick<
+  SentenceStudyCardProps,
+  "sentence" | "showThemeLabel" | "onRevealToken" | "dataTestIdBase"
+> & { tokens: string[]; revealedSet: ReadonlySet<number> }) {
+  const colors = useAppearanceColors();
+  const hiddenTokenStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.neutral.dark,
+    color: colors.text.muted,
+  };
+  const shownTokenStyle = {
+    backgroundColor: colors.background.elevated,
+    borderColor: colors.primary.dark,
+    color: colors.text.DEFAULT,
+  };
+  return (
+    <div className="min-w-0 text-center">
+      {showThemeLabel && (
+        <div
+          className="mb-2 text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: colors.text.muted }}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-theme` : undefined}
+        >
+          {sentence.themeName}
+        </div>
+      )}
+      <div
+        className="px-8 text-base font-semibold leading-snug"
+        style={{ color: colors.text.DEFAULT }}
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-english` : undefined}
+      >
+        {sentence.englishPrompt}
+      </div>
+
+      <div
+        className="mt-3 flex min-h-[34px] flex-wrap items-center justify-center gap-1.5"
+        onMouseDown={(event) => event.stopPropagation()}
+        data-testid={dataTestIdBase ? `${dataTestIdBase}-spanish` : undefined}
+      >
+        {tokens.map((token, index) =>
+          revealedSet.has(index) ? (
+            <span
+              key={index}
+              className="rounded-[10px] border-2 px-2.5 py-1.5 text-[15px] font-semibold leading-none"
+              style={shownTokenStyle}
+              data-testid={
+                dataTestIdBase ? `${dataTestIdBase}-token-${index}` : undefined
+              }
+            >
+              {token}
+            </span>
+          ) : (
+            <button
+              key={index}
+              type="button"
+              onClick={() => onRevealToken(index)}
+              aria-label={`Reveal word ${index + 1}`}
+              className="min-w-[54px] rounded-[10px] border-2 px-2.5 py-1.5 text-[15px] font-semibold leading-none tracking-[2px] transition hover:brightness-105"
+              style={hiddenTokenStyle}
+              data-testid={
+                dataTestIdBase ? `${dataTestIdBase}-token-${index}` : undefined
+              }
+            >
+              •••
+            </button>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}

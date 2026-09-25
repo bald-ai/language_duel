@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  checkThemeForDuplicateWords,
-  checkThemeForDuplicateWrongAnswers,
-  checkThemeForWrongMatchingAnswer,
-  doesWrongAnswerMatchCorrect,
-  getDuplicateWrongAnswerIndices,
-  getDuplicateWordIndices,
+  analyzeThemeIssues,
   getThemeRepairIssueForFlags,
   getThemeRepairIssueForWords,
   getThemeSaveErrorMessage,
-  getWrongIndicesMatchingAnswer,
-  hasDuplicateWrongAnswersInWord,
   isWordDuplicate,
 } from "@/lib/themes/themeUiValidation";
 import type { WordEntry } from "@/lib/types";
@@ -23,9 +16,9 @@ describe("theme UI validation", () => {
       wrongAnswers: ["café", " cafe ", "el perro"],
     };
 
-    expect(hasDuplicateWrongAnswersInWord(word)).toBe(true);
-    expect(checkThemeForDuplicateWrongAnswers([word])).toBe(true);
-    expect([...getDuplicateWrongAnswerIndices(word)].sort((a, b) => a - b)).toEqual([0, 1]);
+    const analysis = analyzeThemeIssues([word]);
+    expect(analysis.repairIssue?.type).toBe("duplicate_wrong_answers");
+    expect(analysis.wordIssues.get(0)?.duplicateWrongAnswerIndices).toEqual(new Set([0, 1]));
   });
 
   it("detects wrong answer matching the correct answer (including Irr marker stripping)", () => {
@@ -35,9 +28,9 @@ describe("theme UI validation", () => {
       wrongAnswers: ["EL cafe", "té", "agua"],
     };
 
-    expect(doesWrongAnswerMatchCorrect(word)).toBe(true);
-    expect(checkThemeForWrongMatchingAnswer([word])).toBe(true);
-    expect([...getWrongIndicesMatchingAnswer(word)]).toEqual([0]);
+    const analysis = analyzeThemeIssues([word]);
+    expect(analysis.repairIssue?.type).toBe("wrong_answer_matches_correct");
+    expect(analysis.wordIssues.get(0)?.wrongMatchingAnswerIndices).toEqual(new Set([0]));
   });
 
   it("detects duplicate words and returns all duplicate indices", () => {
@@ -47,8 +40,9 @@ describe("theme UI validation", () => {
       { word: " INGLES ", answer: "gato", wrongAnswers: ["la mesa", "la silla", "la puerta"] },
     ];
 
-    expect(checkThemeForDuplicateWords(words)).toBe(true);
-    expect([...getDuplicateWordIndices(words)].sort((a, b) => a - b)).toEqual([0, 2]);
+    const analysis = analyzeThemeIssues(words);
+    expect(analysis.repairIssue?.type).toBe("duplicate_word");
+    expect(analysis.duplicateWordIndices).toEqual(new Set([0, 2]));
   });
 
   it("checks duplicate word against existing word list", () => {

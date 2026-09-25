@@ -313,6 +313,27 @@ export function canToggleGoalThemeCompletion({
   return effectiveStatus !== undefined && effectiveStatus !== "completed";
 }
 
+function validateParticipantLock(
+  goal: WeeklyGoalLockableState,
+  role: WeeklyGoalParticipantRole
+): void {
+  if (goal.mode === "solo") {
+    if (role !== "creator") {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo goals can only be started by the creator");
+    }
+    if (goal.partnerId !== undefined || goal.partnerLocked !== undefined) {
+      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo weekly goal cannot have partner data");
+    }
+  }
+  if (goal.status !== "draft") {
+    throw new WeeklyGoalRuleViolation("INVALID_STATE", "Goal already locked");
+  }
+  const alreadyLocked = role === "creator" ? goal.creatorLocked : goal.partnerLocked;
+  if (alreadyLocked) {
+    throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
+  }
+}
+
 export function planWeeklyGoalLock({
   goal,
   role,
@@ -322,75 +343,22 @@ export function planWeeklyGoalLock({
   role: WeeklyGoalParticipantRole;
   now: number;
 }): WeeklyGoalLockPlan {
-  if (goal.mode === "solo") {
-    if (role !== "creator") {
-      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo goals can only be started by the creator");
-    }
-    if (goal.partnerId !== undefined || goal.partnerLocked !== undefined) {
-      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Solo weekly goal cannot have partner data");
-    }
-    if (goal.status !== "draft") {
-      throw new WeeklyGoalRuleViolation("INVALID_STATE", "Goal already locked");
-    }
-    if (goal.creatorLocked) {
-      throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
-    }
-    validateLockRequirements(goal, now);
-    return {
-      kind: "activate_goal",
-      role,
-      updates: { creatorLocked: true, status: "locked", lockedAt: now },
-    };
-  }
-
-  if (goal.status !== "draft") {
-    throw new WeeklyGoalRuleViolation("INVALID_STATE", "Goal already locked");
-  }
-
-  if (role === "creator" && goal.creatorLocked) {
-    throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
-  }
-
-  if (role === "partner" && goal.partnerLocked) {
-    throw new WeeklyGoalRuleViolation("INVALID_STATE", "You already locked this goal");
-  }
-
+  validateParticipantLock(goal, role);
   validateLockRequirements(goal, now);
-
-  const bothLocked = role === "creator"
-    ? goal.partnerLocked
-    : goal.creatorLocked;
-  const otherRole: WeeklyGoalParticipantRole = role === "creator" ? "partner" : "creator";
-
-  if (bothLocked) {
-    return role === "creator"
-      ? {
-          kind: "activate_goal",
-          role,
-          otherRole,
-          updates: { creatorLocked: true, status: "locked", lockedAt: now },
-        }
-      : {
-          kind: "activate_goal",
-          role,
-          otherRole,
-          updates: { partnerLocked: true, status: "locked", lockedAt: now },
-        };
+  const updates = role === "creator"
+    ? { creatorLocked: true as const }
+    : { partnerLocked: true as const };
+  if (goal.mode === "solo") {
+    return { kind: "activate_goal", role,
+      updates: { ...updates, status: "locked", lockedAt: now } };
   }
-
-  return role === "creator"
-    ? {
-        kind: "first_lock",
-        role,
-        otherRole,
-        updates: { creatorLocked: true },
-      }
-    : {
-        kind: "first_lock",
-        role,
-        otherRole,
-        updates: { partnerLocked: true },
-      };
+  const otherRole = role === "creator" ? "partner" : "creator";
+  const otherLocked = role === "creator" ? goal.partnerLocked : goal.creatorLocked;
+  if (otherLocked) {
+    return { kind: "activate_goal", role, otherRole,
+      updates: { ...updates, status: "locked", lockedAt: now } };
+  }
+  return { kind: "first_lock", role, otherRole, updates };
 }
 
 function validateLockRequirements(goal: WeeklyGoalLockableState, now: number): void {

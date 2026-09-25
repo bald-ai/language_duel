@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   isCreatedAtExpired,
-  isGoalPastEndDate,
   isGoalPastGracePeriod,
 } from "@/lib/cleanupExpiry";
 
@@ -29,20 +28,6 @@ describe("cleanupExpiry", () => {
       const createdAt = now - ttl - 1;
 
       expect(isCreatedAtExpired(createdAt, now, ttl)).toBe(true);
-    });
-  });
-
-  describe("isGoalPastEndDate", () => {
-    it("returns false when endDate is undefined", () => {
-      expect(isGoalPastEndDate(undefined, 1_000_000)).toBe(false);
-    });
-
-    it("returns false when endDate equals now", () => {
-      expect(isGoalPastEndDate(1_000_000, 1_000_000)).toBe(false);
-    });
-
-    it("returns true when endDate is in the past", () => {
-      expect(isGoalPastEndDate(999_999, 1_000_000)).toBe(true);
     });
   });
 

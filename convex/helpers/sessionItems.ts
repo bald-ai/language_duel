@@ -2,12 +2,9 @@ import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import {
-  isSessionSentenceItem,
-  isSessionWordItem,
   summarizeThemeNames,
   type SessionItem,
   type SessionThemeInput,
-  type SessionWordItem,
 } from "../../lib/sessionItems";
 
 type CtxWithDb = QueryCtx | MutationCtx;
@@ -65,19 +62,3 @@ export function getSessionItems(
   return session.sessionItems;
 }
 
-/**
- * Narrow a mixed-content session item to its word variant or throw. Use this
- * in word-question gameplay rules so a sentence item never silently slips
- * through as a malformed word.
- */
-export function requireWordItem(item: SessionItem): SessionWordItem {
-  if (!isSessionWordItem(item)) {
-    throw new ConvexError({
-      code: "INTERNAL_ERROR",
-      message: "Expected a word session item but got a sentence item",
-    });
-  }
-  return item;
-}
-
-export { isSessionSentenceItem, isSessionWordItem };

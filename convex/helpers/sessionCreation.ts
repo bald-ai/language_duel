@@ -147,9 +147,7 @@ function resolveDuelDifficultyPreset(preset?: DuelDifficultyPreset): DuelDifficu
 
 function validateDuelSourceFields(args: DuelSourceFields) {
   if (args.sourceType === "normal") {
-    if (args.weeklyGoalId || args.bossType || args.spacedRepetitionStep !== undefined) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Normal duel sessions cannot include weekly-goal source fields" });
-    }
+    validateNormalSource(args);
     return;
   }
 
@@ -158,9 +156,7 @@ function validateDuelSourceFields(args: DuelSourceFields) {
   }
 
   if (args.sourceType === "boss") {
-    if (!args.bossType || args.spacedRepetitionStep !== undefined) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss duel sessions require bossType and cannot include spacedRepetitionStep" });
-    }
+    validateBossSource(args, "Boss duel sessions require bossType and cannot include spacedRepetitionStep");
     return;
   }
 
@@ -214,9 +210,7 @@ function validateSoloPracticeSourceFields(args: SoloPracticeSourceFields) {
   }
 
   if (args.sourceType === "boss") {
-    if (!args.bossType || args.spacedRepetitionStep !== undefined) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: "Boss solo practice requires bossType and cannot include spacedRepetitionStep" });
-    }
+    validateBossSource(args, "Boss solo practice requires bossType and cannot include spacedRepetitionStep");
     return;
   }
 
@@ -278,31 +272,10 @@ export function buildDuelSession(args: {
   const duelDifficultyPreset = resolveDuelDifficultyPreset(args.duelDifficultyPreset);
   const itemOrder = createShuffledItemOrder(sessionItems.length);
 
-  // Relay serves a flat-point medium snapshot per position (decision #11) and
-  // carries its own turn/budget state; other modes use the progressive set.
-  const isRelay = args.duelMode === "relay";
-  const isTbt = args.duelMode === "tbt";
-
-  // TbT shares one sentence board, so the whole deck must be sentence items.
-  // Reject a mixed/word deck at creation rather than failing mid-duel.
-  if (isTbt && sessionItems.some((item) => !isSessionSentenceItem(item))) {
-    throw new ConvexError({
-      code: "TBT_REQUIRES_SENTENCES",
-      message: `${DUEL_MODE_LABELS.tbt} duels require an all-sentence deck`,
-    });
-  }
-
-  const duelQuestions = isRelay
-    ? buildRelayQuestionSet(sessionItems, itemOrder, "medium")
-    : buildDuelQuestionSet(sessionItems, itemOrder, duelDifficultyPreset);
-  const relayState = isRelay ? buildInitialRelayState(sessionItems, itemOrder) : {};
-  // TbT tracks whose turn it is on the shared board; the opener of sentence 0
-  // goes first. Empty for every other mode.
-  const tbtState = isTbt ? buildInitialTbtState() : {};
+  const modeState = buildDuelModeState(args.duelMode, sessionItems, itemOrder, duelDifficultyPreset);
 
   return {
-    ...relayState,
-    ...tbtState,
+    ...modeState,
     challengeId: args.challengeId,
     challengerId: args.challengerId,
     opponentId: args.opponentId,
@@ -318,7 +291,6 @@ export function buildDuelSession(args: {
     createdAt: args.createdAt,
     currentItemIndex: 0,
     itemOrder,
-    duelQuestions,
     challengerAnswered: false,
     opponentAnswered: false,
     challengerScore: 0,
@@ -357,5 +329,32 @@ export function buildSoloPracticeSession(args: {
     spacedRepetitionStep: args.spacedRepetitionStep,
     status: args.startsInLearning ? "learning" : "practicing",
     createdAt: args.createdAt,
+  };
+}
+
+function validateNormalSource(args: NormalDuelSourceFields): void {
+    if (args.weeklyGoalId || args.bossType || args.spacedRepetitionStep !== undefined) {
+      throw new ConvexError({ code: "INVALID_INPUT", message: "Normal duel sessions cannot include weekly-goal source fields" });
+    }
+}
+
+function validateBossSource(args: BossDuelSourceFields | BossSoloSourceFields, message: string): void {
+  if (!args.bossType || args.spacedRepetitionStep !== undefined) {
+    throw new ConvexError({ code: "INVALID_INPUT", message });
+  }
+}
+
+/** Build only the state owned by the chosen game mode. */
+function buildDuelModeState(duelMode: DuelMode, sessionItems: SessionItem[], itemOrder: number[], preset: DuelDifficultyPreset) {
+  if (duelMode === "relay") {
+    const duelQuestions = buildRelayQuestionSet(sessionItems, itemOrder, "medium");
+    return { ...buildInitialRelayState(sessionItems, itemOrder), duelQuestions };
+  }
+  if (duelMode === "tbt" && sessionItems.some(item => !isSessionSentenceItem(item))) {
+    throw new ConvexError({ code: "TBT_REQUIRES_SENTENCES", message: `${DUEL_MODE_LABELS.tbt} duels require an all-sentence deck` });
+  }
+  return {
+    ...(duelMode === "tbt" ? buildInitialTbtState() : {}),
+    duelQuestions: buildDuelQuestionSet(sessionItems, itemOrder, preset),
   };
 }

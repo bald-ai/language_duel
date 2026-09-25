@@ -3,29 +3,25 @@ import { generateTheme, type WordType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 import { normalizePlainErrorMessage } from "@/lib/userFacingErrors";
 import {
-  DEFAULT_GENERATED_WORDS_COUNT,
+  PICK_AND_PRUNE_WORD_COUNT,
   DEFAULT_WORD_TYPE,
 } from "../constants";
 
-export type GenerationMode = "standard" | "pick-and-prune";
-
 interface ThemeGeneratorState {
-  generationMode: GenerationMode | null;
+  isGenerating: boolean;
   error: string | null;
   themeName: string;
   themePrompt: string;
   wordType: WordType;
-  wordCount: number;
 }
 
 export function useThemeGenerator() {
   const [state, setState] = useState<ThemeGeneratorState>({
-    generationMode: null,
+    isGenerating: false,
     error: null,
     themeName: "",
     themePrompt: "",
     wordType: DEFAULT_WORD_TYPE,
-    wordCount: DEFAULT_GENERATED_WORDS_COUNT,
   });
 
   const setThemeName = useCallback((name: string) => {
@@ -40,73 +36,59 @@ export function useThemeGenerator() {
     setState((prev) => ({ ...prev, wordType }));
   }, []);
 
-  const setWordCount = useCallback((wordCount: number) => {
-    setState((prev) => ({ ...prev, wordCount }));
-  }, []);
-
   const setError = useCallback((error: string | null) => {
     setState((prev) => ({ ...prev, error }));
   }, []);
 
   const reset = useCallback(() => {
     setState({
-      generationMode: null,
+      isGenerating: false,
       error: null,
       themeName: "",
       themePrompt: "",
       wordType: DEFAULT_WORD_TYPE,
-      wordCount: DEFAULT_GENERATED_WORDS_COUNT,
     });
   }, []);
 
-  const generate = useCallback(async (options?: {
-    wordCountOverride?: number;
-    mode?: GenerationMode;
-  }): Promise<WordEntry[] | null> => {
+  const generate = useCallback(async (): Promise<WordEntry[] | null> => {
     if (!state.themeName.trim()) return null;
 
-    const generationMode = options?.mode ?? "standard";
-    const wordCount = options?.wordCountOverride ?? state.wordCount;
-    setState((prev) => ({ ...prev, generationMode, error: null }));
+    setState((prev) => ({ ...prev, isGenerating: true, error: null }));
 
     try {
       const result = await generateTheme({
         themeName: state.themeName,
         themePrompt: state.themePrompt.trim() || undefined,
         wordType: state.wordType,
-        wordCount,
+        wordCount: PICK_AND_PRUNE_WORD_COUNT,
       });
 
       if (!result.success || !result.data) {
         setState((prev) => ({
           ...prev,
-          generationMode: null,
+          isGenerating: false,
           error: result.error || "Generation failed",
         }));
         return null;
       }
 
-      setState((prev) => ({ ...prev, generationMode: null }));
+      setState((prev) => ({ ...prev, isGenerating: false }));
       return result.data;
     } catch (error) {
       const errorMsg =
         error instanceof Error
           ? normalizePlainErrorMessage(error.message, "Generation failed")
           : "Generation failed. Please try again.";
-      setState((prev) => ({ ...prev, generationMode: null, error: errorMsg }));
+      setState((prev) => ({ ...prev, isGenerating: false, error: errorMsg }));
       return null;
     }
-  }, [state.themeName, state.themePrompt, state.wordType, state.wordCount]);
-
-  const isGenerating = state.generationMode !== null;
+  }, [state.themeName, state.themePrompt, state.wordType]);
 
   return {
     ...state,
-    isGenerating,
     setThemeName,
     setThemePrompt,
     setWordType,
-    setWordCount,
     setError,
     reset,
     generate,

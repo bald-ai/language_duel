@@ -173,3 +173,35 @@ export function answerSentenceIncorrect(
     completedMaxLevel: false,
   };
 }
+
+
+export interface SoloSentencePlacement {
+  blankPosition: number;
+  chip: SoloSentenceBankChip;
+}
+
+/** Evaluate one placement before the UI commits its next answer state. */
+export function evaluateSoloSentencePlacement({
+  spanishSentence, cloze, filledBlanks, blankPosition, chip,
+}: {
+  spanishSentence: string;
+  cloze: SoloSentenceCloze;
+  filledBlanks: SoloSentencePlacement[];
+  blankPosition: number;
+  chip: SoloSentenceBankChip;
+}): { correct: false } | { correct: true; filledBlanks: SoloSentencePlacement[]; complete: boolean } {
+  const expectedToken = cloze.tokens[blankPosition]?.text;
+  if (!expectedToken || !isSoloSentenceTokenMatch(chip.text, expectedToken)) {
+    return { correct: false };
+  }
+  const nextFilledBlanks = [...filledBlanks, { blankPosition, chip }];
+  return {
+    correct: true,
+    filledBlanks: nextFilledBlanks,
+    complete: validateSoloSentenceClozeAnswer({
+      spanishSentence,
+      blankPositions: cloze.blankPositions,
+      filledTokens: nextFilledBlanks.map((entry) => entry.chip.text),
+    }),
+  };
+}

@@ -87,6 +87,170 @@ interface SentenceBuildBoardProps {
   showTimer?: boolean;
 }
 
+type BoardColors = ReturnType<typeof useAppearanceColors>;
+type TileState = { isEliminated: boolean; isCorrect: boolean; isWrong: boolean; isPlaced: boolean; isLast: boolean; isLastWrong: boolean };
+
+function getTileColors(colors: BoardColors, { isEliminated, isCorrect, isWrong, isPlaced, isLast, isLastWrong }: TileState): CSSProperties {
+  if (isEliminated) {
+    return {
+      borderColor: colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
+  } else if (isCorrect) {
+    return {
+      borderColor: colors.status.success.DEFAULT,
+      backgroundColor: `${colors.status.success.DEFAULT}24`,
+      color: colors.text.DEFAULT,
+    };
+  } else if (isWrong) {
+    return {
+      borderColor: colors.status.danger.DEFAULT,
+      backgroundColor: `${colors.status.danger.DEFAULT}24`,
+      color: colors.text.DEFAULT,
+    };
+  } else if (isPlaced) {
+    return {
+      borderColor: isLast ? colors.status.danger.DEFAULT : colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
+  } else if (isLastWrong) {
+    return {
+      borderColor: colors.status.danger.DEFAULT,
+      backgroundColor: `${colors.status.danger.DEFAULT}14`,
+      color: colors.text.DEFAULT,
+    };
+  } else {
+    return {
+      borderColor: colors.primary.dark,
+      backgroundColor: colors.background.elevated,
+      color: colors.text.DEFAULT,
+    };
+  }
+}
+
+function getBadgeColor(colors: BoardColors, { isCorrect, isWrong, isLast }: Pick<TileState, "isCorrect" | "isWrong" | "isLast">, checked: boolean): string {
+  return isCorrect
+      ? colors.status.success.DEFAULT
+      : isWrong || (isLast && !checked)
+        ? colors.status.danger.DEFAULT
+        : colors.primary.DEFAULT;
+
+}
+
+function getTilePlacement(index: number, placed: number[], mask: boolean[] | null) {
+  const order = placed.indexOf(index);
+  const isPlaced = order !== -1;
+  const correctness = mask?.[order];
+  return { order, isPlaced, isLast: isPlaced && order === placed.length - 1,
+    isCorrect: isPlaced && correctness === true, isWrong: isPlaced && correctness === false };
+}
+
+function getTileHints(index: number, isPlaced: boolean, eliminated: Set<number>, reveal: ReturnType<typeof computeRevealBadgeView>, lastWrongTileIndex: number | null) {
+  const isEliminated = eliminated.has(index);
+  return { isEliminated,
+    isLastWrong: !isPlaced && lastWrongTileIndex === index,
+    revealBadge: isEliminated ? undefined : reveal.badgeByTileIndex.get(index),
+    isPulsing: !isEliminated && !isPlaced && reveal.pulseTileIndex === index,
+  };
+}
+
+function getTileDisplay(index: number, flying: boolean, isPlaced: boolean, isEliminated: boolean, activeSabotage: SabotageEffect | null, isFlyingEffect: boolean, displayTiles: string[], reverseAnimatedAnswers: string[] | null) {
+  const anchoredAvailable = !flying && !isPlaced && !isEliminated;
+  const reversed = anchoredAvailable && activeSabotage === "reverse";
+  return {
+    displayText: reversed ? reverseAnimatedAnswers?.[index] ?? displayTiles[index] : displayTiles[index],
+    hiddenWhileFlying: anchoredAvailable && isFlyingEffect,
+  };
+}
+
+type TileClassState = { tileFontSizeClass: string; isLastWrong: boolean; isEliminated: boolean; isPulsing: boolean; hiddenWhileFlying: boolean; isPlaced: boolean; checked: boolean };
+
+function flyingTileClasses({ tileFontSizeClass, isLastWrong, isEliminated }: TileClassState): string {
+  return `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden flex flex-col items-center justify-center gap-1 ${isLastWrong ? "border-dashed" : ""} ${isEliminated ? "opacity-40 line-through cursor-not-allowed" : "hover:brightness-110"}`;
+}
+
+function anchoredTileClasses({ tileFontSizeClass, isLastWrong, isEliminated, isPulsing, hiddenWhileFlying, isPlaced, checked }: TileClassState): string {
+  return `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 flex flex-col items-center justify-center gap-1 ${isLastWrong ? "border-dashed" : ""} ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${hiddenWhileFlying ? "invisible" : ""} ${isEliminated ? "opacity-40 line-through cursor-not-allowed" : isPlaced && !checked ? "opacity-70" : "hover:brightness-110"}`;
+}
+
+function getMeaningPresentation(rawMeaning: string | null | undefined, isEliminated: boolean, tileStyle: CSSProperties, colors: BoardColors) {
+  const meaning = rawMeaning?.trim() || null;
+  if (!meaning || isEliminated) return { meaning: null, tileStyle };
+  return { meaning, tileStyle: { ...tileStyle, boxShadow: `0 0 0 1px ${colors.secondary.light}` } };
+}
+
+function TileMeaning({ meaning, index, colors }: { meaning: string | null; index: number; colors: BoardColors }) {
+  if (!meaning) return null;
+  return <span className="max-w-full break-words text-center text-[11px] leading-tight font-extrabold opacity-85" style={{ color: colors.secondary.light }} data-testid={`sentence-tile-${index}-meaning`}>{meaning}</span>;
+}
+
+function TileOrderBadge({ badge, index, color }: { badge: string | null; index: number; color: string }) {
+  if (badge === null) return null;
+  return <span className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow" style={{ backgroundColor: color }} data-testid={`sentence-badge-${index}`}>{badge}</span>;
+}
+
+function TileRevealBadge({ badge, index, colors }: { badge: import("@/lib/sentenceGameplay/reveal").RevealBadge | undefined; index: number; colors: BoardColors }) {
+  if (!badge) return null;
+  return <span className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow" style={{ backgroundColor: badge.correct ? colors.status.success.DEFAULT : "#f59e0b" }} data-testid={`sentence-reveal-badge-${index}`}>{badge.correct ? "✓" : badge.slot}</span>;
+}
+
+function FlyingSentenceTiles({ activeSabotage, bouncingOptions, trampolineOptions, flyingIndices, renderTile }: {
+  activeSabotage: SabotageEffect | null;
+  bouncingOptions: ReturnType<typeof useBounceOptions>["bouncingOptions"];
+  trampolineOptions: ReturnType<typeof useTrampolineOptions>["trampolineOptions"];
+  flyingIndices: number[];
+  renderTile: (index: number, style?: CSSProperties) => ReactNode;
+}) {
+  return <>
+      {activeSabotage === "bounce" && bouncingOptions.length > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+          {flyingIndices.map((index) => {
+            const pos = bouncingOptions[index];
+            if (!pos) return null;
+            return renderTile(index, {
+              position: "absolute",
+              left: pos.x,
+              top: pos.y,
+              width: BUTTON_WIDTH,
+              height: BUTTON_HEIGHT,
+              pointerEvents: "auto",
+              transform: `scale(${BOUNCE_FLY_SCALE})`,
+              transformOrigin: "top left",
+            });
+          })}
+        </div>
+      )}
+
+      {activeSabotage === "trampoline" && trampolineOptions.length > 0 && (
+        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+          {flyingIndices.map((index) => {
+            const pos = trampolineOptions[index];
+            if (!pos) return null;
+            return renderTile(index, {
+              position: "absolute",
+              left: pos.x + pos.shakeOffset.x,
+              top: pos.y + pos.shakeOffset.y,
+              width: TRAMPOLINE_BUTTON_WIDTH,
+              height: TRAMPOLINE_BUTTON_HEIGHT,
+              pointerEvents: "auto",
+              transform: pos.phase === "flying" ? `scale(${TRAMPOLINE_FLY_SCALE})` : "scale(1)",
+              transformOrigin: "top left",
+            });
+          })}
+        </div>
+      )}
+
+  </>;
+}
+
+function getTimerColor(colors: BoardColors, secondsLeft: number): string {
+  if (secondsLeft <= TIMER_DANGER_THRESHOLD) return colors.status.danger.light;
+  if (secondsLeft <= TIMER_WARNING_THRESHOLD) return colors.status.warning.light;
+  return colors.text.DEFAULT;
+}
+
 /**
  * Pure presentational build-and-confirm sentence board: prompt + timer + the
  * tappable tile pool (order badges, optional green/red correctness colors,
@@ -166,12 +330,7 @@ export function SentenceBuildBoard({
   const isFlyingEffect = activeSabotage === "bounce" || activeSabotage === "trampoline";
 
   const timerIsDanger = secondsLeft <= TIMER_DANGER_THRESHOLD;
-  const timerIsWarning = secondsLeft <= TIMER_WARNING_THRESHOLD;
-  const timerColor = timerIsDanger
-    ? colors.status.danger.light
-    : timerIsWarning
-      ? colors.status.warning.light
-      : colors.text.DEFAULT;
+  const timerColor = getTimerColor(colors, secondsLeft);
 
   const tileFontSizeClass = getSentenceTilePoolFontSizeClass(tilePool);
 
@@ -179,102 +338,20 @@ export function SentenceBuildBoard({
   // / colors / handlers are declared once (mirrors DuelAnswerGrid.renderOption).
   const renderTile = (index: number, flyStyle?: CSSProperties) => {
     const tile = tilePool[index];
-    const tileMeaning = tileMeanings[index]?.trim() || null;
     const flying = flyStyle !== undefined;
-    const order = placedTileIndices.indexOf(index);
-    const isPlaced = order !== -1;
-    const isLast = isPlaced && order === placedTileIndices.length - 1;
-    const isCorrect = checked && isPlaced ? correctnessMask?.[order] === true : false;
-    const isWrong = checked && isPlaced ? correctnessMask?.[order] === false : false;
-    // Subtle flag for the partner's previous WRONG pick (unplaced).
-    const isLastWrong = !isPlaced && lastWrongTileIndex === index;
-    // PvE hint effects (reveal + eliminate never coexist on one round, and
-    // never coexist with PvP sabotage — different duel modes).
-    const isEliminated = eliminatedSet.has(index);
-    const revealBadge = isEliminated ? undefined : revealView.badgeByTileIndex.get(index);
-    const isPulsing = !isEliminated && !isPlaced && revealView.pulseTileIndex === index;
-    // Reverse scrambles only UNPLACED, non-eliminated tiles so the built
-    // sentence stays readable. Flying copies always render their plain text.
-    const reversed = !flying && activeSabotage === "reverse" && !isPlaced && !isEliminated;
-    const displayText = reversed
-      ? reverseAnimatedAnswers?.[index] ?? displayTiles[index]
-      : displayTiles[index];
-    // Hide the anchored cell of an unplaced tile while it flies (keeps layout).
-    const hiddenWhileFlying = !flying && isFlyingEffect && !isPlaced && !isEliminated;
+    const { order, isPlaced, isLast, isCorrect, isWrong } = getTilePlacement(index, placedTileIndices, correctnessMask);
+    const { isEliminated, isLastWrong, revealBadge, isPulsing } = getTileHints(index, isPlaced, eliminatedSet, revealView, lastWrongTileIndex);
+    const { displayText, hiddenWhileFlying } = getTileDisplay(index, flying, isPlaced, isEliminated, activeSabotage, isFlyingEffect, displayTiles, reverseAnimatedAnswers);
 
     const badge: string | null = isPlaced ? String(order + 1) : null;
 
-    let tileStyle: CSSProperties;
-    if (isEliminated) {
-      tileStyle = {
-        borderColor: colors.neutral.dark,
-        backgroundColor: colors.background.DEFAULT,
-        color: colors.text.muted,
-      };
-    } else if (isCorrect) {
-      tileStyle = {
-        borderColor: colors.status.success.DEFAULT,
-        backgroundColor: `${colors.status.success.DEFAULT}24`,
-        color: colors.text.DEFAULT,
-      };
-    } else if (isWrong) {
-      tileStyle = {
-        borderColor: colors.status.danger.DEFAULT,
-        backgroundColor: `${colors.status.danger.DEFAULT}24`,
-        color: colors.text.DEFAULT,
-      };
-    } else if (isPlaced) {
-      tileStyle = {
-        borderColor: isLast ? colors.status.danger.DEFAULT : colors.neutral.dark,
-        backgroundColor: colors.background.DEFAULT,
-        color: colors.text.muted,
-      };
-    } else if (isLastWrong) {
-      tileStyle = {
-        borderColor: colors.status.danger.DEFAULT,
-        backgroundColor: `${colors.status.danger.DEFAULT}14`,
-        color: colors.text.DEFAULT,
-      };
-    } else {
-      tileStyle = {
-        borderColor: colors.primary.dark,
-        backgroundColor: colors.background.elevated,
-        color: colors.text.DEFAULT,
-      };
-    }
+    const baseStyle = getTileColors(colors, { isEliminated, isCorrect, isWrong, isPlaced, isLast, isLastWrong });
+    const { meaning, tileStyle } = getMeaningPresentation(tileMeanings[index], isEliminated, baseStyle, colors);
 
-    if (tileMeaning && !isEliminated) {
-      tileStyle = {
-        ...tileStyle,
-        boxShadow: `0 0 0 1px ${colors.secondary.light}`,
-      };
-    }
+    const badgeColor = getBadgeColor(colors, { isCorrect, isWrong, isLast }, checked);
 
-    const badgeColor = isCorrect
-      ? colors.status.success.DEFAULT
-      : isWrong || (isLast && !checked)
-        ? colors.status.danger.DEFAULT
-        : colors.primary.DEFAULT;
-
-    const buttonClasses = flying
-      ? `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden flex flex-col items-center justify-center gap-1 ${
-          isLastWrong ? "border-dashed" : ""
-        } ${
-          isEliminated
-            ? "opacity-40 line-through cursor-not-allowed"
-            : "hover:brightness-110"
-        }`
-      : `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 flex flex-col items-center justify-center gap-1 ${
-          isLastWrong ? "border-dashed" : ""
-        } ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${
-          hiddenWhileFlying ? "invisible" : ""
-        } ${
-          isEliminated
-            ? "opacity-40 line-through cursor-not-allowed"
-            : isPlaced && !checked
-              ? "opacity-70"
-              : "hover:brightness-110"
-        }`;
+    const classState = { tileFontSizeClass, isLastWrong, isEliminated, isPulsing, hiddenWhileFlying, isPlaced, checked };
+    const buttonClasses = flying ? flyingTileClasses(classState) : anchoredTileClasses(classState);
 
     return (
       <button
@@ -288,37 +365,9 @@ export function SentenceBuildBoard({
         <span className={flying ? "truncate block max-w-full" : "break-words"}>
           {displayText}
         </span>
-        {tileMeaning && !isEliminated && (
-          <span
-            className="max-w-full break-words text-center text-[11px] leading-tight font-extrabold opacity-85"
-            style={{ color: colors.secondary.light }}
-            data-testid={`sentence-tile-${index}-meaning`}
-          >
-            {tileMeaning}
-          </span>
-        )}
-        {badge !== null && (
-          <span
-            className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow"
-            style={{ backgroundColor: badgeColor }}
-            data-testid={`sentence-badge-${index}`}
-          >
-            {badge}
-          </span>
-        )}
-        {revealBadge && (
-          <span
-            className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow"
-            style={{
-              backgroundColor: revealBadge.correct
-                ? colors.status.success.DEFAULT
-                : "#f59e0b",
-            }}
-            data-testid={`sentence-reveal-badge-${index}`}
-          >
-            {revealBadge.correct ? "✓" : revealBadge.slot}
-          </span>
-        )}
+        <TileMeaning meaning={meaning} index={index} colors={colors} />
+        <TileOrderBadge badge={badge} index={index} color={badgeColor} />
+        <TileRevealBadge badge={revealBadge} index={index} colors={colors} />
       </button>
     );
   };
@@ -399,43 +448,8 @@ export function SentenceBuildBoard({
 
       {/* Bounce / Trampoline overlays: only the unplaced tiles fly, each pinned
           by its pool index so placing one leaves the rest undisturbed. */}
-      {activeSabotage === "bounce" && bouncingOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
-          {flyingIndices.map((index) => {
-            const pos = bouncingOptions[index];
-            if (!pos) return null;
-            return renderTile(index, {
-              position: "absolute",
-              left: pos.x,
-              top: pos.y,
-              width: BUTTON_WIDTH,
-              height: BUTTON_HEIGHT,
-              pointerEvents: "auto",
-              transform: `scale(${BOUNCE_FLY_SCALE})`,
-              transformOrigin: "top left",
-            });
-          })}
-        </div>
-      )}
-
-      {activeSabotage === "trampoline" && trampolineOptions.length > 0 && (
-        <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
-          {flyingIndices.map((index) => {
-            const pos = trampolineOptions[index];
-            if (!pos) return null;
-            return renderTile(index, {
-              position: "absolute",
-              left: pos.x + pos.shakeOffset.x,
-              top: pos.y + pos.shakeOffset.y,
-              width: TRAMPOLINE_BUTTON_WIDTH,
-              height: TRAMPOLINE_BUTTON_HEIGHT,
-              pointerEvents: "auto",
-              transform: pos.phase === "flying" ? `scale(${TRAMPOLINE_FLY_SCALE})` : "scale(1)",
-              transformOrigin: "top left",
-            });
-          })}
-        </div>
-      )}
+      <FlyingSentenceTiles activeSabotage={activeSabotage} bouncingOptions={bouncingOptions}
+        trampolineOptions={trampolineOptions} flyingIndices={flyingIndices} renderTile={renderTile} />
 
       {/* Confirm / Reset — Confirm verifies the whole sentence; Reset is free */}
       {showActions && (

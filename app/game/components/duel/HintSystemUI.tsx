@@ -40,72 +40,44 @@ export const HintSystemUI = memo(function HintSystemUI({
   dataTestIdBase,
 }: HintSystemUIProps) {
   const colors = useAppearanceColors();
-  const hintButtonClass =
-    "rounded-lg px-6 py-2 font-medium transition hover:brightness-110 border-2";
-  const hintButtonStyle = {
-    backgroundColor: colors.secondary.DEFAULT,
-    borderColor: colors.secondary.dark,
-    color: colors.text.DEFAULT,
-  };
 
   return (
     <div className="flex flex-col items-center gap-2 mt-2">
       {/* Request Hint Button - for player who hasn't answered */}
       {canRequestHint && (
-        <button
+        <HintAction
           onClick={onRequestHint}
-          className={hintButtonClass}
-          style={hintButtonStyle}
-          data-testid={dataTestIdBase ? `${dataTestIdBase}-request` : undefined}
+          dataTestIdBase={dataTestIdBase}
+          action="request"
         >
           {requestHintText}
-        </button>
+        </HintAction>
       )}
 
-      {/* Waiting for hint acceptance */}
-      {iRequestedHint && !hintAccepted && (
-        <div className="font-medium animate-pulse" style={{ color: colors.secondary.light }}>
-          Waiting for opponent to accept hint request...
-        </div>
-      )}
-
-      {/* Hint received - show status */}
-      {iRequestedHint && hintAccepted && (
-        <div className="font-medium" style={{ color: colors.secondary.light }}>
-          💡 Hint received! {eliminatedOptionsCount}/{PVP_HINT_ELIMINATION_PICKS} options eliminated
-        </div>
-      )}
+      <HintRecipientStatus
+        iRequestedHint={iRequestedHint}
+        hintAccepted={hintAccepted}
+        eliminatedOptionsCount={eliminatedOptionsCount}
+      />
 
       {/* Accept Hint Button - for player who answered */}
       {canAcceptHint && (
-        <button
+        <HintAction
           onClick={onAcceptHint}
-          className={`${hintButtonClass} animate-bounce`}
-          style={hintButtonStyle}
-          data-testid={dataTestIdBase ? `${dataTestIdBase}-accept` : undefined}
+          dataTestIdBase={dataTestIdBase}
+          action="accept"
         >
           {acceptHintText}
-        </button>
+        </HintAction>
       )}
 
-      {/* Hint provider mode - show instructions */}
-      {isHintProvider && (
-        <div className="text-center">
-          <div className="font-medium mb-1" style={{ color: colors.status.warning.light }}>
-            🎯 Click on {PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount} wrong option{PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount !== 1 ? "s" : ""} to eliminate
-          </div>
-          <div className="text-xs" style={{ color: colors.text.muted }}>
-            You&apos;ll get +0.5 points if they answer after your hint
-          </div>
-        </div>
-      )}
-
-      {/* Hint provider done eliminating */}
-      {hasAnswered && theyRequestedHint && hintAccepted && eliminatedOptionsCount >= PVP_HINT_ELIMINATION_PICKS && (
-        <div className="font-medium" style={{ color: colors.status.success.light }}>
-          ✓ Hint provided! Waiting for opponent...
-        </div>
-      )}
+      <HintProviderStatus
+        isHintProvider={isHintProvider}
+        hasAnswered={hasAnswered}
+        theyRequestedHint={theyRequestedHint}
+        hintAccepted={hintAccepted}
+        eliminatedOptionsCount={eliminatedOptionsCount}
+      />
 
       {/* Opponent requested hint - show notification */}
       {theyRequestedHint && !hintAccepted && !hasAnswered && (
@@ -116,3 +88,120 @@ export const HintSystemUI = memo(function HintSystemUI({
     </div>
   );
 });
+
+function HintAction({
+  onClick,
+  dataTestIdBase,
+  action,
+  children,
+}: {
+  onClick: () => void;
+  dataTestIdBase?: string;
+  action: "request" | "accept";
+  children: React.ReactNode;
+}) {
+  const colors = useAppearanceColors();
+  const hintButtonClass =
+    "rounded-lg px-6 py-2 font-medium transition hover:brightness-110 border-2";
+  const hintButtonStyle = {
+    backgroundColor: colors.secondary.DEFAULT,
+    borderColor: colors.secondary.dark,
+    color: colors.text.DEFAULT,
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${hintButtonClass} ${action === "accept" ? "animate-bounce" : ""}`}
+      style={hintButtonStyle}
+      data-testid={dataTestIdBase ? `${dataTestIdBase}-${action}` : undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
+function HintRecipientStatus({
+  iRequestedHint,
+  hintAccepted,
+  eliminatedOptionsCount,
+}: Pick<
+  HintSystemUIProps,
+  "iRequestedHint" | "hintAccepted" | "eliminatedOptionsCount"
+>) {
+  const colors = useAppearanceColors();
+  return (
+    <>
+      {/* Waiting for hint acceptance */}
+      {iRequestedHint && !hintAccepted && (
+        <div
+          className="font-medium animate-pulse"
+          style={{ color: colors.secondary.light }}
+        >
+          Waiting for opponent to accept hint request...
+        </div>
+      )}
+
+      {/* Hint received - show status */}
+      {iRequestedHint && hintAccepted && (
+        <div className="font-medium" style={{ color: colors.secondary.light }}>
+          💡 Hint received! {eliminatedOptionsCount}/
+          {PVP_HINT_ELIMINATION_PICKS} options eliminated
+        </div>
+      )}
+    </>
+  );
+}
+
+function HintProviderStatus({
+  isHintProvider,
+  hasAnswered,
+  theyRequestedHint,
+  hintAccepted,
+  eliminatedOptionsCount,
+}: Pick<
+  HintSystemUIProps,
+  | "isHintProvider"
+  | "hasAnswered"
+  | "theyRequestedHint"
+  | "hintAccepted"
+  | "eliminatedOptionsCount"
+>) {
+  const colors = useAppearanceColors();
+  return (
+    <>
+      {/* Hint provider mode - show instructions */}
+      {isHintProvider && (
+        <div className="text-center">
+          <div
+            className="font-medium mb-1"
+            style={{ color: colors.status.warning.light }}
+          >
+            🎯 Click on {PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount}{" "}
+            wrong option
+            {PVP_HINT_ELIMINATION_PICKS - eliminatedOptionsCount !== 1
+              ? "s"
+              : ""}{" "}
+            to eliminate
+          </div>
+          <div className="text-xs" style={{ color: colors.text.muted }}>
+            You&apos;ll get +0.5 points if they answer after your hint
+          </div>
+        </div>
+      )}
+
+      {/* Hint provider done eliminating */}
+      {hasAnswered &&
+        theyRequestedHint &&
+        hintAccepted &&
+        eliminatedOptionsCount >= PVP_HINT_ELIMINATION_PICKS && (
+          <div
+            className="font-medium"
+            style={{ color: colors.status.success.light }}
+          >
+            ✓ Hint provided! Waiting for opponent...
+          </div>
+        )}
+    </>
+  );
+}

@@ -111,18 +111,12 @@ export async function dismissAndDeleteGoals(
 ) {
   if (goals.length === 0) return;
 
-  const participantIdSet = new Set<Id<"users">>();
-  const goalIds: Id<"weeklyGoals">[] = [];
-  for (const goal of goals) {
-    goalIds.push(goal._id);
-    for (const participantId of getGoalParticipantIds(goal)) {
-      participantIdSet.add(participantId);
-    }
-  }
+  const participantIds = [...new Set(goals.flatMap(getGoalParticipantIds))];
+  const goalIds = goals.map((goal) => goal._id);
 
   await dismissWeeklyGoalNotificationsForParticipants(
     ctx,
-    Array.from(participantIdSet),
+    participantIds,
     goalIds
   );
 

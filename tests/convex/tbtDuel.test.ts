@@ -199,3 +199,52 @@ describe("tbtDuel mutations", () => {
     ).rejects.toThrow("Tag Team duel is missing the current turn");
   });
 });
+
+describe("Tag Team turn and tap boundaries", () => {
+  it("rejects a peer tap during the other player's turn without altering the board", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = seedDb(tbtDuelDoc({ questionStartTime: 10_000 }));
+    const original = structuredClone(db.duels[0]);
+    await expect(tapHandler(createCtx(db, "clerk_2"), { duelId, tileIndex: 2 })).rejects.toThrow("not your turn");
+    expect(db.duels[0]).toEqual(original);
+  });
+  it.each([-1, 99, 0])("ignores an invalid or already-placed tile %s without consuming a turn", async tileIndex => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = seedDb(tbtDuelDoc({ questionStartTime: 10_000 }));
+    const original = structuredClone(db.duels[0]);
+    await tapHandler(createCtx(db, "clerk_1"), { duelId, tileIndex });
+    expect(db.duels[0]).toEqual(original);
+  });
+  it("passes the turn on a wrong tile, retaining the board and marking the attempted tile", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = seedDb(tbtDuelDoc({ questionStartTime: 10_000 }));
+    await tapHandler(createCtx(db, "clerk_1"), { duelId, tileIndex: 3 });
+    expect(db.duels[0]).toMatchObject({ tbtTurn: "opponent", tbtLastWrongTileIndex: 3, currentItemIndex: 0, questionStartTime: 10_000, challengerScore: 0, opponentScore: 0 });
+    expect(db.duels[0].sentenceProgress?.[0]).toMatchObject({ placedTileIndices: [0, 1], mistakes: 1, completed: false });
+  });
+  it("places a correct non-final tile and clears the old wrong-tile marker", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const duel = tbtDuelDoc({ questionStartTime: 10_000, tbtTurn: "opponent", tbtLastWrongTileIndex: 3 });
+    duel.sentenceProgress![0].placedTileIndices = [];
+    const db = seedDb(duel);
+    await tapHandler(createCtx(db, "clerk_2"), { duelId, tileIndex: 0 });
+    expect(db.duels[0]).toMatchObject({ tbtTurn: "challenger", currentItemIndex: 0, questionStartTime: 10_000, challengerScore: 0, opponentScore: 0 });
+    expect(db.duels[0].tbtLastWrongTileIndex).toBeUndefined();
+    expect(db.duels[0].sentenceProgress?.[0]).toMatchObject({ placedTileIndices: [0], completed: false });
+  });
+  it.each(["early", "stale", "completed"])("ignores %s timeout notifications", async reason => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const db = seedDb(tbtDuelDoc({ questionStartTime: 10_000, ...(reason === "completed" ? { status: "completed" as const } : {}) }));
+    const original = structuredClone(db.duels[0]);
+    await timeoutHandler(createCtx(db, "clerk_1"), { duelId, questionIndex: reason === "stale" ? 1 : 0 });
+    expect(db.duels[0]).toEqual(original);
+  });
+  it("completes the final shared sentence and banks one point for both players", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const duel = tbtDuelDoc({ questionStartTime: 10_000 });
+    duel.duelQuestions = [sentenceQuestion()]; duel.sessionItems = [duel.sessionItems[0]]; duel.itemOrder = [0];
+    const db = seedDb(duel);
+    await tapHandler(createCtx(db, "clerk_1"), { duelId, tileIndex: 2 });
+    expect(db.duels[0]).toMatchObject({ status: "completed", challengerScore: 1, opponentScore: 1 });
+  });
+});

@@ -506,42 +506,30 @@ function buildGenerateMoreSpec(
   };
 }
 
+const GENERATION_CREDIT_COSTS: Record<GenerateRequest["type"], number> = {
+  theme: LLM_WORD_THEME_CREDITS,
+  "sentence-theme": LLM_SENTENCE_THEME_CREDITS,
+  "generate-more-words": LLM_GENERATE_MORE_WORDS_CREDITS,
+  "generate-more-sentence-rounds": LLM_GENERATE_MORE_SENTENCES_CREDITS,
+  "add-sentence-round": LLM_ADD_SENTENCE_CREDITS,
+  field: LLM_FIELD_REGEN_CREDITS,
+  "regenerate-for-word": LLM_SINGLE_WORD_REGEN_CREDITS,
+  "add-word": LLM_ADD_WORD_CREDITS,
+};
+
 export function getGenerateRequestCreditCost(body: GenerateRequest): number {
-  switch (body.type) {
-    case "theme":
-      return LLM_WORD_THEME_CREDITS;
-    case "sentence-theme":
-      return LLM_SENTENCE_THEME_CREDITS;
-    case "generate-more-words":
-      return LLM_GENERATE_MORE_WORDS_CREDITS;
-    case "generate-more-sentence-rounds":
-      return LLM_GENERATE_MORE_SENTENCES_CREDITS;
-    case "add-sentence-round":
-      return LLM_ADD_SENTENCE_CREDITS;
-    case "field":
-      return LLM_FIELD_REGEN_CREDITS;
-    case "regenerate-for-word":
-      return LLM_SINGLE_WORD_REGEN_CREDITS;
-    case "add-word":
-      return LLM_ADD_WORD_CREDITS;
-  }
+  return GENERATION_CREDIT_COSTS[body.type];
 }
 
-export async function handleGenerateRequest(body: GenerateRequest) {
-  const creditCost = getGenerateRequestCreditCost(body);
-  let convexClient: ConvexHttpClient;
-  try {
-    convexClient = await getCreditClient();
-  } catch (error) {
-    return creditFailureResponse(error);
-  }
+type SentenceGenerateRequest = Extract<GenerateRequest, {
+  type: "sentence-theme" | "generate-more-sentence-rounds" | "add-sentence-round"
+}>;
+type WordGenerateRequest = Exclude<GenerateRequest, SentenceGenerateRequest>;
 
-  const openai = createOpenAIClient();
-
-  if (body.type === "theme") {
-    return generateAndRespond(openai, convexClient, creditCost, buildThemeSpec(body));
-  }
-
+function generateSentenceRequest(
+  body: SentenceGenerateRequest, openai: OpenAIClient,
+  convexClient: ConvexHttpClient, creditCost: number
+) {
   if (body.type === "sentence-theme") {
     return generateAndRespond(openai, convexClient, creditCost, buildSentenceThemeSpec(body));
   }
@@ -555,24 +543,32 @@ export async function handleGenerateRequest(body: GenerateRequest) {
     );
   }
 
-  if (body.type === "add-sentence-round") {
-    const systemPrompt = buildAddSentenceRoundPrompt(
-      body.themeName,
-      body.englishPrompt,
-      body.existingSpanishSentences
-    );
-    const duplicateEnglishIssues = validateEnglishPromptAgainstExisting(
-      body.englishPrompt,
-      body.existingEnglishPrompts
-    );
-    if (duplicateEnglishIssues.length > 0) {
-      return validationFailureResponse({
-        validationIssues: duplicateEnglishIssues,
-        prompt: systemPrompt,
-        status: 400,
-      });
-    }
-    return generateAndRespond(openai, convexClient, creditCost, buildAddSentenceRoundSpec(body));
+  const systemPrompt = buildAddSentenceRoundPrompt(
+    body.themeName,
+    body.englishPrompt,
+    body.existingSpanishSentences
+  );
+  const duplicateEnglishIssues = validateEnglishPromptAgainstExisting(
+    body.englishPrompt,
+    body.existingEnglishPrompts
+  );
+  if (duplicateEnglishIssues.length > 0) {
+    return validationFailureResponse({
+      validationIssues: duplicateEnglishIssues,
+      prompt: systemPrompt,
+      status: 400,
+    });
+  }
+  return generateAndRespond(openai, convexClient, creditCost, buildAddSentenceRoundSpec(body));
+
+}
+
+function generateWordRequest(
+  body: WordGenerateRequest, openai: OpenAIClient,
+  convexClient: ConvexHttpClient, creditCost: number
+) {
+  if (body.type === "theme") {
+    return generateAndRespond(openai, convexClient, creditCost, buildThemeSpec(body));
   }
 
   if (body.type === "field") {
@@ -611,4 +607,21 @@ export async function handleGenerateRequest(body: GenerateRequest) {
   }
 
   return NextResponse.json({ success: false, error: "Invalid request type" }, { status: 400 });
+}
+
+export async function handleGenerateRequest(body: GenerateRequest) {
+  const creditCost = getGenerateRequestCreditCost(body);
+  let convexClient: ConvexHttpClient;
+  try {
+    convexClient = await getCreditClient();
+  } catch (error) {
+    return creditFailureResponse(error);
+  }
+
+  const openai = createOpenAIClient();
+
+  if (body.type === "sentence-theme" || body.type === "generate-more-sentence-rounds" || body.type === "add-sentence-round") {
+    return generateSentenceRequest(body, openai, convexClient, creditCost);
+  }
+  return generateWordRequest(body, openai, convexClient, creditCost);
 }

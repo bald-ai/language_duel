@@ -1,0 +1,73 @@
+{
+  "outcome": "complete",
+  "summary": "Read-only review against checkpoint 2d075030ddca0409436bd7760cd70d4819c102db. HEAD is still that commit; all campaign work is uncommitted. No production-contract bug was found in the reviewed diffs. Whole-component line, branch, and CRAP targets are not met. Saved V8 metrics are slightly stale, the ordinary suite was not rerun after the last tests and mutations, and the current quality gate script no longer reproduces that V8 run. Verdict: incomplete against targets. Changed duel, goal, generation, and TTS behavior can be manually checked; do not treat the campaign as done.",
+  "findings": [
+    "Verdict: incomplete against targets. Netlify and proxy meet the saved V8 coverage and CRAP gates. API meets line and branch percentages but still has complexity 12, CRAP about 12.02, and 2 unmapped functions. Lib meets lines only (93.56% lines, 83.16% branches, 34 functions with CRAP>8, 1 unmapped). Frontend and Convex remain far below both coverage gates and still have large CRAP counts.",
+    "Saved V8 component results in reports/quality/current-metrics.json (generated 2026-09-24T18:50:46Z, coverageFresh true at that moment; independently read, not recomputed from raw coverage). Before, from fresh-baseline-metrics.json: frontend 55.34% lines / 49.95% branches, max CC 56, CC>8 82, max CRAP 1332, CRAP>8 268, unmapped 2; API 83.56/71.27, CC 12, CC>8 2, CRAP 72, CRAP>8 5, unmapped 2; Convex 65.59/55.37, CC 62, CC>8 32, CRAP 574.71, CRAP>8 105, unmapped 0; lib 87.19/74.26, CC 38, CC>8 26, CRAP 462, CRAP>8 49, unmapped 1; Netlify unmeasured because critical-provider-health.mjs was excluded; proxy 0/0, CC 3, CRAP 12. After that V8 snapshot: frontend 58.45/52.67, CC 56, CC>8 82, CRAP 1332, CRAP>8 255, unmapped 2; API 96.60/88.37, CC 12, CC>8 1, CRAP 12.02, CRAP>8 1, unmapped 2; Convex 68.55/60.53, CC 62, CC>8 30, CRAP 210, CRAP>8 97, unmapped 0; lib 93.56/83.16, CC 25, CC>8 22, CRAP 71.39, CRAP>8 34, unmapped 1; Netlify 100/100, CC 3, CRAP 3, CRAP>8 0, unmapped 0; proxy 100/100, CC 3, CRAP 3, CRAP>8 0, unmapped 0. 417 handwritten files, 0 missing in that snapshot, 2932 functions, 5 unmapped.",
+    "Metric staleness: 416 of 417 source hashes in current-metrics.json match the tree. lib/tts/providerAdapters.ts does not. useGoalsPageModel.test.ts (24 tests, batch-34) and ttsProviderFailures.test.ts (18 tests, batches 36-37) are absent from current-tests.log. The 20:50 suite therefore does not measure the final tree. useGoalsPageModel.ts still has complexity 36, so even full later coverage leaves CRAP 36.",
+    "Gate drift: current-tests.log line 9 is V8 and its command has no Istanbul provider. scripts/quality-run.mjs lines 20-22 now force Istanbul. reports/quality/istanbul/source-hashes.json is absent, so scripts/quality-metrics.mjs line 103 marks all 417 files changed and coverageFresh false. Istanbul totals (frontend 61.40/54.64, unmapped 0, Netlify branches 94.44) are not a valid current result. Branch coverage is real in both providers; the disagreement means it is not settled.",
+    "Tests: fresh baseline 1192 passed / 0 failed / 0 skipped in 167 files (fresh-baseline.log). Latest full suite 1451/0/0 in 182 files at 20:50 (current-tests.log). quality-check.exit is 1. lint.exit is 0. convex-typecheck.exit is 0. typecheck.exit is 2 on an older weeklyGoalReadModels.test.ts missing email; current tests/convex/weeklyGoalReadModels.test.ts line 14 includes email, and typecheck was not rerun. Batch exits 05, 09, 13, 16, 20, 25, and 29 failed and were followed by passing batches.",
+    "Mutations: 48/48 detected, 0 surviving, 0 errored, 0 timed out, all restored true, and every mutated file's current SHA-256 matches the recorded original. Scope is only the case list in scripts/quality-mutations.py. Last mutation log is 21:00, after the 20:50 suite, so the required post-mutation full rerun is missing. Source restoration is supported by hashes, not by a later green suite.",
+    "No concrete production-contract bug found in the reviewed diffs. Intentional behavior changes: app/api/tts/route.ts:29 awaits TTS so a rejection becomes the route JSON 500; app/duel/[duelId]/hooks/useDuelCountdown.ts:52 ignores an already-zero countdown so skip does not overwrite completion's null; useWordEditor.ts discards stale edit sessions and sends the current feedback history. Lock, credit-cost, request-parser, Resemble preset, email-data, and template edits are structural. reports/quality/email-template-equivalence.json says 90/90 bodies matched the checkpoint; that file was not recomputed here.",
+    "Unmapped and not counted as covered: GoalsPageContent.tsx:22, themes/page.tsx:15, theme-sentences/route.ts:126 and :130, lib/themes/api.ts:287. CRAP formula in quality-metrics.mjs:89 matches C\u00b2*(1-coverage)\u00b3+C. Null coverage stays null. Highest remaining complexity is convex/admin.ts handler 62 and SentenceBuildBoard.tsx renderTile 56.",
+    "Manual checklist, still unverified by this review: duel reconnect, pause, timeout-once, both-player skip, and completion across supported modes; weekly-goal create, lock, repetition due/stale step, reset, and shared partner absence; word and sentence generation counts, credit prices, validation failures, and cancelled-edit late responses; TTS failure refund and JSON 500; notification email solo versus shared progress. No UI or device run was done."
+  ],
+  "changes": [],
+  "decisions": [
+    "Did not run tests, coverage, mutations, lint, or typecheck; the assignment forbids execution and asks for saved evidence.",
+    "Treated reports/quality/PROGRESS.md as a status note, not as proof. Numeric claims were checked against current-metrics.json, current-tests.log, mutation results, and source hashes.",
+    "Rejected Istanbul metrics as achieved results because coverageFresh is false and the manifest beside that coverage file is missing.",
+    "Did not call a production logic defect where the diff preserves the previous contract and a later caller still forces solo viewer role to creator before deriveLockState (convex/weeklyGoals/readModels.ts:58-69)."
+  ],
+  "evidence": [
+    "git HEAD 2d075030ddca0409436bd7760cd70d4819c102db; status is dirty only after that commit.",
+    "reports/quality/current-metrics.json component totals and functions; reports/quality/fresh-baseline-metrics.json; reports/quality/quality-check.log lines 3-15.",
+    "reports/quality/current-tests.log lines 1-9 and 294-295; reports/quality/fresh-baseline.log lines 247-248.",
+    "reports/quality/mutations/results.json: 48 detected, restored true. Mutation file hashes match the working tree, including lib/tts/providerAdapters.ts, which does not match current-metrics.json.",
+    "scripts/quality-metrics.mjs lines 89-109; scripts/quality-run.mjs lines 20-33; reports/quality/istanbul/source-hashes.json absent.",
+    "app/api/tts/route.ts:29; app/duel/[duelId]/hooks/useDuelCountdown.ts:35-56; convex/weeklyGoals/readModels.ts:32-69; tests/convex/weeklyGoalReadModels.test.ts:12-14; reports/quality/typecheck.log lines 1-16."
+  ],
+  "checks": [
+    {
+      "check": "git rev-parse HEAD, status, log, and diff --stat against 2d075030ddca0409436bd7760cd70d4819c102db",
+      "result": "passed",
+      "detail": "HEAD is the checkpoint. Production, test, config, docs, and lockfile edits are uncommitted; reports, scripts, and new tests are untracked."
+    },
+    {
+      "check": "Parse current-metrics.json, fresh-baseline-metrics.json, and compare source SHA-256 values to the working tree",
+      "result": "passed",
+      "detail": "Component totals and 5 unmapped functions read from JSON. 416/417 hashes match; lib/tts/providerAdapters.ts differs."
+    },
+    {
+      "check": "Parse reports/quality/mutations/results.json and compare original SHA-256 values to current files",
+      "result": "passed",
+      "detail": "48 detected, 0 other outcomes, 48 restored, all 24 mutated paths match current bytes."
+    },
+    {
+      "check": "Confirm useGoalsPageModel and ttsProviderFailures appear in current-tests.log",
+      "result": "failed",
+      "detail": "Neither file is in the 1451-test log. They appear only in later batch logs."
+    },
+    {
+      "check": "Confirm Istanbul metrics are fresh",
+      "result": "failed",
+      "detail": "istanbul-metrics.json coverageFresh false, changedSinceCoverage length 417, and reports/quality/istanbul/source-hashes.json is missing."
+    },
+    {
+      "check": "Recompute coverage, rerun the suite, or rerun typecheck",
+      "result": "not_run",
+      "detail": "Read-only review. Saved typecheck exit 2 was not repeated after the test file gained the missing email."
+    }
+  ],
+  "open_issues": [
+    "Final ordinary suite, lint, root typecheck, and Convex typecheck were not saved after the last test additions and the 21:00 mutations.",
+    "Current npm run quality:check measures Istanbul, while the saved gate table is V8. Those branch percentages differ, including Netlify 100 versus 94.44.",
+    "useGoalsPageModel complexity 36, admin handler 62, and SentenceBuildBoard renderTile 56 still exceed CRAP 8 at full coverage.",
+    "Five functions remain unmapped in the V8 snapshot and must stay uncovered until a counter is actually joined."
+  ],
+  "next_steps": [
+    "Restore one instrumentation path, write its source-hash manifest beside that coverage file, and rerun the full suite after the tree stops changing.",
+    "Keep the five unmapped functions out of covered totals. Refactor functions whose complexity alone exceeds 8, especially useGoalsPageModel, the admin handler, and sentence-board rendering.",
+    "Publish a new metrics JSON only from that post-mutation run. Leave UI checks to the user using the checklist above."
+  ]
+}

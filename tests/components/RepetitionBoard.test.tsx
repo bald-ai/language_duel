@@ -70,6 +70,7 @@ const board: {
   ],
 };
 board.all = [...board.ready, ...board.comingUp, ...board.done];
+const initialBoard = structuredClone(board);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -90,6 +91,7 @@ vi.mock("@/convex/_generated/api", () => ({
 describe("RepetitionBoard", () => {
   beforeEach(() => {
     push.mockClear();
+    Object.assign(board, structuredClone(initialBoard));
   });
 
   it("renders stats, tabs, and grouped All sections", () => {
@@ -119,5 +121,39 @@ describe("RepetitionBoard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Done/ }));
     expect(screen.getByTestId("sr-done-row")).toHaveTextContent("6/6");
     expect(screen.queryByTestId("sr-ready-start-duel")).not.toBeInTheDocument();
+  });
+
+  it("opens solo practice from a shared goal and from a solo-only goal", () => {
+    const view = render(<RepetitionBoard />);
+    fireEvent.click(screen.getByTestId("sr-ready-solo"));
+    expect(push).toHaveBeenCalledExactlyOnceWith("/repetition/goal_ready");
+    board.ready[0] = { ...board.ready[0], duelAvailable: false, partner: null, themeCount: 1 };
+    view.rerender(<RepetitionBoard />);
+    expect(screen.queryByTestId("sr-ready-start-duel")).toBeNull();
+    expect(screen.getByTestId("sr-ready-card").textContent).toContain("1 theme ·");
+    fireEvent.click(screen.getByTestId("sr-ready-solo"));
+    expect(push.mock.calls).toEqual([["/repetition/goal_ready"], ["/repetition/goal_ready"]]);
+  });
+
+  it("explains unavailable content and disables every launch action", () => {
+    board.ready[0] = { ...board.ready[0], canStart: false, contentAvailable: false, unavailableReason: "No practice content remains" };
+    render(<RepetitionBoard />);
+    expect(screen.getByTestId("sr-ready-card").textContent).toContain("No practice content remains");
+    for (const id of ["sr-ready-start-duel", "sr-ready-solo"]) {
+      const button = screen.getByTestId(id) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+      fireEvent.click(button);
+    }
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("uses the appropriate empty message for all goals and each filtered tab", () => {
+    Object.assign(board, { all: [], ready: [], comingUp: [], done: [], stats: { total: 0, ready: 0, comingUp: 0, done: 0 } });
+    render(<RepetitionBoard />);
+    expect(screen.getByTestId("sr-empty-state").textContent).toBe("Completed weekly goals will appear here.");
+    fireEvent.click(screen.getByRole("button", { name: /Coming Up/ }));
+    expect(screen.getByTestId("sr-empty-state").textContent).toBe("No coming up repetitions yet.");
+    fireEvent.click(screen.getByRole("button", { name: /Done/ }));
+    expect(screen.getByTestId("sr-empty-state").textContent).toBe("No done repetitions yet.");
   });
 });

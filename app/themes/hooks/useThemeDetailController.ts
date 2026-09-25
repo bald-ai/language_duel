@@ -1,4 +1,10 @@
-import { Dispatch, SetStateAction, useCallback, useMemo, useState } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -11,7 +17,10 @@ import { DEFAULT_WORD_TYPE, VIEW_MODES, type ViewMode } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
 import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
-import type { DeleteConfirmState, SelectedThemeState } from "./themeControllerTypes";
+import type {
+  DeleteConfirmState,
+  SelectedThemeState,
+} from "./themeControllerTypes";
 import type { useThemeActions } from "./useThemeActions";
 
 type ThemeActions = ReturnType<typeof useThemeActions>;
@@ -22,14 +31,22 @@ type UseThemeDetailControllerParams = {
   setViewMode: Dispatch<SetStateAction<ViewMode>>;
 };
 
-export function useThemeDetailController(params: UseThemeDetailControllerParams) {
-  const [selectedThemeState, setSelectedThemeState] = useState<SelectedThemeState>(null);
+export function useThemeDetailController(
+  params: UseThemeDetailControllerParams,
+) {
+  const [selectedThemeState, setSelectedThemeState] =
+    useState<SelectedThemeState>(null);
   const [localWords, setLocalWords] = useState<WordEntry[]>([]);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
-  const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] = useState(false);
+  const [isUpdatingFriendsCanEdit, setIsUpdatingFriendsCanEdit] =
+    useState(false);
 
-  const updateVisibilityMutation = useMutation(api.themes.updateThemeVisibility);
-  const updateFriendsCanEditMutation = useMutation(api.themes.updateThemeFriendsCanEdit);
+  const updateVisibilityMutation = useMutation(
+    api.themes.updateThemeVisibility,
+  );
+  const updateFriendsCanEditMutation = useMutation(
+    api.themes.updateThemeFriendsCanEdit,
+  );
 
   const selectedTheme = useMemo<ThemeDetailTheme | null>(() => {
     if (!selectedThemeState) return null;
@@ -62,7 +79,8 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
 
   const selectedWordType = selectedTheme?.wordType || DEFAULT_WORD_TYPE;
   const persistedSelectedTheme = useMemo(() => {
-    if (!selectedThemeState || selectedThemeState.kind === "unsaved") return null;
+    if (!selectedThemeState || selectedThemeState.kind === "unsaved")
+      return null;
     return selectedThemeState.theme;
   }, [selectedThemeState]);
 
@@ -81,84 +99,93 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
     return !areThemeWordsEqual(localWords, persistedWords as WordEntry[]);
   }, [localWords, persistedSelectedTheme, selectedThemeState]);
 
-  const openTheme = useCallback((theme: ThemeWithOwner) => {
-    setSelectedThemeState({ kind: "saved", theme });
-    const themeWords = isWordTheme(theme) ? theme.words : [];
-    setLocalWords([...(themeWords ?? [])]);
-    params.setViewMode(VIEW_MODES.DETAIL);
-  }, [params]);
+  const openTheme = useCallback(
+    (theme: ThemeWithOwner) => {
+      setSelectedThemeState({ kind: "saved", theme });
+      const themeWords = isWordTheme(theme) ? theme.words : [];
+      setLocalWords([...(themeWords ?? [])]);
+      params.setViewMode(VIEW_MODES.DETAIL);
+    },
+    [params],
+  );
 
   const handleThemeNameChange = useCallback((name: string) => {
     setSelectedThemeState((prev) => {
       if (!prev) return null;
-      if (prev.kind === "unsaved") return { kind: "unsaved", draft: { ...prev.draft, name } };
+      if (prev.kind === "unsaved")
+        return { kind: "unsaved", draft: { ...prev.draft, name } };
       return { kind: "saved", theme: { ...prev.theme, name } };
     });
   }, []);
 
+  const canChangeSharing =
+    selectedTheme !== null && selectedTheme.isOwner !== false;
+
   const handleVisibilityChange = useCallback(
     async (visibility: "private" | "shared") => {
-      if (!selectedTheme || selectedTheme.isOwner === false) return;
+      if (!canChangeSharing) return;
 
       if (selectedThemeState?.kind === "unsaved") {
-        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, visibility } });
+        setSelectedThemeState({
+          kind: "unsaved",
+          draft: { ...selectedThemeState.draft, visibility },
+        });
         return;
       }
 
-      setIsUpdatingVisibility(true);
-      try {
-        if (selectedThemeState?.kind !== "saved") return;
-        await updateVisibilityMutation({
-          themeId: selectedThemeState.theme._id,
-          visibility,
-        });
-        setSelectedThemeState((prev) => {
-          if (!prev || prev.kind !== "saved") return prev;
-          return { kind: "saved", theme: { ...prev.theme, visibility } };
-        });
-        toast.success(`Theme is now ${visibility}`);
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Failed to update visibility"));
-      } finally {
-        setIsUpdatingVisibility(false);
-      }
+      await persistSavedThemeSharing({
+        selection: selectedThemeState,
+        setPending: setIsUpdatingVisibility,
+        write: (themeId) => updateVisibilityMutation({ themeId, visibility }),
+        applyLocalUpdate: () =>
+          setSelectedThemeState((prev) => {
+            if (!prev || prev.kind !== "saved") return prev;
+            return { kind: "saved", theme: { ...prev.theme, visibility } };
+          }),
+        successMessage: `Theme is now ${visibility}`,
+        failureMessage: "Failed to update visibility",
+      });
     },
-    [selectedTheme, selectedThemeState, updateVisibilityMutation]
+    [canChangeSharing, selectedThemeState, updateVisibilityMutation],
   );
 
   const handleFriendsCanEditChange = useCallback(
     async (friendsCanEdit: boolean) => {
-      if (!selectedTheme || selectedTheme.isOwner === false) return;
+      if (!canChangeSharing) return;
 
       if (selectedThemeState?.kind === "unsaved") {
-        setSelectedThemeState({ kind: "unsaved", draft: { ...selectedThemeState.draft, friendsCanEdit } });
+        setSelectedThemeState({
+          kind: "unsaved",
+          draft: { ...selectedThemeState.draft, friendsCanEdit },
+        });
         return;
       }
 
-      setIsUpdatingFriendsCanEdit(true);
-      try {
-        if (selectedThemeState?.kind !== "saved") return;
-        await updateFriendsCanEditMutation({
-          themeId: selectedThemeState.theme._id,
-          friendsCanEdit,
-        });
-        setSelectedThemeState((prev) => {
-          if (!prev || prev.kind !== "saved") return prev;
-          return { kind: "saved", theme: { ...prev.theme, friendsCanEdit } };
-        });
-        toast.success(friendsCanEdit ? "Friends can now edit this theme" : "Theme is now view-only for friends");
-      } catch (err) {
-        toast.error(getErrorMessage(err, "Failed to update edit permissions"));
-      } finally {
-        setIsUpdatingFriendsCanEdit(false);
-      }
+      await persistSavedThemeSharing({
+        selection: selectedThemeState,
+        setPending: setIsUpdatingFriendsCanEdit,
+        write: (themeId) =>
+          updateFriendsCanEditMutation({ themeId, friendsCanEdit }),
+        applyLocalUpdate: () =>
+          setSelectedThemeState((prev) => {
+            if (!prev || prev.kind !== "saved") return prev;
+            return { kind: "saved", theme: { ...prev.theme, friendsCanEdit } };
+          }),
+        successMessage: friendsCanEdit
+          ? "Friends can now edit this theme"
+          : "Theme is now view-only for friends",
+        failureMessage: "Failed to update edit permissions",
+      });
     },
-    [selectedTheme, selectedThemeState, updateFriendsCanEditMutation]
+    [canChangeSharing, selectedThemeState, updateFriendsCanEditMutation],
   );
 
-  const handleDeleteTheme = useCallback((themeId: Id<"themes">, themeName: string) => {
-    params.setDeleteConfirm({ type: "theme", themeId, themeName });
-  }, [params]);
+  const handleDeleteTheme = useCallback(
+    (themeId: Id<"themes">, themeName: string) => {
+      params.setDeleteConfirm({ type: "theme", themeId, themeName });
+    },
+    [params],
+  );
 
   const handleDeleteWord = useCallback(
     (index: number) => {
@@ -166,20 +193,30 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
 
       const word = localWords[index];
       if (!word) return;
-      params.setDeleteConfirm({ type: "word", wordIndex: index, wordName: word.word });
+      params.setDeleteConfirm({
+        type: "word",
+        wordIndex: index,
+        wordName: word.word,
+      });
     },
-    [localWords, params, selectedTheme]
+    [localWords, params, selectedTheme],
   );
 
-  const confirmDeleteWord = useCallback((deleteConfirm: DeleteConfirmState | null) => {
-    if (deleteConfirm?.wordIndex === undefined) return;
-    setLocalWords((prev) => prev.filter((_, idx) => idx !== deleteConfirm.wordIndex));
-    params.setDeleteConfirm(null);
-  }, [params]);
+  const confirmDeleteWord = useCallback(
+    (deleteConfirm: DeleteConfirmState | null) => {
+      if (deleteConfirm?.wordIndex === undefined) return;
+      setLocalWords((prev) =>
+        prev.filter((_, idx) => idx !== deleteConfirm.wordIndex),
+      );
+      params.setDeleteConfirm(null);
+    },
+    [params],
+  );
 
   const handleSaveTheme = useCallback(async () => {
     if (!selectedTheme || selectedTheme.canEdit === false) return;
-    if (params.themeActions.isCreating || params.themeActions.isUpdating) return;
+    if (params.themeActions.isCreating || params.themeActions.isUpdating)
+      return;
 
     const saveErrorMessage = getThemeSaveErrorMessage(localWords);
     if (saveErrorMessage) {
@@ -187,36 +224,17 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
       return;
     }
 
-    if (selectedThemeState?.kind === "unsaved") {
-      const draft = selectedThemeState.draft;
-      const result = await params.themeActions.create(
-        selectedTheme.name,
-        draft.description,
-        localWords,
-        draft.wordType,
-        draft.saveRequestId,
-        selectedTheme.visibility,
-        selectedTheme.friendsCanEdit ?? false
-      );
-      if (result.ok) {
-        setSelectedThemeState(null);
-        params.setViewMode(VIEW_MODES.LIST);
-        setLocalWords([]);
-        toast.success("Theme created successfully");
-      } else {
-        toast.error(result.error || "Failed to create theme");
-      }
-    } else {
-      if (selectedThemeState?.kind !== "saved") return;
-      const result = await params.themeActions.update(selectedThemeState.theme._id, selectedTheme.name, localWords);
-      if (result.ok) {
-        setSelectedThemeState(null);
-        params.setViewMode(VIEW_MODES.LIST);
-        setLocalWords([]);
-      } else {
-        toast.error(result.error || "Failed to save theme");
-      }
-    }
+    const saved = await persistThemeChanges(
+      selectedThemeState,
+      selectedTheme,
+      localWords,
+      params.themeActions,
+    );
+    applyThemeSaveResult(saved, () => {
+      setSelectedThemeState(null);
+      params.setViewMode(VIEW_MODES.LIST);
+      setLocalWords([]);
+    });
   }, [localWords, params, selectedTheme, selectedThemeState]);
 
   const handleCancelTheme = useCallback(() => {
@@ -251,4 +269,80 @@ export function useThemeDetailController(params: UseThemeDetailControllerParams)
     handleSaveTheme,
     handleCancelTheme,
   };
+}
+
+type ThemeSaveOutcome = {
+  result: Awaited<ReturnType<ThemeActions["update"]>>;
+  failureMessage: string;
+  successMessage?: string;
+};
+
+async function persistThemeChanges(
+  selection: SelectedThemeState,
+  theme: ThemeDetailTheme,
+  words: WordEntry[],
+  actions: ThemeActions,
+): Promise<ThemeSaveOutcome | null> {
+  if (selection?.kind === "unsaved") {
+    const draft = selection.draft;
+    return {
+      result: await actions.create(
+        theme.name,
+        draft.description,
+        words,
+        draft.wordType,
+        draft.saveRequestId,
+        theme.visibility,
+        theme.friendsCanEdit ?? false,
+      ),
+      failureMessage: "Failed to create theme",
+      successMessage: "Theme created successfully",
+    };
+  }
+  if (selection?.kind !== "saved") return null;
+  return {
+    result: await actions.update(selection.theme._id, theme.name, words),
+    failureMessage: "Failed to save theme",
+  };
+}
+
+function applyThemeSaveResult(
+  saved: ThemeSaveOutcome | null,
+  onSaved: () => void,
+) {
+  if (!saved) return;
+  if (!saved.result.ok) {
+    toast.error(saved.result.error || saved.failureMessage);
+    return;
+  }
+  onSaved();
+  if (saved.successMessage) toast.success(saved.successMessage);
+}
+
+async function persistSavedThemeSharing({
+  selection,
+  setPending,
+  write,
+  applyLocalUpdate,
+  successMessage,
+  failureMessage,
+}: {
+  selection: SelectedThemeState;
+  setPending: Dispatch<SetStateAction<boolean>>;
+  write: (themeId: Id<"themes">) => Promise<unknown>;
+  applyLocalUpdate: () => void;
+  successMessage: string;
+  failureMessage: string;
+}) {
+  setPending(true);
+  try {
+    if (selection?.kind !== "saved") return;
+    await write(selection.theme._id);
+    applyLocalUpdate();
+    toast.success(successMessage);
+  } catch (error) {
+    toast.error(getErrorMessage(error, failureMessage));
+  } finally {
+    setPending(false);
+  }
 }

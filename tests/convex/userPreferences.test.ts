@@ -62,6 +62,19 @@ function createCtx(db: InMemoryDb, clerkId = "clerk_1") {
 }
 
 describe("userPreferences", () => {
+  it.each([null, "missing"])("returns no preferences for absent identity/user %s", async identity => {
+    const db = new InMemoryDb();
+    await expect(callConvex(getUserPreferences, createAuthCtx(db, identity))).resolves.toBeNull();
+  });
+
+  it("uses unset visual preferences and the default TTS provider", async () => {
+    const db = new InMemoryDb();
+    db.users.push(userDoc({ selectedColorSet: undefined, selectedBackground: undefined, ttsProvider: undefined }));
+    await expect(callConvex(getUserPreferences, createCtx(db))).resolves.toEqual({
+      selectedColorSet: null, selectedBackground: null, ttsProvider: "resemble", showExperimentalFeatures: false,
+    });
+  });
+
   it("returns visual preferences and TTS provider together", async () => {
     const db = new InMemoryDb();
     db.users.push(

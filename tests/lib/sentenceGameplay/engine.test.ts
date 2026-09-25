@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSentenceQuestionSnapshot,
-  isSubmittedSentenceCorrect,
 } from "@/lib/sentenceGameplay/engine";
 import {
   SENTENCE_DISTRACTOR_COUNT_BY_LEVEL,
@@ -121,43 +120,5 @@ describe("buildSentenceQuestionSnapshot distractorCount (sentence difficulty)", 
     const a = buildSentenceQuestionSnapshot({ ...baseArgs, distractorCount: 2 });
     const b = buildSentenceQuestionSnapshot({ ...baseArgs, distractorCount: 2 });
     expect(b.tilePool).toEqual(a.tilePool);
-  });
-});
-
-describe("isSubmittedSentenceCorrect", () => {
-  const snapshot = buildSentenceQuestionSnapshot({
-    englishPrompt: "I want coffee",
-    spanishSentence: "Quiero cafe.",
-    distractors: ["Tengo", "agua", "pan"],
-    questionIndex: 0,
-  });
-  const findTile = (text: string) => snapshot.tilePool.findIndex((token) => token === text);
-
-  it("returns true for a sequence that assembles the canonical sentence", () => {
-    expect(
-      isSubmittedSentenceCorrect(snapshot, [findTile("Quiero"), findTile("cafe.")])
-    ).toBe(true);
-  });
-
-  it("returns false for a wrong-length sequence", () => {
-    expect(isSubmittedSentenceCorrect(snapshot, [findTile("Quiero")])).toBe(false);
-  });
-
-  it("returns false for a sequence with a misordered tile", () => {
-    expect(
-      isSubmittedSentenceCorrect(snapshot, [findTile("cafe."), findTile("Quiero")])
-    ).toBe(false);
-  });
-
-  it("accepts case/accent differences in the placed tile text (normalization)", () => {
-    const snap = buildSentenceQuestionSnapshot({
-      englishPrompt: "Where?",
-      spanishSentence: "Dónde está",
-      distractors: ["a", "b", "c"],
-      questionIndex: 0,
-    });
-    const idxDonde = snap.tilePool.findIndex((token) => token.toLowerCase() === "dónde");
-    const idxEsta = snap.tilePool.findIndex((token) => token.toLowerCase() === "está");
-    expect(isSubmittedSentenceCorrect(snap, [idxDonde, idxEsta])).toBe(true);
   });
 });

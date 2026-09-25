@@ -11,63 +11,11 @@ export const MAX_USERS_QUERY = 100;
 /** Maximum number of matches returned by the user handle/nickname search */
 export const MAX_USER_SEARCH_RESULTS = 20;
 
-// ===========================================
-// Timer Options (Learn Phase)
-// ===========================================
-export { TIMER_OPTIONS } from "../lib/constants";
-export const DEFAULT_TIMER_DURATION = 300; // 5 minutes
-
-export { SOLO_INFINITE_STUDY_SECONDS } from "../lib/soloLearnTimer";
-
-// ===========================================
-// Hint System
-// ===========================================
 /** Time bonus given to hint requester (in ms) */
 export const HINT_TIME_BONUS_MS = 3000;
 
-/** Maximum letter hints that can be provided */
-export const MAX_LETTER_HINTS = 3;
-
-/** Maximum wrong options that can be eliminated through the PvP hint workflow */
-export { PVP_HINT_ELIMINATION_PICKS } from "../lib/hintPool/constants";
-
-/** Maximum wrong options that can be eliminated (L2 multiple choice) */
-export const MAX_ELIMINATED_OPTIONS_L2 = 2;
-
-// ===========================================
-// Scoring (Duel Mode)
-// ===========================================
-/** Points for easy difficulty questions */
-export const POINTS_EASY = 1;
-
-/** Points for medium difficulty questions */
-export const POINTS_MEDIUM = 1.5;
-
-/** Points for hard difficulty questions */
-export const POINTS_HARD = 2;
-
 /** Bonus points awarded to hint provider when requester answers correctly */
 export const HINT_PROVIDER_BONUS = 0.5;
-
-// ===========================================
-// Difficulty Distribution Ratios (Duel Mode)
-// ===========================================
-/** Target ratio for easy difficulty: 40% Easy, 30% Medium, 30% Hard */
-export const DIFFICULTY_RATIO_EASY = 0.4;
-export const DIFFICULTY_RATIO_MEDIUM = 0.3;
-export const DIFFICULTY_RATIO_HARD = 0.3;
-
-// ===========================================
-// PRNG Constants
-// ===========================================
-/** LCG multiplier for deterministic random */
-export const LCG_MULTIPLIER = 1103515245;
-/** LCG increment for deterministic random */
-export const LCG_INCREMENT = 12345;
-/** LCG modulus mask */
-export const LCG_MODULUS = 0x7fffffff;
-/** Prime used for question index seeding */
-export const QUESTION_INDEX_PRIME = 7919;
 /** XOR mask for seed initialization */
 export const SEED_XOR_MASK = 0xdeadbeef;
 

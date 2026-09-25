@@ -496,3 +496,49 @@ describe("relayDuel mutations", () => {
     });
   });
 });
+
+it.each([
+  { duelMode: "pvp" },
+  { status: "completed" },
+  { relayPhase: "feedback" },
+  { relayAssignedIndex: undefined },
+] satisfies Partial<DuelDoc>[])("ignores scheduled timeouts when no matching Relay answer is pending (%#)", async overrides => {
+  const db = seedDb(relayDuelDoc({ relayPhase: "answer", relayAssignedIndex: 0, ...overrides }));
+  const before = structuredClone(db.duels);
+  const scheduler = makeScheduler();
+  await timeoutInternalHandler(createCtx(db, null, scheduler), { duelId, expectedAssignedIndex: 0 });
+  expect(db.duels).toEqual(before);
+  expect(scheduler.cancel).not.toHaveBeenCalled();
+});
+
+it("ignores a scheduled timeout for a deleted duel", async () => {
+  const db = seedDb(relayDuelDoc());
+  db.duels.length = 0;
+  const scheduler = makeScheduler();
+  await timeoutInternalHandler(createCtx(db, null, scheduler), { duelId, expectedAssignedIndex: 0 });
+  expect(db.duels).toEqual([]);
+  expect(scheduler.cancel).not.toHaveBeenCalled();
+});
+
+it("accepts the client timeout at the exact answer deadline", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(10_000 + RELAY_ANSWER_TIMEOUT_MS);
+  try {
+    const db = seedDb(relayDuelDoc({ relayPhase: "answer", relayAssignedIndex: 0, relayAnswerStartedAt: 10_000 }));
+    await timeoutHandler(createCtx(db, "clerk_1", makeScheduler()), { duelId });
+    expect(db.duels[0].relayResolvedIndices).toEqual([0]);
+    expect(db.duels[0].relayPhase).toBe("pick");
+  } finally { vi.restoreAllMocks(); }
+});
+
+it.each([
+  [{ relayPhase: "answer" }, 0, "not in the pick phase"],
+  [{}, 99, "no longer available"],
+  [{ status: "completed" }, 0, "Duel is not active"],
+] satisfies [Partial<DuelDoc>, number, string][])("rejects unavailable picks without scheduling a timeout (%#)", async (overrides, position, message) => {
+  const db = seedDb(relayDuelDoc(overrides));
+  const before = structuredClone(db.duels);
+  const scheduler = makeScheduler();
+  await expect(pickHandler(createCtx(db, "clerk_1", scheduler), { duelId, position, hardUpgrade: false })).rejects.toThrow(message);
+  expect(db.duels).toEqual(before);
+  expect(scheduler.runAfter).not.toHaveBeenCalled();
+});

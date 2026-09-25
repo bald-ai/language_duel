@@ -13,7 +13,10 @@ import { forRole } from "@/lib/duelRole";
 import { MAX_SABOTAGES } from "@/lib/sabotage/constants";
 import type { SabotageEffect } from "@/lib/sabotage/types";
 import { SENTENCE_TIMER_SECONDS } from "@/lib/themes/sentenceConstants";
-import { clampTimerSeconds, getEffectiveQuestionStartTime } from "@/lib/duelTiming";
+import {
+  clampTimerSeconds,
+  getEffectiveQuestionStartTime,
+} from "@/lib/duelTiming";
 import { SentenceBuildBoard } from "./SentenceBuildBoard";
 import { SentenceHintPoolUI } from "./SentenceHintPoolUI";
 import { SabotageSystemUI } from "./SabotageSystemUI";
@@ -55,36 +58,36 @@ export function SentenceBoard({
   question,
   viewerRole,
 }: SentenceBoardProps) {
-  const colors = useAppearanceColors();
   const submit = useMutation(api.gameplay.answerSentenceRound);
   const tap = useMutation(api.gameplay.tapSentenceTile);
   const removeLast = useMutation(api.gameplay.removeLastSentenceTile);
   const clearBoard = useMutation(api.gameplay.clearSentenceBoard);
   const confirm = useMutation(api.gameplay.confirmSentenceRound);
   const sendSabotage = useMutation(api.sabotage.sendSabotage);
-  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
 
   const submittedRef = useRef(false);
 
   // Per-Confirm correctness snapshot (client-only). `null` = not checked.
   // Cleared on any board edit so colors only show right after a Confirm.
-  const [correctnessMask, setCorrectnessMask] = useState<boolean[] | null>(null);
+  const [correctnessMask, setCorrectnessMask] = useState<boolean[] | null>(
+    null,
+  );
   const checked = correctnessMask !== null;
 
   const progress = useMemo(() => {
     return (duel.sentenceProgress ?? []).find(
       (entry) =>
-        entry.questionIndex === duel.currentItemIndex && entry.role === viewerRole
+        entry.questionIndex === duel.currentItemIndex &&
+        entry.role === viewerRole,
     );
   }, [duel.sentenceProgress, duel.currentItemIndex, viewerRole]);
 
   const placedTileIndices = useMemo(
     () => progress?.placedTileIndices ?? [],
-    [progress]
+    [progress],
   );
   const completed = progress?.completed ?? false;
 
-  const isPve = duel.duelMode === "pve";
   const isPvp = duel.duelMode === "pvp";
 
   // PvE cooperative hint pool (self-duels are pve mode, so they get it too). The
@@ -97,11 +100,11 @@ export function SentenceBoard({
   });
   const eliminatedTileIndices = useMemo(
     () => duel.currentQuestionEliminatedTileIndices ?? [],
-    [duel.currentQuestionEliminatedTileIndices]
+    [duel.currentQuestionEliminatedTileIndices],
   );
   const revealedTiles = useMemo(
     () => duel.currentQuestionRevealedTiles ?? [],
-    [duel.currentQuestionRevealedTiles]
+    [duel.currentQuestionRevealedTiles],
   );
 
   // PvP sabotage state (the role view gives the incoming effect + outgoing budget).
@@ -110,13 +113,14 @@ export function SentenceBoard({
   // Timer: base + accumulated hint bonus is the single source of truth, used as
   // BOTH the value and the clamp ceiling so a freeze hint's seconds aren't eaten
   // (the mutation does not push questionStartTime, so there's no double count).
-  const totalTimer = SENTENCE_TIMER_SECONDS + (duel.currentQuestionTimerBonusSeconds ?? 0);
+  const totalTimer =
+    SENTENCE_TIMER_SECONDS + (duel.currentQuestionTimerBonusSeconds ?? 0);
   const questionStartTime = duel.questionStartTime;
   const [secondsLeft, setSecondsLeft] = useState(() => {
     if (!questionStartTime) return totalTimer;
     const effectiveStartTime = getEffectiveQuestionStartTime(
       questionStartTime,
-      duel.currentItemIndex
+      duel.currentItemIndex,
     );
     const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
     return clampTimerSeconds(totalTimer - elapsed, totalTimer);
@@ -126,7 +130,7 @@ export function SentenceBoard({
     const tick = () => {
       const effectiveStartTime = getEffectiveQuestionStartTime(
         questionStartTime,
-        duel.currentItemIndex
+        duel.currentItemIndex,
       );
       const elapsed = Math.floor((Date.now() - effectiveStartTime) / 1000);
       setSecondsLeft(clampTimerSeconds(totalTimer - elapsed, totalTimer));
@@ -162,7 +166,7 @@ export function SentenceBoard({
         toast.error(getErrorMessage(error, "Could not submit sentence"));
       }
     },
-    [submit, duel._id, duel.currentItemIndex]
+    [submit, duel._id, duel.currentItemIndex],
   );
 
   // Auto-submit when a correct Confirm marks the round completed (server-confirmed).
@@ -193,18 +197,31 @@ export function SentenceBoard({
           duelId: duel._id,
           questionIndex: duel.currentItemIndex,
           tileIndex,
-        }).catch((error) => toast.error(getErrorMessage(error, "Could not place tile")));
+        }).catch((error) =>
+          toast.error(getErrorMessage(error, "Could not place tile")),
+        );
         return;
       }
       if (order === placedTileIndices.length - 1) {
         void removeLast({
           duelId: duel._id,
           questionIndex: duel.currentItemIndex,
-        }).catch((error) => toast.error(getErrorMessage(error, "Could not remove tile")));
+        }).catch((error) =>
+          toast.error(getErrorMessage(error, "Could not remove tile")),
+        );
       }
       // A placed-but-not-last tile is not removable — peel back from the end.
     },
-    [locked, eliminatedTileIndices, checked, placedTileIndices, tap, removeLast, duel._id, duel.currentItemIndex]
+    [
+      locked,
+      eliminatedTileIndices,
+      checked,
+      placedTileIndices,
+      tap,
+      removeLast,
+      duel._id,
+      duel.currentItemIndex,
+    ],
   );
 
   // After a Confirm, the button stays disabled until the player edits the board
@@ -222,8 +239,16 @@ export function SentenceBoard({
       questionIndex: duel.currentItemIndex,
     })
       .then((result) => setCorrectnessMask(result.correctnessMask))
-      .catch((error) => toast.error(getErrorMessage(error, "Could not check sentence")));
-  }, [confirmDisabled, clearSabotage, confirm, duel._id, duel.currentItemIndex]);
+      .catch((error) =>
+        toast.error(getErrorMessage(error, "Could not check sentence")),
+      );
+  }, [
+    confirmDisabled,
+    clearSabotage,
+    confirm,
+    duel._id,
+    duel.currentItemIndex,
+  ]);
 
   const handleReset = useCallback(() => {
     if (locked || placedTileIndices.length === 0) return;
@@ -231,45 +256,25 @@ export function SentenceBoard({
     void clearBoard({
       duelId: duel._id,
       questionIndex: duel.currentItemIndex,
-    }).catch((error) => toast.error(getErrorMessage(error, "Could not reset board")));
-  }, [locked, placedTileIndices.length, clearBoard, duel._id, duel.currentItemIndex]);
+    }).catch((error) =>
+      toast.error(getErrorMessage(error, "Could not reset board")),
+    );
+  }, [
+    locked,
+    placedTileIndices.length,
+    clearBoard,
+    duel._id,
+    duel.currentItemIndex,
+  ]);
 
   const handleSendSabotage = useCallback(
     (effect: SabotageEffect) => {
       void sendSabotage({ duelId: duel._id, effect }).catch((error) =>
-        toast.error(getErrorMessage(error, "Could not send sabotage"))
+        toast.error(getErrorMessage(error, "Could not send sabotage")),
       );
     },
-    [sendSabotage, duel._id]
+    [sendSabotage, duel._id],
   );
-  const canPlaySentenceAudio =
-    question.answerRevealedToViewer === true &&
-    !!question.spanishSentence &&
-    !!sessionItem.ttsStorageId;
-  const handlePlaySentenceAudio = useCallback(() => {
-    if (!canPlaySentenceAudio || !question.spanishSentence || !sessionItem.ttsStorageId) return;
-    void playTTS(`duel-sentence-${duel._id}-${duel.currentItemIndex}`, question.spanishSentence, {
-      storageId: sessionItem.ttsStorageId,
-      themeId: String(sessionItem.themeId),
-    });
-  }, [
-    canPlaySentenceAudio,
-    duel._id,
-    duel.currentItemIndex,
-    playTTS,
-    question.spanishSentence,
-    sessionItem.themeId,
-    sessionItem.ttsStorageId,
-  ]);
-
-  // Outgoing-sabotage footer inputs (PvP only), mirroring the word DuelFooter.
-  // "Already sabotaged this question" = my outgoing sabotage is timestamped at or
-  // after the current question's start.
-  const hasSentSabotageThisQuestion =
-    typeof duel.questionStartTime === "number" &&
-    typeof roleView.theirSabotage?.timestamp === "number" &&
-    roleView.theirSabotage.timestamp >= duel.questionStartTime;
-
   return (
     <SentenceBuildBoard
       roundLabel={`Round ${duel.currentItemIndex + 1} of ${duel.sessionItems.length}`}
@@ -291,75 +296,174 @@ export function SentenceBoard({
       onConfirm={handleConfirm}
       onReset={handleReset}
       belowActions={
-        <>
-          {isPve && !locked && (
-            <div className="mt-4">
-              <SentenceHintPoolUI
-                usedHints={hintPool.usedHints}
-                usedCount={hintPool.usedCount}
-                totalCount={hintPool.totalCount}
-                currentQuestionHintFired={hintPool.currentQuestionHintFired}
-                onFireHint={(type) => void hintPool.fireHint(type)}
-              />
-            </div>
-          )}
-
-          {isPvp && (
-            <div className="mt-4">
-              <SabotageSystemUI
-                status={duel.status}
-                phase="answering"
-                isRoundOver={false}
-                sabotagesRemaining={MAX_SABOTAGES - roleView.mySabotagesUsed}
-                isLocked={locked}
-                hasAnswered={roleView.myAnswered}
-                hasSentSabotageThisQuestion={hasSentSabotageThisQuestion}
-                opponentHasAnswered={roleView.theirAnswered}
-                onSendSabotage={handleSendSabotage}
-                dataTestIdBase="sentence-sabotage"
-              />
-            </div>
-          )}
-
-          {question.answerRevealedToViewer === true && question.spanishSentence && (
-            <div
-              className="mt-5 w-full max-w-md rounded-xl border-2 p-3 text-center text-sm font-semibold shadow"
-              style={{
-                borderColor: colors.status.success.dark,
-                backgroundColor: colors.status.success.DEFAULT,
-                color: "#fff",
-              }}
-              data-testid="sentence-feedback"
-            >
-              Correct: {question.spanishSentence}
-            </div>
-          )}
-
-          {canPlaySentenceAudio && (
-            <button
-              type="button"
-              onClick={handlePlaySentenceAudio}
-              disabled={isPlayingAudio}
-              className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-              style={getListenButtonStyle(colors, isPlayingAudio)}
-              data-testid="sentence-listen"
-            >
-              <SpeakerIcon className="h-4 w-4" />
-              <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
-            </button>
-          )}
-
-          {completed && (
-            <div
-              className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold shadow"
-              style={{ backgroundColor: colors.status.success.DEFAULT, color: "#fff" }}
-              data-testid="sentence-completed"
-            >
-              Sentence built — waiting for the round to advance.
-            </div>
-          )}
-        </>
+        <SentenceBoardFooter
+          duel={duel}
+          sessionItem={sessionItem}
+          question={question}
+          locked={locked}
+          completed={completed}
+          hintPool={hintPool}
+          roleView={roleView}
+          onSendSabotage={handleSendSabotage}
+        />
       }
     />
+  );
+}
+
+type SentenceBoardFooterProps = Pick<
+  SentenceBoardProps,
+  "duel" | "sessionItem" | "question"
+> & {
+  locked: boolean;
+  completed: boolean;
+  hintPool: ReturnType<typeof useSentenceHintPool>;
+  roleView: ReturnType<typeof forRole>;
+  onSendSabotage: (effect: SabotageEffect) => void;
+};
+function SentenceBoardFooter({
+  duel,
+  sessionItem,
+  question,
+  locked,
+  completed,
+  hintPool,
+  roleView,
+  onSendSabotage,
+}: SentenceBoardFooterProps) {
+  const isPve = duel.duelMode === "pve";
+  const isPvp = duel.duelMode === "pvp";
+  // Outgoing-sabotage footer inputs (PvP only), mirroring the word DuelFooter.
+  // "Already sabotaged this question" = my outgoing sabotage is timestamped at or
+  // after the current question's start.
+  const hasSentSabotageThisQuestion =
+    typeof duel.questionStartTime === "number" &&
+    typeof roleView.theirSabotage?.timestamp === "number" &&
+    roleView.theirSabotage.timestamp >= duel.questionStartTime;
+
+  return (
+    <>
+      {isPve && !locked && (
+        <div className="mt-4">
+          <SentenceHintPoolUI
+            usedHints={hintPool.usedHints}
+            usedCount={hintPool.usedCount}
+            totalCount={hintPool.totalCount}
+            currentQuestionHintFired={hintPool.currentQuestionHintFired}
+            onFireHint={(type) => void hintPool.fireHint(type)}
+          />
+        </div>
+      )}
+
+      {isPvp && (
+        <div className="mt-4">
+          <SabotageSystemUI
+            status={duel.status}
+            phase="answering"
+            isRoundOver={false}
+            sabotagesRemaining={MAX_SABOTAGES - roleView.mySabotagesUsed}
+            isLocked={locked}
+            hasAnswered={roleView.myAnswered}
+            hasSentSabotageThisQuestion={hasSentSabotageThisQuestion}
+            opponentHasAnswered={roleView.theirAnswered}
+            onSendSabotage={onSendSabotage}
+            dataTestIdBase="sentence-sabotage"
+          />
+        </div>
+      )}
+
+      <SentenceBoardFeedback
+        duel={duel}
+        sessionItem={sessionItem}
+        question={question}
+        completed={completed}
+      />
+    </>
+  );
+}
+
+function SentenceBoardFeedback({
+  duel,
+  sessionItem,
+  question,
+  completed,
+}: Pick<
+  SentenceBoardFooterProps,
+  "duel" | "sessionItem" | "question" | "completed"
+>) {
+  const colors = useAppearanceColors();
+  const { isPlaying: isPlayingAudio, playTTS } = useTTS();
+  const canPlaySentenceAudio =
+    question.answerRevealedToViewer === true &&
+    !!question.spanishSentence &&
+    !!sessionItem.ttsStorageId;
+  const handlePlaySentenceAudio = useCallback(() => {
+    if (
+      !canPlaySentenceAudio ||
+      !question.spanishSentence ||
+      !sessionItem.ttsStorageId
+    )
+      return;
+    void playTTS(
+      `duel-sentence-${duel._id}-${duel.currentItemIndex}`,
+      question.spanishSentence,
+      {
+        storageId: sessionItem.ttsStorageId,
+        themeId: String(sessionItem.themeId),
+      },
+    );
+  }, [
+    canPlaySentenceAudio,
+    duel._id,
+    duel.currentItemIndex,
+    playTTS,
+    question.spanishSentence,
+    sessionItem.themeId,
+    sessionItem.ttsStorageId,
+  ]);
+
+  return (
+    <>
+      {question.answerRevealedToViewer === true && question.spanishSentence && (
+        <div
+          className="mt-5 w-full max-w-md rounded-xl border-2 p-3 text-center text-sm font-semibold shadow"
+          style={{
+            borderColor: colors.status.success.dark,
+            backgroundColor: colors.status.success.DEFAULT,
+            color: "#fff",
+          }}
+          data-testid="sentence-feedback"
+        >
+          Correct: {question.spanishSentence}
+        </div>
+      )}
+
+      {canPlaySentenceAudio && (
+        <button
+          type="button"
+          onClick={handlePlaySentenceAudio}
+          disabled={isPlayingAudio}
+          className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 px-5 py-2 text-sm font-bold shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+          style={getListenButtonStyle(colors, isPlayingAudio)}
+          data-testid="sentence-listen"
+        >
+          <SpeakerIcon className="h-4 w-4" />
+          <span>{isPlayingAudio ? "Playing..." : "Listen"}</span>
+        </button>
+      )}
+
+      {completed && (
+        <div
+          className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold shadow"
+          style={{
+            backgroundColor: colors.status.success.DEFAULT,
+            color: "#fff",
+          }}
+          data-testid="sentence-completed"
+        >
+          Sentence built — waiting for the round to advance.
+        </div>
+      )}
+    </>
   );
 }

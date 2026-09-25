@@ -35,21 +35,12 @@ function isWordEntryArray(value: unknown): value is WordEntry[] {
   return Array.isArray(value) && value.every((item) => isWordEntry(item));
 }
 
-function isGenerateFieldData(
-  value: unknown
-): value is { word?: string; answer?: string; wrongAnswer?: string; wrongAnswers?: string[] } {
-  if (!isRecord(value)) return false;
-  if (value.word !== undefined && typeof value.word !== "string") return false;
-  if (value.answer !== undefined && typeof value.answer !== "string") return false;
-  if (value.wrongAnswer !== undefined && typeof value.wrongAnswer !== "string") return false;
-  if (value.wrongAnswers !== undefined && !isStringArray(value.wrongAnswers)) return false;
+function isGeneratedAnswer(value: unknown): value is { answer: string } {
+  return isRecord(value) && typeof value.answer === "string";
+}
 
-  return (
-    value.word !== undefined ||
-    value.answer !== undefined ||
-    value.wrongAnswer !== undefined ||
-    value.wrongAnswers !== undefined
-  );
+function isGeneratedWrongAnswer(value: unknown): value is { wrongAnswer: string } {
+  return isRecord(value) && typeof value.wrongAnswer === "string";
 }
 
 function parseGenerateApiEnvelope(payload: unknown): GenerateApiEnvelope | null {
@@ -152,40 +143,24 @@ export async function generateTheme(params: GenerateThemeParams): Promise<Genera
 
 export type GenerateFieldParams = Omit<Extract<GenerateRequest, { type: "field" }>, "type">;
 
-export interface GenerateFieldResult {
-  success: boolean;
-  prompt?: string;
-  data?: {
-    word?: string;
-    answer?: string;
-    wrongAnswer?: string;
-    wrongAnswers?: string[];
-  };
-  error?: string;
-}
+export type GenerateFieldResult =
+  | { success: true; fieldType: "word"; data: WordEntry; prompt?: string }
+  | { success: true; fieldType: "answer"; data: { answer: string }; prompt?: string }
+  | { success: true; fieldType: "wrong"; data: { wrongAnswer: string }; prompt?: string }
+  | { success: false; error: string };
 
 export async function generateField(params: GenerateFieldParams): Promise<GenerateFieldResult> {
-  const result = await callGenerateApi(
-    {
-      type: "field",
-      fieldType: params.fieldType,
-      themeName: params.themeName,
-      wordType: params.wordType,
-      currentWord: params.currentWord,
-      currentAnswer: params.currentAnswer,
-      currentWrongAnswers: params.currentWrongAnswers,
-      fieldIndex: params.fieldIndex,
-      existingWords: params.existingWords,
-      rejectedWords: params.rejectedWords,
-      history: params.history,
-      customInstructions: params.customInstructions,
-    },
-    isGenerateFieldData,
-    "Generation failed"
-  );
-
-  if (!result.success) return { success: false, error: result.error };
-  return { success: true, prompt: result.prompt, data: result.data };
+  const body = { type: "field", ...params };
+  if (params.fieldType === "word") {
+    const result = await callGenerateApi(body, isWordEntry, "Generation failed");
+    return result.success ? { ...result, fieldType: "word" } : result;
+  }
+  if (params.fieldType === "answer") {
+    const result = await callGenerateApi(body, isGeneratedAnswer, "Generation failed");
+    return result.success ? { ...result, fieldType: "answer" } : result;
+  }
+  const result = await callGenerateApi(body, isGeneratedWrongAnswer, "Generation failed");
+  return result.success ? { ...result, fieldType: "wrong" } : result;
 }
 
 export type RegenerateForWordParams = Omit<
@@ -275,21 +250,17 @@ export async function generateMoreWords(params: GenerateMoreWordsParams): Promis
 // Sentence Theme Generation API
 // ============================================================================
 
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number");
+}
+
 function isSentenceRoundInput(value: unknown): value is SentenceRoundInput {
   if (!isRecord(value)) return false;
   if (typeof value.englishPrompt !== "string") return false;
   if (typeof value.spanishSentence !== "string") return false;
-  if (!Array.isArray(value.wordMeanings)) return false;
-  if (!value.wordMeanings.every((entry) => typeof entry === "string")) return false;
-  if (
-    value.freeWordPositions !== undefined &&
-    (!Array.isArray(value.freeWordPositions) ||
-      !value.freeWordPositions.every((entry) => typeof entry === "number"))
-  ) {
-    return false;
-  }
-  if (!Array.isArray(value.distractors)) return false;
-  return value.distractors.every((entry) => typeof entry === "string");
+  if (!isStringArray(value.wordMeanings)) return false;
+  if (value.freeWordPositions !== undefined && !isNumberArray(value.freeWordPositions)) return false;
+  return isStringArray(value.distractors);
 }
 
 function isSentenceRoundInputArray(value: unknown): value is SentenceRoundInput[] {

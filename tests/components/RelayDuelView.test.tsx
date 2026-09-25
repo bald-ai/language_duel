@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { RelayDuelView } from "@/app/duel/[duelId]/components/RelayDuelView";
 import type { RelaySafeDuel } from "@/app/duel/[duelId]/hooks/relaySessionTypes";
@@ -11,7 +11,12 @@ const mutationMocks = vi.hoisted(() => ({
   relayAdvance: vi.fn(),
   relayTimeout: vi.fn(),
   stopDuel: vi.fn(),
+  relaySentenceTap: vi.fn(),
+  relaySentenceRemoveLast: vi.fn(),
+  relaySentenceReset: vi.fn(),
+  relaySentenceConfirm: vi.fn(),
 }));
+const errorMock = vi.hoisted(() => vi.fn());
 const ttsMocks = vi.hoisted(() => ({
   playTTS: vi.fn(),
 }));
@@ -20,7 +25,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerMocks.push }),
 }));
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: errorMock } }));
 
 vi.mock("convex/react", () => ({
   useMutation: (mutation: unknown) => {
@@ -35,8 +40,11 @@ vi.mock("convex/react", () => ({
         return mutationMocks.relayTimeout;
       case "stopDuel":
         return mutationMocks.stopDuel;
-      default:
-        return vi.fn();
+      case "relaySentenceTap": return mutationMocks.relaySentenceTap;
+      case "relaySentenceRemoveLast": return mutationMocks.relaySentenceRemoveLast;
+      case "relaySentenceReset": return mutationMocks.relaySentenceReset;
+      case "relaySentenceConfirm": return mutationMocks.relaySentenceConfirm;
+      default: throw new Error(`Unexpected mutation: ${String(mutation)}`);
     }
   },
 }));
@@ -56,6 +64,10 @@ vi.mock("@/convex/_generated/api", () => ({
       relayAnswer: "relayAnswer",
       relayAdvance: "relayAdvance",
       relayTimeout: "relayTimeout",
+      relaySentenceTap: "relaySentenceTap",
+      relaySentenceRemoveLast: "relaySentenceRemoveLast",
+      relaySentenceReset: "relaySentenceReset",
+      relaySentenceConfirm: "relaySentenceConfirm",
     },
     duels: { stopDuel: "stopDuel" },
   },
@@ -124,8 +136,19 @@ function revealedQuestion(): ServedQuestion {
   } as ServedQuestion;
 }
 
+function sentenceDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
+  return relayDuel({
+    sessionItems: [{ kind: "sentence", englishPrompt: "I eat", spanishSentence: "Yo como", wordMeanings: ["I", "eat"], freeWordPositions: [], distractors: ["bebo", "leo", "duermo"], themeId: "theme_1" as Id<"themes">, themeName: "Basics" }],
+    itemOrder: [0], relayPhase: "answer", relayAssignedIndex: 0,
+    relayServedQuestion: { kind: "sentence", englishPrompt: "I eat", tilePool: ["Yo", "como", "bebo"], answerRevealedToViewer: false } as ServedQuestion,
+    sentenceProgress: [{ questionIndex: 0, role: "opponent", placedTileIndices: [0, 1], completed: false, finalized: false, mistakes: 0, failedConfirms: 0 }],
+    ...overrides,
+  });
+}
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 describe("RelayDuelView", () => {
   beforeEach(() => {
+    errorMock.mockReset();
     routerMocks.push.mockReset();
     ttsMocks.playTTS.mockReset();
     Object.values(mutationMocks).forEach((mock) => {
@@ -192,6 +215,7 @@ describe("RelayDuelView", () => {
     });
     render(<RelayDuelView duel={duel} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
 
+    expect(screen.queryByText("from Alice")).not.toBeNull();
     expect(screen.getByTestId("relay-answer-0")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("relay-answer-0"));
     fireEvent.click(screen.getByTestId("relay-confirm"));
@@ -210,6 +234,7 @@ describe("RelayDuelView", () => {
     });
     render(<RelayDuelView duel={duel} viewerRole="challenger" challenger={challenger} opponent={opponent} />);
 
+    expect(screen.queryByText("to Bob")).not.toBeNull();
     // The picker sees the grid (read-only) but cannot confirm, and the masked
     // question carries no answer to mark correct.
     expect(screen.getByTestId("relay-answer-0")).toBeInTheDocument();
@@ -294,4 +319,92 @@ describe("RelayDuelView", () => {
       }
     );
   });
+  it("lets the answerer place and peel sentence tiles, confirm once per edit and reset", async () => {
+    mutationMocks.relaySentenceConfirm.mockResolvedValue({ correctnessMask: [true, false] });
+    render(<RelayDuelView duel={sentenceDuel()} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+    await act(async () => { fireEvent.click(screen.getByTestId("sentence-tile-0")); fireEvent.click(screen.getByTestId("sentence-tile-1")); fireEvent.click(screen.getByTestId("sentence-tile-2")); });
+    expect(mutationMocks.relaySentenceRemoveLast).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1" });
+    expect(mutationMocks.relaySentenceTap).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1", tileIndex: 2 });
+    await act(async () => fireEvent.click(screen.getByTestId("sentence-confirm")));
+    expect(mutationMocks.relaySentenceConfirm).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1" });
+    expect((screen.getByTestId("sentence-confirm") as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => fireEvent.click(screen.getByTestId("sentence-tile-1")));
+    expect((screen.getByTestId("sentence-confirm") as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => fireEvent.click(screen.getByTestId("sentence-reset")));
+    expect(mutationMocks.relaySentenceReset).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1" });
+  });
+  it.each([
+    ["relaySentenceTap", "sentence-tile-2"],
+    ["relaySentenceRemoveLast", "sentence-tile-1"],
+    ["relaySentenceReset", "sentence-reset"],
+    ["relaySentenceConfirm", "sentence-confirm"],
+  ] as const)("reports %s failures without losing the board", async (method, testId) => {
+    mutationMocks[method].mockRejectedValue(new Error("Sentence write failed"));
+    render(<RelayDuelView duel={sentenceDuel()} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+    await act(async () => fireEvent.click(screen.getByTestId(testId)));
+    expect(errorMock).toHaveBeenCalledExactlyOnceWith("Sentence write failed");
+    expect(screen.getByTestId("sentence-prompt")).toHaveTextContent("I eat");
+  });
+  it("shows the picker the answerer's placed tiles without edit controls", () => {
+    render(<RelayDuelView duel={sentenceDuel()} viewerRole="challenger" challenger={challenger} opponent={opponent} />);
+    expect(screen.getByTestId("relay-watching")).toHaveTextContent("Bob is building a sentence");
+    expect(screen.getByTestId("sentence-badge-0")).toHaveTextContent("1");
+    expect(screen.queryByTestId("sentence-confirm")).toBeNull();
+    fireEvent.click(screen.getByTestId("sentence-tile-2"));
+    expect(mutationMocks.relaySentenceTap).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("relay-sentence-listen")).toBeNull();
+  });
+  it("uses the sentence prompt in the pick list and hides hard upgrades for sentences", () => {
+    render(<RelayDuelView duel={sentenceDuel({ relayPhase: "pick", relayRemainingPositions: [0] })} viewerRole="challenger" challenger={challenger} opponent={opponent} />);
+    expect(screen.getByTestId("relay-pick-0")).toHaveTextContent("I eat");
+    expect(screen.queryByTestId("relay-hard-toggle-0")).toBeNull();
+    fireEvent.click(screen.getByTestId("relay-pick-0"));
+    expect(mutationMocks.relayPick).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1", position: 0, hardUpgrade: false });
+  });
+  it.each([["word", 21000], ["sentence", 60000]] as const)("fires the %s timeout once at its deadline", async (kind, duration) => {
+    vi.useFakeTimers(); vi.setSystemTime(10_000);
+    mutationMocks.relayTimeout.mockRejectedValue(new Error("Already timed out"));
+    const value = kind === "word" ? relayDuel({ relayPhase: "answer", relayAssignedIndex: 0, relayServedQuestion: maskedQuestion(), relayAnswerStartedAt: 10_000 }) : sentenceDuel({ relayAnswerStartedAt: 10_000 });
+    const view = render(<RelayDuelView duel={value} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+    await act(async () => vi.advanceTimersByTime(duration - 100));
+    expect(mutationMocks.relayTimeout).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(100));
+    expect(mutationMocks.relayTimeout).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1" });
+    await act(async () => vi.advanceTimersByTime(1000));
+    expect(mutationMocks.relayTimeout).toHaveBeenCalledOnce();
+    expect(errorMock).not.toHaveBeenCalled();
+    view.unmount(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it("locks other picks while handing off a round and reports a failed request", async () => {
+    mutationMocks.relayPick.mockRejectedValue(new Error("Pick failed"));
+    render(<RelayDuelView duel={relayDuel()} viewerRole="challenger" challenger={challenger} opponent={opponent} />);
+    fireEvent.click(screen.getByTestId("relay-hard-toggle-0")); fireEvent.click(screen.getByTestId("relay-hard-toggle-0"));
+    await act(async () => fireEvent.click(screen.getByTestId("relay-pick-0")));
+    fireEvent.click(screen.getByTestId("relay-pick-0")); fireEvent.click(screen.getByTestId("relay-pick-1"));
+    expect(mutationMocks.relayPick).toHaveBeenCalledExactlyOnceWith({ duelId: "duel_1", position: 0, hardUpgrade: false });
+    expect((screen.getByTestId("relay-pick-1") as HTMLButtonElement).disabled).toBe(true);
+    expect(errorMock).toHaveBeenCalledExactlyOnceWith("Pick failed");
+  });
+  it("disables upgrades when the budget is exhausted", () => {
+    render(<RelayDuelView duel={relayDuel({ relayHardBudget: { challenger: 0, opponent: 0 } })} viewerRole="challenger" challenger={challenger} opponent={opponent} />);
+    expect(screen.getByTestId("relay-hard-toggle-0")).toBeDisabled();
+  });
+  it("reports answer, advance and exit errors and navigates home only after successful exit", async () => {
+    mutationMocks.relayAnswer.mockRejectedValue(new Error("Answer failed")); mutationMocks.relayAdvance.mockRejectedValue(new Error("Advance failed")); mutationMocks.stopDuel.mockRejectedValue(new Error("Exit failed"));
+    const value = relayDuel({ relayPhase: "answer", relayServedQuestion: maskedQuestion() });
+    const view = render(<RelayDuelView duel={value} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+    fireEvent.click(screen.getByTestId("relay-answer-0"));
+    await act(async () => fireEvent.click(screen.getByTestId("relay-confirm")));
+    expect(errorMock).toHaveBeenLastCalledWith("Answer failed");
+    view.rerender(<RelayDuelView duel={{ ...value, relayPhase: "feedback", relayServedQuestion: revealedQuestion(), relayLastResult: { position: 0, chosen: "wrong", correct: false, scorer: "challenger" } }} viewerRole="opponent" challenger={challenger} opponent={opponent} />);
+    expect(screen.getByTestId("relay-feedback")).toHaveTextContent("You missed — answer: gato");
+    await act(async () => fireEvent.click(screen.getByTestId("relay-continue")));
+    expect(errorMock).toHaveBeenLastCalledWith("Advance failed");
+    await act(async () => fireEvent.click(screen.getByTestId("relay-exit")));
+    expect(errorMock).toHaveBeenLastCalledWith("Exit failed"); expect(routerMocks.push).not.toHaveBeenCalled();
+    mutationMocks.stopDuel.mockResolvedValue(undefined);
+    await act(async () => fireEvent.click(screen.getByTestId("relay-exit")));
+    expect(routerMocks.push).toHaveBeenCalledExactlyOnceWith("/");
+  });
+
 });

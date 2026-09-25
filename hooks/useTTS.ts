@@ -21,18 +21,24 @@ export function useTTS() {
   // revokeOnCleanup is true only for live blobs we created via URL.createObjectURL
   // (we own them, so revoke on eviction/unmount); false for Convex storage URLs,
   // which are remote, never object-URLs, and must not be revoked.
-  const cacheRef = useRef<Map<string, { url: string; revokeOnCleanup: boolean }>>(new Map());
+  const cacheRef = useRef<
+    Map<string, { url: string; revokeOnCleanup: boolean }>
+  >(new Map());
   const prevProviderRef = useRef<TtsProvider | null>(null);
   const maxCacheSize = 25;
   const convex = useConvex();
 
   // Get the current user's TTS provider preference
   const currentUser = useQuery(api.users.getCurrentUser);
-  const provider: TtsProvider = currentUser?.ttsProvider ?? DEFAULT_TTS_PROVIDER;
+  const provider: TtsProvider =
+    currentUser?.ttsProvider ?? DEFAULT_TTS_PROVIDER;
 
   // Clear cache when provider changes to avoid stale audio
   useEffect(() => {
-    if (prevProviderRef.current !== null && prevProviderRef.current !== provider) {
+    if (
+      prevProviderRef.current !== null &&
+      prevProviderRef.current !== provider
+    ) {
       // Provider changed - clear entire cache
       for (const entry of cacheRef.current.values()) {
         if (entry.revokeOnCleanup) {
@@ -46,7 +52,8 @@ export function useTTS() {
 
   const trimCache = useCallback(() => {
     while (cacheRef.current.size > maxCacheSize) {
-      const [oldestKey, oldestUrl] = cacheRef.current.entries().next().value ?? [];
+      const [oldestKey, oldestUrl] =
+        cacheRef.current.entries().next().value ?? [];
 
       if (!oldestKey || !oldestUrl) {
         break;
@@ -59,89 +66,55 @@ export function useTTS() {
     }
   }, [maxCacheSize]);
 
-  const playTTS = useCallback(async (
-    wordKey: string,
-    text: string,
-    options?: { storageId?: Id<"_storage"> | string; themeId?: Id<"themes"> | string }
-  ) => {
-    if (!text || playingWordKey === wordKey) return;
+  const playTTS = useCallback(
+    async (wordKey: string, text: string, options?: TtsPlaybackOptions) => {
+      if (!text || playingWordKey === wordKey) return;
 
-    setPlayingWordKey(wordKey);
+      setPlayingWordKey(wordKey);
 
-    const cleanText = stripIrr(text);
-    const storageCacheKey = options?.storageId ? `storage:${options.storageId}` : null;
-    const liveCacheKey = `live:${provider}:${cleanText}`;
-    const cacheKey = storageCacheKey ?? liveCacheKey;
+      const cleanText = stripIrr(text);
+      const cacheKey = ttsCacheKey(cleanText, provider, options);
 
-    try {
-      let cacheEntry = cacheRef.current.get(cacheKey);
+      try {
+        const cacheEntry = await resolveAudioEntry(
+          cacheRef.current,
+          cacheKey,
+          cleanText,
+          convex,
+          trimCache,
+          options,
+        );
 
-      if (!cacheEntry && options?.storageId && options?.themeId) {
-        try {
-          const storageUrl = await convex.query(api.themes.getTtsStorageUrl, {
-            storageId: options.storageId as Id<"_storage">,
-            themeId: options.themeId as Id<"themes">,
-          });
-          if (storageUrl) {
-            cacheEntry = { url: storageUrl, revokeOnCleanup: false };
-            cacheRef.current.set(cacheKey, cacheEntry);
-          }
-        } catch {
-          // Storage URL lookup failure should fall back to live generation.
-        }
-      }
-
-      if (!cacheEntry) {
-        const response = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: cleanText }),
-        });
-
-        if (!response.ok) {
-          const message = await getResponseErrorMessage(
-            response,
-            "Audio could not be played. Please try again."
-          );
-          throw new Error(message);
+        if (audioRef.current) {
+          audioRef.current.pause();
         }
 
-        const audioBlob = await response.blob();
-        const liveAudioUrl = URL.createObjectURL(audioBlob);
-        cacheEntry = { url: liveAudioUrl, revokeOnCleanup: true };
-        cacheRef.current.set(cacheKey, cacheEntry);
-        trimCache();
-      } else {
-        // Move to end for LRU behavior
-        cacheRef.current.delete(cacheKey);
-        cacheRef.current.set(cacheKey, cacheEntry);
-      }
+        const audio = new Audio(cacheEntry.url);
+        audioRef.current = audio;
 
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+        audio.onended = () => {
+          setPlayingWordKey(null);
+        };
 
-      const audio = new Audio(cacheEntry.url);
-      audioRef.current = audio;
+        audio.onerror = () => {
+          setPlayingWordKey(null);
+        };
 
-      audio.onended = () => {
+        await audio.play();
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? normalizePlainErrorMessage(
+                error.message,
+                "Audio could not be played",
+              )
+            : "Audio could not be played. Please try again.";
+        toast.error(message);
         setPlayingWordKey(null);
-      };
-
-      audio.onerror = () => {
-        setPlayingWordKey(null);
-      };
-
-      await audio.play();
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? normalizePlainErrorMessage(error.message, "Audio could not be played")
-          : "Audio could not be played. Please try again.";
-      toast.error(message);
-      setPlayingWordKey(null);
-    }
-  }, [convex, playingWordKey, provider, trimCache]);
+      }
+    },
+    [convex, playingWordKey, provider, trimCache],
+  );
 
   const isPlaying = playingWordKey !== null;
 
@@ -169,4 +142,92 @@ export function useTTS() {
     isPlaying,
     playTTS,
   };
+}
+
+type TtsPlaybackOptions = {
+  storageId?: Id<"_storage"> | string;
+  themeId?: Id<"themes"> | string;
+};
+type AudioCacheEntry = { url: string; revokeOnCleanup: boolean };
+
+function ttsCacheKey(
+  cleanText: string,
+  provider: TtsProvider,
+  options?: TtsPlaybackOptions,
+): string {
+  const storageCacheKey = options?.storageId
+    ? `storage:${options.storageId}`
+    : null;
+  const liveCacheKey = `live:${provider}:${cleanText}`;
+  const cacheKey = storageCacheKey ?? liveCacheKey;
+  return cacheKey;
+}
+
+async function resolveAudioEntry(
+  cache: Map<string, AudioCacheEntry>,
+  cacheKey: string,
+  cleanText: string,
+  convex: ReturnType<typeof useConvex>,
+  trimCache: () => void,
+  options?: TtsPlaybackOptions,
+): Promise<AudioCacheEntry> {
+  let cacheEntry = cache.get(cacheKey);
+
+  if (!cacheEntry && hasStoredAudioOptions(options)) {
+    cacheEntry = await loadStoredAudio(convex, options);
+    if (cacheEntry) cache.set(cacheKey, cacheEntry);
+  }
+
+  if (!cacheEntry) {
+    cacheEntry = await generateAudio(cleanText);
+    cache.set(cacheKey, cacheEntry);
+    trimCache();
+  } else {
+    // Move to end for LRU behavior
+    cache.delete(cacheKey);
+    cache.set(cacheKey, cacheEntry);
+  }
+
+  return cacheEntry;
+}
+
+async function loadStoredAudio(
+  convex: ReturnType<typeof useConvex>,
+  options: TtsPlaybackOptions,
+): Promise<AudioCacheEntry | undefined> {
+  try {
+    const storageUrl = await convex.query(api.themes.getTtsStorageUrl, {
+      storageId: options.storageId as Id<"_storage">,
+      themeId: options.themeId as Id<"themes">,
+    });
+    if (storageUrl) return { url: storageUrl, revokeOnCleanup: false };
+  } catch {
+    // Storage access can degrade to live generation if the saved clip is unavailable.
+  }
+}
+
+async function generateAudio(cleanText: string): Promise<AudioCacheEntry> {
+  const response = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: cleanText }),
+  });
+
+  if (!response.ok) {
+    const message = await getResponseErrorMessage(
+      response,
+      "Audio could not be played. Please try again.",
+    );
+    throw new Error(message);
+  }
+
+  const audioBlob = await response.blob();
+  const liveAudioUrl = URL.createObjectURL(audioBlob);
+  return { url: liveAudioUrl, revokeOnCleanup: true };
+}
+
+function hasStoredAudioOptions(
+  options?: TtsPlaybackOptions,
+): options is Required<TtsPlaybackOptions> {
+  return Boolean(options?.storageId && options.themeId);
 }

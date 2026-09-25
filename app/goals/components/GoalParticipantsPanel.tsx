@@ -33,9 +33,7 @@ export function GoalParticipantsPanel({
   const solo = selectedGoal.mode === "solo";
   // Map the viewer-relative lock state back to the two participants so each
   // avatar shows the correct ✓, without re-reading the raw lock booleans.
-  const { viewerLocked, partnerLocked } = getWeeklyGoalLockFlags(selectedGoal.lockState);
-  const creatorLocked = selectedGoal.viewerRole === "creator" ? viewerLocked : partnerLocked;
-  const partnerLockedDisplay = selectedGoal.viewerRole === "creator" ? partnerLocked : viewerLocked;
+  const { creatorLocked, partnerLockedDisplay } = participantLocks(selectedGoal);
   return (
     <section
       className="rounded-2xl border-2 p-4"
@@ -84,11 +82,7 @@ export function GoalParticipantsPanel({
             className="text-sm font-bold"
             style={{ color: colors.text.DEFAULT }}
           >
-            {startDate && endDate
-              ? `${startDate} to ${endDate}`
-              : endDate
-                ? `Ends ${endDate}`
-                : "Draft phase"}
+            {goalDateLabel(startDate, endDate)}
           </p>
           <p className="text-xs" style={{ color: colors.text.muted }}>
             {formatGoalStatus(selectedGoal.effectiveStatus)}
@@ -122,4 +116,16 @@ export function GoalParticipantsPanel({
       </div>
     </section>
   );
+}
+
+function participantLocks(selectedGoal: GoalWithUsers) {
+  const { viewerLocked, partnerLocked } = getWeeklyGoalLockFlags(selectedGoal.lockState);
+  const creatorLocked = selectedGoal.viewerRole === "creator" ? viewerLocked : partnerLocked;
+  const partnerLockedDisplay = selectedGoal.viewerRole === "creator" ? partnerLocked : viewerLocked;
+  return { creatorLocked, partnerLockedDisplay };
+}
+
+function goalDateLabel(startDate: string | null, endDate: string | null): string {
+  if (startDate && endDate) return `${startDate} to ${endDate}`;
+  return endDate ? `Ends ${endDate}` : "Draft phase";
 }

@@ -54,17 +54,7 @@ export function computeCreditConsumption(
   cost: number,
   now = Date.now()
 ): CreditBalances | null {
-  if (!Number.isFinite(cost) || cost <= 0 || !Number.isInteger(cost)) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid credit cost" });
-  }
-
-  if (creditType === "tts" && cost !== TTS_GENERATION_COST) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid TTS credit cost" });
-  }
-
-  if (creditType === "llm" && !isValidLlmCreditCost(cost)) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid LLM credit cost" });
-  }
+  validateCreditCost(creditType, cost);
 
   const normalized = normalizeCreditState(user, now);
   let nextLlmCredits = normalized.llmCreditsRemaining;
@@ -168,3 +158,18 @@ export const refundConsumedCredits = mutation({
     return next;
   },
 });
+
+function validateCreditCost(creditType: CreditType, cost: number): void {
+  if (!Number.isFinite(cost) || cost <= 0 || !Number.isInteger(cost)) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid credit cost" });
+  }
+
+  if (creditType === "tts" && cost !== TTS_GENERATION_COST) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid TTS credit cost" });
+  }
+
+  if (creditType === "llm" && !isValidLlmCreditCost(cost)) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Invalid LLM credit cost" });
+  }
+
+}

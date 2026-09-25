@@ -33,16 +33,12 @@ function deriveLockState(
   goal: NormalizedWeeklyGoal<Doc<"weeklyGoals">>,
   viewerRole: GoalRole
 ): WeeklyGoalLockState {
-  const viewerLocked = goal.mode === "solo"
-    ? goal.creatorLocked
-    : viewerRole === "creator"
-      ? goal.creatorLocked
-      : goal.partnerLocked;
-  const partnerLocked = goal.mode === "solo"
-    ? false
-    : viewerRole === "creator"
-      ? goal.partnerLocked
-      : goal.creatorLocked;
+  const locks = {
+    creator: goal.creatorLocked,
+    partner: goal.mode === "shared" && goal.partnerLocked,
+  };
+  const viewerLocked = locks[viewerRole];
+  const partnerLocked = locks[viewerRole === "creator" ? "partner" : "creator"];
 
   if (viewerLocked && partnerLocked) return "both_locked";
   if (viewerLocked) return "viewer_locked";

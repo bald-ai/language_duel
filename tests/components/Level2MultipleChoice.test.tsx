@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { Level2MultipleChoice } from "@/app/game/levels/Level2MultipleChoice";
+import { cssVarColors } from "@/app/components/themeCssVars";
 
 describe("Level2MultipleChoice", () => {
   const answer = "gato";
@@ -59,6 +60,24 @@ describe("Level2MultipleChoice", () => {
 
     expect(onWrong).toHaveBeenCalled();
     expect(onCorrect).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes the correct answer, selected mistake, and unused options after submission", () => {
+    const onWrong = vi.fn();
+    render(<Level2MultipleChoice answer={answer} wrongAnswers={wrongAnswers} onCorrect={vi.fn()} onWrong={onWrong} onSkip={vi.fn()} dataTestIdBase="feedback" />);
+    const options = screen.getAllByTestId(/^feedback-option-/) as HTMLButtonElement[];
+    const selected = options.find(option => option.textContent !== answer)!;
+    fireEvent.click(selected);
+    expect(selected.style.borderColor).toBe(cssVarColors.secondary.DEFAULT);
+    fireEvent.click(screen.getByTestId("feedback-confirm"));
+    for (const option of options) {
+      expect(option.disabled).toBe(true);
+      if (option.textContent === answer) expect(option.style.borderColor).toBe(cssVarColors.status.success.DEFAULT);
+      else if (option === selected) expect(option.style.borderColor).toBe(cssVarColors.status.danger.DEFAULT);
+      else expect(option.classList.contains("opacity-50")).toBe(true);
+      fireEvent.click(option);
+    }
+    expect(onWrong).toHaveBeenCalledExactlyOnceWith(selected.textContent);
   });
 
   it("keyboard ArrowDown and Enter submits a selected option", async () => {

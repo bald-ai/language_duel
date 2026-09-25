@@ -1,3 +1,4 @@
+import type { Doc } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant } from "./helpers/auth";
@@ -16,22 +17,18 @@ export const fireHint = mutation({
     const { duel } = await getDuelParticipant(ctx, duelId);
     assertDuelMode(duel, "pve", "fireHint");
 
-    if (duel.status !== "active") {
-      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
+    requireHintAvailable(duel, duel.hintPoolUsed, hintType);
+
+    if (
+      !canFireHint(duel.hintPoolUsed, hintType, duel.currentQuestionHintFired)
+    ) {
+      throw new ConvexError({
+        code: "QUESTION_HINT_ALREADY_FIRED",
+        message: "Only one hint can be used per question",
+      });
     }
 
-    if (duel.hintPoolUsed.includes(hintType)) {
-      throw new ConvexError({ code: "HINT_ALREADY_USED", message: "This hint has already been used" });
-    }
-
-    if (!canFireHint(duel.hintPoolUsed, hintType, duel.currentQuestionHintFired)) {
-      throw new ConvexError({ code: "QUESTION_HINT_ALREADY_FIRED", message: "Only one hint can be used per question" });
-    }
-
-    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
-    if (!currentQuestion) {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
-    }
+    const currentQuestion = requireHintQuestion(duel);
     // PvE hints don't apply to sentence rounds in v1 (plan: mixed session
     // behavior). Bail out cleanly rather than fight a missing `options` field.
     if (currentQuestion.kind !== "word") {
@@ -43,22 +40,26 @@ export const fireHint = mutation({
 
     const existingEliminated = duel.eliminatedOptions ?? [];
     const visibleOptions = currentQuestion.options.filter(
-      (option) => !existingEliminated.includes(option)
+      (option) => !existingEliminated.includes(option),
     );
-    const hintSeed = hashSeed(`${duel.seed}:${duel.currentItemIndex}:${hintType}`);
+    const hintSeed = hashSeed(
+      `${duel.seed}:${duel.currentItemIndex}:${hintType}`,
+    );
     const effect = resolveEffect(
       hintType,
       {
         options: visibleOptions,
         correctOption: currentQuestion.correctOption,
       },
-      hintSeed
+      hintSeed,
     );
     const nextEliminatedOptions = Array.from(
-      new Set([...existingEliminated, ...effect.eliminatedOptions])
+      new Set([...existingEliminated, ...effect.eliminatedOptions]),
     );
     const currentStart =
-      typeof duel.questionStartTime === "number" ? duel.questionStartTime : Date.now();
+      typeof duel.questionStartTime === "number"
+        ? duel.questionStartTime
+        : Date.now();
 
     await ctx.db.patch(duelId, {
       hintPoolUsed: [...duel.hintPoolUsed, hintType],
@@ -88,22 +89,16 @@ export const fireSentenceHint = mutation({
     const { duel } = await getDuelParticipant(ctx, duelId);
     assertDuelMode(duel, "pve", "fireSentenceHint");
 
-    if (duel.status !== "active") {
-      throw new ConvexError({ code: "DUEL_NOT_ACTIVE", message: "Duel is not active" });
-    }
-
-    if (duel.sentenceHintPoolUsed.includes(hintType)) {
-      throw new ConvexError({ code: "HINT_ALREADY_USED", message: "This hint has already been used" });
-    }
+    requireHintAvailable(duel, duel.sentenceHintPoolUsed, hintType);
 
     if (duel.currentQuestionHintFired) {
-      throw new ConvexError({ code: "QUESTION_HINT_ALREADY_FIRED", message: "Only one hint can be used per question" });
+      throw new ConvexError({
+        code: "QUESTION_HINT_ALREADY_FIRED",
+        message: "Only one hint can be used per question",
+      });
     }
 
-    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
-    if (!currentQuestion) {
-      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
-    }
+    const currentQuestion = requireHintQuestion(duel);
     if (currentQuestion.kind !== "sentence") {
       throw new ConvexError({
         code: "HINT_NOT_AVAILABLE",
@@ -112,7 +107,9 @@ export const fireSentenceHint = mutation({
     }
 
     const existingEliminated = duel.currentQuestionEliminatedTileIndices ?? [];
-    const hintSeed = hashSeed(`${duel.seed}:${duel.currentItemIndex}:${hintType}`);
+    const hintSeed = hashSeed(
+      `${duel.seed}:${duel.currentItemIndex}:${hintType}`,
+    );
     const effect = resolveSentenceHint(hintType, {
       tilePool: currentQuestion.tilePool,
       spanishSentence: currentQuestion.spanishSentence,
@@ -126,7 +123,7 @@ export const fireSentenceHint = mutation({
       sentenceHintPoolUsed: [...duel.sentenceHintPoolUsed, hintType],
       currentQuestionHintFired: true,
       currentQuestionEliminatedTileIndices: Array.from(
-        new Set([...existingEliminated, ...effect.eliminatedTileIndices])
+        new Set([...existingEliminated, ...effect.eliminatedTileIndices]),
       ),
       currentQuestionRevealedTiles: effect.revealedTiles.length
         ? effect.revealedTiles
@@ -136,3 +133,33 @@ export const fireSentenceHint = mutation({
     });
   },
 });
+
+function requireHintAvailable(
+  duel: Doc<"duels">,
+  used: readonly string[],
+  hintType: string,
+) {
+  if (duel.status !== "active") {
+    throw new ConvexError({
+      code: "DUEL_NOT_ACTIVE",
+      message: "Duel is not active",
+    });
+  }
+  if (used.includes(hintType)) {
+    throw new ConvexError({
+      code: "HINT_ALREADY_USED",
+      message: "This hint has already been used",
+    });
+  }
+}
+
+function requireHintQuestion(duel: Doc<"duels">) {
+  const question = duel.duelQuestions?.[duel.currentItemIndex];
+  if (!question) {
+    throw new ConvexError({
+      code: "INTERNAL_ERROR",
+      message: "Duel question data is missing",
+    });
+  }
+  return question;
+}

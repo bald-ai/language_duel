@@ -637,3 +637,107 @@ describe("validateTimedOutFlag", () => {
     expect(() => validateTimedOutFlag(0)).toThrow(/boolean/i);
   });
 });
+
+describe("sentence round lifecycle boundaries", () => {
+  const player = { questionIndex: 0, role: "challenger" as const };
+
+  it.each([applySentenceTap, appendSentenceTile])("rejects negative, completed and finalized placement without writing (%#)", (place) => {
+    for (const progress of [{ completed: true }, { finalized: true }]) {
+      const duel = sentenceDuel(pvpProgress(progress));
+      expect(place({ duel, ...player, tileIndex: 0 })).toEqual({ patch: {}, accepted: false });
+    }
+    expect(place({ duel: sentenceDuel(), ...player, tileIndex: -1 })).toEqual({ patch: {}, accepted: false });
+  });
+
+  it("ignores cooperative taps after all target slots are occupied", () => {
+    const duel = sentenceDuel(pvpProgress({ placedTileIndices: [0, 1] }));
+    expect(applySentenceTap({ duel, ...player, tileIndex: 2 })).toEqual({ patch: {}, accepted: false });
+  });
+
+  it.each([appendSentenceTile, removeLastSentenceTile, clearSentenceBoard, confirmSentenceRound])("rejects missing sentence positions before editing (%#)", (edit) => {
+    expect(() => edit({ duel: baseDuel(), ...player, tileIndex: 0 })).toThrow("This duel position is not a sentence round");
+  });
+
+  it("preserves progress belonging to another player or question", () => {
+    const otherPlayer = pvpProgress({ role: "opponent", placedTileIndices: [1] })![0];
+    const otherQuestion = pvpProgress({ questionIndex: 1, placedTileIndices: [2] })![0];
+    const current = pvpProgress({ placedTileIndices: [] })![0];
+    const duel = sentenceDuel([otherPlayer, current, otherQuestion]);
+    const { patch } = appendSentenceTile({ duel, ...player, tileIndex: 0 });
+    expect(patch.sentenceProgress).toEqual([otherPlayer, otherQuestion, { ...current, placedTileIndices: [0] }]);
+    expect(duel.sentenceProgress).toEqual([otherPlayer, current, otherQuestion]);
+  });
+
+  it.each([removeLastSentenceTile, clearSentenceBoard])("does not create absent progress or edit finalized/empty boards (%#)", (edit) => {
+    expect(edit({ duel: sentenceDuel(), ...player })).toEqual({ patch: {} });
+    for (const progress of [{ finalized: true, placedTileIndices: [0] }, { placedTileIndices: [] }]) {
+      expect(edit({ duel: sentenceDuel(pvpProgress(progress)), ...player })).toEqual({ patch: {} });
+    }
+  });
+
+  it("charges one failed confirm per distinct wrong board, including changed length", () => {
+    let duel = sentenceDuel(pvpProgress({ placedTileIndices: [2] }));
+    const first = confirmSentenceRound({ duel, ...player });
+    expect(first.result).toEqual({ completed: false, correctnessMask: [false], failedConfirms: 1 });
+    duel = { ...duel, ...first.patch };
+    expect(confirmSentenceRound({ duel, ...player })).toEqual({ patch: {}, result: first.result });
+    duel = { ...duel, ...appendSentenceTile({ duel, ...player, tileIndex: 1 }).patch };
+    const second = confirmSentenceRound({ duel, ...player });
+    expect(second.result.failedConfirms).toBe(2);
+    duel = { ...duel, ...second.patch };
+    duel = { ...duel, ...clearSentenceBoard({ duel, ...player }).patch };
+    duel = { ...duel, ...appendSentenceTile({ duel, ...player, tileIndex: 0 }).patch };
+    duel = { ...duel, ...appendSentenceTile({ duel, ...player, tileIndex: 2 }).patch };
+    const third = confirmSentenceRound({ duel, ...player });
+    expect(third.result).toEqual({ completed: false, correctnessMask: [true, false], failedConfirms: 3 });
+    expect(third.patch.sentenceProgress?.[0].lastFailedConfirmTileIndices).toEqual([0, 2]);
+  });
+
+  it("does not complete a correct but partial sentence", () => {
+    const duel = sentenceDuel(pvpProgress({ placedTileIndices: [0] }));
+    expect(confirmSentenceRound({ duel, ...player }).result).toEqual({ completed: false, correctnessMask: [true], failedConfirms: 1 });
+  });
+
+  it("returns the current mask without writes for completed or finalized progress", () => {
+    for (const progress of [{ completed: true }, { finalized: true }]) {
+      const duel = sentenceDuel(pvpProgress({ ...progress, placedTileIndices: [0, 1], failedConfirms: 2 }));
+      expect(confirmSentenceRound({ duel, ...player })).toEqual({
+        patch: {}, result: { correctnessMask: [true, true], completed: progress.completed === true, failedConfirms: 2 },
+      });
+    }
+  });
+
+  it("reports invalid and excess positions as incorrect without revealing the answer", () => {
+    const duel = sentenceDuel(pvpProgress({ placedTileIndices: [0, 99, 1] }));
+    expect(confirmSentenceRound({ duel, ...player }).result).toEqual({
+      completed: false, failedConfirms: 1, correctnessMask: [true, false, false],
+    });
+  });
+
+  it("an untouched board has no confirmation penalty", () => {
+    expect(confirmSentenceRound({ duel: sentenceDuel(), ...player })).toEqual({
+      patch: {}, result: { correctnessMask: [], completed: false, failedConfirms: 0 },
+    });
+  });
+
+  it("records opponent score and finalization once without changing the challenger", () => {
+    const duel = sentenceDuel(pvpProgress({ role: "opponent", completed: true }), { opponentScore: 5, challengerScore: 7 });
+    const submission = { playerRole: "opponent" as const, isChallenger: false, timedOut: false, questionIndex: 0 };
+    const patch = buildSentenceAnswerPatch({ duel, ...submission });
+    expect(patch).toEqual({ opponentAnswered: true, opponentScore: 6, opponentLastAnswer: "sentence:confirms=0",
+      sentenceProgress: [{ ...duel.sentenceProgress![0], finalized: true }] });
+    expect(buildSentenceAnswerPatch({ duel: { ...duel, ...patch }, ...submission })).toEqual({});
+    expect(buildSentenceAnswerPatch({ duel: { ...duel, challengerAnswered: true }, ...submission, isChallenger: true, playerRole: "challenger" })).toEqual({});
+  });
+
+  it("finalizes an untouched timeout and preserves an already finalized row", () => {
+    const submission = { playerRole: "challenger" as const, isChallenger: true, timedOut: true, questionIndex: 0 };
+    const patch = buildSentenceAnswerPatch({ duel: sentenceDuel(), ...submission });
+    expect(patch.challengerLastAnswer).toBe("__TIMEOUT__");
+    expect(patch.challengerScore).toBe(0);
+    expect(patch.sentenceProgress).toEqual([{
+      questionIndex: 0, role: "challenger", placedTileIndices: [], mistakes: 0, completed: false, finalized: true,
+    }]);
+    expect(buildSentenceAnswerPatch({ duel: sentenceDuel(pvpProgress({ finalized: true })), ...submission }).sentenceProgress).toBeUndefined();
+  });
+});

@@ -298,6 +298,44 @@ describe("DuelSession", () => {
     mutationMocks.tbtQuestionTimeout.mockResolvedValue(undefined);
   });
 
+  it.each([false, true])("only discloses the live answer when the reveal flag is %s", revealed => {
+    render(<DuelSession duel={createDuel({ duelQuestions: [wordQuestion({ answerRevealedToViewer: revealed }), wordQuestion()] })} challenger={challenger} opponent={opponent} viewerRole="challenger" />);
+    expect(getDuelViewProps().answers.correctAnswer).toBe(revealed ? "gato" : null);
+    expect(getDuelViewProps().answers.hasNoneOption).toBe(revealed ? false : null);
+    expect(getDuelViewProps().round.word).toBe("cat");
+  });
+
+  it("uses the word answer when the published option is None of the above", () => {
+    render(<DuelSession duel={createDuel({ duelQuestions: [wordQuestion({ answerRevealedToViewer: true, correctOption: "None of the above" }), wordQuestion()] })} challenger={challenger} opponent={opponent} viewerRole="challenger" />);
+    expect(getDuelViewProps().answers.correctAnswer).toBe("gato");
+    expect(getDuelViewProps().answers.hasNoneOption).toBe(true);
+  });
+
+  it("maps the displayed round through item order with its theme and stored audio", () => {
+    const duel = createDuel({ itemOrder: [1, 0], sessionItems: [wordItem(), wordItem({ word: "dog", answer: "perro", themeId: "theme_2" as Id<"themes">, themeName: "Pets", ttsStorageId: "audio_dog" as Id<"_storage"> })] });
+    render(<DuelSession duel={duel} challenger={challenger} opponent={opponent} viewerRole="challenger" />);
+    expect(getDuelViewProps().round).toMatchObject({ index: 0, word: "dog", sourceThemeName: "Pets" });
+    act(() => getDuelViewProps().actions.onPlayAudio());
+    expect(ttsMocks.playTTS).toHaveBeenCalledExactlyOnceWith("duel-answer-perro", "perro", { storageId: "audio_dog", themeId: "theme_2" });
+  });
+
+  it("projects the other player's identity, score and answer for an opponent viewer", () => {
+    render(<DuelSession duel={createDuel({ challengerScore: 4, opponentScore: 7, challengerLastAnswer: "mesa" })} challenger={challenger} opponent={opponent} viewerRole="opponent" />);
+    expect(getDuelViewProps().score).toMatchObject({ myName: "Opponent", theirName: "Challenger", myScore: 7, theirScore: 4 });
+    expect(getDuelViewProps().answers.opponentLastAnswer).toBe("mesa");
+  });
+
+  it.each([-1, 0, 1])("assigns outgoing sabotage only to the current round (%s)", offset => {
+    const start = Date.now();
+    render(<DuelSession duel={createDuel({ questionStartTime: start, opponentSabotage: { effect: "sticky", timestamp: start + offset } })} challenger={challenger} opponent={opponent} viewerRole="challenger" />);
+    expect(getDuelViewProps().sabotage.hasSentSabotageThisQuestion).toBe(offset >= 0);
+  });
+
+  it("does not assign outgoing sabotage without a round start time", () => {
+    render(<DuelSession duel={createDuel({ questionStartTime: undefined, opponentSabotage: { effect: "sticky", timestamp: Date.now() } })} challenger={challenger} opponent={opponent} viewerRole="challenger" />);
+    expect(getDuelViewProps().sabotage.hasSentSabotageThisQuestion).toBe(false);
+  });
+
   it("freezes the answered question snapshot during transition", async () => {
     const { rerender } = render(
       <DuelSession
@@ -352,6 +390,8 @@ describe("DuelSession", () => {
     );
 
     await waitFor(() => expect(getDuelViewProps().phase).toBe("transition"));
+    expect(getDuelViewProps().round).toMatchObject({ word: "cat", index: 0, difficulty: { level: "easy", points: 1 } });
+    expect(getDuelViewProps().answers).toMatchObject({ correctAnswer: "gato", selectedAnswer: "gato", opponentLastAnswer: "perro", hasNoneOption: false });
     expect(getDuelViewProps().round.frozenData).toMatchObject({
       word: "cat",
       correctAnswer: "gato",
@@ -940,6 +980,15 @@ describe("DuelSession", () => {
   }
 
   describe("cross-kind transition controls", () => {
+    it("uses the opponent viewer's identity and scores while showing the prior sentence", () => {
+      renderSentenceToWordTransition({ viewerRole: "opponent", advancedOverrides: { challengerScore: 3, opponentScore: 8 } });
+      expect(screen.getByText("You (Opponent)").parentElement?.textContent).toBe("You (Opponent)8");
+      expect(screen.getByText("Challenger").parentElement?.textContent).toBe("Challenger3");
+      expect(screen.getByTestId("cross-kind-transition-prompt").textContent).toBe("I eat bread");
+      expect(screen.getByTestId("cross-kind-transition-answer").textContent).toBe("Yo como pan");
+      expect(screen.queryByTestId("cross-kind-transition-listen")).toBeNull();
+    });
+
     it("renders pause and skip controls on the transition", () => {
       renderSentenceToWordTransition();
 

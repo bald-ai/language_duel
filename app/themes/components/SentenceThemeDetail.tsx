@@ -5,7 +5,7 @@ import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 import { analyzeSentenceThemeIssues } from "@/lib/themes/themeUiValidation";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { SentenceRoundCard, type SentenceRowIssues } from "./SentenceRoundCard";
-import { SentenceThemeDetailHeader } from "./SentenceThemeDetailHeader";
+import { ThemeDetailHeader } from "./ThemeDetailHeader";
 import { ThemeActionDock } from "./ThemeActionDock";
 import type { SentenceRoundField } from "./SentenceRoundCard";
 
@@ -89,13 +89,13 @@ export function SentenceThemeDetail({
   const issuesByIndex = useMemo(() => {
     const map = new Map<number, SentenceRowIssues>();
     localRounds.forEach((_round, index) => {
-      const slot = perRound.get(index);
-      map.set(index, {
-        isDuplicate: slot?.isDuplicate ?? false,
-        englishHasIssue: slot?.englishHasIssue ?? false,
-        spanishHasIssue: slot?.spanishHasIssue ?? false,
-        distractorHasIssue: slot?.distractorHasIssue ?? new Set<number>(),
-        issueMessage: slot?.issueMessage ?? null,
+      // The analyzer only stores rows with issues; missing rows are clean.
+      map.set(index, perRound.get(index) ?? {
+        isDuplicate: false,
+        englishHasIssue: false,
+        spanishHasIssue: false,
+        distractorHasIssue: new Set<number>(),
+        issueMessage: null,
       });
     });
     return map;
@@ -105,13 +105,14 @@ export function SentenceThemeDetail({
 
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col">
-      <SentenceThemeDetailHeader
+      <ThemeDetailHeader
+        contentType="sentence"
         themeName={theme.name}
         isOwner={isOwner}
         canEdit={canEdit}
         ownerDisplay={ownerDisplay}
         onThemeNameChange={onThemeNameChange}
-        onOpenAddRound={onOpenAddRound}
+        onOpenAddItem={onOpenAddRound}
         onOpenGenerateMore={onOpenGenerateMore}
         visibility={visibility}
         isUpdatingVisibility={isUpdatingVisibility}

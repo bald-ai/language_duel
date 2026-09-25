@@ -25,7 +25,10 @@ import {
   sentenceTokensChanged,
 } from "../../lib/themes/sentenceValidation";
 import type { WordType } from "../../lib/themes/wordTypes";
-import type { SentenceRoundInput, ThemeContentType } from "../../lib/themes/sentenceTypes";
+import type {
+  SentenceRoundInput,
+  ThemeContentType,
+} from "../../lib/themes/sentenceTypes";
 import {
   applyGeneratedTts,
   reconcileThemeSentenceTts,
@@ -87,7 +90,7 @@ type SentenceWordMeaningRefreshRound = {
 
 function assertCreateContentMatches(
   contentType: ThemeContentType,
-  args: { words?: ThemeWordWithTts[]; sentenceRounds?: SentenceRoundInput[] }
+  args: { words?: ThemeWordWithTts[]; sentenceRounds?: SentenceRoundInput[] },
 ) {
   if (contentType === "word") {
     if (args.sentenceRounds !== undefined) {
@@ -120,14 +123,14 @@ function assertCreateContentMatches(
 
 function withPlaceholderWordMeanings<TRound extends SentenceRoundWithTts>(
   round: TRound,
-  freeWordPositions = round.freeWordPositions
+  freeWordPositions = round.freeWordPositions,
 ): TRowWithSentenceFreeWords<TRound> {
   return {
     ...round,
     wordMeanings: buildPlaceholderSentenceWordMeanings(round.spanishSentence),
     freeWordPositions: normalizeSentenceFreeWordPositions(
       round.spanishSentence,
-      freeWordPositions
+      freeWordPositions,
     ),
   };
 }
@@ -139,16 +142,18 @@ type TRowWithSentenceFreeWords<TRow extends SentenceRoundWithTts> = TRow & {
 
 function buildSentenceWordMeaningRefreshRounds(
   rounds: readonly TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
-  roundIndices: readonly number[]
+  roundIndices: readonly number[],
 ): SentenceWordMeaningRefreshRound[] {
   return roundIndices.flatMap((roundIndex) => {
     const round = rounds[roundIndex];
     if (!round) return [];
-    return [{
-      roundIndex,
-      englishPrompt: round.englishPrompt,
-      spanishSentence: round.spanishSentence,
-    }];
+    return [
+      {
+        roundIndex,
+        englishPrompt: round.englishPrompt,
+        spanishSentence: round.spanishSentence,
+      },
+    ];
   });
 }
 
@@ -157,14 +162,21 @@ async function scheduleSentenceWordMeaningRefresh(
   user: Doc<"users">,
   themeId: Id<"themes">,
   rounds: readonly TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
-  roundIndices: readonly number[]
+  roundIndices: readonly number[],
 ) {
-  const refreshRounds = buildSentenceWordMeaningRefreshRounds(rounds, roundIndices);
+  const refreshRounds = buildSentenceWordMeaningRefreshRounds(
+    rounds,
+    roundIndices,
+  );
   if (refreshRounds.length === 0) return;
 
   // Flat LLM charge per save that needs hints. Out of credits is non-fatal: the
   // save stands and the affected rounds keep their placeholder meanings.
-  const charged = computeCreditConsumption(user, "llm", SENTENCE_HINT_REFRESH_CREDITS);
+  const charged = computeCreditConsumption(
+    user,
+    "llm",
+    SENTENCE_HINT_REFRESH_CREDITS,
+  );
   if (!charged) return;
   await ctx.db.patch(user._id, {
     llmCreditsRemaining: charged.llmCreditsRemaining,
@@ -175,19 +187,19 @@ async function scheduleSentenceWordMeaningRefresh(
   await ctx.scheduler.runAfter(
     0,
     internal.themes.sentenceWordMeanings.refreshSentenceWordMeanings,
-    { themeId, rounds: refreshRounds }
+    { themeId, rounds: refreshRounds },
   );
 }
 
 function reconcileSentenceWordMeanings(
   previousRounds: readonly SentenceRoundWithTts[],
-  nextRounds: readonly SentenceRoundWithTts[]
+  nextRounds: readonly SentenceRoundWithTts[],
 ): {
   rounds: TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
   refreshRoundIndices: number[];
 } {
   const previousBySpanish = new Map(
-    previousRounds.map((round) => [round.spanishSentence, round])
+    previousRounds.map((round) => [round.spanishSentence, round]),
   );
   const refreshRoundIndices: number[] = [];
 
@@ -196,7 +208,7 @@ function reconcileSentenceWordMeanings(
     const sameIndexPrevious = previousRounds[roundIndex];
     const normalizedFreeWordPositions = normalizeSentenceFreeWordPositions(
       round.spanishSentence,
-      round.freeWordPositions
+      round.freeWordPositions,
     );
 
     if (sameSpanishPrevious) {
@@ -209,7 +221,7 @@ function reconcileSentenceWordMeanings(
         ...round,
         wordMeanings: normalizeSentenceWordMeanings(
           round.spanishSentence,
-          sameSpanishPrevious.wordMeanings
+          sameSpanishPrevious.wordMeanings,
         ),
         freeWordPositions: normalizedFreeWordPositions,
       };
@@ -217,7 +229,10 @@ function reconcileSentenceWordMeanings(
 
     if (
       sameIndexPrevious &&
-      sentenceTokensChanged(sameIndexPrevious.spanishSentence, round.spanishSentence)
+      sentenceTokensChanged(
+        sameIndexPrevious.spanishSentence,
+        round.spanishSentence,
+      )
     ) {
       refreshRoundIndices.push(roundIndex);
       return withPlaceholderWordMeanings(round, []);
@@ -227,7 +242,7 @@ function reconcileSentenceWordMeanings(
       ...round,
       wordMeanings: normalizeSentenceWordMeanings(
         round.spanishSentence,
-        round.wordMeanings
+        round.wordMeanings,
       ),
       freeWordPositions: normalizedFreeWordPositions,
     };
@@ -242,7 +257,7 @@ function reconcileSentenceWordMeanings(
 
 export async function handleCreateTheme(
   ctx: MutationCtx,
-  args: CreateThemeArgs
+  args: CreateThemeArgs,
 ): Promise<Id<"themes">> {
   const { user } = await getAuthenticatedUser(ctx);
   const normalizedName = normalizeThemeName(args.name);
@@ -258,7 +273,7 @@ export async function handleCreateTheme(
     const existingTheme = await ctx.db
       .query("themes")
       .withIndex("by_owner_save_request", (q) =>
-        q.eq("ownerId", user._id).eq("saveRequestId", normalizedSaveRequestId)
+        q.eq("ownerId", user._id).eq("saveRequestId", normalizedSaveRequestId),
       )
       .first();
 
@@ -269,7 +284,7 @@ export async function handleCreateTheme(
 
   if (contentType === "sentence") {
     const normalizedRounds = normalizeSentenceRounds(
-      args.sentenceRounds!
+      args.sentenceRounds!,
     ) as TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
     const themeId = await ctx.db.insert("themes", {
       name: normalizedName,
@@ -279,19 +294,18 @@ export async function handleCreateTheme(
       sentenceRounds: normalizedRounds,
       createdAt: Date.now(),
       ownerId: user._id,
-      visibility: args.visibility || "private",
-      friendsCanEdit: args.friendsCanEdit ?? false,
+      ...themeSharingFields(args),
       saveRequestId: normalizedSaveRequestId,
     });
     const refreshRoundIndices = normalizedRounds.flatMap((round, roundIndex) =>
-      hasPlaceholderSentenceWordMeanings(round) ? [roundIndex] : []
+      hasPlaceholderSentenceWordMeanings(round) ? [roundIndex] : [],
     );
     await scheduleSentenceWordMeaningRefresh(
       ctx,
       user,
       themeId,
       normalizedRounds,
-      refreshRoundIndices
+      refreshRoundIndices,
     );
     return themeId;
   }
@@ -305,13 +319,15 @@ export async function handleCreateTheme(
     words: normalizedWords,
     createdAt: Date.now(),
     ownerId: user._id,
-    visibility: args.visibility || "private",
-    friendsCanEdit: args.friendsCanEdit ?? false,
+    ...themeSharingFields(args),
     saveRequestId: normalizedSaveRequestId,
   });
 }
 
-export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs) {
+export async function handleUpdateTheme(
+  ctx: MutationCtx,
+  args: UpdateThemeArgs,
+) {
   const { user } = await getAuthenticatedUser(ctx);
 
   const theme = await requireThemeEditor(ctx, args.themeId, user._id);
@@ -332,42 +348,16 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
     filteredUpdates.name = normalizeThemeName(updates.name);
   }
   if (updates.description !== undefined) {
-    filteredUpdates.description = normalizeThemeDescription(updates.description);
+    filteredUpdates.description = normalizeThemeDescription(
+      updates.description,
+    );
   }
 
   if (themeContentType === "sentence") {
-    if (updates.words !== undefined) {
-      throw new ConvexError({
-        code: "INVALID_INPUT",
-        message: "Sentence themes don't accept word updates",
-      });
-    }
-    if (updates.sentenceRounds !== undefined) {
-      // Mirror the word branch: reconcile so audio survives distractor-only
-      // edits but is dropped when English or Spanish changes, then delete the
-      // now-orphaned storage files (unless a locked snapshot still references
-      // them). Identity is `spanishSentence` — see SENTENCE_TTS_SHAPE.
-      const normalizedRounds = normalizeSentenceRounds(
-        updates.sentenceRounds
-      ) as SentenceRoundWithTts[];
-      const previousRounds = (theme.sentenceRounds ?? []) as SentenceRoundWithTts[];
-      const { rounds: meaningReconciledRounds, refreshRoundIndices } =
-        reconcileSentenceWordMeanings(previousRounds, normalizedRounds);
-      const reconciledRounds = reconcileThemeSentenceTts<SentenceRoundWithTts>(
-        previousRounds,
-        meaningReconciledRounds
-      ) as TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
-
-      filteredUpdates.sentenceRounds = reconciledRounds;
-      await cleanupThemeTtsAfterContentUpdate(ctx, themeId, previousRounds, reconciledRounds);
-      await scheduleSentenceWordMeaningRefresh(
-        ctx,
-        user,
-        themeId,
-        reconciledRounds,
-        refreshRoundIndices
-      );
-    }
+    Object.assign(
+      filteredUpdates,
+      await buildSentenceContentUpdate(ctx, user, theme, updates),
+    );
   } else {
     if (updates.sentenceRounds !== undefined) {
       throw new ConvexError({
@@ -380,11 +370,16 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
       const previousWords = (theme.words ?? []) as ThemeWordWithTts[];
       const reconciledWords = reconcileThemeWordTts<ThemeWordWithTts>(
         previousWords,
-        normalizedWords
+        normalizedWords,
       );
 
       filteredUpdates.words = reconciledWords;
-      await cleanupThemeTtsAfterContentUpdate(ctx, themeId, previousWords, reconciledWords);
+      await cleanupThemeTtsAfterContentUpdate(
+        ctx,
+        themeId,
+        previousWords,
+        reconciledWords,
+      );
     }
   }
 
@@ -394,7 +389,7 @@ export async function handleUpdateTheme(ctx: MutationCtx, args: UpdateThemeArgs)
 
 export async function handleUpdateThemeVisibility(
   ctx: MutationCtx,
-  args: { themeId: Id<"themes">; visibility: ThemeVisibility }
+  args: { themeId: Id<"themes">; visibility: ThemeVisibility },
 ) {
   const { user } = await getAuthenticatedUser(ctx);
 
@@ -402,7 +397,7 @@ export async function handleUpdateThemeVisibility(
     ctx.db,
     args.themeId,
     user._id,
-    "You can only change visibility of your own themes"
+    "You can only change visibility of your own themes",
   );
 
   await ctx.db.patch(args.themeId, { visibility: args.visibility });
@@ -411,7 +406,7 @@ export async function handleUpdateThemeVisibility(
 
 export async function handleUpdateThemeFriendsCanEdit(
   ctx: MutationCtx,
-  args: { themeId: Id<"themes">; friendsCanEdit: boolean }
+  args: { themeId: Id<"themes">; friendsCanEdit: boolean },
 ) {
   const { user } = await getAuthenticatedUser(ctx);
 
@@ -419,7 +414,7 @@ export async function handleUpdateThemeFriendsCanEdit(
     ctx.db,
     args.themeId,
     user._id,
-    "You can only change edit permissions of your own themes"
+    "You can only change edit permissions of your own themes",
   );
 
   await ctx.db.patch(args.themeId, { friendsCanEdit: args.friendsCanEdit });
@@ -428,7 +423,7 @@ export async function handleUpdateThemeFriendsCanEdit(
 
 export async function handleDeleteTheme(
   ctx: MutationCtx,
-  args: { themeId: Id<"themes"> }
+  args: { themeId: Id<"themes"> },
 ) {
   const { user } = await getAuthenticatedUser(ctx);
 
@@ -436,12 +431,12 @@ export async function handleDeleteTheme(
     ctx.db,
     args.themeId,
     user._id,
-    "You can only delete your own themes"
+    "You can only delete your own themes",
   );
 
   const draftGoals = await loadDraftGoalsForUser(ctx, user._id);
   const isInDraftGoal = draftGoals.some((goal) =>
-    goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId)
+    goal.themes.some((goalTheme) => goalTheme.themeId === args.themeId),
   );
   if (isInDraftGoal) {
     throw new ConvexError({
@@ -450,21 +445,24 @@ export async function handleDeleteTheme(
     });
   }
 
-  const themeStorageIds = theme.contentType === "word"
-    ? collectTtsStorageIds((theme.words ?? []) as ThemeWordWithTts[])
-    : collectTtsStorageIds((theme.sentenceRounds ?? []) as SentenceRoundWithTts[]);
+  const themeStorageIds =
+    theme.contentType === "word"
+      ? collectTtsStorageIds((theme.words ?? []) as ThemeWordWithTts[])
+      : collectTtsStorageIds(
+          (theme.sentenceRounds ?? []) as SentenceRoundWithTts[],
+        );
   await ctx.db.delete(args.themeId);
   await deleteUnreferencedStorageIdsForTheme(
     ctx,
     args.themeId,
     themeStorageIds,
-    "[Theme TTS] Failed to delete deleted-theme storage file:"
+    "[Theme TTS] Failed to delete deleted-theme storage file:",
   );
 }
 
 export async function handleDuplicateTheme(
   ctx: MutationCtx,
-  args: { themeId: Id<"themes"> }
+  args: { themeId: Id<"themes"> },
 ): Promise<Id<"themes">> {
   const { user } = await getAuthenticatedUser(ctx);
 
@@ -514,7 +512,7 @@ export async function handleDuplicateTheme(
 
 export async function handleApplyGeneratedThemeTts(
   ctx: MutationCtx,
-  args: ApplyGeneratedThemeTtsArgs
+  args: ApplyGeneratedThemeTtsArgs,
 ): Promise<ApplyGeneratedThemeTtsResult> {
   const theme = await ctx.db.get(args.themeId);
   if (!theme) {
@@ -529,12 +527,13 @@ export async function handleApplyGeneratedThemeTts(
     const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
       SENTENCE_TTS_PIPELINE_SHAPE,
       (theme.sentenceRounds ?? []) as SentenceRoundWithTts[],
-      args.generated
+      args.generated,
     );
 
     if (applied > 0) {
       await ctx.db.patch(args.themeId, {
-        sentenceRounds: rows as TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
+        sentenceRounds:
+          rows as TRowWithSentenceFreeWords<SentenceRoundWithTts>[],
       });
     }
 
@@ -544,7 +543,7 @@ export async function handleApplyGeneratedThemeTts(
   const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
     WORD_TTS_PIPELINE_SHAPE,
     (theme.words ?? []) as ThemeWordWithTts[],
-    args.generated
+    args.generated,
   );
 
   if (applied > 0) {
@@ -556,7 +555,7 @@ export async function handleApplyGeneratedThemeTts(
 
 export async function handleToggleThemeArchive(
   ctx: MutationCtx,
-  args: { themeId: Id<"themes"> }
+  args: { themeId: Id<"themes"> },
 ): Promise<boolean> {
   const { user } = await getAuthenticatedUser(ctx);
 
@@ -569,4 +568,61 @@ export async function handleToggleThemeArchive(
 
   await ctx.db.patch(user._id, { archivedThemeIds: newArchived });
   return !isArchived;
+}
+
+function themeSharingFields(
+  args: Pick<CreateThemeArgs, "visibility" | "friendsCanEdit">,
+) {
+  return {
+    visibility: args.visibility || "private",
+    friendsCanEdit: args.friendsCanEdit ?? false,
+  };
+}
+
+async function buildSentenceContentUpdate(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  theme: Extract<Doc<"themes">, { contentType: "sentence" }>,
+  updates: Omit<UpdateThemeArgs, "themeId">,
+): Promise<{ sentenceRounds?: SentenceRoundWithTts[] }> {
+  const themeId = theme._id;
+  if (updates.words !== undefined) {
+    throw new ConvexError({
+      code: "INVALID_INPUT",
+      message: "Sentence themes don't accept word updates",
+    });
+  }
+  if (updates.sentenceRounds !== undefined) {
+    // Mirror the word branch: reconcile so audio survives distractor-only
+    // edits but is dropped when English or Spanish changes, then delete the
+    // now-orphaned storage files (unless a locked snapshot still references
+    // them). Identity is `spanishSentence` — see SENTENCE_TTS_SHAPE.
+    const normalizedRounds = normalizeSentenceRounds(
+      updates.sentenceRounds,
+    ) as SentenceRoundWithTts[];
+    const previousRounds = (theme.sentenceRounds ??
+      []) as SentenceRoundWithTts[];
+    const { rounds: meaningReconciledRounds, refreshRoundIndices } =
+      reconcileSentenceWordMeanings(previousRounds, normalizedRounds);
+    const reconciledRounds = reconcileThemeSentenceTts<SentenceRoundWithTts>(
+      previousRounds,
+      meaningReconciledRounds,
+    ) as TRowWithSentenceFreeWords<SentenceRoundWithTts>[];
+
+    await cleanupThemeTtsAfterContentUpdate(
+      ctx,
+      themeId,
+      previousRounds,
+      reconciledRounds,
+    );
+    await scheduleSentenceWordMeaningRefresh(
+      ctx,
+      user,
+      themeId,
+      reconciledRounds,
+      refreshRoundIndices,
+    );
+    return { sentenceRounds: reconciledRounds };
+  }
+  return {};
 }

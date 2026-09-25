@@ -13,10 +13,7 @@ import type {
   SpacedRepetitionCompletion,
 } from "./types";
 import { loadSpacedRepetitionSnapshotContent } from "./contentLoading";
-import {
-  getRepetitionRecord,
-  isGoalParticipant,
-} from "./rules";
+import { getRepetitionRecord, isGoalParticipant } from "./rules";
 
 export async function loadReadyRepetitionContext(args: {
   ctx: CtxWithDb;
@@ -24,30 +21,32 @@ export async function loadReadyRepetitionContext(args: {
   userId: Id<"users">;
   now: number;
 }): Promise<ReadyRepetitionContext> {
-  const goal = await args.ctx.db.get(args.weeklyGoalId);
-  if (!goal || goal.status !== "completed") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Spaced repetition is only available for completed goals." });
-  }
-  if (typeof goal.completedAt !== "number") {
-    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Spaced repetition is not available for this completed goal." });
-  }
-  if (!isGoalParticipant(goal, args.userId)) {
-    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-  }
+  const { goal, goalCompletedAt } = await requireCompletedRepetitionGoal(args);
 
-  const record = await getRepetitionRecord(args.ctx, args.weeklyGoalId, args.userId);
+  const record = await getRepetitionRecord(
+    args.ctx,
+    args.weeklyGoalId,
+    args.userId,
+  );
   if (!record) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "Spaced repetition is not ready yet. Refresh the board and try again." });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message:
+        "Spaced repetition is not ready yet. Refresh the board and try again.",
+    });
   }
   const bucket = getSpacedRepetitionBucket(
     {
       completedSteps: record.completedSteps,
-      goalCompletedAt: goal.completedAt,
+      goalCompletedAt,
     },
-    args.now
+    args.now,
   );
   if (bucket !== "ready") {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This repetition is not ready yet." });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "This repetition is not ready yet.",
+    });
   }
 
   const content = await loadSpacedRepetitionSnapshotContent(args.ctx, goal);
@@ -57,7 +56,10 @@ export async function loadReadyRepetitionContext(args: {
 
   const step = getSpacedRepetitionCurrentStep(record.completedSteps);
   if (step === null) {
-    throw new ConvexError({ code: "INVALID_STATE", message: "This repetition is already complete." });
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "This repetition is already complete.",
+    });
   }
 
   return { goal, record, bucket, content, step };
@@ -73,39 +75,29 @@ export async function advanceUserIfReady(args: {
   soloPracticeSessionId?: Id<"soloPracticeSessions">;
   expectedStep?: number;
 }) {
-  const record = await getRepetitionRecord(args.ctx, args.goal._id, args.userId);
+  const record = await getRepetitionRecord(
+    args.ctx,
+    args.goal._id,
+    args.userId,
+  );
   if (!record || isSpacedRepetitionDone(record.completedSteps)) {
-    console.warn("Skipping spaced repetition advance: record missing or already done.", {
-      weeklyGoalId: args.goal._id,
-      userId: args.userId,
-    });
+    console.warn(
+      "Skipping spaced repetition advance: record missing or already done.",
+      {
+        weeklyGoalId: args.goal._id,
+        userId: args.userId,
+      },
+    );
     return false;
   }
 
-  if (typeof args.goal.completedAt !== "number") {
-    console.warn("Skipping spaced repetition advance: completed goal is missing completedAt.", {
-      weeklyGoalId: args.goal._id,
-      userId: args.userId,
-    });
-    return false;
-  }
-
-  const dueAt = getSpacedRepetitionDueAt({
-    completedSteps: record.completedSteps,
-    goalCompletedAt: args.goal.completedAt,
-  });
-  if (dueAt === null || dueAt > args.now) {
-    console.warn("Skipping spaced repetition advance: repetition is not due.", {
-      weeklyGoalId: args.goal._id,
-      userId: args.userId,
-      dueAt,
-      now: args.now,
-    });
-    return false;
-  }
+  if (!isRepetitionDue(args, record)) return false;
 
   const step = getSpacedRepetitionCurrentStep(record.completedSteps);
-  if (step === null || (args.expectedStep !== undefined && step !== args.expectedStep)) {
+  if (
+    step === null ||
+    (args.expectedStep !== undefined && step !== args.expectedStep)
+  ) {
     console.warn("Skipping spaced repetition advance: step mismatch.", {
       weeklyGoalId: args.goal._id,
       userId: args.userId,
@@ -127,6 +119,70 @@ export async function advanceUserIfReady(args: {
     ],
     updatedAt: args.now,
   });
+
+  return true;
+}
+
+async function requireCompletedRepetitionGoal(
+  args: Pick<
+    Parameters<typeof loadReadyRepetitionContext>[0],
+    "ctx" | "weeklyGoalId" | "userId"
+  >,
+) {
+  const goal = await args.ctx.db.get(args.weeklyGoalId);
+  if (!goal || goal.status !== "completed") {
+    throw new ConvexError({
+      code: "INVALID_STATE",
+      message: "Spaced repetition is only available for completed goals.",
+    });
+  }
+  if (typeof goal.completedAt !== "number") {
+    throw new ConvexError({
+      code: "INTERNAL_ERROR",
+      message: "Spaced repetition is not available for this completed goal.",
+    });
+  }
+  if (!isGoalParticipant(goal, args.userId)) {
+    throw new ConvexError({
+      code: "NOT_AUTHORIZED",
+      message: "Not authorized",
+    });
+  }
+
+  return { goal, goalCompletedAt: goal.completedAt };
+}
+
+function isRepetitionDue(
+  args: Pick<
+    Parameters<typeof advanceUserIfReady>[0],
+    "goal" | "userId" | "now"
+  >,
+  record: Doc<"weeklyGoalRepetitions">,
+): boolean {
+  if (typeof args.goal.completedAt !== "number") {
+    console.warn(
+      "Skipping spaced repetition advance: completed goal is missing completedAt.",
+      {
+        weeklyGoalId: args.goal._id,
+        userId: args.userId,
+      },
+    );
+    return false;
+  }
+
+  const dueAt = getSpacedRepetitionDueAt({
+    completedSteps: record.completedSteps,
+    goalCompletedAt: args.goal.completedAt,
+  });
+  if (dueAt === null || dueAt > args.now) {
+    console.warn("Skipping spaced repetition advance: repetition is not due.", {
+      weeklyGoalId: args.goal._id,
+      userId: args.userId,
+      dueAt,
+      now: args.now,
+    });
+    return false;
+  }
 
   return true;
 }

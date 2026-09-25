@@ -36,14 +36,6 @@ export type GenerateThemeTtsResult = {
   alreadyUpToDate: boolean;
 };
 
-function createTtsGenerationLockToken(): string {
-  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `tts-lock-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function buildThemeTtsNoopResult(
   skippedForCredits: number,
   alreadyUpToDate: boolean,
@@ -176,7 +168,7 @@ async function runThemeTtsGeneration<TRow extends ConvexTtsRow>(
     return buildThemeTtsNoopResult(plan.skippedForCredits, false, plan.totalMissing);
   }
 
-  const lockToken = createTtsGenerationLockToken();
+  const lockToken = crypto.randomUUID();
   await ctx.runMutation(internal.ttsGenerationLocks.acquireTtsGenerationLock, {
     userId: params.userId,
     token: lockToken,

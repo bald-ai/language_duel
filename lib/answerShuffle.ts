@@ -188,15 +188,3 @@ export function buildRelayQuestionSet(
     };
   });
 }
-
-export function isWordQuestionSnapshot(
-  snapshot: DuelQuestionSnapshot | undefined
-): snapshot is WordQuestionSnapshot {
-  return snapshot?.kind === "word";
-}
-
-export function isSentenceQuestionSnapshot(
-  snapshot: DuelQuestionSnapshot | undefined
-): snapshot is SentenceQuestionSnapshot {
-  return snapshot?.kind === "sentence";
-}

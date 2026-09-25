@@ -54,6 +54,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
         );
 
     const isLoading = friends === undefined || allGoals === undefined;
+    const friendCount = friends?.length ?? 0;
 
     return (
         <FriendDuelLauncher>
@@ -68,7 +69,7 @@ export function FriendsTab({ onClose: _onClose }: FriendsTabProps) {
                             className="text-xs font-semibold uppercase tracking-wider mb-2"
                             style={{ color: colors.text.muted }}
                         >
-                            Friends ({friends?.length ?? 0})
+                            Friends ({friendCount})
                         </h3>
 
                         {isLoading ? (

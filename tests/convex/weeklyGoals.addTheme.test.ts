@@ -18,6 +18,7 @@ type WeeklyGoalDoc = Pick<
   Doc<"weeklyGoals">,
   | "_id"
   | "_creationTime"
+  | "mode"
   | "creatorId"
   | "partnerId"
   | "themes"
@@ -93,6 +94,7 @@ function buildGoal(themeCount: number): WeeklyGoalDoc {
   return {
     _id: "goal_1" as Id<"weeklyGoals">,
     _creationTime: 1,
+    mode: "shared",
     creatorId: "user_1" as Id<"users">,
     partnerId: "user_2" as Id<"users">,
     themes: Array.from({ length: themeCount }, (_, index) => ({
@@ -168,5 +170,55 @@ describe("weeklyGoals addTheme", () => {
         themeId: "theme_11" as Id<"themes">,
       })
     ).rejects.toThrow("Maximum themes reached");
+  });
+});
+
+
+describe("weekly goal theme boundaries", () => {
+  const args = { goalId: "goal_1" as Id<"weeklyGoals">, themeId: "theme_1" as Id<"themes"> };
+  function setup(goalOverrides: Partial<WeeklyGoalDoc> = {}) {
+    return new InMemoryDb([buildUser()], [buildTheme(1, "user_1" as Id<"users">)], [{ ...buildGoal(0), ...goalOverrides }]);
+  }
+
+  it.each([
+    [{ status: "locked" }, "Goal is locked"],
+    [{ creatorLocked: true }, "Cannot add themes after a participant has locked"],
+    [{ partnerLocked: true }, "Cannot add themes after a participant has locked"],
+    [{ creatorId: "other", partnerId: "another" }, "Not authorized"],
+  ] as const)("rejects forbidden additions without altering the goal (%#)", async (overrides, message) => {
+    const db = setup(overrides as Partial<WeeklyGoalDoc>);
+    const before = structuredClone(db.weeklyGoals);
+    await expect(addThemeHandler(createAuthCtx(db, "clerk_1"), args)).rejects.toThrow(message);
+    expect(db.weeklyGoals).toEqual(before);
+  });
+
+  it("rejects missing goals before reading a theme", async () => {
+    const db = setup();
+    db.weeklyGoals.length = 0;
+    await expect(addThemeHandler(createAuthCtx(db, "clerk_1"), args)).rejects.toThrow("Goal not found");
+  });
+
+  it("rejects missing themes and themes owned by nonparticipants", async () => {
+    const db = setup();
+    db.themes.length = 0;
+    await expect(addThemeHandler(createAuthCtx(db, "clerk_1"), args)).rejects.toThrow("Theme not found");
+    db.themes.push(buildTheme(1, "stranger" as Id<"users">));
+    await expect(addThemeHandler(createAuthCtx(db, "clerk_1"), args)).rejects.toThrow("Theme is not eligible");
+    expect(db.weeklyGoals[0].themes).toEqual([]);
+  });
+
+  it("keeps duplicate additions idempotent", async () => {
+    const db = setup();
+    await addThemeHandler(createAuthCtx(db, "clerk_1"), args);
+    const after = structuredClone(db.weeklyGoals);
+    await addThemeHandler(createAuthCtx(db, "clerk_1"), args);
+    expect(db.weeklyGoals).toEqual(after);
+    expect(db.weeklyGoals[0].themes).toEqual([{ themeId: "theme_1", themeName: "Theme 1", creatorCompleted: false, partnerCompleted: false }]);
+  });
+
+  it("creates a solo entry with only creator completion", async () => {
+    const db = setup({ mode: "solo", partnerId: undefined, partnerLocked: undefined });
+    await addThemeHandler(createAuthCtx(db, "clerk_1"), args);
+    expect(db.weeklyGoals[0].themes).toEqual([{ themeId: "theme_1", themeName: "Theme 1", creatorCompleted: false }]);
   });
 });

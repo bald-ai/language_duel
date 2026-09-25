@@ -53,6 +53,18 @@ export interface SoloSessionState {
   completed: boolean;
 }
 
+/** Identify the item whose final level this correct answer will complete. */
+export function getMasteredSoloItemIndex(
+  session: Pick<SoloSessionState, "currentItemIndex" | "itemStates" | "questionLevel">
+): number | null {
+  const currentItemState = session.currentItemIndex === null
+    ? null
+    : session.itemStates.get(session.currentItemIndex) ?? null;
+  return currentItemState && session.questionLevel >= currentItemState.maxLevel
+    ? session.currentItemIndex
+    : null;
+}
+
 export const initialSoloSessionState: SoloSessionState = {
   initialized: false,
   activePool: [],

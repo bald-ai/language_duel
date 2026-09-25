@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import type { CSSProperties } from "react";
+import type { ThemeColors } from "@/lib/appearance";
 import type { DuelMode } from "@/lib/duelMode";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { DUEL_MODE_OPTIONS } from "./challengeOptions";
@@ -47,21 +48,7 @@ export const DuelModePicker = memo(function DuelModePicker({
           const selected = option.mode === selectedMode;
           const disabledReason = disabledModes?.[option.mode];
           const isDisabled = Boolean(disabledReason);
-          const rowStyle: CSSProperties = isDisabled
-            ? {
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: `${colors.text.muted}1A`,
-                opacity: 0.5,
-              }
-            : selected
-            ? {
-                backgroundColor: `${colors.cta.DEFAULT}1A`,
-                borderColor: colors.cta.DEFAULT,
-              }
-            : {
-                backgroundColor: colors.background.DEFAULT,
-                borderColor: `${colors.text.muted}1A`,
-              };
+          const rowStyle = getModeRowStyle(colors, isDisabled, selected);
           return (
             <button
               key={option.mode}
@@ -186,3 +173,21 @@ export const DuelModePicker = memo(function DuelModePicker({
     </div>
   );
 });
+
+function getModeRowStyle(colors: ThemeColors, isDisabled: boolean, selected: boolean): CSSProperties {
+  return isDisabled
+            ? {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: `${colors.text.muted}1A`,
+                opacity: 0.5,
+              }
+            : selected
+            ? {
+                backgroundColor: `${colors.cta.DEFAULT}1A`,
+                borderColor: colors.cta.DEFAULT,
+              }
+            : {
+                backgroundColor: colors.background.DEFAULT,
+                borderColor: `${colors.text.muted}1A`,
+              };
+}

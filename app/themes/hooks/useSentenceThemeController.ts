@@ -1,19 +1,14 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { ThemeWithOwner } from "@/convex/themes";
 import type { SentenceRoundInput } from "@/lib/themes/sentenceTypes";
 import { getErrorMessage } from "@/lib/errors";
 import { normalizeThemeName } from "@/lib/themes/serverValidation";
-import {
-  buildPlaceholderSentenceWordMeanings,
-  normalizeSentenceFreeWordPositions,
-  sentenceTokensChanged,
-  toggleSentenceFreeWordPosition,
-} from "@/lib/themes/sentenceValidation";
+import { toggleSentenceFreeWordPosition } from "@/lib/themes/sentenceValidation";
 import { getSentenceThemeSaveErrorMessage } from "@/lib/themes/themeUiValidation";
 import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { areSentenceRoundsEqual } from "@/lib/themes/sentenceEditing";
@@ -42,20 +37,11 @@ import type { SentenceThemeDetailTheme } from "../components/SentenceThemeDetail
 import type { SentenceRoundField } from "../components/SentenceRoundCard";
 import type { PickAndPruneSentenceReviewProps } from "../components/PickAndPruneSentenceReview";
 import { usePickAndPruneSentence } from "./usePickAndPruneSentence";
+import { updateSentenceRoundField } from "../lib/sentenceRoundEditing";
+import type { FunctionReturnType } from "convex/server";
+import { readGenerationResult } from "../lib/generationResult";
+import { useThemeTtsGeneration } from "./useThemeTtsGeneration";
 import { createSaveRequestId } from "../lib/saveRequestId";
-
-/**
- * Drop the round's `ttsStorageId` when an identity/voiced field changed, so the
- * editor stops offering stale audio before the save-time reconcile runs.
- */
-function clearTtsIfChanged(
-  round: SentenceRoundInput,
-  changed: boolean
-): SentenceRoundInput {
-  if (!changed || round.ttsStorageId === undefined) return round;
-  const { ttsStorageId: _dropTtsStorageId, ...rest } = round;
-  return rest;
-}
 
 function getExistingSpanishSentences(rounds: SentenceRoundInput[]): string[] {
   return rounds
@@ -71,13 +57,13 @@ function getExistingEnglishPrompts(rounds: SentenceRoundInput[]): string[] {
 
 function findDuplicateEnglishPrompt(
   englishPrompt: string,
-  rounds: SentenceRoundInput[]
+  rounds: SentenceRoundInput[],
 ): string | null {
   const nextKey = normalizeForComparison(englishPrompt);
   if (nextKey === "") return null;
 
   const matchingRound = rounds.find(
-    (round) => normalizeForComparison(round.englishPrompt) === nextKey
+    (round) => normalizeForComparison(round.englishPrompt) === nextKey,
   );
   return matchingRound?.englishPrompt ?? null;
 }
@@ -176,20 +162,19 @@ interface UseSentenceThemeControllerReturn {
   openGenerateMoreModal: () => void;
   closeGenerateMoreModal: () => void;
   generateMoreAndReview: () => Promise<void>;
-  generateMoreAndAppend: () => Promise<void>;
 
   handleGenerateSentenceTTS: () => Promise<void>;
   handlePlaySentenceTTS: (
     roundIndex: number,
     spanishSentence: string,
-    storageId?: SentenceRoundInput["ttsStorageId"]
+    storageId?: SentenceRoundInput["ttsStorageId"],
   ) => void;
 
   handleAddManualRound: () => void;
   handleEditField: (
     roundIndex: number,
     field: SentenceRoundField,
-    distractorIndex?: number
+    distractorIndex?: number,
   ) => void;
   handleToggleFreeWord: (roundIndex: number, tokenIndex: number) => void;
   handleEditFieldSave: (nextValue: string) => void;
@@ -212,7 +197,8 @@ export function useSentenceThemeController(params: {
   onAfterSave: () => void;
   onAfterCancel: () => void;
 }): UseSentenceThemeControllerReturn {
-  const [selectedState, setSelectedState] = useState<SentenceSelectedState>(null);
+  const [selectedState, setSelectedState] =
+    useState<SentenceSelectedState>(null);
   const [localRounds, setLocalRounds] = useState<SentenceRoundInput[]>([]);
   const [editField, setEditField] = useState<SentenceEditField | null>(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
@@ -224,21 +210,24 @@ export function useSentenceThemeController(params: {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGeneratingTTS, setIsGeneratingTTS] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [savedThemeNameBaseline, setSavedThemeNameBaseline] = useState<string | null>(null);
+  const [savedThemeNameBaseline, setSavedThemeNameBaseline] = useState<
+    string | null
+  >(null);
   // Post-generation Pick & Prune review: `reviewDraft` carries the theme
   // metadata while the generated rounds sit in the prune hook for review.
-  const [reviewDraft, setReviewDraft] = useState<SentenceReviewDraft | null>(null);
+  const [reviewDraft, setReviewDraft] = useState<SentenceReviewDraft | null>(
+    null,
+  );
   const pickAndPrune = usePickAndPruneSentence();
 
-  const convex = useConvex();
   const currentUser = useQuery(api.users.getCurrentUser);
   const createTheme = useMutation(api.themes.createTheme);
   const updateTheme = useMutation(api.themes.updateTheme);
   const updateVisibility = useMutation(api.themes.updateThemeVisibility);
-  const updateFriendsCanEdit = useMutation(api.themes.updateThemeFriendsCanEdit);
-  const generateThemeTTSAction = useAction(api.themes.generateThemeTTS);
+  const updateFriendsCanEdit = useMutation(
+    api.themes.updateThemeFriendsCanEdit,
+  );
   const { playTTS, playingWordKey } = useTTS();
 
   const selectedTheme = useMemo<SentenceThemeDetailTheme | null>(() => {
@@ -277,21 +266,24 @@ export function useSentenceThemeController(params: {
     setSavedThemeNameBaseline(null);
   }, []);
 
-  const ensureLlmCredits = useCallback((cost: number, signInMessage: string) => {
-    if (currentUser === undefined) {
-      toast.error("Credits are still loading. Try again.");
-      return false;
-    }
-    if (!currentUser) {
-      toast.error(signInMessage);
-      return false;
-    }
-    if (currentUser.llmCreditsRemaining < cost) {
-      toast.error(AI_CREDITS_EXHAUSTED_MESSAGE);
-      return false;
-    }
-    return true;
-  }, [currentUser]);
+  const ensureLlmCredits = useCallback(
+    (cost: number, signInMessage: string) => {
+      if (currentUser === undefined) {
+        toast.error("Credits are still loading. Try again.");
+        return false;
+      }
+      if (!currentUser) {
+        toast.error(signInMessage);
+        return false;
+      }
+      if (currentUser.llmCreditsRemaining < cost) {
+        toast.error(AI_CREDITS_EXHAUSTED_MESSAGE);
+        return false;
+      }
+      return true;
+    },
+    [currentUser],
+  );
 
   const openSavedTheme = useCallback((theme: ThemeWithOwner) => {
     if (!isSentenceTheme(theme)) return;
@@ -299,21 +291,29 @@ export function useSentenceThemeController(params: {
     setSavedThemeNameBaseline(theme.name);
     // Carry `ttsStorageId` through so the editor keeps the play-ready audio id;
     // dropping it here would show stale "no audio" play buttons after load.
-    setLocalRounds((theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
-      englishPrompt: round.englishPrompt,
-      spanishSentence: round.spanishSentence,
-      wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
-      freeWordPositions: round.freeWordPositions
-        ? [...round.freeWordPositions]
-        : undefined,
-      distractors: [...round.distractors],
-      ttsStorageId: round.ttsStorageId,
-    })));
+    setLocalRounds(
+      (theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
+        englishPrompt: round.englishPrompt,
+        spanishSentence: round.spanishSentence,
+        wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
+        freeWordPositions: round.freeWordPositions
+          ? [...round.freeWordPositions]
+          : undefined,
+        distractors: [...round.distractors],
+        ttsStorageId: round.ttsStorageId,
+      })),
+    );
     setEditField(null);
   }, []);
 
   const openGenerateModal = useCallback(() => {
-    if (!ensureLlmCredits(LLM_SENTENCE_THEME_CREDITS, "Please sign in to generate themes.")) return;
+    if (
+      !ensureLlmCredits(
+        LLM_SENTENCE_THEME_CREDITS,
+        "Please sign in to generate themes.",
+      )
+    )
+      return;
     setGenerationError(null);
     setIsGenerateModalOpen(true);
   }, [ensureLlmCredits]);
@@ -331,12 +331,18 @@ export function useSentenceThemeController(params: {
       targetRoundCount: number;
     }) => {
       if (!input.themeName.trim()) return;
-      if (!ensureLlmCredits(LLM_SENTENCE_THEME_CREDITS, "Please sign in to generate themes.")) return;
+      if (
+        !ensureLlmCredits(
+          LLM_SENTENCE_THEME_CREDITS,
+          "Please sign in to generate themes.",
+        )
+      )
+        return;
       // Clamp the user-chosen target into the supported 5-15 range so a
       // tampered client can't request an absurd generation size.
       const safeTarget = Math.min(
         SENTENCE_MAX_GENERATION_ROUND_COUNT,
-        Math.max(SENTENCE_MIN_GENERATION_ROUND_COUNT, input.targetRoundCount)
+        Math.max(SENTENCE_MIN_GENERATION_ROUND_COUNT, input.targetRoundCount),
       );
       setIsGenerating(true);
       setGenerationError(null);
@@ -347,9 +353,9 @@ export function useSentenceThemeController(params: {
           // Always over-generate 2× so the user can review and prune.
           roundCount: safeTarget * 2,
         };
-        const result = await generateSentenceTheme(params);
-        if (!result.success || !result.data) {
-          setGenerationError(result.error || "Generation failed");
+        const result = readGenerationResult(await generateSentenceTheme(params), "Generation failed");
+        if (!result.ok) {
+          setGenerationError(result.error);
           return;
         }
         setIsGenerateModalOpen(false);
@@ -370,7 +376,7 @@ export function useSentenceThemeController(params: {
         setIsGenerating(false);
       }
     },
-    [ensureLlmCredits, pickAndPrune]
+    [ensureLlmCredits, pickAndPrune],
   );
 
   const handleContinueReview = useCallback(() => {
@@ -405,7 +411,7 @@ export function useSentenceThemeController(params: {
           ? [...round.freeWordPositions]
           : undefined,
         distractors: [...round.distractors],
-      }))
+      })),
     );
     pickAndPrune.clear();
     setReviewDraft(null);
@@ -429,7 +435,10 @@ export function useSentenceThemeController(params: {
 
   const openGenerateMoreModal = useCallback(() => {
     if (!selectedTheme) return;
-    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
+    if (
+      !ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")
+    )
+      return;
     setGenerationError(null);
     setIsGenerateMoreModalOpen(true);
   }, [ensureLlmCredits, selectedTheme]);
@@ -442,57 +451,35 @@ export function useSentenceThemeController(params: {
 
   const generateMoreAndReview = useCallback(async () => {
     if (!selectedTheme) return;
-    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
+    if (
+      !ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")
+    )
+      return;
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const result = await generateMoreSentenceRounds({
+      const result = readGenerationResult(await generateMoreSentenceRounds({
         themeName: selectedTheme.name,
         // Match the initial generation's review-first pattern: generate a
         // larger batch, then append only the rounds kept in Pick & Prune.
         roundCount: SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
         existingSpanishSentences: getExistingSpanishSentences(localRounds),
-      });
-      if (!result.success || !result.data) {
-        setGenerationError(result.error || "Failed to generate more rounds");
+      }), "Failed to generate more rounds");
+      if (!result.ok) {
+        setGenerationError(result.error);
         return;
       }
       setReviewDraft({ kind: "existing-theme" });
       pickAndPrune.initialize(result.data);
       setIsGenerateMoreModalOpen(false);
     } catch (error) {
-      setGenerationError(getErrorMessage(error, "Failed to generate more rounds"));
+      setGenerationError(
+        getErrorMessage(error, "Failed to generate more rounds"),
+      );
     } finally {
       setIsGenerating(false);
     }
   }, [ensureLlmCredits, localRounds, pickAndPrune, selectedTheme]);
-
-  // Direct generation is intentionally not exposed in the UI while we test
-  // Pick & Prune as the default flow for all AI-generated theme content. Keep
-  // this append path for now so we can remove or restore it deliberately later.
-  const generateMoreAndAppend = useCallback(async () => {
-    if (!selectedTheme) return;
-    if (!ensureLlmCredits(LLM_GENERATE_MORE_SENTENCES_CREDITS, "Please sign in.")) return;
-    setIsGenerating(true);
-    setGenerationError(null);
-    try {
-      const result = await generateMoreSentenceRounds({
-        themeName: selectedTheme.name,
-        roundCount: SENTENCE_GENERATE_MORE_PICK_AND_PRUNE_ROUND_COUNT,
-        existingSpanishSentences: getExistingSpanishSentences(localRounds),
-      });
-      if (!result.success || !result.data) {
-        setGenerationError(result.error || "Failed to generate more rounds");
-        return;
-      }
-      setLocalRounds((previous) => [...previous, ...result.data!]);
-      setIsGenerateMoreModalOpen(false);
-    } catch (error) {
-      setGenerationError(getErrorMessage(error, "Failed to generate more rounds"));
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [ensureLlmCredits, localRounds, selectedTheme]);
 
   // Unsaved local edits vs the persisted saved theme. Used to gate TTS
   // generation, which must run against the saved sentences (otherwise the
@@ -515,26 +502,11 @@ export function useSentenceThemeController(params: {
 
   const isTTSUpToDate = useMemo(
     () => !hasMissingThemeTts(localRounds),
-    [localRounds]
+    [localRounds],
   );
 
-  const handleGenerateSentenceTTS = useCallback(async () => {
-    if (!selectedTheme || selectedTheme.canEdit === false || isGeneratingTTS) return;
-    if (!selectedState || selectedState.kind === "unsaved") {
-      toast.error("Save the theme first before generating TTS");
-      return;
-    }
-    if (hasUnsavedSentenceChanges) {
-      toast.error("Save your theme changes first, then generate TTS");
-      return;
-    }
-
-    const themeId = selectedState.theme._id;
-    setIsGeneratingTTS(true);
-    try {
-      const result = await generateThemeTTSAction({ themeId });
-
-      const refreshedTheme = await convex.query(api.themes.getTheme, { themeId });
+  const applyRefreshedSentenceTheme = useCallback(
+    (refreshedTheme: FunctionReturnType<typeof api.themes.getTheme>) => {
       if (refreshedTheme && isSentenceTheme(refreshedTheme)) {
         setSavedThemeNameBaseline(refreshedTheme.name);
         setSelectedState((prev) => {
@@ -542,49 +514,39 @@ export function useSentenceThemeController(params: {
           return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
         });
         setLocalRounds(
-          (refreshedTheme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
-            englishPrompt: round.englishPrompt,
-            spanishSentence: round.spanishSentence,
-            wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
-            freeWordPositions: round.freeWordPositions
-              ? [...round.freeWordPositions]
-              : undefined,
-            distractors: [...round.distractors],
-            ttsStorageId: round.ttsStorageId,
-          }))
+          (refreshedTheme.sentenceRounds as SentenceRoundInput[]).map(
+            (round) => ({
+              englishPrompt: round.englishPrompt,
+              spanishSentence: round.spanishSentence,
+              wordMeanings: round.wordMeanings
+                ? [...round.wordMeanings]
+                : undefined,
+              freeWordPositions: round.freeWordPositions
+                ? [...round.freeWordPositions]
+                : undefined,
+              distractors: [...round.distractors],
+              ttsStorageId: round.ttsStorageId,
+            }),
+          ),
         );
       }
+    },
+    [],
+  );
 
-      if (result.alreadyUpToDate) {
-        toast.success("TTS is already up to date");
-        return;
-      }
-      if (result.failed > 0 || result.skippedStale > 0 || result.skippedForCredits > 0) {
-        toast.warning(
-          `TTS generated with issues. Applied ${result.applied}/${result.totalMissing}.`
-        );
-        return;
-      }
-      toast.success(`Generated TTS for ${result.applied} sentences`);
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to generate TTS"));
-    } finally {
-      setIsGeneratingTTS(false);
-    }
-  }, [
-    convex,
-    generateThemeTTSAction,
-    hasUnsavedSentenceChanges,
-    isGeneratingTTS,
-    selectedState,
-    selectedTheme,
-  ]);
+  const { isGeneratingTTS, generate: handleGenerateSentenceTTS } = useThemeTtsGeneration({
+    themeId: selectedState?.kind === "saved" ? selectedState.theme._id : null,
+    canGenerate: Boolean(selectedTheme && selectedTheme.canEdit !== false),
+    hasUnsavedChanges: hasUnsavedSentenceChanges,
+    itemLabel: "sentences",
+    applyRefreshedTheme: applyRefreshedSentenceTheme,
+  });
 
   const handlePlaySentenceTTS = useCallback(
     (
       roundIndex: number,
       spanishSentence: string,
-      storageId?: SentenceRoundInput["ttsStorageId"]
+      storageId?: SentenceRoundInput["ttsStorageId"],
     ) => {
       if (!spanishSentence) return;
       const savedThemeId =
@@ -594,7 +556,7 @@ export function useSentenceThemeController(params: {
         themeId: savedThemeId,
       });
     },
-    [playTTS, selectedState]
+    [playTTS, selectedState],
   );
 
   const closeAddSentenceModal = useCallback(() => {
@@ -606,52 +568,90 @@ export function useSentenceThemeController(params: {
 
   const handleAddManualRound = useCallback(() => {
     if (!selectedTheme) return;
-    if (!ensureLlmCredits(LLM_ADD_SENTENCE_CREDITS, "Please sign in to add sentences.")) return;
+    if (
+      !ensureLlmCredits(
+        LLM_ADD_SENTENCE_CREDITS,
+        "Please sign in to add sentences.",
+      )
+    )
+      return;
     setAddSentencePrompt("");
     setAddSentenceError(null);
     setIsAddSentenceModalOpen(true);
   }, [ensureLlmCredits, selectedTheme]);
 
+  const validateAddSentencePrompt = useCallback(
+    (englishPrompt: string) => {
+      if (!englishPrompt) return false;
+
+      const duplicatePrompt = findDuplicateEnglishPrompt(
+        englishPrompt,
+        localRounds,
+      );
+      if (duplicatePrompt) {
+        setAddSentenceError(
+          `"${englishPrompt}" already exists in this theme as "${duplicatePrompt}"`,
+        );
+        return false;
+      }
+
+      return true;
+    },
+    [localRounds],
+  );
+
   const handleAddSentenceRound = useCallback(async () => {
     if (!selectedTheme) return;
     const englishPrompt = addSentencePrompt.trim();
-    if (!englishPrompt) return;
+    if (!validateAddSentencePrompt(englishPrompt)) return;
 
-    const duplicatePrompt = findDuplicateEnglishPrompt(englishPrompt, localRounds);
-    if (duplicatePrompt) {
-      setAddSentenceError(`"${englishPrompt}" already exists in this theme as "${duplicatePrompt}"`);
+    if (
+      !ensureLlmCredits(
+        LLM_ADD_SENTENCE_CREDITS,
+        "Please sign in to add sentences.",
+      )
+    )
       return;
-    }
-
-    if (!ensureLlmCredits(LLM_ADD_SENTENCE_CREDITS, "Please sign in to add sentences.")) return;
 
     setIsAddingSentence(true);
     setAddSentenceError(null);
     try {
-      const result = await addSentenceRound({
+      const result = readGenerationResult(await addSentenceRound({
         themeName: selectedTheme.name,
         englishPrompt,
         existingEnglishPrompts: getExistingEnglishPrompts(localRounds),
         existingSpanishSentences: getExistingSpanishSentences(localRounds),
-      });
+      }), "Failed to generate sentence");
 
-      if (!result.success || !result.data) {
-        setAddSentenceError(result.error || "Failed to generate sentence");
+      if (!result.ok) {
+        setAddSentenceError(result.error);
         return;
       }
 
-      setLocalRounds((previous) => [...previous, result.data!]);
+      setLocalRounds((previous) => [...previous, result.data]);
       setAddSentencePrompt("");
       setIsAddSentenceModalOpen(false);
     } catch (error) {
-      setAddSentenceError(getErrorMessage(error, "Failed to generate sentence"));
+      setAddSentenceError(
+        getErrorMessage(error, "Failed to generate sentence"),
+      );
     } finally {
       setIsAddingSentence(false);
     }
-  }, [addSentencePrompt, ensureLlmCredits, localRounds, selectedTheme]);
+  }, [
+    addSentencePrompt,
+    ensureLlmCredits,
+    localRounds,
+    selectedTheme,
+    validateAddSentencePrompt,
+  ]);
 
   const handleEditField = useCallback(
-    (roundIndex: number, field: SentenceRoundField, distractorIndex?: number) => {
+    (
+      roundIndex: number,
+      field: SentenceRoundField,
+      distractorIndex?: number,
+    ) => {
       const round = localRounds[roundIndex];
       if (!round) return;
       const currentValue =
@@ -659,7 +659,7 @@ export function useSentenceThemeController(params: {
           ? round.englishPrompt
           : field === "spanish"
             ? round.spanishSentence
-            : round.distractors[distractorIndex ?? 0] ?? "";
+            : (round.distractors[distractorIndex ?? 0] ?? "");
       setEditField({
         roundIndex,
         field,
@@ -667,25 +667,28 @@ export function useSentenceThemeController(params: {
         initialValue: currentValue,
       });
     },
-    [localRounds]
+    [localRounds],
   );
 
-  const handleToggleFreeWord = useCallback((roundIndex: number, tokenIndex: number) => {
-    setLocalRounds((previous) => {
-      const next = [...previous];
-      const round = next[roundIndex];
-      if (!round) return previous;
-      next[roundIndex] = {
-        ...round,
-        freeWordPositions: toggleSentenceFreeWordPosition(
-          round.spanishSentence,
-          round.freeWordPositions,
-          tokenIndex
-        ),
-      };
-      return next;
-    });
-  }, []);
+  const handleToggleFreeWord = useCallback(
+    (roundIndex: number, tokenIndex: number) => {
+      setLocalRounds((previous) => {
+        const next = [...previous];
+        const round = next[roundIndex];
+        if (!round) return previous;
+        next[roundIndex] = {
+          ...round,
+          freeWordPositions: toggleSentenceFreeWordPosition(
+            round.spanishSentence,
+            round.freeWordPositions,
+            tokenIndex,
+          ),
+        };
+        return next;
+      });
+    },
+    [],
+  );
 
   const handleEditFieldSave = useCallback(
     (nextValue: string) => {
@@ -694,59 +697,16 @@ export function useSentenceThemeController(params: {
         const next = [...previous];
         const round = next[editField.roundIndex];
         if (!round) return previous;
-        if (editField.field === "english") {
-          // English or Spanish edits invalidate the audio (word-parity): drop
-          // the id immediately so a stale play button isn't shown before save.
-          const changed = round.englishPrompt !== nextValue;
-          next[editField.roundIndex] = clearTtsIfChanged(
-            changed
-              ? {
-                  ...round,
-                  englishPrompt: nextValue,
-                  wordMeanings: buildPlaceholderSentenceWordMeanings(
-                    round.spanishSentence
-                  ),
-                  freeWordPositions: normalizeSentenceFreeWordPositions(
-                    round.spanishSentence,
-                    round.freeWordPositions
-                  ),
-                }
-              : { ...round, englishPrompt: nextValue },
-            changed
-          );
-        } else if (editField.field === "spanish") {
-          const changed = round.spanishSentence !== nextValue;
-          const wordsChanged = sentenceTokensChanged(
-            round.spanishSentence,
-            nextValue
-          );
-          next[editField.roundIndex] = clearTtsIfChanged(
-            changed
-              ? {
-                  ...round,
-                  spanishSentence: nextValue,
-                  wordMeanings: buildPlaceholderSentenceWordMeanings(nextValue),
-                  freeWordPositions: wordsChanged
-                    ? []
-                    : normalizeSentenceFreeWordPositions(
-                        nextValue,
-                        round.freeWordPositions
-                      ),
-                }
-              : { ...round, spanishSentence: nextValue },
-            changed
-          );
-        } else {
-          // Distractor-only edits keep the audio.
-          const distractors = [...round.distractors];
-          distractors[editField.distractorIndex ?? 0] = nextValue;
-          next[editField.roundIndex] = { ...round, distractors };
-        }
+        next[editField.roundIndex] = updateSentenceRoundField(
+          round,
+          editField,
+          nextValue,
+        );
         return next;
       });
       setEditField(null);
     },
-    [editField]
+    [editField],
   );
 
   const handleEditFieldCancel = useCallback(() => {
@@ -833,18 +793,27 @@ export function useSentenceThemeController(params: {
     async (visibility: "private" | "shared") => {
       if (!selectedState) return;
       if (selectedState.kind === "unsaved") {
-        setSelectedState({ kind: "unsaved", draft: { ...selectedState.draft, visibility } });
+        setSelectedState({
+          kind: "unsaved",
+          draft: { ...selectedState.draft, visibility },
+        });
         return;
       }
       try {
-        await updateVisibility({ themeId: selectedState.theme._id, visibility });
-        setSelectedState({ kind: "saved", theme: { ...selectedState.theme, visibility } });
+        await updateVisibility({
+          themeId: selectedState.theme._id,
+          visibility,
+        });
+        setSelectedState({
+          kind: "saved",
+          theme: { ...selectedState.theme, visibility },
+        });
         toast.success(`Theme is now ${visibility}`);
       } catch (error) {
         toast.error(getErrorMessage(error, "Failed to update visibility"));
       }
     },
-    [selectedState, updateVisibility]
+    [selectedState, updateVisibility],
   );
 
   const handleFriendsCanEditChange = useCallback(
@@ -858,20 +827,26 @@ export function useSentenceThemeController(params: {
         return;
       }
       try {
-        await updateFriendsCanEdit({ themeId: selectedState.theme._id, friendsCanEdit });
+        await updateFriendsCanEdit({
+          themeId: selectedState.theme._id,
+          friendsCanEdit,
+        });
         setSelectedState({
           kind: "saved",
           theme: { ...selectedState.theme, friendsCanEdit },
         });
       } catch (error) {
-        toast.error(getErrorMessage(error, "Failed to update edit permissions"));
+        toast.error(
+          getErrorMessage(error, "Failed to update edit permissions"),
+        );
       }
     },
-    [selectedState, updateFriendsCanEdit]
+    [selectedState, updateFriendsCanEdit],
   );
 
   const isReviewActive = reviewDraft !== null;
-  const reviewKind: "new-theme" | "existing-theme" = reviewDraft?.kind ?? "new-theme";
+  const reviewKind: "new-theme" | "existing-theme" =
+    reviewDraft?.kind ?? "new-theme";
   const reviewProps: PickAndPruneSentenceReviewProps = {
     reviewKind,
     activeRounds: pickAndPrune.activeRounds,
@@ -897,7 +872,8 @@ export function useSentenceThemeController(params: {
     onClose: closeAddSentenceModal,
   };
 
-  const isActive = selectedState !== null || isGenerateModalOpen || isReviewActive;
+  const isActive =
+    selectedState !== null || isGenerateModalOpen || isReviewActive;
 
   return {
     isActive,
@@ -932,7 +908,6 @@ export function useSentenceThemeController(params: {
     openGenerateMoreModal,
     closeGenerateMoreModal,
     generateMoreAndReview,
-    generateMoreAndAppend,
 
     handleGenerateSentenceTTS,
     handlePlaySentenceTTS,

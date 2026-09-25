@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectSentenceRoundIssues,
-  describeSentenceRoundIssues,
+  formatSentenceRoundIssue,
   normalizeSentenceFreeWordPositions,
   normalizeSentenceRounds,
   normalizeSentenceWordMeanings,
@@ -283,15 +283,15 @@ describe("normalizeSentenceRounds", () => {
   });
 });
 
-describe("describeSentenceRoundIssues", () => {
+describe("formatSentenceRoundIssue", () => {
   it("formats each issue with a 1-indexed round label", () => {
-    const lines = describeSentenceRoundIssues([
+    const lines = collectSentenceRoundIssues([
       {
         englishPrompt: "",
         spanishSentence: "Quiero cafe.",
         distractors: ["Tengo", "agua", "pan"],
       },
-    ]);
+    ]).map(formatSentenceRoundIssue);
     expect(lines[0]).toMatch(/^Sentence 1:/);
   });
 });

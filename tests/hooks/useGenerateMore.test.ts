@@ -14,17 +14,13 @@ describe("useGenerateMore", () => {
     generateMoreWordsMock.mockReset();
   });
 
-  it("uses the slider count for standard generation", async () => {
+  it("requests ten additional words for review", async () => {
     generateMoreWordsMock.mockResolvedValue({
       success: true,
       data: [{ word: "dog", answer: "perro", wrongAnswers: ["gato", "casa", "mesa"] }],
     });
 
     const { result } = renderHook(() => useGenerateMore());
-
-    act(() => {
-      result.current.setCount(3);
-    });
 
     await act(async () => {
       await result.current.generate("Animals", "nouns", ["cat"]);
@@ -33,13 +29,12 @@ describe("useGenerateMore", () => {
     expect(generateMoreWordsMock).toHaveBeenCalledWith({
       themeName: "Animals",
       wordType: "nouns",
-      count: 3,
+      count: 10,
       existingWords: ["cat"],
     });
-    expect(result.current.pickAndPrune).toBe(false);
   });
 
-  it("uses an override count for Pick & Prune generation and surfaces flag during generation", async () => {
+  it("shows the pending state until the review words arrive", async () => {
     let resolveCall: (value: unknown) => void = () => undefined;
     generateMoreWordsMock.mockImplementation(
       () =>
@@ -50,20 +45,12 @@ describe("useGenerateMore", () => {
 
     const { result } = renderHook(() => useGenerateMore());
 
-    act(() => {
-      result.current.setCount(4);
-    });
-
     let generatePromise: Promise<unknown> | undefined;
     act(() => {
-      generatePromise = result.current.generate("Animals", "nouns", ["cat"], {
-        countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-        pickAndPrune: true,
-      });
+      generatePromise = result.current.generate("Animals", "nouns", ["cat"]);
     });
 
     expect(result.current.isGenerating).toBe(true);
-    expect(result.current.pickAndPrune).toBe(true);
 
     await act(async () => {
       resolveCall({
@@ -79,8 +66,6 @@ describe("useGenerateMore", () => {
       count: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
       existingWords: ["cat"],
     });
-    expect(result.current.count).toBe(4);
-    expect(result.current.pickAndPrune).toBe(false);
     expect(result.current.isGenerating).toBe(false);
   });
 
@@ -93,14 +78,31 @@ describe("useGenerateMore", () => {
     const { result } = renderHook(() => useGenerateMore());
 
     await act(async () => {
-      await result.current.generate("Animals", "nouns", [], {
-        countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-        pickAndPrune: true,
-      });
+      await result.current.generate("Animals", "nouns", []);
     });
 
     const payload = generateMoreWordsMock.mock.calls[0][0];
     expect(payload).not.toHaveProperty("mode");
     expect(payload).not.toHaveProperty("pickAndPrune");
   });
+  it("reports a rejected request without returning words and can retry", async () => {
+    const generated = [{ word: "dog", answer: "perro", wrongAnswers: ["gato"] }];
+    generateMoreWordsMock.mockResolvedValueOnce({ success: false, error: "No credits" }).mockResolvedValueOnce({ success: true, data: generated });
+    const { result } = renderHook(useGenerateMore);
+    await act(async () => { await expect(result.current.generate("Animals", "nouns", ["cat"])).resolves.toBeNull(); });
+    expect(result.current).toMatchObject({ error: "No credits", isGenerating: false });
+    await act(async () => { await expect(result.current.generate("Animals", "nouns", ["cat"])).resolves.toEqual(generated); });
+    expect(result.current).toMatchObject({ error: null, isGenerating: false });
+  });
+
+  it.each([new Error("Offline"), "Offline"])("clears pending state and shows a useful error after a thrown failure: %s", async failure => {
+    generateMoreWordsMock.mockRejectedValue(failure);
+    const { result } = renderHook(useGenerateMore);
+    await act(async () => { await expect(result.current.generate("Animals", "nouns", ["cat"])).resolves.toBeNull(); });
+    expect(result.current.isGenerating).toBe(false);
+    expect(result.current.error).toBe(failure instanceof Error ? "Offline" : "Failed to generate words. Please try again.");
+    act(() => result.current.reset());
+    expect(result.current).toMatchObject({ error: null, isGenerating: false });
+  });
+
 });

@@ -32,7 +32,6 @@ export function GoalPracticeModalHost({
   onContinue,
   onClose,
 }: GoalPracticeModalHostProps) {
-  const colors = useAppearanceColors();
   if (weeklyGoalPracticeThemes?.ok) {
     // Weekly-goal practice runs mixed word + sentence decks, same as ad-hoc
     // solo. Pass every goal theme through with its real item count (words or
@@ -62,6 +61,14 @@ export function GoalPracticeModalHost({
     );
   }
 
+  return <GoalPracticeStatus weeklyGoalPracticeThemes={weeklyGoalPracticeThemes} onClose={onClose} />;
+}
+
+function GoalPracticeStatus({ weeklyGoalPracticeThemes, onClose }: {
+  weeklyGoalPracticeThemes: Exclude<WeeklyGoalPracticeThemes, { ok: true }>;
+  onClose: () => void;
+}) {
+  const colors = useAppearanceColors();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"

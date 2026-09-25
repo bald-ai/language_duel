@@ -129,30 +129,6 @@ export async function getChallengeParticipant(
 }
 
 /**
- * Get duel participant for queries, returning null instead of throwing.
- * Useful for queries that should return null for non-participants.
- */
-export async function getDuelParticipantOrNull(
-  ctx: QueryCtx | MutationCtx,
-  duelId: Id<"duels">
-): Promise<DuelParticipant | null> {
-  const auth = await getAuthenticatedUserOrNull(ctx);
-  if (!auth) return null;
-
-  const duel = await ctx.db.get(duelId);
-  if (!duel) return null;
-
-  const isChallenger = duel.challengerId === auth.user._id;
-  const isOpponent = duel.opponentId === auth.user._id;
-
-  if (!isChallenger && !isOpponent) return null;
-
-  const playerRole: PlayerRole = isChallenger ? "challenger" : "opponent";
-
-  return { user: auth.user, duel, playerRole, isChallenger, isOpponent };
-}
-
-/**
  * Get the other player's role.
  */
 export function getOtherRole(role: PlayerRole): PlayerRole {

@@ -1,7 +1,15 @@
-import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
+import {
+  mutation,
+  query,
+  type QueryCtx,
+  type MutationCtx,
+} from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { getAuthenticatedUserOrNull, getAuthenticatedUser } from "./helpers/auth";
+import {
+  getAuthenticatedUserOrNull,
+  getAuthenticatedUser,
+} from "./helpers/auth";
 import { getRelationshipMapForUser } from "./friends";
 import {
   MAX_USERS_QUERY,
@@ -78,13 +86,12 @@ export const getCurrentUser = query({
   },
 });
 
-
 /**
  * Generate a unique discriminator for a given nickname
  */
 async function generateDiscriminator(
   ctx: QueryCtx | MutationCtx,
-  nickname: string
+  nickname: string,
 ): Promise<number> {
   // Get all existing discriminators for this nickname
   const existingUsers = await ctx.db
@@ -93,7 +100,9 @@ async function generateDiscriminator(
     .collect();
 
   const usedDiscriminators = new Set(
-    existingUsers.map((u) => u.discriminator).filter((d): d is number => d !== undefined)
+    existingUsers
+      .map((u) => u.discriminator)
+      .filter((d): d is number => d !== undefined),
   );
 
   // Generate random discriminator not in use
@@ -116,7 +125,10 @@ async function generateDiscriminator(
     }
   }
 
-  throw new ConvexError({ code: "LIMIT_REACHED", message: "No available discriminators for this nickname" });
+  throw new ConvexError({
+    code: "LIMIT_REACHED",
+    message: "No available discriminators for this nickname",
+  });
 }
 
 /**
@@ -131,7 +143,10 @@ export const updateNickname = mutation({
     const nextNickname = args.nickname.trim();
 
     if (!nextNickname) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_SHORT });
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: NICKNAME_ERRORS.TOO_SHORT,
+      });
     }
 
     if (nextNickname === user.nickname) {
@@ -143,13 +158,22 @@ export const updateNickname = mutation({
 
     // Validate nickname format (alphanumeric + underscore, shared length bounds)
     if (!NICKNAME_REGEX.test(nextNickname)) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.INVALID_CHARS });
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: NICKNAME_ERRORS.INVALID_CHARS,
+      });
     }
     if (nextNickname.length < NICKNAME_MIN_LENGTH) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_SHORT });
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: NICKNAME_ERRORS.TOO_SHORT,
+      });
     }
     if (nextNickname.length > NICKNAME_MAX_LENGTH) {
-      throw new ConvexError({ code: "INVALID_INPUT", message: NICKNAME_ERRORS.TOO_LONG });
+      throw new ConvexError({
+        code: "INVALID_INPUT",
+        message: NICKNAME_ERRORS.TOO_LONG,
+      });
     }
 
     // Generate new discriminator for the new nickname
@@ -198,11 +222,15 @@ export const searchUsers = query({
 
         if (nicknameMatch) {
           const [, nickname, discriminator] = nicknameMatch;
-          return u.nickname === nickname && u.discriminator === parseInt(discriminator, 10);
+          return (
+            u.nickname === nickname &&
+            u.discriminator === parseInt(discriminator, 10)
+          );
         }
 
         return Boolean(
-          nicknamePrefix && u.nickname?.toLowerCase().startsWith(nicknamePrefix)
+          nicknamePrefix &&
+          u.nickname?.toLowerCase().startsWith(nicknamePrefix),
         );
       })
       .slice(0, MAX_USER_SEARCH_RESULTS)
@@ -213,7 +241,9 @@ export const searchUsers = query({
         nickname: u.nickname,
         discriminator: u.discriminator,
         isFriend: relationshipMap.friendIds.has(u._id.toString()),
-        isPending: relationshipMap.pendingFriendRequestUserIds.has(u._id.toString()),
+        isPending: relationshipMap.pendingFriendRequestUserIds.has(
+          u._id.toString(),
+        ),
       }));
   },
 });
@@ -235,7 +265,10 @@ export const syncUser = mutation({
 
     // Ensure caller can only sync their own user record
     if (identity.subject !== args.clerkId) {
-      throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Cannot sync user for another identity" });
+      throw new ConvexError({
+        code: "NOT_AUTHORIZED",
+        message: "Cannot sync user for another identity",
+      });
     }
 
     const existingUser = await ctx.db
@@ -249,7 +282,8 @@ export const syncUser = mutation({
       const normalizedCredits = normalizeCreditState(existingUser);
       if (normalizedCredits.shouldReset) {
         updates.llmCreditsRemaining = normalizedCredits.llmCreditsRemaining;
-        updates.ttsGenerationsRemaining = normalizedCredits.ttsGenerationsRemaining;
+        updates.ttsGenerationsRemaining =
+          normalizedCredits.ttsGenerationsRemaining;
         updates.creditsMonth = normalizedCredits.creditsMonth;
       }
 
@@ -260,7 +294,10 @@ export const syncUser = mutation({
     }
 
     if (!identity.email) {
-      throw new ConvexError({ code: "INVALID_IDENTITY", message: "Authenticated identity is missing an email" });
+      throw new ConvexError({
+        code: "INVALID_IDENTITY",
+        message: "Authenticated identity is missing an email",
+      });
     }
 
     const trustedIdentity = {
@@ -270,12 +307,7 @@ export const syncUser = mutation({
       imageUrl: identity.pictureUrl,
     };
 
-    // For new users, generate nickname from first name or default
-    const nickname = trustedIdentity.name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
-    const validNickname =
-      nickname.length >= NICKNAME_MIN_LENGTH
-        ? nickname.slice(0, NICKNAME_MAX_LENGTH)
-        : DEFAULT_NICKNAME;
+    const validNickname = nicknameFromIdentity(trustedIdentity.name);
     const discriminator = await generateDiscriminator(ctx, validNickname);
     const creditsMonth = getCurrentMonthKey();
 
@@ -319,3 +351,11 @@ export const updatePresence = mutation({
     });
   },
 });
+
+function nicknameFromIdentity(name: string | undefined): string {
+  // For new users, generate nickname from first name or default
+  const nickname = name?.replace(/[^a-zA-Z0-9_]/g, "") || DEFAULT_NICKNAME;
+  return nickname.length >= NICKNAME_MIN_LENGTH
+    ? nickname.slice(0, NICKNAME_MAX_LENGTH)
+    : DEFAULT_NICKNAME;
+}

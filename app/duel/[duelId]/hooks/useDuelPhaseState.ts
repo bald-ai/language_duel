@@ -89,18 +89,7 @@ export function useDuelPhaseState({
     onCountdownComplete: handleTransitionCountdownComplete,
   });
 
-  useEffect(() => {
-    if (currentItemIndex === undefined || !items.length) return;
-
-    if (activeQuestionIndexRef.current === null) {
-      activeQuestionIndexRef.current = currentItemIndex;
-      setPhase("answering");
-      return;
-    }
-
-    if (activeQuestionIndexRef.current === currentItemIndex) return;
-
-    const prevIndex = activeQuestionIndexRef.current;
+  const transitionToQuestion = useCallback((nextIndex: number, prevIndex: number) => {
     const shouldShowTransition =
       isLocked || lockedAnswerRef.current || hasTimedOutRef.current;
 
@@ -127,9 +116,21 @@ export function useDuelPhaseState({
       hasTimedOutRef.current = false;
     }
 
-    activeQuestionIndexRef.current = currentItemIndex;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setIsLocked/setSelectedAnswer are stable useCallback refs
-  }, [currentItemIndex, items, duel.itemOrder, theirLastAnswer, isLocked, duel.duelQuestions]);
+    activeQuestionIndexRef.current = nextIndex;
+  }, [duel, isLocked, items.length, setCountdown, setIsLocked, setSelectedAnswer, theirLastAnswer]);
+
+  useEffect(() => {
+    if (currentItemIndex === undefined || !items.length) return;
+
+    if (activeQuestionIndexRef.current === null) {
+      activeQuestionIndexRef.current = currentItemIndex;
+      setPhase("answering");
+      return;
+    }
+
+    if (activeQuestionIndexRef.current === currentItemIndex) return;
+    transitionToQuestion(currentItemIndex, activeQuestionIndexRef.current);
+  }, [currentItemIndex, items.length, transitionToQuestion]);
 
   useEffect(() => {
     const eliminated = duel.eliminatedOptions || [];

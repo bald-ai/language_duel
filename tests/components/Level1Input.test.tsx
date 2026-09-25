@@ -112,4 +112,57 @@ describe("Level1Input", () => {
     expect(screen.getByTestId("level1-letter-2-box")).toHaveTextContent("L");
     expect(screen.getByTestId("level1-letter-3-box")).toHaveTextContent("A");
   });
+
+  it("accepts composed Spanish text and completes after the final composition", () => {
+    vi.useFakeTimers();
+    const onCorrect = vi.fn();
+    render(<Level1Input answer="niño" onCorrect={onCorrect} onSkip={vi.fn()} dataTestIdBase="composed" />);
+    const input = screen.getByRole("textbox");
+    fireEvent.compositionEnd(input, { data: "niñ" });
+    expect(screen.getByTestId("composed-letter-2-box").textContent).toBe("Ñ");
+    act(() => vi.advanceTimersByTime(AUTO_COMPLETE_DELAY_MS));
+    expect(onCorrect).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input, { data: "o" });
+    act(() => vi.advanceTimersByTime(AUTO_COMPLETE_DELAY_MS));
+    expect(onCorrect).toHaveBeenCalledExactlyOnceWith("niño");
+  });
+});
+
+describe("guided typing hints", () => {
+  afterEach(() => vi.useRealTimers());
+  it("reveals the requested letter, skips already correct letters, and completes only once", () => {
+    vi.useFakeTimers(); const onCorrect = vi.fn();
+    render(<Level1Input answer="hola" onCorrect={onCorrect} onSkip={vi.fn()} dataTestIdBase="guided" />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "h" } });
+    fireEvent.click(screen.getByTestId("guided-letter-2-hint"));
+    expect(screen.getByTestId("guided-letter-2-box").textContent).toBe("L");
+    expect(screen.getByTestId("guided-letter-2-hint")).toBeDisabled();
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.getByTestId("guided-letter-1-box")).not.toHaveStyle({ borderColor: "transparent" });
+    fireEvent.click(screen.getByTestId("guided-letter-1-hint"));
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.getByTestId("guided-letter-3-box")).not.toHaveStyle({ borderColor: "transparent" });
+    fireEvent.click(screen.getByTestId("guided-letter-3-hint"));
+    act(() => vi.advanceTimersByTime(AUTO_COMPLETE_DELAY_MS));
+    expect(onCorrect).toHaveBeenCalledExactlyOnceWith("hola");
+    act(() => vi.advanceTimersByTime(5000)); expect(onCorrect).toHaveBeenCalledOnce();
+  });
+  it("replaces an incorrect typed letter with a hint and can skip a multiword answer", () => {
+    const onSkip = vi.fn(); render(<Level1Input answer="el gato" onCorrect={vi.fn()} onSkip={onSkip} dataTestIdBase="guided" />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "xx" } });
+    fireEvent.click(screen.getByTestId("guided-letter-0-hint"));
+    expect(screen.getByTestId("guided-letter-0-box")).toHaveTextContent("E");
+    fireEvent.doubleClick(screen.getByTestId("guided-letter-1-slot"));
+    expect(screen.getByRole("textbox")).toHaveFocus();
+    fireEvent.click(screen.getByTestId("guided-skip")); expect(onSkip).toHaveBeenCalledOnce();
+  });
+  it("ignores punctuation-only input and accepts pasted Spanish letters across word boundaries", () => {
+    vi.useFakeTimers(); const onCorrect = vi.fn();
+    render(<Level1Input answer="el niño" onCorrect={onCorrect} onSkip={vi.fn()} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "12!?" } });
+    act(() => vi.advanceTimersByTime(AUTO_COMPLETE_DELAY_MS)); expect(onCorrect).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "el niño" } });
+    act(() => vi.advanceTimersByTime(AUTO_COMPLETE_DELAY_MS)); expect(onCorrect).toHaveBeenCalledExactlyOnceWith("el niño");
+  });
 });

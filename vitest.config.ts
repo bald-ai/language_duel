@@ -12,7 +12,12 @@ export default defineConfig({
     css: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "json-summary", "html"],
+      reporter: ["text"],
+      include: [
+        "app/**/*.{ts,tsx,js,mjs,cjs}", "hooks/**/*.{ts,tsx,js,mjs,cjs}",
+        "lib/**/*.{ts,tsx,js,mjs,cjs}", "convex/**/*.{ts,tsx,js,mjs,cjs}",
+        "netlify/**/*.{ts,tsx,js,mjs,cjs}", "proxy.ts",
+      ],
       thresholds: {
         lines: 70,
         branches: 70,

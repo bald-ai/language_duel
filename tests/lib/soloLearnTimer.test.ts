@@ -8,13 +8,8 @@ import {
   SOLO_INFINITE_STUDY_SECONDS,
   SOLO_TIMER_OPTIONS,
 } from "@/lib/soloLearnTimer";
-import { SOLO_INFINITE_STUDY_SECONDS as BackendSoloInfinite } from "@/convex/constants";
 
 describe("solo learn timer", () => {
-  it("keeps backend and client infinite sentinel in sync", () => {
-    expect(BackendSoloInfinite).toBe(SOLO_INFINITE_STUDY_SECONDS);
-  });
-
   it("exposes 10, 15 minutes and infinite (sentinel), default 10 min", () => {
     expect(SOLO_TIMER_OPTIONS).toContain(600);
     expect(SOLO_TIMER_OPTIONS).toContain(900);

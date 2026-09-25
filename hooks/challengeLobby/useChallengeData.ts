@@ -2,10 +2,11 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 export function useChallengeData(shouldLoad: boolean) {
-  const friends = useQuery(api.friends.getFriends, shouldLoad ? {} : "skip");
-  const themes = useQuery(api.themes.getThemes, shouldLoad ? {} : "skip");
-  const pendingChallenges = useQuery(api.challenges.getPendingChallenges, shouldLoad ? {} : "skip");
-  const currentUser = useQuery(api.users.getCurrentUser, shouldLoad ? {} : "skip");
+  const queryArgs = shouldLoad ? {} : "skip";
+  const friends = useQuery(api.friends.getFriends, queryArgs);
+  const themes = useQuery(api.themes.getThemes, queryArgs);
+  const pendingChallenges = useQuery(api.challenges.getPendingChallenges, queryArgs);
+  const currentUser = useQuery(api.users.getCurrentUser, queryArgs);
 
   const viewer =
     currentUser === undefined

@@ -1,7 +1,7 @@
 import type { WordEntry } from "@/lib/types";
 import { normalizeForComparison } from "@/lib/stringUtils";
 import { collectThemeIssues } from "./serverValidation";
-import { collectSentenceRoundIssues, formatSentenceRoundIssue } from "./sentenceValidation";
+import { collectSentenceRoundIssues, formatSentenceRoundIssue, type SentenceRoundIssue } from "./sentenceValidation";
 import type { SentenceRoundInput } from "./sentenceTypes";
 
 export type ThemeRepairIssueType =
@@ -109,49 +109,6 @@ export function analyzeThemeIssues(words: WordEntry[]): ThemeIssueAnalysis {
   };
 }
 
-export function getDuplicateWrongAnswerIndices(word: WordEntry): Set<number> {
-  return analyzeThemeIssues([word]).wordIssues.get(0)?.duplicateWrongAnswerIndices ?? new Set();
-}
-
-/**
- * Check if a word entry has duplicate wrong answers.
- */
-export function hasDuplicateWrongAnswersInWord(word: WordEntry): boolean {
-  return getDuplicateWrongAnswerIndices(word).size > 0;
-}
-
-/**
- * Get indices of wrong answers that match the correct answer.
- */
-export function getWrongIndicesMatchingAnswer(word: WordEntry): Set<number> {
-  return analyzeThemeIssues([word]).wordIssues.get(0)?.wrongMatchingAnswerIndices ?? new Set();
-}
-
-/**
- * Check if any wrong answer matches the correct answer.
- */
-export function doesWrongAnswerMatchCorrect(word: WordEntry): boolean {
-  return getWrongIndicesMatchingAnswer(word).size > 0;
-}
-
-/**
- * Check if a theme has duplicate wrong answers within any word.
- */
-export function checkThemeForDuplicateWrongAnswers(words: WordEntry[]): boolean {
-  return [...analyzeThemeIssues(words).wordIssues.values()].some(
-    (issues) => issues.duplicateWrongAnswerIndices.size > 0
-  );
-}
-
-/**
- * Check if a theme has any wrong answers that match the correct answer.
- */
-export function checkThemeForWrongMatchingAnswer(words: WordEntry[]): boolean {
-  return [...analyzeThemeIssues(words).wordIssues.values()].some(
-    (issues) => issues.wrongMatchingAnswerIndices.size > 0
-  );
-}
-
 export function getThemeRepairIssueForFlags(flags: {
   hasDuplicateWord: boolean;
   wrongMatchesAnswer: boolean;
@@ -184,20 +141,6 @@ export function getThemeSaveErrorMessage(words: WordEntry[]): string | null {
 }
 
 /**
- * Check if a theme has duplicate words.
- */
-export function checkThemeForDuplicateWords(words: WordEntry[]): boolean {
-  return analyzeThemeIssues(words).duplicateWordIndices.size > 0;
-}
-
-/**
- * Get indices of duplicate words in theme.
- */
-export function getDuplicateWordIndices(words: WordEntry[]): Set<number> {
-  return analyzeThemeIssues(words).duplicateWordIndices;
-}
-
-/**
  * Check if a word already exists in the list (accent/case/whitespace-insensitive).
  */
 export function isWordDuplicate(word: string, existingWords: WordEntry[]): boolean {
@@ -227,121 +170,91 @@ export interface SentenceThemeIssueAnalysis {
   themeIssueMessage: string | null;
 }
 
-const SENTENCE_THEME_REPAIR_PRIORITY = [
-  {
-    matcher: (type: string) => type === "duplicate_round",
-    cardMessage: "Duplicate sentence",
-  },
-  {
-    matcher: (type: string) =>
-      type === "distractor_matches_correct" || type === "distractor_duplicate",
-    cardMessage: "Distractor issue",
-  },
-  {
-    matcher: (type: string) =>
-      type === "spanish_forbidden_punctuation" ||
-      type === "spanish_too_few_tokens" ||
-      type === "spanish_too_many_tokens" ||
-      type === "spanish_token_too_long",
-    cardMessage: "Spanish sentence issue",
-  },
-  {
-    matcher: (type: string) =>
-      type === "english_empty" || type === "english_too_long",
-    cardMessage: "English prompt issue",
-  },
-  {
-    matcher: (type: string) =>
-      type === "distractor_count" ||
-      type === "distractor_empty" ||
-      type === "distractor_too_long" ||
-      type === "distractor_has_space",
-    cardMessage: "Distractor field issue",
-  },
-  {
-    matcher: (type: string) => type === "spanish_empty",
-    cardMessage: "Spanish sentence missing",
-  },
-] as const;
+const SENTENCE_ISSUE_MESSAGES: Record<SentenceRoundIssue["type"], string> = {
+  duplicate_round: "Duplicate sentence",
+  distractor_matches_correct: "Distractor issue",
+  distractor_duplicate: "Distractor issue",
+  spanish_forbidden_punctuation: "Spanish sentence issue",
+  spanish_too_few_tokens: "Spanish sentence issue",
+  spanish_too_many_tokens: "Spanish sentence issue",
+  spanish_token_too_long: "Spanish sentence issue",
+  english_empty: "English prompt issue",
+  english_too_long: "English prompt issue",
+  distractor_count: "Distractor field issue",
+  distractor_empty: "Distractor field issue",
+  distractor_too_long: "Distractor field issue",
+  distractor_has_space: "Distractor field issue",
+  spanish_empty: "Spanish sentence missing",
+  word_meanings_missing: "Word meanings missing",
+  word_meanings_count: "Word meanings must match the Spanish words",
+  free_word_position_invalid: "Invalid free word position",
+};
 
-function cardMessageForIssueType(type: string): string {
-  const entry = SENTENCE_THEME_REPAIR_PRIORITY.find((definition) => definition.matcher(type));
-  return entry?.cardMessage ?? "Issue";
+type SentenceIssueField = "english" | "spanish" | "distractor";
+
+const SENTENCE_ISSUE_FIELDS: Record<Exclude<SentenceRoundIssue["type"], "duplicate_round">, SentenceIssueField> = {
+  english_empty: "english",
+  english_too_long: "english",
+  spanish_empty: "spanish",
+  spanish_too_few_tokens: "spanish",
+  spanish_too_many_tokens: "spanish",
+  spanish_forbidden_punctuation: "spanish",
+  spanish_token_too_long: "spanish",
+  word_meanings_missing: "spanish",
+  word_meanings_count: "spanish",
+  free_word_position_invalid: "spanish",
+  distractor_empty: "distractor",
+  distractor_too_long: "distractor",
+  distractor_has_space: "distractor",
+  distractor_matches_correct: "distractor",
+  distractor_duplicate: "distractor",
+  distractor_count: "distractor",
+};
+
+function affectedDistractorIndices(issue: SentenceRoundIssue): number[] {
+  if ("distractorIndex" in issue) return [issue.distractorIndex];
+  if (issue.type === "distractor_duplicate") {
+    return [issue.firstDistractorIndex, issue.secondDistractorIndex];
+  }
+  if (issue.type === "distractor_count") {
+    // A count error highlights every present field, including excess fields.
+    return Array.from({ length: issue.actualCount }, (_, index) => index);
+  }
+  return [];
+}
+
+function applySentenceIssue(slot: SentenceRoundIssueIndices, issue: SentenceRoundIssue): void {
+  const field = issue.type === "duplicate_round" ? "spanish" : SENTENCE_ISSUE_FIELDS[issue.type];
+  if (field === "english") slot.englishHasIssue = true;
+  if (field === "spanish") slot.spanishHasIssue = true;
+  if (issue.type === "duplicate_round") slot.isDuplicate = true;
+  for (const index of affectedDistractorIndices(issue)) slot.distractorHasIssue.add(index);
+  // Collector order determines the first error shown on each card.
+  if (slot.issueMessage === null) slot.issueMessage = SENTENCE_ISSUE_MESSAGES[issue.type];
 }
 
 export function analyzeSentenceThemeIssues(
   rounds: SentenceRoundInput[]
 ): SentenceThemeIssueAnalysis {
   const perRound = new Map<number, SentenceRoundIssueIndices>();
-  const ensureSlot = (roundIndex: number): SentenceRoundIssueIndices => {
-    let slot = perRound.get(roundIndex);
-    if (!slot) {
-      slot = {
-        englishHasIssue: false,
-        spanishHasIssue: false,
-        distractorHasIssue: new Set<number>(),
-        issueMessage: null,
-        isDuplicate: false,
-      };
-      perRound.set(roundIndex, slot);
-    }
-    return slot;
-  };
-
   const issues = collectSentenceRoundIssues(rounds);
   for (const issue of issues) {
-    const setIssueMessage = (roundIndex: number) => {
-      const slot = ensureSlot(roundIndex);
-      if (slot.issueMessage === null) {
-        slot.issueMessage = cardMessageForIssueType(issue.type);
+    const indices = issue.type === "duplicate_round"
+      ? [issue.firstRoundIndex, issue.secondRoundIndex]
+      : [issue.roundIndex];
+    for (const index of indices) {
+      let slot = perRound.get(index);
+      if (!slot) {
+        slot = {
+          englishHasIssue: false,
+          spanishHasIssue: false,
+          distractorHasIssue: new Set<number>(),
+          issueMessage: null,
+          isDuplicate: false,
+        };
+        perRound.set(index, slot);
       }
-    };
-
-    if (issue.type === "english_empty" || issue.type === "english_too_long") {
-      ensureSlot(issue.roundIndex).englishHasIssue = true;
-      setIssueMessage(issue.roundIndex);
-    } else if (
-      issue.type === "spanish_empty" ||
-      issue.type === "spanish_too_few_tokens" ||
-      issue.type === "spanish_too_many_tokens" ||
-      issue.type === "spanish_forbidden_punctuation" ||
-      issue.type === "spanish_token_too_long" ||
-      issue.type === "word_meanings_missing" ||
-      issue.type === "word_meanings_count" ||
-      issue.type === "free_word_position_invalid"
-    ) {
-      ensureSlot(issue.roundIndex).spanishHasIssue = true;
-      setIssueMessage(issue.roundIndex);
-    } else if (
-      issue.type === "distractor_empty" ||
-      issue.type === "distractor_too_long" ||
-      issue.type === "distractor_has_space"
-    ) {
-      ensureSlot(issue.roundIndex).distractorHasIssue.add(issue.distractorIndex);
-      setIssueMessage(issue.roundIndex);
-    } else if (issue.type === "distractor_duplicate") {
-      const slot = ensureSlot(issue.roundIndex);
-      slot.distractorHasIssue.add(issue.firstDistractorIndex);
-      slot.distractorHasIssue.add(issue.secondDistractorIndex);
-      setIssueMessage(issue.roundIndex);
-    } else if (issue.type === "distractor_matches_correct") {
-      ensureSlot(issue.roundIndex).distractorHasIssue.add(issue.distractorIndex);
-      setIssueMessage(issue.roundIndex);
-    } else if (issue.type === "distractor_count") {
-      const slot = ensureSlot(issue.roundIndex);
-      // Highlight every present distractor on count issues so the user sees
-      // exactly which slots need fixing (3 expected, may be 0-2 or 4+ in error).
-      for (let i = 0; i < issue.actualCount; i++) {
-        slot.distractorHasIssue.add(i);
-      }
-      setIssueMessage(issue.roundIndex);
-    } else if (issue.type === "duplicate_round") {
-      ensureSlot(issue.firstRoundIndex).isDuplicate = true;
-      ensureSlot(issue.secondRoundIndex).isDuplicate = true;
-      ensureSlot(issue.firstRoundIndex).spanishHasIssue = true;
-      ensureSlot(issue.secondRoundIndex).spanishHasIssue = true;
-      setIssueMessage(issue.firstRoundIndex);
-      setIssueMessage(issue.secondRoundIndex);
+      applySentenceIssue(slot, issue);
     }
   }
 

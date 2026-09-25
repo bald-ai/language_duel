@@ -76,20 +76,9 @@ export function useSoloSessionSource({
     return themeId ? [themeId as Id<"themes">] : [];
   }, [themeId, themeIdsParam]);
 
-  const practiceSession = useQuery(
-    api.weeklyGoals.getBossPracticeSession,
-    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
+  const { practiceSession, weeklyGoalPractice, allThemes } = useSoloSourceQueries(
+    soloPracticeSessionId, weeklyGoalId, requestedThemeIds
   );
-  const weeklyGoalPractice = useQuery(
-    api.weeklyGoals.getWeeklyGoalPracticeThemes,
-    !soloPracticeSessionId && weeklyGoalId
-      ? {
-          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
-          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
-        }
-      : "skip"
-  );
-  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
 
   const selectedThemes = useMemo(() => {
     if (weeklyGoalPractice?.ok) return weeklyGoalPractice.themes;
@@ -111,54 +100,13 @@ export function useSoloSessionSource({
     [practiceSession?.themeSummary, selectedThemes]
   );
 
-  const spacedRepetitionStep =
-    practiceSession?.sourceType === "spaced_repetition" &&
-    typeof practiceSession.spacedRepetitionStep === "number"
-      ? practiceSession.spacedRepetitionStep
-      : null;
-  const isBossPractice = practiceSession?.sourceType === "boss";
-
-  const isSessionReady = soloPracticeSessionId
-    ? practiceSession !== undefined && practiceSession !== null
-    : weeklyGoalId
-      ? Boolean(weeklyGoalPractice?.ok && selectedThemes.length > 0)
-      : allThemes !== undefined &&
-        requestedThemeIds.length > 0 &&
-        selectedThemes.length === requestedThemeIds.length;
-
-  let status: SoloSourceStatus = "ready";
-  let statusMessage = "";
-  if (!soloPracticeSessionId && !weeklyGoalId && requestedThemeIds.length === 0) {
-    status = "invalid";
-    statusMessage = "No theme selected";
-  } else if (
-    (soloPracticeSessionId && practiceSession === undefined) ||
-    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === undefined) ||
-    (!soloPracticeSessionId && !weeklyGoalId && allThemes === undefined)
-  ) {
-    status = "loading";
-    statusMessage = loadingMessage;
-  } else if (
-    (soloPracticeSessionId && practiceSession === null) ||
-    (!soloPracticeSessionId && weeklyGoalId && weeklyGoalPractice === null)
-  ) {
-    status = "unavailable";
-    statusMessage = "This practice session is no longer available";
-  } else if (!soloPracticeSessionId && weeklyGoalPractice && !weeklyGoalPractice.ok) {
-    status = "invalid";
-    statusMessage = weeklyGoalPractice.message;
-  } else if (
-    !soloPracticeSessionId &&
-    !weeklyGoalId &&
-    selectedThemes.length !== requestedThemeIds.length
-  ) {
-    status = "invalid";
-    statusMessage = "Theme not found";
-  }
+  const sourceState = resolveSoloSourceState({
+    soloPracticeSessionId, weeklyGoalId, requestedThemeIds,
+    practiceSession, weeklyGoalPractice, allThemes,
+  }, selectedThemes.length, loadingMessage);
 
   return {
-    status,
-    statusMessage,
+    ...sourceState,
     sessionItems,
     themeSummary,
     requestedThemeIds,
@@ -166,10 +114,69 @@ export function useSoloSessionSource({
     weeklyGoalId,
     returnTo,
     returnLabel,
-    spacedRepetitionStep,
-    isBossPractice,
-    isSessionReady,
+    ...getPracticeSessionMetadata(practiceSession),
     confidenceParam,
     durationParam,
   };
+}
+
+/** Query selection follows URL precedence: saved session, weekly goal, themes. */
+function useSoloSourceQueries(
+  soloPracticeSessionId: string | null,
+  weeklyGoalId: string | null,
+  requestedThemeIds: Id<"themes">[]
+) {
+  const practiceSession = useQuery(
+    api.weeklyGoals.getBossPracticeSession,
+    soloPracticeSessionId ? { soloPracticeSessionId: soloPracticeSessionId as Id<"soloPracticeSessions"> } : "skip"
+  );
+  const weeklyGoalPractice = useQuery(
+    api.weeklyGoals.getWeeklyGoalPracticeThemes,
+    !soloPracticeSessionId && weeklyGoalId
+      ? {
+          weeklyGoalId: weeklyGoalId as Id<"weeklyGoals">,
+          themeIds: requestedThemeIds.length > 0 ? requestedThemeIds : undefined,
+        }
+      : "skip"
+  );
+  const allThemes = useQuery(api.themes.getThemes, soloPracticeSessionId || weeklyGoalId ? "skip" : {});
+
+  return { practiceSession, weeklyGoalPractice, allThemes };
+}
+
+type SoloSourceData = ReturnType<typeof useSoloSourceQueries>;
+type SoloSourceInput = SoloSourceData & Pick<SoloSessionSource,
+  "soloPracticeSessionId" | "weeklyGoalId" | "requestedThemeIds">;
+type SoloSourceState = Pick<SoloSessionSource, "status" | "statusMessage" | "isSessionReady">;
+
+function sourceState(status: SoloSourceStatus, statusMessage: string, isSessionReady = false): SoloSourceState {
+  return { status, statusMessage, isSessionReady };
+}
+
+function resolveSoloSourceState(input: SoloSourceInput, themeCount: number, loadingMessage: string): SoloSourceState {
+  if (input.soloPracticeSessionId) return savedSessionState(input.practiceSession, loadingMessage);
+  if (input.weeklyGoalId) return weeklyGoalState(input.weeklyGoalPractice, themeCount, loadingMessage);
+  if (input.requestedThemeIds.length === 0) return sourceState("invalid", "No theme selected");
+  if (input.allThemes === undefined) return sourceState("loading", loadingMessage);
+  if (themeCount !== input.requestedThemeIds.length) return sourceState("invalid", "Theme not found");
+  return sourceState("ready", "", true);
+}
+
+function savedSessionState(session: SoloSourceData["practiceSession"], loadingMessage: string): SoloSourceState {
+  if (session === undefined) return sourceState("loading", loadingMessage);
+  if (session === null) return sourceState("unavailable", "This practice session is no longer available");
+  return sourceState("ready", "", true);
+}
+
+function weeklyGoalState(goal: SoloSourceData["weeklyGoalPractice"], themeCount: number, loadingMessage: string): SoloSourceState {
+  if (goal === undefined) return sourceState("loading", loadingMessage);
+  if (goal === null) return sourceState("unavailable", "This practice session is no longer available");
+  if (!goal.ok) return sourceState("invalid", goal.message);
+  return sourceState("ready", "", themeCount > 0);
+}
+
+function getPracticeSessionMetadata(session: SoloSourceData["practiceSession"]) {
+  const spacedRepetitionStep = session?.sourceType === "spaced_repetition" &&
+    typeof session.spacedRepetitionStep === "number" ? session.spacedRepetitionStep : null;
+  return { spacedRepetitionStep, isBossPractice: session?.sourceType === "boss" };
 }

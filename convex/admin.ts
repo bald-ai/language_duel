@@ -1,5 +1,8 @@
+import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
+import { deleteWeeklyGoalThemeSnapshots } from "./helpers/weeklyGoalSnapshots";
+import { collectTtsStorageIds, deleteUnreferencedStorageIdsForTheme } from "./helpers/themeTtsStorage";
 import { getGoalPartnerIdForViewer } from "./weeklyGoals/participants";
 
 /**
@@ -45,7 +48,6 @@ export const deleteUserFully = internalMutation({
     const deletedIds = new Set<string>();
     const deletedGoalIds = new Set<string>();
     const deletedChallengeIds = new Set<string>();
-    const deletedDuelIds = new Set<string>();
 
     const deleteOnce = async (id: Parameters<typeof ctx.db.delete>[0]) => {
       if (deletedIds.has(id)) return false;
@@ -53,6 +55,16 @@ export const deleteUserFully = internalMutation({
       await ctx.db.delete(id);
       deletedIds.add(id);
       return true;
+    };
+
+    // Keep counts aligned with actual deletions when cleanup paths overlap.
+    const deleteRowsAndCount = async (
+      rows: { _id: Parameters<typeof ctx.db.delete>[0] }[],
+      category: keyof typeof deletionReport,
+    ) => {
+      for (const row of rows) {
+        if (await deleteOnce(row._id)) deletionReport[category]++;
+      }
     };
 
     const deleteChallenge = async (challengeId: Parameters<typeof ctx.db.delete>[0]) => {
@@ -64,118 +76,102 @@ export const deleteUserFully = internalMutation({
 
     const deleteDuel = async (duelId: Parameters<typeof ctx.db.delete>[0]) => {
       if (!(await deleteOnce(duelId))) return false;
-      deletedDuelIds.add(String(duelId));
       deletionReport.duels++;
       return true;
     };
 
-    const themes = await ctx.db
-      .query("themes")
-      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
-      .collect();
-    for (const theme of themes) {
-      if (await deleteOnce(theme._id)) deletionReport.themes++;
-    }
+    const deleteOwnedThemes = async () => {
+      const themes = await ctx.db
+        .query("themes")
+        .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+        .collect();
+      await deleteRowsAndCount(themes, "themes");
+      for (const theme of themes) {
+        await deleteUnreferencedStorageIdsForTheme(
+          ctx, theme._id,
+          collectTtsStorageIds(theme.contentType === "word" ? theme.words : theme.sentenceRounds),
+          "[Theme TTS] Failed to delete removed user's theme audio:",
+        );
+      }
+    };
 
-    const sentRequests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_sender", (q) => q.eq("senderId", userId))
-      .collect();
-    for (const req of sentRequests) {
-      if (await deleteOnce(req._id)) deletionReport.friendRequests++;
-    }
+    const deleteFriendRequests = async () => {
+      const sentRequests = await ctx.db
+        .query("friendRequests")
+        .withIndex("by_sender", (q) => q.eq("senderId", userId))
+        .collect();
+      await deleteRowsAndCount(sentRequests, "friendRequests");
+  
+      const receivedRequests = await ctx.db
+        .query("friendRequests")
+        .filter((q) => q.eq(q.field("receiverId"), userId))
+        .collect();
+      await deleteRowsAndCount(receivedRequests, "friendRequests");
+    };
 
-    const receivedRequests = await ctx.db
-      .query("friendRequests")
-      .filter((q) => q.eq(q.field("receiverId"), userId))
-      .collect();
-    for (const req of receivedRequests) {
-      if (await deleteOnce(req._id)) deletionReport.friendRequests++;
-    }
+    const deleteFriendships = async () => {
+      const friendshipsAsUser = await ctx.db
+        .query("friends")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      await deleteRowsAndCount(friendshipsAsUser, "friends");
+  
+      const friendshipsAsFriend = await ctx.db
+        .query("friends")
+        .withIndex("by_friend", (q) => q.eq("friendId", userId))
+        .collect();
+      await deleteRowsAndCount(friendshipsAsFriend, "friends");
+    };
 
-    const friendshipsAsUser = await ctx.db
-      .query("friends")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const friendship of friendshipsAsUser) {
-      if (await deleteOnce(friendship._id)) deletionReport.friends++;
-    }
+    const deleteDirectGames = async () => {
+      const challengesAsChallenger = await ctx.db
+        .query("challenges")
+        .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
+        .collect();
+      for (const challenge of challengesAsChallenger) {
+        await deleteChallenge(challenge._id);
+      }
+  
+      const challengesAsOpponent = await ctx.db
+        .query("challenges")
+        .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
+        .collect();
+      for (const challenge of challengesAsOpponent) {
+        await deleteChallenge(challenge._id);
+      }
+  
+      const duelsAsChallenger = await ctx.db
+        .query("duels")
+        .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
+        .collect();
+      for (const duel of duelsAsChallenger) {
+        await deleteDuel(duel._id);
+      }
+  
+      const duelsAsOpponent = await ctx.db
+        .query("duels")
+        .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
+        .collect();
+      for (const duel of duelsAsOpponent) {
+        await deleteDuel(duel._id);
+      }
+    };
 
-    const friendshipsAsFriend = await ctx.db
-      .query("friends")
-      .withIndex("by_friend", (q) => q.eq("friendId", userId))
-      .collect();
-    for (const friendship of friendshipsAsFriend) {
-      if (await deleteOnce(friendship._id)) deletionReport.friends++;
-    }
+    const deletePersonalPractice = async () => {
+      const soloPracticeSessions = await ctx.db
+        .query("soloPracticeSessions")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      await deleteRowsAndCount(soloPracticeSessions, "soloPracticeSessions");
+  
+      const repetitionsByUser = await ctx.db
+        .query("weeklyGoalRepetitions")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      await deleteRowsAndCount(repetitionsByUser, "weeklyGoalRepetitions");
+    };
 
-    const challengesAsChallenger = await ctx.db
-      .query("challenges")
-      .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
-      .collect();
-    for (const challenge of challengesAsChallenger) {
-      await deleteChallenge(challenge._id);
-    }
-
-    const challengesAsOpponent = await ctx.db
-      .query("challenges")
-      .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
-      .collect();
-    for (const challenge of challengesAsOpponent) {
-      await deleteChallenge(challenge._id);
-    }
-
-    const duelsAsChallenger = await ctx.db
-      .query("duels")
-      .withIndex("by_challenger", (q) => q.eq("challengerId", userId))
-      .collect();
-    for (const duel of duelsAsChallenger) {
-      await deleteDuel(duel._id);
-    }
-
-    const duelsAsOpponent = await ctx.db
-      .query("duels")
-      .withIndex("by_opponent", (q) => q.eq("opponentId", userId))
-      .collect();
-    for (const duel of duelsAsOpponent) {
-      await deleteDuel(duel._id);
-    }
-
-    const soloPracticeSessions = await ctx.db
-      .query("soloPracticeSessions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const session of soloPracticeSessions) {
-      if (await deleteOnce(session._id)) deletionReport.soloPracticeSessions++;
-    }
-
-    const repetitionsByUser = await ctx.db
-      .query("weeklyGoalRepetitions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const repetition of repetitionsByUser) {
-      if (await deleteOnce(repetition._id)) deletionReport.weeklyGoalRepetitions++;
-    }
-
-    const goalsAsCreator = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_creator", (q) => q.eq("creatorId", userId))
-      .collect();
-    const goalsAsPartner = await ctx.db
-      .query("weeklyGoals")
-      .withIndex("by_partner", (q) => q.eq("partnerId", userId))
-      .collect();
-
-    const goalsById = new Map<string, (typeof goalsAsCreator)[number]>();
-    for (const goal of [...goalsAsCreator, ...goalsAsPartner]) {
-      goalsById.set(goal._id, goal);
-    }
-
-    for (const goal of goalsById.values()) {
-      const isCompleted = goal.status === "completed";
-      const isSoloGoal = goal.mode === "solo";
-      const remainingParticipantId = getGoalPartnerIdForViewer(goal, userId);
-
+    const deleteGoalGames = async (goal: Doc<"weeklyGoals">) => {
       const goalChallenges = await ctx.db
         .query("challenges")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
@@ -183,7 +179,7 @@ export const deleteUserFully = internalMutation({
       for (const challenge of goalChallenges) {
         await deleteChallenge(challenge._id);
       }
-
+  
       const goalDuels = await ctx.db
         .query("duels")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
@@ -191,7 +187,9 @@ export const deleteUserFully = internalMutation({
       for (const duel of goalDuels) {
         await deleteDuel(duel._id);
       }
+    };
 
+    const deleteGoalPracticeSessions = async (goal: Doc<"weeklyGoals">, isCompleted: boolean) => {
       const goalSoloPracticeSessions = await ctx.db
         .query("soloPracticeSessions")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
@@ -200,7 +198,9 @@ export const deleteUserFully = internalMutation({
         if (isCompleted && session.userId !== userId) continue;
         if (await deleteOnce(session._id)) deletionReport.soloPracticeSessions++;
       }
+    };
 
+    const deleteGoalRepetitions = async (goal: Doc<"weeklyGoals">, isCompleted: boolean, isSoloGoal: boolean, remainingParticipantId: Id<"users"> | undefined) => {
       const repetitions = await ctx.db
         .query("weeklyGoalRepetitions")
         .withIndex("by_goal", (q) => q.eq("weeklyGoalId", goal._id))
@@ -211,28 +211,47 @@ export const deleteUserFully = internalMutation({
         }
         if (await deleteOnce(repetition._id)) deletionReport.weeklyGoalRepetitions++;
       }
+    };
 
+    const deleteGoal = async (goal: Doc<"weeklyGoals">) => {
+      const isCompleted = goal.status === "completed";
+      const isSoloGoal = goal.mode === "solo";
+      const remainingParticipantId = getGoalPartnerIdForViewer(goal, userId);
+  
+      await deleteGoalGames(goal);
+      await deleteGoalPracticeSessions(goal, isCompleted);
+      await deleteGoalRepetitions(goal, isCompleted, isSoloGoal, remainingParticipantId);
       if (!isSoloGoal && isCompleted) {
-        continue;
+        return;
       }
-
-      const snapshots = await ctx.db
-        .query("weeklyGoalThemeSnapshots")
-        .withIndex("by_weeklyGoal", (q) => q.eq("weeklyGoalId", goal._id))
-        .collect();
-      for (const snapshot of snapshots) {
-        if (await deleteOnce(snapshot._id)) deletionReport.weeklyGoalThemeSnapshots++;
-      }
+  
+      deletionReport.weeklyGoalThemeSnapshots += await deleteWeeklyGoalThemeSnapshots(ctx, goal._id);
 
       if (await deleteOnce(goal._id)) {
         deletionReport.weeklyGoals++;
         deletedGoalIds.add(String(goal._id));
       }
-    }
+    };
 
-    if (deletedChallengeIds.size > 0 || deletedGoalIds.size > 0) {
-      const notifications = await ctx.db.query("notifications").collect();
-      for (const notification of notifications) {
+    const deleteGoals = async () => {
+      const goalsAsCreator = await ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_creator", (q) => q.eq("creatorId", userId))
+        .collect();
+      const goalsAsPartner = await ctx.db
+        .query("weeklyGoals")
+        .withIndex("by_partner", (q) => q.eq("partnerId", userId))
+        .collect();
+  
+      const goalsById = new Map<string, (typeof goalsAsCreator)[number]>();
+      for (const goal of [...goalsAsCreator, ...goalsAsPartner]) {
+        goalsById.set(goal._id, goal);
+      }
+  
+      for (const goal of goalsById.values()) await deleteGoal(goal);
+    };
+
+    const notificationReferencesDeletedRecord = (notification: Doc<"notifications">) => {
         const payload = notification.payload as
           | { challengeId?: string; goalId?: string }
           | undefined;
@@ -243,49 +262,71 @@ export const deleteUserFully = internalMutation({
           typeof payload?.goalId === "string" &&
           deletedGoalIds.has(payload.goalId);
 
-        if (!referencesDeletedChallenge && !referencesDeletedGoal) continue;
-        if (await deleteOnce(notification._id)) deletionReport.notifications++;
+      return referencesDeletedChallenge || referencesDeletedGoal;
+    };
+
+    const deleteLinkedNotifications = async () => {
+      if (deletedChallengeIds.size > 0 || deletedGoalIds.size > 0) {
+        const notifications = await ctx.db.query("notifications").collect();
+        for (const notification of notifications) {
+          if (!notificationReferencesDeletedRecord(notification)) continue;
+          if (await deleteOnce(notification._id)) deletionReport.notifications++;
+        }
       }
-    }
+    };
 
-    const notificationsReceived = await ctx.db
-      .query("notifications")
-      .filter((q) => q.eq(q.field("toUserId"), userId))
-      .collect();
-    for (const notification of notificationsReceived) {
-      if (await deleteOnce(notification._id)) deletionReport.notifications++;
-    }
+    const deleteUserNotifications = async () => {
+      const notificationsReceived = await ctx.db
+        .query("notifications")
+        .filter((q) => q.eq(q.field("toUserId"), userId))
+        .collect();
+      await deleteRowsAndCount(notificationsReceived, "notifications");
+  
+      const notificationsSent = await ctx.db
+        .query("notifications")
+        .filter((q) => q.eq(q.field("fromUserId"), userId))
+        .collect();
+      await deleteRowsAndCount(notificationsSent, "notifications");
+    };
 
-    const notificationsSent = await ctx.db
-      .query("notifications")
-      .filter((q) => q.eq(q.field("fromUserId"), userId))
-      .collect();
-    for (const notification of notificationsSent) {
-      if (await deleteOnce(notification._id)) deletionReport.notifications++;
-    }
+    const deletePreferences = async () => {
+      const preferences = await ctx.db
+        .query("notificationPreferences")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .collect();
+      await deleteRowsAndCount(preferences, "notificationPreferences");
+    };
 
-    const preferences = await ctx.db
-      .query("notificationPreferences")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const preference of preferences) {
-      if (await deleteOnce(preference._id)) deletionReport.notificationPreferences++;
-    }
-
-    const emailLogs = [...(await ctx.db.query("emailNotificationLog").collect())];
-    for (const emailLog of emailLogs) {
+    const emailReferencesDeletedRecord = (emailLog: Doc<"emailNotificationLog">) => {
       const referencesDeletedChallenge =
         typeof emailLog.challengeId === "string" &&
         deletedChallengeIds.has(emailLog.challengeId);
-      const referencesDeletedDuel =
-        typeof emailLog.duelId === "string" &&
-        deletedDuelIds.has(emailLog.duelId);
+      const referencesDeletedGoal =
+        typeof emailLog.weeklyGoalId === "string" && deletedGoalIds.has(emailLog.weeklyGoalId);
       const targetsDeletedUser = emailLog.toUserId === userId;
-      if (!referencesDeletedChallenge && !referencesDeletedDuel && !targetsDeletedUser) {
-        continue;
+      return referencesDeletedChallenge || referencesDeletedGoal || targetsDeletedUser;
+    };
+
+    const deleteEmailLogs = async () => {
+      const emailLogs = [...(await ctx.db.query("emailNotificationLog").collect())];
+      for (const emailLog of emailLogs) {
+        if (!emailReferencesDeletedRecord(emailLog)) {
+          continue;
+        }
+        if (await deleteOnce(emailLog._id)) deletionReport.emailNotificationLog++;
       }
-      if (await deleteOnce(emailLog._id)) deletionReport.emailNotificationLog++;
-    }
+    };
+
+    await deleteOwnedThemes();
+    await deleteFriendRequests();
+    await deleteFriendships();
+    await deleteDirectGames();
+    await deletePersonalPractice();
+    await deleteGoals();
+    await deleteLinkedNotifications();
+    await deleteUserNotifications();
+    await deletePreferences();
+    await deleteEmailLogs();
 
     if (await deleteOnce(userId)) deletionReport.user = 1;
 

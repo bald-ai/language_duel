@@ -87,9 +87,8 @@ export function useAnimatedOptions<T>({
   const [options, setOptions] = useState<T[]>([]);
   const positionsRef = useRef<T[]>([]);
   const animationRef = useRef<number | null>(null);
-  const boundsWidth = bounds?.width ?? 0;
-  const boundsHeight = bounds?.height ?? 0;
-  const waitingForBounds = bounds === null || (bounds !== undefined && (boundsWidth <= 0 || boundsHeight <= 0));
+  const { width: boundsWidth, height: boundsHeight } = bounds ?? { width: 0, height: 0 };
+  const waitingForBounds = isWaitingForAnimationBounds(bounds);
 
   // Reset the mirrored state on each activation edge. The rAF loop below only
   // writes `options` from the first post-paint frame onward, so without this a
@@ -156,4 +155,10 @@ export function useAnimatedOptions<T>({
   }, [activeSabotage, effect, optionCount, init, step, bounds, boundsWidth, boundsHeight, waitingForBounds]);
 
   return activeSabotage === effect ? options : (EMPTY as T[]);
+}
+
+function isWaitingForAnimationBounds(bounds: AnimationBounds | null | undefined) {
+  if (bounds === null) return true;
+  if (bounds === undefined) return false;
+  return bounds.width <= 0 || bounds.height <= 0;
 }

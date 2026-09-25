@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { MAX_THEMES_PER_GOAL } from "../constants";
 
@@ -163,90 +163,10 @@ export function GoalThemeSelector({
             </div>
           ) : (
             <div className="space-y-2">
-              {visibleThemes.map((theme) => {
-                const isSelected = selectedIds.has(theme._id);
-                const isDisabled = !isSelected && !canAddMore;
-
-                return (
-                  <button
-                    key={theme._id}
-                    onClick={() => toggleTheme(theme._id)}
-                    disabled={isDisabled}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      backgroundColor: isSelected
-                        ? `${colors.cta.DEFAULT}1A`
-                        : colors.background.DEFAULT,
-                      borderColor: isSelected
-                        ? colors.cta.DEFAULT
-                        : colors.primary.dark,
-                    }}
-                    data-testid={`goals-theme-option-${theme._id}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className="font-semibold"
-                          style={{
-                            color: isSelected
-                              ? colors.cta.light
-                              : colors.text.DEFAULT,
-                          }}
-                        >
-                          {theme.name}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span
-                            className="text-xs"
-                            style={{ color: colors.text.muted }}
-                          >
-                            {theme.contentType === "sentence"
-                              ? formatUnitCount(theme.sentenceRounds?.length ?? 0, "round", "rounds")
-                              : formatUnitCount(theme.words?.length ?? 0, "word", "words")}
-                          </span>
-                          {theme.description && (
-                            <>
-                              <span style={{ color: colors.text.muted }}>•</span>
-                              <span
-                                className="text-xs truncate"
-                                style={{ color: colors.text.muted }}
-                              >
-                                {theme.description}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {/* Checkbox */}
-                      <div
-                        className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 ml-3"
-                        style={{
-                          borderColor: isSelected
-                            ? colors.cta.DEFAULT
-                            : colors.primary.dark,
-                          backgroundColor: isSelected
-                            ? colors.cta.DEFAULT
-                            : "transparent",
-                        }}
-                      >
-                        {isSelected && (
-                          <svg
-                            className="w-4 h-4"
-                            fill="white"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              {visibleThemes.map((theme) => (
+                <GoalThemeOption key={theme._id} theme={theme} isSelected={selectedIds.has(theme._id)}
+                  canAddMore={canAddMore} toggleTheme={toggleTheme} />
+              ))}
             </div>
           )}
         </div>
@@ -282,6 +202,107 @@ export function GoalThemeSelector({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function GoalThemeOption({ theme, isSelected, canAddMore, toggleTheme }: {
+  theme: Doc<"themes">;
+  isSelected: boolean;
+  canAddMore: boolean;
+  toggleTheme: (themeId: Id<"themes">) => void;
+}) {
+  const colors = useAppearanceColors();
+  const isDisabled = !isSelected && !canAddMore;
+  return (
+    <button
+      onClick={() => toggleTheme(theme._id)}
+      disabled={isDisabled}
+      className="w-full text-left p-4 rounded-xl border-2 transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+      style={{
+        backgroundColor: isSelected
+          ? `${colors.cta.DEFAULT}1A`
+          : colors.background.DEFAULT,
+        borderColor: isSelected
+          ? colors.cta.DEFAULT
+          : colors.primary.dark,
+      }}
+      data-testid={`goals-theme-option-${theme._id}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <div
+            className="font-semibold"
+            style={{
+              color: isSelected
+                ? colors.cta.light
+                : colors.text.DEFAULT,
+            }}
+          >
+            {theme.name}
+          </div>
+          <GoalThemeMetadata theme={theme} />
+        </div>
+        <GoalThemeCheckmark isSelected={isSelected} />
+      </div>
+    </button>
+  );
+}
+
+function GoalThemeMetadata({ theme }: { theme: Doc<"themes"> }) {
+  const colors = useAppearanceColors();
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <span
+        className="text-xs"
+        style={{ color: colors.text.muted }}
+      >
+        {theme.contentType === "sentence"
+          ? formatUnitCount(theme.sentenceRounds?.length ?? 0, "round", "rounds")
+          : formatUnitCount(theme.words?.length ?? 0, "word", "words")}
+      </span>
+      {theme.description && (
+        <>
+          <span style={{ color: colors.text.muted }}>•</span>
+          <span
+            className="text-xs truncate"
+            style={{ color: colors.text.muted }}
+          >
+            {theme.description}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GoalThemeCheckmark({ isSelected }: { isSelected: boolean }) {
+  const colors = useAppearanceColors();
+  return (
+    <div
+      className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 ml-3"
+      style={{
+        borderColor: isSelected
+          ? colors.cta.DEFAULT
+          : colors.primary.dark,
+        backgroundColor: isSelected
+          ? colors.cta.DEFAULT
+          : "transparent",
+      }}
+    >
+      {isSelected && (
+        <svg
+          className="w-4 h-4"
+          fill="white"
+          viewBox="0 0 20 20"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+      )}
     </div>
   );
 }

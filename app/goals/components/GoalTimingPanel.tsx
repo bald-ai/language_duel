@@ -72,7 +72,26 @@ export function GoalTimingPanel({
         </div>
       </div>
 
-      {isGracePeriod ? (
+      {isGracePeriod
+        ? <GoalGraceDeadline deleteAt={deleteAt} formattedGraceCountdown={formattedGraceCountdown} />
+        : <GoalEndDateInput selectedGoal={selectedGoal} isDraft={isDraft} draftExpiresAt={draftExpiresAt}
+            formattedDraftCountdown={formattedDraftCountdown} endDateInput={endDateInput}
+            canEditEndDate={canEditEndDate} isSavingEndDate={isSavingEndDate}
+            onEndDateInputChange={onEndDateInputChange} onSaveEndDate={onSaveEndDate} />}
+
+
+      {!isGracePeriod && !canEditEndDate && (
+        <p className="text-xs" style={{ color: colors.text.muted }}>
+          This end date is now read-only.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function GoalGraceDeadline({ deleteAt, formattedGraceCountdown }: Pick<GoalTimingPanelProps, "deleteAt" | "formattedGraceCountdown">) {
+  const colors = useAppearanceColors();
+  return (
         <div
           className="rounded-2xl border-2 p-5 space-y-4"
           style={{
@@ -122,7 +141,15 @@ export function GoalTimingPanel({
             </p>
           </div>
         </div>
-      ) : (
+  );
+}
+
+function GoalEndDateInput({ selectedGoal, isDraft, draftExpiresAt, formattedDraftCountdown, endDateInput,
+  canEditEndDate, isSavingEndDate, onEndDateInputChange, onSaveEndDate }: Omit<GoalTimingPanelProps,
+  "isGracePeriod" | "deleteAt" | "formattedGraceCountdown">) {
+  const colors = useAppearanceColors();
+  return (
+
         <div className="space-y-3">
           {isDraft && draftExpiresAt && (
             <div
@@ -170,13 +197,5 @@ export function GoalTimingPanel({
             />
           </label>
         </div>
-      )}
-
-      {!isGracePeriod && !canEditEndDate && (
-        <p className="text-xs" style={{ color: colors.text.muted }}>
-          This end date is now read-only.
-        </p>
-      )}
-    </section>
   );
 }

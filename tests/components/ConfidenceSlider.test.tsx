@@ -1,0 +1,34 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
+import { ConfidenceSlider } from "@/app/solo/learn/[sessionId]/components/ConfidenceSlider";
+
+it("clamps step controls, reports the next level and animates parent-provided changes in either direction", () => {
+  const onChange = vi.fn();
+  const view = render(<ConfidenceSlider value={0} onChange={onChange} dataTestIdPrefix="confidence" />);
+  const decrement = () => screen.getByRole("button", { name: "Decrease confidence" }) as HTMLButtonElement;
+  const increment = () => screen.getByRole("button", { name: "Increase confidence" }) as HTMLButtonElement;
+  expect(decrement().disabled).toBe(true);
+  fireEvent.click(decrement());
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(increment());
+  expect(onChange).toHaveBeenLastCalledWith(1);
+  view.rerender(<ConfidenceSlider value={1} onChange={onChange} dataTestIdPrefix="confidence" />);
+  const valueBox = screen.getByTestId("confidence-value");
+  const outgoing = within(valueBox).getByText("0");
+  expect(outgoing.classList.contains("conf-slide-leave-up")).toBe(true);
+  fireEvent.animationEnd(outgoing);
+  expect(within(valueBox).queryByText("0")).toBeNull();
+  fireEvent.click(decrement());
+  expect(onChange).toHaveBeenLastCalledWith(0);
+  view.rerender(<ConfidenceSlider value={0} onChange={onChange} dataTestIdPrefix="confidence" />);
+  expect(within(valueBox).getByText("1").classList.contains("conf-slide-leave-down")).toBe(true);
+  view.rerender(<ConfidenceSlider value={3} maxLevel={2} onChange={onChange} />);
+  expect(screen.queryByTestId("confidence-value")).toBeNull();
+  expect(screen.queryByLabelText("Confidence level 2")).not.toBeNull();
+  expect(increment().disabled).toBe(true);
+  onChange.mockClear();
+  fireEvent.click(increment());
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(decrement());
+  expect(onChange).toHaveBeenCalledExactlyOnceWith(1);
+});

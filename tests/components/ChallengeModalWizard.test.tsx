@@ -94,3 +94,15 @@ describe("ChallengeModal wizard navigation", () => {
     );
   });
 });
+
+it("shows selected names and Relay review without a difficulty step", () => {
+  const { onCreateChallenge } = renderModal({ initialOpponentId: "user_2" as Id<"users"> });
+  fireEvent.click(screen.getByTestId("duel-modal-theme-theme_word"));
+  fireEvent.click(screen.getByTestId("duel-modal-next"));
+  fireEvent.click(screen.getByTestId("duel-modal-mode-relay"));
+  expect(screen.getByTestId("duel-modal-review").textContent).toContain("Animals");
+  expect(screen.getByTestId("duel-modal-review")).toHaveTextContent("Bald");
+  expect(screen.getByTestId("duel-modal-review")).toHaveTextContent("Per-turn (Relay)");
+  fireEvent.click(screen.getByTestId("duel-modal-create"));
+  expect(onCreateChallenge).toHaveBeenCalledWith({ opponentId: "user_2", themeIds: ["theme_word"], duelMode: "relay", duelDifficultyPreset: undefined });
+});

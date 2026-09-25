@@ -4,7 +4,6 @@ import {
   getAuthenticatedUser,
   getAuthenticatedUserOrNull,
   getDuelParticipant,
-  getDuelParticipantOrNull,
   getOtherRole,
   hasPlayerAnswered,
   isDuelActive,
@@ -146,34 +145,13 @@ describe("auth helpers", () => {
     expect(result.isOpponent).toBe(false);
   });
 
-  it("getDuelParticipantOrNull returns null when auth/duel/participant checks fail", async () => {
+  it("rejects missing authentication, missing duels and non-participants", async () => {
     const db = new InMemoryDb();
     db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
-    db.duels.push(
-      duelDoc({
-        _id: "duel_3" as Id<"duels">,
-        challengerId: "user_9" as Id<"users">,
-        opponentId: "user_8" as Id<"users">,
-      })
-    );
-
-    const unauth = await getDuelParticipantOrNull(
-      createCtx(db, null) as never,
-      "duel_3" as Id<"duels">
-    );
-    expect(unauth).toBeNull();
-
-    const missingDuel = await getDuelParticipantOrNull(
-      createCtx(db, { subject: "clerk_1" }) as never,
-      "duel_missing" as Id<"duels">
-    );
-    expect(missingDuel).toBeNull();
-
-    const nonParticipant = await getDuelParticipantOrNull(
-      createCtx(db, { subject: "clerk_1" }) as never,
-      "duel_3" as Id<"duels">
-    );
-    expect(nonParticipant).toBeNull();
+    db.duels.push(duelDoc({ _id: "duel_3" as Id<"duels">, challengerId: "user_9" as Id<"users">, opponentId: "user_8" as Id<"users"> }));
+    await expect(getDuelParticipant(createCtx(db, null) as never, "duel_3" as Id<"duels">)).rejects.toThrow("Unauthorized");
+    await expect(getDuelParticipant(createCtx(db, { subject: "clerk_1" }) as never, "duel_missing" as Id<"duels">)).rejects.toThrow("Duel not found");
+    await expect(getDuelParticipant(createCtx(db, { subject: "clerk_1" }) as never, "duel_3" as Id<"duels">)).rejects.toThrow("User not part of this duel");
   });
 
   it("helper predicates return expected role/status results", () => {

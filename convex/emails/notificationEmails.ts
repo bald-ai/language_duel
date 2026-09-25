@@ -17,13 +17,15 @@ function getNotificationAppUrl(): string {
   return appUrl;
 }
 
-function assertRequiredEmailContext(args: {
+type RequiredEmailContext = {
   trigger: NotificationEmailTrigger;
   challengeId?: unknown;
   weeklyGoalId?: unknown;
   dedupeKey?: unknown;
   reminderOffsetMinutes?: unknown;
-}) {
+};
+
+function assertRequiredEmailContext(args: RequiredEmailContext) {
   if (args.trigger === "immediate_challenge_invite" && !args.challengeId) {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Challenge email requires challengeId" });
   }
@@ -32,21 +34,8 @@ function assertRequiredEmailContext(args: {
     throw new ConvexError({ code: "INVALID_INPUT", message: "Weekly-goal email requires weeklyGoalId" });
   }
 
-  if (
-    (args.trigger === "weekly_goal_daily_reminder" ||
-      args.trigger === "weekly_goal_grace_period_reminder") &&
-    !args.dedupeKey
-  ) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Daily reminder email requires dedupeKey" });
-  }
+  assertReminderContext(args);
 
-  if (
-    (args.trigger === "weekly_goal_reminder_1" ||
-      args.trigger === "weekly_goal_reminder_2") &&
-    typeof args.reminderOffsetMinutes !== "number"
-  ) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Fixed reminder email requires reminderOffsetMinutes" });
-  }
 }
 
 export const sendNotificationEmail = internalAction({
@@ -55,8 +44,6 @@ export const sendNotificationEmail = internalAction({
     toUserId: v.id("users"),
     fromUserId: v.optional(v.id("users")),
     challengeId: v.optional(v.id("challenges")),
-    duelId: v.optional(v.id("duels")),
-    soloPracticeSessionId: v.optional(v.id("soloPracticeSessions")),
     weeklyGoalId: v.optional(v.id("weeklyGoals")),
     reminderOffsetMinutes: v.optional(v.number()),
     dedupeKey: v.optional(v.string()),
@@ -88,8 +75,6 @@ export const sendNotificationEmail = internalAction({
       toUser,
       fromUserId: args.fromUserId,
       challengeId: args.challengeId,
-      duelId: args.duelId,
-      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       reminderOffsetMinutes: args.reminderOffsetMinutes,
       dedupeKey: args.dedupeKey,
@@ -103,8 +88,6 @@ export const sendNotificationEmail = internalAction({
       toUserId: args.toUserId,
       trigger: args.trigger,
       challengeId: args.challengeId,
-      duelId: args.duelId,
-      soloPracticeSessionId: args.soloPracticeSessionId,
       weeklyGoalId: args.weeklyGoalId,
       dedupeKey: args.dedupeKey,
     });
@@ -132,3 +115,21 @@ export const sendNotificationEmail = internalAction({
     return { sent: true };
   },
 });
+
+function assertReminderContext(args: RequiredEmailContext): void {
+  if (
+    (args.trigger === "weekly_goal_daily_reminder" ||
+      args.trigger === "weekly_goal_grace_period_reminder") &&
+    !args.dedupeKey
+  ) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Daily reminder email requires dedupeKey" });
+  }
+
+  if (
+    (args.trigger === "weekly_goal_reminder_1" ||
+      args.trigger === "weekly_goal_reminder_2") &&
+    typeof args.reminderOffsetMinutes !== "number"
+  ) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Fixed reminder email requires reminderOffsetMinutes" });
+  }
+}

@@ -38,6 +38,19 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   weeklyGoalReminder2OffsetMinutes: WEEKLY_GOAL_REMINDER_2_DEFAULT_OFFSET_MINUTES,
 };
 
+type BooleanPreferenceKey = {
+  [Key in keyof NotificationPreferences]: NotificationPreferences[Key] extends boolean ? Key : never
+}[keyof NotificationPreferences];
+
+const BOOLEAN_PREFERENCE_KEYS = [
+  "challengeInviteEmailsEnabled", "challengeInviteEmailEnabled",
+  "weeklyGoalEmailsEnabled", "weeklyGoalInviteEmailEnabled",
+  "weeklyGoalAcceptedEmailEnabled", "weeklyGoalLockedEmailEnabled",
+  "weeklyGoalDailyReminderEmailEnabled", "weeklyGoalGracePeriodReminderEmailEnabled",
+  "weeklyGoalDraftExpiringEmailEnabled", "weeklyGoalReminder1EmailEnabled",
+  "weeklyGoalReminder2EmailEnabled",
+] satisfies BooleanPreferenceKey[];
+
 function normalizeReminderOffset(
   value: number | undefined,
   defaultValue: number
@@ -57,47 +70,19 @@ function normalizeReminderOffset(
 export function normalizeNotificationPreferences(
   prefs: Partial<NotificationPreferences> | null | undefined
 ): NotificationPreferences {
-  return {
-    challengeInviteEmailsEnabled:
-      prefs?.challengeInviteEmailsEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailsEnabled,
-    challengeInviteEmailEnabled:
-      prefs?.challengeInviteEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.challengeInviteEmailEnabled,
-    weeklyGoalEmailsEnabled:
-      prefs?.weeklyGoalEmailsEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalEmailsEnabled,
-    weeklyGoalInviteEmailEnabled:
-      prefs?.weeklyGoalInviteEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalInviteEmailEnabled,
-    weeklyGoalAcceptedEmailEnabled:
-      prefs?.weeklyGoalAcceptedEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalAcceptedEmailEnabled,
-    weeklyGoalLockedEmailEnabled:
-      prefs?.weeklyGoalLockedEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalLockedEmailEnabled,
-    weeklyGoalDailyReminderEmailEnabled:
-      prefs?.weeklyGoalDailyReminderEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalDailyReminderEmailEnabled,
-    weeklyGoalGracePeriodReminderEmailEnabled:
-      prefs?.weeklyGoalGracePeriodReminderEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalGracePeriodReminderEmailEnabled,
-    weeklyGoalDraftExpiringEmailEnabled:
-      prefs?.weeklyGoalDraftExpiringEmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalDraftExpiringEmailEnabled,
-    weeklyGoalReminder1EmailEnabled:
-      prefs?.weeklyGoalReminder1EmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1EmailEnabled,
-    weeklyGoalReminder1OffsetMinutes: normalizeReminderOffset(
-      prefs?.weeklyGoalReminder1OffsetMinutes,
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes
-    ),
-    weeklyGoalReminder2EmailEnabled:
-      prefs?.weeklyGoalReminder2EmailEnabled ??
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2EmailEnabled,
-    weeklyGoalReminder2OffsetMinutes: normalizeReminderOffset(
-      prefs?.weeklyGoalReminder2OffsetMinutes,
-      DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes
-    ),
-  };
+  const normalized = { ...DEFAULT_NOTIFICATION_PREFS };
+  if (!prefs) return normalized;
+
+  for (const key of BOOLEAN_PREFERENCE_KEYS) {
+    normalized[key] = prefs[key] ?? DEFAULT_NOTIFICATION_PREFS[key];
+  }
+  normalized.weeklyGoalReminder1OffsetMinutes = normalizeReminderOffset(
+    prefs.weeklyGoalReminder1OffsetMinutes,
+    DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder1OffsetMinutes
+  );
+  normalized.weeklyGoalReminder2OffsetMinutes = normalizeReminderOffset(
+    prefs.weeklyGoalReminder2OffsetMinutes,
+    DEFAULT_NOTIFICATION_PREFS.weeklyGoalReminder2OffsetMinutes
+  );
+  return normalized;
 }

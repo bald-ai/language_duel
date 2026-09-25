@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  type RefObject,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
@@ -8,337 +14,413 @@ import { formatVisibleUser, getVisibleUserInitials } from "@/lib/userDisplay";
 import type { FriendWithDetails } from "@/convex/friends";
 
 interface FriendListItemProps {
-    friend: FriendWithDetails;
-    hasExistingGoal: boolean;
-    onQuickDuel: () => void;
-    onRemoveFriend: () => void;
+  friend: FriendWithDetails;
+  hasExistingGoal: boolean;
+  onQuickDuel: () => void;
+  onRemoveFriend: () => void;
 }
 
 /**
  * FriendListItem - Individual friend display with context menu
- * 
+ *
  * Features:
  * - Avatar with online indicator (green dot)
  * - Nickname#discriminator display
  * - Right-click (desktop) / long-press (mobile) context menu
  */
 export function FriendListItem({
-    friend,
-    hasExistingGoal,
-    onQuickDuel,
-    onRemoveFriend
+  friend,
+  hasExistingGoal,
+  onQuickDuel,
+  onRemoveFriend,
 }: FriendListItemProps) {
   const colors = useAppearanceColors();
-    const [showMenu, setShowMenu] = useState(false);
-    const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-    const [showConfirmRemove, setShowConfirmRemove] = useState(false);
-    const itemRef = useRef<HTMLDivElement>(null);
-    const menuButtonRef = useRef<HTMLButtonElement>(null);
-    const contextMenuRef = useRef<HTMLDivElement>(null);
-    const confirmDialogRef = useRef<HTMLDivElement>(null);
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-    const canUseDom = typeof document !== "undefined";
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const itemRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const confirmDialogRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-    // Handle right-click (desktop)
-    const handleContextMenu = (e: React.MouseEvent) => {
-        e.preventDefault();
-        setMenuPosition({ x: e.clientX, y: e.clientY });
-        setShowMenu(true);
-    };
+  // Handle right-click (desktop)
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowMenu(true);
+  };
 
-    // Handle long-press start (mobile)
-    const handleTouchStart = () => {
-        longPressTimer.current = setTimeout(() => {
-            if (itemRef.current) {
-                const rect = itemRef.current.getBoundingClientRect();
-                setMenuPosition({ x: rect.left + rect.width / 2, y: rect.bottom });
-            }
-            setShowMenu(true);
-        }, 500);
-    };
+  // Handle long-press start (mobile)
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      if (itemRef.current) {
+        const rect = itemRef.current.getBoundingClientRect();
+        setMenuPosition({ x: rect.left + rect.width / 2, y: rect.bottom });
+      }
+      setShowMenu(true);
+    }, 500);
+  };
 
-    // Handle long-press end (mobile)
-    const handleTouchEnd = () => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    };
+  // Handle long-press end (mobile)
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
-    // Close menu on click outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target;
-            if (!(target instanceof Node)) {
-                setShowMenu(false);
-                setShowConfirmRemove(false);
-                return;
-            }
-
-            if (showConfirmRemove) {
-                const clickedInsideConfirm = confirmDialogRef.current?.contains(target) ?? false;
-                if (!clickedInsideConfirm) {
-                    setShowConfirmRemove(false);
-                }
-                return;
-            }
-
-            if (showMenu) {
-                const clickedInsideMenu = contextMenuRef.current?.contains(target) ?? false;
-                const clickedMenuButton = menuButtonRef.current?.contains(target) ?? false;
-                if (!clickedInsideMenu && !clickedMenuButton) {
-                    setShowMenu(false);
-                }
-            }
-        };
-
-        if (showMenu || showConfirmRemove) {
-            document.addEventListener("click", handleClickOutside);
-            return () => document.removeEventListener("click", handleClickOutside);
-        }
-    }, [showMenu, showConfirmRemove]);
-
-    // Handle menu button click - calculates position from button
-    const handleMenuClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (menuButtonRef.current) {
-            const rect = menuButtonRef.current.getBoundingClientRect();
-            setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
-        }
-        setShowMenu(true);
-    };
-
-
-    const handleRemoveClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
+  // Close menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
         setShowMenu(false);
-        setShowConfirmRemove(true);
-    };
-
-    const handleConfirmRemove = (e: React.MouseEvent) => {
-        e.stopPropagation();
         setShowConfirmRemove(false);
-        onRemoveFriend();
+        return;
+      }
+
+      if (showConfirmRemove) {
+        const clickedInsideConfirm = containsTarget(target, confirmDialogRef);
+        if (!clickedInsideConfirm) {
+          setShowConfirmRemove(false);
+        }
+        return;
+      }
+
+      if (showMenu && !containsTarget(target, contextMenuRef, menuButtonRef)) {
+        setShowMenu(false);
+      }
     };
 
-    // Render overlays (context menu + confirm dialog) in a portal to avoid
-    // being affected by transformed/overflow-hidden ancestors (the notification panel).
-    const contextMenu = showMenu ? (
-        <div
-            ref={contextMenuRef}
-            data-modal-portal="true"
-            className="fixed z-[100] py-1 rounded-lg shadow-xl min-w-[160px] animate-scale-in"
+    if (showMenu || showConfirmRemove) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showMenu, showConfirmRemove]);
+
+  // Handle menu button click - calculates position from button
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
+    }
+    setShowMenu(true);
+  };
+
+  const handleRemoveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    setShowConfirmRemove(true);
+  };
+
+  const handleConfirmRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowConfirmRemove(false);
+    onRemoveFriend();
+  };
+
+  // Render overlays (context menu + confirm dialog) in a portal to avoid
+  // being affected by transformed/overflow-hidden ancestors (the notification panel).
+  const contextMenu = showMenu ? (
+    <div
+      ref={contextMenuRef}
+      data-modal-portal="true"
+      className="fixed z-[100] py-1 rounded-lg shadow-xl min-w-[160px] animate-scale-in"
+      style={{
+        left: Math.min(
+          menuPosition.x,
+          (typeof window !== "undefined" ? window.innerWidth : 0) - 180,
+        ),
+        top: menuPosition.y,
+        backgroundColor: colors.background.elevated,
+        border: `1px solid ${colors.neutral.light}30`,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
+        style={{ color: colors.status.danger.DEFAULT }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}10`)
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.backgroundColor = "transparent")
+        }
+        onClick={handleRemoveClick}
+        data-testid={`notifications-friend-${friend.friendId}-remove`}
+      >
+        <TrashIcon />
+        Remove Friend
+      </button>
+    </div>
+  ) : null;
+
+  const confirmRemoveDialog = showConfirmRemove ? (
+    <div
+      data-modal-portal="true"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
+    >
+      <div
+        ref={confirmDialogRef}
+        className="p-4 rounded-xl max-w-[300px] w-full shadow-2xl animate-scale-in"
+        style={{ backgroundColor: colors.background.elevated }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3
+          className="text-lg font-semibold mb-2"
+          style={{ color: colors.text.DEFAULT }}
+        >
+          Remove Friend?
+        </h3>
+        <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
+          Are you sure you want to remove{" "}
+          <strong>{formatVisibleUser(friend)}</strong> from your friends?
+        </p>
+        {hasExistingGoal && (
+          <p
+            className="text-sm mb-4"
+            style={{ color: colors.status.warning.dark }}
+          >
+            You also have a weekly goal together. Removing this friend will also
+            close that shared goal.
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            className="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
             style={{
-                left: Math.min(
-                    menuPosition.x,
-                    (typeof window !== "undefined" ? window.innerWidth : 0) - 180
-                ),
-                top: menuPosition.y,
-                backgroundColor: colors.background.elevated,
-                border: `1px solid ${colors.neutral.light}30`,
+              backgroundColor: colors.background.DEFAULT,
+              color: colors.text.DEFAULT,
             }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <button
-                className="w-full px-4 py-2.5 text-left text-sm hover:bg-opacity-50 transition-colors flex items-center gap-2"
-                style={{ color: colors.status.danger.DEFAULT }}
-                onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}10`)
-                }
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                onClick={handleRemoveClick}
-                data-testid={`notifications-friend-${friend.friendId}-remove`}
-            >
-                <TrashIcon />
-                Remove Friend
-            </button>
+            onClick={() => setShowConfirmRemove(false)}
+            data-testid={`notifications-friend-${friend.friendId}-remove-cancel`}
+          >
+            Cancel
+          </button>
+          <button
+            className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white transition-colors"
+            style={{ backgroundColor: colors.status.danger.DEFAULT }}
+            onClick={handleConfirmRemove}
+            data-testid={`notifications-friend-${friend.friendId}-remove-confirm`}
+          >
+            Remove
+          </button>
         </div>
-    ) : null;
+      </div>
+    </div>
+  ) : null;
 
-    const confirmRemoveDialog = showConfirmRemove ? (
-        <div
-            data-modal-portal="true"
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50"
-        >
-            <div
-                ref={confirmDialogRef}
-                className="p-4 rounded-xl max-w-[300px] w-full shadow-2xl animate-scale-in"
-                style={{ backgroundColor: colors.background.elevated }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <h3
-                    className="text-lg font-semibold mb-2"
-                    style={{ color: colors.text.DEFAULT }}
-                >
-                    Remove Friend?
-                </h3>
-                <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
-                    Are you sure you want to remove{" "}
-                    <strong>{formatVisibleUser(friend)}</strong> from your friends?
-                </p>
-                {hasExistingGoal && (
-                    <p
-                        className="text-sm mb-4"
-                        style={{ color: colors.status.warning.dark }}
-                    >
-                        You also have a weekly goal together. Removing this friend will also close that shared goal.
-                    </p>
-                )}
-                <div className="flex gap-2">
-                    <button
-                        className="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-                        style={{
-                            backgroundColor: colors.background.DEFAULT,
-                            color: colors.text.DEFAULT,
-                        }}
-                        onClick={() => setShowConfirmRemove(false)}
-                        data-testid={`notifications-friend-${friend.friendId}-remove-cancel`}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: colors.status.danger.DEFAULT }}
-                        onClick={handleConfirmRemove}
-                        data-testid={`notifications-friend-${friend.friendId}-remove-confirm`}
-                    >
-                        Remove
-                    </button>
-                </div>
-            </div>
+  return (
+    <>
+      <div
+        ref={itemRef}
+        className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-opacity-60"
+        style={{
+          backgroundColor: showMenu
+            ? `${colors.primary.DEFAULT}10`
+            : "transparent",
+        }}
+        onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        data-testid={`notifications-friend-${friend.friendId}`}
+      >
+        <FriendAvatar friend={friend} />
+
+        {/* Name and status */}
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-sm font-medium truncate"
+            style={{ color: colors.text.DEFAULT }}
+          >
+            {formatVisibleUser(friend)}
+          </p>
+          <FriendPresence online={friend.isOnline} />
         </div>
-    ) : null;
 
-    return (
-        <>
-            <div
-                ref={itemRef}
-                className="flex items-center gap-3 p-2 rounded-lg transition-colors hover:bg-opacity-60"
-                style={{
-                    backgroundColor: showMenu ? `${colors.primary.DEFAULT}10` : "transparent"
-                }}
-                onContextMenu={handleContextMenu}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchEnd}
-                data-testid={`notifications-friend-${friend.friendId}`}
+        {/* Action buttons */}
+        <div className="flex items-center gap-1">
+          <FriendQuickDuel friend={friend} onQuickDuel={onQuickDuel} />
+
+          {/* More options button */}
+          <button
+            ref={menuButtonRef}
+            className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
+            style={{ color: colors.text.muted }}
+            onClick={handleMenuClick}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`)
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+            title="More options"
+            data-testid={`notifications-friend-${friend.friendId}-menu`}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-                {/* Avatar with online indicator */}
-                <div className="relative">
-                    <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                        style={{
-                            backgroundColor: friend.isOnline ? colors.cta.DEFAULT : colors.neutral.DEFAULT
-                        }}
-                    >
-                        {friend.imageUrl ? (
-                            <Image
-                                src={friend.imageUrl}
-                                alt=""
-                                width={40}
-                                height={40}
-                                className="w-full h-full rounded-full object-cover"
-                            />
-                        ) : (
-                            getVisibleUserInitials(friend)
-                        )}
-                    </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-                    {/* Online indicator */}
-                    {friend.isOnline && (
-                        <div
-                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
-                            style={{
-                                backgroundColor: colors.cta.DEFAULT,
-                                borderColor: colors.background.elevated,
-                                boxShadow: `0 0 4px ${colors.cta.DEFAULT}`,
-                            }}
-                        />
-                    )}
-                </div>
-
-                {/* Name and status */}
-                <div className="flex-1 min-w-0">
-                    <p
-                        className="text-sm font-medium truncate"
-                        style={{ color: colors.text.DEFAULT }}
-                    >
-                        {formatVisibleUser(friend)}
-                    </p>
-                    <p
-                        className="text-xs"
-                        style={{ color: friend.isOnline ? colors.cta.DEFAULT : colors.text.muted }}
-                    >
-                        {friend.isOnline ? "Online" : "Offline"}
-                    </p>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-1">
-                    {/* Quick Duel button - only for online friends */}
-                    {friend.isOnline && (
-                        <button
-                            className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
-                            style={{ color: colors.cta.DEFAULT }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onQuickDuel();
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                            title="Start Duel"
-                            data-testid={`notifications-friend-${friend.friendId}-quick-duel`}
-                        >
-                            <SwordsIcon />
-                        </button>
-                    )}
-
-                    {/* More options button */}
-                    <button
-                        ref={menuButtonRef}
-                        className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
-                        style={{ color: colors.text.muted }}
-                        onClick={handleMenuClick}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.primary.DEFAULT}10`}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                        title="More options"
-                        data-testid={`notifications-friend-${friend.friendId}-menu`}
-                    >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {/* Overlays */}
-            {canUseDom && contextMenu ? createPortal(contextMenu, document.body) : contextMenu}
-            {canUseDom && confirmRemoveDialog
-                ? createPortal(confirmRemoveDialog, document.body)
-                : confirmRemoveDialog}
-        </>
-    );
+      {/* Overlays */}
+      <FriendOverlay>{contextMenu}</FriendOverlay>
+      <FriendOverlay>{confirmRemoveDialog}</FriendOverlay>
+    </>
+  );
 }
 
 function TrashIcon() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-    );
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
 }
 
 function SwordsIcon() {
-    return (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <g transform="rotate(45 12 12)">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
-            </g>
-            <g transform="rotate(-45 12 12)">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 16a3 3 0 0 0 6 0" />
-            </g>
-        </svg>
-    );
+  return (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <g transform="rotate(45 12 12)">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 16a3 3 0 0 0 6 0"
+        />
+      </g>
+      <g transform="rotate(-45 12 12)">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 16a3 3 0 0 0 6 0"
+        />
+      </g>
+    </svg>
+  );
+}
+
+function containsTarget(
+  target: Node,
+  ...refs: RefObject<HTMLElement | null>[]
+) {
+  return refs.some((ref) => ref.current?.contains(target) ?? false);
+}
+
+function FriendOverlay({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return typeof document !== "undefined"
+    ? createPortal(children, document.body)
+    : children;
+}
+
+function FriendAvatar({ friend }: Pick<FriendListItemProps, "friend">) {
+  const colors = useAppearanceColors();
+  return (
+    <div className="relative">
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+        style={{
+          backgroundColor: friend.isOnline
+            ? colors.cta.DEFAULT
+            : colors.neutral.DEFAULT,
+        }}
+      >
+        {friend.imageUrl ? (
+          <Image
+            src={friend.imageUrl}
+            alt=""
+            width={40}
+            height={40}
+            className="w-full h-full rounded-full object-cover"
+          />
+        ) : (
+          getVisibleUserInitials(friend)
+        )}
+      </div>
+
+      {/* Online indicator */}
+      {friend.isOnline && (
+        <div
+          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
+          style={{
+            backgroundColor: colors.cta.DEFAULT,
+            borderColor: colors.background.elevated,
+            boxShadow: `0 0 4px ${colors.cta.DEFAULT}`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FriendPresence({ online }: { online: boolean }) {
+  const colors = useAppearanceColors();
+  return (
+    <p
+      className="text-xs"
+      style={{ color: online ? colors.cta.DEFAULT : colors.text.muted }}
+    >
+      {online ? "Online" : "Offline"}
+    </p>
+  );
+}
+
+function FriendQuickDuel({
+  friend,
+  onQuickDuel,
+}: Pick<FriendListItemProps, "friend" | "onQuickDuel">) {
+  const colors = useAppearanceColors();
+  if (!friend.isOnline) return null;
+  return (
+    <button
+      className="p-1.5 rounded-lg transition-colors hover:bg-opacity-50"
+      style={{ color: colors.cta.DEFAULT }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onQuickDuel();
+      }}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.backgroundColor = `${colors.cta.DEFAULT}15`)
+      }
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.backgroundColor = "transparent")
+      }
+      title="Start Duel"
+      data-testid={`notifications-friend-${friend.friendId}-quick-duel`}
+    >
+      <SwordsIcon />
+    </button>
+  );
 }

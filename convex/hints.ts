@@ -98,6 +98,24 @@ export const eliminateOption = mutation({
     if (duel.hintRequestedBy !== otherRole) throw new ConvexError({ code: "INVALID_STATE", message: "You are not the hint provider" });
     if (!duel.hintAccepted) throw new ConvexError({ code: "HINT_NOT_ACCEPTED", message: "Hint not accepted yet" });
 
+    validateEliminationOption(duel, option);
+
+    const currentEliminated = duel.eliminatedOptions || [];
+    if (currentEliminated.includes(option)) {
+      throw new ConvexError({ code: "INVALID_STATE", message: "Option already eliminated" });
+    }
+    if (currentEliminated.length >= PVP_HINT_ELIMINATION_PICKS) {
+      throw new ConvexError({ code: "LIMIT_REACHED", message: `Maximum ${PVP_HINT_ELIMINATION_PICKS} options can be eliminated` });
+    }
+
+    const nextEliminated = [...currentEliminated, option];
+    const update = eliminationUpdate(duel, nextEliminated);
+
+    await ctx.db.patch(duelId, update);
+  },
+});
+
+function validateEliminationOption(duel: Doc<"duels">, option: string) {
     const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
@@ -117,31 +135,18 @@ export const eliminateOption = mutation({
       throw new ConvexError({ code: "INVALID_INPUT", message: "Cannot eliminate the correct answer" });
     }
 
-    const currentEliminated = duel.eliminatedOptions || [];
-    if (currentEliminated.includes(option)) {
-      throw new ConvexError({ code: "INVALID_STATE", message: "Option already eliminated" });
-    }
-    if (currentEliminated.length >= PVP_HINT_ELIMINATION_PICKS) {
-      throw new ConvexError({ code: "LIMIT_REACHED", message: `Maximum ${PVP_HINT_ELIMINATION_PICKS} options can be eliminated` });
-    }
+}
 
-    const nextEliminated = [...currentEliminated, option];
-    const update: Partial<Doc<"duels">> = {
-      eliminatedOptions: nextEliminated,
-    };
-
-    // When both eliminations are provided, resume the question timer
-    if (nextEliminated.length >= PVP_HINT_ELIMINATION_PICKS) {
-      const pausedAt =
-        typeof duel.questionTimerPausedAt === "number" ? duel.questionTimerPausedAt : undefined;
-      const pauseDuration = pausedAt ? Date.now() - pausedAt : 0;
-      if (typeof duel.questionStartTime === "number") {
-        update.questionStartTime = duel.questionStartTime + pauseDuration;
-      }
-      update.questionTimerPausedAt = undefined;
-      update.questionTimerPausedBy = undefined;
-    }
-
-    await ctx.db.patch(duelId, update);
-  },
-});
+/** Resume only after the provider finishes both picks, preserving elapsed time. */
+function eliminationUpdate(duel: Doc<"duels">, nextEliminated: string[]): Partial<Doc<"duels">> {
+  const update: Partial<Doc<"duels">> = { eliminatedOptions: nextEliminated };
+  if (nextEliminated.length < PVP_HINT_ELIMINATION_PICKS) return update;
+  const pausedAt = typeof duel.questionTimerPausedAt === "number" ? duel.questionTimerPausedAt : undefined;
+  const pauseDuration = pausedAt ? Date.now() - pausedAt : 0;
+  if (typeof duel.questionStartTime === "number") {
+    update.questionStartTime = duel.questionStartTime + pauseDuration;
+  }
+  update.questionTimerPausedAt = undefined;
+  update.questionTimerPausedBy = undefined;
+  return update;
+}

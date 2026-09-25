@@ -1,6 +1,5 @@
 /**
- * Pure sentence-round helpers: building the seeded tile pool, assembling the
- * placed sequence, and validating a submitted sentence. No React, no Convex —
+ * Pure sentence-round helpers: building the seeded tile pool. No React, no Convex —
  * keeps the gameplay rules unit-testable.
  *
  * Repeated-word rule (decision: validation): when the correct sentence has a
@@ -10,7 +9,6 @@
  */
 
 import { hashSeed, seededShuffle } from "../prng";
-import { normalizeForComparison } from "../stringUtils";
 import {
   normalizeSentenceFreeWordPositions,
   normalizeSentenceWordMeanings,
@@ -19,7 +17,6 @@ import {
 import { SENTENCE_WORD_MEANING_PLACEHOLDER } from "../themes/sentenceConstants";
 import type {
   SentenceQuestionSnapshot,
-  SentenceRoundResult,
 } from "./types";
 
 /**
@@ -86,53 +83,4 @@ export function buildSentenceQuestionSnapshot(args: {
     tilePool: shuffledTiles.map((tile) => tile.text),
     tileMeanings: shuffledTiles.map((tile) => tile.meaning),
   };
-}
-
-/**
- * The canonical Spanish sentence assembled from the placed tile indices.
- * Used at the client to display the in-progress build and on the server to
- * validate the final submission.
- */
-export function buildAssembledSentence(
-  snapshot: SentenceQuestionSnapshot,
-  placedTileIndices: number[]
-): string {
-  return placedTileIndices
-    .map((index) => snapshot.tilePool[index])
-    .filter((tile): tile is string => tile !== undefined)
-    .join(" ");
-}
-
-/**
- * Server-side validation: given the placed tile sequence the client submits,
- * does it equal the canonical sentence after normalization? Identical-text
- * tiles are interchangeable.
- */
-export function isSubmittedSentenceCorrect(
-  snapshot: SentenceQuestionSnapshot,
-  placedTileIndices: number[]
-): boolean {
-  const correctTokens = tokenizeSpanishSentence(snapshot.spanishSentence);
-  if (placedTileIndices.length !== correctTokens.length) return false;
-
-  const placedTokens = placedTileIndices.map((index) => snapshot.tilePool[index]);
-  if (placedTokens.some((token) => token === undefined)) return false;
-
-  for (let position = 0; position < correctTokens.length; position++) {
-    const placed = normalizeForComparison(placedTokens[position] as string);
-    const expected = normalizeForComparison(correctTokens[position]);
-    if (placed !== expected) return false;
-  }
-  return true;
-}
-
-/** Result -> points (decision: sentence scoring). */
-export function pointsForSentenceResult(
-  result: SentenceRoundResult,
-  perfect: number,
-  withMistakes: number,
-  timeout: number
-): number {
-  if (!result.completed) return timeout;
-  return result.mistakes === 0 ? perfect : withMistakes;
 }

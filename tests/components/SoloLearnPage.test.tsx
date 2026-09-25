@@ -6,6 +6,8 @@ import LearnPhasePage from "@/app/solo/learn/[sessionId]/page";
 const pushMock = vi.fn();
 const useQueryMock = vi.fn();
 const playTTSMock = vi.fn();
+let playingWordKeyMock: string | null = null;
+let searchParamsMock: Record<string, string> = {};
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ sessionId: "session_1" }),
@@ -14,11 +16,7 @@ vi.mock("next/navigation", () => ({
   }),
   useSearchParams: () => ({
     get: (key: string) => {
-      const params: Record<string, string> = {
-        themeId: "theme_1",
-        duration: "600",
-      };
-      return params[key] ?? null;
+      return searchParamsMock[key] ?? null;
     },
   }),
 }));
@@ -45,7 +43,7 @@ vi.mock("@/app/components/ThemedPage", () => ({
 
 vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
-    playingWordKey: null,
+    playingWordKey: playingWordKeyMock,
     playTTS: playTTSMock,
   }),
 }));
@@ -105,6 +103,8 @@ describe("SoloLearnPage", () => {
     pushMock.mockReset();
     useQueryMock.mockReset();
     playTTSMock.mockReset();
+    playingWordKeyMock = null;
+    searchParamsMock = { themeId: "theme_1", duration: "600" };
     sessionStorage.clear();
     useQueryMock.mockImplementation((query: unknown) => {
       if (query === "getThemes") {
@@ -129,6 +129,18 @@ describe("SoloLearnPage", () => {
     expect(screen.queryByTestId("solo-learn-toggle-reveal")).not.toBeInTheDocument();
     expect(screen.queryByTestId("solo-learn-toggle-test")).not.toBeInTheDocument();
     expect(screen.queryByTestId("solo-learn-reset-all")).not.toBeInTheDocument();
+  });
+
+  it("waits for study content and lets an invalid session return to its source", () => {
+    useQueryMock.mockReturnValue(undefined);
+    const view = renderSoloLearnPage();
+    expect(screen.getByText("Loading study session...")).toBeInTheDocument();
+    expect(screen.queryByTestId("solo-learn-skip")).toBeNull();
+    searchParamsMock = { returnTo: "/goals", returnLabel: "Back to Goals" };
+    view.rerender(<LearnPhasePage />);
+    expect(screen.getByText("No theme selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Goals" }));
+    expect(pushMock).toHaveBeenCalledExactlyOnceWith("/goals");
   });
 
   it("reveals all words, hides all words, and marks bulk reveal off after a per-card hide", () => {
@@ -293,4 +305,23 @@ describe("SoloLearnPage", () => {
     });
     expect(screen.getByLabelText("Confidence level 2")).toBeInTheDocument();
   });
+  it("disables all audio buttons while one study word is playing and re-enables them afterward", () => {
+    const view = renderSoloLearnPage();
+    const first = screen.getByTestId("solo-learn-word-0-tts") as HTMLButtonElement;
+    const second = screen.getByTestId("solo-learn-word-1-tts") as HTMLButtonElement;
+    expect(first.disabled).toBe(false);
+    expect(second.disabled).toBe(false);
+    playingWordKeyMock = "solo-learn-0";
+    view.rerender(<LearnPhasePage />);
+    expect(first.disabled).toBe(true);
+    expect(second.disabled).toBe(true);
+    expect(first.style.backgroundColor).not.toBe(second.style.backgroundColor);
+    fireEvent.click(second);
+    expect(playTTSMock).not.toHaveBeenCalled();
+    playingWordKeyMock = null;
+    view.rerender(<LearnPhasePage />);
+    fireEvent.click(second);
+    expect(playTTSMock).toHaveBeenCalledExactlyOnceWith("solo-learn-1", "casa", { storageId: undefined, themeId: "theme_1" });
+  });
+
 });

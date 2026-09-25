@@ -49,137 +49,150 @@ export type EmailData = {
   senderPalette?: SenderPalette;
 };
 
-export function getSubjectForTrigger(
-  trigger: NotificationEmailTrigger,
-  data: EmailData
-): string {
-  const sender = data.senderName ?? "Someone mysterious";
-  switch (trigger) {
-    case "immediate_challenge_invite":
-      return `${sender} just threw down the gauntlet!`;
-    case "weekly_goal_invite":
-      return `${sender} dares you to a weekly goal`;
-    case "weekly_goal_locked":
-      return `${sender} locked the weekly goal`;
-    case "weekly_goal_accepted":
-      return `${sender} is IN -- weekly goal locked!`;
-    case "weekly_goal_daily_reminder":
-      return data.hoursLeft === 0
-        ? "Weekly goal ends today"
-        : `${data.hoursLeft ?? 0}h left on your weekly goal`;
-    case "weekly_goal_grace_period_reminder":
-      return `Still time left -- ${data.graceHoursLeft ?? 0}h to save this goal`;
-    case "weekly_goal_draft_expiring":
-      return "Your weekly goal draft expires in 24 hours";
-    case "weekly_goal_reminder_1":
-      return `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`;
-    case "weekly_goal_reminder_2":
-      return "Last chance! Your weekly goal is almost up";
-    default:
-      return "Something's happening on Language Duel";
-  }
+function subjectSender(data: EmailData): string {
+  return data.senderName ?? "Someone mysterious";
 }
 
-export function getBodyForTrigger(
-  trigger: NotificationEmailTrigger,
-  data: EmailData
-): { heading: string; body: string; cta: string } {
-  const sender = data.senderName ?? "Someone";
-  const theme = data.themeName ?? "a mystery theme";
-  const time = data.scheduledTime ?? "a scheduled time";
-  const partner = data.partnerName ?? "your rival";
-  const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+const SUBJECT_TEMPLATES = new Map<NotificationEmailTrigger, (data: EmailData) => string>([
+  ["immediate_challenge_invite", data => `${subjectSender(data)} just threw down the gauntlet!`],
+  ["weekly_goal_invite", data => `${subjectSender(data)} dares you to a weekly goal`],
+  ["weekly_goal_locked", data => `${subjectSender(data)} locked the weekly goal`],
+  ["weekly_goal_accepted", data => `${subjectSender(data)} is IN -- weekly goal locked!`],
+  ["weekly_goal_daily_reminder", data => data.hoursLeft === 0 ? "Weekly goal ends today" : `${data.hoursLeft ?? 0}h left on your weekly goal`],
+  ["weekly_goal_grace_period_reminder", data => `Still time left -- ${data.graceHoursLeft ?? 0}h to save this goal`],
+  ["weekly_goal_draft_expiring", () => "Your weekly goal draft expires in 24 hours"],
+  ["weekly_goal_reminder_1", data => `Tick tock -- ${data.hoursLeft ?? 0}h left on your goal!`],
+  ["weekly_goal_reminder_2", () => "Last chance! Your weekly goal is almost up"],
+]);
 
-  switch (trigger) {
-    case "immediate_challenge_invite":
-      return {
-        heading: `${sender} is calling you out!`,
-        body: `Think you know <strong>${theme}</strong>? ${sender} doesn't think so. They just challenged you to a duel and the clock is ticking. Don't leave them hanging!`,
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_invite":
-      return {
-        heading: "You've been challenged",
-        body: `${sender} wants to team up (or compete?) on a weekly goal. Think you can keep up? Open the app to see the details and make it official.`,
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_locked":
-      return {
-        heading: "Your partner locked in",
-        body: `${sender} just locked their side of the weekly goal. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app and lock too when you're ready.`,
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_accepted":
-      return {
-        heading: "Let's gooo!",
-        body: `${sender} accepted your weekly goal invite! The goal is locked and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_daily_reminder":
-      if (data.mode === "solo") {
-        return {
-          heading: "Weekly goal countdown",
-          body: `Your weekly goal ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You're at ${progress} themes. Keep the momentum going.`,
-          cta: "Open Language Duel",
-        };
-      }
+export function getSubjectForTrigger(trigger: NotificationEmailTrigger, data: EmailData): string {
+  const render = SUBJECT_TEMPLATES.get(trigger);
+  return render ? render(data) : "Something's happening on Language Duel";
+}
+
+type EmailBody = { heading: string; body: string; cta: string };
+
+const BODY_TEMPLATES = new Map<NotificationEmailTrigger, (data: EmailData) => EmailBody>([
+  ["immediate_challenge_invite", (data) => {
+    const sender = data.senderName ?? "Someone";
+    const theme = data.themeName ?? "a mystery theme";
+    return {
+      heading: `${sender} is calling you out!`,
+      body: `Think you know <strong>${theme}</strong>? ${sender} doesn't think so. They just challenged you to a duel and the clock is ticking. Don't leave them hanging!`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_invite", (data) => {
+    const sender = data.senderName ?? "Someone";
+    return {
+      heading: "You've been challenged",
+      body: `${sender} wants to team up (or compete?) on a weekly goal. Think you can keep up? Open the app to see the details and make it official.`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_locked", (data) => {
+    const sender = data.senderName ?? "Someone";
+    const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+    return {
+      heading: "Your partner locked in",
+      body: `${sender} just locked their side of the weekly goal. You're at ${progress} themes. Open the app and lock too when you're ready.`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_accepted", (data) => {
+    const sender = data.senderName ?? "Someone";
+    const time = data.scheduledTime ?? "a scheduled time";
+    return {
+      heading: "Let's gooo!",
+      body: `${sender} accepted your weekly goal invite! The goal is locked and runs until <strong>${time}</strong>. Time to show them what you're made of.`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_daily_reminder", (data) => {
+    const partner = data.partnerName ?? "your rival";
+    const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+    const deadline = data.scheduledTime ?? "the deadline";
+    if (data.mode === "solo") {
       return {
         heading: "Weekly goal countdown",
-        body: `Your weekly goal with ${partner} ends at <strong>${data.scheduledTime ?? "the deadline"}</strong>. You are at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Open the app to keep the momentum going.`,
+        body: `Your weekly goal ends at <strong>${deadline}</strong>. You're at ${progress} themes. Keep the momentum going.`,
         cta: "Open Language Duel",
       };
-    case "weekly_goal_grace_period_reminder":
-      if (data.mode === "solo") {
-        return {
-          heading: "Grace period, but still winnable",
-          body: `Your weekly goal is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at ${progress} themes.`,
-          cta: "Open Language Duel",
-        };
-      }
+    }
+    return {
+      heading: "Weekly goal countdown",
+      body: `Your weekly goal with ${partner} ends at <strong>${deadline}</strong>. You are at ${progress} themes. Open the app to keep the momentum going.`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_grace_period_reminder", (data) => {
+    const partner = data.partnerName ?? "your rival";
+    const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+    const graceHours = data.graceHoursLeft ?? 0;
+    const deleteAt = data.deleteAt ?? "the deadline";
+    if (data.mode === "solo") {
       return {
         heading: "Grace period, but still winnable",
-        body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${data.graceHoursLeft ?? 0} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${data.deleteAt ?? "the deadline"}</strong>. You're currently at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes.`,
+        body: `Your weekly goal is in its grace period. You still have <strong>${graceHours} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${deleteAt}</strong>. You're currently at ${progress} themes.`,
         cta: "Open Language Duel",
       };
-    case "weekly_goal_draft_expiring":
-      return {
-        heading: "Draft expires soon",
-        body: "Your weekly goal draft expires in <strong>24 hours</strong>. Lock it or it will be removed.",
-        cta: "Open Language Duel",
-      };
-    case "weekly_goal_reminder_1":
-      if (data.mode === "solo") {
-        return {
-          heading: "The clock is ticking!",
-          body: `You have <strong>${data.hoursLeft ?? 0} hours</strong> left. You're at ${progress} themes. Keep going.`,
-          cta: "Open Language Duel",
-        };
-      }
+    }
+    return {
+      heading: "Grace period, but still winnable",
+      body: `Your weekly goal with ${partner} is in its grace period. You still have <strong>${graceHours} hours</strong> to finish it. Complete all themes and defeat the boss before it is permanently removed at <strong>${deleteAt}</strong>. You're currently at ${progress} themes.`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_draft_expiring", (_data) => {
+    return {
+      heading: "Draft expires soon",
+      body: "Your weekly goal draft expires in <strong>24 hours</strong>. Lock it or it will be removed.",
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_reminder_1", (data) => {
+    const partner = data.partnerName ?? "your rival";
+    const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+    const hours = data.hoursLeft ?? 0;
+    if (data.mode === "solo") {
       return {
         heading: "The clock is ticking!",
-        body: `You and ${partner} have <strong>${data.hoursLeft ?? 0} hours</strong> left. You're at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Don't let this one slip away!`,
+        body: `You have <strong>${hours} hours</strong> left. You're at ${progress} themes. Keep going.`,
         cta: "Open Language Duel",
       };
-    case "weekly_goal_reminder_2":
-      if (data.mode === "solo") {
-        return {
-          heading: "This is it -- final stretch!",
-          body: `Your weekly goal expires soon. You're sitting at ${progress} themes. Sprint to the finish line!`,
-          cta: "Open Language Duel",
-        };
-      }
+    }
+    return {
+      heading: "The clock is ticking!",
+      body: `You and ${partner} have <strong>${hours} hours</strong> left. You're at ${progress} themes. Don't let this one slip away!`,
+      cta: "Open Language Duel",
+    };
+  }],
+  ["weekly_goal_reminder_2", (data) => {
+    const partner = data.partnerName ?? "your rival";
+    const progress = `<strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong>`;
+    if (data.mode === "solo") {
       return {
         heading: "This is it -- final stretch!",
-        body: `Your goal with ${partner} expires soon. You're sitting at <strong>${data.completedCount ?? 0}/${data.totalCount ?? 0}</strong> themes. Sprint to the finish line!`,
+        body: `Your weekly goal expires soon. You're sitting at ${progress} themes. Sprint to the finish line!`,
         cta: "Open Language Duel",
       };
-    default:
-      return {
-        heading: "Something's up!",
-        body: "There's a new update waiting for you on Language Duel. Hop in and check it out.",
-        cta: "Open Language Duel",
-      };
-  }
+    }
+    return {
+      heading: "This is it -- final stretch!",
+      body: `Your goal with ${partner} expires soon. You're sitting at ${progress} themes. Sprint to the finish line!`,
+      cta: "Open Language Duel",
+    };
+  }],
+]);
+
+export function getBodyForTrigger(trigger: NotificationEmailTrigger, data: EmailData): EmailBody {
+  const render = BODY_TEMPLATES.get(trigger);
+  if (render) return render(data);
+  return {
+    heading: "Something's up!",
+    body: "There's a new update waiting for you on Language Duel. Hop in and check it out.",
+    cta: "Open Language Duel",
+  };
 }
 
 export function renderNotificationEmail(

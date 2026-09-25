@@ -49,7 +49,7 @@ export function useDuelCountdown({
   }, [countdown, duelStatus, countdownPausedBy, phase, onCountdownComplete]);
 
   useEffect(() => {
-    if (countdown === null || phase !== "transition") return;
+    if (countdown === null || countdown === 0 || phase !== "transition") return;
     if (countdownSkipRequestedBy.includes("challenger") && countdownSkipRequestedBy.includes("opponent")) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- both-player skip should immediately collapse the countdown.
       setCountdown(0);

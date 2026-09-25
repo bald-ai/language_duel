@@ -291,3 +291,16 @@ describe("weeklyGoals removeTheme", () => {
     ).rejects.toThrow("Goal is locked");
   });
 });
+
+
+it("clears a solo creator lock without generating partner notifications", async () => {
+  const db = new InMemoryDb(
+    [buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" })],
+    [buildGoal({ mode: "solo", partnerId: undefined, partnerLocked: undefined, creatorLocked: true })]
+  );
+  await removeThemeHandler(createAuthCtx(db, "creator"), { goalId: "goal_1" as Id<"weeklyGoals">, themeId: "theme_1" as Id<"themes"> });
+  expect(db.weeklyGoals[0].creatorLocked).toBe(false);
+  expect(db.weeklyGoals[0].partnerLocked).toBeUndefined();
+  expect(db.weeklyGoals[0].themes.map(theme => theme.themeId)).toEqual(["theme_2"]);
+  expect(db.notifications).toEqual([]);
+});

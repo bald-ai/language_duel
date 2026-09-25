@@ -1,3 +1,4 @@
+import { moveReviewItem, sortReviewItems } from "../lib/pickAndPruneItems";
 import { useCallback, useMemo, useReducer } from "react";
 import type { WordEntry } from "@/lib/types";
 import type { WordType } from "../constants";
@@ -37,8 +38,8 @@ type InitializePickAndPruneParams =
 
 type PickAndPruneState = {
   draft: PickAndPruneDraft | null;
-  activeWords: PickAndPruneWord[];
-  removedWords: PickAndPruneWord[];
+  activeItems: PickAndPruneWord[];
+  removedItems: PickAndPruneWord[];
   removedOpen: boolean;
   showDiscardConfirm: boolean;
 };
@@ -48,14 +49,13 @@ type PickAndPruneAction =
   | { type: "remove-word"; id: string }
   | { type: "restore-word"; id: string }
   | { type: "set-removed-open"; open: boolean }
-  | { type: "request-discard" }
-  | { type: "cancel-discard" }
+  | { type: "set-discard-confirm"; open: boolean }
   | { type: "clear" };
 
 const INITIAL_STATE: PickAndPruneState = {
   draft: null,
-  activeWords: [],
-  removedWords: [],
+  activeItems: [],
+  removedItems: [],
   removedOpen: false,
   showDiscardConfirm: false,
 };
@@ -68,44 +68,24 @@ function createPickAndPruneWordId(): string {
   return `pick-and-prune-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function sortByOriginalIndex(words: PickAndPruneWord[]): PickAndPruneWord[] {
-  return [...words].sort((left, right) => left.originalIndex - right.originalIndex);
-}
-
 function pickAndPruneReducer(state: PickAndPruneState, action: PickAndPruneAction): PickAndPruneState {
   switch (action.type) {
     case "initialize":
       return {
         draft: action.draft,
-        activeWords: action.words,
-        removedWords: [],
+        activeItems: action.words,
+        removedItems: [],
         removedOpen: false,
         showDiscardConfirm: false,
       };
-    case "remove-word": {
-      const wordToRemove = state.activeWords.find((word) => word.id === action.id);
-      if (!wordToRemove) return state;
-      return {
-        ...state,
-        activeWords: state.activeWords.filter((word) => word.id !== action.id),
-        removedWords: sortByOriginalIndex([...state.removedWords, wordToRemove]),
-      };
-    }
-    case "restore-word": {
-      const wordToRestore = state.removedWords.find((word) => word.id === action.id);
-      if (!wordToRestore) return state;
-      return {
-        ...state,
-        removedWords: state.removedWords.filter((word) => word.id !== action.id),
-        activeWords: sortByOriginalIndex([...state.activeWords, wordToRestore]),
-      };
-    }
+    case "remove-word":
+      return moveReviewItem(state, action.id, false);
+    case "restore-word":
+      return moveReviewItem(state, action.id, true);
     case "set-removed-open":
       return { ...state, removedOpen: action.open };
-    case "request-discard":
-      return { ...state, showDiscardConfirm: true };
-    case "cancel-discard":
-      return { ...state, showDiscardConfirm: false };
+    case "set-discard-confirm":
+      return { ...state, showDiscardConfirm: action.open };
     case "clear":
       return INITIAL_STATE;
     default:
@@ -152,11 +132,11 @@ export function usePickAndPrune() {
   }, []);
 
   const requestDiscard = useCallback(() => {
-    dispatch({ type: "request-discard" });
+    dispatch({ type: "set-discard-confirm", open: true });
   }, []);
 
   const cancelDiscard = useCallback(() => {
-    dispatch({ type: "cancel-discard" });
+    dispatch({ type: "set-discard-confirm", open: false });
   }, []);
 
   const clear = useCallback(() => {
@@ -164,11 +144,11 @@ export function usePickAndPrune() {
   }, []);
 
   const getActiveWordEntries = useCallback((): WordEntry[] => {
-    return sortByOriginalIndex(state.activeWords).map((pickAndPruneWord) => pickAndPruneWord.word);
-  }, [state.activeWords]);
+    return sortReviewItems(state.activeItems).map((pickAndPruneWord) => pickAndPruneWord.word);
+  }, [state.activeItems]);
 
-  const sortedActiveWords = useMemo(() => sortByOriginalIndex(state.activeWords), [state.activeWords]);
-  const sortedRemovedWords = useMemo(() => sortByOriginalIndex(state.removedWords), [state.removedWords]);
+  const sortedActiveWords = useMemo(() => sortReviewItems(state.activeItems), [state.activeItems]);
+  const sortedRemovedWords = useMemo(() => sortReviewItems(state.removedItems), [state.removedItems]);
 
   return {
     draft: state.draft,

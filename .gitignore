@@ -65,3 +65,9 @@ thoughtnotebook.md
 
 # Local Netlify folder
 .netlify
+
+# Disposable verification output; manual runs clean it up.
+/reports/quality
+/work/quality
+/.verification-session/
+/**/__pycache__/

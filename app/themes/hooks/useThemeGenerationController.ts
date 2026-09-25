@@ -13,15 +13,12 @@ import {
 } from "@/lib/credits/constants";
 import { AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/userFacingErrors";
 import {
-  GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT,
-  PICK_AND_PRUNE_WORD_COUNT,
   VIEW_MODES,
   type ViewMode,
   type WordType,
 } from "../constants";
 import type { ThemeDetailTheme } from "../components/ThemeDetail";
-import { createSaveRequestId } from "../lib/saveRequestId";
-import { useThemeGenerator, type GenerationMode } from "./useThemeGenerator";
+import { useThemeGenerator } from "./useThemeGenerator";
 import { useAddWord } from "./useAddWord";
 import { useGenerateMore } from "./useGenerateMore";
 import { usePickAndPrune } from "./usePickAndPrune";
@@ -74,57 +71,28 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     setShowGenerateModal(true);
   }, [ensureLlmCredits, pickAndPrune, themeGenerator]);
 
-  // One handler for both modes; `mode` selects the word count and where the
-  // generated words land (detail draft vs. Pick & Prune review).
   const handleGenerateTheme = useCallback(
-    async (mode: GenerationMode) => {
+    async () => {
       if (!ensureLlmCredits(LLM_WORD_THEME_CREDITS, "Please sign in to generate themes.")) return;
 
       const themeName = themeGenerator.themeName;
       const wordType = themeGenerator.wordType;
 
       try {
-        const words = await themeGenerator.generate(
-          mode === "pick-and-prune"
-            ? { wordCountOverride: PICK_AND_PRUNE_WORD_COUNT, mode }
-            : { mode }
-        );
+        const words = await themeGenerator.generate();
         if (!words) return;
 
-        if (mode === "pick-and-prune") {
-          pickAndPrune.initialize({
-            name: normalizeThemeName(themeName),
-            description: `Generated theme for: ${themeName}`,
-            wordType,
-            visibility: "private",
-            friendsCanEdit: false,
-            words,
-          });
-          setShowGenerateModal(false);
-          themeGenerator.reset();
-          params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-          return;
-        }
-
-        // Direct generation is intentionally not exposed in the UI while we
-        // test Pick & Prune as the default flow for all AI-generated theme
-        // content. Keep this path for now so we can remove or restore it
-        // deliberately later.
-        const draft: NewThemeDraft = {
+        pickAndPrune.initialize({
           name: normalizeThemeName(themeName),
           description: `Generated theme for: ${themeName}`,
-          words,
           wordType,
           visibility: "private",
           friendsCanEdit: false,
-          saveRequestId: createSaveRequestId(),
-        };
-
-        params.setSelectedThemeState({ kind: "unsaved", draft });
-        params.setLocalWords([...words]);
-        params.setViewMode(VIEW_MODES.DETAIL);
+          words,
+        });
         setShowGenerateModal(false);
         themeGenerator.reset();
+        params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
       } catch (error) {
         toast.error(getErrorMessage(error, "Generation failed"));
       }
@@ -227,36 +195,13 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
     generateMoreHook.reset();
   }, [generateMoreHook]);
 
-  // One handler for both modes; `mode` selects the word count and whether the
-  // new words append to the theme directly or go through Pick & Prune review.
   const handleGenerateMore = useCallback(
-    async (mode: GenerationMode) => {
+    async () => {
       if (!params.selectedTheme) return;
       if (!ensureLlmCredits(LLM_GENERATE_MORE_WORDS_CREDITS, "Please sign in to generate more words.")) return;
 
       const existingWords = params.localWords.map((word) => word.word);
 
-      if (mode === "pick-and-prune") {
-        const newWords = await generateMoreHook.generate(
-          params.selectedTheme.name,
-          params.selectedWordType,
-          existingWords,
-          { countOverride: GENERATE_MORE_PICK_AND_PRUNE_WORD_COUNT, pickAndPrune: true }
-        );
-
-        if (newWords) {
-          pickAndPrune.initialize({ kind: "existing-theme", words: newWords });
-          generateMoreHook.reset();
-          setShowGenerateMoreModal(false);
-          params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
-        }
-        return;
-      }
-
-      // Direct generation is intentionally not exposed in the UI while we test
-      // Pick & Prune as the default flow for all AI-generated theme content.
-      // Keep this path for now so we can remove or restore it deliberately
-      // later.
       const newWords = await generateMoreHook.generate(
         params.selectedTheme.name,
         params.selectedWordType,
@@ -264,9 +209,10 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       );
 
       if (newWords) {
-        params.setLocalWords((prev) => [...prev, ...newWords]);
+        pickAndPrune.initialize({ kind: "existing-theme", words: newWords });
         generateMoreHook.reset();
         setShowGenerateMoreModal(false);
+        params.setViewMode(VIEW_MODES.PICK_AND_PRUNE_REVIEW);
       }
     },
     [ensureLlmCredits, generateMoreHook, params, pickAndPrune]
@@ -278,12 +224,12 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       themeName: themeGenerator.themeName,
       themePrompt: themeGenerator.themePrompt,
       wordType: themeGenerator.wordType,
-      generationMode: themeGenerator.generationMode,
+      isGenerating: themeGenerator.isGenerating,
       error: themeGenerator.error,
       onThemeNameChange: themeGenerator.setThemeName,
       onThemePromptChange: themeGenerator.setThemePrompt,
       onWordTypeChange: themeGenerator.setWordType,
-      onGenerate: () => handleGenerateTheme("pick-and-prune"),
+      onGenerate: handleGenerateTheme,
       onClose: handleCloseGenerateModal,
     }),
     [handleCloseGenerateModal, handleGenerateTheme, showGenerateModal, themeGenerator]
@@ -308,7 +254,7 @@ export function useThemeGenerationController(params: UseThemeGenerationControlle
       themeName: params.selectedTheme?.name ?? "",
       isGenerating: generateMoreHook.isGenerating,
       error: generateMoreHook.error,
-      onGenerate: () => handleGenerateMore("pick-and-prune"),
+      onGenerate: handleGenerateMore,
       onClose: closeGenerateMore,
     }),
     [closeGenerateMore, generateMoreHook, handleGenerateMore, params.selectedTheme?.name, showGenerateMoreModal]

@@ -41,8 +41,35 @@ export const CountdownControls = memo(function CountdownControls({
   const iHaveSkipped = countdownSkipRequestedBy.includes(userRole);
   const opponentHasSkipped = countdownSkipRequestedBy.includes(opponentRole);
 
-  const baseButtonClass =
-    "px-4 py-2 rounded-lg font-medium transition hover:brightness-110 border-2";
+  const presentation = { colors, ...getCountdownStyles(colors) };
+  if (!countdownPausedBy)
+    return (
+      <RunningCountdown
+        {...presentation}
+        countdown={countdown}
+        countdownLabel={countdownLabel}
+        onPause={onPause}
+        onSkip={onSkip}
+        dataTestIdBase={dataTestIdBase}
+        iHaveSkipped={iHaveSkipped}
+        opponentHasSkipped={opponentHasSkipped}
+      />
+    );
+  return (
+    <PausedCountdown
+      {...presentation}
+      countdownUnpauseRequestedBy={countdownUnpauseRequestedBy}
+      userRole={userRole}
+      onRequestUnpause={onRequestUnpause}
+      onConfirmUnpause={onConfirmUnpause}
+      dataTestIdBase={dataTestIdBase}
+    />
+  );
+});
+
+const baseButtonClass =
+  "px-4 py-2 rounded-lg font-medium transition hover:brightness-110 border-2";
+function getCountdownStyles(colors: ReturnType<typeof useAppearanceColors>) {
   const primaryButtonStyle = {
     backgroundColor: colors.primary.DEFAULT,
     borderColor: colors.primary.dark,
@@ -64,59 +91,155 @@ export const CountdownControls = memo(function CountdownControls({
     color: colors.text.muted,
   };
 
-  // Not paused - show pause button (and optional skip)
-  if (!countdownPausedBy) {
-    return (
-      <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold" style={{ color: colors.secondary.light }}>
-          {countdownLabel} in {countdown}...
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onPause}
-            className={baseButtonClass}
-            style={primaryButtonStyle}
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-pause` : undefined}
-          >
-            ⏸ Pause
-          </button>
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              disabled={iHaveSkipped}
-              className={`${baseButtonClass} ${iHaveSkipped ? "cursor-not-allowed" : ""} ${opponentHasSkipped ? "animate-pulse" : ""}`}
-              style={
-                iHaveSkipped
-                  ? mutedButtonStyle
-                  : opponentHasSkipped
-                    ? successButtonStyle
-                    : secondaryButtonStyle
-              }
-              data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
-            >
-              ⏭ Skip
-            </button>
-          )}
-        </div>
-        {opponentHasSkipped && !iHaveSkipped && (
-          <div className="text-sm animate-pulse" style={{ color: colors.status.success.light }}>
-            Opponent wants to skip!
-          </div>
-        )}
-        {iHaveSkipped && !opponentHasSkipped && (
-          <div className="text-sm" style={{ color: colors.text.muted }}>
-            Waiting for opponent to skip...
-          </div>
+  return {
+    primaryButtonStyle,
+    secondaryButtonStyle,
+    successButtonStyle,
+    mutedButtonStyle,
+  };
+}
+type Presentation = ReturnType<typeof getCountdownStyles> & {
+  colors: ReturnType<typeof useAppearanceColors>;
+};
+type SkipState = { iHaveSkipped: boolean; opponentHasSkipped: boolean };
+function RunningCountdown({
+  colors,
+  primaryButtonStyle,
+  secondaryButtonStyle,
+  successButtonStyle,
+  mutedButtonStyle,
+  countdown,
+  countdownLabel,
+  onPause,
+  onSkip,
+  dataTestIdBase,
+  iHaveSkipped,
+  opponentHasSkipped,
+}: Presentation &
+  SkipState &
+  Pick<
+    CountdownControlsProps,
+    "countdown" | "countdownLabel" | "onPause" | "onSkip" | "dataTestIdBase"
+  >) {
+  return (
+    <div className="flex flex-col items-center gap-2 mb-2">
+      <div
+        className="text-2xl font-bold"
+        style={{ color: colors.secondary.light }}
+      >
+        {countdownLabel} in {countdown}...
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={onPause}
+          className={baseButtonClass}
+          style={primaryButtonStyle}
+          data-testid={dataTestIdBase ? `${dataTestIdBase}-pause` : undefined}
+        >
+          ⏸ Pause
+        </button>
+        {onSkip && (
+          <CountdownSkipButton
+            secondaryButtonStyle={secondaryButtonStyle}
+            successButtonStyle={successButtonStyle}
+            mutedButtonStyle={mutedButtonStyle}
+            onSkip={onSkip}
+            dataTestIdBase={dataTestIdBase}
+            iHaveSkipped={iHaveSkipped}
+            opponentHasSkipped={opponentHasSkipped}
+          />
         )}
       </div>
-    );
-  }
-
+      <CountdownSkipStatus
+        colors={colors}
+        iHaveSkipped={iHaveSkipped}
+        opponentHasSkipped={opponentHasSkipped}
+      />
+    </div>
+  );
+}
+function CountdownSkipButton({
+  onSkip,
+  dataTestIdBase,
+  iHaveSkipped,
+  opponentHasSkipped,
+  secondaryButtonStyle,
+  successButtonStyle,
+  mutedButtonStyle,
+}: SkipState &
+  Pick<
+    Presentation,
+    "secondaryButtonStyle" | "successButtonStyle" | "mutedButtonStyle"
+  > &
+  Pick<CountdownControlsProps, "onSkip" | "dataTestIdBase">) {
+  return (
+    <button
+      onClick={onSkip}
+      disabled={iHaveSkipped}
+      className={`${baseButtonClass} ${iHaveSkipped ? "cursor-not-allowed" : ""} ${opponentHasSkipped ? "animate-pulse" : ""}`}
+      style={
+        iHaveSkipped
+          ? mutedButtonStyle
+          : opponentHasSkipped
+            ? successButtonStyle
+            : secondaryButtonStyle
+      }
+      data-testid={dataTestIdBase ? `${dataTestIdBase}-skip` : undefined}
+    >
+      ⏭ Skip
+    </button>
+  );
+}
+function CountdownSkipStatus({
+  colors,
+  iHaveSkipped,
+  opponentHasSkipped,
+}: Pick<Presentation, "colors"> & SkipState) {
+  return (
+    <>
+      {opponentHasSkipped && !iHaveSkipped && (
+        <div
+          className="text-sm animate-pulse"
+          style={{ color: colors.status.success.light }}
+        >
+          Opponent wants to skip!
+        </div>
+      )}
+      {iHaveSkipped && !opponentHasSkipped && (
+        <div className="text-sm" style={{ color: colors.text.muted }}>
+          Waiting for opponent to skip...
+        </div>
+      )}{" "}
+    </>
+  );
+}
+function PausedCountdown({
+  colors,
+  mutedButtonStyle,
+  successButtonStyle,
+  secondaryButtonStyle,
+  countdownUnpauseRequestedBy,
+  userRole,
+  onRequestUnpause,
+  onConfirmUnpause,
+  dataTestIdBase,
+}: Omit<Presentation, "primaryButtonStyle"> &
+  Pick<
+    CountdownControlsProps,
+    | "countdownUnpauseRequestedBy"
+    | "userRole"
+    | "onRequestUnpause"
+    | "onConfirmUnpause"
+    | "dataTestIdBase"
+  >) {
   // Paused with unpause request from current user
   if (countdownUnpauseRequestedBy === userRole) {
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+        <div
+          className="text-2xl font-bold"
+          style={{ color: colors.status.warning.light }}
+        >
           PAUSED
         </div>
         <div className="flex flex-col items-center gap-1">
@@ -127,7 +250,9 @@ export const CountdownControls = memo(function CountdownControls({
             disabled
             className={`${baseButtonClass} cursor-not-allowed`}
             style={mutedButtonStyle}
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-unpause-requested` : undefined}
+            data-testid={
+              dataTestIdBase ? `${dataTestIdBase}-unpause-requested` : undefined
+            }
           >
             ▶ Unpause Requested
           </button>
@@ -140,18 +265,26 @@ export const CountdownControls = memo(function CountdownControls({
   if (countdownUnpauseRequestedBy) {
     return (
       <div className="flex flex-col items-center gap-2 mb-2">
-        <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+        <div
+          className="text-2xl font-bold"
+          style={{ color: colors.status.warning.light }}
+        >
           PAUSED
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div className="text-sm" style={{ color: colors.status.warning.light }}>
+          <div
+            className="text-sm"
+            style={{ color: colors.status.warning.light }}
+          >
             Opponent wants to resume!
           </div>
           <button
             onClick={onConfirmUnpause}
             className={`${baseButtonClass} animate-pulse`}
             style={successButtonStyle}
-            data-testid={dataTestIdBase ? `${dataTestIdBase}-confirm-unpause` : undefined}
+            data-testid={
+              dataTestIdBase ? `${dataTestIdBase}-confirm-unpause` : undefined
+            }
           >
             ✓ Confirm Unpause
           </button>
@@ -163,7 +296,10 @@ export const CountdownControls = memo(function CountdownControls({
   // Paused, no unpause request - show unpause button
   return (
     <div className="flex flex-col items-center gap-2 mb-2">
-      <div className="text-2xl font-bold" style={{ color: colors.status.warning.light }}>
+      <div
+        className="text-2xl font-bold"
+        style={{ color: colors.status.warning.light }}
+      >
         PAUSED
       </div>
       <button
@@ -176,4 +312,4 @@ export const CountdownControls = memo(function CountdownControls({
       </button>
     </div>
   );
-});
+}

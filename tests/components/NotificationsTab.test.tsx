@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { NotificationsTab } from "@/app/notifications/components/NotificationsTab";
 import { NOTIFICATION_TYPES } from "@/app/notifications/constants";
 
@@ -268,4 +268,53 @@ describe("NotificationsTab theme actions", () => {
     expect(screen.queryByTestId("notification-notif_goal_declined-view-weekly-goal")).not.toBeInTheDocument();
     expect(screen.getByTestId("notification-notif_goal_declined-dismiss-weekly-goal")).toBeInTheDocument();
   });
+  it("accepts a challenge, closes the panel and opens the returned duel", async () => {
+    const acceptChallenge = vi.fn().mockResolvedValue({ duelId: "duel_123" }); const close = vi.fn();
+    useNotificationsMock.mockReturnValue({ notifications: [challengeNotification], isLoading: false, actions: makeActions({ acceptChallenge }) });
+    render(<NotificationsTab onClose={close} />);
+    await act(async () => fireEvent.click(screen.getByTestId("notification-notif_1-accept-challenge")));
+    expect(acceptChallenge).toHaveBeenCalledExactlyOnceWith("notif_1");
+    expect(toastSuccessMock).toHaveBeenCalledWith("Challenge accepted!");
+    expect(close).toHaveBeenCalledOnce(); expect(pushMock).toHaveBeenCalledExactlyOnceWith("/duel/duel_123");
+  });
+  it.each([
+    ["acceptFriendRequest", "accept-friend", NOTIFICATION_TYPES.FRIEND_REQUEST, undefined, "Friend request accepted!"],
+    ["rejectFriendRequest", "reject-friend", NOTIFICATION_TYPES.FRIEND_REQUEST, undefined, "Friend request rejected"],
+    ["declineChallenge", "decline-challenge", NOTIFICATION_TYPES.CHALLENGE_INVITE, undefined, "Challenge declined"],
+    ["declineWeeklyGoalInvitation", "decline-weekly-goal", NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION, "invite", "Weekly goal invitation declined"],
+    ["dismissWeeklyGoalInvitation", "dismiss-weekly-goal", NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION, "partner_locked", undefined],
+    ["dismissNotification", "dismiss", NOTIFICATION_TYPES.WEEKLY_GOAL_DRAFT_EXPIRING, undefined, undefined],
+  ] as const)("dispatches %s and handles rejection without closing the panel", async (actionName, suffix, type, event, successMessage) => {
+    const action = vi.fn().mockResolvedValue(undefined); const close = vi.fn();
+    const notification = { ...challengeNotification, type, payload: type === NOTIFICATION_TYPES.CHALLENGE_INVITE ? challengeNotification.payload : { goalId: "goal_1", event } };
+    useNotificationsMock.mockReturnValue({ notifications: [notification], isLoading: false, actions: makeActions({ [actionName]: action }) });
+    render(<NotificationsTab onClose={close} />);
+    const button = screen.getByTestId(`notification-notif_1-${suffix}`);
+    await act(async () => fireEvent.click(button));
+    expect(action).toHaveBeenCalledExactlyOnceWith("notif_1");
+    if (successMessage) expect(toastSuccessMock).toHaveBeenCalledWith(successMessage);
+    else expect(toastSuccessMock).not.toHaveBeenCalled();
+    action.mockRejectedValue(new Error("Action unavailable"));
+    await act(async () => fireEvent.click(button));
+    expect(toastErrorMock).toHaveBeenCalledExactlyOnceWith("Action unavailable");
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(close).not.toHaveBeenCalled(); expect(pushMock).not.toHaveBeenCalled();
+  });
+  it("opens the goals page from an expiring draft notification", () => {
+    const close = vi.fn();
+    useNotificationsMock.mockReturnValue({ notifications: [{ ...challengeNotification, type: NOTIFICATION_TYPES.WEEKLY_GOAL_DRAFT_EXPIRING, payload: { goalId: "goal_1" } }], isLoading: false, actions: makeActions() });
+    render(<NotificationsTab onClose={close} />);
+    fireEvent.click(screen.getByTestId("notification-notif_1-view-weekly-goal"));
+    expect(close).toHaveBeenCalledOnce(); expect(pushMock).toHaveBeenCalledExactlyOnceWith("/goals");
+  });
+  it("reports archive failures without claiming success", async () => {
+    const archiveCompletedGoalThemes = vi.fn().mockRejectedValue(new Error("Archive failed"));
+    useNotificationsMock.mockReturnValue({ notifications: [{ ...challengeNotification, type: NOTIFICATION_TYPES.WEEKLY_GOAL_INVITATION, payload: { goalId: "goal_1", event: "goal_completed_solo", themeCount: 2 } }], isLoading: false, actions: makeActions({ archiveCompletedGoalThemes }) });
+    render(<NotificationsTab onClose={vi.fn()} />);
+    await act(async () => fireEvent.click(screen.getByTestId("notification-notif_1-archive-completed-goal-themes")));
+    expect(archiveCompletedGoalThemes).toHaveBeenCalledExactlyOnceWith("notif_1");
+    expect(toastErrorMock).toHaveBeenCalledExactlyOnceWith("Archive failed");
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
 });

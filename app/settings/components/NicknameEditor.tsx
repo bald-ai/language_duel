@@ -23,7 +23,8 @@ export function NicknameEditor({
   onClearError,
 }: NicknameEditorProps) {
   const colors = useAppearanceColors();
-  const [nickname, setNickname] = useState(currentNickname || "");
+  const initialNickname = currentNickname || "";
+  const [nickname, setNickname] = useState(initialNickname);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +39,7 @@ export function NicknameEditor({
       e.preventDefault();
       const trimmedNickname = nickname.trim();
       if (!trimmedNickname) return;
-      if (trimmedNickname === (currentNickname || "")) return;
+      if (trimmedNickname === initialNickname) return;
 
       const success = await onUpdate(trimmedNickname);
       if (success) {
@@ -46,10 +47,10 @@ export function NicknameEditor({
         setNickname(trimmedNickname);
       }
     },
-    [nickname, currentNickname, onUpdate]
+    [nickname, initialNickname, onUpdate]
   );
 
-  const hasChanged = nickname.trim() !== (currentNickname || "");
+  const hasChanged = nickname.trim() !== initialNickname;
 
   return (
     <div 

@@ -1,7 +1,14 @@
 "use client";
 
 import type { MouseEvent, KeyboardEvent } from "react";
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
@@ -36,7 +43,10 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
 }: ThemeCardMenuProps) {
   const colors = useAppearanceColors();
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState<DropdownPosition>({ top: 0, right: 0 });
+  const [position, setPosition] = useState<DropdownPosition>({
+    top: 0,
+    right: 0,
+  });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMutating = isDeleting || isDuplicating;
@@ -52,7 +62,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
       onDuplicate(themeId);
       setIsOpen(false);
     },
-    [onDuplicate, themeId]
+    [onDuplicate, themeId],
   );
 
   const handleDelete = useCallback(
@@ -61,7 +71,7 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
       onDelete(themeId, themeName);
       setIsOpen(false);
     },
-    [onDelete, themeId, themeName]
+    [onDelete, themeId, themeName],
   );
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
@@ -132,73 +142,18 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
       onKeyDown={handleKeyDown}
       data-testid={`theme-menu-${themeId}`}
     >
-      <button
-        onClick={handleDuplicate}
-        disabled={isMutating}
-        className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{
-          backgroundColor: "transparent",
-          color: colors.secondary.light,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = `${colors.secondary.DEFAULT}15`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "transparent";
-        }}
-        role="menuitem"
-        data-testid={`theme-duplicate-${themeId}`}
-      >
-        {isDuplicating ? "Duplicating..." : "Duplicate"}
-      </button>
-
-      {onToggleArchive && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleArchive(themeId);
-            setIsOpen(false);
-          }}
-          disabled={isMutating}
-          className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: "transparent",
-            color: colors.text.muted,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = `${colors.secondary.DEFAULT}15`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
-          role="menuitem"
-          data-testid={`theme-archive-toggle-${themeId}`}
-        >
-          {isArchived ? "Unarchive" : "Archive"}
-        </button>
-      )}
-
-      {isOwner && (
-        <button
-          onClick={handleDelete}
-          disabled={isMutating}
-          className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: "transparent",
-            color: colors.status.danger.light,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}15`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
-          role="menuitem"
-          data-testid={`theme-delete-${themeId}`}
-        >
-          {isDeleting ? "Deleting..." : "Delete"}
-        </button>
-      )}
+      <ThemeMenuActions
+        themeId={themeId}
+        isOwner={isOwner}
+        isDeleting={isDeleting}
+        isDuplicating={isDuplicating}
+        isMutating={isMutating}
+        isArchived={isArchived}
+        onToggleArchive={onToggleArchive}
+        onDuplicateClick={handleDuplicate}
+        onDeleteClick={handleDelete}
+        onClose={() => setIsOpen(false)}
+      />
     </div>
   ) : null;
 
@@ -229,7 +184,106 @@ export const ThemeCardMenu = memo(function ThemeCardMenu({
         </svg>
       </button>
 
-      {typeof document !== "undefined" && createPortal(dropdownMenu, document.body)}
+      {typeof document !== "undefined" &&
+        createPortal(dropdownMenu, document.body)}
     </div>
   );
 });
+
+function ThemeMenuActions({
+  themeId,
+  isOwner,
+  isDeleting,
+  isDuplicating,
+  isMutating,
+  isArchived,
+  onToggleArchive,
+  onDuplicateClick,
+  onDeleteClick,
+  onClose,
+}: Pick<
+  ThemeCardMenuProps,
+  | "themeId"
+  | "isOwner"
+  | "isDeleting"
+  | "isDuplicating"
+  | "isArchived"
+  | "onToggleArchive"
+> & {
+  isMutating: boolean;
+  onDuplicateClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onDeleteClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onClose: () => void;
+}) {
+  const colors = useAppearanceColors();
+  return (
+    <>
+      {" "}
+      <button
+        onClick={onDuplicateClick}
+        disabled={isMutating}
+        className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          backgroundColor: "transparent",
+          color: colors.secondary.light,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = `${colors.secondary.DEFAULT}15`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+        }}
+        role="menuitem"
+        data-testid={`theme-duplicate-${themeId}`}
+      >
+        {isDuplicating ? "Duplicating..." : "Duplicate"}
+      </button>
+      {onToggleArchive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleArchive(themeId);
+            onClose();
+          }}
+          disabled={isMutating}
+          className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: "transparent",
+            color: colors.text.muted,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = `${colors.secondary.DEFAULT}15`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "transparent";
+          }}
+          role="menuitem"
+          data-testid={`theme-archive-toggle-${themeId}`}
+        >
+          {isArchived ? "Unarchive" : "Archive"}
+        </button>
+      )}
+      {isOwner && (
+        <button
+          onClick={onDeleteClick}
+          disabled={isMutating}
+          className="w-full text-left px-4 py-3 rounded-xl font-medium text-base transition disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: "transparent",
+            color: colors.status.danger.light,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = `${colors.status.danger.DEFAULT}15`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "transparent";
+          }}
+          role="menuitem"
+          data-testid={`theme-delete-${themeId}`}
+        >
+          {isDeleting ? "Deleting..." : "Delete"}
+        </button>
+      )}
+    </>
+  );
+}

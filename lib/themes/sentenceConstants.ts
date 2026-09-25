@@ -39,10 +39,6 @@ export const SENTENCE_MIN_GENERATION_ROUND_COUNT = 5;
 export const SENTENCE_MAX_GENERATION_ROUND_COUNT = 15;
 export const DEFAULT_SENTENCE_GENERATION_ROUND_COUNT = 10;
 
-/** Pick & Prune over-generates by 100% (matches `PICK_AND_PRUNE_WORD_COUNT`). */
-export const SENTENCE_PICK_AND_PRUNE_ROUND_COUNT =
-  DEFAULT_SENTENCE_GENERATION_ROUND_COUNT * 2;
-
 /**
  * Generate-more for an existing sentence theme. Always over-generates so the
  * user can prune generated rounds before they append to the editor.
@@ -84,11 +80,6 @@ export const SENTENCE_RELAY_TIMER_SECONDS = 60;
  * `RELAY_ANSWER_TIMEOUT_MS`; sentence positions use this longer window.
  */
 export const SENTENCE_RELAY_TIMEOUT_MS = SENTENCE_RELAY_TIMER_SECONDS * 1000;
-
-/** Sentence scoring (decision: sentence scoring matches word scale). */
-export const SENTENCE_CLEAN_COMPLETION_POINTS = 2;
-export const SENTENCE_MESSY_COMPLETION_POINTS = 1;
-export const SENTENCE_TIMEOUT_POINTS = 0;
 
 /**
  * PvP build-and-confirm scoring ladder (decision: competitive scoring). A

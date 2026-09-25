@@ -46,7 +46,7 @@ export interface OptionState {
  */
 export function computeOptionState(
   answer: string,
-  context: OptionContext
+  context: OptionContext,
 ): OptionState {
   const {
     selectedAnswer,
@@ -61,16 +61,13 @@ export function computeOptionState(
 
   const isNoneOfAbove = answer === NONE_OF_ABOVE;
   const isEliminated = eliminatedOptions.includes(answer);
-  const answerIsRevealed = correctAnswer !== null && hasNoneOption !== null;
-  const isWrongAnswer = answerIsRevealed
-    ? isNoneOfAbove ? !hasNoneOption : answer !== correctAnswer
-    : false;
-  const canEliminateThis = canEliminate && answerIsRevealed && isWrongAnswer && !isEliminated;
-  const isCorrectOption = answerIsRevealed
-    ? hasNoneOption
-      ? answer === NONE_OF_ABOVE
-      : answer === correctAnswer
-    : false;
+  const { answerIsRevealed, isWrongAnswer, isCorrectOption } = getAnswerTruth(
+    answer,
+    correctAnswer,
+    hasNoneOption,
+  );
+  const canEliminateThis =
+    canEliminate && answerIsRevealed && isWrongAnswer && !isEliminated;
   const isSelected = selectedAnswer === answer;
 
   const opponentPickedThis = showOpponentPick && opponentAnswer === answer;
@@ -78,59 +75,13 @@ export function computeOptionState(
   // Compute disabled state with proper precedence
   const disabled = (isShowingFeedback && !canEliminateThis) || isEliminated;
 
-  // Compute styles
-  let style: React.CSSProperties;
-  if (isEliminated) {
-    style = {
-      borderColor: colors.neutral.dark,
-      backgroundColor: colors.background.DEFAULT,
-      color: colors.text.muted,
-    };
-  } else if (canEliminateThis) {
-    style = {
-      borderColor: colors.status.warning.DEFAULT,
-      backgroundColor: `${colors.status.warning.DEFAULT}26`,
-      color: colors.status.warning.dark,
-    };
-  } else if (isShowingFeedback) {
-    if (isSelected) {
-      style = isCorrectOption
-        ? {
-            borderColor: colors.status.success.DEFAULT,
-            backgroundColor: `${colors.status.success.DEFAULT}26`,
-            color: colors.status.success.dark,
-          }
-        : {
-            borderColor: colors.status.danger.DEFAULT,
-            backgroundColor: `${colors.status.danger.DEFAULT}26`,
-            color: colors.status.danger.dark,
-          };
-    } else if (isCorrectOption) {
-      style = {
-        borderColor: colors.status.success.DEFAULT,
-        backgroundColor: `${colors.status.success.DEFAULT}1A`,
-        color: colors.status.success.dark,
-      };
-    } else {
-      style = {
-        borderColor: colors.neutral.dark,
-        backgroundColor: colors.background.DEFAULT,
-        color: colors.text.muted,
-      };
-    }
-  } else if (isSelected) {
-    style = {
-      borderColor: colors.secondary.DEFAULT,
-      backgroundColor: `${colors.secondary.DEFAULT}26`,
-      color: colors.secondary.dark,
-    };
-  } else {
-    style = {
-      borderColor: colors.primary.dark,
-      backgroundColor: colors.background.elevated,
-      color: colors.text.DEFAULT,
-    };
-  }
+  const style = getOptionStyle({
+    isEliminated,
+    canEliminateThis,
+    isShowingFeedback,
+    isSelected,
+    isCorrectOption,
+  });
 
   return {
     isSelected,
@@ -190,23 +141,7 @@ export function AnswerOptionButton({
   isFlying = false,
   dataTestId,
 }: AnswerOptionButtonProps) {
-  const baseClasses = isFlying
-    ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
-    : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative active:scale-95";
-  const mutedFeedback =
-    state.disabled &&
-    !state.isEliminated &&
-    !state.canEliminateThis &&
-    !state.isSelected &&
-    !state.isCorrectOption;
-  const stateClasses = [
-    state.isEliminated ? "line-through opacity-40 cursor-not-allowed" : "",
-    state.canEliminateThis ? "cursor-pointer animate-pulse hover:brightness-110" : "",
-    mutedFeedback ? "opacity-50" : "",
-    !state.disabled && !state.canEliminateThis ? "hover:brightness-110" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const classes = getAnswerOptionClasses(state, isFlying);
   const combinedStyle = { ...style, ...state.style };
 
   return (
@@ -215,9 +150,164 @@ export function AnswerOptionButton({
       onClick={onClick}
       data-testid={dataTestId}
       style={combinedStyle}
-      className={`${baseClasses} ${stateClasses}`}
+      className={classes}
     >
-      {state.isNoneOfAbove && hasNoneOption && showTypeReveal ? (
+      <AnswerOptionLabel
+        displayText={displayText}
+        isNoneOfAbove={state.isNoneOfAbove}
+        hasNoneOption={hasNoneOption}
+        showTypeReveal={showTypeReveal}
+        typedText={typedText}
+        revealComplete={revealComplete}
+        isFlying={isFlying}
+      />
+
+      <AnswerOptionMarkers
+        state={state}
+        hasNoneOption={hasNoneOption}
+        isShowingFeedback={isShowingFeedback}
+      />
+    </button>
+  );
+}
+
+function getAnswerTruth(
+  answer: string,
+  correctAnswer: string | null,
+  hasNoneOption: boolean | null,
+) {
+  const isNoneOfAbove = answer === NONE_OF_ABOVE;
+  const answerIsRevealed = correctAnswer !== null && hasNoneOption !== null;
+  const isWrongAnswer = answerIsRevealed
+    ? isNoneOfAbove
+      ? !hasNoneOption
+      : answer !== correctAnswer
+    : false;
+  const isCorrectOption = answerIsRevealed
+    ? hasNoneOption
+      ? answer === NONE_OF_ABOVE
+      : answer === correctAnswer
+    : false;
+  return { answerIsRevealed, isWrongAnswer, isCorrectOption };
+}
+function getOptionStyle({
+  isEliminated,
+  canEliminateThis,
+  isShowingFeedback,
+  isSelected,
+  isCorrectOption,
+}: Pick<
+  OptionState,
+  "isEliminated" | "canEliminateThis" | "isSelected" | "isCorrectOption"
+> & { isShowingFeedback: boolean }): React.CSSProperties {
+  // Compute styles
+  let style: React.CSSProperties;
+  if (isEliminated) {
+    style = {
+      borderColor: colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
+  } else if (canEliminateThis) {
+    style = {
+      borderColor: colors.status.warning.DEFAULT,
+      backgroundColor: `${colors.status.warning.DEFAULT}26`,
+      color: colors.status.warning.dark,
+    };
+  } else if (isShowingFeedback) {
+    style = getFeedbackStyle(isSelected, isCorrectOption);
+  } else if (isSelected) {
+    style = {
+      borderColor: colors.secondary.DEFAULT,
+      backgroundColor: `${colors.secondary.DEFAULT}26`,
+      color: colors.secondary.dark,
+    };
+  } else {
+    style = {
+      borderColor: colors.primary.dark,
+      backgroundColor: colors.background.elevated,
+      color: colors.text.DEFAULT,
+    };
+  }
+  return style;
+}
+function getFeedbackStyle(
+  isSelected: boolean,
+  isCorrectOption: boolean,
+): React.CSSProperties {
+  if (isSelected) {
+    return isCorrectOption
+      ? {
+          borderColor: colors.status.success.DEFAULT,
+          backgroundColor: `${colors.status.success.DEFAULT}26`,
+          color: colors.status.success.dark,
+        }
+      : {
+          borderColor: colors.status.danger.DEFAULT,
+          backgroundColor: `${colors.status.danger.DEFAULT}26`,
+          color: colors.status.danger.dark,
+        };
+  } else if (isCorrectOption) {
+    return {
+      borderColor: colors.status.success.DEFAULT,
+      backgroundColor: `${colors.status.success.DEFAULT}1A`,
+      color: colors.status.success.dark,
+    };
+  } else {
+    return {
+      borderColor: colors.neutral.dark,
+      backgroundColor: colors.background.DEFAULT,
+      color: colors.text.muted,
+    };
+  }
+}
+
+function isMutedFeedback(state: OptionState): boolean {
+  return (
+    state.disabled &&
+    !state.isEliminated &&
+    !state.canEliminateThis &&
+    !state.isSelected &&
+    !state.isCorrectOption
+  );
+}
+function getAnswerOptionClasses(state: OptionState, isFlying: boolean): string {
+  const baseClasses = isFlying
+    ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
+    : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative active:scale-95";
+  const mutedFeedback = isMutedFeedback(state);
+  const stateClasses = [
+    state.isEliminated ? "line-through opacity-40 cursor-not-allowed" : "",
+    state.canEliminateThis
+      ? "cursor-pointer animate-pulse hover:brightness-110"
+      : "",
+    mutedFeedback ? "opacity-50" : "",
+    !state.disabled && !state.canEliminateThis ? "hover:brightness-110" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${baseClasses} ${stateClasses}`;
+}
+function AnswerOptionLabel({
+  displayText,
+  isNoneOfAbove,
+  hasNoneOption,
+  showTypeReveal,
+  typedText,
+  revealComplete,
+  isFlying,
+}: Pick<
+  AnswerOptionButtonProps,
+  | "displayText"
+  | "hasNoneOption"
+  | "showTypeReveal"
+  | "typedText"
+  | "revealComplete"
+  | "isFlying"
+> & { isNoneOfAbove: boolean }) {
+  return (
+    <>
+      {isNoneOfAbove && hasNoneOption && showTypeReveal ? (
         <span className="font-medium">
           {typedText}
           {!revealComplete && <span className="animate-pulse">|</span>}
@@ -227,30 +317,49 @@ export function AnswerOptionButton({
       ) : (
         displayText
       )}
-
+    </>
+  );
+}
+function AnswerOptionMarkers({
+  state,
+  hasNoneOption,
+  isShowingFeedback,
+}: Pick<
+  AnswerOptionButtonProps,
+  "state" | "hasNoneOption" | "isShowingFeedback"
+>) {
+  return (
+    <>
       {state.canEliminateThis && (
         <span
           className="absolute -top-2 -right-2 text-xs px-1.5 py-0.5 rounded-full"
-          style={{ backgroundColor: colors.status.warning.DEFAULT, color: colors.text.inverse }}
+          style={{
+            backgroundColor: colors.status.warning.DEFAULT,
+            color: colors.text.inverse,
+          }}
         >
           ✕
         </span>
       )}
-
       {state.opponentPickedThis && (
         <span
           className="absolute -top-2 -left-2 text-xs px-1.5 py-0.5 rounded-full"
-          style={{ backgroundColor: colors.secondary.DEFAULT, color: colors.text.inverse }}
+          style={{
+            backgroundColor: colors.secondary.DEFAULT,
+            color: colors.text.inverse,
+          }}
         >
           👤
         </span>
       )}
-
       {state.isNoneOfAbove && hasNoneOption && isShowingFeedback && (
-        <span className="absolute top-2 right-2" style={{ color: colors.status.success.light }}>
+        <span
+          className="absolute top-2 right-2"
+          style={{ color: colors.status.success.light }}
+        >
           ✓
         </span>
       )}
-    </button>
+    </>
   );
 }

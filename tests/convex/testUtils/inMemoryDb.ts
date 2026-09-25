@@ -22,6 +22,8 @@ type FilterPredicate<T> = (row: T) => boolean;
 type FilterBuilder = {
   field: (name: string) => { __field: string };
   eq: (left: unknown, right: unknown) => FilterPredicate<Record<string, unknown>>;
+  and: (...predicates: FilterPredicate<Record<string, unknown>>[]) => FilterPredicate<Record<string, unknown>>;
+  or: (...predicates: FilterPredicate<Record<string, unknown>>[]) => FilterPredicate<Record<string, unknown>>;
 };
 
 function isFieldRef(value: unknown): value is { __field: string } {
@@ -32,6 +34,8 @@ function buildFilterPredicate<T extends Record<string, unknown>>(
   builder: (q: FilterBuilder) => FilterPredicate<T>
 ): FilterPredicate<T> {
   const q: FilterBuilder = {
+    and: (...predicates) => row => predicates.every(predicate => predicate(row)),
+    or: (...predicates) => row => predicates.some(predicate => predicate(row)),
     field: (name: string) => ({ __field: name }),
     eq: (left: unknown, right: unknown) => (row: Record<string, unknown>) => {
       const leftValue = isFieldRef(left) ? row[left.__field] : left;
@@ -47,7 +51,12 @@ export function createIndexedQuery<T extends TestRow>(rows: T[]) {
     take: async (count: number) => resultRows.slice(0, count),
     collect: async () => resultRows,
     first: async () => resultRows[0] ?? null,
-    unique: async () => resultRows[0] ?? null,
+    unique: async () => {
+      if (resultRows.length > 1) {
+        throw new Error("unique() query returned more than one result");
+      }
+      return resultRows[0] ?? null;
+    },
     filter: (builder: (q: FilterBuilder) => FilterPredicate<T>) => {
       const predicate = buildFilterPredicate<T & Record<string, unknown>>(
         builder as (q: FilterBuilder) => FilterPredicate<T & Record<string, unknown>>

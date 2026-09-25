@@ -94,3 +94,48 @@ describe("GoalThemeSelector", () => {
     ]);
   });
 });
+
+it("shows loading and per-tab empty states and forwards both close controls", () => {
+  useQueryMock.mockReturnValue(undefined);
+  const onClose = vi.fn(), onSelect = vi.fn();
+  const props = { goalId: "goal" as Id<"weeklyGoals">, currentThemeCount: 9, onSelect, onClose };
+  const view = render(<GoalThemeSelector {...props} />);
+  expect(screen.queryByText("Loading themes...")).not.toBeNull();
+  expect(screen.queryByText("Select up to 1 theme")).not.toBeNull();
+  expect((screen.getByTestId("goals-theme-add") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByTestId("goals-theme-add"));
+  expect(onSelect).not.toHaveBeenCalled();
+  useQueryMock.mockReturnValue([]);
+  view.rerender(<GoalThemeSelector {...props} />);
+  expect(screen.queryByText("No eligible word themes available")).not.toBeNull();
+  fireEvent.click(screen.getByTestId("goals-theme-tab-sentence"));
+  expect(screen.queryByText("No eligible sentence themes available")).not.toBeNull();
+  fireEvent.click(screen.getByTestId("goals-theme-selector-close"));
+  fireEvent.click(screen.getByTestId("goals-theme-cancel"));
+  expect(onClose).toHaveBeenCalledTimes(2);
+});
+
+it("keeps selection across tabs, frees a slot on deselection and reports selected IDs only", () => {
+  useQueryMock.mockReturnValue([
+    { _id: "word", name: "Animals", contentType: "word", description: "Pet words", words: [{ word: "cat" }, { word: "dog" }] },
+    { _id: "sentence", name: "Phrases", contentType: "sentence", sentenceRounds: [{ spanishSentence: "Hola mundo" }] },
+  ]);
+  const onSelect = vi.fn();
+  render(<GoalThemeSelector goalId={"goal" as Id<"weeklyGoals">} currentThemeCount={9} onSelect={onSelect} onClose={vi.fn()} />);
+  expect(screen.queryByText("2 words")).not.toBeNull();
+  expect(screen.queryByText("Pet words")).not.toBeNull();
+  fireEvent.click(screen.getByTestId("goals-theme-option-word"));
+  fireEvent.click(screen.getByTestId("goals-theme-tab-sentence"));
+  expect(screen.queryByText("1 round")).not.toBeNull();
+  const sentence = screen.getByTestId("goals-theme-option-sentence") as HTMLButtonElement;
+  expect(sentence.disabled).toBe(true);
+  fireEvent.click(sentence);
+  fireEvent.click(screen.getByTestId("goals-theme-tab-word"));
+  fireEvent.click(screen.getByTestId("goals-theme-option-word"));
+  expect((screen.getByTestId("goals-theme-add") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByTestId("goals-theme-tab-sentence"));
+  expect((screen.getByTestId("goals-theme-option-sentence") as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByTestId("goals-theme-option-sentence"));
+  fireEvent.click(screen.getByTestId("goals-theme-add"));
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith(["sentence"]);
+});

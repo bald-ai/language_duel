@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -13,9 +13,7 @@ import { OpponentSelector } from "./OpponentSelector";
 import { DifficultySelector } from "./DifficultySelector";
 import { CheckmarkIcon } from "./CheckmarkIcon";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
-import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 import { formatVisibleUser } from "@/lib/userDisplay";
-import { isSentenceTheme } from "@/lib/themes/themeContent";
 import { DUEL_DIFFICULTY_OPTIONS, DUEL_MODE_OPTIONS } from "./challengeOptions";
 import type { ThemeColors } from "@/lib/appearance";
 import type { ModalTheme } from "./types";
@@ -24,6 +22,8 @@ import type {
   LobbyUser,
   PendingChallenge,
 } from "@/hooks/challengeLobby/types";
+
+import { useChallengeWizard, type WizardStep } from "./useChallengeWizard";
 
 const emptySubscribe = () => () => undefined;
 const getClientSnapshot = () => true;
@@ -44,18 +44,6 @@ interface ChallengeModalProps {
   initialOpponentId?: Id<"users"> | null;
 }
 
-// One decision per screen. Steps appear/disappear with the choices so the user
-// never sees an invalid option: Solo practice (self-duel) has no Mode step
-// because PvE is forced; Mode only exists for a friend. Difficulty shows for any
-// theme selection (it now scales sentence distractor count as well as the word
-// difficulty mix), gated only on a theme being picked.
-type WizardStep = "opponent" | "theme" | "mode" | "difficulty" | "confirm";
-type FlowDirection = "forward" | "back";
-type FlowPhase = "idle" | "exit" | "enter";
-
-const FLOW_EXIT_MS = 105;
-const FLOW_ENTER_MS = 210;
-
 const STEP_PROMPT: Record<WizardStep, string> = {
   opponent: "Who are you playing?",
   theme: "Pick your theme(s)",
@@ -74,13 +62,6 @@ const STEP_LABEL: Record<WizardStep, string> = {
 
 const stepPromptClassName =
   "mb-5 text-center text-xs font-bold uppercase tracking-widest";
-
-function shouldAnimateFlow() {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return false;
-  }
-  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 function translucent(color: string, percentage: number) {
   return `color-mix(in srgb, ${color} ${percentage}%, transparent)`;
@@ -101,170 +82,15 @@ export function ChallengeModal({
   initialOpponentId,
 }: ChallengeModalProps) {
   const colors = useAppearanceColors();
-  const [selectedOpponentId, setSelectedOpponentId] = useState<Id<"users"> | null>(
-    initialOpponentId ?? null
-  );
-  const [selectedThemeIds, setSelectedThemeIds] = useState<Id<"themes">[]>([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DuelDifficultyPreset>("easy");
-  // Intentionally unread when isSelfSelected; backend forces SELF_DUEL_FORCED_MODE.
-  const [requestedMode, setRequestedMode] = useState<DuelMode>("pvp");
-  const [stepKey, setStepKey] = useState<WizardStep>(initialOpponentId ? "theme" : "opponent");
-  const [flowAnimation, setFlowAnimation] = useState<{
-    phase: FlowPhase;
-    direction: FlowDirection;
-  }>({ phase: "idle", direction: "forward" });
-  const transitionTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const wizard = useChallengeWizard({ users, viewer, themes, initialOpponentId, onCreateChallenge,
+    isJoiningDuel, isCreatingChallenge });
+  const {
+    selectedOpponentId, selectedOpponent, selectedThemeIds, selectedDifficulty, selectedMode,
+    isSelfSelected, isRelaySelected, disabledModes, steps, activeStep, isFirst, isConfirm,
+    isTransitioning, handleBack, handleSelectOpponent, handleThemeIdsChange, handleSelectMode,
+    handleSelectDifficulty, handleCreateChallenge, handleNext, flowClassName, primaryDisabled, primaryLabel,
+  } = wizard;
   const isMounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
-
-  const isSelfSelected = isSelfDuelSelection(viewer, selectedOpponentId);
-  const selectedOpponent = isSelfSelected
-    ? viewer ?? null
-    : (users?.find((user) => user._id === selectedOpponentId) ?? null);
-
-  // Relay now supports mixed word + sentence decks, so the mode is whatever the
-  // user requested. Self-duels never expose Relay (handled by `isSelfSelected`).
-  const selectedMode: DuelMode = requestedMode;
-  const isRelaySelected = !isSelfSelected && selectedMode === "relay";
-  const hasDifficultyStep = !isRelaySelected;
-
-  const hasOpponent = selectedOpponentId != null;
-  const hasTheme = selectedThemeIds.length > 0;
-
-  // TbT ("Tag Team") shares one sentence tile board, so it is sentence-only.
-  // Disable it in the picker unless EVERY selected theme is a sentence theme —
-  // matching the server guard, which rejects a deck with any non-sentence theme.
-  const allSentenceThemes =
-    hasTheme &&
-    selectedThemeIds.every((id) =>
-      themes?.some((theme) => theme._id === id && isSentenceTheme(theme))
-    );
-  const disabledModes: Partial<Record<DuelMode, string>> | undefined =
-    allSentenceThemes ? undefined : { tbt: "Needs an all-sentence deck" };
-  const isSelectedModeDisabled = !isSelfSelected && Boolean(disabledModes?.[selectedMode]);
-
-  const steps = useMemo<WizardStep[]>(() => {
-    const list: WizardStep[] = ["opponent"];
-    if (!hasOpponent) return list;
-    list.push("theme");
-    if (!hasTheme) return list;
-    if (!isSelfSelected) list.push("mode");
-    if (hasDifficultyStep) list.push("difficulty");
-    list.push("confirm");
-    return list;
-  }, [hasDifficultyStep, hasOpponent, hasTheme, isSelfSelected]);
-
-  const activeStep: WizardStep = steps.includes(stepKey) ? stepKey : steps[steps.length - 1];
-  const stepIndex = steps.indexOf(activeStep);
-  const isFirst = stepIndex <= 0;
-  const isConfirm = activeStep === "confirm";
-  const isTransitioning = flowAnimation.phase !== "idle";
-  const canCreate = hasOpponent && hasTheme && !isSelectedModeDisabled;
-
-  const clearTransitionTimers = useCallback(() => {
-    for (const timer of transitionTimersRef.current) {
-      clearTimeout(timer);
-    }
-    transitionTimersRef.current = [];
-  }, []);
-
-  useEffect(() => clearTransitionTimers, [clearTransitionTimers]);
-
-  const navigateToStep = useCallback(
-    (nextStep: WizardStep, direction: FlowDirection = "forward") => {
-      if (nextStep === activeStep) return;
-      clearTransitionTimers();
-      if (!shouldAnimateFlow()) {
-        setStepKey(nextStep);
-        setFlowAnimation({ phase: "idle", direction });
-        return;
-      }
-      setFlowAnimation({ phase: "exit", direction });
-      const exitTimer = setTimeout(() => {
-        setStepKey(nextStep);
-        setFlowAnimation({ phase: "enter", direction });
-        const enterTimer = setTimeout(() => {
-          setFlowAnimation({ phase: "idle", direction });
-          transitionTimersRef.current = [];
-        }, FLOW_ENTER_MS);
-        transitionTimersRef.current = [enterTimer];
-      }, FLOW_EXIT_MS);
-      transitionTimersRef.current = [exitTimer];
-    },
-    [activeStep, clearTransitionTimers]
-  );
-
-  const handleSelectOpponent = (id: Id<"users">) => {
-    if (isTransitioning) return;
-    setSelectedOpponentId(id);
-    navigateToStep("theme");
-  };
-
-  const advanceAfterTheme = () => {
-    if (!isSelfDuelSelection(viewer, selectedOpponentId)) {
-      navigateToStep("mode");
-      return;
-    }
-    navigateToStep("difficulty");
-  };
-
-  const handleSelectMode = (mode: DuelMode) => {
-    if (isTransitioning || disabledModes?.[mode]) return;
-    setRequestedMode(mode);
-    navigateToStep(mode === "relay" ? "confirm" : "difficulty");
-  };
-
-  const handleSelectDifficulty = (preset: DuelDifficultyPreset) => {
-    if (isTransitioning) return;
-    setSelectedDifficulty(preset);
-    navigateToStep("confirm");
-  };
-
-  const handleNext = () => {
-    if (isTransitioning) return;
-    if (activeStep === "opponent" && hasOpponent) {
-      navigateToStep("theme");
-      return;
-    }
-    if (activeStep === "theme") {
-      advanceAfterTheme();
-      return;
-    }
-    if (activeStep === "mode") {
-      if (isSelectedModeDisabled) return;
-      navigateToStep(isRelaySelected ? "confirm" : "difficulty");
-      return;
-    }
-    if (activeStep === "difficulty") {
-      navigateToStep("confirm");
-    }
-  };
-
-  const handleBack = () => {
-    if (isTransitioning || stepIndex <= 0) return;
-    navigateToStep(steps[stepIndex - 1], "back");
-  };
-
-  const handleThemeIdsChange = (themeIds: Id<"themes">[]) => {
-    setSelectedThemeIds(themeIds);
-    const nextAllSentenceThemes =
-      themeIds.length > 0 &&
-      themeIds.every((id) =>
-        themes?.some((theme) => theme._id === id && isSentenceTheme(theme))
-      );
-    if (requestedMode === "tbt" && !nextAllSentenceThemes) {
-      setRequestedMode("pvp");
-    }
-  };
-
-  const handleCreateChallenge = () => {
-    if (!selectedOpponentId || selectedThemeIds.length === 0 || isSelectedModeDisabled) return;
-    onCreateChallenge({
-      opponentId: selectedOpponentId,
-      themeIds: selectedThemeIds,
-      duelDifficultyPreset: isRelaySelected ? undefined : selectedDifficulty,
-      duelMode: selectedMode,
-    });
-  };
 
   const ctaButtonStyle: CSSProperties = {
     backgroundImage: `linear-gradient(to bottom, ${colors.cta.light}, ${colors.cta.dark})`,
@@ -272,23 +98,6 @@ export function ChallengeModal({
     textShadow: "0 1px 3px rgba(0,0,0,0.35)",
     boxShadow: `0 8px 20px ${colors.cta.glow}`,
   };
-  const flowClassName =
-    flowAnimation.phase === "idle"
-      ? ""
-      : `duel-flow-${flowAnimation.phase}-${flowAnimation.direction}`;
-  const primaryDisabled =
-    isTransitioning ||
-    (activeStep === "opponent" && !hasOpponent) ||
-    (activeStep === "theme" && !hasTheme) ||
-    (activeStep === "mode" && isSelectedModeDisabled) ||
-    (isConfirm && (!canCreate || isCreatingChallenge || isJoiningDuel));
-  const primaryLabel = isConfirm
-    ? isCreatingChallenge
-      ? "Creating..."
-      : isSelfSelected
-      ? "Start practice"
-      : "Create Challenge"
-    : "Continue";
 
   if (!isMounted) {
     return null;
@@ -479,25 +288,7 @@ function WizardProgress({
           index <= activeIndex ? colors.primary.DEFAULT : translucent(colors.primary.DEFAULT, 24);
         const lineAfterColor =
           index < activeIndex ? colors.primary.DEFAULT : translucent(colors.primary.DEFAULT, 24);
-        const dotStyle: CSSProperties = isDone
-          ? {
-              backgroundColor: colors.primary.DEFAULT,
-              borderColor: colors.primary.DEFAULT,
-              color: "#ffffff",
-            }
-          : isActive
-          ? {
-              backgroundColor: colors.cta.DEFAULT,
-              borderColor: colors.cta.DEFAULT,
-              color: "#ffffff",
-              boxShadow: `0 0 0 4px ${translucent(colors.cta.DEFAULT, 16)}`,
-            }
-          : {
-              backgroundColor: colors.background.elevated,
-              borderColor: translucent(colors.primary.DEFAULT, 35),
-              color: colors.text.muted,
-              boxShadow: "0 0 0 4px rgba(255, 255, 255, 0.9)",
-            };
+        const dotStyle = progressDotStyle(colors, isDone, isActive);
 
         return (
           <div
@@ -654,16 +445,8 @@ function ReviewSummary({ args }: { args: StepBodyArgs }) {
     isRelaySelected,
   } = args;
 
-  const opponentLabel = isSelfSelected
-    ? "Solo practice"
-    : selectedOpponent
-    ? formatVisibleUser(selectedOpponent, "Unknown")
-    : "—";
-
-  const themeLabel =
-    selectedThemeIds.length === 1
-      ? themes?.find((theme) => theme._id === selectedThemeIds[0])?.name ?? "1 theme"
-      : `${selectedThemeIds.length} themes`;
+  const opponentLabel = reviewOpponentLabel(isSelfSelected, selectedOpponent);
+  const themeLabel = reviewThemeLabel(themes, selectedThemeIds);
 
   const modeLabel = isSelfSelected
     ? "Practice (PvE)"
@@ -710,4 +493,42 @@ function ReviewSummary({ args }: { args: StepBodyArgs }) {
       ))}
     </div>
   );
+}
+
+function progressDotStyle(colors: ThemeColors, isDone: boolean, isActive: boolean): CSSProperties {
+  return isDone
+          ? {
+              backgroundColor: colors.primary.DEFAULT,
+              borderColor: colors.primary.DEFAULT,
+              color: "#ffffff",
+            }
+          : isActive
+          ? {
+              backgroundColor: colors.cta.DEFAULT,
+              borderColor: colors.cta.DEFAULT,
+              color: "#ffffff",
+              boxShadow: `0 0 0 4px ${translucent(colors.cta.DEFAULT, 16)}`,
+            }
+          : {
+              backgroundColor: colors.background.elevated,
+              borderColor: translucent(colors.primary.DEFAULT, 35),
+              color: colors.text.muted,
+              boxShadow: "0 0 0 4px rgba(255, 255, 255, 0.9)",
+            };
+}
+
+function reviewOpponentLabel(isSelfSelected: boolean, selectedOpponent: LobbyUser | null): string {
+  return isSelfSelected
+    ? "Solo practice"
+    : selectedOpponent
+    ? formatVisibleUser(selectedOpponent, "Unknown")
+    : "—";
+
+}
+
+function reviewThemeLabel(themes: ModalTheme[] | undefined, selectedThemeIds: Id<"themes">[]): string {
+  return selectedThemeIds.length === 1
+      ? themes?.find((theme) => theme._id === selectedThemeIds[0])?.name ?? "1 theme"
+      : `${selectedThemeIds.length} themes`;
+
 }

@@ -3,10 +3,12 @@
 import type { ReactNode } from "react";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 import { formatVisibleUser } from "@/lib/userDisplay";
-import { DUEL_MODE_LABELS, type DuelMode } from "@/lib/duelMode";
+import { DUEL_MODE_LABELS } from "@/lib/duelMode";
 import {
   isChallengeInvitePayload,
   isWeeklyGoalPayload,
+  type WeeklyGoalNotificationEvent,
+  type ChallengeInvitePayload,
 } from "@/convex/notificationPayloads";
 import {
   ActionButton,
@@ -52,7 +54,7 @@ export function ChallengeInviteCard({ notification, actions }: NotificationCardP
       message={
         <>
           {userName} challenged you: <span className="font-semibold">{themeName}</span>
-          <ChallengeInviteChips difficulty={payload?.duelDifficultyPreset} duelMode={payload?.duelMode} />
+          <ChallengeInviteChips payload={payload} />
         </>
       }
       actions={
@@ -71,13 +73,12 @@ export function ChallengeInviteCard({ notification, actions }: NotificationCardP
 
 function weeklyGoalContent(
   notification: NotificationCardProps["notification"],
-  actions: NotificationCardProps["actions"]
+  actions: NotificationCardProps["actions"],
+  event: WeeklyGoalNotificationEvent | undefined,
+  archiveLabel: string
 ): { message: ReactNode; actions: ReactNode } {
   const userName = formatVisibleUser(notification.fromUser);
   const id = notification._id;
-  const payload = isWeeklyGoalPayload(notification.payload) ? notification.payload : undefined;
-  const event = payload?.event;
-  const archiveLabel = `Archive ${themeCountLabel(payload?.themeCount ?? 0)}`;
 
   const viewButton = (
     <ActionButton onClick={() => actions.viewWeeklyGoal()} variant="accept" dataTestId={`notification-${id}-view-weekly-goal`}>
@@ -158,7 +159,9 @@ function weeklyGoalContent(
 }
 
 export function WeeklyGoalCard({ notification, actions }: NotificationCardProps) {
-  const content = weeklyGoalContent(notification, actions);
+  const payload = isWeeklyGoalPayload(notification.payload) ? notification.payload : undefined;
+  const archiveLabel = `Archive ${themeCountLabel(payload?.themeCount ?? 0)}`;
+  const content = weeklyGoalContent(notification, actions, payload?.event, archiveLabel);
   return (
     <NotificationCardShell
       notificationId={notification._id}
@@ -211,13 +214,9 @@ export function GenericNotificationCard({ notification, actions }: NotificationC
   );
 }
 
-function ChallengeInviteChips({
-  difficulty,
-  duelMode,
-}: {
-  difficulty?: "easy" | "medium" | "hard";
-  duelMode?: DuelMode;
-}) {
+function ChallengeInviteChips({ payload }: { payload?: ChallengeInvitePayload }) {
+  const difficulty = payload?.duelDifficultyPreset;
+  const duelMode = payload?.duelMode;
   const colors = useAppearanceColors();
   if (!difficulty && !duelMode) return null;
 

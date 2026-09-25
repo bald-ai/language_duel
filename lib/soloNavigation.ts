@@ -19,9 +19,7 @@ export function sanitizeSoloReturnTo(returnTo?: string | null): string {
   return SAFE_RETURN_PATH_PATTERN.test(returnTo) ? returnTo : "/";
 }
 
-export function buildSoloSearchParams(source: SoloNavigationSource): URLSearchParams {
-  const params = new URLSearchParams();
-
+function setPracticeSourceParams(params: URLSearchParams, source: SoloNavigationSource): void {
   if (source.soloPracticeSessionId) {
     params.set("soloPracticeSessionId", String(source.soloPracticeSessionId));
   } else if (source.weeklyGoalId) {
@@ -35,6 +33,13 @@ export function buildSoloSearchParams(source: SoloNavigationSource): URLSearchPa
     }
     params.set("themeIds", source.themeIds.map(String).join(","));
   }
+
+}
+
+export function buildSoloSearchParams(source: SoloNavigationSource): URLSearchParams {
+  const params = new URLSearchParams();
+
+  setPracticeSourceParams(params, source);
 
   if (source.durationSeconds !== undefined) {
     params.set("duration", String(source.durationSeconds));

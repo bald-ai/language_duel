@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { v } from "convex/values";
-import { internalAction, internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import {
@@ -32,7 +36,9 @@ function createOpenAIClient() {
   });
 }
 
-function buildSentenceWordMeaningsPrompt(round: SentenceWordMeaningRefreshRound): string {
+function buildSentenceWordMeaningsPrompt(
+  round: SentenceWordMeaningRefreshRound,
+): string {
   return `You are a Spanish tutor writing short per-word English hints for a learner.
 
 The learner sees the fluent English prompt separately. Your job is only word recognition.
@@ -62,7 +68,7 @@ function sentenceWordMeaningsSchema(tokenCount: number) {
 
 async function generateSentenceWordMeanings(
   openai: OpenAI,
-  round: SentenceWordMeaningRefreshRound
+  round: SentenceWordMeaningRefreshRound,
 ): Promise<string[]> {
   const tokens = tokenizeSpanishSentence(round.spanishSentence);
   if (tokens.length === 0) return [];
@@ -101,8 +107,8 @@ async function generateSentenceWordMeanings(
   return normalizeSentenceWordMeanings(
     round.spanishSentence,
     parsed.wordMeanings.map((meaning) =>
-      typeof meaning === "string" ? meaning : ""
-    )
+      typeof meaning === "string" ? meaning : "",
+    ),
   );
 }
 
@@ -124,13 +130,10 @@ export const applySentenceWordMeanings = internalMutation({
         englishPrompt: v.string(),
         spanishSentence: v.string(),
         wordMeanings: v.array(v.string()),
-      })
+      }),
     ),
   },
-  handler: async (
-    ctx,
-    args
-  ): Promise<{ applied: number; skipped: number }> => {
+  handler: async (ctx, args): Promise<{ applied: number; skipped: number }> => {
     const theme = await ctx.db.get(args.themeId);
     if (!theme || theme.contentType !== "sentence") {
       return { applied: 0, skipped: args.generated.length };
@@ -142,18 +145,14 @@ export const applySentenceWordMeanings = internalMutation({
 
     for (const generated of args.generated) {
       const round = sentenceRounds[generated.roundIndex];
-      if (
-        !round ||
-        round.englishPrompt !== generated.englishPrompt ||
-        round.spanishSentence !== generated.spanishSentence
-      ) {
+      if (!matchesRefreshTarget(round, generated)) {
         skipped += 1;
         continue;
       }
 
       const normalizedMeanings = normalizeSentenceWordMeanings(
         round.spanishSentence,
-        generated.wordMeanings
+        generated.wordMeanings,
       );
       const tokenCount = tokenizeSpanishSentence(round.spanishSentence).length;
       if (normalizedMeanings.length !== tokenCount) {
@@ -184,27 +183,30 @@ export const refreshSentenceWordMeanings = internalAction({
         roundIndex: v.number(),
         englishPrompt: v.string(),
         spanishSentence: v.string(),
-      })
+      }),
     ),
   },
-  handler: async (ctx, args): Promise<{ generated: number; applied: number; skipped: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ generated: number; applied: number; skipped: number }> => {
     const theme = await ctx.runQuery(
-      internal.themes.sentenceWordMeanings.getSentenceThemeForWordMeaningRefresh,
-      { themeId: args.themeId }
+      internal.themes.sentenceWordMeanings
+        .getSentenceThemeForWordMeaningRefresh,
+      { themeId: args.themeId },
     );
-    if (!theme) return { generated: 0, applied: 0, skipped: args.rounds.length };
+    if (!theme)
+      return { generated: 0, applied: 0, skipped: args.rounds.length };
 
-    const currentTargets = args.rounds.flatMap((target): SentenceWordMeaningRefreshRound[] => {
-      const round = theme.sentenceRounds[target.roundIndex];
-      if (
-        !round ||
-        round.englishPrompt !== target.englishPrompt ||
-        round.spanishSentence !== target.spanishSentence
-      ) {
-        return [];
-      }
-      return [target];
-    });
+    const currentTargets = args.rounds.flatMap(
+      (target): SentenceWordMeaningRefreshRound[] => {
+        const round = theme.sentenceRounds[target.roundIndex];
+        if (!matchesRefreshTarget(round, target)) {
+          return [];
+        }
+        return [target];
+      },
+    );
 
     if (currentTargets.length === 0) {
       return { generated: 0, applied: 0, skipped: args.rounds.length };
@@ -212,14 +214,16 @@ export const refreshSentenceWordMeanings = internalAction({
 
     const openai = createOpenAIClient();
     const settled = await Promise.allSettled(
-      currentTargets.map(async (target): Promise<SentenceWordMeaningResult> => ({
-        ...target,
-        wordMeanings: await generateSentenceWordMeanings(openai, target),
-      }))
+      currentTargets.map(
+        async (target): Promise<SentenceWordMeaningResult> => ({
+          ...target,
+          wordMeanings: await generateSentenceWordMeanings(openai, target),
+        }),
+      ),
     );
 
     const generated = settled.flatMap((result): SentenceWordMeaningResult[] =>
-      result.status === "fulfilled" ? [result.value] : []
+      result.status === "fulfilled" ? [result.value] : [],
     );
     if (generated.length === 0) {
       return {
@@ -231,7 +235,7 @@ export const refreshSentenceWordMeanings = internalAction({
 
     const applyResult = await ctx.runMutation(
       internal.themes.sentenceWordMeanings.applySentenceWordMeanings,
-      { themeId: args.themeId, generated }
+      { themeId: args.themeId, generated },
     );
 
     return {
@@ -241,3 +245,15 @@ export const refreshSentenceWordMeanings = internalAction({
     };
   },
 });
+
+/** Both the read and write phases must still refer to the same authored text. */
+function matchesRefreshTarget(
+  round: SentenceTheme["sentenceRounds"][number] | undefined,
+  target: SentenceWordMeaningRefreshRound,
+): round is SentenceTheme["sentenceRounds"][number] {
+  return (
+    !!round &&
+    round.englishPrompt === target.englishPrompt &&
+    round.spanishSentence === target.spanishSentence
+  );
+}

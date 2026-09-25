@@ -85,6 +85,15 @@ function extractResemblePresetList(data: unknown): ResemblePreset[] {
   return [];
 }
 
+async function findRemoteResemblePreset(signal: AbortSignal, apiKey: string): Promise<ResemblePreset | undefined> {
+  const response = await fetch(`${RESEMBLE_BASE_URL}/voice_settings_presets`, {
+    method: "GET", headers: getResembleHeaders(apiKey), signal,
+  });
+  if (!response.ok) return undefined;
+  const presets = extractResemblePresetList(await response.json());
+  return presets.find((preset) => preset.name === RESEMBLE_VOICE_SETTINGS.name);
+}
+
 export async function ensureRemoteResemblePreset(signal: AbortSignal): Promise<string | null> {
   if (cachedResemblePresetUuid) {
     return cachedResemblePresetUuid;
@@ -96,19 +105,10 @@ export async function ensureRemoteResemblePreset(signal: AbortSignal): Promise<s
   }
 
   try {
-    const listResponse = await fetch(`${RESEMBLE_BASE_URL}/voice_settings_presets`, {
-      method: "GET",
-      headers: getResembleHeaders(apiKey),
-      signal,
-    });
-
-    if (listResponse.ok) {
-      const presets = extractResemblePresetList(await listResponse.json());
-      const existingPreset = presets.find((preset) => preset.name === RESEMBLE_VOICE_SETTINGS.name);
-      if (existingPreset) {
-        cachedResemblePresetUuid = existingPreset.uuid;
-        return existingPreset.uuid;
-      }
+    const existingPreset = await findRemoteResemblePreset(signal, apiKey);
+    if (existingPreset) {
+      cachedResemblePresetUuid = existingPreset.uuid;
+      return existingPreset.uuid;
     }
 
     const response = await fetch(`${RESEMBLE_BASE_URL}/voice_settings_presets`, {

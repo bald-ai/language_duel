@@ -13,7 +13,7 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="nouns"
-        generationMode={null}
+        isGenerating={false}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={vi.fn()}
@@ -31,7 +31,7 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="nouns"
-        generationMode={null}
+        isGenerating={false}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={vi.fn()}
@@ -58,7 +58,7 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="verbs"
-        generationMode={null}
+        isGenerating={false}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={onWordTypeChange}
@@ -77,7 +77,7 @@ describe("GenerateThemeModal", () => {
         themeName="Animals"
         themePrompt=""
         wordType="adjectives"
-        generationMode={null}
+        isGenerating={false}
         onThemeNameChange={vi.fn()}
         onThemePromptChange={vi.fn()}
         onWordTypeChange={onWordTypeChange}
@@ -140,7 +140,7 @@ describe("GenerateThemeModal", () => {
   });
 
   it("shows Pick & Prune loading text when that mode is generating", () => {
-    renderModal({ generationMode: "pick-and-prune" });
+    renderModal({ isGenerating: true });
     expect(screen.getByText(
       `Generating ${PICK_AND_PRUNE_WORD_COUNT} words for Pick & Prune... This may take a moment.`
     )).toBeInTheDocument();

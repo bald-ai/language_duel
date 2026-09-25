@@ -273,16 +273,7 @@ export async function handleCompleteBossSoloPractice(
 ): Promise<{ completed: boolean }> {
   const { user } = await getAuthenticatedUser(ctx);
 
-  const session = await ctx.db.get(soloPracticeSessionId);
-  if (!session) {
-    throw new ConvexError({ code: "NOT_FOUND", message: "Solo practice session not found" });
-  }
-  if (session.userId !== user._id) {
-    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
-  }
-  if (session.sourceType !== "boss" || !session.bossType) {
-    throw new ConvexError({ code: "INVALID_INPUT", message: "Session is not a boss practice session" });
-  }
+  const session = await loadOwnedBossPractice(ctx, soloPracticeSessionId, user._id);
   if (session.status === "completed") {
     return { completed: false };
   }
@@ -318,3 +309,17 @@ export async function handleCompleteBossSoloPractice(
 }
 
 export { summarizeSessionItems };
+
+async function loadOwnedBossPractice(ctx: MutationCtx, soloPracticeSessionId: Id<"soloPracticeSessions">, userId: Id<"users">) {
+  const session = await ctx.db.get(soloPracticeSessionId);
+  if (!session) {
+    throw new ConvexError({ code: "NOT_FOUND", message: "Solo practice session not found" });
+  }
+  if (session.userId !== userId) {
+    throw new ConvexError({ code: "NOT_AUTHORIZED", message: "Not authorized" });
+  }
+  if (session.sourceType !== "boss" || !session.bossType) {
+    throw new ConvexError({ code: "INVALID_INPUT", message: "Session is not a boss practice session" });
+  }
+  return session;
+}

@@ -201,3 +201,21 @@ describe("hintPool.fireSentenceHint", () => {
     ).rejects.toThrow("Sentence hints are only available on sentence rounds");
   });
 });
+
+it.each([
+  [{ status: "completed" }, "Duel is not active"],
+  [{ duelQuestions: undefined }, "Duel question data is missing"],
+] satisfies [Partial<DuelDoc>, string][])("rejects inactive/missing sentence rounds without writes (%#)", async (overrides, message) => {
+  const db = seedDb(overrides);
+  const before = structuredClone(db.duels);
+  await expect(fireSentenceHintHandler(createCtx(db), { duelId: "duel_1" as Id<"duels">, hintType: "freeze_time" })).rejects.toThrow(message);
+  expect(db.duels).toEqual(before);
+});
+
+it("adds a timer bonus without discarding existing revealed and eliminated tiles", async () => {
+  const db = seedDb({ currentQuestionTimerBonusSeconds: 10, currentQuestionRevealedTiles: [{ position: 0, tileIndices: [0] }], currentQuestionEliminatedTileIndices: [4] });
+  await fireSentenceHintHandler(createCtx(db), { duelId: "duel_1" as Id<"duels">, hintType: "freeze_time" });
+  expect(db.duels[0].currentQuestionTimerBonusSeconds).toBe(40);
+  expect(db.duels[0].currentQuestionRevealedTiles).toEqual([{ position: 0, tileIndices: [0] }]);
+  expect(db.duels[0].currentQuestionEliminatedTileIndices).toEqual([4]);
+});

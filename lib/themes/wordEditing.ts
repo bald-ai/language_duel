@@ -1,25 +1,17 @@
 import type { FieldType } from "@/lib/themes/api";
 import type { WordEntry } from "@/lib/types";
 
+import { arraysEqual, scalarArraysEqual } from "./arrayEquality";
+
+function wordsEqual(left: WordEntry, right: WordEntry): boolean {
+  if (!left || !right) return false;
+  if (left.word !== right.word || left.answer !== right.answer) return false;
+  if ((left.ttsStorageId ?? undefined) !== (right.ttsStorageId ?? undefined)) return false;
+  return scalarArraysEqual(left.wrongAnswers, right.wrongAnswers);
+}
+
 export function areThemeWordsEqual(left: readonly WordEntry[], right: readonly WordEntry[]): boolean {
-  if (left.length !== right.length) return false;
-
-  for (let i = 0; i < left.length; i += 1) {
-    const leftWord = left[i];
-    const rightWord = right[i];
-
-    if (!leftWord || !rightWord) return false;
-    if (leftWord.word !== rightWord.word) return false;
-    if (leftWord.answer !== rightWord.answer) return false;
-    if ((leftWord.ttsStorageId ?? undefined) !== (rightWord.ttsStorageId ?? undefined)) return false;
-
-    if (leftWord.wrongAnswers.length !== rightWord.wrongAnswers.length) return false;
-    for (let j = 0; j < leftWord.wrongAnswers.length; j += 1) {
-      if (leftWord.wrongAnswers[j] !== rightWord.wrongAnswers[j]) return false;
-    }
-  }
-
-  return true;
+  return arraysEqual(left, right, wordsEqual);
 }
 
 export function getWordFieldValue(word: WordEntry, field: FieldType, wrongIndex = 0): string {

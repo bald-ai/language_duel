@@ -29,24 +29,27 @@ export type DuelRoleView = {
   theirRole: DuelRole;
 };
 
-export function forRole(duel: DuelDoc, role: DuelRole): DuelRoleView {
-  const isChallenger = role === "challenger";
-
+function participantView(duel: DuelDoc, role: DuelRole) {
   return {
-    myScore: isChallenger ? duel.challengerScore : duel.opponentScore,
-    theirScore: isChallenger ? duel.opponentScore : duel.challengerScore,
-    myAnswered: isChallenger ? duel.challengerAnswered : duel.opponentAnswered,
-    theirAnswered: isChallenger ? duel.opponentAnswered : duel.challengerAnswered,
-    myLastAnswer: isChallenger ? duel.challengerLastAnswer : duel.opponentLastAnswer,
-    theirLastAnswer: isChallenger ? duel.opponentLastAnswer : duel.challengerLastAnswer,
-    mySabotage: isChallenger ? duel.challengerSabotage : duel.opponentSabotage,
-    theirSabotage: isChallenger ? duel.opponentSabotage : duel.challengerSabotage,
-    mySabotagesUsed: isChallenger
-      ? (duel.challengerSabotagesUsed ?? 0)
-      : (duel.opponentSabotagesUsed ?? 0),
-    theirSabotagesUsed: isChallenger
-      ? (duel.opponentSabotagesUsed ?? 0)
-      : (duel.challengerSabotagesUsed ?? 0),
-    theirRole: isChallenger ? "opponent" : "challenger",
+    score: duel[`${role}Score`],
+    answered: duel[`${role}Answered`],
+    lastAnswer: duel[`${role}LastAnswer`],
+    sabotage: duel[`${role}Sabotage`],
+    sabotagesUsed: duel[`${role}SabotagesUsed`] ?? 0,
+  };
+}
+
+export function forRole(duel: DuelDoc, role: DuelRole): DuelRoleView {
+  const myRole = role === "challenger" ? "challenger" : "opponent";
+  const theirRole = myRole === "challenger" ? "opponent" : "challenger";
+  const mine = participantView(duel, myRole);
+  const theirs = participantView(duel, theirRole);
+  return {
+    myScore: mine.score, theirScore: theirs.score,
+    myAnswered: mine.answered, theirAnswered: theirs.answered,
+    myLastAnswer: mine.lastAnswer, theirLastAnswer: theirs.lastAnswer,
+    mySabotage: mine.sabotage, theirSabotage: theirs.sabotage,
+    mySabotagesUsed: mine.sabotagesUsed, theirSabotagesUsed: theirs.sabotagesUsed,
+    theirRole,
   };
 }

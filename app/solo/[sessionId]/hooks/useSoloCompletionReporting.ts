@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { getErrorMessage } from "@/lib/errors";
-import type { SoloSessionState } from "@/lib/soloPracticeRuntime";
+import { getMasteredSoloItemIndex, type SoloSessionState } from "@/lib/soloPracticeRuntime";
 
 interface UseSoloCompletionReportingParams {
   soloPracticeSessionId: string | null;
@@ -43,14 +43,11 @@ export function useSoloCompletionReporting({
   const [masteryWritesPending, setMasteryWritesPending] = useState(0);
 
   const handleCorrectWithProgress = useCallback(() => {
-    const currentItemState =
-      session.currentItemIndex === null
-        ? null
-        : session.itemStates.get(session.currentItemIndex) ?? null;
-    const completedItemIndex =
-      currentItemState && session.questionLevel >= currentItemState.maxLevel
-        ? session.currentItemIndex
-        : null;
+    const completedItemIndex = getMasteredSoloItemIndex({
+      currentItemIndex: session.currentItemIndex,
+      itemStates: session.itemStates,
+      questionLevel: session.questionLevel,
+    });
 
     handleCorrect();
 

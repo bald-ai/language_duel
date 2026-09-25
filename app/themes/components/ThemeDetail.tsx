@@ -115,12 +115,13 @@ export function ThemeDetail({
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col">
       <ThemeDetailHeader
+        contentType="word"
         themeName={theme.name}
         isOwner={isOwner}
         canEdit={canEdit}
         ownerDisplay={ownerDisplay}
         onThemeNameChange={onThemeNameChange}
-        onOpenAddWord={onOpenAddWord}
+        onOpenAddItem={onOpenAddWord}
         onOpenGenerateMore={onOpenGenerateMore}
         visibility={visibility}
         isUpdatingVisibility={isUpdatingVisibility}

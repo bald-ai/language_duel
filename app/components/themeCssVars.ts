@@ -1,5 +1,4 @@
 import {
-  getButtonStyles,
   THEME_COLOR_CSS_VARS,
   type CssVarTree,
   type ThemeColors,
@@ -35,5 +34,3 @@ export const cssVarColors: ThemeColors = {
     glow: "color-mix(in srgb, var(--color-cta) 35%, transparent)",
   },
 };
-
-export const cssVarButtonStyles = getButtonStyles(cssVarColors);
