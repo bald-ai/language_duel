@@ -37,6 +37,6 @@ fs.writeFileSync(`${coverageDir}/source-hashes.json`, JSON.stringify({ sourceHas
   coverageSha256: fs.existsSync(`${coverageDir}/coverage-final.json`)
     ? crypto.createHash("sha256").update(fs.readFileSync(`${coverageDir}/coverage-final.json`)).digest("hex") : null,
   finishedAt: new Date().toISOString(), testExitCode: tests.status, command: ["npm", ...args] }, null, 2));
-const metrics = spawnSync(process.execPath, ["scripts/quality-metrics.mjs", `${coverageDir}/coverage-final.json`,
+const metrics = spawnSync(process.execPath, ["quality/metrics.mjs", `${coverageDir}/coverage-final.json`,
   `${reportDir}/current-metrics.json`, "--check"], { stdio: "inherit" });
 process.exitCode = tests.status === 0 && metrics.status === 0 ? 0 : 1;

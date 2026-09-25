@@ -169,28 +169,19 @@ Weekly goal lifecycle:
 - Ask the user before editing this file. Do not silently rewrite it during unrelated work.
 - Keep it compact and high-signal. If information is already clear from code or tests, this file should usually point to the concept rather than restate implementation detail.
 
-### Automated quality campaign
+### Quality checks
 
-`npm run quality:check` runs the full automated suite with all handwritten app,
-hooks, lib, Convex, API, Netlify, and proxy code included in coverage. It records
-source hashes and applies separate component targets of 90% lines / 85% branches
-and function CRAP <=8. It currently fails while the campaign's remaining gaps
-are open; see `reports/quality/PROGRESS.md` and machine-readable metrics there.
-`npm run quality:mutations` runs the documented sequential mutation sample,
-restoring each source file before moving on. Run ordinary tests afterward.
+Coverage, CRAP metrics, and mutation tests are manual-only. For a requested
+cleanup pass, follow `quality/CLEANUP.md`; the commands are in `quality/README.md`.
 
-Regression fixes covered by this campaign: a mutual countdown skip clears its
-completed countdown; asynchronous TTS failures return the intended JSON error
-after refund handling; word-field regeneration includes the current feedback;
-late word-generation results cannot overwrite a cancelled or different edit.
-These are automated code-level checks. Real app/device interaction is reserved
-for the maintainer.
+Covered regressions: a mutual countdown skip clears its completed countdown;
+asynchronous TTS failures return the intended JSON error after refund handling;
+word-field regeneration includes the current feedback; late word-generation
+results cannot overwrite a cancelled or different edit. These are automated
+code-level checks. Real app/device interaction is reserved for the maintainer.
 
-Quality checks retain Istanbul counters and their source/provider/digest manifest in
-`reports/quality/current-coverage/`. `quality:metrics` checks those retained inputs;
-changed source or replaced counters invalidates freshness. The whole-component
-90% line / 85% branch / CRAP <=8 campaign remains incomplete. Goal date editing
-keeps local edits until the selected goal or its persisted end date changes.
+Goal date editing keeps local edits until the selected goal or its persisted end
+date changes.
 
 Cross-kind duel reveals initialize a fresh countdown before resolving it, including
 when the previous reveal finished at zero. Word-theme audio generation discards

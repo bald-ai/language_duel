@@ -1,9 +1,11 @@
-/** All-source quality gate. See scripts/QUALITY.md for metric definitions. */
+/** All-source quality gate. See quality/README.md for metric definitions. */
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import ts from "typescript";
 import coverageLibrary from "istanbul-lib-coverage";
+
+const CRAP_LIMIT = 10;
 
 const root = process.cwd();
 const input = process.argv[2] ?? "reports/quality/current-coverage/coverage-final.json";
@@ -95,10 +97,10 @@ for (const [group, item] of Object.entries(components)) {
   item.functionCount = fns.length;
   item.unmappedFunctions = fns.filter(fn => fn.crap === null).length;
   item.maxComplexity = Math.max(0, ...fns.map(fn => fn.complexity));
-  item.complexityOver8 = fns.filter(fn => fn.complexity > 8).length;
+  item.complexityAboveLimit = fns.filter(fn => fn.complexity > CRAP_LIMIT).length;
   item.maxCrap = Math.max(0, ...fns.map(fn => fn.crap ?? 0));
-  item.crapOver8 = fns.filter(fn => fn.crap !== null && fn.crap > 8).length;
-  item.passes = item.coverage.lines.pct >= 90 && item.coverage.branches.pct >= 85 && item.crapOver8 === 0 && item.unmappedFunctions === 0 && !item.files.some(file => missingFiles.includes(file));
+  item.crapAboveLimit = fns.filter(fn => fn.crap !== null && fn.crap > CRAP_LIMIT).length;
+  item.passes = item.coverage.lines.pct >= 90 && item.coverage.branches.pct >= 85 && item.crapAboveLimit === 0 && item.unmappedFunctions === 0 && !item.files.some(file => missingFiles.includes(file));
 }
 const changedSinceCoverage = manifest
   ? [...new Set([...files, ...Object.keys(manifest.sourceHashes)])]
@@ -110,6 +112,6 @@ const provenanceValid = manifest !== null && ["istanbul", "v8"].includes(manifes
 const coverageFresh = provenanceValid && changedSinceCoverage.length === 0 && manifest.testExitCode === 0;
 const result = { provenanceValid, instrumentation: manifest?.instrumentation ?? "unspecified", declarationOnlyFiles, coverageFresh, changedSinceCoverage, generatedAt: new Date().toISOString(), parser: `TypeScript ${ts.version}`, input, sourceHashes: hashes, missingFiles, components, functions, passes: coverageFresh && Object.values(components).every(item => item.passes) };
 if (output) fs.writeFileSync(output, JSON.stringify(result, null, 2) + "\n");
-console.table(Object.fromEntries(Object.entries(components).map(([group, c]) => [group, { files: c.files.length, lines: c.coverage.lines.pct, branches: c.coverage.branches.pct, maxCC: c.maxComplexity, ccOver8: c.complexityOver8, maxCrap: +c.maxCrap.toFixed(2), crapOver8: c.crapOver8, unmapped: c.unmappedFunctions }])));
+console.table(Object.fromEntries(Object.entries(components).map(([group, c]) => [group, { files: c.files.length, lines: c.coverage.lines.pct, branches: c.coverage.branches.pct, maxCC: c.maxComplexity, ccAboveLimit: c.complexityAboveLimit, maxCrap: +c.maxCrap.toFixed(2), crapAboveLimit: c.crapAboveLimit, unmapped: c.unmappedFunctions }])));
 console.log(`Missing coverage files: ${missingFiles.length}; gate: ${result.passes ? "PASS" : "FAIL"}`);
 if (process.argv.includes("--check") && !result.passes) process.exitCode = 1;

@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG = {'outputs': ['reports/quality', 'coverage'], 'commands': {'coverage': [['npm', 'run', 'test:run', '--', '--coverage']], 'metrics': [['node', 'scripts/quality-run.mjs']], 'mutations': [['python3', 'scripts/quality-mutations.py']]}}
+CONFIG = {'outputs': ['reports/quality', 'coverage'], 'commands': {'coverage': [['npm', 'run', 'test:run', '--', '--coverage']], 'metrics': [['node', 'quality/run.mjs']], 'mutations': [['python3', 'quality/mutations.py']]}}
 
 
 def run_session(commands, outputs, *, root=ROOT, coverage=False):

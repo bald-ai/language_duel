@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-const script = path.resolve("scripts/quality-metrics.mjs");
+const script = path.resolve("quality/metrics.mjs");
 const source = `export function outer(flag: boolean) {
   if (flag) return inner();
   return 0;
