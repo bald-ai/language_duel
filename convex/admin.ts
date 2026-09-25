@@ -3,7 +3,6 @@ import { internalMutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { deleteWeeklyGoalThemeSnapshots } from "./helpers/weeklyGoalSnapshots";
 import { collectTtsStorageIds, deleteUnreferencedStorageIdsForTheme } from "./helpers/themeTtsStorage";
-import { getGoalPartnerIdForViewer } from "./weeklyGoals/participants";
 
 /**
  * ADMIN: Fully delete a user and all associated data.
@@ -171,7 +170,13 @@ export const deleteUserFully = internalMutation({
       await deleteRowsAndCount(repetitionsByUser, "weeklyGoalRepetitions");
     };
 
-    const deleteGoalGames = async (goal: Doc<"weeklyGoals">) => {
+    const deleteGoal = async (goal: Doc<"weeklyGoals">) => {
+      // A completed shared goal stays with the partner: keep the goal, its
+      // snapshots, and the partner's practice sessions and repetitions.
+      const keepForPartner = goal.mode !== "solo" && goal.status === "completed";
+      const rowsToDelete = <Row extends { userId: Id<"users"> }>(rows: Row[]) =>
+        keepForPartner ? rows.filter((row) => row.userId === userId) : rows;
+
       const goalChallenges = await ctx.db
         .query("challenges")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
@@ -179,7 +184,7 @@ export const deleteUserFully = internalMutation({
       for (const challenge of goalChallenges) {
         await deleteChallenge(challenge._id);
       }
-  
+
       const goalDuels = await ctx.db
         .query("duels")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
@@ -187,44 +192,21 @@ export const deleteUserFully = internalMutation({
       for (const duel of goalDuels) {
         await deleteDuel(duel._id);
       }
-    };
 
-    const deleteGoalPracticeSessions = async (goal: Doc<"weeklyGoals">, isCompleted: boolean) => {
-      const goalSoloPracticeSessions = await ctx.db
+      const goalPracticeSessions = await ctx.db
         .query("soloPracticeSessions")
         .withIndex("by_weeklyGoalId", (q) => q.eq("weeklyGoalId", goal._id))
         .collect();
-      for (const session of goalSoloPracticeSessions) {
-        if (isCompleted && session.userId !== userId) continue;
-        if (await deleteOnce(session._id)) deletionReport.soloPracticeSessions++;
-      }
-    };
+      await deleteRowsAndCount(rowsToDelete(goalPracticeSessions), "soloPracticeSessions");
 
-    const deleteGoalRepetitions = async (goal: Doc<"weeklyGoals">, isCompleted: boolean, isSoloGoal: boolean, remainingParticipantId: Id<"users"> | undefined) => {
-      const repetitions = await ctx.db
+      const goalRepetitions = await ctx.db
         .query("weeklyGoalRepetitions")
         .withIndex("by_goal", (q) => q.eq("weeklyGoalId", goal._id))
         .collect();
-      for (const repetition of repetitions) {
-        if (!isSoloGoal && isCompleted && repetition.userId === remainingParticipantId) {
-          continue;
-        }
-        if (await deleteOnce(repetition._id)) deletionReport.weeklyGoalRepetitions++;
-      }
-    };
+      await deleteRowsAndCount(rowsToDelete(goalRepetitions), "weeklyGoalRepetitions");
 
-    const deleteGoal = async (goal: Doc<"weeklyGoals">) => {
-      const isCompleted = goal.status === "completed";
-      const isSoloGoal = goal.mode === "solo";
-      const remainingParticipantId = getGoalPartnerIdForViewer(goal, userId);
-  
-      await deleteGoalGames(goal);
-      await deleteGoalPracticeSessions(goal, isCompleted);
-      await deleteGoalRepetitions(goal, isCompleted, isSoloGoal, remainingParticipantId);
-      if (!isSoloGoal && isCompleted) {
-        return;
-      }
-  
+      if (keepForPartner) return;
+
       deletionReport.weeklyGoalThemeSnapshots += await deleteWeeklyGoalThemeSnapshots(ctx, goal._id);
 
       if (await deleteOnce(goal._id)) {

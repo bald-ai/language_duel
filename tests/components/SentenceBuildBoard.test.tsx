@@ -200,6 +200,16 @@ describe("SentenceBuildBoard — PvP sabotage rendering", () => {
     expect(screen.queryByTestId("sentence-reveal-badge-1")).not.toBeInTheDocument();
   });
 
+  it("greys out a placed decoy that remove-distractors eliminates but keeps its order badge", () => {
+    renderBoard({ placedTileIndices: [0, 3], eliminatedTileIndices: [3] });
+    const tile = screen.getByTestId("sentence-tile-3");
+    expect(tile.style.borderColor).toBe(cssVarColors.neutral.dark);
+    expect(tile).toHaveClass("line-through");
+    expect((tile as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("sentence-badge-3")).toHaveTextContent("2");
+    expect(screen.getByTestId("sentence-badge-3").style.backgroundColor).toBe(cssVarColors.status.danger.DEFAULT);
+  });
+
   it("reveals the next slot and confirms a correctly placed revealed tile", () => {
     renderBoard({ revealedTiles: [{ position: 0, tileIndices: [0] }, { position: 1, tileIndices: [1] }] });
     expect(screen.getByTestId("sentence-reveal-badge-0")).toHaveTextContent("✓");

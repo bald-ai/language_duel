@@ -6,7 +6,11 @@ import {
   formatSentenceTileForDisplay,
   getSentenceTilePoolFontSizeClass,
 } from "@/lib/sentenceGameplay/displayTile";
-import { computeRevealBadgeView } from "@/lib/sentenceGameplay/reveal";
+import {
+  computeRevealBadgeView,
+  type RevealBadge,
+  type RevealBadgeView,
+} from "@/lib/sentenceGameplay/reveal";
 import type { SentenceTileReveal } from "@/lib/sentenceGameplay/hints";
 import {
   TIMER_DANGER_THRESHOLD,
@@ -88,97 +92,90 @@ interface SentenceBuildBoardProps {
 }
 
 type BoardColors = ReturnType<typeof useAppearanceColors>;
-type TileState = { isEliminated: boolean; isCorrect: boolean; isWrong: boolean; isPlaced: boolean; isLast: boolean; isLastWrong: boolean };
 
-function getTileColors(colors: BoardColors, { isEliminated, isCorrect, isWrong, isPlaced, isLast, isLastWrong }: TileState): CSSProperties {
-  if (isEliminated) {
-    return {
-      borderColor: colors.neutral.dark,
-      backgroundColor: colors.background.DEFAULT,
-      color: colors.text.muted,
-    };
-  } else if (isCorrect) {
-    return {
-      borderColor: colors.status.success.DEFAULT,
-      backgroundColor: `${colors.status.success.DEFAULT}24`,
-      color: colors.text.DEFAULT,
-    };
-  } else if (isWrong) {
-    return {
-      borderColor: colors.status.danger.DEFAULT,
-      backgroundColor: `${colors.status.danger.DEFAULT}24`,
-      color: colors.text.DEFAULT,
-    };
-  } else if (isPlaced) {
-    return {
-      borderColor: isLast ? colors.status.danger.DEFAULT : colors.neutral.dark,
-      backgroundColor: colors.background.DEFAULT,
-      color: colors.text.muted,
-    };
-  } else if (isLastWrong) {
-    return {
-      borderColor: colors.status.danger.DEFAULT,
-      backgroundColor: `${colors.status.danger.DEFAULT}14`,
-      color: colors.text.DEFAULT,
-    };
-  } else {
-    return {
-      borderColor: colors.primary.dark,
-      backgroundColor: colors.background.elevated,
-      color: colors.text.DEFAULT,
-    };
-  }
+/** Which color treatment a tile gets, in the precedence the board applies. */
+type TileStatus = "eliminated" | "correct" | "wrong" | "lastPlaced" | "placed" | "lastWrongPick" | "available";
+
+type SentenceTileBoard = {
+  placedTileIndices: number[];
+  correctnessMask: boolean[] | null;
+  eliminatedSet: Set<number>;
+  revealView: RevealBadgeView;
+  lastWrongTileIndex: number | null;
+  tileMeanings: Array<string | null>;
+};
+
+type SentenceTileView = {
+  status: TileStatus;
+  /** Position in the built sentence, or -1 while the tile is in the pool. */
+  order: number;
+  isPlaced: boolean;
+  isLast: boolean;
+  /** This slot's Confirm result; undefined before a Confirm or while unplaced. */
+  correctness: boolean | undefined;
+  isEliminated: boolean;
+  isLastWrongPick: boolean;
+  /** Unplaced and not eliminated: the tiles that fly, scramble, and pulse. */
+  isLoose: boolean;
+  isPulsing: boolean;
+  revealBadge: RevealBadge | undefined;
+  meaning: string | null;
+};
+
+function getTileStatus(tile: Pick<SentenceTileView, "isEliminated" | "correctness" | "isPlaced" | "isLast" | "isLastWrongPick">): TileStatus {
+  if (tile.isEliminated) return "eliminated";
+  if (tile.correctness !== undefined) return tile.correctness ? "correct" : "wrong";
+  if (tile.isPlaced) return tile.isLast ? "lastPlaced" : "placed";
+  return tile.isLastWrongPick ? "lastWrongPick" : "available";
 }
 
-function getBadgeColor(colors: BoardColors, { isCorrect, isWrong, isLast }: Pick<TileState, "isCorrect" | "isWrong" | "isLast">, checked: boolean): string {
-  return isCorrect
-      ? colors.status.success.DEFAULT
-      : isWrong || (isLast && !checked)
-        ? colors.status.danger.DEFAULT
-        : colors.primary.DEFAULT;
-
-}
-
-function getTilePlacement(index: number, placed: number[], mask: boolean[] | null) {
-  const order = placed.indexOf(index);
+function describeSentenceTile(index: number, board: SentenceTileBoard): SentenceTileView {
+  const order = board.placedTileIndices.indexOf(index);
   const isPlaced = order !== -1;
-  const correctness = mask?.[order];
-  return { order, isPlaced, isLast: isPlaced && order === placed.length - 1,
-    isCorrect: isPlaced && correctness === true, isWrong: isPlaced && correctness === false };
-}
-
-function getTileHints(index: number, isPlaced: boolean, eliminated: Set<number>, reveal: ReturnType<typeof computeRevealBadgeView>, lastWrongTileIndex: number | null) {
-  const isEliminated = eliminated.has(index);
-  return { isEliminated,
-    isLastWrong: !isPlaced && lastWrongTileIndex === index,
-    revealBadge: isEliminated ? undefined : reveal.badgeByTileIndex.get(index),
-    isPulsing: !isEliminated && !isPlaced && reveal.pulseTileIndex === index,
-  };
-}
-
-function getTileDisplay(index: number, flying: boolean, isPlaced: boolean, isEliminated: boolean, activeSabotage: SabotageEffect | null, isFlyingEffect: boolean, displayTiles: string[], reverseAnimatedAnswers: string[] | null) {
-  const anchoredAvailable = !flying && !isPlaced && !isEliminated;
-  const reversed = anchoredAvailable && activeSabotage === "reverse";
+  const isLast = isPlaced && order === board.placedTileIndices.length - 1;
+  const correctness = isPlaced ? board.correctnessMask?.[order] : undefined;
+  // PvE hint effects (reveal + eliminate never coexist on one round, and
+  // never coexist with PvP sabotage — different duel modes).
+  const isEliminated = board.eliminatedSet.has(index);
+  // Subtle flag for the partner's previous WRONG pick (unplaced).
+  const isLastWrongPick = !isPlaced && board.lastWrongTileIndex === index;
+  const isLoose = !isPlaced && !isEliminated;
   return {
-    displayText: reversed ? reverseAnimatedAnswers?.[index] ?? displayTiles[index] : displayTiles[index],
-    hiddenWhileFlying: anchoredAvailable && isFlyingEffect,
+    status: getTileStatus({ isEliminated, correctness, isPlaced, isLast, isLastWrongPick }),
+    order,
+    isPlaced,
+    isLast,
+    correctness,
+    isEliminated,
+    isLastWrongPick,
+    isLoose,
+    isPulsing: isLoose && board.revealView.pulseTileIndex === index,
+    revealBadge: isEliminated ? undefined : board.revealView.badgeByTileIndex.get(index),
+    meaning: isEliminated ? null : board.tileMeanings[index]?.trim() || null,
   };
 }
 
-type TileClassState = { tileFontSizeClass: string; isLastWrong: boolean; isEliminated: boolean; isPulsing: boolean; hiddenWhileFlying: boolean; isPlaced: boolean; checked: boolean };
-
-function flyingTileClasses({ tileFontSizeClass, isLastWrong, isEliminated }: TileClassState): string {
-  return `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden flex flex-col items-center justify-center gap-1 ${isLastWrong ? "border-dashed" : ""} ${isEliminated ? "opacity-40 line-through cursor-not-allowed" : "hover:brightness-110"}`;
+function getTileStatusStyles(colors: BoardColors): Record<TileStatus, CSSProperties> {
+  const muted = { backgroundColor: colors.background.DEFAULT, color: colors.text.muted };
+  return {
+    eliminated: { borderColor: colors.neutral.dark, ...muted },
+    correct: { borderColor: colors.status.success.DEFAULT, backgroundColor: `${colors.status.success.DEFAULT}24`, color: colors.text.DEFAULT },
+    wrong: { borderColor: colors.status.danger.DEFAULT, backgroundColor: `${colors.status.danger.DEFAULT}24`, color: colors.text.DEFAULT },
+    lastPlaced: { borderColor: colors.status.danger.DEFAULT, ...muted },
+    placed: { borderColor: colors.neutral.dark, ...muted },
+    lastWrongPick: { borderColor: colors.status.danger.DEFAULT, backgroundColor: `${colors.status.danger.DEFAULT}14`, color: colors.text.DEFAULT },
+    available: { borderColor: colors.primary.dark, backgroundColor: colors.background.elevated, color: colors.text.DEFAULT },
+  };
 }
 
-function anchoredTileClasses({ tileFontSizeClass, isLastWrong, isEliminated, isPulsing, hiddenWhileFlying, isPlaced, checked }: TileClassState): string {
-  return `min-h-16 p-3 rounded-lg border-2 ${tileFontSizeClass} font-medium transition-all relative active:scale-95 flex flex-col items-center justify-center gap-1 ${isLastWrong ? "border-dashed" : ""} ${isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${hiddenWhileFlying ? "invisible" : ""} ${isEliminated ? "opacity-40 line-through cursor-not-allowed" : isPlaced && !checked ? "opacity-70" : "hover:brightness-110"}`;
+function flyingTileClasses(tile: SentenceTileView, fontSizeClass: string): string {
+  return `min-h-16 p-3 rounded-lg border-2 ${fontSizeClass} font-medium transition-colors relative shadow-lg overflow-hidden flex flex-col items-center justify-center gap-1 ${tile.isLastWrongPick ? "border-dashed" : ""} ${tile.isEliminated ? "opacity-40 line-through cursor-not-allowed" : "hover:brightness-110"}`;
 }
 
-function getMeaningPresentation(rawMeaning: string | null | undefined, isEliminated: boolean, tileStyle: CSSProperties, colors: BoardColors) {
-  const meaning = rawMeaning?.trim() || null;
-  if (!meaning || isEliminated) return { meaning: null, tileStyle };
-  return { meaning, tileStyle: { ...tileStyle, boxShadow: `0 0 0 1px ${colors.secondary.light}` } };
+function anchoredTileClasses(tile: SentenceTileView, fontSizeClass: string, isFlyingEffect: boolean, checked: boolean): string {
+  // Hide the anchored cell of an unplaced tile while it flies (keeps layout).
+  const hiddenWhileFlying = isFlyingEffect && tile.isLoose;
+  return `min-h-16 p-3 rounded-lg border-2 ${fontSizeClass} font-medium transition-all relative active:scale-95 flex flex-col items-center justify-center gap-1 ${tile.isLastWrongPick ? "border-dashed" : ""} ${tile.isPulsing ? "animate-pulse ring-2 ring-amber-400" : ""} ${hiddenWhileFlying ? "invisible" : ""} ${tile.isEliminated ? "opacity-40 line-through cursor-not-allowed" : tile.isPlaced && !checked ? "opacity-70" : "hover:brightness-110"}`;
 }
 
 function TileMeaning({ meaning, index, colors }: { meaning: string | null; index: number; colors: BoardColors }) {
@@ -186,12 +183,17 @@ function TileMeaning({ meaning, index, colors }: { meaning: string | null; index
   return <span className="max-w-full break-words text-center text-[11px] leading-tight font-extrabold opacity-85" style={{ color: colors.secondary.light }} data-testid={`sentence-tile-${index}-meaning`}>{meaning}</span>;
 }
 
-function TileOrderBadge({ badge, index, color }: { badge: string | null; index: number; color: string }) {
-  if (badge === null) return null;
-  return <span className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow" style={{ backgroundColor: color }} data-testid={`sentence-badge-${index}`}>{badge}</span>;
+function TileOrderBadge({ tile, checked, index, colors }: { tile: SentenceTileView; checked: boolean; index: number; colors: BoardColors }) {
+  if (!tile.isPlaced) return null;
+  const color = tile.correctness === true
+    ? colors.status.success.DEFAULT
+    : tile.correctness === false || (tile.isLast && !checked)
+      ? colors.status.danger.DEFAULT
+      : colors.primary.DEFAULT;
+  return <span className="absolute -top-2 -left-2 w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow" style={{ backgroundColor: color }} data-testid={`sentence-badge-${index}`}>{tile.order + 1}</span>;
 }
 
-function TileRevealBadge({ badge, index, colors }: { badge: import("@/lib/sentenceGameplay/reveal").RevealBadge | undefined; index: number; colors: BoardColors }) {
+function TileRevealBadge({ badge, index, colors }: { badge: RevealBadge | undefined; index: number; colors: BoardColors }) {
   if (!badge) return null;
   return <span className="absolute -top-2 -right-2 min-w-6 h-6 px-1 rounded-full text-xs font-extrabold flex items-center justify-center text-white shadow" style={{ backgroundColor: badge.correct ? colors.status.success.DEFAULT : "#f59e0b" }} data-testid={`sentence-reveal-badge-${index}`}>{badge.correct ? "✓" : badge.slot}</span>;
 }
@@ -333,51 +335,59 @@ export function SentenceBuildBoard({
   const timerColor = getTimerColor(colors, secondsLeft);
 
   const tileFontSizeClass = getSentenceTilePoolFontSizeClass(tilePool);
+  const statusStyles = getTileStatusStyles(colors);
+  const board: SentenceTileBoard = {
+    placedTileIndices,
+    correctnessMask,
+    eliminatedSet,
+    revealView,
+    lastWrongTileIndex,
+    tileMeanings,
+  };
+  const tiles = tilePool.map((_, index) => describeSentenceTile(index, board));
+  // Reverse scrambles only UNPLACED, non-eliminated tiles so the built
+  // sentence stays readable. Flying copies always render their plain text.
+  const anchoredTexts = displayTiles.map((text, index) =>
+    activeSabotage === "reverse" && tiles[index].isLoose
+      ? reverseAnimatedAnswers?.[index] ?? text
+      : text
+  );
 
   // One renderer for both the anchored grid tile and its flying copy, so badges
   // / colors / handlers are declared once (mirrors DuelAnswerGrid.renderOption).
   const renderTile = (index: number, flyStyle?: CSSProperties) => {
-    const tile = tilePool[index];
+    const tile = tiles[index];
     const flying = flyStyle !== undefined;
-    const { order, isPlaced, isLast, isCorrect, isWrong } = getTilePlacement(index, placedTileIndices, correctnessMask);
-    const { isEliminated, isLastWrong, revealBadge, isPulsing } = getTileHints(index, isPlaced, eliminatedSet, revealView, lastWrongTileIndex);
-    const { displayText, hiddenWhileFlying } = getTileDisplay(index, flying, isPlaced, isEliminated, activeSabotage, isFlyingEffect, displayTiles, reverseAnimatedAnswers);
-
-    const badge: string | null = isPlaced ? String(order + 1) : null;
-
-    const baseStyle = getTileColors(colors, { isEliminated, isCorrect, isWrong, isPlaced, isLast, isLastWrong });
-    const { meaning, tileStyle } = getMeaningPresentation(tileMeanings[index], isEliminated, baseStyle, colors);
-
-    const badgeColor = getBadgeColor(colors, { isCorrect, isWrong, isLast }, checked);
-
-    const classState = { tileFontSizeClass, isLastWrong, isEliminated, isPulsing, hiddenWhileFlying, isPlaced, checked };
-    const buttonClasses = flying ? flyingTileClasses(classState) : anchoredTileClasses(classState);
+    const statusStyle = statusStyles[tile.status];
+    const tileStyle = tile.meaning
+      ? { ...statusStyle, boxShadow: `0 0 0 1px ${colors.secondary.light}` }
+      : statusStyle;
 
     return (
       <button
-        key={flying ? `fly-${tile}-${index}` : `${tile}-${index}`}
+        key={flying ? `fly-${tilePool[index]}-${index}` : `${tilePool[index]}-${index}`}
         onClick={() => onTileClick(index)}
-        disabled={locked || isEliminated}
-        className={buttonClasses}
+        disabled={locked || tile.isEliminated}
+        className={
+          flying
+            ? flyingTileClasses(tile, tileFontSizeClass)
+            : anchoredTileClasses(tile, tileFontSizeClass, isFlyingEffect, checked)
+        }
         style={flyStyle ? { ...tileStyle, ...flyStyle } : tileStyle}
         data-testid={flying ? `sentence-tile-${index}-fly` : `sentence-tile-${index}`}
       >
         <span className={flying ? "truncate block max-w-full" : "break-words"}>
-          {displayText}
+          {flying ? displayTiles[index] : anchoredTexts[index]}
         </span>
-        <TileMeaning meaning={meaning} index={index} colors={colors} />
-        <TileOrderBadge badge={badge} index={index} color={badgeColor} />
-        <TileRevealBadge badge={revealBadge} index={index} colors={colors} />
+        <TileMeaning meaning={tile.meaning} index={index} colors={colors} />
+        <TileOrderBadge tile={tile} checked={checked} index={index} colors={colors} />
+        <TileRevealBadge badge={tile.revealBadge} index={index} colors={colors} />
       </button>
     );
   };
 
   // The unplaced, non-eliminated pool tiles are the ones that fly.
-  const flyingIndices = tilePool
-    .map((_, index) => index)
-    .filter(
-      (index) => !placedTileIndices.includes(index) && !eliminatedSet.has(index)
-    );
+  const flyingIndices = tiles.flatMap((tile, index) => (tile.isLoose ? [index] : []));
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 overflow-y-auto">

@@ -28,6 +28,63 @@ export interface OptionContext {
 }
 
 /**
+ * Which color treatment an option gets, in the precedence the grid applies.
+ * The `revealed*` and `picked*` tones only appear while feedback is showing.
+ */
+export type OptionTone =
+  | "eliminated"
+  | "eliminable"
+  | "pickedCorrect"
+  | "pickedWrong"
+  | "revealedCorrect"
+  | "revealedOther"
+  | "selected"
+  | "idle";
+
+const OPTION_TONE_STYLES: Record<OptionTone, React.CSSProperties> = {
+  eliminated: {
+    borderColor: colors.neutral.dark,
+    backgroundColor: colors.background.DEFAULT,
+    color: colors.text.muted,
+  },
+  eliminable: {
+    borderColor: colors.status.warning.DEFAULT,
+    backgroundColor: `${colors.status.warning.DEFAULT}26`,
+    color: colors.status.warning.dark,
+  },
+  pickedCorrect: {
+    borderColor: colors.status.success.DEFAULT,
+    backgroundColor: `${colors.status.success.DEFAULT}26`,
+    color: colors.status.success.dark,
+  },
+  pickedWrong: {
+    borderColor: colors.status.danger.DEFAULT,
+    backgroundColor: `${colors.status.danger.DEFAULT}26`,
+    color: colors.status.danger.dark,
+  },
+  revealedCorrect: {
+    borderColor: colors.status.success.DEFAULT,
+    backgroundColor: `${colors.status.success.DEFAULT}1A`,
+    color: colors.status.success.dark,
+  },
+  revealedOther: {
+    borderColor: colors.neutral.dark,
+    backgroundColor: colors.background.DEFAULT,
+    color: colors.text.muted,
+  },
+  selected: {
+    borderColor: colors.secondary.DEFAULT,
+    backgroundColor: `${colors.secondary.DEFAULT}26`,
+    color: colors.secondary.dark,
+  },
+  idle: {
+    borderColor: colors.primary.dark,
+    backgroundColor: colors.background.elevated,
+    color: colors.text.DEFAULT,
+  },
+};
+
+/**
  * Computed state for an answer option button.
  */
 export interface OptionState {
@@ -38,6 +95,7 @@ export interface OptionState {
   opponentPickedThis: boolean;
   isNoneOfAbove: boolean;
   disabled: boolean;
+  tone: OptionTone;
   style: React.CSSProperties;
 }
 
@@ -75,7 +133,7 @@ export function computeOptionState(
   // Compute disabled state with proper precedence
   const disabled = (isShowingFeedback && !canEliminateThis) || isEliminated;
 
-  const style = getOptionStyle({
+  const tone = getOptionTone({
     isEliminated,
     canEliminateThis,
     isShowingFeedback,
@@ -91,7 +149,8 @@ export function computeOptionState(
     opponentPickedThis,
     isNoneOfAbove,
     disabled,
-    style,
+    tone,
+    style: OPTION_TONE_STYLES[tone],
   };
 }
 
@@ -190,7 +249,8 @@ function getAnswerTruth(
     : false;
   return { answerIsRevealed, isWrongAnswer, isCorrectOption };
 }
-function getOptionStyle({
+
+function getOptionTone({
   isEliminated,
   canEliminateThis,
   isShowingFeedback,
@@ -199,89 +259,27 @@ function getOptionStyle({
 }: Pick<
   OptionState,
   "isEliminated" | "canEliminateThis" | "isSelected" | "isCorrectOption"
-> & { isShowingFeedback: boolean }): React.CSSProperties {
-  // Compute styles
-  let style: React.CSSProperties;
-  if (isEliminated) {
-    style = {
-      borderColor: colors.neutral.dark,
-      backgroundColor: colors.background.DEFAULT,
-      color: colors.text.muted,
-    };
-  } else if (canEliminateThis) {
-    style = {
-      borderColor: colors.status.warning.DEFAULT,
-      backgroundColor: `${colors.status.warning.DEFAULT}26`,
-      color: colors.status.warning.dark,
-    };
-  } else if (isShowingFeedback) {
-    style = getFeedbackStyle(isSelected, isCorrectOption);
-  } else if (isSelected) {
-    style = {
-      borderColor: colors.secondary.DEFAULT,
-      backgroundColor: `${colors.secondary.DEFAULT}26`,
-      color: colors.secondary.dark,
-    };
-  } else {
-    style = {
-      borderColor: colors.primary.dark,
-      backgroundColor: colors.background.elevated,
-      color: colors.text.DEFAULT,
-    };
+> & { isShowingFeedback: boolean }): OptionTone {
+  if (isEliminated) return "eliminated";
+  if (canEliminateThis) return "eliminable";
+  if (isShowingFeedback) {
+    if (isSelected) return isCorrectOption ? "pickedCorrect" : "pickedWrong";
+    return isCorrectOption ? "revealedCorrect" : "revealedOther";
   }
-  return style;
-}
-function getFeedbackStyle(
-  isSelected: boolean,
-  isCorrectOption: boolean,
-): React.CSSProperties {
-  if (isSelected) {
-    return isCorrectOption
-      ? {
-          borderColor: colors.status.success.DEFAULT,
-          backgroundColor: `${colors.status.success.DEFAULT}26`,
-          color: colors.status.success.dark,
-        }
-      : {
-          borderColor: colors.status.danger.DEFAULT,
-          backgroundColor: `${colors.status.danger.DEFAULT}26`,
-          color: colors.status.danger.dark,
-        };
-  } else if (isCorrectOption) {
-    return {
-      borderColor: colors.status.success.DEFAULT,
-      backgroundColor: `${colors.status.success.DEFAULT}1A`,
-      color: colors.status.success.dark,
-    };
-  } else {
-    return {
-      borderColor: colors.neutral.dark,
-      backgroundColor: colors.background.DEFAULT,
-      color: colors.text.muted,
-    };
-  }
+  return isSelected ? "selected" : "idle";
 }
 
-function isMutedFeedback(state: OptionState): boolean {
-  return (
-    state.disabled &&
-    !state.isEliminated &&
-    !state.canEliminateThis &&
-    !state.isSelected &&
-    !state.isCorrectOption
-  );
-}
 function getAnswerOptionClasses(state: OptionState, isFlying: boolean): string {
   const baseClasses = isFlying
     ? "p-4 rounded-lg border-2 text-base font-medium transition-colors relative shadow-lg"
     : "p-4 rounded-lg border-2 text-lg font-medium transition-all relative active:scale-95";
-  const mutedFeedback = isMutedFeedback(state);
   const stateClasses = [
     state.isEliminated ? "line-through opacity-40 cursor-not-allowed" : "",
     state.canEliminateThis
       ? "cursor-pointer animate-pulse hover:brightness-110"
       : "",
-    mutedFeedback ? "opacity-50" : "",
+    // Options that were neither picked nor correct fade back during feedback.
+    state.tone === "revealedOther" ? "opacity-50" : "",
     !state.disabled && !state.canEliminateThis ? "hover:brightness-110" : "",
   ]
     .filter(Boolean)
