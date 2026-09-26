@@ -2,6 +2,20 @@ Disclaimer: This is an indie app currently with no users.
 
 # Language Duel Documentation
 
+## Ordinary verification
+
+Run `npm run verify` (or `npm run verify -- all`) for ESLint, app TypeScript,
+Convex TypeScript, the full one-shot Vitest suite, and Python verification-tooling
+regressions. Select one or more checks, for example `npm run verify -- lint convex`;
+only the named checks run, in the supplied order. Use
+`npm run verify -- --help` for usage. The runner stops at the first failure and
+returns a nonzero exit status; later checks are not run. It runs from the project
+root regardless of the invoking directory and prints results to the terminal.
+TypeScript checks disable incremental output. Convex is checked separately because
+its ES2021 library configuration is stricter than the app's. No coverage, metrics,
+mutations, deployment, or paid-service checks are included. For individual test
+files, use the existing `npm run test:run -- <test files>` command.
+
 ## Personal notes and future ideas
 
 Personal notes and future ideas belong in `Dev/` at the project root, as individual

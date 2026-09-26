@@ -7,6 +7,7 @@
     "build": "tsx scripts/generate-manifest.ts && next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "verify": "python3 scripts/verify.py",
     "generate:manifest": "tsx scripts/generate-manifest.ts",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest --configLoader runner",
     "test:run": "NODE_OPTIONS=--no-experimental-webstorage vitest run --configLoader runner",
