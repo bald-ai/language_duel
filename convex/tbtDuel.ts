@@ -50,7 +50,7 @@ function requireActiveTbtState(duel: Doc<"duels">): ActiveTbtState {
   assertActive(duel);
 
   const questionIndex = duel.currentItemIndex;
-  const question = duel.duelQuestions?.[questionIndex];
+  const question = duel.duelQuestions[questionIndex];
   if (!question || question.kind !== "sentence") {
     throw new ConvexError({
       code: "INVALID_TBT_STATE",

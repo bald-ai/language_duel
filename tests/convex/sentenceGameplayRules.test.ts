@@ -17,7 +17,7 @@ import {
 } from "@/lib/themes/sentenceConstants";
 
 function baseDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return {
+  return { duelDifficultyPreset: "easy", duelQuestions: [],
     _id: "duel_1" as Id<"duels">,
     _creationTime: Date.now(),
     challengerId: "user_1" as Id<"users">,

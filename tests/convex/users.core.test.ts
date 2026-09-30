@@ -180,7 +180,7 @@ describe("users core handlers", () => {
   it("getCurrentUser normalizes stale credits and defaults TTS provider", async () => {
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({
+      userDoc({ nickname: "Learner",
         _id: "user_1" as Id<"users">,
         clerkId: "clerk_1",
         creditsMonth: "2000-01",
@@ -199,9 +199,9 @@ describe("users core handlers", () => {
 
   it("searchUsers matches nickname#discriminator format", async () => {
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
     db.users.push(
-      userDoc({
+      userDoc({ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
         _id: "user_2" as Id<"users">,
         clerkId: "clerk_2",
         email: "alex@example.com",
@@ -217,10 +217,10 @@ describe("users core handlers", () => {
 
   it("searchUsers marks friend and pending states", async () => {
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", email: "me@example.com" }));
-    db.users.push(userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com", nickname: "AlexFriend" }));
-    db.users.push(userDoc({ _id: "user_3" as Id<"users">, clerkId: "clerk_3", email: "sent@example.com", nickname: "AlexSent" }));
-    db.users.push(userDoc({ _id: "user_4" as Id<"users">, clerkId: "clerk_4", email: "received@example.com", nickname: "AlexReceived" }));
+    db.users.push(userDoc({ nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: "user_1" as Id<"users">, clerkId: "clerk_1", email: "me@example.com" }));
+    db.users.push(userDoc({ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: "user_2" as Id<"users">, clerkId: "clerk_2", email: "friend@example.com", nickname: "AlexFriend" }));
+    db.users.push(userDoc({ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: "user_3" as Id<"users">, clerkId: "clerk_3", email: "sent@example.com", nickname: "AlexSent" }));
+    db.users.push(userDoc({ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: "user_4" as Id<"users">, clerkId: "clerk_4", email: "received@example.com", nickname: "AlexReceived" }));
 
     db.friends.push(friendDoc({ userId: "user_1" as Id<"users">, friendId: "user_2" as Id<"users"> }));
     db.friendRequests.push(requestDoc({ senderId: "user_1" as Id<"users">, receiverId: "user_3" as Id<"users">, status: "pending" }));
@@ -315,7 +315,7 @@ describe("users core handlers", () => {
   it("syncUser existing user resets monthly credits when needed", async () => {
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({
+      userDoc({ nickname: "Learner",
         _id: "user_1" as Id<"users">,
         clerkId: "clerk_1",
         creditsMonth: "2000-01",
@@ -338,7 +338,7 @@ describe("users core handlers", () => {
 
   it("updateNickname rejects invalid nicknames", async () => {
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
 
     await expect(
       callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "bad space" })
@@ -351,7 +351,7 @@ describe("users core handlers", () => {
 
   it("updateNickname sets nickname and generates valid discriminator for new nicknames", async () => {
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
 
     const result = await callConvex(updateNickname, createCtx(db, "clerk_1"), { nickname: "ValidName" });
 
@@ -383,7 +383,7 @@ describe("users core handlers", () => {
   it("consumeCredits rejects invalid costs and decrements balances on success", async () => {
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({
+      userDoc({ nickname: "Learner",
         _id: "user_1" as Id<"users">,
         clerkId: "clerk_1",
         llmCreditsRemaining: 10,
@@ -417,7 +417,7 @@ describe("users core handlers", () => {
       callConvex(updatePresence, createCtx(db, null), {})
     ).resolves.toBeUndefined();
 
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1", lastSeenAt: undefined }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1", lastSeenAt: undefined }));
 
     const before = Date.now();
     await callConvex(updatePresence, createCtx(db, "clerk_1"), {});

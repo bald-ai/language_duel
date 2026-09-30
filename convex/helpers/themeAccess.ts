@@ -27,7 +27,7 @@ export function createThemeAccessLoader(ctx: CtxWithDb, userId: Id<"users">) {
       ...await history,
     };
     if (hasThemeAccess({ ...access, friendships: [] })) return theme;
-    if (theme.visibility !== "shared" || !theme.ownerId) return null;
+    if (theme.visibility !== "shared") return null;
     let friendships = friendshipsByOwner.get(theme.ownerId);
     if (!friendships) {
       friendships = loadFriendshipsBetweenUsers(ctx, userId, theme.ownerId);

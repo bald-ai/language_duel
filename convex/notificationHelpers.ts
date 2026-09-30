@@ -6,6 +6,7 @@ import {
   isChallengeInvitePayload,
   isFriendRequestPayload,
   isWeeklyGoalPayload,
+  isGoalNotificationPayload,
   type ChallengeInvitePayload,
   type FriendRequestPayload,
   type WeeklyGoalNotificationEvent,
@@ -52,24 +53,12 @@ async function listActiveNotificationsByType(
   );
 }
 
-export async function createNotification(
-  ctx: MutationCtx,
-  args: {
-    type: NotificationType;
-    fromUserId: Id<"users">;
-    toUserId: Id<"users">;
-    payload: NotificationPayload;
-    createdAt: number;
-  }
-) {
-  return await ctx.db.insert("notifications", {
-    type: args.type,
-    fromUserId: args.fromUserId,
-    toUserId: args.toUserId,
-    status: "pending",
-    payload: args.payload,
-    createdAt: args.createdAt,
-  });
+type NotificationInput = {
+  [Type in NotificationType]: Omit<Extract<Doc<"notifications">, { type: Type }>, "_id" | "_creationTime" | "status">;
+}[NotificationType];
+
+export async function createNotification(ctx: MutationCtx, args: NotificationInput) {
+  return await ctx.db.insert("notifications", { ...args, status: "pending" });
 }
 
 export async function scheduleNotificationEmail(
@@ -113,8 +102,8 @@ export async function createChallengeInviteNotificationAndEmail(
     challengerId: Id<"users">;
     opponentId: Id<"users">;
     challengeId: Id<"challenges">;
-    themeName?: string;
-    duelDifficultyPreset?: "easy" | "medium" | "hard";
+    themeName: string;
+    duelDifficultyPreset: "easy" | "medium" | "hard";
     duelMode: DuelMode;
     createdAt: number;
   }
@@ -146,7 +135,7 @@ export async function requireCallerOwnedNotificationPayload<P extends Notificati
     notificationId: Id<"notifications">;
     userId: Id<"users">;
     type: NotificationType;
-    payloadGuard: (payload?: NotificationPayload) => payload is P;
+    payloadGuard: (payload: NotificationPayload) => payload is P;
     missingPayloadMessage: string;
   }
 ): Promise<{ notification: Doc<"notifications">; payload: P }> {
@@ -234,7 +223,7 @@ export async function dismissWeeklyGoalNotificationsForParticipants(
     ).flat();
 
     for (const notification of notifications) {
-      if (!isWeeklyGoalPayload(notification.payload)) continue;
+      if (!isGoalNotificationPayload(notification.payload)) continue;
       if (!goalIdSet.has(String(notification.payload.goalId))) continue;
       await dismissNotificationById(ctx, notification._id);
     }

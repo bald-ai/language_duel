@@ -93,8 +93,8 @@ describe("admin deleteUserFully", () => {
     );
     db.tables.weeklyGoalThemeSnapshots.push({ _id: "snapshot_1", weeklyGoalId: "goal_1", originalThemeId: "theme_1", contentType: "word", words: [], order: 0 });
     db.tables.notifications.push(
-      { _id: "notification_1", fromUserId: "user_1", toUserId: "user_2" },
-      { _id: "notification_2", fromUserId: "user_2", toUserId: "user_1" }
+      { _id: "notification_1", fromUserId: "user_1", toUserId: "user_2", payload: { friendRequestId: "request_1" } },
+      { _id: "notification_2", fromUserId: "user_2", toUserId: "user_1", payload: { friendRequestId: "request_2" } }
     );
     db.tables.notificationPreferences.push({ _id: "preferences_1", userId: "user_1" });
     db.tables.emailNotificationLog.push({
@@ -293,11 +293,11 @@ describe("admin deleteUserFully", () => {
       { _id: "one", payload: { goalId: "goal" } },
       { _id: "two", payload: { challengeId: "challenge" } },
       { _id: "keep", payload: { goalId: "unrelated" } },
-      { _id: "keep_without_payload" }
+      { _id: "keep_friend_request", payload: { friendRequestId: "unrelated_request" } }
     );
     const result = await runDeletion(db);
     expect(result.deletionReport).toMatchObject({ challenges: 1, duels: 1, notifications: 2, weeklyGoals: 1 });
-    expect(db.tables.notifications.map(row => row._id)).toEqual(["keep", "keep_without_payload"]);
+    expect(db.tables.notifications.map(row => row._id)).toEqual(["keep", "keep_friend_request"]);
     expect(db.tables.challenges).toEqual([]);
     expect(db.tables.duels).toEqual([]);
   });

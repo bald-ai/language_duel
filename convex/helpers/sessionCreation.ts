@@ -90,7 +90,7 @@ export interface ChallengeInviteFields {
   bossType?: BossType;
   spacedRepetitionStep?: number;
   status: "pending";
-  duelDifficultyPreset?: DuelDifficultyPreset;
+  duelDifficultyPreset: DuelDifficultyPreset;
   duelMode: DuelMode;
   createdAt: number;
 }

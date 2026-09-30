@@ -116,7 +116,7 @@ export const eliminateOption = mutation({
 });
 
 function validateEliminationOption(duel: Doc<"duels">, option: string) {
-    const currentQuestion = duel.duelQuestions?.[duel.currentItemIndex];
+    const currentQuestion = duel.duelQuestions[duel.currentItemIndex];
     if (!currentQuestion) {
       throw new ConvexError({ code: "INTERNAL_ERROR", message: "Duel question data is missing" });
     }

@@ -160,14 +160,7 @@ function isRepetitionDue(
   record: Doc<"weeklyGoalRepetitions">,
 ): boolean {
   if (typeof args.goal.completedAt !== "number") {
-    console.warn(
-      "Skipping spaced repetition advance: completed goal is missing completedAt.",
-      {
-        weeklyGoalId: args.goal._id,
-        userId: args.userId,
-      },
-    );
-    return false;
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Completed goal is missing completion time." });
   }
 
   const dueAt = getSpacedRepetitionDueAt({

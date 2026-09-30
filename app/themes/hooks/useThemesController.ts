@@ -271,7 +271,7 @@ function buildWordThemeDetailProps(
     isSaving: themeActions.isCreating || themeActions.isUpdating,
     onOpenAddWord: generation.openAddWord,
     onOpenGenerateMore: generation.openGenerateMore,
-    visibility: detail.selectedTheme?.visibility || "private",
+    visibility: detail.selectedTheme === null ? "private" : detail.selectedTheme.visibility,
     isUpdatingVisibility: detail.isUpdatingVisibility,
     onVisibilityChange: detail.handleVisibilityChange,
     friendsCanEdit: detail.selectedTheme?.friendsCanEdit || false,
@@ -301,7 +301,7 @@ function buildSentenceThemeDetailProps(
         isSaving: sentenceController.isSaving,
         onOpenAddRound: sentenceController.handleAddManualRound,
         onOpenGenerateMore: sentenceController.openGenerateMoreModal,
-        visibility: sentenceController.selectedTheme.visibility || "private",
+        visibility: sentenceController.selectedTheme.visibility,
         onVisibilityChange: sentenceController.handleVisibilityChange,
         friendsCanEdit:
           sentenceController.selectedTheme.friendsCanEdit ?? false,

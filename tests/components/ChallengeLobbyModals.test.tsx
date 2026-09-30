@@ -7,8 +7,8 @@ vi.mock("convex/react", () => ({ useQuery: () => [] }));
 
 function lobby(): ComponentProps<typeof ChallengeLobbyModals>["lobby"] {
   return {
-    users: [{ _id: "friend" as Id<"users">, name: "Bob", imageUrl: undefined, nickname: undefined, discriminator: undefined }],
-    viewer: { _id: "viewer" as Id<"users">, name: "Alice", nickname: undefined, discriminator: undefined },
+    users: [{ _id: "friend" as Id<"users">, name: "Bob", imageUrl: undefined, nickname: "Bob", discriminator: undefined }],
+    viewer: { _id: "viewer" as Id<"users">, name: "Alice", nickname: "Learner", discriminator: undefined },
     themes: [{ _id: "theme" as Id<"themes">, name: "Animals", contentType: "word", itemCount: 3 }],
     pendingChallenges: [], showSoloPracticeModal: false, showChallengeModal: false, showWaitingModal: false,
     initialChallengeOpponentId: null, isJoiningDuel: false, isCreatingChallenge: false, isCancellingChallenge: false,

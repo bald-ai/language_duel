@@ -236,8 +236,8 @@ describe("weeklyGoals declineWeeklyGoalInvitation", () => {
   it("rejects decline when the caller is not the invitee", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [buildGoal()],
       [buildNotification()]
@@ -256,8 +256,8 @@ describe("weeklyGoals declineWeeklyGoalInvitation", () => {
   it("rejects decline when the goal is no longer editable", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [buildGoal({ status: "locked", creatorLocked: true, partnerLocked: true, lockedAt: Date.now() })],
       [buildNotification()]
@@ -275,7 +275,7 @@ describe("weeklyGoals declineWeeklyGoalInvitation", () => {
 
   it("rejects decline for solo goals", async () => {
     const db = new InMemoryDb(
-      [buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" })],
+      [buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" })],
       [
         buildGoal({
           mode: "solo",
@@ -309,8 +309,8 @@ describe("weeklyGoals declineWeeklyGoalInvitation", () => {
   it("dismisses the invite quietly when the goal was already deleted", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [],
       [buildNotification()]

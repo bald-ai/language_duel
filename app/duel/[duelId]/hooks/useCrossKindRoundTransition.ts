@@ -164,8 +164,8 @@ function pausedTransition(duel: Doc<"duels">): CrossKindTransition | null {
 }
 
 function sentenceTransitionAt(duel: Doc<"duels">, priorIndex: number, indexAdvanced: boolean): CrossKindTransition | null {
-  const prior = duel.duelQuestions?.[priorIndex];
-  const current = duel.duelQuestions?.[duel.currentItemIndex];
+  const prior = duel.duelQuestions[priorIndex];
+  const current = duel.duelQuestions[duel.currentItemIndex];
   if (!prior) return null;
   if (prior.kind === "sentence") return { prevIndex: priorIndex, prevKind: prior.kind };
   if (indexAdvanced && current?.kind === "sentence") return { prevIndex: priorIndex, prevKind: prior.kind };

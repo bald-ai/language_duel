@@ -106,7 +106,7 @@ function ThemeCardMetadata({ theme }: { theme: ThemeWithOwner }) {
 function ThemeCardTtsStatus({ theme }: { theme: ThemeWithOwner }) {
   const colors = useAppearanceColors();
   const isSentence = isSentenceTheme(theme);
-  const rows = isSentence ? (theme.sentenceRounds ?? []) : (theme.words ?? []);
+  const rows = isSentence ? (theme.sentenceRounds) : (theme.words);
   const unit = isSentence ? "sentences" : "words";
   const status = hasMissingThemeTts(rows)
     ? {
@@ -136,7 +136,6 @@ function ThemeCardCategoryBadge({ theme }: { theme: ThemeWithOwner }) {
   const label = isSentence
     ? "SENTENCES"
     : getWordTypeLabel(theme.wordType, {
-        fallback: "No category",
         uppercase: true,
       });
   const style = isSentence

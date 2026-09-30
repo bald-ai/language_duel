@@ -164,8 +164,8 @@ describe("weeklyGoals removeTheme", () => {
   it("removes a theme without notifications when nobody has locked", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [buildGoal()]
     );
@@ -239,8 +239,8 @@ describe("weeklyGoals removeTheme", () => {
   it("clears the actor's own lock without creating a self-notification", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [buildGoal({ creatorLocked: true })],
       [
@@ -277,8 +277,8 @@ describe("weeklyGoals removeTheme", () => {
   it("still blocks removal once the goal is no longer a draft", async () => {
     const db = new InMemoryDb(
       [
-        buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" }),
-        buildUser({ _id: "user_partner" as Id<"users">, clerkId: "partner" }),
+        buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" }),
+        buildUser({ nickname: "Learner", _id: "user_partner" as Id<"users">, clerkId: "partner" }),
       ],
       [buildGoal({ status: "locked", creatorLocked: true, partnerLocked: true })]
     );
@@ -295,7 +295,7 @@ describe("weeklyGoals removeTheme", () => {
 
 it("clears a solo creator lock without generating partner notifications", async () => {
   const db = new InMemoryDb(
-    [buildUser({ _id: "user_creator" as Id<"users">, clerkId: "creator" })],
+    [buildUser({ nickname: "Learner", _id: "user_creator" as Id<"users">, clerkId: "creator" })],
     [buildGoal({ mode: "solo", partnerId: undefined, partnerLocked: undefined, creatorLocked: true })]
   );
   await removeThemeHandler(createAuthCtx(db, "creator"), { goalId: "goal_1" as Id<"weeklyGoals">, themeId: "theme_1" as Id<"themes"> });

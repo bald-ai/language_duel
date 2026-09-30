@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { query, mutation, internalQuery } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { getAuthenticatedUser } from "./helpers/auth";
 import {
   DEFAULT_NOTIFICATION_PREFS,
@@ -23,7 +24,7 @@ export const getMyNotificationPreferences = query({
     }
 
     return {
-      ...normalizeNotificationPreferences(prefs),
+      ...storedPreferenceValues(prefs),
       userId: user._id,
       isDefault: false,
     };
@@ -39,7 +40,7 @@ export const getByUserId = internalQuery({
       .unique();
 
     return {
-      ...normalizeNotificationPreferences(prefs),
+      ...(prefs === null ? DEFAULT_NOTIFICATION_PREFS : storedPreferenceValues(prefs)),
       userId: args.userId,
     };
   },
@@ -96,3 +97,8 @@ export const updateNotificationPreferences = mutation({
     }
   },
 });
+
+function storedPreferenceValues(prefs: Doc<"notificationPreferences">) {
+  const { _id, _creationTime, updatedAt: _updatedAt, userId: _userId, ...values } = prefs;
+  return values;
+}

@@ -5,7 +5,7 @@ import { useCrossKindRoundTransition } from "@/app/duel/[duelId]/hooks/useCrossK
 import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 
 function duel(kinds: ("word" | "sentence")[], overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return { currentItemIndex: 0, status: "active", duelQuestions: kinds.map(kind => ({ kind })), ...overrides } as Doc<"duels">;
+  return { duelDifficultyPreset: "easy", currentItemIndex: 0, status: "active", duelQuestions: kinds.map(kind => ({ kind })), ...overrides } as Doc<"duels">;
 }
 function tick(seconds: number) {
   for (let i = 0; i < seconds; i++) act(() => vi.advanceTimersByTime(1000));

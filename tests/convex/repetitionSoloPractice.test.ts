@@ -14,7 +14,7 @@ function fixture(changes: Partial<Doc<"soloPracticeSessions">> = {}) {
     sessionItems: [{ kind: "word", word: "cat", answer: "gato", wrongAnswers: ["perro"], themeId: "theme" as Id<"themes">, themeName: "Animals" }], ...changes }];
   const records: Doc<"weeklyGoalRepetitions">[] = [{ _id: "record" as Id<"weeklyGoalRepetitions">, _creationTime: 1, createdAt: 1,
     updatedAt: 1, weeklyGoalId: goalId, userId, completedSteps: [] }];
-  const users = [{ _id: userId, clerkId: "clerk" }];
+  const users = [{ nickname: "Learner", _id: userId, clerkId: "clerk" }];
   const tables = { users, weeklyGoals: goals, soloPracticeSessions: sessions, weeklyGoalRepetitions: records };
   const patch = vi.fn(async (id: string, values: Record<string, unknown>) => {
     if (id === sessionId) patchRow(sessions, id, values); else patchRow(records, id, values);

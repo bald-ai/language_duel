@@ -21,7 +21,7 @@ const currentId = "current" as Id<"users">;
 const peerId = "peer" as Id<"users">;
 const now = 2_000_000_000_000;
 function user(id: string, overrides: Partial<Doc<"users">> = {}): Doc<"users"> {
-  return {
+  return { llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
     _id: id as Id<"users">,
     _creationTime: 1,
     clerkId: id,
@@ -57,7 +57,7 @@ function friendship(id: string, friendId: string): Doc<"friends"> {
 function notification(
   id: string,
   requestId: string,
-  overrides: Partial<Doc<"notifications">> = {},
+  overrides: Partial<Extract<Doc<"notifications">, { type: "friend_request" }>> = {},
 ): Doc<"notifications"> {
   return {
     _id: id as Id<"notifications">,
@@ -341,12 +341,7 @@ describe("friend request retention", () => {
       notification("other", "other"),
       notification("boundary", "expired", { createdAt: cutoff }),
       notification("dismissed", "expired", { status: "dismissed" }),
-      notification("wrongPayload", "expired", {
-        payload: {
-          challengeId: "challenge" as Id<"challenges">,
-          duelMode: "pvp",
-        },
-      }),
+
     );
     await call(cleanupExpiredFriendRequests, f.ctx);
     expect(f.tables.friendRequests.map((row) => row.status)).toEqual([
@@ -361,7 +356,6 @@ describe("friend request retention", () => {
       "pending",
       "pending",
       "dismissed",
-      "pending",
     ]);
     f.db.patch.mockClear();
     await call(cleanupExpiredFriendRequests, f.ctx);

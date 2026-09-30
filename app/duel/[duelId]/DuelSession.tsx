@@ -105,7 +105,7 @@ function NonRelayDuelSession(props: DuelSessionProps) {
     );
   }
 
-  const currentQuestion = props.duel.duelQuestions?.[props.duel.currentItemIndex] as
+  const currentQuestion = props.duel.duelQuestions[props.duel.currentItemIndex] as
     | ViewerSafeDuelQuestion
     | undefined;
   const currentItem = props.duel.sessionItems[

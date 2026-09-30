@@ -8,8 +8,8 @@ const themeId = "theme" as Id<"themes">;
 const round = { englishPrompt: "I eat bread", spanishSentence: "Yo como pan", distractors: ["Tu", "bebes", "agua"], wordMeanings: ["I", "eat", "bread"], freeWordPositions: [1] };
 type SentenceTheme = Extract<Doc<"themes">, { contentType: "sentence" }>;
 function fixture() {
-  const user: Doc<"users"> = { _id: userId, _creationTime: 1, clerkId: "clerk", email: "user@example.test", creditsMonth: getCurrentMonthKey(), llmCreditsRemaining: 20, ttsGenerationsRemaining: 10 };
-  const theme: SentenceTheme = { _id: themeId, _creationTime: 1, createdAt: 1, ownerId: userId, name: "SENTENCES", description: "", contentType: "sentence", sentenceRounds: [structuredClone(round)] };
+  const user: Doc<"users"> = { nickname: "Learner", _id: userId, _creationTime: 1, clerkId: "clerk", email: "user@example.test", creditsMonth: getCurrentMonthKey(), llmCreditsRemaining: 20, ttsGenerationsRemaining: 10 };
+  const theme: SentenceTheme = { visibility: "private", _id: themeId, _creationTime: 1, createdAt: 1, ownerId: userId, name: "SENTENCES", description: "", contentType: "sentence", sentenceRounds: [structuredClone(round)] };
   const patch = vi.fn(async (id: string, updates: Record<string, unknown>) => { Object.assign(id === userId ? user : theme, updates); });
   const insert = vi.fn(async (_table: string, _fields: Record<string, unknown>) => themeId);
   const runAfter = vi.fn();

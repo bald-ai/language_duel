@@ -95,8 +95,8 @@ export function sortGoalsByRecency(goals: GoalWithUsers[]): GoalWithUsers[] {
       return bLockedAt - aLockedAt;
     }
 
-    const aCreatedAt = a.goal.createdAt ?? 0;
-    const bCreatedAt = b.goal.createdAt ?? 0;
+    const aCreatedAt = a.goal.createdAt;
+    const bCreatedAt = b.goal.createdAt;
     return bCreatedAt - aCreatedAt;
   });
 }

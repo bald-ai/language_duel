@@ -8,7 +8,7 @@ import {
 } from "@/convex/rules/duelScoringRules";
 
 function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return {
+  return { duelDifficultyPreset: "easy",
     _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,

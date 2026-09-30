@@ -62,11 +62,10 @@ function applyRefreshedTheme(
   refreshedTheme: FunctionReturnType<typeof api.themes.getTheme>,
 ) {
   if (!refreshedTheme) return;
+  if (refreshedTheme.contentType !== "word") throw new Error("Word editor refresh requires a word theme");
   params.setSelectedThemeState((prev) => {
     if (!prev || prev.kind !== "saved") return prev;
     return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
   });
-  const refreshedWords =
-    refreshedTheme.contentType === "word" ? refreshedTheme.words : [];
-  params.setLocalWords([...(refreshedWords ?? [])]);
+  params.setLocalWords([...refreshedTheme.words]);
 }

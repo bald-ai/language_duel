@@ -29,7 +29,7 @@ export function buildThemeWithOwner(args: {
         visibility: theme.visibility,
         friendsCanEdit: theme.friendsCanEdit,
       },
-      theme.ownerId ? friendshipsWithOwner : []
+      friendshipsWithOwner
     ),
   };
 }

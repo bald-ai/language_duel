@@ -10,10 +10,10 @@ function goal(overrides: Partial<Doc<"weeklyGoals">> = {}): Doc<"weeklyGoals"> {
   return { _id: goalId, _creationTime: 1, createdAt: now, mode: "shared", creatorId: creator, partnerId: partner, status: "draft", creatorLocked: false, partnerLocked: false, miniBossStatus: "unavailable", bigBossStatus: "unavailable", themes: [], ...overrides };
 }
 function theme(id: string, ownerId: Id<"users">): Doc<"themes"> {
-  return { _id: id as Id<"themes">, _creationTime: 1, createdAt: 1, ownerId, name: id, description: "", visibility: "private", contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"] }] };
+  return { wordType: "nouns", _id: id as Id<"themes">, _creationTime: 1, createdAt: 1, ownerId, name: id, description: "", visibility: "private", contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"] }] };
 }
 function fixture(goals: Doc<"weeklyGoals">[] = [goal()]) {
-  const users: Doc<"users">[] = [{ _id: creator, _creationTime: 1, clerkId: "creator", email: "private@example.test", nickname: "Creator" }, { _id: partner, _creationTime: 1, clerkId: "partner", email: "private@example.test", nickname: "Partner" }];
+  const users: Doc<"users">[] = [{ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: creator, _creationTime: 1, clerkId: "creator", email: "private@example.test", nickname: "Creator" }, { llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: partner, _creationTime: 1, clerkId: "partner", email: "private@example.test", nickname: "Partner" }];
   const themes = [theme("own", creator), theme("theirs", partner), theme("unrelated", "stranger" as Id<"users">)];
   const snapshots: Doc<"weeklyGoalThemeSnapshots">[] = [];
   const ctx = { db: {
@@ -75,7 +75,7 @@ describe("weekly goal viewer queries", () => {
       { themeId: "own" as Id<"themes">, themeName: "own", creatorCompleted: true, partnerCompleted: true },
       { themeId: "theirs" as Id<"themes">, themeName: "theirs", creatorCompleted: false, partnerCompleted: true },
     ] })]);
-    for (const [index, id] of ["own", "theirs"].entries()) f.snapshots.push({ _id: `snapshot_${index}` as Id<"weeklyGoalThemeSnapshots">, _creationTime: 1, createdAt: now - 1000, lockedAt: now - 1000, weeklyGoalId: goalId, originalThemeId: id as Id<"themes">, order: index, name: id, description: "", contentType: "word", words: [{ word: "one", answer: "uno", wrongAnswers: ["dos"] }, { word: "two", answer: "dos", wrongAnswers: ["uno"] }] });
+    for (const [index, id] of ["own", "theirs"].entries()) f.snapshots.push({ wordType: "nouns", _id: `snapshot_${index}` as Id<"weeklyGoalThemeSnapshots">, _creationTime: 1, createdAt: now - 1000, lockedAt: now - 1000, weeklyGoalId: goalId, originalThemeId: id as Id<"themes">, order: index, name: id, description: "", contentType: "word", words: [{ word: "one", answer: "uno", wrongAnswers: ["dos"] }, { word: "two", answer: "dos", wrongAnswers: ["uno"] }] });
     const result = await getBossLaunchPreviewForViewer(f.ctx as never, partner, goalId, bossType);
     expect(result).toMatchObject({ mode: "shared", themeCount: bossType === "mini" ? 1 : 2, itemCount: bossType === "mini" ? 2 : 4, selectedBossStatus: bossType === "mini" ? "ready" : "unavailable" });
     expect(result?.livesTotal).toBeGreaterThan(0);

@@ -44,8 +44,9 @@ export function FriendRequestCard({ notification, actions }: NotificationCardPro
 export function ChallengeInviteCard({ notification, actions }: NotificationCardProps) {
   const userName = formatVisibleUser(notification.fromUser);
   const id = notification._id;
-  const payload = isChallengeInvitePayload(notification.payload) ? notification.payload : undefined;
-  const themeName = payload?.themeName || "Theme";
+  const payload = notification.payload;
+  if (!isChallengeInvitePayload(payload)) throw new Error("Challenge notification has an invalid payload");
+  const themeName = payload.themeName;
   return (
     <NotificationCardShell
       notificationId={id}
@@ -74,7 +75,7 @@ export function ChallengeInviteCard({ notification, actions }: NotificationCardP
 function weeklyGoalContent(
   notification: NotificationCardProps["notification"],
   actions: NotificationCardProps["actions"],
-  event: WeeklyGoalNotificationEvent | undefined,
+  event: WeeklyGoalNotificationEvent,
   archiveLabel: string
 ): { message: ReactNode; actions: ReactNode } {
   const userName = formatVisibleUser(notification.fromUser);
@@ -159,9 +160,10 @@ function weeklyGoalContent(
 }
 
 export function WeeklyGoalCard({ notification, actions }: NotificationCardProps) {
-  const payload = isWeeklyGoalPayload(notification.payload) ? notification.payload : undefined;
-  const archiveLabel = `Archive ${themeCountLabel(payload?.themeCount ?? 0)}`;
-  const content = weeklyGoalContent(notification, actions, payload?.event, archiveLabel);
+  const payload = notification.payload;
+  if (!isWeeklyGoalPayload(payload)) throw new Error("Weekly goal notification has an invalid payload");
+  const archiveLabel = `Archive ${themeCountLabel(payload.themeCount)}`;
+  const content = weeklyGoalContent(notification, actions, payload.event, archiveLabel);
   return (
     <NotificationCardShell
       notificationId={notification._id}
@@ -214,11 +216,10 @@ export function GenericNotificationCard({ notification, actions }: NotificationC
   );
 }
 
-function ChallengeInviteChips({ payload }: { payload?: ChallengeInvitePayload }) {
-  const difficulty = payload?.duelDifficultyPreset;
-  const duelMode = payload?.duelMode;
+function ChallengeInviteChips({ payload }: { payload: ChallengeInvitePayload }) {
+  const difficulty = payload.duelDifficultyPreset;
+  const duelMode = payload.duelMode;
   const colors = useAppearanceColors();
-  if (!difficulty && !duelMode) return null;
 
   return (
     <span className="mt-2 flex flex-wrap gap-1.5">

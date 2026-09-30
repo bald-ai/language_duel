@@ -10,7 +10,7 @@ vi.mock("convex/react", () => ({ useQuery: () => mocks.user }));
 vi.mock("sonner", () => ({ toast: { error: mocks.error } }));
 vi.mock("@/lib/themes/api", () => ({ generateField: mocks.generate, regenerateForWord: mocks.regenerate }));
 const original: WordEntry = { word: "cat", answer: "el gato", wrongAnswers: ["el perro", "el pez", "el ave", "el oso", "la vaca", "el caballo"] };
-const theme: ThemeDetailTheme = { name: "Animals", description: "", words: [original], isOwner: true, canEdit: true };
+const theme: ThemeDetailTheme = { wordType: "nouns", visibility: "private", name: "Animals", description: "", words: [original], isOwner: true, canEdit: true };
 function useHarness(selectedTheme: ThemeDetailTheme | null = theme) {
   const [localWords, setLocalWords] = useState([original, { ...original, word: "fish", answer: "el pez" }]);
   const [viewMode, setViewMode] = useState<ViewMode>("detail");

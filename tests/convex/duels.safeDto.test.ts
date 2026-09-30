@@ -127,14 +127,14 @@ const getDuelHandler = (getDuel as unknown as {
 
 describe("duels.getDuel viewer-safe DTO", () => {
   it.each(["signed out", "unknown user", "outsider", "missing duel"])("returns null for %s without disclosing session data", async state => {
-    const users = [userDoc({}), userDoc({ _id: "outsider" as Id<"users">, clerkId: "outsider" })];
+    const users = [userDoc({}), userDoc({ nickname: "Learner", _id: "outsider" as Id<"users">, clerkId: "outsider" })];
     const db = new InMemoryDb(users, [themeDoc()], state === "missing duel" ? [] : [duelDoc()]);
     const subject = state === "signed out" ? null : state === "unknown user" ? "missing" : state === "outsider" ? "outsider" : "clerk_challenger";
     await expect(getDuelHandler(createCtx(db, subject), { duelId: "duel_1" as Id<"duels"> })).resolves.toBeNull();
   });
 
   it.each(["challenger", "opponent"] as const)("keeps the %s viewer's safe data when the other user was deleted", async role => {
-    const viewer = role === "challenger" ? userDoc({}) : userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent", name: "Opponent" });
+    const viewer = role === "challenger" ? userDoc({}) : userDoc({ nickname: "Opponent", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent", name: "Opponent" });
     const db = new InMemoryDb([viewer], [themeDoc()], [duelDoc()]);
     const result = await getDuelHandler(createCtx(db, viewer.clerkId), { duelId: "duel_1" as Id<"duels"> });
     expect(result).toMatchObject({ viewerRole: role, viewer: { _id: viewer._id }, [role]: { _id: viewer._id } });
@@ -147,7 +147,7 @@ describe("duels.getDuel viewer-safe DTO", () => {
       sessionItems: Array.from({ length: 3 }, () => ({ ...base.sessionItems[0] })),
       duelQuestions: Array.from({ length: 3 }, () => ({ ...base.duelQuestions![0] })), itemOrder: [0, 1, 2],
     });
-    const db = new InMemoryDb([userDoc({}), userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" })], [themeDoc()], [duel]);
+    const db = new InMemoryDb([userDoc({}), userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" })], [themeDoc()], [duel]);
     const result = await getDuelHandler(createCtx(db, "clerk_opponent"), { duelId: duel._id });
     expect((result?.duel.duelQuestions as ViewerSafeQuestion[]).map(q => q.answerRevealedToViewer)).toEqual(status === "active" ? [true, true, false] : [true, true, true]);
     expect(result?.duel.sessionItems.map(item => item.kind === "word" ? item.answer : item.spanishSentence)).toEqual(status === "active" ? ["gato", "gato", ""] : ["gato", "gato", "gato"]);
@@ -156,8 +156,8 @@ describe("duels.getDuel viewer-safe DTO", () => {
   it("hides answer keys before the viewer has answered", async () => {
     const db = new InMemoryDb(
       [
-        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+        userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
       ],
       [themeDoc()],
       [duelDoc()]
@@ -177,8 +177,8 @@ describe("duels.getDuel viewer-safe DTO", () => {
   it("reveals answer keys after the viewer has answered", async () => {
     const db = new InMemoryDb(
       [
-        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+        userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
       ],
       [themeDoc()],
       [duelDoc({ challengerAnswered: true })]
@@ -272,8 +272,8 @@ function relaySentenceDuelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
 async function getRelayDuel(duel: DuelDoc): Promise<RelaySafeResult | null> {
   const db = new InMemoryDb(
     [
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
     ],
     [themeDoc()],
     [duel]
@@ -380,8 +380,8 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
   it("strips spanishSentence and distractors from session items during active play", async () => {
     const db = new InMemoryDb(
       [
-        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+        userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
       ],
       [themeDoc()],
       [sentenceDuelDoc()]
@@ -405,8 +405,8 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
   it("strips spanishSentence from the question snapshot until the round reveals", async () => {
     const db = new InMemoryDb(
       [
-        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+        userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
       ],
       [themeDoc()],
       [sentenceDuelDoc()]
@@ -427,8 +427,8 @@ describe("duels.getDuel sentence masking (Task 21)", () => {
   it("restores the spanish sentence once the viewer has answered", async () => {
     const db = new InMemoryDb(
       [
-        userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
-        userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
+        userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_challenger" }),
+        userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_opponent" }),
       ],
       [themeDoc()],
       [sentenceDuelDoc({ challengerAnswered: true })]

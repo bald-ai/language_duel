@@ -120,7 +120,7 @@ export function useDuelPhaseState({
   }, [duel, isLocked, items.length, setCountdown, setIsLocked, setSelectedAnswer, theirLastAnswer]);
 
   useEffect(() => {
-    if (currentItemIndex === undefined || !items.length) return;
+    if (!items.length) return;
 
     if (activeQuestionIndexRef.current === null) {
       activeQuestionIndexRef.current = currentItemIndex;

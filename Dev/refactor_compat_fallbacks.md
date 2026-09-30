@@ -1,6 +1,6 @@
 # Refactor: remove compatibility fallbacks
 
-Status: waiting on a Convex connection. Don't start until this folder is linked to the Convex project (`.env.local` with `CONVEX_DEPLOYMENT`), so production data can be checked.
+Status: implemented on 2026-09-30 after restoring the Convex connection. The maintainer authorized a full reset of development and production data, so the required fields could be deployed without migrating historical rows. The checklist below records the scope of the completed cleanup; genuine optional values and create-argument defaults remain supported. Deployment and verification evidence is recorded in `docs/convex-reset-verification.md`.
 
 ## What this is about
 
@@ -8,7 +8,7 @@ AGENTS.md says "no fallback code": don't keep code that quietly copes with data 
 
 Example: every duel is created with both scores set to 0, and the schema requires them, but scoring still does `(duel.challengerScore || 0)`. If a score ever went missing, that code would hide the bug instead of failing.
 
-## Why it's blocked
+## Why the Convex connection was required
 
 Most fixes mean making schema fields required. When you deploy, Convex checks every existing row against the schema. If any old production row is missing a field, the deploy fails. Some fallbacks probably exist because old rows really do lack these fields (for example, the credit refill for users created before credits existed).
 

@@ -15,9 +15,9 @@ const read = (getSentenceThemeForWordMeaningRefresh as unknown as { _handler: (c
 const apply = (applySentenceWordMeanings as unknown as { _handler: (ctx: unknown, args: { themeId: Id<"themes">; generated: Generated[] }) => Promise<{ applied: number; skipped: number }> })._handler;
 const refresh = (refreshSentenceWordMeanings as unknown as { _handler: (ctx: unknown, args: { themeId: Id<"themes">; rounds: Target[] }) => Promise<{ generated: number; applied: number; skipped: number }> })._handler;
 function fixture(initial?: Doc<"themes"> | null) {
-  let theme: Doc<"themes"> | null = initial === undefined ? { _id: themeId, _creationTime: 1, createdAt: 1, contentType: "sentence", name: "CAFE", description: "", sentenceRounds: [baseRound] } : initial;
+  let theme: Doc<"themes"> | null = initial === undefined ? { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, visibility: "private", _id: themeId, _creationTime: 1, createdAt: 1, contentType: "sentence", name: "CAFE", description: "", sentenceRounds: [baseRound] } : initial;
   const patch = vi.fn(async (_id: Id<"themes">, updates: Partial<Extract<Doc<"themes">, { contentType: "sentence" }>>) => {
-    theme = { ...theme, ...updates } as Doc<"themes">;
+    theme = { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, visibility: "private", ...theme, ...updates } as Doc<"themes">;
   });
   const mutationCtx = { db: { get: vi.fn(async () => theme), patch } };
   const runQuery = vi.fn(async (_ref: unknown, args: { themeId: Id<"themes"> }) => read(mutationCtx, args));
@@ -38,7 +38,7 @@ describe("sentence meaning refresh", () => {
     expect(db.theme()).toMatchObject({ sentenceRounds: [{ ...baseRound, wordMeanings: ["I want", "coffee"] }] });
   });
 
-  it.each([null, { _id: themeId, _creationTime: 1, createdAt: 1, name: "WORDS", description: "", contentType: "word", words: [] } satisfies Doc<"themes">])("skips missing and word themes without generating (%#)", async theme => {
+  it.each([null, { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, wordType: "nouns", visibility: "private", _id: themeId, _creationTime: 1, createdAt: 1, name: "WORDS", description: "", contentType: "word", words: [] } satisfies Doc<"themes">])("skips missing and word themes without generating (%#)", async theme => {
     const db = fixture(theme);
     await expect(refresh(db.ctx, { themeId, rounds: [target] })).resolves.toEqual({ generated: 0, applied: 0, skipped: 1 });
     expect(mocks.construct).not.toHaveBeenCalled();

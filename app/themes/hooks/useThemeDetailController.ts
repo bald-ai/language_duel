@@ -52,16 +52,10 @@ export function useThemeDetailController(
     if (!selectedThemeState) return null;
     if (selectedThemeState.kind === "saved") {
       const saved = selectedThemeState.theme;
-      // Saved themes can be sentence themes too — those flow through a
-      // separate controller (`useSentenceThemeController`). When a word-theme
-      // path lands here for a sentence theme (which shouldn't happen because
-      // `useThemesController.handleOpenTheme` routes sentence themes
-      // elsewhere), surface an empty `words` array rather than letting
-      // `undefined` leak into the editor.
-      const savedWords = isWordTheme(saved) ? saved.words : [];
+      if (!isWordTheme(saved)) throw new Error("Word editor requires a word theme");
       return {
         ...saved,
-        words: (savedWords ?? []) as ThemeDetailTheme["words"],
+        words: saved.words,
       };
     }
     const draft = selectedThemeState.draft;
@@ -77,7 +71,7 @@ export function useThemeDetailController(
     };
   }, [selectedThemeState]);
 
-  const selectedWordType = selectedTheme?.wordType || DEFAULT_WORD_TYPE;
+  const selectedWordType = selectedTheme === null ? DEFAULT_WORD_TYPE : selectedTheme.wordType;
   const persistedSelectedTheme = useMemo(() => {
     if (!selectedThemeState || selectedThemeState.kind === "unsaved")
       return null;
@@ -93,17 +87,15 @@ export function useThemeDetailController(
       return true;
     }
 
-    const persistedWords = isWordTheme(persistedSelectedTheme)
-      ? persistedSelectedTheme.words
-      : [];
+    const persistedWords = persistedSelectedTheme.words;
     return !areThemeWordsEqual(localWords, persistedWords as WordEntry[]);
   }, [localWords, persistedSelectedTheme, selectedThemeState]);
 
   const openTheme = useCallback(
     (theme: ThemeWithOwner) => {
+      if (!isWordTheme(theme)) throw new Error("Word editor requires a word theme");
       setSelectedThemeState({ kind: "saved", theme });
-      const themeWords = isWordTheme(theme) ? theme.words : [];
-      setLocalWords([...(themeWords ?? [])]);
+      setLocalWords([...theme.words]);
       params.setViewMode(VIEW_MODES.DETAIL);
     },
     [params],

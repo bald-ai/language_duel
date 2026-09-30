@@ -17,8 +17,8 @@ export type ThemeDetailTheme = {
   name: string;
   description: string;
   words: WordEntry[];
-  wordType?: WordType;
-  visibility?: "private" | "shared";
+  wordType: WordType;
+  visibility: "private" | "shared";
   friendsCanEdit?: boolean;
   ownerNickname?: string;
   ownerDiscriminator?: number;
@@ -38,7 +38,7 @@ interface ThemeDetailProps {
   onOpenAddWord: () => void;
   onOpenGenerateMore: () => void;
   // Visibility
-  visibility?: "private" | "shared";
+  visibility: "private" | "shared";
   isUpdatingVisibility?: boolean;
   onVisibilityChange?: (visibility: "private" | "shared") => void;
   // Friends can edit

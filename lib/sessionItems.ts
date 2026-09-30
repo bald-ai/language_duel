@@ -6,7 +6,7 @@
  */
 
 import type { Id } from "./types";
-import type { SentenceRoundInput, ThemeContentType } from "./themes/sentenceTypes";
+import type { SentenceRoundInput } from "./themes/sentenceTypes";
 import { isSentenceTheme } from "./themes/themeContent";
 import {
   normalizeSentenceFreeWordPositions,
@@ -37,23 +37,20 @@ export interface SessionSentenceItem {
 
 export type SessionItem = SessionWordItem | SessionSentenceItem;
 
-export interface SessionThemeInput {
+type SessionThemeIdentity = {
   _id: Id<"themes">;
   name: string;
-  contentType: ThemeContentType;
-  words?: Array<{
-    word: string;
-    answer: string;
-    wrongAnswers: string[];
-    ttsStorageId?: Id<"_storage">;
-  }>;
-  sentenceRounds?: SentenceRoundInput[];
-}
+};
+
+export type SessionThemeInput = SessionThemeIdentity & (
+  | { contentType: "word"; words: Array<Omit<SessionWordItem, "kind" | "themeId" | "themeName">> }
+  | { contentType: "sentence"; sentenceRounds: SentenceRoundInput[] }
+);
 
 /** Flatten one theme into its session items. Word and sentence themes diverge here. */
 export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem[] {
   if (isSentenceTheme(theme)) {
-    const rounds = theme.sentenceRounds ?? [];
+    const rounds = theme.sentenceRounds;
     return rounds.map((round): SessionSentenceItem => ({
       kind: "sentence",
       englishPrompt: round.englishPrompt,
@@ -72,7 +69,7 @@ export function buildSessionItemsForTheme(theme: SessionThemeInput): SessionItem
       themeName: theme.name,
     }));
   }
-  const words = theme.words ?? [];
+  const words = theme.words;
   return words.map((word): SessionWordItem => ({
     kind: "word",
     word: word.word,

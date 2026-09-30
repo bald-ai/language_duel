@@ -154,7 +154,7 @@ function requireHintAvailable(
 }
 
 function requireHintQuestion(duel: Doc<"duels">) {
-  const question = duel.duelQuestions?.[duel.currentItemIndex];
+  const question = duel.duelQuestions[duel.currentItemIndex];
   if (!question) {
     throw new ConvexError({
       code: "INTERNAL_ERROR",

@@ -237,7 +237,7 @@ function challengeDoc(overrides: Partial<ChallengeDoc> = {}): ChallengeDoc {
   };
 }
 
-function notificationDoc(overrides: Partial<NotificationDoc> = {}): NotificationDoc {
+function notificationDoc(overrides: Partial<Extract<Doc<"notifications">, { type: "challenge_invite" }>> = {}): NotificationDoc {
   return {
     _id: "notification_1" as Id<"notifications">,
     _creationTime: 1,
@@ -246,7 +246,7 @@ function notificationDoc(overrides: Partial<NotificationDoc> = {}): Notification
     toUserId: "user_2" as Id<"users">,
     status: "pending",
     createdAt: 1_000,
-    payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "pvp" },
+    payload: { themeName: "Basics", duelDifficultyPreset: "easy", challengeId: "challenge_1" as Id<"challenges">, duelMode: "pvp" },
     ...overrides,
   };
 }
@@ -439,7 +439,7 @@ describe("challenge backend", () => {
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
     db.challenges.push(challengeDoc({ duelMode: "pve" }));
-    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "pve" } }));
+    db.notifications.push(notificationDoc({ payload: { themeName: "Basics", duelDifficultyPreset: "easy", challengeId: "challenge_1" as Id<"challenges">, duelMode: "pve" } }));
 
     const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
       challengeId: "challenge_1" as Id<"challenges">,
@@ -481,7 +481,7 @@ describe("challenge backend", () => {
       ],
     });
     db.challenges.push(challengeDoc({ duelMode: "relay" }));
-    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "relay" } }));
+    db.notifications.push(notificationDoc({ payload: { themeName: "Basics", duelDifficultyPreset: "easy", challengeId: "challenge_1" as Id<"challenges">, duelMode: "relay" } }));
 
     const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
       challengeId: "challenge_1" as Id<"challenges">,
@@ -509,7 +509,7 @@ describe("challenge backend", () => {
       ],
     });
     db.challenges.push(challengeDoc({ duelMode: "tbt" }));
-    db.notifications.push(notificationDoc({ payload: { challengeId: "challenge_1" as Id<"challenges">, duelMode: "tbt" } }));
+    db.notifications.push(notificationDoc({ payload: { themeName: "Basics", duelDifficultyPreset: "easy", challengeId: "challenge_1" as Id<"challenges">, duelMode: "tbt" } }));
 
     const result = await acceptChallengeHandler(createCtx(db, "clerk_2"), {
       challengeId: "challenge_1" as Id<"challenges">,
@@ -683,7 +683,7 @@ describe("challenge read and cancel boundaries", () => {
     const db = new InMemoryDb();
     seedUsersAndTheme(db);
     db.challenges.push(challengeDoc());
-    db.notifications.push(notificationDoc(), notificationDoc({ _id: "notification_read" as Id<"notifications">, status: "read" }), notificationDoc({ _id: "notification_other" as Id<"notifications">, payload: { challengeId: "challenge_other" as Id<"challenges">, duelMode: "pvp" } }));
+    db.notifications.push(notificationDoc(), notificationDoc({ _id: "notification_read" as Id<"notifications">, status: "read" }), notificationDoc({ _id: "notification_other" as Id<"notifications">, payload: { themeName: "Basics", duelDifficultyPreset: "easy", challengeId: "challenge_other" as Id<"challenges">, duelMode: "pvp" } }));
     await expect(call(cancelChallenge, createCtx(db, "clerk_1"), { challengeId: "challenge_1" })).resolves.toBeUndefined();
     expect(db.challenges[0]).toMatchObject({ status: "cancelled", resolvedAt: 5000 });
     expect(db.notifications.map(row => row.status)).toEqual(["dismissed", "dismissed", "pending"]);

@@ -69,7 +69,7 @@ function findDuplicateEnglishPrompt(
 }
 
 export type SentenceSelectedState =
-  | { kind: "saved"; theme: ThemeWithOwner }
+  | { kind: "saved"; theme: Extract<ThemeWithOwner, { contentType: "sentence" }> }
   | {
       kind: "unsaved";
       draft: {
@@ -234,7 +234,7 @@ export function useSentenceThemeController(params: {
     if (!selectedState) return null;
     if (selectedState.kind === "saved") {
       const theme = selectedState.theme;
-      const rounds = isSentenceTheme(theme) ? theme.sentenceRounds : [];
+      const rounds = theme.sentenceRounds;
       return {
         name: theme.name,
         description: theme.description,
@@ -292,13 +292,11 @@ export function useSentenceThemeController(params: {
     // Carry `ttsStorageId` through so the editor keeps the play-ready audio id;
     // dropping it here would show stale "no audio" play buttons after load.
     setLocalRounds(
-      (theme.sentenceRounds as SentenceRoundInput[]).map((round) => ({
+      theme.sentenceRounds.map((round) => ({
         englishPrompt: round.englishPrompt,
         spanishSentence: round.spanishSentence,
-        wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
-        freeWordPositions: round.freeWordPositions
-          ? [...round.freeWordPositions]
-          : undefined,
+        wordMeanings: [...round.wordMeanings],
+        freeWordPositions: [...round.freeWordPositions],
         distractors: [...round.distractors],
         ttsStorageId: round.ttsStorageId,
       })),
@@ -494,9 +492,7 @@ export function useSentenceThemeController(params: {
     ) {
       return true;
     }
-    const savedRounds = isSentenceTheme(selectedState.theme)
-      ? (selectedState.theme.sentenceRounds as SentenceRoundInput[])
-      : [];
+    const savedRounds = selectedState.theme.sentenceRounds;
     return !areSentenceRoundsEqual(localRounds, savedRounds);
   }, [localRounds, savedThemeNameBaseline, selectedState]);
 
@@ -514,16 +510,12 @@ export function useSentenceThemeController(params: {
           return { kind: "saved", theme: { ...prev.theme, ...refreshedTheme } };
         });
         setLocalRounds(
-          (refreshedTheme.sentenceRounds as SentenceRoundInput[]).map(
+          refreshedTheme.sentenceRounds.map(
             (round) => ({
               englishPrompt: round.englishPrompt,
               spanishSentence: round.spanishSentence,
-              wordMeanings: round.wordMeanings
-                ? [...round.wordMeanings]
-                : undefined,
-              freeWordPositions: round.freeWordPositions
-                ? [...round.freeWordPositions]
-                : undefined,
+              wordMeanings: [...round.wordMeanings],
+              freeWordPositions: [...round.freeWordPositions],
               distractors: [...round.distractors],
               ttsStorageId: round.ttsStorageId,
             }),

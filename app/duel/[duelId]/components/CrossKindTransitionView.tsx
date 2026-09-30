@@ -59,7 +59,7 @@ export function CrossKindTransitionView({
     challenger,
     opponent,
   );
-  const priorQuestion = duel.duelQuestions?.[transition.prevIndex];
+  const priorQuestion = duel.duelQuestions[transition.prevIndex];
   const priorItem = duel.sessionItems[duel.itemOrder[transition.prevIndex]];
   const { prompt, correctAnswer } = priorRoundReveal(priorQuestion, priorItem);
   const sentenceAudio = priorSentenceAudio(priorQuestion, priorItem);

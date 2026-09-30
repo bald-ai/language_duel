@@ -160,21 +160,6 @@ describe("credits helpers", () => {
       shouldReset: true,
     });
   });
-
-  it("resets balances when either credit field is missing", () => {
-    expect(
-      normalizeCreditState(
-        userDoc({ llmCreditsRemaining: undefined }),
-        Date.parse("2026-05-18T12:00:00.000Z")
-      ).shouldReset
-    ).toBe(true);
-    expect(
-      normalizeCreditState(
-        userDoc({ ttsGenerationsRemaining: undefined }),
-        Date.parse("2026-05-18T12:00:00.000Z")
-      ).shouldReset
-    ).toBe(true);
-  });
 });
 
 describe("consumeCredits validation", () => {

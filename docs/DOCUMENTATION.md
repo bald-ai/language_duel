@@ -16,6 +16,10 @@ its ES2021 library configuration is stricter than the app's. No coverage, metric
 mutations, deployment, or paid-service checks are included. For individual test
 files, use the existing `npm run test:run -- <test files>` command.
 
+The completed Convex compatibility cleanup, deployment targets, authorized data
+reset, and live verification are recorded in
+[`convex-reset-verification.md`](convex-reset-verification.md).
+
 ## Personal notes and future ideas
 
 Personal notes and future ideas belong in `Dev/` at the project root, as individual

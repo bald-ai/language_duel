@@ -4,9 +4,9 @@
 
 import { mutation, query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { isGoalNotificationPayload } from "./notificationPayloads";
 import {
   createNotification,
-  isWeeklyGoalPayload,
 } from "./notificationHelpers";
 import { getAuthenticatedUserOrNull } from "./helpers/auth";
 import {
@@ -305,7 +305,7 @@ export const createDraftExpiryNotification = internalMutation({
 
     const matching = existing.find(
       (notification) =>
-        isWeeklyGoalPayload(notification.payload) &&
+        isGoalNotificationPayload(notification.payload) &&
         notification.payload.goalId === goal._id &&
         notification.status !== "dismissed"
     );

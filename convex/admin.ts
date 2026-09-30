@@ -234,14 +234,12 @@ export const deleteUserFully = internalMutation({
     };
 
     const notificationReferencesDeletedRecord = (notification: Doc<"notifications">) => {
-        const payload = notification.payload as
-          | { challengeId?: string; goalId?: string }
-          | undefined;
+        const payload = notification.payload;
         const referencesDeletedChallenge =
-          typeof payload?.challengeId === "string" &&
+          "challengeId" in payload &&
           deletedChallengeIds.has(payload.challengeId);
         const referencesDeletedGoal =
-          typeof payload?.goalId === "string" &&
+          "goalId" in payload &&
           deletedGoalIds.has(payload.goalId);
 
       return referencesDeletedChallenge || referencesDeletedGoal;

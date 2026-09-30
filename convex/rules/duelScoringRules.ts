@@ -83,7 +83,7 @@ export function getDuelQuestionOrThrow(
   duel: Doc<"duels">,
   questionIndex = duel.currentItemIndex,
 ) {
-  const question = duel.duelQuestions?.[questionIndex];
+  const question = duel.duelQuestions[questionIndex];
   if (!question) {
     throw new ConvexError({
       code: "INTERNAL_ERROR",
@@ -153,11 +153,11 @@ function hasAcceptedHintEliminations(duel: Doc<"duels">): boolean {
 function hintProviderScorePatch(duel: Doc<"duels">): Partial<Doc<"duels">> {
   if (duel.hintRequestedBy === "challenger") {
     return {
-      opponentScore: (duel.opponentScore || 0) + HINT_PROVIDER_BONUS,
+      opponentScore: duel.opponentScore + HINT_PROVIDER_BONUS,
     };
   }
 
   return {
-    challengerScore: (duel.challengerScore || 0) + HINT_PROVIDER_BONUS,
+    challengerScore: duel.challengerScore + HINT_PROVIDER_BONUS,
   };
 }

@@ -153,7 +153,7 @@ function getDuelViewProps() {
 }
 
 function createDuel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return {
+  return { duelDifficultyPreset: "easy",
     _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,
@@ -258,13 +258,13 @@ function sentenceQuestion(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const challenger = {
+const challenger = { nickname: "Challenger",
   _id: "user_1" as Id<"users">,
   name: "Challenger",
   imageUrl: "https://example.com/challenger.png",
 };
 
-const opponent = {
+const opponent = { nickname: "Opponent",
   _id: "user_2" as Id<"users">,
   name: "Opponent",
   imageUrl: "https://example.com/opponent.png",

@@ -15,6 +15,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { getDuelParticipant, type PlayerRole } from "./helpers/auth";
 import { assertDuelMode } from "./rules/duelModeGuards";
+import { requireRelayValue, requireRelayState } from "../lib/duel/relayState";
 import { RELAY_QUESTION_POINTS } from "../lib/duelConstants";
 import {
   buildRelayAdvancePatch,
@@ -90,7 +91,7 @@ async function resolveRelayTimeoutIfStale(
 ) {
   if (!isPendingRelayAnswer(duel, opts.expectedAssignedIndex)) return;
   if (opts.requireWindowElapsed) {
-    const startedAt = duel.relayAnswerStartedAt ?? 0;
+    const startedAt = requireRelayValue(duel.relayAnswerStartedAt, "relayAnswerStartedAt");
     // Sentence positions get the longer 60s window; words keep 21s.
     if (Date.now() - startedAt < relayAnswerWindowMs(duel)) return;
   }
@@ -446,7 +447,7 @@ function validateRelayHardUpgrade(
       message: "Sentence rounds can't be hard-upgraded",
     });
   }
-  if ((duel.relayHardBudget?.[playerRole] ?? 0) <= 0) {
+  if (requireRelayState(duel).relayHardBudget[playerRole] <= 0) {
     throw new ConvexError({
       code: "INVALID_STATE",
       message: "No hard-upgrade budget left",

@@ -55,7 +55,7 @@ export function TurnByTurnView({
 
   const isCompleted = duel.status === "completed";
   const questionIndex = duel.currentItemIndex;
-  const question = duel.duelQuestions?.[questionIndex] as
+  const question = duel.duelQuestions[questionIndex] as
     | ViewerSafeDuelQuestion
     | undefined;
 
@@ -210,7 +210,7 @@ function TbtSentenceBoard({
   onTap: (tileIndex: number) => void;
 }) {
   const questionIndex = duel.currentItemIndex;
-  const total = duel.duelQuestions?.length ?? 0;
+  const total = duel.duelQuestions.length;
   const myTurn = duel.tbtTurn === viewerRole;
   const { placedTileIndices, correctnessMask } = sharedBoardProgress(duel);
 
@@ -219,7 +219,8 @@ function TbtSentenceBoard({
   const sessionItem = duel.sessionItems[
     duel.itemOrder[questionIndex]
   ];
-  const themeName = sessionItem?.themeName ?? "";
+  if (!sessionItem) throw new Error("Turn-by-turn round is missing its session item");
+  const themeName = sessionItem.themeName;
 
   return (
     <SentenceBuildBoard

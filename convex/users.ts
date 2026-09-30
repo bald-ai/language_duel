@@ -38,7 +38,7 @@ export type PublicUser = {
   _id: Id<"users">;
   name?: string;
   imageUrl?: string;
-  nickname?: string;
+  nickname: string;
   discriminator?: number;
   isFriend?: boolean;
   isPending?: boolean;
@@ -51,7 +51,7 @@ export type CurrentUser = {
   email: string;
   name?: string;
   imageUrl?: string;
-  nickname?: string;
+  nickname: string;
   discriminator?: number;
   llmCreditsRemaining: number;
   ttsGenerationsRemaining: number;
@@ -230,7 +230,7 @@ export const searchUsers = query({
 
         return Boolean(
           nicknamePrefix &&
-          u.nickname?.toLowerCase().startsWith(nicknamePrefix),
+          u.nickname.toLowerCase().startsWith(nicknamePrefix),
         );
       })
       .slice(0, MAX_USER_SEARCH_RESULTS)

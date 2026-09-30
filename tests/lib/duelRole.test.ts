@@ -3,7 +3,7 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { forRole } from "@/lib/duelRole";
 
 function duelDoc(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return {
+  return { duelDifficultyPreset: "easy", duelQuestions: [],
     _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,

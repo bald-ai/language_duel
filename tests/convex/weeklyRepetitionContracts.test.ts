@@ -40,13 +40,13 @@ describe("persisted repetition advancement", () => {
     await expect(advanceUserIfReady({ ...args, now: args.now + 20 * day })).resolves.toBe(false);
     expect(db.patch).toHaveBeenCalledTimes(1);
   });
-  it.each(["missing-record", "finished", "missing-completion", "future", "wrong-step"])("does not persist an invalid advance: %s", async scenario => {
+  it.each(["missing-record", "finished", "future", "wrong-step"])("does not persist an invalid advance: %s", async scenario => {
     const records = scenario === "missing-record" ? [] : [record(scenario === "finished" ? {
       completedSteps: Array.from({ length: 6 }, (_, index) => ({ completedAt: index + 1, completedVia: "duel" as const })),
     } : {})];
     const db = database(records);
     const before = structuredClone(records);
-    const args = { ctx: { db } as never, goal: goal(scenario === "missing-completion" ? { completedAt: undefined } : {}),
+    const args = { ctx: { db } as never, goal: goal(),
       userId: creatorId, completedVia: "solo_practice" as const, now: scenario === "future" ? 1000 + 3 * day - 1 : 1000 + 3 * day,
       expectedStep: scenario === "wrong-step" ? 2 : 1 };
     await expect(advanceUserIfReady(args)).resolves.toBe(false);
@@ -70,7 +70,7 @@ describe("repetition board availability", () => {
       themeNames: ["Animals"], itemCount: 2, contentAvailable: true, duelAvailable: false });
   });
   it("blocks launch when snapshot content is unavailable", () => {
-    expect(buildBoardItem({ goal: goal({ mode: "shared" }), record: record(), partner: { _id: creatorId },
+    expect(buildBoardItem({ goal: goal({ mode: "shared" }), record: record(), partner: { nickname: "Learner", _id: creatorId },
       content: { ok: false, message: "Snapshot missing" }, now: 1000 + 3 * day })).toMatchObject({
       bucket: "ready", canStart: false, contentAvailable: false, unavailableReason: "Snapshot missing", itemCount: 0, duelAvailable: true,
     });
@@ -87,7 +87,7 @@ describe("repetition board availability", () => {
 });
 
 function snapshot(): Doc<"weeklyGoalThemeSnapshots"> {
-  return { _id: "snapshot" as Id<"weeklyGoalThemeSnapshots">, _creationTime: 1, weeklyGoalId: goalId, originalThemeId: themeId,
+  return { wordType: "nouns", _id: "snapshot" as Id<"weeklyGoalThemeSnapshots">, _creationTime: 1, weeklyGoalId: goalId, originalThemeId: themeId,
     name: "Snapshot Animals", description: "", order: 0, lockedAt: 1, createdAt: 1, contentType: "word",
     words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro", "pez", "ave"] }] };
 }
@@ -114,4 +114,11 @@ describe("repetition snapshot integrity", () => {
       sessionItems: [{ kind: "word", word: "cat", answer: "gato", themeName: "Snapshot Animals", themeId }] });
     expect(query.mock.calls).toEqual([["weeklyGoalThemeSnapshots"], ["weeklyGoalThemeSnapshots"]]);
   });
+});
+
+it("rejects advancing a completed goal without a completion time", async () => {
+  const records = [record()];
+  const db = database(records);
+  await expect(advanceUserIfReady({ ctx: { db } as never, goal: goal({ completedAt: undefined }), userId: creatorId, completedVia: "solo_practice", now: 1000 + 3 * day })).rejects.toThrow("missing completion time");
+  expect(db.patch).not.toHaveBeenCalled();
 });

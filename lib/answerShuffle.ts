@@ -51,7 +51,7 @@ export function buildDuelQuestionSnapshot(
   questionIndex: number,
   difficulty: ShuffleDifficultyInfo
 ): WordQuestionSnapshot {
-  if (!word.wrongAnswers?.length) {
+  if (!word.wrongAnswers.length) {
     return {
       kind: "word",
       options: [],

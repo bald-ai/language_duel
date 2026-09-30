@@ -8,11 +8,9 @@
 import type { SentenceRoundInput, ThemeContentType } from "./sentenceTypes";
 import type { WordEntry } from "../types";
 
-export interface ThemeContentShape {
-  contentType: ThemeContentType;
-  words?: WordEntry[];
-  sentenceRounds?: SentenceRoundInput[];
-}
+export type ThemeContentShape =
+  | { contentType: "word"; words: WordEntry[] }
+  | { contentType: "sentence"; sentenceRounds: SentenceRoundInput[] };
 
 export function isSentenceTheme<T extends { contentType: ThemeContentType }>(
   theme: T
@@ -29,7 +27,7 @@ export function isWordTheme<T extends { contentType: ThemeContentType }>(
 /** Total play item count for a theme (words or sentence rounds). */
 export function getThemeItemCount(theme: ThemeContentShape): number {
   if (isSentenceTheme(theme)) {
-    return theme.sentenceRounds?.length ?? 0;
+    return theme.sentenceRounds.length;
   }
-  return theme.words?.length ?? 0;
+  return theme.words.length;
 }

@@ -367,7 +367,7 @@ export async function handleUpdateTheme(
     }
     if (updates.words !== undefined) {
       const normalizedWords = normalizeThemeWords(updates.words);
-      const previousWords = (theme.words ?? []) as ThemeWordWithTts[];
+      const previousWords = (theme.words) as ThemeWordWithTts[];
       const reconciledWords = reconcileThemeWordTts<ThemeWordWithTts>(
         previousWords,
         normalizedWords,
@@ -447,9 +447,9 @@ export async function handleDeleteTheme(
 
   const themeStorageIds =
     theme.contentType === "word"
-      ? collectTtsStorageIds((theme.words ?? []) as ThemeWordWithTts[])
+      ? collectTtsStorageIds((theme.words) as ThemeWordWithTts[])
       : collectTtsStorageIds(
-          (theme.sentenceRounds ?? []) as SentenceRoundWithTts[],
+          (theme.sentenceRounds) as SentenceRoundWithTts[],
         );
   await ctx.db.delete(args.themeId);
   await deleteUnreferencedStorageIdsForTheme(
@@ -480,7 +480,7 @@ export async function handleDuplicateTheme(
     const duplicatePayload = buildDuplicateSentenceThemePayload({
       name: theme.name,
       description: theme.description,
-      sentenceRounds: theme.sentenceRounds ?? [],
+      sentenceRounds: theme.sentenceRounds,
     });
     return await ctx.db.insert("themes", {
       name: duplicatePayload.name,
@@ -496,13 +496,13 @@ export async function handleDuplicateTheme(
   const duplicatePayload = buildDuplicateWordThemePayload({
     name: theme.name,
     description: theme.description,
-    words: (theme.words ?? []) as ThemeWordWithTts[],
+    words: (theme.words) as ThemeWordWithTts[],
   });
   return await ctx.db.insert("themes", {
     name: duplicatePayload.name,
     description: duplicatePayload.description,
     contentType: "word",
-    wordType: theme.wordType || "nouns",
+    wordType: theme.wordType,
     words: duplicatePayload.words,
     createdAt: Date.now(),
     ownerId: user._id,
@@ -526,7 +526,7 @@ export async function handleApplyGeneratedThemeTts(
   if (theme.contentType === "sentence") {
     const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
       SENTENCE_TTS_PIPELINE_SHAPE,
-      (theme.sentenceRounds ?? []) as SentenceRoundWithTts[],
+      (theme.sentenceRounds) as SentenceRoundWithTts[],
       args.generated,
     );
 
@@ -542,7 +542,7 @@ export async function handleApplyGeneratedThemeTts(
 
   const { rows, applied, skipped, rejectedStorageIds } = applyGeneratedTts(
     WORD_TTS_PIPELINE_SHAPE,
-    (theme.words ?? []) as ThemeWordWithTts[],
+    (theme.words) as ThemeWordWithTts[],
     args.generated,
   );
 
@@ -600,8 +600,7 @@ async function buildSentenceContentUpdate(
     const normalizedRounds = normalizeSentenceRounds(
       updates.sentenceRounds,
     ) as SentenceRoundWithTts[];
-    const previousRounds = (theme.sentenceRounds ??
-      []) as SentenceRoundWithTts[];
+    const previousRounds = (theme.sentenceRounds) as SentenceRoundWithTts[];
     const { rounds: meaningReconciledRounds, refreshRoundIndices } =
       reconcileSentenceWordMeanings(previousRounds, normalizedRounds);
     const reconciledRounds = reconcileThemeSentenceTts<SentenceRoundWithTts>(

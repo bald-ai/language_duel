@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useChallengeWizard } from "@/app/components/modals/useChallengeWizard";
 
-const viewer = { _id: "me" as Id<"users">, name: "Me" };
-const friend = { _id: "friend" as Id<"users">, name: "Friend" };
+const viewer = { nickname: "Me", _id: "me" as Id<"users">, name: "Me" };
+const friend = { nickname: "Friend", _id: "friend" as Id<"users">, name: "Friend" };
 const wordId = "word" as Id<"themes">;
 const sentenceId = "sentence" as Id<"themes">;
 function input(overrides: Partial<Parameters<typeof useChallengeWizard>[0]> = {}) {

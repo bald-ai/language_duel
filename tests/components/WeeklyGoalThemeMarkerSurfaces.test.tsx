@@ -33,7 +33,7 @@ function pickerTheme(id: string, name: string) {
 type WordType = "nouns" | "verbs" | "adjectives" | "adverbs";
 
 function themeWithOwner(id: string, name: string, wordType: WordType = "nouns"): ThemeWithOwner {
-  return {
+  return { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">,
     _id: id as Id<"themes">,
     _creationTime: 1,
     name,

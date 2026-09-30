@@ -69,7 +69,7 @@ function duel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
     tilePool: ["Yo", "como", "pan", "Tu"],
     tileMeanings: ["I", "eat", "bread", null],
   };
-  return {
+  return { duelDifficultyPreset: "easy",
     _id: "duel" as Id<"duels">,
     _creationTime: 1,
     createdAt: now,
@@ -107,8 +107,8 @@ function duel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
   };
 }
 const people = {
-  challenger: { _id: "alice" as Id<"users">, name: "Alice" },
-  opponent: { _id: "bob" as Id<"users">, name: "Bob" },
+  challenger: { nickname: "Alice", _id: "alice" as Id<"users">, name: "Alice" },
+  opponent: { nickname: "Bob", _id: "bob" as Id<"users">, name: "Bob" },
 };
 const board = () =>
   state.board.mock.lastCall![0] as ComponentProps<typeof SentenceBuildBoard>;
@@ -259,31 +259,17 @@ describe("Tag Team view and shared clock", () => {
     fireEvent.click(screen.getByText("Back to Home"));
     expect(state.push).toHaveBeenCalledWith("/");
   });
-  it.each([
-    undefined,
-    [
-      {
-        kind: "word" as const,
-        options: [],
-        correctOption: "",
-        difficulty: "easy" as const,
-        points: 1,
-      },
-    ],
-  ])(
-    "waits when sentence questions are not available (%j)",
-    (duelQuestions) => {
-      render(
-        <TurnByTurnView
-          duel={duel({ duelQuestions })}
-          viewerRole="challenger"
-          {...people}
-        />,
-      );
-      expect(screen.getByText("Loading…")).toBeInTheDocument();
-      expect(state.board).not.toHaveBeenCalled();
-    },
-  );
+  it("waits when the selected round is not a sentence question", () => {
+    render(
+      <TurnByTurnView
+        duel={duel({ duelQuestions: [{ kind: "word", options: [], correctOption: "", difficulty: "easy", points: 1 }] })}
+        viewerRole="challenger"
+        {...people}
+      />,
+    );
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(state.board).not.toHaveBeenCalled();
+  });
   it("surfaces missing turn data", () => {
     render(
       <TurnByTurnView

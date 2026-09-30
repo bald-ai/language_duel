@@ -317,32 +317,45 @@ const weeklyGoalModeValidator = v.union(
   v.literal("shared")
 );
 
+const friendRequestPayloadValidator = v.object({
+  friendRequestId: v.id("friendRequests"),
+});
+const weeklyGoalPayloadValidator = v.object({
+  goalId: v.id("weeklyGoals"),
+  themeCount: v.number(),
+  event: v.union(
+    v.literal("invite"),
+    v.literal("declined"),
+    v.literal("partner_locked"),
+    v.literal("goal_unlocked"),
+    v.literal("goal_activated"),
+    v.literal("goal_completed"),
+    v.literal("goal_completed_solo")
+  ),
+});
+const draftExpiringPayloadValidator = v.object({
+  goalId: v.id("weeklyGoals"),
+  themeCount: v.number(),
+});
+const challengeInvitePayloadValidator = v.object({
+  challengeId: v.id("challenges"),
+  themeName: v.string(),
+  duelDifficultyPreset: duelDifficultyPresetValidator,
+  duelMode: duelModeValidator,
+});
 export const notificationPayloadValidator = v.union(
-  v.object({
-    friendRequestId: v.id("friendRequests"),
-  }),
-  v.object({
-    goalId: v.id("weeklyGoals"),
-    themeCount: v.number(),
-    event: v.optional(
-      v.union(
-        v.literal("invite"),
-        v.literal("declined"),
-        v.literal("partner_locked"),
-        v.literal("goal_unlocked"),
-        v.literal("goal_activated"),
-        v.literal("goal_completed"),
-        v.literal("goal_completed_solo")
-      )
-    ),
-  }),
-  v.object({
-    challengeId: v.id("challenges"),
-    themeName: v.optional(v.string()),
-    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
-    duelMode: duelModeValidator,
-  })
+  friendRequestPayloadValidator,
+  weeklyGoalPayloadValidator,
+  draftExpiringPayloadValidator,
+  challengeInvitePayloadValidator
 );
+
+const notificationFields = {
+  fromUserId: v.id("users"),
+  toUserId: v.id("users"),
+  status: notificationStatusValidator,
+  createdAt: v.number(),
+};
 
 export type NotificationPayload = Infer<typeof notificationPayloadValidator>;
 
@@ -377,13 +390,13 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    nickname: v.optional(v.string()),
+    nickname: v.string(),
     discriminator: v.optional(v.number()),
-    llmCreditsRemaining: v.optional(v.number()),
-    ttsGenerationsRemaining: v.optional(v.number()),
+    llmCreditsRemaining: v.number(),
+    ttsGenerationsRemaining: v.number(),
     // TTS provider preference. Default lives in lib/tts/providers.
     ttsProvider: v.optional(ttsProviderValidator),
-    creditsMonth: v.optional(v.string()),
+    creditsMonth: v.string(),
     // User preferences for theme system
     selectedColorSet: v.optional(v.string()),
     selectedBackground: v.optional(v.string()),
@@ -426,11 +439,11 @@ export default defineSchema({
         name: v.string(),
         description: v.string(),
         contentType: v.literal("word"),
-        wordType: optionalWordTypeValidator,
+        wordType: wordTypeValidator,
         words: v.array(wordValidator),
         createdAt: v.number(),
-        ownerId: v.optional(v.id("users")),
-        visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+        ownerId: v.id("users"),
+        visibility: v.union(v.literal("private"), v.literal("shared")),
         friendsCanEdit: v.optional(v.boolean()),
         saveRequestId: v.optional(v.string()),
       }),
@@ -440,8 +453,8 @@ export default defineSchema({
         contentType: v.literal("sentence"),
         sentenceRounds: v.array(sentenceRoundValidator),
         createdAt: v.number(),
-        ownerId: v.optional(v.id("users")),
-        visibility: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+        ownerId: v.id("users"),
+        visibility: v.union(v.literal("private"), v.literal("shared")),
         friendsCanEdit: v.optional(v.boolean()),
         saveRequestId: v.optional(v.string()),
       })
@@ -485,7 +498,7 @@ export default defineSchema({
     ...sessionSourceFields,
     sourceType: duelSourceTypeValidator,
     status: challengeStatusValidator,
-    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelDifficultyPreset: duelDifficultyPresetValidator,
     duelMode: duelModeValidator,
     duelId: v.optional(v.id("duels")),
     createdAt: v.number(),
@@ -515,14 +528,14 @@ export default defineSchema({
 
     currentItemIndex: v.number(),
     itemOrder: v.array(v.number()),
-    duelQuestions: v.optional(v.array(duelQuestionValidator)),
+    duelQuestions: v.array(duelQuestionValidator),
     challengerAnswered: v.boolean(),
     opponentAnswered: v.boolean(),
     challengerScore: v.number(),
     opponentScore: v.number(),
     challengerPerfectRun: v.optional(v.boolean()),
     opponentPerfectRun: v.optional(v.boolean()),
-    duelDifficultyPreset: v.optional(duelDifficultyPresetValidator),
+    duelDifficultyPreset: duelDifficultyPresetValidator,
     duelMode: duelModeValidator,
 
     questionStartTime: v.optional(v.number()),
@@ -677,7 +690,7 @@ export default defineSchema({
         name: v.string(),
         description: v.string(),
         contentType: v.literal("word"),
-        wordType: optionalWordTypeValidator,
+        wordType: wordTypeValidator,
         words: v.array(wordValidator),
         lockedAt: v.number(),
         createdAt: v.number(),
@@ -702,14 +715,12 @@ export default defineSchema({
   // -------------------------------------------
   // Notifications Table
   // -------------------------------------------
-  notifications: defineTable({
-    type: notificationTypeValidator,
-    fromUserId: v.id("users"),
-    toUserId: v.id("users"),
-    status: notificationStatusValidator,
-    payload: v.optional(notificationPayloadValidator),
-    createdAt: v.number(),
-  })
+  notifications: defineTable(v.union(
+    v.object({ ...notificationFields, type: v.literal("friend_request"), payload: friendRequestPayloadValidator }),
+    v.object({ ...notificationFields, type: v.literal("challenge_invite"), payload: challengeInvitePayloadValidator }),
+    v.object({ ...notificationFields, type: v.literal("weekly_goal_invitation"), payload: weeklyGoalPayloadValidator }),
+    v.object({ ...notificationFields, type: v.literal("weekly_goal_draft_expiring"), payload: draftExpiringPayloadValidator })
+  ))
     .index("by_recipient", ["toUserId", "status"])
     .index("by_type_status", ["type", "toUserId", "status"])
     .index("by_type", ["type", "toUserId"])

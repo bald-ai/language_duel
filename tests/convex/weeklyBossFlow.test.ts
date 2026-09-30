@@ -293,7 +293,7 @@ function themeDoc(id: string, name: string): ThemeDoc {
 }
 
 function snapshotDoc(id: string, themeId: string, name: string): SnapshotDoc {
-  return {
+  return { wordType: "nouns",
     _id: id as Id<"weeklyGoalThemeSnapshots">,
     _creationTime: 1,
     weeklyGoalId: "goal_1" as Id<"weeklyGoals">,
@@ -409,8 +409,8 @@ describe("weekly boss flow", () => {
     const schedulerRunAfter = vi.fn();
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -447,7 +447,7 @@ describe("weekly boss flow", () => {
       fromUserId: "user_1",
       toUserId: "user_2",
       status: "pending",
-      payload: {
+      payload: { duelDifficultyPreset: "easy",
         challengeId: "challenge_10",
         themeName: "Mini Boss: Animals",
         duelMode: "pve",
@@ -460,8 +460,8 @@ describe("weekly boss flow", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -487,8 +487,8 @@ describe("weekly boss flow", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -514,8 +514,8 @@ describe("weekly boss flow", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -552,8 +552,8 @@ describe("weekly boss flow", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -615,7 +615,7 @@ describe("weekly boss flow", () => {
     vi.spyOn(Date, "now").mockReturnValue(5_000);
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
     );
     db.themes.push(themeDoc("theme_1", "Animals"));
     db.weeklyGoals.push(readyMiniBossGoal());
@@ -643,7 +643,7 @@ describe("weekly boss flow", () => {
   ] as const)("rejects %s boss practice before creating a session", async (scenario, message) => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: (scenario === "outsider" ? "user_3" : "user_1") as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: (scenario === "outsider" ? "user_3" : "user_1") as Id<"users">, clerkId: "clerk_1" }));
     if (scenario !== "missing") {
       db.weeklyGoals.push(readyMiniBossGoal(scenario === "draft" ? { status: "draft" } : {}));
     }
@@ -663,7 +663,7 @@ describe("weekly boss flow", () => {
   it("startBossSoloPractice creates a solo-practice session, not a challenge", async () => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
     db.themes.push(themeDoc("theme_1", "Animals"), themeDoc("theme_2", "Food"));
     db.weeklyGoals.push(readyMiniBossGoal());
     addLockedGoalSnapshots(db);
@@ -698,7 +698,7 @@ describe("weekly boss flow", () => {
   it("startBossSoloPractice includes sentence themes in the solo-practice session", async () => {
     vi.spyOn(Date, "now").mockReturnValue(6_000);
     const db = new InMemoryDb();
-    db.users.push(userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
+    db.users.push(userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }));
     db.weeklyGoals.push(readyMiniBossGoal({
       themes: [
         {
@@ -748,8 +748,8 @@ describe("weekly boss flow", () => {
   it("getBossPracticeSession reads persisted solo-practice sessions by soloPracticeSessionId", async () => {
     const db = new InMemoryDb();
     db.users.push(
-      userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-      userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+      userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+      userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
     );
     db.soloPracticeSessions.push(soloPracticeSessionDoc());
 

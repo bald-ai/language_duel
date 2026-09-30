@@ -5,7 +5,7 @@ import { useDuelPhaseState } from "@/app/duel/[duelId]/hooks/useDuelPhaseState";
 import { TRANSITION_COUNTDOWN_SECONDS } from "@/lib/duelConstants";
 
 function duel(): Doc<"duels"> {
-  return {
+  return { duelDifficultyPreset: "easy",
     _id: "duel" as Id<"duels">, _creationTime: 1, challengerId: "viewer" as Id<"users">,
     opponentId: "peer" as Id<"users">, themeIds: ["theme" as Id<"themes">], sourceType: "normal",
     duelMode: "pvp", status: "active", createdAt: 1, currentItemIndex: 0, itemOrder: [0, 1],

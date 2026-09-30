@@ -258,8 +258,8 @@ function GoalThemeMetadata({ theme }: { theme: Doc<"themes"> }) {
         style={{ color: colors.text.muted }}
       >
         {theme.contentType === "sentence"
-          ? formatUnitCount(theme.sentenceRounds?.length ?? 0, "round", "rounds")
-          : formatUnitCount(theme.words?.length ?? 0, "word", "words")}
+          ? formatUnitCount(theme.sentenceRounds.length, "round", "rounds")
+          : formatUnitCount(theme.words.length, "word", "words")}
       </span>
       {theme.description && (
         <>

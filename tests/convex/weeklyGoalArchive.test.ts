@@ -9,7 +9,7 @@ const notificationId = "notice" as Id<"notifications">;
 const goalId = "goal" as Id<"weeklyGoals">;
 const themeId = (id: string) => id as Id<"themes">;
 function fixture(options: { archived?: Id<"themes">[]; mode?: "solo" | "shared"; status?: Doc<"weeklyGoals">["status"]; event?: string; missingGoal?: boolean; notice?: Partial<Doc<"notifications">> } = {}) {
-  const user = { _id: userId, clerkId: "clerk", archivedThemeIds: options.archived };
+  const user = { nickname: "Learner", _id: userId, clerkId: "clerk", archivedThemeIds: options.archived };
   const notice = { _id: notificationId, toUserId: userId, type: "weekly_goal_invitation", status: "pending",
     payload: { goalId, event: options.event ?? "goal_completed", themeCount: 3 }, ...options.notice };
   const goal = { _id: goalId, mode: options.mode ?? "shared", status: options.status ?? "completed",
@@ -49,7 +49,7 @@ describe("archive themes from completed goal notifications", () => {
     [{ status: "locked" }, "Weekly goal is not completed"],
     [{ notice: { toUserId: "other" } }, "Not authorized"],
     [{ notice: { type: "friend_request" } }, "Invalid notification type"],
-    [{ notice: { payload: undefined } }, "Weekly goal data is missing"],
+    [{ notice: { payload: { friendRequestId: "request" } } }, "Weekly goal data is missing"],
   ] as const)("rejects invalid notification %j before writing", async (options, message) => {
     const f = fixture(options as Parameters<typeof fixture>[0]);
     await expect(archive(f.ctx, notificationId)).rejects.toThrow(message);

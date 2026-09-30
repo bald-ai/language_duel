@@ -16,7 +16,7 @@ function progress(placedTileIndices: number[], completed = false): NonNullable<D
   return [{ questionIndex: 0, role: "challenger", placedTileIndices, completed, mistakes: 0, finalized: false, failedConfirms: 0 }];
 }
 function duel(overrides: Partial<Doc<"duels">> = {}): Doc<"duels"> {
-  return { _id: "duel_1" as Id<"duels">, _creationTime: 1, challengerId: "user_1" as Id<"users">, opponentId: "user_2" as Id<"users">, themeIds: [sessionItem.themeId], sessionItems: [sessionItem], itemOrder: [0], sourceType: "normal", duelMode: "pve", status: "active", currentItemIndex: 0, challengerAnswered: false, opponentAnswered: false, challengerScore: 0, opponentScore: 0, createdAt: 1, hintPoolUsed: [], sentenceHintPoolUsed: [], currentQuestionHintFired: false, questionStartTime: 10_000, ...overrides } as Doc<"duels">;
+  return { duelDifficultyPreset: "easy", duelQuestions: [], _id: "duel_1" as Id<"duels">, _creationTime: 1, challengerId: "user_1" as Id<"users">, opponentId: "user_2" as Id<"users">, themeIds: [sessionItem.themeId], sessionItems: [sessionItem], itemOrder: [0], sourceType: "normal", duelMode: "pve", status: "active", currentItemIndex: 0, challengerAnswered: false, opponentAnswered: false, challengerScore: 0, opponentScore: 0, createdAt: 1, hintPoolUsed: [], sentenceHintPoolUsed: [], currentQuestionHintFired: false, questionStartTime: 10_000, ...overrides } as Doc<"duels">;
 }
 function board(value: Doc<"duels">, other: Partial<Parameters<typeof SentenceBoard>[0]> = {}) {
   return <SentenceBoard duel={value} sessionItem={sessionItem} question={question} viewerRole="challenger" {...other} />;

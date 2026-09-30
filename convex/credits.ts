@@ -19,14 +19,12 @@ export function getCurrentMonthKey(now = Date.now()): string {
 export function normalizeCreditState(user: Doc<"users">, now = Date.now()) {
   const creditsMonth = getCurrentMonthKey(now);
   const shouldReset =
-    user.creditsMonth !== creditsMonth ||
-    user.llmCreditsRemaining === undefined ||
-    user.ttsGenerationsRemaining === undefined;
+    user.creditsMonth !== creditsMonth;
 
   return {
     creditsMonth,
-    llmCreditsRemaining: shouldReset ? LLM_MONTHLY_CREDITS : user.llmCreditsRemaining!,
-    ttsGenerationsRemaining: shouldReset ? TTS_MONTHLY_GENERATIONS : user.ttsGenerationsRemaining!,
+    llmCreditsRemaining: shouldReset ? LLM_MONTHLY_CREDITS : user.llmCreditsRemaining,
+    ttsGenerationsRemaining: shouldReset ? TTS_MONTHLY_GENERATIONS : user.ttsGenerationsRemaining,
     shouldReset,
   };
 }

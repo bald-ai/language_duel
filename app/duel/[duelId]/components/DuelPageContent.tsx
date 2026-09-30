@@ -46,8 +46,6 @@ function duelContentMessage(duel: Doc<"duels"> | undefined): string | null {
   if (!duel) return "Duel not found";
   if (duel.sessionItems.length === 0)
     return "Duel data is incomplete. Missing session content.";
-  if (duel.duelMode !== "relay" && !duel.duelQuestions?.length)
-    return "Duel data is incomplete. Missing duel questions.";
   if (duel.status === "stopped") return "Redirecting...";
   return null;
 }

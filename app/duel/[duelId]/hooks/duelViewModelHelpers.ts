@@ -98,11 +98,10 @@ export function buildFrozenData(args: {
 
   const prevActualIndex = duel.itemOrder[prevIndex];
   const rawPrev = duel.sessionItems[prevActualIndex];
-  const prevWord = rawPrev
-    ? requireWordSessionItem(rawPrev)
-    : { word: "", answer: "", wrongAnswers: [] };
+  if (!rawPrev) throw new Error("Frozen round is missing its session item");
+  const prevWord = requireWordSessionItem(rawPrev);
   const prevQuestion = requireWordQuestion(
-    duel.duelQuestions![prevIndex] as ViewerSafeDuelQuestion
+    duel.duelQuestions[prevIndex] as ViewerSafeDuelQuestion
   );
   const prevCorrectOption = prevQuestion.correctOption ?? null;
 

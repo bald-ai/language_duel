@@ -18,7 +18,7 @@ function goal(changes: Partial<GoalWithUsers> = {}): GoalWithUsers {
   return { goal: { _id: "goal" as Id<"weeklyGoals">, _creationTime: 1, createdAt: Date.now(), creatorId: "creator" as Id<"users">,
     mode: "solo", themes: [1, 2].map(i => ({ themeId: `theme${i}` as Id<"themes">, themeName: `Theme ${i}`, creatorCompleted: false })),
     creatorLocked: false, status: "draft", miniBossStatus: "unavailable", bigBossStatus: "unavailable", endDate: new Date(2030, 0, 20).getTime() },
-    mode: "solo", creator: { _id: "creator" as Id<"users">, name: "Creator" }, partner: null, viewerRole: "creator",
+    mode: "solo", creator: { nickname: "Creator", _id: "creator" as Id<"users">, name: "Creator" }, partner: null, viewerRole: "creator",
     lockState: "none", effectiveStatus: "draft", miniBossStatus: "unavailable", bigBossStatus: "unavailable", completedThemeCount: 0, canEditEndDate: true, ...changes };
 }
 function select(current: GoalWithUsers | null) {
@@ -26,7 +26,7 @@ function select(current: GoalWithUsers | null) {
   mocks.queries["weeklyGoals:getGoalById"] = current;
 }
 function shared(changes: Partial<GoalWithUsers> = {}) {
-  const current = goal({ mode: "shared", partner: { _id: "partner" as Id<"users">, name: "Partner" }, ...changes });
+  const current = goal({ mode: "shared", partner: { nickname: "Partner", _id: "partner" as Id<"users">, name: "Partner" }, ...changes });
   current.goal = { ...current.goal, mode: "shared", partnerId: "partner" as Id<"users">, partnerLocked: false,
     themes: current.goal.themes.map(theme => ({ ...theme, partnerCompleted: false })) };
   return current;

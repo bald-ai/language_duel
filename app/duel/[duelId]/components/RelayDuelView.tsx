@@ -1,5 +1,7 @@
 "use client";
 
+import { requireRelayState } from "@/lib/duel/relayState";
+
 import {
   useCallback,
   useState,
@@ -302,23 +304,26 @@ function getRelayItemLookup(duel: RelaySafeDuel) {
   // Each position renders its own answer surface based on its kind: word → MC
   // grid, sentence → tile board. The prompt is the word itself or the sentence's
   // English prompt.
-  const itemAt = (position: number) =>
-    duel.sessionItems[duel.itemOrder[position]];
+  const itemAt = (position: number) => {
+    const item = duel.sessionItems[duel.itemOrder[position]];
+    if (!item) throw new Error("Relay position is missing its session item");
+    return item;
+  };
   const promptAt = (position: number) => {
     const item = itemAt(position);
-    if (!item) return "";
     return item.kind === "sentence" ? item.englishPrompt : item.word;
   };
   const isSentenceAt = (position: number) =>
-    itemAt(position)?.kind === "sentence";
-  const themeAt = (position: number) => itemAt(position)?.themeName ?? "";
+    itemAt(position).kind === "sentence";
+  const themeAt = (position: number) => itemAt(position).themeName;
 
   return { promptAt, isSentenceAt, themeAt };
 }
 function RelayActiveRound(props: RelayActiveRoundProps) {
   const { duel, viewerRole } = props;
-  const phase = duel.relayPhase ?? "pick";
-  const picker = duel.relayPicker ?? "challenger";
+  const state = requireRelayState(duel);
+  const phase = state.relayPhase;
+  const picker = state.relayPicker;
   const answerer = picker === "challenger" ? "opponent" : "challenger";
   if (phase === "pick")
     return <RelayPickingRound {...props} amPicker={viewerRole === picker} />;
@@ -340,8 +345,8 @@ function RelayPickingRound({
   amPicker,
 }: RelayActiveRoundProps & { amPicker: boolean }) {
   const { promptAt, isSentenceAt } = getRelayItemLookup(duel);
-  const budget = duel.relayHardBudget?.[viewerRole] ?? 0;
-  const remaining = duel.relayRemainingPositions ?? [];
+  const budget = requireRelayState(duel).relayHardBudget[viewerRole];
+  const remaining = duel.relayRemainingPositions;
   if (!amPicker)
     return (
       <Waiting colors={colors}>
@@ -386,7 +391,7 @@ function RelayAssignedRound({
 }) {
   const served = duel.relayServedQuestion;
   const total = duel.itemOrder.length;
-  const resolvedCount = duel.relayResolvedIndices?.length ?? 0;
+  const resolvedCount = requireRelayState(duel).relayResolvedIndices.length;
   const { prompt, themeName } = getAssignedRelayItem(duel);
   const active = !showFeedback && duel.status === "active";
   if (served?.kind === "sentence")

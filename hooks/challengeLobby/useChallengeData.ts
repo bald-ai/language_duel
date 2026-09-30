@@ -34,8 +34,8 @@ export function useChallengeData(shouldLoad: boolean) {
       contentType: theme.contentType,
       itemCount:
         theme.contentType === "sentence"
-          ? (theme.sentenceRounds?.length ?? 0)
-          : (theme.words?.length ?? 0),
+          ? (theme.sentenceRounds.length)
+          : (theme.words.length),
     })),
     pendingChallenges,
     viewer,

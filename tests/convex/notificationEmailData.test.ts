@@ -4,8 +4,8 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 const creatorId = "creator" as Id<"users">;
 const partnerId = "partner" as Id<"users">;
 const goalId = "goal" as Id<"weeklyGoals">;
-const user: Doc<"users"> = { _id: creatorId, _creationTime: 1, clerkId: "creator", email: "creator@example.test", name: "Creator" };
-const partner: Doc<"users"> = { ...user, _id: partnerId, name: "Partner" };
+const user: Doc<"users"> = { nickname: "Creator", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: creatorId, _creationTime: 1, clerkId: "creator", email: "creator@example.test", name: "Creator" };
+const partner: Doc<"users"> = { ...user, _id: partnerId, name: "Partner", nickname: "Partner" };
 const hour = 3600000;
 function goal(changes: Partial<Doc<"weeklyGoals">> = {}): Doc<"weeklyGoals"> {
   return { _id: goalId, _creationTime: 1, createdAt: 1, mode: "shared", creatorId, partnerId,

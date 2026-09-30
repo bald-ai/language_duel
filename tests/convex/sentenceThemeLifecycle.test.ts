@@ -9,9 +9,9 @@ const remove = (deleteTheme as unknown as { _handler: (ctx: unknown, args: { the
 function fixture() {
   const original: Extract<Doc<"themes">, { contentType: "sentence" }> = { _id: themeId, _creationTime: 1, name: "ANIMALS", description: "Sentence practice", contentType: "sentence", sentenceRounds: [{ englishPrompt: "The cat sleeps", spanishSentence: "El gato duerme", wordMeanings: ["the", "cat", "sleeps"], freeWordPositions: [1], distractors: ["perro", "come", "pez"], ttsStorageId: "audio" as Id<"_storage"> }], createdAt: 1, ownerId, visibility: "shared", friendsCanEdit: true };
   const themes: Doc<"themes">[] = [original];
-  const users: Doc<"users">[] = [{ _id: ownerId, _creationTime: 1, clerkId: "owner", email: "owner@example.test" }];
+  const users: Doc<"users">[] = [{ nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: ownerId, _creationTime: 1, clerkId: "owner", email: "owner@example.test" }];
   const snapshots: Doc<"weeklyGoalThemeSnapshots">[] = [];
-  const insert = vi.fn(async (table: string, fields: object) => { if (table !== "themes") throw new Error("Unexpected insert"); const id = "duplicate" as Id<"themes">; themes.push({ _id: id, _creationTime: 2, ...fields } as Doc<"themes">); return id; });
+  const insert = vi.fn(async (table: string, fields: object) => { if (table !== "themes") throw new Error("Unexpected insert"); const id = "duplicate" as Id<"themes">; themes.push({ ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, visibility: "private", _id: id, _creationTime: 2, ...fields } as Doc<"themes">); return id; });
   const storageDelete = vi.fn(async (_id: string) => {});
   const db = { get: async (id: string) => [...users, ...themes].find(row => row._id === id) ?? null,
     query: (table: string) => {

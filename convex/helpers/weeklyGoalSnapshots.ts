@@ -117,14 +117,12 @@ function toSessionThemeInput(
       name: snapshot.name,
       contentType: snapshot.contentType,
       words: snapshot.words,
-      sentenceRounds: undefined,
     };
   }
   return {
     _id: snapshot.originalThemeId,
     name: snapshot.name,
     contentType: snapshot.contentType,
-    words: undefined,
     sentenceRounds: snapshot.sentenceRounds,
   };
 }

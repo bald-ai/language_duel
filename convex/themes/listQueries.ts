@@ -136,8 +136,7 @@ async function enrichThemesWithOwners(args: {
   themes: Doc<"themes">[];
 }): Promise<ThemeWithOwner[]> {
   const ownerIds = args.themes
-    .map((theme) => theme.ownerId)
-    .filter((ownerId): ownerId is Id<"users"> => ownerId !== undefined);
+    .map((theme) => theme.ownerId);
   const ownersById = await loadUsersById(args.ctx, ownerIds);
 
   const friendshipPairsByOwnerId = new Map<string, { userId: Id<"users">; friendId: Id<"users"> }[]>();
@@ -156,10 +155,8 @@ async function enrichThemesWithOwners(args: {
     buildThemeWithOwner({
       theme,
       currentUserId: args.currentUserId,
-      owner: theme.ownerId ? (ownersById.get(theme.ownerId) ?? null) : null,
-      friendshipsWithOwner: theme.ownerId
-        ? (friendshipPairsByOwnerId.get(String(theme.ownerId)) ?? [])
-        : [],
+      owner: ownersById.get(theme.ownerId) ?? null,
+      friendshipsWithOwner: friendshipPairsByOwnerId.get(String(theme.ownerId)) ?? [],
     })
   );
 }

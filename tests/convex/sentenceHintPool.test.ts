@@ -204,7 +204,7 @@ describe("hintPool.fireSentenceHint", () => {
 
 it.each([
   [{ status: "completed" }, "Duel is not active"],
-  [{ duelQuestions: undefined }, "Duel question data is missing"],
+  [{ duelQuestions: [] }, "Duel question data is missing"],
 ] satisfies [Partial<DuelDoc>, string][])("rejects inactive/missing sentence rounds without writes (%#)", async (overrides, message) => {
   const db = seedDb(overrides);
   const before = structuredClone(db.duels);

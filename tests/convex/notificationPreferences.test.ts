@@ -83,9 +83,10 @@ describe("notificationPreferences.getByUserId", () => {
     );
   });
 
-  it("fills missing fields from defaults", async () => {
+  it("returns stored preference fields", async () => {
     const db = new InMemoryDb([
       {
+        ...DEFAULT_NOTIFICATION_PREFS,
         _id: "prefs_1" as Id<"notificationPreferences">,
         _creationTime: 1,
         userId: "user_1" as Id<"users">,
@@ -153,7 +154,7 @@ function preferenceFixture(
   const db = {
     query: (table: string) =>
       table === "users"
-        ? createIndexedQuery([{ _id: userId, clerkId: "clerk" }])
+        ? createIndexedQuery([{ nickname: "Learner", _id: userId, clerkId: "clerk" }])
         : createIndexedQuery(preferences),
     patch,
     insert,

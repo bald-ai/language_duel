@@ -5,7 +5,7 @@ import {
   normalizeThemeWords,
 } from "../../lib/themes/serverValidation";
 import { normalizeSentenceRounds } from "../../lib/themes/sentenceValidation";
-import type { SentenceRoundInput } from "../../lib/themes/sentenceTypes";
+import type { NormalizedSentenceRoundInput } from "../../lib/themes/sentenceValidation";
 import type { ThemeWordWithTts } from "./ttsPipeline";
 
 const DUPLICATE_THEME_SUFFIX = "(DUPLICATE)";
@@ -49,13 +49,13 @@ export function buildDuplicateWordThemePayload(theme: {
 export function buildDuplicateSentenceThemePayload(theme: {
   name: string;
   description: string;
-  sentenceRounds: SentenceRoundInput[];
+  sentenceRounds: NormalizedSentenceRoundInput[];
 }) {
   const duplicatedRounds = theme.sentenceRounds.map((round) => ({
     englishPrompt: round.englishPrompt,
     spanishSentence: round.spanishSentence,
-    wordMeanings: round.wordMeanings ? [...round.wordMeanings] : undefined,
-    freeWordPositions: round.freeWordPositions ? [...round.freeWordPositions] : undefined,
+    wordMeanings: [...round.wordMeanings],
+    freeWordPositions: [...round.freeWordPositions],
     distractors: [...round.distractors],
   }));
 

@@ -36,7 +36,7 @@ describe("canAttachThemeToGoal", () => {
 
         expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("creator") } })).toBe(true);
         expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("partner") } })).toBe(false);
-        expect(canAttachThemeToGoal({ goal, theme: { ownerId: undefined } })).toBe(false);
+        expect(canAttachThemeToGoal({ goal, theme: { ownerId: userId("unrelated") } })).toBe(false);
     });
 
     it("allows creator or partner themes for shared goals", () => {
@@ -66,11 +66,11 @@ describe("hasThemeAccess", () => {
             expect(hasThemeAccess(params)).toBe(true);
         });
 
-        it("denies owner access when theme has no owner", () => {
+        it("denies access to an unrelated private theme", () => {
             const params = makeParams({
                 theme: {
                     themeId: themeId("theme1"),
-                    ownerId: undefined,
+                    ownerId: userId("unrelated"),
                     visibility: "private",
                 },
             });

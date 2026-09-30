@@ -13,7 +13,7 @@ const goalId = "goal" as Id<"weeklyGoals">;
 const sessionId = "session" as Id<"soloPracticeSessions">;
 const now = 1_000_000;
 function fixture(options: { session?: Partial<Doc<"soloPracticeSessions">>; goal?: Partial<Doc<"weeklyGoals">>; missingSession?: boolean; missingGoal?: boolean; identity?: string | null } = {}) {
-  const user = { _id: userId, clerkId: "clerk" };
+  const user = { nickname: "Learner", _id: userId, clerkId: "clerk" };
   const goal = { _id: goalId, mode: "solo", creatorId: userId, status: "locked", createdAt: 1,
     endDate: now + 100_000, creatorLocked: true, lockedAt: 1,
     miniBossStatus: "ready", bigBossStatus: "ready", themes: [

@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { loadUsersById } from "../helpers/users";
@@ -97,9 +98,10 @@ export async function loadRepetitionBoardForUser(
 
   for (const goal of goals) {
     const record = recordByGoalId.get(String(goal._id));
-    if (!record || typeof goal.completedAt !== "number") {
-      continue;
+    if (typeof goal.completedAt !== "number") {
+      throw new ConvexError({ code: "INTERNAL_ERROR", message: "Completed goal is missing completion time." });
     }
+    if (!record) continue;
     const bucket = getSpacedRepetitionBucket(
       {
         completedSteps: record.completedSteps,
@@ -124,10 +126,10 @@ export async function loadRepetitionBoardForUser(
 
   const ready = items
     .filter((item) => item.bucket === "ready")
-    .sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+    .sort((a, b) => requireDueAt(a) - requireDueAt(b));
   const comingUp = items
     .filter((item) => item.bucket === "coming_up")
-    .sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0));
+    .sort((a, b) => requireDueAt(a) - requireDueAt(b));
   const done = items
     .filter((item) => item.bucket === "done")
     .sort((a, b) => b.updatedAt - a.updatedAt);
@@ -190,5 +192,14 @@ export async function loadLaunchPreviewForUser(
 export { EMPTY_BOARD };
 
 function isCompletedParticipantGoal(goal: Doc<"weeklyGoals"> | null, userId: Id<"users">): goal is Doc<"weeklyGoals"> & { completedAt: number } {
-  return goal !== null && goal.status === "completed" && typeof goal.completedAt === "number" && isGoalParticipant(goal, userId);
+  if (goal === null || goal.status !== "completed" || !isGoalParticipant(goal, userId)) return false;
+  if (typeof goal.completedAt !== "number") {
+    throw new ConvexError({ code: "INTERNAL_ERROR", message: "Completed goal is missing completion time." });
+  }
+  return true;
+}
+
+function requireDueAt(item: BoardItem): number {
+  if (item.dueAt === null) throw new ConvexError({ code: "INTERNAL_ERROR", message: "Pending repetition is missing its due time." });
+  return item.dueAt;
 }

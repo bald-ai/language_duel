@@ -33,7 +33,7 @@ vi.mock("@/app/duel/[duelId]/DuelSession", () => ({
   },
 }));
 function data(overrides: Partial<Doc<"duels">> = {}) {
-  const duel: Doc<"duels"> = {
+  const duel: Doc<"duels"> = { duelDifficultyPreset: "easy",
     _id: "duel" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user" as Id<"users">,
@@ -70,8 +70,8 @@ function data(overrides: Partial<Doc<"duels">> = {}) {
   };
   return {
     duel,
-    challenger: { _id: duel.challengerId, name: "Viewer" },
-    opponent: { _id: duel.opponentId, name: "Peer" },
+    challenger: { nickname: "Viewer", _id: duel.challengerId, name: "Viewer" },
+    opponent: { nickname: "Peer", _id: duel.opponentId, name: "Peer" },
     viewerRole: "opponent",
   };
 }
@@ -115,9 +115,7 @@ describe("duel page routing and access states", () => {
   });
   it.each([
     [{ sessionItems: [] }, "Missing session content."],
-    [{ duelQuestions: [] }, "Missing duel questions."],
-    [{ duelQuestions: undefined }, "Missing duel questions."],
-  ] as const)("reports incomplete session data %j", (override, message) => {
+  ])("reports incomplete session data %j", (override, message) => {
     state.data = data(override as Partial<Doc<"duels">>);
     render(<DuelPage />);
     expect(
@@ -134,7 +132,7 @@ describe("duel page routing and access states", () => {
   });
   it("allows relay DTOs to omit precomputed questions and preserves absent player summaries", () => {
     const dto = {
-      ...data({ duelMode: "relay", duelQuestions: undefined }),
+      ...data({ duelMode: "relay" }),
       challenger: null,
       opponent: null,
     };

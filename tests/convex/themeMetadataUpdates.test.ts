@@ -6,15 +6,15 @@ const themeId = "theme" as Id<"themes">;
 const userId = "user" as Id<"users">;
 const base = { _id: themeId, _creationTime: 1, createdAt: 1, ownerId: userId, name: "ORIGINAL", description: "Original description" };
 const themes: Doc<"themes">[] = [
-  { ...base, contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"], ttsStorageId: "audio" as Id<"_storage"> }] },
-  { ...base, contentType: "sentence", sentenceRounds: [{ englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", distractors: ["pan", "leche", "agua"], wordMeanings: ["I want", "coffee"], freeWordPositions: [1], ttsStorageId: "audio" as Id<"_storage"> }] },
+  { wordType: "nouns", visibility: "private", ...base, contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"], ttsStorageId: "audio" as Id<"_storage"> }] },
+  { visibility: "private", ...base, contentType: "sentence", sentenceRounds: [{ englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", distractors: ["pan", "leche", "agua"], wordMeanings: ["I want", "coffee"], freeWordPositions: [1], ttsStorageId: "audio" as Id<"_storage"> }] },
 ];
 function fixture(initial: Doc<"themes">) {
   let stored = initial;
   const patch = vi.fn(async (_id: string, updates: Record<string, unknown>) => { stored = { ...stored, ...updates } as Doc<"themes">; });
   const schedule = vi.fn();
   const deleteStorage = vi.fn();
-  const ctx = createAuthCtx({ query: () => createIndexedQuery([{ _id: userId, clerkId: "clerk" }]), get: async () => stored, patch }, "clerk", {
+  const ctx = createAuthCtx({ query: () => createIndexedQuery([{ nickname: "Learner", _id: userId, clerkId: "clerk" }]), get: async () => stored, patch }, "clerk", {
     scheduler: { runAfter: schedule }, storage: { delete: deleteStorage },
   });
   return { ctx, patch, schedule, deleteStorage, stored: () => stored };

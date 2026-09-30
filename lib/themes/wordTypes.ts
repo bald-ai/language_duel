@@ -174,19 +174,18 @@ export function isWordType(value: unknown): value is WordType {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(WORD_TYPE_CONFIG, value);
 }
 
-export function getWordTypeConfig(wordType: WordType = DEFAULT_WORD_TYPE): WordTypeConfig {
+export function getWordTypeConfig(wordType: WordType): WordTypeConfig {
   return WORD_TYPE_CONFIG[wordType];
 }
 
 export function getWordTypeLabel(
-  wordType: WordType | undefined,
-  options?: { fallback?: string; uppercase?: boolean }
+  wordType: WordType,
+  options?: { uppercase?: boolean }
 ): string {
-  const label = wordType ? WORD_TYPE_CONFIG[wordType]?.label : undefined;
-  const resolved = label ?? options?.fallback ?? WORD_TYPE_CONFIG[DEFAULT_WORD_TYPE].label;
-  return options?.uppercase ? resolved.toUpperCase() : resolved;
+  const label = WORD_TYPE_CONFIG[wordType].label;
+  return options?.uppercase ? label.toUpperCase() : label;
 }
 
-export function wordTypeAllowsCorrectAnswerMarker(wordType?: WordType): boolean {
-  return getWordTypeConfig(wordType || DEFAULT_WORD_TYPE).allowsCorrectAnswerMarker;
+export function wordTypeAllowsCorrectAnswerMarker(wordType: WordType): boolean {
+  return getWordTypeConfig(wordType).allowsCorrectAnswerMarker;
 }

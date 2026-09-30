@@ -2,8 +2,8 @@ import type { Id } from "./types";
 
 export type ThemeAccessData = {
     themeId: Id<"themes">;
-    ownerId: Id<"users"> | undefined;
-    visibility: "private" | "shared" | undefined;
+    ownerId: Id<"users">;
+    visibility: "private" | "shared";
     friendsCanEdit?: boolean;
 };
 
@@ -55,13 +55,9 @@ export type ThemeAccessParams = {
 
 export function hasFriendshipWithOwner(
     userId: Id<"users">,
-    ownerId: Id<"users"> | undefined,
+    ownerId: Id<"users">,
     friendships: FriendshipData[]
 ): boolean {
-    if (!ownerId) {
-        return false;
-    }
-
     return friendships.some(
         (f) =>
             (f.userId === userId && f.friendId === ownerId) ||
@@ -171,7 +167,7 @@ export function canAttachThemeToGoal({
     theme,
 }: {
     goal: GoalThemeAttachmentData;
-    theme: { ownerId?: Id<"users"> | undefined };
+    theme: { ownerId: Id<"users"> };
 }): boolean {
     if (goal.mode === "solo") {
         return theme.ownerId === goal.creatorId;
@@ -185,7 +181,7 @@ function hasAccessViaSharedTheme(
     theme: ThemeAccessData,
     friendships: FriendshipData[]
 ): boolean {
-    if (theme.visibility !== "shared" || !theme.ownerId) {
+    if (theme.visibility !== "shared") {
         return false;
     }
 

@@ -252,7 +252,7 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
   };
 }
 
-function notificationDoc(overrides: Partial<NotificationDoc> = {}): NotificationDoc {
+function notificationDoc(overrides: Partial<Extract<Doc<"notifications">, { type: "challenge_invite" }>> = {}): NotificationDoc {
   return {
     _id: "notification_1" as Id<"notifications">,
     _creationTime: 1,

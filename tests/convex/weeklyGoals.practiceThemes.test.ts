@@ -44,7 +44,7 @@ class InMemoryDb {
 }
 
 function buildUser(overrides: Partial<UserDoc> = {}): UserDoc {
-  return {
+  return { nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
     _id: "user_creator" as Id<"users">,
     _creationTime: 1,
     clerkId: "creator",
@@ -54,7 +54,7 @@ function buildUser(overrides: Partial<UserDoc> = {}): UserDoc {
 }
 
 function buildTheme(overrides: Partial<ThemeDoc> = {}): ThemeDoc {
-  return {
+  return { visibility: "private",
     _id: "theme_1" as Id<"themes">,
     _creationTime: 1,
     name: "Live Theme 1",
@@ -130,12 +130,12 @@ function createDb(goal: WeeklyGoalDoc, snapshots: SnapshotDoc[] = []) {
   return new InMemoryDb(
     [
       buildUser(),
-      buildUser({
+      buildUser({ nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
         _id: "user_partner" as Id<"users">,
         clerkId: "partner",
         email: "partner@example.com",
       }),
-      buildUser({
+      buildUser({ nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
         _id: "user_outsider" as Id<"users">,
         clerkId: "outsider",
         email: "outsider@example.com",

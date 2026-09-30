@@ -292,7 +292,7 @@ export function useDuelSessionViewModel({
 /** Select the actual last round for final results; active play uses the server cursor. */
 function currentWordRound(duel: Doc<"duels">) {
   const isCompleted = duel.status === "completed";
-  const rawIndex = duel.currentItemIndex ?? 0;
+  const rawIndex = duel.currentItemIndex;
   const index =
     isCompleted && duel.sessionItems.length > 0
       ? duel.sessionItems.length - 1
@@ -309,7 +309,7 @@ function displayedWordQuestion(
   index: number,
   isCompleted: boolean,
 ): ViewerSafeWordQuestion {
-  const question = duel.duelQuestions![index] as ViewerSafeDuelQuestion;
+  const question = duel.duelQuestions[index] as ViewerSafeDuelQuestion;
   // A sentence-last completion uses this view only for its final-results card.
   return isCompleted && !isWordQuestion(question)
     ? COMPLETED_PLACEHOLDER_WORD_QUESTION
@@ -386,7 +386,6 @@ function sourceThemeNameForRound(
   if (!hasMultipleThemes) return null;
   const visibleItemIndex = itemOrder[displayedIndex];
   const visibleItem = items[visibleItemIndex];
-  const themeName = (visibleItem as { themeName?: string } | undefined)
-    ?.themeName;
-  return typeof themeName === "string" ? themeName : null;
+  if (!visibleItem) throw new Error("Round is missing its session item");
+  return visibleItem.themeName;
 }

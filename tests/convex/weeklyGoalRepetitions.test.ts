@@ -469,8 +469,8 @@ function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
 
 function seedCompletedGoal(db: InMemoryDb) {
   db.users.push(
-    userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-    userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+    userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
   );
   db.weeklyGoals.push(completedGoal());
   db.weeklyGoalRepetitions.push(repetitionDoc());
@@ -479,8 +479,8 @@ function seedCompletedGoal(db: InMemoryDb) {
 
 function seedCompletedSentenceGoal(db: InMemoryDb) {
   db.users.push(
-    userDoc({ _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
-    userDoc({ _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
+    userDoc({ nickname: "Learner", _id: "user_1" as Id<"users">, clerkId: "clerk_1" }),
+    userDoc({ nickname: "Learner", _id: "user_2" as Id<"users">, clerkId: "clerk_2" })
   );
   db.weeklyGoals.push(completedGoal({
     themes: [
@@ -534,7 +534,7 @@ describe("weekly goal spaced repetition", () => {
     expect(db.duels).toHaveLength(0);
     expect(db.notifications[0]).toMatchObject({
       type: "challenge_invite",
-      payload: {
+      payload: { duelDifficultyPreset: "easy",
         challengeId: "challenge_10",
         themeName: "Spaced Repetition 1/6: Animals",
         duelMode: "pve",

@@ -22,6 +22,6 @@ export type NewThemeDraft = {
 };
 
 export type SelectedThemeState =
-  | { kind: "saved"; theme: ThemeWithOwner }
+  | { kind: "saved"; theme: Extract<ThemeWithOwner, { contentType: "word" }> }
   | { kind: "unsaved"; draft: NewThemeDraft }
   | null;

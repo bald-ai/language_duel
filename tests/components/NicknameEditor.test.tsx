@@ -59,7 +59,7 @@ describe("NicknameEditor", () => {
 
 it("starts with an empty nickname, clears errors while editing, and preserves a rejected value", async () => {
   const onUpdate = vi.fn().mockResolvedValue(false), onClearError = vi.fn();
-  const props = { isUpdating: false, error: "Already taken", onUpdate, onClearError };
+  const props = { currentNickname: "", isUpdating: false, error: "Already taken", onUpdate, onClearError };
   const view = render(<NicknameEditor {...props} />);
   const input = screen.getByTestId("settings-nickname-input") as HTMLInputElement;
   const submit = screen.getByTestId("settings-nickname-submit") as HTMLButtonElement;

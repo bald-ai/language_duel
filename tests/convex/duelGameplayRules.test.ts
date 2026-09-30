@@ -13,7 +13,7 @@ import {
 type DuelDoc = Doc<"duels">;
 
 function duelDoc(overrides: Partial<DuelDoc> = {}): DuelDoc {
-  return {
+  return { duelDifficultyPreset: "easy",
     _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,

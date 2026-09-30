@@ -17,7 +17,7 @@ const word = {
   answer: "gato (irr)",
   wrongAnswers: ["perro", "pan", "agua"],
 };
-const theme: Doc<"themes"> = {
+const theme: Doc<"themes"> = { wordType: "nouns", visibility: "private",
   _id: themeId,
   _creationTime: 1,
   createdAt: 1,
@@ -61,7 +61,7 @@ function fixture(
       if (name === "users:getCurrentUser")
         return options.user === false
           ? null
-          : { _id: userId, ttsGenerationsRemaining: options.credits ?? 10 };
+          : { nickname: "Learner", _id: userId, ttsGenerationsRemaining: options.credits ?? 10 };
       if (name === "themes:getThemeForStoredTtsEditor")
         return options.theme === undefined ? theme : options.theme;
       throw new Error(`Unexpected query ${name}`);
@@ -214,7 +214,7 @@ describe("stored theme audio generation action", () => {
 
   it("voices Spanish sentence content and includes its full source signature", async () => {
     const f = fixture({
-      theme: {
+      theme: { visibility: "private",
         _id: themeId,
         _creationTime: 1,
         createdAt: 1,

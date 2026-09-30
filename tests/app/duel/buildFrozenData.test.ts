@@ -111,7 +111,7 @@ describe("buildFrozenData", () => {
     ).toBeNull();
   });
 
-  it("falls back to an empty word when the session item is missing", () => {
+  it("rejects a round whose session item is missing", () => {
     const duel = makeDuel({
       itemOrder: [5], // points past the end of sessionItems
       sessionItems: [cat],
@@ -119,8 +119,8 @@ describe("buildFrozenData", () => {
     });
 
     expect(
-      buildFrozenData({ duel, prevIndex: 0, lockedAnswer: null, theirLastAnswer: null }).word
-    ).toBe("");
+      () => buildFrozenData({ duel, prevIndex: 0, lockedAnswer: null, theirLastAnswer: null })
+    ).toThrow("Frozen round is missing its session item");
   });
 
   it("throws when the previous position is a sentence question", () => {

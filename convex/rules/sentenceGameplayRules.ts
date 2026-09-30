@@ -146,7 +146,7 @@ function requireSentenceQuestion(
   questionIndex: number,
   message = "This duel position is not a sentence round",
 ) {
-  const question = duel.duelQuestions?.[questionIndex];
+  const question = duel.duelQuestions[questionIndex];
   if (!question || question.kind !== "sentence") {
     throw new ConvexError({
       code: "WRONG_QUESTION_KIND",

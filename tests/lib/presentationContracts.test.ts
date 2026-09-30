@@ -7,13 +7,11 @@ import { getPlainBackendErrorMessage, normalizePlainErrorMessage } from "@/lib/u
 import { normalizeThemeName, normalizeThemeDescription, normalizeSaveRequestId } from "@/lib/themes/serverValidation";
 
 describe("content labels and source navigation", () => {
-  it("resolves word type labels, casing and optional defaults", () => {
+  it("resolves required word type labels and casing", () => {
     expect(getWordTypeLabel("verbs")).toBe("Verbs");
     expect(getWordTypeLabel("adverbs", { uppercase: true })).toBe("ADVERBS");
-    expect(getWordTypeLabel(undefined, { fallback: "Mixed", uppercase: false })).toBe("Mixed");
-    expect(getWordTypeLabel(undefined)).toBe("Nouns");
-    expect(getWordTypeLabel(undefined, {})).toBe("Nouns");
-    expect(getWordTypeLabel(undefined, { fallback: "" })).toBe("");
+    expect(getWordTypeLabel("nouns")).toBe("Nouns");
+    expect(getWordTypeLabel("adjectives", { uppercase: true })).toBe("ADJECTIVES");
   });
   it.each([["gold", "Gold Trophy"], ["silver", "Silver Trophy"], ["bronze", "Bronze Trophy"]] as const)("labels %s trophies", (trophy, label) => expect(formatBossTrophy(trophy)).toBe(label));
   it("labels both supported audio providers", () => {

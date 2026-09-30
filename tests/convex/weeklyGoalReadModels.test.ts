@@ -10,8 +10,8 @@ function goal(changes: Partial<Doc<"weeklyGoals">> = {}): Doc<"weeklyGoals"> {
     themes: [{ themeId: "theme" as Id<"themes">, themeName: "Animals", creatorCompleted: true, partnerCompleted: false }], ...changes };
 }
 const users = new Map<Id<"users">, Doc<"users"> | null>([
-  [creatorId, { _id: creatorId, _creationTime: 1, clerkId: "clerk-creator", name: "Creator", email: "private@example.test" }],
-  [partnerId, { _id: partnerId, _creationTime: 2, clerkId: "clerk-partner", nickname: "Partner", email: "partner@example.test" }],
+  [creatorId, { nickname: "Creator", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: creatorId, _creationTime: 1, clerkId: "clerk-creator", name: "Creator", email: "private@example.test" }],
+  [partnerId, { llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: partnerId, _creationTime: 2, clerkId: "clerk-partner", nickname: "Partner", email: "partner@example.test" }],
 ]);
 
 describe("weekly goal read model", () => {
@@ -26,7 +26,7 @@ describe("weekly goal read model", () => {
     expect(view.viewerRole).toBe(viewerRole);
     expect(view.completedThemeCount).toBe(0);
     expect(view.canEditEndDate).toBe(true);
-    expect(view.creator).toEqual({ _id: creatorId, name: "Creator", nickname: undefined, discriminator: undefined, imageUrl: undefined });
+    expect(view.creator).toEqual({ _id: creatorId, name: "Creator", nickname: "Creator", discriminator: undefined, imageUrl: undefined });
     expect(view.partner?.nickname).toBe("Partner");
   });
   it.each([false, true])("forces the creator perspective for solo locks %s", creatorLocked => {

@@ -27,7 +27,7 @@ describe("dismissed notification cleanup", () => {
       notification("friend", 1),
       { ...notification("goal", 1), type: "weekly_goal_invitation", payload: { goalId: "goal" as Id<"weeklyGoals">, themeCount: 1, event: "goal_completed" } },
       { ...notification("expiry", 1), type: "weekly_goal_draft_expiring", payload: { goalId: "goal" as Id<"weeklyGoals">, themeCount: 1 } },
-      { ...notification("challenge", 1), type: "challenge_invite", payload: { challengeId: "challenge" as Id<"challenges">, themeName: "Animals", duelMode: "pvp" } },
+      { ...notification("challenge", 1), type: "challenge_invite", payload: { duelDifficultyPreset: "easy", challengeId: "challenge" as Id<"challenges">, themeName: "Animals", duelMode: "pvp" } },
     ];
     const remove = vi.fn();
     await expect(cleanup({ db: { query: () => createIndexedQuery(rows), delete: remove } }, {})).resolves.toEqual({ deletedCount: 4 });

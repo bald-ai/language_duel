@@ -47,20 +47,20 @@ function fixture(
     themeIds: [themeId],
     sourceType,
     weeklyGoalId: goalId,
-    ...(sourceType === "boss" ? { bossType } : { spacedRepetitionStep: 2 }),
+    ...(sourceType === "boss" ? { duelDifficultyPreset: "easy", bossType } : { duelDifficultyPreset: "easy", spacedRepetitionStep: 2 }),
     duelMode: "pve",
     status: "pending",
     createdAt: now,
   };
   const goals = [goal];
   const users: Doc<"users">[] = [
-    {
+    { nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
       _id: creatorId,
       _creationTime: 1,
       clerkId: "creator",
       email: "creator@example.test",
     },
-    {
+    { nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
       _id: partnerId,
       _creationTime: 1,
       clerkId: "partner",

@@ -16,7 +16,7 @@ function view(changes: Partial<GoalWithUsers> = {}): GoalWithUsers {
   return { goal: { _id: "goal" as Id<"weeklyGoals">, _creationTime: 1, createdAt: 1, creatorId: "creator" as Id<"users">,
     mode: "solo", themes: [1, 2].map(i => ({ themeId: `theme${i}` as Id<"themes">, themeName: `Theme ${i}`, creatorCompleted: false })),
     creatorLocked: false, status: "draft", miniBossStatus: "unavailable", bigBossStatus: "unavailable", endDate: Date.now() + 172800000 },
-    mode: "solo", creator: { _id: "creator" as Id<"users">, name: "Creator" }, partner: null, viewerRole: "creator",
+    mode: "solo", creator: { nickname: "Creator", _id: "creator" as Id<"users">, name: "Creator" }, partner: null, viewerRole: "creator",
     lockState: "none", effectiveStatus: "draft", miniBossStatus: "unavailable", bigBossStatus: "unavailable", completedThemeCount: 0, canEditEndDate: true, ...changes };
 }
 function loaded(model: ReturnType<typeof useGoalsPageModel>) {
@@ -111,7 +111,7 @@ describe("weekly goal page orchestration", () => {
     expect(mocks.mutations["weeklyGoals:addTheme"]).not.toHaveBeenCalled();
   });
   it.each(["viewer_locked", "both_locked", "partner_locked", "none"] as const)("explains lock changes when removing a theme from %s", async lockState => {
-    select(view({ lockState, partner: { _id: "partner" as Id<"users">, name: "Partner" } }));
+    select(view({ lockState, partner: { nickname: "Partner", _id: "partner" as Id<"users">, name: "Partner" } }));
     const { result } = renderHook(useGoalsPageModel);
     await act(async () => { await loaded(result.current).handleRemoveTheme("theme1" as Id<"themes">); });
     expect(mocks.mutations["weeklyGoals:removeTheme"]).toHaveBeenCalledExactlyOnceWith({ goalId: "goal", themeId: "theme1" });
@@ -119,7 +119,7 @@ describe("weekly goal page orchestration", () => {
     else expect(mocks.success).toHaveBeenCalledWith(lockState === "partner_locked" ? "You removed a theme, so Partner's lock was cleared." : "You removed a theme, so your lock was cleared.");
   });
   it("names the creator when a shared goal's partner removes a theme and clears the creator's lock", async () => {
-    const current = view({ mode: "shared", viewerRole: "partner", lockState: "partner_locked", partner: { _id: "partner" as Id<"users">, name: "Partner" } });
+    const current = view({ mode: "shared", viewerRole: "partner", lockState: "partner_locked", partner: { nickname: "Partner", _id: "partner" as Id<"users">, name: "Partner" } });
     current.goal = { ...current.goal, mode: "shared", partnerId: "partner" as Id<"users">, creatorLocked: true, partnerLocked: false,
       themes: current.goal.themes.map(theme => ({ ...theme, partnerCompleted: false })) };
     select(current);
@@ -196,7 +196,7 @@ describe("weekly goal page orchestration", () => {
       miniBossDisplayStatus: "unavailable", miniBossLabel: "All themes completed - Do big boss!", canAddThemes: false });
   });
   it("offers friends without an existing shared goal and exposes creation controls", () => {
-    const current = view({ mode: "shared", partner: { _id: "taken" as Id<"users"> }, lockState: "both_locked", effectiveStatus: "grace_period" });
+    const current = view({ mode: "shared", partner: { nickname: "Learner", _id: "taken" as Id<"users"> }, lockState: "both_locked", effectiveStatus: "grace_period" });
     select(current);
     mocks.queries["friends:getFriends"] = [{ friendId: "taken" }, { friendId: "available" }];
     const { result } = renderHook(useGoalsPageModel);

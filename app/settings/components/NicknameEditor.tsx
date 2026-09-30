@@ -6,7 +6,7 @@ import { FormError } from "@/app/components/FormError";
 import { useAppearanceColors } from "@/app/components/AppearanceProvider";
 
 interface NicknameEditorProps {
-  currentNickname?: string;
+  currentNickname: string;
   currentDiscriminator?: number;
   isUpdating: boolean;
   error: string | null;
@@ -23,7 +23,7 @@ export function NicknameEditor({
   onClearError,
 }: NicknameEditorProps) {
   const colors = useAppearanceColors();
-  const initialNickname = currentNickname || "";
+  const initialNickname = currentNickname;
   const [nickname, setNickname] = useState(initialNickname);
 
   const handleInputChange = useCallback(
@@ -53,14 +53,14 @@ export function NicknameEditor({
   const hasChanged = nickname.trim() !== initialNickname;
 
   return (
-    <div 
+    <div
       className="rounded-2xl p-6 border-2"
       style={{
         backgroundColor: colors.background.elevated,
         borderColor: colors.primary.dark,
       }}
     >
-      <h3 
+      <h3
         className="text-lg font-bold mb-4"
         style={{ color: colors.text.DEFAULT }}
       >
@@ -69,8 +69,8 @@ export function NicknameEditor({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label 
-            htmlFor="nickname" 
+          <label
+            htmlFor="nickname"
             className="block text-sm mb-2"
             style={{ color: colors.text.muted }}
           >
@@ -94,7 +94,7 @@ export function NicknameEditor({
               data-testid="settings-nickname-input"
             />
             {currentDiscriminator && nickname.trim() && (
-              <span 
+              <span
                 className="absolute right-4 top-1/2 -translate-y-1/2"
                 style={{ color: colors.text.muted }}
               >

@@ -75,11 +75,11 @@ vi.mock("@/convex/_generated/api", () => ({
 
 type ServedQuestion = RelaySafeDuel["relayServedQuestion"];
 
-const challenger = { _id: "user_1" as Id<"users">, name: "Alice", nickname: undefined, discriminator: undefined, imageUrl: undefined };
-const opponent = { _id: "user_2" as Id<"users">, name: "Bob", nickname: undefined, discriminator: undefined, imageUrl: undefined };
+const challenger = { _id: "user_1" as Id<"users">, name: "Alice", nickname: "Alice", discriminator: undefined, imageUrl: undefined };
+const opponent = { _id: "user_2" as Id<"users">, name: "Bob", nickname: "Bob", discriminator: undefined, imageUrl: undefined };
 
 function relayDuel(overrides: Partial<RelaySafeDuel> = {}): RelaySafeDuel {
-  return {
+  return { duelQuestions: [],
     _id: "duel_1" as Id<"duels">,
     _creationTime: 1,
     challengerId: "user_1" as Id<"users">,

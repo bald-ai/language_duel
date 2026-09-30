@@ -159,7 +159,7 @@ function createCtx(db: InMemoryDb, identitySubject = "clerk_owner", storage?: In
 }
 
 function userDoc(overrides: Partial<UserDoc> = {}): UserDoc {
-  return {
+  return { llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
     _id: "user_1" as Id<"users">,
     _creationTime: Date.now(),
     clerkId: "clerk_owner",

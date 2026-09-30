@@ -12,7 +12,7 @@ vi.mock("convex/react", () => ({ useAction: () => mocks.generate, useConvex: () 
 vi.mock("sonner", () => ({ toast: { success: mocks.success, warning: mocks.warning, error: mocks.error } }));
 vi.mock("@/hooks/useTTS", () => ({ useTTS: () => ({ playTTS: mocks.play, playingWordKey: "currently-playing" }) }));
 const word: WordEntry = { word: "cat", answer: "gato", wrongAnswers: ["perro"] };
-const saved: Extract<ThemeWithOwner, { contentType: "word" }> = {
+const saved: Extract<ThemeWithOwner, { contentType: "word" }> = { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, visibility: "private",
   _id: "theme" as Id<"themes">, _creationTime: 1, createdAt: 1, contentType: "word", wordType: "nouns",
   name: "ANIMALS", description: "Animals", words: [word], isOwner: true, canEdit: true,
 };

@@ -5,6 +5,7 @@
 import { query, mutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
+import { requireRelayState } from "../lib/duel/relayState";
 import {
   getAuthenticatedUserOrNull,
   getDuelParticipant,
@@ -98,7 +99,8 @@ function maskSessionItemForActivePlay(item: SessionItem): SessionItem {
  * Per change (B), `sessionItems[i].answer`/`ttsStorageId` are also blanked while
  * the duel is active, since the client otherwise reads the answer from there.
  */
-function buildRelaySafeDuel(duel: Doc<"duels">) {
+function buildRelaySafeDuel(source: Doc<"duels">) {
+  const duel = requireRelayState(source);
   const isActive = duel.status === "active";
   const relayFeedbackPosition =
     isActive && duel.relayPhase === "feedback" ? duel.relayAssignedIndex : undefined;
@@ -144,7 +146,7 @@ function buildViewerSafeDuel(duel: Doc<"duels">, viewerRole: "challenger" | "opp
     itemIndexBySessionIndex.set(sessionItemIndex, questionIndex);
   });
 
-  const safeQuestions = duel.duelQuestions?.map((question, questionIndex) => {
+  const safeQuestions = duel.duelQuestions.map((question, questionIndex) => {
     const canReveal = canRevealQuestionAnswer({ duel, questionIndex, viewerRole });
     return canReveal
       ? { ...question, answerRevealedToViewer: true as const }

@@ -15,6 +15,7 @@ import { buildRelayQuestionSet, type DuelQuestionSnapshot } from "../answerShuff
 import { RELAY_ANSWER_TIMEOUT_MS, RELAY_HARD_BUDGET_DIVISOR } from "../duelConstants";
 import { SENTENCE_RELAY_TIMEOUT_MS } from "../themes/sentenceConstants";
 import type { SessionItem } from "../sessionItems";
+import { requireRelayValue } from "./relayState";
 
 type RelayQuestion = NonNullable<Doc<"duels">["duelQuestions"]>[number];
 
@@ -57,13 +58,13 @@ function otherRole(role: DuelRole): DuelRole {
 
 /** The rival of the current picker — the one who answers the handed word. */
 export function relayAnswerer(duel: Pick<Doc<"duels">, "relayPicker">): DuelRole {
-  return otherRole(duel.relayPicker ?? "challenger");
+  return otherRole(requireRelayValue(duel.relayPicker, "relayPicker"));
 }
 
 export function isRelayFinished(
   duel: Pick<Doc<"duels">, "itemOrder" | "relayResolvedIndices" | "relayAssignedIndex">
 ): boolean {
-  const resolved = duel.relayResolvedIndices ?? [];
+  const resolved = requireRelayValue(duel.relayResolvedIndices, "relayResolvedIndices");
   return duel.relayAssignedIndex === undefined && resolved.length === duel.itemOrder.length;
 }
 
@@ -71,7 +72,7 @@ export function isRelayFinished(
 export function relayRemainingPositions(
   duel: Pick<Doc<"duels">, "itemOrder" | "relayResolvedIndices" | "relayAssignedIndex">
 ): number[] {
-  const resolved = new Set(duel.relayResolvedIndices ?? []);
+  const resolved = new Set(requireRelayValue(duel.relayResolvedIndices, "relayResolvedIndices"));
   const remaining: number[] = [];
   for (let position = 0; position < duel.itemOrder.length; position++) {
     if (resolved.has(position)) continue;
@@ -90,9 +91,13 @@ export function relayServedQuestion(
 ): RelayQuestion | undefined {
   const position = duel.relayAssignedIndex;
   if (position === undefined) return undefined;
-  const upgraded = (duel.relayHardUpgradeIndices ?? []).includes(position);
-  const set = upgraded ? duel.relayHardQuestions : duel.duelQuestions;
-  return set?.[position];
+  const upgraded = (requireRelayValue(duel.relayHardUpgradeIndices, "relayHardUpgradeIndices")).includes(position);
+  const set = upgraded
+    ? requireRelayValue(duel.relayHardQuestions, "relayHardQuestions")
+    : duel.duelQuestions;
+  const question = set[position];
+  if (!question) throw new Error("Relay assigned position is missing its question");
+  return question;
 }
 
 /**
@@ -117,7 +122,7 @@ export function buildRelayPickPatch(params: {
   now: number;
 }): Partial<Doc<"duels">> {
   const { duel, position, hardUpgrade, now } = params;
-  const picker = duel.relayPicker ?? "challenger";
+  const picker = requireRelayValue(duel.relayPicker, "relayPicker");
 
   const patch: Partial<Doc<"duels">> = {
     relayAssignedIndex: position,
@@ -126,8 +131,8 @@ export function buildRelayPickPatch(params: {
   };
 
   if (hardUpgrade) {
-    patch.relayHardUpgradeIndices = [...(duel.relayHardUpgradeIndices ?? []), position];
-    const budget = duel.relayHardBudget ?? { challenger: 0, opponent: 0 };
+    patch.relayHardUpgradeIndices = [...(requireRelayValue(duel.relayHardUpgradeIndices, "relayHardUpgradeIndices")), position];
+    const budget = requireRelayValue(duel.relayHardBudget, "relayHardBudget");
     patch.relayHardBudget = {
       challenger:
         picker === "challenger" ? Math.max(0, budget.challenger - 1) : budget.challenger,
@@ -192,7 +197,7 @@ function resolveAndHandOff(
 ): Partial<Doc<"duels">> {
   const answerer = relayAnswerer(duel);
   const assignedIndex = duel.relayAssignedIndex;
-  const resolved = duel.relayResolvedIndices ?? [];
+  const resolved = requireRelayValue(duel.relayResolvedIndices, "relayResolvedIndices");
 
   const patch: Partial<Doc<"duels">> = {
     relayPicker: answerer,

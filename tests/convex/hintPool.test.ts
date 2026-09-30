@@ -154,7 +154,7 @@ describe("hintPool.fireHint", () => {
 it.each([
   [{ status: "completed" }, "Duel is not active"],
   [{ hintPoolUsed: ["anagram"] }, "This hint has already been used"],
-  [{ duelQuestions: undefined }, "Duel question data is missing"],
+  [{ duelQuestions: [] }, "Duel question data is missing"],
   [{ duelQuestions: [{ kind: "sentence", englishPrompt: "Coffee please", spanishSentence: "Cafe porfavor", tilePool: ["Cafe", "porfavor"], tileMeanings: [null, null] }] }, "Hints are not available on sentence rounds"],
 ] satisfies [Partial<DuelDoc>, string][])("rejects invalid word hint state without writes (%#)", async (overrides, message) => {
   const db = new InMemoryDb([userDoc({})], [duelDoc(overrides)]);

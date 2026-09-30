@@ -16,7 +16,7 @@ const complete = (
   }
 )._handler;
 function fixture(bossType: "mini" | "big") {
-  const users: Doc<"users">[] = [creatorId, partnerId].map((id) => ({
+  const users: Doc<"users">[] = [creatorId, partnerId].map((id) => ({ nickname: "Learner", llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09",
     _id: id,
     _creationTime: 1,
     clerkId: String(id),
@@ -43,7 +43,7 @@ function fixture(bossType: "mini" | "big") {
       partnerCompleted: bossType === "big" || index === 0,
     })),
   };
-  const duel: Doc<"duels"> = {
+  const duel: Doc<"duels"> = { duelDifficultyPreset: "easy", duelQuestions: [],
     _id: "duel" as Id<"duels">,
     _creationTime: 1,
     challengerId: creatorId,

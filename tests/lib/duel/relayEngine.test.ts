@@ -298,3 +298,8 @@ describe("relayEngine", () => {
     });
   });
 });
+
+it("rejects missing relay picker and hard-upgrade budget instead of inventing state", () => {
+  expect(() => relayAnswerer(relayDuel({ relayPicker: undefined }))).toThrow("missing relayPicker");
+  expect(() => buildRelayPickPatch({ duel: relayDuel({ relayHardBudget: undefined }), position: 0, hardUpgrade: true, now: 1 })).toThrow("missing relayHardBudget");
+});

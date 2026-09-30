@@ -35,8 +35,8 @@ describe("theme lists and card menus", () => {
     fireEvent.click(screen.getByTestId("themes-generate-new")); expect(p.onGenerateNew).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByTestId("themes-back")); expect(p.onBack).toHaveBeenCalledOnce();
   });
-  it("handles plural words, singular sentences, optional category/owner labels and inverse audio states", () => {
-    const word = wordTheme({ isOwner: false, wordType: undefined });
+  it("handles plural words, singular sentences, required category and optional owner labels and inverse audio states", () => {
+    const word = wordTheme({ isOwner: false, wordType: "nouns" });
     if (word.contentType !== "word") throw new Error("Expected word fixture");
     word.words = [{ ...word.words[0], ttsStorageId: "audio1" as Id<"_storage"> }, { ...word.words[0], ttsStorageId: "audio2" as Id<"_storage"> }];
     const sentence = sentenceTheme(); if (sentence.contentType !== "sentence") throw new Error("Expected sentence fixture");
@@ -44,7 +44,7 @@ describe("theme lists and card menus", () => {
     render(<ThemeList {...props({ themes: [word, sentence] })} />);
     expect(screen.getByTestId("theme-open-word")).toHaveTextContent("2 words");
     expect(screen.getByTestId("theme-open-word")).not.toHaveTextContent("by");
-    expect(screen.getByTestId("theme-content-type-badge-word")).toHaveTextContent("NO CATEGORY");
+    expect(screen.getByTestId("theme-content-type-badge-word")).toHaveTextContent("NOUNS");
     expect(screen.getByTestId("theme-tts-status-word")).toHaveTextContent("TTS up to date");
     expect(screen.getByTestId("theme-open-sentence")).toHaveTextContent("1 sentence");
     expect(screen.getByTestId("theme-tts-status-sentence")).toHaveTextContent("TTS missing");

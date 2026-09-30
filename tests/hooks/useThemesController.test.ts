@@ -14,11 +14,11 @@ vi.mock("convex/react", () => ({ useMutation: () => mocks.mutation, useAction: (
   useQuery: (reference: Parameters<typeof getFunctionName>[0]) => getFunctionName(reference) === "users:getCurrentUser" ? mocks.user : [] }));
 vi.mock("sonner", () => ({ toast: { success: mocks.success, error: mocks.error, warning: mocks.warning } }));
 vi.mock("@/hooks/useTTS", () => ({ useTTS: () => ({ playTTS: mocks.play, playingWordKey: null }) }));
-const wordTheme: Extract<ThemeWithOwner, { contentType: "word" }> = {
+const wordTheme: Extract<ThemeWithOwner, { contentType: "word" }> = { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, wordType: "nouns",
   _id: "word-theme" as Id<"themes">, _creationTime: 1, createdAt: 1, name: "ANIMALS", description: "Animals", contentType: "word",
   words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro", "pez", "vaca", "caballo", "oso", "ave"] }], isOwner: true, canEdit: true, visibility: "shared", friendsCanEdit: true,
 };
-const sentenceTheme: Extract<ThemeWithOwner, { contentType: "sentence" }> = {
+const sentenceTheme: Extract<ThemeWithOwner, { contentType: "sentence" }> = { ownerId: "user_1" as import("../../convex/_generated/dataModel").Id<"users">, visibility: "private",
   _id: "sentence-theme" as Id<"themes">, _creationTime: 1, createdAt: 1, name: "CAFE", description: "Cafe", contentType: "sentence",
   sentenceRounds: [{ englishPrompt: "I want coffee", spanishSentence: "Quiero cafe", distractors: ["pan", "leche", "agua"], wordMeanings: ["I want", "coffee"], freeWordPositions: [] }],
   isOwner: true, canEdit: true,

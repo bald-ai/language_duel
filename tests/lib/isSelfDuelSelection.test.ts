@@ -3,7 +3,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { isSelfDuelSelection } from "@/lib/challengeLobby/isSelfDuelSelection";
 
 describe("isSelfDuelSelection", () => {
-  const viewer = { _id: "user_1" as Id<"users"> };
+  const viewer = { nickname: "Learner", _id: "user_1" as Id<"users"> };
 
   it("returns false when viewer is null/undefined", () => {
     expect(isSelfDuelSelection(null, "user_1" as Id<"users">)).toBe(false);

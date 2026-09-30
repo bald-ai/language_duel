@@ -12,10 +12,10 @@ const expiring = (getDraftGoalsExpiringSoon as unknown as { _handler: (ctx: unkn
 function fixture() {
   const goal: Doc<"weeklyGoals"> = { _id: goalId, _creationTime: 1, createdAt: now, mode: "shared", creatorId: userId, partnerId: "partner" as Id<"users">, status: "draft", creatorLocked: false, partnerLocked: false, miniBossStatus: "unavailable", bigBossStatus: "unavailable", themes: [] };
   const goals = [goal];
-  const users = [{ _id: userId, clerkId: "clerk" }, { _id: goal.partnerId!, clerkId: "partner" }, { _id: "outsider", clerkId: "outsider" }];
-  const notifications: Doc<"notifications">[] = [];
+  const users = [{ nickname: "Learner", _id: userId, clerkId: "clerk" }, { _id: goal.partnerId!, clerkId: "partner" }, { _id: "outsider", clerkId: "outsider" }];
+  const notifications: Extract<Doc<"notifications">, { type: "weekly_goal_draft_expiring" }>[] = [];
   const patch = vi.fn(async (_id: string, fields: Record<string, unknown>) => { Object.assign(goal, fields); });
-  const insert = vi.fn(async (_table: string, fields: Omit<Doc<"notifications">, "_id" | "_creationTime">) => { notifications.push({ ...fields, _id: "notice" as Id<"notifications">, _creationTime: now }); return "notice"; });
+  const insert = vi.fn(async (_table: string, fields: Omit<Extract<Doc<"notifications">, { type: "weekly_goal_draft_expiring" }>, "_id" | "_creationTime">) => { notifications.push({ ...fields, _id: "notice" as Id<"notifications">, _creationTime: now }); return "notice"; });
   const db = { get: async (id: string) => goals.find(g => g._id === id) ?? null, query: (table: string) => table === "users" ? createIndexedQuery(users) : table === "notifications" ? createIndexedQuery(notifications) : createIndexedQuery(goals), patch, insert };
   return { goal, goals, notifications, patch, insert, ctx: (identity: string | null = "clerk") => createAuthCtx(db, identity) };
 }

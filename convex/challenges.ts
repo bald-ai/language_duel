@@ -216,12 +216,13 @@ export const createChallenge = mutation({
     const orderedThemeIds = resolvedThemes.map((theme) => theme._id);
 
     const now = Date.now();
+    const resolvedDifficultyPreset = duelDifficultyPreset ?? "easy";
     const challengeId = await ctx.db.insert("challenges", buildChallengeInvite({
       challengerId: challenger._id,
       opponentId,
       themeIds: orderedThemeIds,
       sourceType: "normal",
-      duelDifficultyPreset,
+      duelDifficultyPreset: resolvedDifficultyPreset,
       duelMode,
       createdAt: now,
     }));
@@ -233,7 +234,7 @@ export const createChallenge = mutation({
       opponentId,
       challengeId,
       themeName: themeSummary,
-      duelDifficultyPreset,
+      duelDifficultyPreset: resolvedDifficultyPreset,
       duelMode,
       createdAt: now,
     });

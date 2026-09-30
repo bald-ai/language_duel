@@ -6,15 +6,15 @@ import { loadThemeForStoredTtsEditor } from "@/convex/themes/queries";
 import { createAuthCtx, createIndexedQuery } from "./testUtils/inMemoryDb";
 const me = "me" as Id<"users">;
 const friend = "friend" as Id<"users">;
-function theme(id: string, ownerId: Id<"users"> | undefined, overrides: Partial<Extract<Doc<"themes">, { contentType: "word" }>> = {}): Doc<"themes"> {
-  return { _id: id as Id<"themes">, _creationTime: 1, createdAt: 1, ownerId, name: id, description: "", contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"] }], visibility: "private", ...overrides };
+function theme(id: string, ownerId: Id<"users">, overrides: Partial<Extract<Doc<"themes">, { contentType: "word" }>> = {}): Doc<"themes"> {
+  return { wordType: "nouns", _id: id as Id<"themes">, _creationTime: 1, createdAt: 1, ownerId, name: id, description: "", contentType: "word", words: [{ word: "cat", answer: "gato", wrongAnswers: ["perro"] }], visibility: "private", ...overrides };
 }
 function goal(id: string, themes: Doc<"themes">[], overrides: Partial<Doc<"weeklyGoals">> = {}): Doc<"weeklyGoals"> {
   return { _id: id as Id<"weeklyGoals">, _creationTime: 1, createdAt: 1, mode: "shared", creatorId: me, partnerId: friend, status: "draft", creatorLocked: false, partnerLocked: false, miniBossStatus: "unavailable", bigBossStatus: "unavailable", themes: themes.map(t => ({ themeId: t._id, themeName: t.name, creatorCompleted: false, partnerCompleted: false })), ...overrides };
 }
 function fixture() {
   const themes = [theme("mine", me), theme("shared", friend, { visibility: "shared", friendsCanEdit: true }), theme("private", friend), theme("stranger_shared", "stranger" as Id<"users">, { visibility: "shared", friendsCanEdit: true })];
-  const users: Doc<"users">[] = [{ _id: me, _creationTime: 1, clerkId: "me", email: "me@example.test", nickname: "Mine", discriminator: 1234 }, { _id: friend, _creationTime: 1, clerkId: "friend", email: "friend@example.test", nickname: "Friend", discriminator: 5678 }];
+  const users: Doc<"users">[] = [{ llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: me, _creationTime: 1, clerkId: "me", email: "me@example.test", nickname: "Mine", discriminator: 1234 }, { llmCreditsRemaining: 150, ttsGenerationsRemaining: 20, creditsMonth: "2026-09", _id: friend, _creationTime: 1, clerkId: "friend", email: "friend@example.test", nickname: "Friend", discriminator: 5678 }];
   const friends: Doc<"friends">[] = [{ _id: "friendship" as Id<"friends">, _creationTime: 1, createdAt: 1, userId: me, friendId: friend }];
   const weeklyGoals: Doc<"weeklyGoals">[] = [];
   const ctx = { db: {
@@ -45,9 +45,9 @@ describe("theme lists and editor access", () => {
     expect(list.map(t => t._id)).toEqual(["mine", "shared", "private"]);
     expect(list[2]).toMatchObject({ canEdit: false, isOwner: false });
   });
-  it("skips deleted theme references and keeps missing-owner rows read-only", async () => {
+  it("skips deleted theme references and keeps deleted-owner rows read-only", async () => {
     const f = fixture();
-    const missingOwner = theme("orphan", undefined);
+    const missingOwner = theme("orphan", "deleted-owner" as Id<"users">);
     f.themes.push(missingOwner);
     f.weeklyGoals.push(goal("draft", [missingOwner, theme("deleted", friend)]));
     const orphan = (await f.list()).find(t => t._id === "orphan");
@@ -88,7 +88,7 @@ describe("theme lists and editor access", () => {
     const f = fixture();
     for (const id of ["mine", "shared"]) await expect(loadThemeForStoredTtsEditor(f.ctx as never, { viewerId: me, themeId: id as Id<"themes"> })).resolves.toMatchObject({ _id: id });
     for (const id of ["private", "stranger_shared", "missing"]) await expect(loadThemeForStoredTtsEditor(f.ctx as never, { viewerId: me, themeId: id as Id<"themes"> })).resolves.toBeNull();
-    f.themes.push(theme("orphan", undefined));
+    f.themes.push(theme("orphan", "deleted-owner" as Id<"users">));
     await expect(loadThemeForStoredTtsEditor(f.ctx as never, { viewerId: me, themeId: "orphan" as Id<"themes"> })).resolves.toBeNull();
   });
 });
