@@ -30,9 +30,6 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
 # vercel
 .vercel
 
@@ -43,13 +40,6 @@ next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 
-# project-specific
-/test_images/
-convex_documentation.md
-scripts/test-resemble.ts
-/browserbase/
-/tmp/
-
 # PWA files
 public/sw.js
 public/workbox-*.js
@@ -57,11 +47,6 @@ public/worker-*.js
 public/sw.js.map
 public/workbox-*.js.map
 public/worker-*.js.map
-
-# Personal
-thoughtnotebook.md
-
-
 
 # Local Netlify folder
 .netlify
@@ -71,3 +56,21 @@ thoughtnotebook.md
 /work/quality
 /.verification-session/
 /**/__pycache__/
+
+# Local credentials; sanitized examples remain versioned.
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!.env.template
+!.env.*.template
+
+# Generated local verification and deployment output.
+/tmp/*.log
+/tmp/backend-final-audit.txt
+/tmp/frontend-before-release.json
+/tmp/frontend-production-client.json
+/tmp/frontend-release-observation.json
+/tmp/reset-audit.json
