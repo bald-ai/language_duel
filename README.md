@@ -4,7 +4,13 @@
 
 A web app for learning a language as a pair. Two people practise together with game-like structure: duels, shared weekly goals and boss rounds. Despite the name, it feels more like learning side by side than trying to beat each other.
 
-<!-- Screenshots: add 2–3 here (home, a duel round, theme generation). -->
+<p>
+  <img src="docs/screenshots/home.jpg" alt="Home screen" width="32%">
+  <img src="docs/screenshots/pick-and-prune.jpg" alt="Pick & Prune review of AI-generated words" width="32%">
+  <img src="docs/screenshots/duel.jpg" alt="A duel round with the shared hint pool" width="32%">
+</p>
+
+*Home · Pick & Prune: keep or remove AI-generated words before they are saved · A duel round with a shared hint pool*
 
 ## What it does
 
