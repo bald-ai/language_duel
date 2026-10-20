@@ -2,7 +2,9 @@
 
 > **Status: paused.** An indie app with no public users. The code and tests are complete enough to run and read.
 
-A web app for learning a language as a pair. Two people practise together with game-like structure: duels, shared weekly goals and boss rounds. Despite the name, it feels more like learning side by side than trying to beat each other.
+A web app for two people to learn a language together. The idea is close to *It Takes Two*: the app is about the people more than the vocabulary. It gives two people a reason to hang out over a shared hobby, working as a team with a bit of cheeky competition on the side.
+
+That shapes the features. Duels have co-op modes as well as head-to-head ones, goals can be shared, and the hint pool is shared too. The game mechanics are there to set a rhythm for spending time together, not to crown a winner.
 
 <p>
   <img src="docs/screenshots/home.jpg" alt="Home screen" width="32%">
